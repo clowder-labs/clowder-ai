@@ -24,7 +24,7 @@ created: 2026-03-23
 
 ### Phase A: 仓库内嵌 + 服务层修复
 
-1. **DARE 仓库作为 git submodule** 引入 `vendor/dare-cli/`
+1. **DARE 仓库 git clone + pinned ref** 到 `vendor/dare-cli/`（KD-3b: 铲屎官拒绝 submodule，用 clone + 固定 commit 保证可复现）
 2. **DareAgentService venv python 修复** — 优先使用 DARE repo 的 `.venv/bin/python`（已验证可行）
 3. **更新 `DEFAULT_DARE_PATH`** 指向 `vendor/dare-cli/`（相对于项目根目录解析）
 4. **smoke test 同步更新** 默认路径
@@ -39,7 +39,7 @@ created: 2026-03-23
 ## Acceptance Criteria
 
 ### Phase A（仓库内嵌 + 服务层修复）
-- [ ] AC-A1: DARE 仓库以 git submodule 形式存在于 `vendor/dare-cli/`
+- [ ] AC-A1: DARE 仓库以 git clone + pinned ref 形式存在于 `vendor/dare-cli/`
 - [ ] AC-A2: DareAgentService 优先使用 `vendor/dare-cli/.venv/bin/python`
 - [ ] AC-A3: `DEFAULT_DARE_PATH` 指向项目内 vendor 路径
 - [ ] AC-A4: dare-smoke.test.js 使用新的默认路径，测试通过
@@ -59,9 +59,9 @@ created: 2026-03-23
 
 | 风险 | 缓解 |
 |------|------|
-| git submodule 增加 clone/update 复杂度 | installer 脚本自动 `git submodule update --init` |
-| Python/uv 环境差异（Linux/macOS/Windows） | Phase B 安装脚本做平台检测 + 清晰错误提示 |
-| DARE 上游更新 submodule 同步 | 定期 bump submodule commit，CI 验证 |
+| DARE 上游漂移 | installer pin `DARE_CLI_REF` 到已验证 commit，升级通过 PR bump |
+| Python/uv 环境差异（Linux/macOS/Windows） | Phase B 安装脚本做平台检测 + 优雅降级（warn 不中断） |
+| clone 失败（网络/权限） | warn-only，不阻塞主安装流程 |
 
 ## Open Questions
 
@@ -74,7 +74,7 @@ created: 2026-03-23
 
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
-| KD-1 | 用 git submodule 而非 npm 包或直接复制 | DARE 是独立 Python 项目，submodule 保持上游可追踪 | 2026-03-23 |
+| KD-1 | 用 git clone + pinned ref 而非 submodule 或 npm 包 | 铲屎官拒绝 submodule 复杂度；pinned commit 保证可复现安装（砚砚 R2 review） | 2026-03-23 |
 | KD-2 | 复用 client-auth/provider-profiles 链路，不造第二套 | 砚砚 review：现有能力已有，避免重复初始化逻辑 | 2026-03-23 |
 | KD-3 | Python 依赖安装放在显式 installer，不放 npm postinstall | 砚砚 review：隐式副作用太重，失败面大 | 2026-03-23 |
 
