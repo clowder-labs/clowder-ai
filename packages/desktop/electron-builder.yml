@@ -58,14 +58,14 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: resources/icon.ico
+  # icon: resources/icon.ico  # TODO: add custom icon
 
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
-  installerIcon: resources/icon.ico
-  installerHeaderIcon: resources/icon.ico
+  # installerIcon: resources/icon.ico
+  # installerHeaderIcon: resources/icon.ico
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Cat Cafe
@@ -77,7 +77,7 @@ mac:
       arch:
         - x64
         - arm64
-  icon: resources/icon.icns
+  # icon: resources/icon.icns  # TODO: add custom icon
   category: public.app-category.developer-tools
 
 linux:

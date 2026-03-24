@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
-import { ChildProcess, fork } from 'node:child_process';
+import { ChildProcess, spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -113,7 +113,13 @@ function startApiServer(cfg: UserConfig): void {
     env.CAT_CONFIG_PATH = catConfigPath;
   }
 
-  apiProcess = fork(apiEntry, [], { env, silent: true });
+  const apiDir = join(appRoot, 'packages', 'api');
+
+  apiProcess = spawn(process.execPath, [apiEntry], {
+    cwd: apiDir,
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
   apiProcess.stdout?.on('data', (d: Buffer) => {
     console.log(`[api] ${d.toString().trim()}`);
@@ -129,8 +135,9 @@ function startApiServer(cfg: UserConfig): void {
 
 function startNextServer(cfg: UserConfig): void {
   const appRoot = getAppRoot();
-  // In packaged mode, Next.js standalone output is used
-  const nextBin = join(appRoot, 'packages', 'web', 'node_modules', '.bin', 'next');
+  const webDir = join(appRoot, 'packages', 'web');
+  // Resolve the actual Next.js CLI .js file (not the .bin shim which is .cmd on Windows)
+  const nextCli = join(webDir, 'node_modules', 'next', 'dist', 'bin', 'next');
 
   const env: Record<string, string> = {
     ...process.env as Record<string, string>,
@@ -139,13 +146,10 @@ function startNextServer(cfg: UserConfig): void {
     NEXT_PUBLIC_API_URL: `http://localhost:${cfg.apiPort}`,
   };
 
-  // Use next start in the web package dir
-  const webDir = join(appRoot, 'packages', 'web');
-
-  nextProcess = fork(nextBin, ['start', '-p', String(cfg.frontendPort)], {
+  nextProcess = spawn(process.execPath, [nextCli, 'start', '-p', String(cfg.frontendPort)], {
     cwd: webDir,
     env,
-    silent: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   nextProcess.stdout?.on('data', (d: Buffer) => {
