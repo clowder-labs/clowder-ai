@@ -1,0 +1,29 @@
+{
+  "name": "@cat-cafe/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cat Cafe Desktop — Windows installer with OpenCode + DARE",
+  "main": "dist/main.js",
+  "scripts": {
+    "build:api": "pnpm --filter @cat-cafe/shared run build && pnpm --filter @cat-cafe/api run build",
+    "build:web": "pnpm --filter @cat-cafe/web run build",
+    "build:main": "tsc -p tsconfig.json",
+    "build": "pnpm run build:api && pnpm run build:web && pnpm run build:main",
+    "start": "electron dist/main.js",
+    "pack": "pnpm run build && electron-builder --dir",
+    "dist": "pnpm run build && electron-builder",
+    "dist:win": "pnpm run build && electron-builder --win"
+  },
+  "dependencies": {
+    "electron-store": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.3.3"
+  },
+  "build": {
+    "extends": "electron-builder.yml"
+  }
+}

@@ -1,0 +1,88 @@
+appId: com.catcafe.desktop
+productName: Cat Cafe
+copyright: Copyright © 2026 Cat Cafe Team
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - resources/**/*
+
+extraResources:
+  # Bundle the entire built app as app-bundle
+  - from: ../../packages/api/dist
+    to: app-bundle/packages/api/dist
+    filter:
+      - "**/*"
+  - from: ../../packages/api/node_modules
+    to: app-bundle/packages/api/node_modules
+    filter:
+      - "**/*"
+  - from: ../../packages/shared/dist
+    to: app-bundle/packages/shared/dist
+    filter:
+      - "**/*"
+  - from: ../../packages/shared/node_modules
+    to: app-bundle/packages/shared/node_modules
+    filter:
+      - "**/*"
+  - from: ../../packages/web/.next
+    to: app-bundle/packages/web/.next
+    filter:
+      - "**/*"
+  - from: ../../packages/web/public
+    to: app-bundle/packages/web/public
+    filter:
+      - "**/*"
+  - from: ../../packages/web/node_modules
+    to: app-bundle/packages/web/node_modules
+    filter:
+      - "**/*"
+  - from: ../../packages/web/next.config.js
+    to: app-bundle/packages/web/next.config.js
+  - from: ../../packages/web/package.json
+    to: app-bundle/packages/web/package.json
+  - from: ../../cat-config.lite.json
+    to: app-bundle/cat-config.lite.json
+  - from: ../../packages/api/package.json
+    to: app-bundle/packages/api/package.json
+  - from: ../../packages/shared/package.json
+    to: app-bundle/packages/shared/package.json
+  - from: ../../cat-config.json
+    to: app-bundle/cat-config.json
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: resources/icon.ico
+  installerHeaderIcon: resources/icon.ico
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Cat Cafe
+  license: null
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  category: Development

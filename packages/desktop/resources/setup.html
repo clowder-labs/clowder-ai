@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cat Cafe — Setup</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .container {
+      width: 420px;
+      padding: 36px;
+      background: #16213e;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .logo {
+      text-align: center;
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 28px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #aaa;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #2a2a4a;
+      border-radius: 8px;
+      background: #0f3460;
+      color: #e0e0e0;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #9B7EBD; }
+    .field { margin-bottom: 18px; }
+    .hint {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 8px;
+    }
+    .btn-primary {
+      background: #9B7EBD;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #8a6db0; }
+    .btn-primary:disabled {
+      background: #4a4a6a;
+      color: #888;
+      cursor: not-allowed;
+    }
+    .status {
+      text-align: center;
+      font-size: 13px;
+      margin-top: 12px;
+      min-height: 20px;
+      color: #9B7EBD;
+    }
+    .cats {
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">&#128049;</div>
+    <h1>Cat Cafe Setup</h1>
+    <p class="subtitle">Configure your AI cats — OpenCode + DARE</p>
+
+    <div class="field">
+      <label for="apiKey">API Key</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+      <p class="hint">Your Anthropic API key. Required for OpenCode to work.</p>
+    </div>
+
+    <div class="field">
+      <label for="baseUrl">Base URL</label>
+      <input type="text" id="baseUrl" value="https://api.anthropic.com" />
+      <p class="hint">Change only if using a custom API gateway.</p>
+    </div>
+
+    <button class="btn btn-primary" id="startBtn" disabled>Start Cat Cafe</button>
+    <p class="status" id="status"></p>
+    <p class="cats">Default cats: 金渐层 (OpenCode) + 狸花猫 (DARE)</p>
+  </div>
+
+  <script>
+    const apiKeyInput = document.getElementById('apiKey');
+    const baseUrlInput = document.getElementById('baseUrl');
+    const startBtn = document.getElementById('startBtn');
+    const statusEl = document.getElementById('status');
+
+    // Load existing config
+    window.catCafe.loadConfig().then(cfg => {
+      if (cfg.apiKey) apiKeyInput.value = cfg.apiKey;
+      if (cfg.baseUrl) baseUrlInput.value = cfg.baseUrl;
+      validate();
+    });
+
+    function validate() {
+      startBtn.disabled = !apiKeyInput.value.trim();
+    }
+    apiKeyInput.addEventListener('input', validate);
+
+    startBtn.addEventListener('click', async () => {
+      startBtn.disabled = true;
+      statusEl.textContent = 'Saving configuration...';
+
+      const cfg = {
+        apiKey: apiKeyInput.value.trim(),
+        baseUrl: baseUrlInput.value.trim() || 'https://api.anthropic.com',
+        frontendPort: 3003,
+        apiPort: 3004,
+        setupComplete: true,
+      };
+
+      await window.catCafe.saveConfig(cfg);
+      statusEl.textContent = 'Starting Cat Cafe...';
+
+      const ok = await window.catCafe.startApp();
+      if (!ok) {
+        statusEl.textContent = 'Failed to start. Check your API key.';
+        startBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

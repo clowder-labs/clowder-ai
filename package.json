@@ -58,6 +58,10 @@
     "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
     "proxy:anthropic": "node ./scripts/anthropic-proxy.mjs",
     "logs:health": "bash ./scripts/logs-health.sh",
+    "desktop:build": "pnpm --filter @cat-cafe/desktop run build",
+    "desktop:start": "pnpm --filter @cat-cafe/desktop run start",
+    "desktop:dist": "pnpm --filter @cat-cafe/desktop run dist",
+    "desktop:dist:win": "pnpm --filter @cat-cafe/desktop run dist:win",
     "clean": "pnpm -r run clean && rm -rf node_modules"
   },
   "devDependencies": {
