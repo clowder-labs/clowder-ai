@@ -216,11 +216,17 @@ export function builtinAccountIdForClient(client: ClientValue): string | null {
   }
 }
 
-export function filterAccounts(client: ClientValue, profiles: ProfileItem[]): ProfileItem[] {
+export function filterAccounts(
+  client: ClientValue,
+  profiles: ProfileItem[],
+  availableClientIds?: ReadonlySet<string>,
+): ProfileItem[] {
   if (!isBuiltinClient(client)) return [];
-  const builtinProfiles = profiles.filter(
-    (profile) => profile.authType !== 'api_key' && legacyProfileClient(profile) === client,
-  );
+  // When availableClientIds is provided, hide built-in profiles for unavailable clients
+  const clientAvailable = !availableClientIds || availableClientIds.has(client);
+  const builtinProfiles = clientAvailable
+    ? profiles.filter((profile) => profile.authType !== 'api_key' && legacyProfileClient(profile) === client)
+    : [];
   // Gemini CLI only supports builtin Google auth — no API key profiles.
   if (client === 'google') return builtinProfiles;
   const apiKeyProfiles = profiles.filter((profile) => profile.authType === 'api_key');

@@ -41,6 +41,9 @@ function commandExists(command: string): Promise<boolean> {
   });
 }
 
+/** Client IDs that are always treated as available (skip detection). */
+const ALWAYS_AVAILABLE: ReadonlySet<ClientId> = new Set(['dare']);
+
 /** Detect all clients and cache the result. */
 export async function detectAvailableClients(): Promise<AvailableClient[]> {
   const results = await Promise.all(
@@ -48,7 +51,7 @@ export async function detectAvailableClients(): Promise<AvailableClient[]> {
       id: info.id,
       label: info.label,
       command: info.command,
-      available: await commandExists(info.command),
+      available: ALWAYS_AVAILABLE.has(info.id) || (await commandExists(info.command)),
     })),
   );
   cachedClients = results;

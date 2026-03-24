@@ -61,8 +61,8 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
 
   const availableProfiles = useMemo(() => {
     if (!client || client === 'antigravity') return [];
-    return filterAccounts(client, profiles);
-  }, [client, profiles]);
+    return filterAccounts(client, profiles, clientIds.size > 0 ? clientIds : undefined);
+  }, [client, clientIds, profiles]);
 
   const selectedProfile = useMemo(
     () => availableProfiles.find((profile) => profile.id === selectedProfileId) ?? null,
