@@ -4,7 +4,7 @@
  *
  * CLI 调用方式:
  *   python -m client --adapter openrouter --model MODEL \
- *     run --task "prompt" --auto-approve --headless
+ *     run --task "prompt" --full-auto --headless
  *   (API key passed via child process env, not CLI args)
  *
  * NDJSON 事件格式 (headless envelope v1):
@@ -16,7 +16,8 @@
  */
 
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
@@ -41,7 +42,9 @@ interface DareAgentServiceOptions {
   spawnFn?: SpawnFn;
 }
 
-const DEFAULT_DARE_PATH = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const DEFAULT_KEY_ENV = 'OPENAI_API_KEY';
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
 const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
@@ -58,8 +61,33 @@ const ADAPTER_ENDPOINT_ENV: Record<string, string> = {
   anthropic: 'ANTHROPIC_BASE_URL',
 };
 
+/**
+ * F135: Resolve vendor/dare-cli path from project root (not cwd).
+ * Uses import.meta.url to derive the project root from this module's location.
+ * packages/api/src/domains/cats/services/agents/providers/ → 8 levels up = project root
+ */
+export function resolveVendorDarePath(): string {
+  // packages/api/{src|dist}/domains/cats/services/agents/providers → 8 levels to root
+  return join(__dirname, '..', '..', '..', '..', '..', '..', '..', '..', 'vendor', 'dare-cli');
+}
+
+/**
+ * F135: Resolve venv python for a given DARE path.
+ * macOS/Linux: .venv/bin/python; Windows: .venv/Scripts/python.exe (future KD-5)
+ */
+export function resolveVenvPython(darePath: string): string {
+  const venvPython = join(darePath, '.venv', 'bin', 'python');
+  if (existsSync(venvPython)) return venvPython;
+  return 'python';
+}
+
 function resolveDefaultDarePath(): string | undefined {
-  return existsSync(join(DEFAULT_DARE_PATH, 'client', '__main__.py')) ? DEFAULT_DARE_PATH : undefined;
+  const vendorPath = resolveVendorDarePath();
+  if (existsSync(join(vendorPath, 'client', '__main__.py'))) return vendorPath;
+  // Legacy fallback for existing installs
+  const legacyPath = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
+  if (existsSync(join(legacyPath, 'client', '__main__.py'))) return legacyPath;
+  return undefined;
 }
 
 export class DareAgentService implements AgentService {
@@ -92,7 +120,7 @@ export class DareAgentService implements AgentService {
       yield {
         type: 'error',
         catId: this.catId,
-        error: `DARE CLI 未配置路径：请设置 DARE_PATH，或在默认路径 ${DEFAULT_DARE_PATH} 放置 DARE 仓库`,
+        error: `DARE CLI 未配置路径：请设置 DARE_PATH，或运行 installer 自动安装到 vendor/dare-cli/`,
         metadata,
         timestamp: Date.now(),
       };
@@ -117,13 +145,15 @@ export class DareAgentService implements AgentService {
     // P1-1: cwd must ALWAYS be darePath (where `python -m client` can find the module).
     // Thread's workingDirectory goes to --workspace instead.
     const cwd = this.darePath;
+    // F135: Prefer DARE repo's own venv python (has required deps like openai)
+    const pythonCmd = cwd ? resolveVenvPython(cwd) : 'python';
     // P1-3: Pass API key via child env, not CLI args (avoids ps/audit leakage)
     const childEnv = this.buildEnv(options?.callbackEnv);
     const metadata: MessageMetadata = { provider: 'dare', model: effectiveModel };
 
     try {
       const cliOpts = {
-        command: 'python' as const,
+        command: pythonCmd,
         args,
         ...(cwd ? { cwd } : {}),
         env: childEnv,
@@ -233,7 +263,7 @@ export class DareAgentService implements AgentService {
     if (sessionId) {
       args.push('--session-id', sessionId);
     }
-    args.push('--task', prompt, '--auto-approve', '--headless');
+    args.push('--task', prompt, '--full-auto', '--headless');
 
     return args;
   }
