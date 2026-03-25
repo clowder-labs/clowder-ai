@@ -98,16 +98,24 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'UPLOAD_DIR', defaultValue: './uploads', description: '文件上传目录', category: 'server', sensitive: false },
   {
     name: 'PROJECT_ALLOWED_ROOTS',
-    defaultValue: 'home, tmp roots, /workspace, /Volumes (macOS), home-only (Windows)',
+    defaultValue: '(未设置 → denylist 模式)',
     description:
-      '允许访问的项目根目录（按系统路径分隔符分隔，设置后覆盖默认值；配合 PROJECT_ALLOWED_ROOTS_APPEND=true 可追加）',
+      '允许访问的项目根目录（allowlist 模式，按系统路径分隔符分隔）。未设置时使用 denylist 模式（默认放行，仅拦截系统目录）。设置后切换为 allowlist 模式（仅允许列出的目录），配合 PROJECT_ALLOWED_ROOTS_APPEND=true 可追加到旧版默认列表',
     category: 'server',
     sensitive: false,
   },
   {
     name: 'PROJECT_ALLOWED_ROOTS_APPEND',
     defaultValue: 'false',
-    description: '设为 true 则追加而非覆盖默认根目录',
+    description: '设为 true 则追加而非覆盖默认根目录（仅 allowlist 模式下有效）',
+    category: 'server',
+    sensitive: false,
+  },
+  {
+    name: 'PROJECT_DENIED_ROOTS',
+    defaultValue: '(平台默认：Linux=/proc,/sys,/dev,/boot,/sbin,/run; macOS+=~/System; Windows=%SYSTEMROOT%)',
+    description:
+      '追加到默认 denylist 的系统目录（按系统路径分隔符分隔）。仅在 denylist 模式下生效（即 PROJECT_ALLOWED_ROOTS 未设置时）',
     category: 'server',
     sensitive: false,
   },

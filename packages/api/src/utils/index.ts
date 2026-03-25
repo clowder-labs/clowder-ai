@@ -14,4 +14,4 @@ export type {
 } from './cli-types.js';
 export { isParseError, parseNDJSON } from './ndjson-parser.js';
 export { normalizeErrorMessage } from './normalize-error.js';
-export { isUnderAllowedRoot, validateProjectPath } from './project-path.js';
+export { isDenylistMode, isUnderAllowedRoot, validateProjectPath } from './project-path.js';

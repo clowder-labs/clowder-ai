@@ -5,44 +5,171 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
-const { validateProjectPath, isUnderAllowedRoot, getAllowedRoots, getDefaultRootsForPlatform, isPathUnderRoots } =
-  await import('../dist/utils/project-path.js');
+const {
+  validateProjectPath,
+  isUnderAllowedRoot,
+  getAllowedRoots,
+  getDefaultRootsForPlatform,
+  isPathUnderRoots,
+  getDefaultDenylistForPlatform,
+  isPathDenied,
+  isDenylistMode,
+} = await import('../dist/utils/project-path.js');
 
-describe('isUnderAllowedRoot', () => {
-  it('accepts path under home directory', () => {
+// ── Denylist mode (new default — no env vars set) ───────────────────
+
+describe('denylist mode (default, no PROJECT_ALLOWED_ROOTS)', () => {
+  let savedAllowed;
+  let savedAppend;
+  let savedDenied;
+
+  before(() => {
+    savedAllowed = process.env.PROJECT_ALLOWED_ROOTS;
+    savedAppend = process.env.PROJECT_ALLOWED_ROOTS_APPEND;
+    savedDenied = process.env.PROJECT_DENIED_ROOTS;
+    delete process.env.PROJECT_ALLOWED_ROOTS;
+    delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
+    delete process.env.PROJECT_DENIED_ROOTS;
+  });
+
+  after(() => {
+    if (savedAllowed === undefined) delete process.env.PROJECT_ALLOWED_ROOTS;
+    else process.env.PROJECT_ALLOWED_ROOTS = savedAllowed;
+    if (savedAppend === undefined) delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
+    else process.env.PROJECT_ALLOWED_ROOTS_APPEND = savedAppend;
+    if (savedDenied === undefined) delete process.env.PROJECT_DENIED_ROOTS;
+    else process.env.PROJECT_DENIED_ROOTS = savedDenied;
+  });
+
+  it('isDenylistMode() returns true', () => {
+    assert.strictEqual(isDenylistMode(), true);
+  });
+
+  it('accepts home directory', () => {
     assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'projects')), true);
   });
 
-  it('accepts home directory itself', () => {
-    assert.strictEqual(isUnderAllowedRoot(homedir()), true);
-  });
-
-  it('accepts path under /tmp', () => {
+  it('accepts /tmp', () => {
     assert.strictEqual(isUnderAllowedRoot('/tmp/test-dir'), true);
   });
 
-  it('rejects path with home prefix but no separator boundary', () => {
-    // /home/user-evil should NOT pass for home = /home/user
-    const fakePath = `${homedir()}-evil/data`;
-    assert.strictEqual(isUnderAllowedRoot(fakePath), false);
+  it('accepts /opt (previously blocked by allowlist)', () => {
+    assert.strictEqual(isUnderAllowedRoot('/opt/projects'), true);
   });
 
-  it('rejects path outside allowed roots', () => {
-    assert.strictEqual(isUnderAllowedRoot('/etc/passwd'), false);
-    assert.strictEqual(isUnderAllowedRoot('/var/log'), false);
+  it('accepts /usr/code (issue #228 Linux case)', () => {
+    assert.strictEqual(isUnderAllowedRoot('/usr/code'), true);
   });
 
-  it('rejects root directory', () => {
+  it('accepts /srv, /mnt, /media paths', () => {
+    assert.strictEqual(isUnderAllowedRoot('/srv/web'), true);
+    assert.strictEqual(isUnderAllowedRoot('/mnt/data/project'), true);
+    assert.strictEqual(isUnderAllowedRoot('/media/usb/code'), true);
+  });
+
+  it('rejects /proc (system virtual fs)', () => {
+    assert.strictEqual(isUnderAllowedRoot('/proc/1/status'), false);
+  });
+
+  it('rejects /sys (kernel interface)', () => {
+    assert.strictEqual(isUnderAllowedRoot('/sys/class/net'), false);
+  });
+
+  it('rejects /dev (device files)', () => {
+    assert.strictEqual(isUnderAllowedRoot('/dev/null'), false);
+  });
+
+  it('rejects /boot', () => {
+    assert.strictEqual(isUnderAllowedRoot('/boot/vmlinuz'), false);
+  });
+
+  it('rejects /sbin', () => {
+    assert.strictEqual(isUnderAllowedRoot('/sbin/init'), false);
+  });
+
+  it('rejects /run', () => {
+    assert.strictEqual(isUnderAllowedRoot('/run/user/1000'), false);
+  });
+
+  it('rejects filesystem root /', () => {
     assert.strictEqual(isUnderAllowedRoot('/'), false);
   });
 
-  it('rejects cross-drive Windows paths when custom roots are configured', () => {
-    assert.strictEqual(isPathUnderRoots('D:\\repo', ['C:\\work'], 'win32'), false);
-    assert.strictEqual(isPathUnderRoots('C:\\work\\repo', ['C:\\work'], 'win32'), true);
+  it('getAllowedRoots() returns !-prefixed denylist in denylist mode', () => {
+    const roots = getAllowedRoots();
+    assert.ok(Array.isArray(roots));
+    assert.ok(roots.every((r) => r.startsWith('!')));
   });
 });
 
-describe('getDefaultRootsForPlatform', () => {
+// ── isPathDenied unit tests ─────────────────────────────────────────
+
+describe('isPathDenied', () => {
+  it('denies exact match on denied dir', () => {
+    assert.strictEqual(isPathDenied('/proc', ['/proc'], 'linux'), true);
+  });
+
+  it('denies child of denied dir', () => {
+    assert.strictEqual(isPathDenied('/proc/1/status', ['/proc'], 'linux'), true);
+  });
+
+  it('allows path not under any denied dir', () => {
+    assert.strictEqual(isPathDenied('/home/user/code', ['/proc', '/sys'], 'linux'), false);
+  });
+
+  it('denies filesystem root /', () => {
+    assert.strictEqual(isPathDenied('/', [], 'linux'), true);
+  });
+
+  it('denies Windows drive root C:\\', () => {
+    assert.strictEqual(isPathDenied('C:\\', [], 'win32'), true);
+  });
+
+  it('allows Windows project path D:\\dev', () => {
+    const winDeny = ['C:\\Windows'];
+    assert.strictEqual(isPathDenied('D:\\dev\\project', winDeny, 'win32'), false);
+  });
+
+  it('denies Windows system path C:\\Windows\\System32', () => {
+    const winDeny = ['C:\\Windows'];
+    assert.strictEqual(isPathDenied('C:\\Windows\\System32', winDeny, 'win32'), true);
+  });
+
+  it('does not false-positive on prefix overlap (e.g. /devices vs /dev)', () => {
+    assert.strictEqual(isPathDenied('/devices/custom', ['/dev'], 'linux'), false);
+  });
+});
+
+// ── getDefaultDenylistForPlatform ───────────────────────────────────
+
+describe('getDefaultDenylistForPlatform', () => {
+  it('Linux denylist includes core system dirs', () => {
+    const deny = getDefaultDenylistForPlatform('linux');
+    assert.ok(deny.includes('/proc'));
+    assert.ok(deny.includes('/sys'));
+    assert.ok(deny.includes('/dev'));
+    assert.ok(deny.includes('/boot'));
+    assert.ok(deny.includes('/sbin'));
+    assert.ok(deny.includes('/run'));
+  });
+
+  it('macOS denylist includes /System', () => {
+    const deny = getDefaultDenylistForPlatform('darwin');
+    assert.ok(deny.includes('/dev'));
+    assert.ok(deny.includes('/System'));
+  });
+
+  it('Windows denylist includes system root', () => {
+    const deny = getDefaultDenylistForPlatform('win32');
+    assert.ok(deny.length >= 1);
+    // Should contain something like C:\Windows
+    assert.ok(deny.some((d) => /windows/i.test(d) || d === process.env.SYSTEMROOT));
+  });
+});
+
+// ── Legacy allowlist tests (getDefaultRootsForPlatform) ─────────────
+
+describe('getDefaultRootsForPlatform (legacy allowlist)', () => {
   it('keeps Windows defaults scoped to the user home directory', () => {
     const roots = getDefaultRootsForPlatform('win32', {
       homeDir: 'C:\\Users\\share',
@@ -55,20 +182,23 @@ describe('getDefaultRootsForPlatform', () => {
   });
 });
 
+// ── validateProjectPath ─────────────────────────────────────────────
+
 describe('validateProjectPath', () => {
-  // NOTE: tests run in a workspace-write sandbox where $HOME might be read-only.
-  // Use /tmp (allowed root) for temp directory creation.
   let testDir;
   let subDir;
 
   before(() => {
-    // Create test directories
+    // Ensure denylist mode
+    delete process.env.PROJECT_ALLOWED_ROOTS;
+    delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
+    delete process.env.PROJECT_DENIED_ROOTS;
+
     testDir = mkdtempSync('/tmp/cat-cafe-test-path-validation-');
     subDir = join(testDir, 'project-a');
     mkdirSync(subDir, { recursive: true });
   });
 
-  // Cleanup handled by caller or next test run
   after(() => {
     rmSync(testDir, { recursive: true, force: true });
   });
@@ -84,8 +214,8 @@ describe('validateProjectPath', () => {
     assert.strictEqual(result, null);
   });
 
-  it('returns null for path outside allowed roots', async () => {
-    const result = await validateProjectPath('/etc');
+  it('returns null for path under denied root', async () => {
+    const result = await validateProjectPath('/proc');
     assert.strictEqual(result, null);
   });
 
@@ -98,23 +228,18 @@ describe('validateProjectPath', () => {
   });
 
   it('resolves symlinks and checks real path', async () => {
-    // Create a symlink under home that points to /tmp
     const linkPath = join(testDir, 'link-to-tmp');
     if (existsSync(linkPath)) rmSync(linkPath);
     symlinkSync('/tmp', linkPath);
-
-    // validateProjectPath should resolve the symlink to /tmp
-    // /tmp IS an allowed root, so this should succeed
     const result = await validateProjectPath(linkPath);
-    // /tmp is allowed, so the resolved path should be returned
     assert.ok(result);
   });
 
-  it('rejects symlinks that escape to disallowed paths', async () => {
-    const linkPath = join(testDir, 'link-to-etc');
+  it('rejects symlinks that escape to denied paths', async () => {
+    const linkPath = join(testDir, 'link-to-proc');
     if (existsSync(linkPath)) rmSync(linkPath);
     try {
-      symlinkSync('/etc', linkPath);
+      symlinkSync('/proc', linkPath);
       const result = await validateProjectPath(linkPath);
       assert.strictEqual(result, null);
     } catch {
@@ -123,7 +248,9 @@ describe('validateProjectPath', () => {
   });
 });
 
-describe('PROJECT_ALLOWED_ROOTS env var', () => {
+// ── PROJECT_ALLOWED_ROOTS env var (legacy allowlist mode) ───────────
+
+describe('PROJECT_ALLOWED_ROOTS env var (legacy allowlist mode)', () => {
   let savedEnv;
   let savedAppend;
 
@@ -145,22 +272,10 @@ describe('PROJECT_ALLOWED_ROOTS env var', () => {
     }
   });
 
-  it('uses default roots when env var is not set', () => {
-    delete process.env.PROJECT_ALLOWED_ROOTS;
+  it('switches to allowlist mode when env var is set', () => {
+    process.env.PROJECT_ALLOWED_ROOTS = '/opt/projects';
     delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
-    // Default: homedir + /tmp + /private/tmp + /workspace + /Volumes (macOS)
-    assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'projects')), true);
-    assert.strictEqual(isUnderAllowedRoot('/tmp/foo'), true);
-    assert.strictEqual(isUnderAllowedRoot('/workspace/foo'), true);
-  });
-
-  it('includes /Volumes in default roots on macOS', () => {
-    delete process.env.PROJECT_ALLOWED_ROOTS;
-    delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
-    if (process.platform === 'darwin') {
-      assert.strictEqual(isUnderAllowedRoot('/Volumes/shared/project'), true);
-      assert.strictEqual(isUnderAllowedRoot('/Volumes'), true);
-    }
+    assert.strictEqual(isDenylistMode(), false);
   });
 
   it('replaces defaults when env var is set (backward compat)', () => {
@@ -184,9 +299,10 @@ describe('PROJECT_ALLOWED_ROOTS env var', () => {
     assert.strictEqual(isUnderAllowedRoot('/tmp/foo'), true);
   });
 
-  it('falls back to defaults when env var is empty', () => {
+  it('falls back to denylist mode when env var is empty', () => {
     process.env.PROJECT_ALLOWED_ROOTS = '';
     delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
+    assert.strictEqual(isDenylistMode(), true);
     assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'projects')), true);
   });
 
@@ -199,13 +315,50 @@ describe('PROJECT_ALLOWED_ROOTS env var', () => {
     assert.strictEqual(isUnderAllowedRoot('/opt/c/w'), false);
   });
 
-  it('getAllowedRoots() returns computed list', () => {
-    delete process.env.PROJECT_ALLOWED_ROOTS;
+  it('getAllowedRoots() returns non-prefixed list in allowlist mode', () => {
+    process.env.PROJECT_ALLOWED_ROOTS = '/opt/projects';
     delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
     const roots = getAllowedRoots();
     assert.ok(Array.isArray(roots));
-    assert.ok(roots.includes(homedir()));
-    assert.ok(roots.includes('/tmp'));
-    assert.ok(roots.includes('/workspace'));
+    assert.ok(roots.every((r) => !r.startsWith('!')));
+  });
+});
+
+// ── PROJECT_DENIED_ROOTS env var ────────────────────────────────────
+
+describe('PROJECT_DENIED_ROOTS env var', () => {
+  let savedAllowed;
+  let savedDenied;
+
+  before(() => {
+    savedAllowed = process.env.PROJECT_ALLOWED_ROOTS;
+    savedDenied = process.env.PROJECT_DENIED_ROOTS;
+    delete process.env.PROJECT_ALLOWED_ROOTS;
+  });
+
+  after(() => {
+    if (savedAllowed === undefined) delete process.env.PROJECT_ALLOWED_ROOTS;
+    else process.env.PROJECT_ALLOWED_ROOTS = savedAllowed;
+    if (savedDenied === undefined) delete process.env.PROJECT_DENIED_ROOTS;
+    else process.env.PROJECT_DENIED_ROOTS = savedDenied;
+  });
+
+  it('adds custom denied paths to defaults', () => {
+    process.env.PROJECT_DENIED_ROOTS = '/custom/secret:/internal/data';
+    assert.strictEqual(isUnderAllowedRoot('/custom/secret/files'), false);
+    assert.strictEqual(isUnderAllowedRoot('/internal/data/db'), false);
+    // Default denies still work
+    assert.strictEqual(isUnderAllowedRoot('/proc/1'), false);
+    // Non-denied paths still allowed
+    assert.strictEqual(isUnderAllowedRoot('/opt/projects'), true);
+  });
+});
+
+// ── isPathUnderRoots (cross-drive Windows) ──────────────────────────
+
+describe('isPathUnderRoots', () => {
+  it('rejects cross-drive Windows paths when custom roots are configured', () => {
+    assert.strictEqual(isPathUnderRoots('D:\\repo', ['C:\\work'], 'win32'), false);
+    assert.strictEqual(isPathUnderRoots('C:\\work\\repo', ['C:\\work'], 'win32'), true);
   });
 });
