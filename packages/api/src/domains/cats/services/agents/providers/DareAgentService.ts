@@ -176,15 +176,23 @@ export class DareAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const workspaceConfig = readWorkspaceDareConfig(options?.workingDirectory);
-    let catModelFallback: string | undefined;
-    try {
-      catModelFallback = getCatModel(this.catId as string);
-    } catch {
-      // No model configured for this cat — leave undefined
-    }
+    // effectiveModel: explicit overrides only (constructor model, env override).
+    // Used for metadata display — workspace adapter/model shown when no explicit override.
     const effectiveModel =
-      options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || catModelFallback;
+      options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
     const metadataModel = resolveMetadataModel(this.catId, effectiveModel, workspaceConfig);
+
+    // cliModel: what goes into --model CLI arg.
+    // Falls through to getCatModel() so huawei-modelarts adapter gets a model
+    // even when no explicit override is set (reads CAT_DARE_MODEL from env).
+    let cliModel = effectiveModel;
+    if (!cliModel) {
+      try {
+        cliModel = getCatModel(this.catId as string);
+      } catch {
+        // No model configured — DARE CLI will use its own config/adapter default
+      }
+    }
 
     // Runtime mode: require resolvable DARE module path to avoid opaque "No module named client".
     // Unit tests pass spawnFn and may not provide a real filesystem path; skip hard check there.
@@ -218,7 +226,7 @@ export class DareAgentService implements AgentService {
       workspace: options?.workingDirectory,
       sessionId: options?.sessionId,
       endpoint,
-      model: effectiveModel,
+      model: cliModel,
       cliConfigArgs: options?.cliConfigArgs,
       systemPrompt: options?.systemPrompt,
       mcpServerPath: options?.callbackEnv ? this.mcpServerPath : undefined,
