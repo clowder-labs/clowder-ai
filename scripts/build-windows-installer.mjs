@@ -19,7 +19,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const DEFAULT_WEBVIEW2_VERSION = process.env.CLOWDER_WEBVIEW2_VERSION ?? '1.0.3856.49';
-const WINDOWS_RUNTIME_NPM_ARGS = ['install', '--omit=dev', '--no-audit', '--no-fund', '--package-lock=false', '--loglevel=error'];
+const WINDOWS_RUNTIME_NPM_ARGS = [
+  'install',
+  '--omit=dev',
+  '--no-audit',
+  '--no-fund',
+  '--package-lock=false',
+  '--loglevel=error',
+];
 
 export const WINDOWS_PRESERVE_PATHS = ['.env', 'cat-config.json', 'data', 'logs', '.cat-cafe'];
 export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
@@ -126,6 +133,13 @@ export function shouldCopyRepoPath(relativePath) {
   if (segments.some((segment) => EXCLUDED_TOP_LEVEL_SEGMENTS.has(segment))) return false;
   if (EXCLUDED_EXACT_PATHS.has(normalized)) return false;
   return !EXCLUDED_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
+export function shouldUseCommandShell(command, platform = process.platform) {
+  if (platform !== 'win32') return false;
+  const normalized = String(command ?? '').trim();
+  if (!normalized) return false;
+  return !normalized.includes('/') && !normalized.includes('\\');
 }
 
 function parseArgs(argv) {
@@ -251,9 +265,12 @@ function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? repoRoot,
     stdio: options.stdio ?? 'inherit',
-    shell: false,
+    shell: options.shell ?? shouldUseCommandShell(command),
     env: { ...process.env, ...(options.env ?? {}) },
   });
+  if (result.error) {
+    throw result.error;
+  }
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(' ')} failed with exit code ${result.status ?? 'unknown'}`);
   }
@@ -263,10 +280,13 @@ function runAndCapture(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? repoRoot,
     stdio: 'pipe',
-    shell: false,
+    shell: options.shell ?? shouldUseCommandShell(command),
     env: { ...process.env, ...(options.env ?? {}) },
     encoding: 'utf8',
   });
+  if (result.error) {
+    throw result.error;
+  }
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || `${command} failed`).trim());
   }
@@ -320,7 +340,7 @@ function toNsisFilePath(path) {
 }
 
 function toNsisDirPath(path) {
-  return path.replaceAll('/', '\\').replace(/[\\\/]+$/, '');
+  return path.replaceAll('/', '\\').replace(/[\\/]+$/, '');
 }
 
 function copyEntry(source, destination) {
@@ -883,12 +903,7 @@ function buildWindowsDesktopLauncher(bundleDir, options) {
     toWindowsPath(options.cacheDir),
     '-WebView2Version',
     options.webview2Version,
-    ...(existsSync(launcherIconPath)
-      ? [
-          '-IconFile',
-          toWindowsPath(launcherIconPath),
-        ]
-      : []),
+    ...(existsSync(launcherIconPath) ? ['-IconFile', toWindowsPath(launcherIconPath)] : []),
   ]);
 }
 
