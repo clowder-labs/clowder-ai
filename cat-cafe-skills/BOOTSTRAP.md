@@ -36,6 +36,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `bootcamp-guide` | CVO 新手训练营引导 | — |
 | `cross-thread-sync` | 跨 thread 协同/通知/争用协调 | — |
 | `browser-preview` | 写前端/跑 dev server/看页面效果 | — |
+| `workspace-navigator` | 打开文件/看日志/找文档/模糊导航 | — |
 
 ### 参考文件（refs/，按需读取）
 
@@ -50,6 +51,8 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `refs/requirements-checklist-template.md` | 需求点 checklist 模板（B3） |
 | `refs/mcp-callbacks.md` | HTTP callback API 参考 |
 | `refs/rich-blocks.md` | Rich block 创建指南 |
+| `shellcheck-configuration` | Shell 脚本静态分析（ShellCheck） |
+| `video-downloader` | YouTube 视频下载 |
 
 ## 关键规则
 
