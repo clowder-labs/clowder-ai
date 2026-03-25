@@ -37,7 +37,8 @@ let cachedClients: AvailableClient[] | null = null;
 
 function commandExists(command: string): Promise<boolean> {
   return new Promise((resolve) => {
-    execFile('which', [command], (error) => {
+    const locator = process.platform === 'win32' ? 'where' : 'which';
+    execFile(locator, [command], (error) => {
       resolve(!error);
     });
   });

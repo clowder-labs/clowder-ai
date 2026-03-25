@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type { CatCafeConfig, Roster } from '@cat-cafe/shared';
+import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 import { builtinAccountIdForClient, readBootstrapBindingsSync } from './provider-profiles.js';
 import type { BootstrapBinding, BuiltinAccountClient } from './provider-profiles.types.js';
@@ -9,6 +10,7 @@ import { resolveProviderProfilesRootSync } from './provider-profiles-root.js';
 const CAT_CAFE_DIR = '.cat-cafe';
 const META_FILENAME = 'provider-profiles.json';
 const CAT_CATALOG_FILENAME = 'cat-catalog.json';
+const log = createModuleLogger('cat-catalog-store');
 
 function safePath(projectRoot: string, ...segments: string[]): string {
   const root = resolve(projectRoot);
@@ -435,8 +437,8 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
       if (reconciled.dirty) {
         writeFileAtomic(catalogPath, `${JSON.stringify(reconciled.catalog, null, 2)}\n`);
       }
-    } catch {
-      // Fall back to raw migration-only path when catalog or source cannot be parsed.
+    } catch (err) {
+      log.warn({ err, projectRoot, catalogPath }, 'catalog reconciliation failed');
     }
     readCatCatalogRaw(projectRoot);
     return catalogPath;
