@@ -84,6 +84,14 @@ describe('provider profile store', () => {
     );
   });
 
+  it('bootstraps the builtin Dare account with the expanded glm baseline', async () => {
+    const data = await readProviderProfiles(projectRoot);
+    const dare = data.providers.find((profile) => profile.id === 'dare');
+    assert.ok(dare, 'builtin Dare account should exist');
+    assert.ok(dare.models.includes('z-ai/glm-4.7'));
+    assert.ok(dare.models.includes('huawei-modelarts/glm-5'));
+  });
+
   it('creates a client-agnostic api_key account and keeps secrets out of meta', async () => {
     const created = await createProviderProfile(projectRoot, {
       displayName: 'API Key Account 1',

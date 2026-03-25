@@ -70,7 +70,12 @@ const BUILTIN_ACCOUNT_SPECS = [
     client: 'google',
     models: ['gemini-3.1-pro-preview', 'gemini-2.5-pro'],
   },
-  { id: 'dare', displayName: 'Dare (client-auth)', client: 'dare', models: ['z-ai/glm-4.7'] },
+  {
+    id: 'dare',
+    displayName: 'Dare (client-auth)',
+    client: 'dare',
+    models: ['z-ai/glm-4.7', 'huawei-modelarts/glm-5'],
+  },
   {
     id: 'opencode',
     displayName: 'OpenCode (client-auth)',

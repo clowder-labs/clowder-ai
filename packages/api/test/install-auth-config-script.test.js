@@ -108,6 +108,7 @@ test('client-auth set oauth restores builtin bindings for dare and opencode', ()
     runHelper(['client-auth', 'set', '--project-dir', projectRoot, '--client', 'opencode', '--mode', 'oauth']);
 
     const { profiles } = readInstallerState(projectRoot);
+    const dare = profiles.providers.find((profile) => profile.id === 'dare');
     assert.deepEqual(profiles.bootstrapBindings.dare, {
       enabled: true,
       mode: 'oauth',
@@ -118,6 +119,7 @@ test('client-auth set oauth restores builtin bindings for dare and opencode', ()
       mode: 'oauth',
       accountRef: 'opencode',
     });
+    assert.deepEqual(dare?.models, ['z-ai/glm-4.7', 'huawei-modelarts/glm-5']);
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
