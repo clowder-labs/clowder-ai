@@ -11,7 +11,7 @@
 import { existsSync } from 'node:fs';
 import { lstat, mkdir, readFile, readlink, realpath, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
@@ -459,10 +459,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         const relPath = file.path.replace(/\\/g, '/');
         // Strip common prefix folder
         const stripped = prefix ? relPath.slice(prefix.length) : relPath;
-        // Sanitize
-        const safePath = stripped.replace(/\.\.\//g, '').replace(/^\//, '');
-        if (!safePath) continue;
-        const fullPath = join(skillDir, safePath);
+        if (stripped.includes('..') || stripped.startsWith('/')) continue;
+        const fullPath = resolve(skillDir, stripped);
+        // Jail check: resolved path must be inside skillDir
+        if (!fullPath.startsWith(resolve(skillDir) + sep)) continue;
         await mkdir(dirname(fullPath), { recursive: true });
         await writeFile(fullPath, Buffer.from(file.content, 'base64'));
       }
