@@ -17,6 +17,7 @@ const repoRoot = join(testDir, '..', '..', '..');
 const buildScript = readFileSync(join(repoRoot, 'scripts', 'build-windows-installer.mjs'), 'utf8');
 const launcherBuildScript = readFileSync(join(repoRoot, 'scripts', 'build-windows-webview2-launcher.ps1'), 'utf8');
 const launcherSource = readFileSync(join(repoRoot, 'packaging', 'windows', 'desktop', 'ClowderDesktop.cs'), 'utf8');
+const apiClientSource = readFileSync(join(repoRoot, 'packages', 'web', 'src', 'utils', 'api-client.ts'), 'utf8');
 const nsisScript = readFileSync(join(repoRoot, 'packaging', 'windows', 'installer.nsi'), 'utf8');
 
 test('Windows offline installer keeps mutable state outside managed payload cleanup', () => {
@@ -70,6 +71,7 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /dependencies\['@cat-cafe\/shared'\] = 'file:\.\.\/shared'/);
   assert.match(buildScript, /RUNTIME_WEB_NEXT_CONFIG = `function resolveApiBaseUrl\(\)/);
   assert.match(buildScript, /runWindowsNpmInstall\(windowsNode\.npmCmdPath/);
+  assert.match(buildScript, /run\('pnpm', \['--filter', '@cat-cafe\/shared', 'run', 'build'\]\)/);
   assert.match(buildScript, /materializeSharedDependency\(windowsPackagesWslDir, packageName\)/);
   assert.match(buildScript, /lstatSync\(sharedLinkPath\)\.isSymbolicLink\(\)/);
   assert.match(buildScript, /powershell\.exe/);
@@ -112,6 +114,24 @@ test('Windows WebView2 launcher build bundles the required SDK files and desktop
   assert.match(launcherSource, /stop-windows\.ps1/);
   assert.match(launcherSource, /Local\\ClowderAI\.WebView2Desktop/);
   assert.match(launcherSource, /http:\/\/127\.0\.0\.1:/);
+});
+
+test('Windows desktop launcher reads runtime state, minimizes to tray, and exits through the tray menu', () => {
+  assert.match(launcherSource, /runtime-state\.json/);
+  assert.match(launcherSource, /NotifyIcon/);
+  assert.match(launcherSource, /ContextMenuStrip/);
+  assert.match(launcherSource, /Open Clowder AI/);
+  assert.match(launcherSource, /HideToTray/);
+  assert.match(launcherSource, /RequestExit/);
+  assert.match(launcherSource, /TryReadRuntimeStateValue/);
+  assert.match(launcherSource, /ShowBalloonTip/);
+});
+
+test('Local desktop web client derives API URL from the loopback frontend port instead of a baked localhost:3004 value', () => {
+  assert.match(apiClientSource, /function isLoopbackHost/);
+  assert.match(apiClientSource, /if \(isLoopbackHost\(location\?\.hostname\)\)/);
+  assert.match(apiClientSource, /const frontendPort = Number\(location\?\.port \?\? ''\) \|\| 3003/);
+  assert.match(apiClientSource, /const apiPort = frontendPort \+ 1/);
 });
 
 test('NSIS installer is per-user, supports upgrade cleanup, and preserves runtime data on uninstall', () => {

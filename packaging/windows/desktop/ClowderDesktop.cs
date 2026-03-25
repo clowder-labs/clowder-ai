@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -38,18 +39,23 @@ internal static class Program
 internal sealed class LauncherForm : Form
 {
     private readonly object _logLock = new object();
+    private readonly NotifyIcon _notifyIcon;
     private readonly Label _statusLabel;
     private readonly string _projectRoot;
     private readonly string _logFilePath;
-    private readonly string _frontendUrl;
+    private readonly string _runtimeStatePath;
     private Process _serviceHostProcess;
     private bool _serviceStartedByLauncher;
+    private bool _exitRequested;
+    private bool _trayHintShown;
+    private string _frontendUrl;
     private WebView2 _webView;
 
     public LauncherForm()
     {
         _projectRoot = ResolveProjectRoot();
         _logFilePath = Path.Combine(_projectRoot, "logs", "desktop-launcher.log");
+        _runtimeStatePath = Path.Combine(_projectRoot, ".cat-cafe", "run", "windows", "runtime-state.json");
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
@@ -58,6 +64,8 @@ internal sealed class LauncherForm : Form
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
         WindowState = FormWindowState.Maximized;
+        Icon = ResolveAppIcon();
+        _notifyIcon = CreateNotifyIcon();
 
         _statusLabel = new Label
         {
@@ -70,7 +78,8 @@ internal sealed class LauncherForm : Form
 
         Controls.Add(_statusLabel);
         Shown += async (_, __) => await InitializeAsync();
-        FormClosing += (_, __) => StopManagedServices();
+        FormClosing += OnFormClosing;
+        FormClosed += (_, __) => DisposeNotifyIcon();
     }
 
     private async Task InitializeAsync()
@@ -79,6 +88,7 @@ internal sealed class LauncherForm : Form
         {
             UpdateStatus("Checking local workspace services...");
             AppendLog("Launcher boot started.");
+            TryRefreshFrontendUrlFromRuntimeState();
 
             if (!await IsFrontendReadyAsync().ConfigureAwait(true))
             {
@@ -108,7 +118,7 @@ internal sealed class LauncherForm : Form
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error
             );
-            Close();
+            RequestExit();
         }
     }
 
@@ -119,8 +129,116 @@ internal sealed class LauncherForm : Form
 
     private string BuildFrontendUrl()
     {
+        if (TryRefreshFrontendUrlFromRuntimeState())
+        {
+            return _frontendUrl;
+        }
+
         var port = ReadPortFromEnv("FRONTEND_PORT", 3003);
         return "http://127.0.0.1:" + port + "/";
+    }
+
+    private Icon ResolveAppIcon()
+    {
+        try
+        {
+            return Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
+        }
+        catch
+        {
+            return SystemIcons.Application;
+        }
+    }
+
+    private NotifyIcon CreateNotifyIcon()
+    {
+        var contextMenu = new ContextMenuStrip();
+        contextMenu.Items.Add("Open Clowder AI", null, (_, __) => RestoreFromTray());
+        contextMenu.Items.Add("Exit", null, (_, __) => RequestExit());
+
+        var notifyIcon = new NotifyIcon
+        {
+            Text = "Clowder AI",
+            Visible = true,
+            Icon = Icon ?? SystemIcons.Application,
+            ContextMenuStrip = contextMenu,
+        };
+        notifyIcon.DoubleClick += (_, __) => RestoreFromTray();
+        return notifyIcon;
+    }
+
+    private void DisposeNotifyIcon()
+    {
+        _notifyIcon.Visible = false;
+        _notifyIcon.Dispose();
+    }
+
+    private void OnFormClosing(object sender, FormClosingEventArgs eventArgs)
+    {
+        if (!_exitRequested && eventArgs.CloseReason == CloseReason.UserClosing)
+        {
+            eventArgs.Cancel = true;
+            HideToTray();
+            return;
+        }
+
+        _notifyIcon.Visible = false;
+        StopManagedServices();
+    }
+
+    private void HideToTray()
+    {
+        ShowInTaskbar = false;
+        WindowState = FormWindowState.Minimized;
+        Hide();
+        _notifyIcon.Visible = true;
+        if (!_trayHintShown)
+        {
+            _notifyIcon.ShowBalloonTip(
+                2500,
+                "Clowder AI",
+                "Clowder AI is still running here. Use the tray icon menu to exit.",
+                ToolTipIcon.Info
+            );
+            _trayHintShown = true;
+        }
+    }
+
+    private void RestoreFromTray()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)RestoreFromTray);
+            return;
+        }
+
+        Show();
+        ShowInTaskbar = true;
+        WindowState = FormWindowState.Normal;
+        Activate();
+    }
+
+    private void RequestExit()
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)RequestExit);
+            return;
+        }
+
+        if (_exitRequested)
+        {
+            return;
+        }
+
+        _exitRequested = true;
+        ShowInTaskbar = true;
+        Close();
     }
 
     private int ReadPortFromEnv(string key, int fallback)
@@ -167,6 +285,68 @@ internal sealed class LauncherForm : Form
         }
 
         return fallback;
+    }
+
+    private bool TryRefreshFrontendUrlFromRuntimeState()
+    {
+        string runtimeUrl;
+        if (TryReadRuntimeStateValue("FrontendUrl", out runtimeUrl) && !string.IsNullOrWhiteSpace(runtimeUrl))
+        {
+            _frontendUrl = runtimeUrl.Trim();
+            return true;
+        }
+
+        string runtimePort;
+        if (TryReadRuntimeStateValue("WebPort", out runtimePort))
+        {
+            int port;
+            if (int.TryParse(runtimePort, out port) && port > 0)
+            {
+                _frontendUrl = "http://127.0.0.1:" + port + "/";
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryReadRuntimeStateValue(string key, out string value)
+    {
+        value = null;
+        try
+        {
+            if (!File.Exists(_runtimeStatePath))
+            {
+                return false;
+            }
+
+            var content = File.ReadAllText(_runtimeStatePath);
+            var pattern =
+                "\"" + Regex.Escape(key) + "\"\\s*:\\s*(?:\"(?<text>(?:\\\\.|[^\"])*)\"|(?<number>\\d+)|null)";
+            var match = Regex.Match(content, pattern);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            if (match.Groups["text"].Success)
+            {
+                value = Regex.Unescape(match.Groups["text"].Value);
+                return true;
+            }
+
+            if (match.Groups["number"].Success)
+            {
+                value = match.Groups["number"].Value;
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed reading runtime state: " + ex.Message);
+        }
+
+        return false;
     }
 
     private void StartManagedServices()
@@ -230,6 +410,7 @@ internal sealed class LauncherForm : Form
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
+            TryRefreshFrontendUrlFromRuntimeState();
             if (await IsFrontendReadyAsync().ConfigureAwait(true))
             {
                 return;
@@ -313,11 +494,6 @@ internal sealed class LauncherForm : Form
 
     private void StopManagedServices()
     {
-        if (!_serviceStartedByLauncher)
-        {
-            return;
-        }
-
         try
         {
             var stopScript = Path.Combine(_projectRoot, "scripts", "stop-windows.ps1");

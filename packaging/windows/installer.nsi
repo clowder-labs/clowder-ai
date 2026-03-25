@@ -172,7 +172,7 @@ Section "Install"
   Call CleanupManagedPayload
 
   SetOutPath "$INSTDIR"
-  File /r "${BUNDLE_DIR}*"
+  File /r "${BUNDLE_DIR}\*"
 
   CreateDirectory "$INSTDIR\data"
   CreateDirectory "$INSTDIR\logs"

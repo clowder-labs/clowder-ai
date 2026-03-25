@@ -319,6 +319,10 @@ function toNsisFilePath(path) {
   return path.replaceAll('\\', '/');
 }
 
+function toNsisDirPath(path) {
+  return path.replaceAll('/', '\\').replace(/[\\\/]+$/, '');
+}
+
 function copyEntry(source, destination) {
   cpSync(source, destination, {
     recursive: true,
@@ -902,7 +906,7 @@ function invokeMakensis(installerScript, outputExe, bundleDir, version) {
   const maxInstallRootLength = 259 - maxRelativePathLength - 1;
   run(makensisCommand, [
     `${definePrefix}APP_VERSION=${version}`,
-    `${definePrefix}BUNDLE_DIR=${toNsisPath(bundleDir)}`,
+    `${definePrefix}BUNDLE_DIR=${toNsisDirPath(bundleDir)}`,
     `${definePrefix}OUTPUT_EXE=${toNsisFilePath(outputExe)}`,
     `${definePrefix}MAX_REL_PATH_LEN=${maxRelativePathLength}`,
     `${definePrefix}MAX_INSTALL_ROOT_LEN=${maxInstallRootLength}`,
