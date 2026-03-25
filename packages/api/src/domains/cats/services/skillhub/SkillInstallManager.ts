@@ -14,7 +14,7 @@ import { addInstalledSkill, loadInstalledRegistry, removeInstalledSkill } from '
 import { fetchSkillAllFiles } from './SkillHubService.js';
 import { createProviderSymlinks, removeProviderSymlinks } from './SymlinkManager.js';
 
-const MAX_SKILL_SIZE = 500_000; // 500KB
+const MAX_SKILL_SIZE = 3_000_000; // 3MB
 const PATH_TRAVERSAL_RE = /[/\\]|\.\./;
 
 /** SkillHub 安装/卸载错误 */

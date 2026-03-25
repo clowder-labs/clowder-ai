@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 
 export interface InstalledSkillRecord {
   name: string;
-  source: 'skillhub';
+  source: 'skillhub' | 'local';
   skillhubUrl: string;
   owner: string;
   repo: string;

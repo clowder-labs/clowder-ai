@@ -454,7 +454,8 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      // Write all files
+      // Write all files (max 3MB per file)
+      const MAX_UPLOAD_SIZE = 3 * 1024 * 1024;
       for (const file of body.files) {
         const relPath = file.path.replace(/\\/g, '/');
         // Strip common prefix folder
@@ -463,8 +464,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         const fullPath = resolve(skillDir, stripped);
         // Jail check: resolved path must be inside skillDir
         if (!fullPath.startsWith(resolve(skillDir) + sep)) continue;
+        const content = Buffer.from(file.content, 'base64');
+        if (content.length > MAX_UPLOAD_SIZE) {
+          reply.status(422);
+          return { success: false, error: `File ${stripped} exceeds 2MB limit` };
+        }
         await mkdir(dirname(fullPath), { recursive: true });
-        await writeFile(fullPath, Buffer.from(file.content, 'base64'));
+        await writeFile(fullPath, content);
       }
 
       // Verify SKILL.md exists
@@ -481,7 +487,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       const { addInstalledSkill } = await import('../domains/cats/services/skillhub/InstalledSkillRegistry.js');
       await addInstalledSkill(CAT_CAFE_ROOT, {
         name: skillName,
-        source: 'skillhub',
+        source: 'local',
         skillhubUrl: '',
         owner: 'local',
         repo: 'upload',
