@@ -23,7 +23,7 @@ const THEME_STORAGE_KEY = 'clowder-ai-theme';
 const THEME_CONFIGS: Record<ThemeType, ThemeConfig> = {
   default: {
     sidebar: {
-      bg: '', // 默认样式
+      bg: 'white', // 默认样式
     },
     content: {
       bg: '', // 默认样式
