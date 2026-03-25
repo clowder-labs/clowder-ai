@@ -77,13 +77,18 @@ class FileConfigProvider(IConfigProvider):
         merged.setdefault("user_dir", str(self._user_dir))
         config = Config.from_dict(merged)
         # Allow host process to inject absolute skill paths via env var,
-        # overriding workspace-relative config (e.g. when workspace != main repo).
+        # merged with (not replacing) workspace/user config skill_paths.
         env_skill_paths = os.environ.get("DARE_SKILL_PATHS")
         if env_skill_paths:
             try:
                 paths = json.loads(env_skill_paths)
                 if isinstance(paths, list) and paths:
-                    config = replace(config, skill_paths=[str(p) for p in paths])
+                    existing = list(config.skill_paths)
+                    for p in paths:
+                        sp = str(p)
+                        if sp not in existing:
+                            existing.append(sp)
+                    config = replace(config, skill_paths=existing)
             except (json.JSONDecodeError, TypeError):
                 pass
         return config
