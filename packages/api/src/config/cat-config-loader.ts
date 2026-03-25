@@ -325,8 +325,12 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
   const json: unknown = JSON.parse(raw);
   const result = catCafeConfigSchema.safeParse(json);
   if (!result.success) {
-    const issues = result.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`);
-    throw new Error(`Invalid cat config:\n${issues.join('\n')}`);
+    const issues = result.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message} (code: ${i.code})`);
+    const topLevel = typeof json === 'object' && json !== null ? Object.keys(json as Record<string, unknown>) : [];
+    const version = (json as Record<string, unknown>)?.version;
+    throw new Error(
+      `Invalid cat config (version=${version}, keys=[${topLevel.join(',')}], path=${resolvedPath}):\n${issues.join('\n')}`,
+    );
   }
 
   // Validate defaultVariantId references
