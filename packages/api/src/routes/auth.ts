@@ -57,7 +57,6 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   // 检查登录状态接口
   app.get('/api/islogin', async (request, reply) => {
     const userId = request.headers['x-cat-cafe-user'] as string;
-    console.log(userId);
     if (!userId) {
       return { isLoggedIn: false };
     }
@@ -103,12 +102,23 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
     // 创建session（简单实现，生产环境应该生成JWT token）
     const sessionId = `session-${Date.now()}-${Math.random()}`;
     sessions.set(userInfo.userId, userInfo);
-
     // 设置header返回给前端
     reply.header('X-Cat-Cafe-User', userInfo.userId);
     reply.header('X-Session-Id', sessionId);
 
     return { success: true, userId: userInfo.userId, message: '登录成功' };
+  });
+
+  // 退出登录接口
+  app.post('/api/logout', async (request) => {
+    const userId = request.headers['x-cat-cafe-user'] as string;
+    
+    if (userId) {
+      // 删除 session
+      sessions.delete(userId);
+    }
+
+    return { success: true, message: '退出登录成功' };
   });
 };
 
