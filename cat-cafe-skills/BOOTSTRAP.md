@@ -12,35 +12,31 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
     → merge-gate → feat-lifecycle(完成)
 ```
 
-| Skill | 触发场景 | SOP Step |
-|-------|----------|----------|
-| `feat-lifecycle` | 新功能立项/讨论/完成 | — |
+| Skill                    | 触发场景 | SOP Step |
+|--------------------------|----------|----------|
+| `feat-lifecycle`         | 新功能立项/讨论/完成 | — |
 | `collaborative-thinking` | brainstorm/多猫讨论/收敛 | — |
-| `writing-plans` | 写实施计划 | — |
-| `worktree` | 开始写代码（创建隔离环境） | ① |
-| `tdd` | 写测试+实现（红绿重构） | ① |
-| `debugging` | 遇到 bug（系统化定位） | — |
-| `quality-gate` | 开发完了自检（愿景+spec+验证） | ② |
-| `request-review` | 发 review 请求给 reviewer | ③ |
-| `receive-review` | 处理 review 反馈（Red→Green） | ③ |
-| `merge-gate` | 门禁→PR→云端 review→merge→清理 | ④⑤⑥ |
-| `cross-cat-handoff` | 跨猫交接/传话（五件套） | — |
-| `deep-research` | 多源深度调研 | — |
-| `writing-skills` | 写新 skill | — |
-| `pencil-design` | 设计 UI / .pen 文件 | — |
-| `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
-| `hyperfocus-brake` | 铲屎官健康提醒/三猫撒娇打断 | — |
-| `incident-response` | 闯祸了/不可挽回/人很难过 | — |
-| `image-generation` | 生成图片/画头像/AI 画图 | — |
-| `self-evolution` | scope 守护/流程改进/知识沉淀 | — |
-| `bootcamp-guide` | CVO 新手训练营引导 | — |
-| `cross-thread-sync` | 跨 thread 协同/通知/争用协调 | — |
-| `browser-preview` | 写前端/跑 dev server/看页面效果 | — |
-<<<<<<< playgroud
-| `workspace-navigator` | 打开文件/看日志/找文档/模糊导航 | — |
-=======
-| `workspace-navigator` | 铲屎官说"打开日志/看代码/打开设计图"等模糊指令 → 猫猫自己找路径 → API 导航 | — |
->>>>>>> playground
+| `writing-plans`          | 写实施计划 | — |
+| `worktree`               | 开始写代码（创建隔离环境） | ① |
+| `tdd`                    | 写测试+实现（红绿重构） | ① |
+| `debugging`              | 遇到 bug（系统化定位） | — |
+| `quality-gate`           | 开发完了自检（愿景+spec+验证） | ② |
+| `request-review`         | 发 review 请求给 reviewer | ③ |
+| `receive-review`         | 处理 review 反馈（Red→Green） | ③ |
+| `merge-gate`             | 门禁→PR→云端 review→merge→清理 | ④⑤⑥ |
+| `cross-cat-handoff`      | 跨猫交接/传话（五件套） | — |
+| `deep-research`          | 多源深度调研 | — |
+| `writing-skills`         | 写新 skill | — |
+| `pencil-design`          | 设计 UI / .pen 文件 | — |
+| `rich-messaging`         | 发语音/发图/发卡片/富媒体 | — |
+| `hyperfocus-brake`       | 铲屎官健康提醒/三猫撒娇打断 | — |
+| `incident-response`      | 闯祸了/不可挽回/人很难过 | — |
+| `image-generation`       | 生成图片/画头像/AI 画图 | — |
+| `self-evolution`         | scope 守护/流程改进/知识沉淀 | — |
+| `bootcamp-guide`         | CVO 新手训练营引导 | — |
+| `cross-thread-sync`      | 跨 thread 协同/通知/争用协调 | — |
+| `browser-preview`        | 写前端/跑 dev server/看页面效果 | — |
+| `workspace-navigator`    | 打开文件/看日志/找文档/模糊导航 | — |
 
 ### 参考文件（refs/，按需读取）
 
@@ -55,8 +51,6 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `refs/requirements-checklist-template.md` | 需求点 checklist 模板（B3） |
 | `refs/mcp-callbacks.md` | HTTP callback API 参考 |
 | `refs/rich-blocks.md` | Rich block 创建指南 |
-| `shellcheck-configuration` | Shell 脚本静态分析（ShellCheck） |
-| `video-downloader` | YouTube 视频下载 |
 
 ## 关键规则
 
