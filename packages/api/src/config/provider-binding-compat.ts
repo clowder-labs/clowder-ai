@@ -66,9 +66,10 @@ export function validateModelFormatForProvider(
     }
     return null;
   }
-  // builtin/OAuth: provider/model format is recommended but not enforced.
-  // The frontend shows an advisory hint via hintModelFormatForClient().
-  return null;
+  // builtin/OAuth: recommend provider/model format for native routing
+  const slashIndex = trimmedModel.indexOf('/');
+  if (slashIndex > 0 && slashIndex < trimmedModel.length - 1) return null;
+  return 'client "opencode" recommends model format "providerId/modelId" (e.g. openai/gpt-5.4)';
 }
 
 export function validateRuntimeProviderBinding(
