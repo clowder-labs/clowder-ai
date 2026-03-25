@@ -23,6 +23,7 @@ const KNOWN_SHIM_SCRIPTS: Record<string, string[]> = {
   claude: ['@anthropic-ai/claude-code/cli.js'],
   codex: ['@openai/codex/bin/codex.js'],
   gemini: ['@google/gemini-cli/bin/gemini.js'],
+  opencode: ['opencode-ai/bin/opencode'],
 };
 
 export interface WindowsShimSpawn {
@@ -31,7 +32,32 @@ export interface WindowsShimSpawn {
 }
 
 /**
- * Resolve the underlying .js entry script from a Windows .cmd shim.
+ * Parse a .cmd shim file to extract the Node.js script target path.
+ *
+ * npm .cmd shims have two common formats:
+ *   1. `%~dp0\node_modules\pkg\cli.js` (classic, with %~dp0)
+ *   2. `"%dp0%\node_modules\pkg\bin\cmd"` (newer, with %dp0% and possibly no .js extension)
+ *
+ * Returns the first resolved path that exists on disk, or null.
+ */
+function parseShimScriptTarget(cmdPath: string): string | null {
+  const shimContent = readFileSync(cmdPath, 'utf-8');
+  const shimDir = cmdPath.replace(/[/\\][^/\\]+$/, '');
+
+  // Match both %~dp0\ and %dp0%\ patterns. Capture the relative path after dp0 prefix.
+  // The target may or may not have a .js extension (e.g. opencode uses extensionless bin).
+  // We use a greedy approach: capture everything up to the next quote, %, or end-of-line,
+  // then verify the path exists on disk.
+  for (const match of shimContent.matchAll(/%~?dp0%?\\([^"%\r\n]+)/gi)) {
+    const relPath = match[1].replace(/%\*$/g, '').trimEnd();
+    const scriptPath = join(shimDir, relPath.replace(/\\/g, '/'));
+    if (existsSync(scriptPath)) return scriptPath;
+  }
+  return null;
+}
+
+/**
+ * Resolve the underlying entry script from a Windows .cmd shim.
  *
  * Strategy:
  * 1. Locate the .cmd selected by PATH via `where`, parse %dp0% relative paths
@@ -49,14 +75,10 @@ export function resolveCmdShimScript(command: string): string | null {
   // Strategy 0: if command is already a full .cmd path, parse it directly
   // (resolveCliCommand may return the full path from `where`)
   if (/\.cmd$/i.test(command) && existsSync(command)) {
-    const shimContent = readFileSync(command, 'utf-8');
-    const shimDir = command.replace(/[/\\][^/\\]+$/, '');
-    for (const match of shimContent.matchAll(/%~?dp0\\([^"\r\n]*?\.js)/gi)) {
-      const scriptPath = join(shimDir, match[1].replace(/\\/g, '/'));
-      if (existsSync(scriptPath)) {
-        resolvedShimCache.set(command, scriptPath);
-        return scriptPath;
-      }
+    const scriptPath = parseShimScriptTarget(command);
+    if (scriptPath) {
+      resolvedShimCache.set(command, scriptPath);
+      return scriptPath;
     }
   }
 
@@ -68,17 +90,10 @@ export function resolveCmdShimScript(command: string): string | null {
     }).trim();
     for (const cmdPath of whereOutput.split(/\r?\n/)) {
       if (!cmdPath || !existsSync(cmdPath)) continue;
-      const shimContent = readFileSync(cmdPath, 'utf-8');
-      const shimDir = cmdPath.replace(/[/\\][^/\\]+$/, '');
-      // npm .cmd shims use "%~dp0\..." or "%dp0\..." relative script targets.
-      // Scan every match so wrappers with a node.exe prelude still resolve the
-      // actual .js entrypoint.
-      for (const match of shimContent.matchAll(/%~?dp0\\([^"\r\n]*?\.js)/gi)) {
-        const scriptPath = join(shimDir, match[1].replace(/\\/g, '/'));
-        if (existsSync(scriptPath)) {
-          resolvedShimCache.set(command, scriptPath);
-          return scriptPath;
-        }
+      const scriptPath = parseShimScriptTarget(cmdPath);
+      if (scriptPath) {
+        resolvedShimCache.set(command, scriptPath);
+        return scriptPath;
       }
     }
   } catch {
