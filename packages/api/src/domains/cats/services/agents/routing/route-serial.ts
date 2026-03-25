@@ -255,7 +255,31 @@ export async function* routeSerial(
       if (incrementalMode) {
         // Serial incremental mode depends on AgentRouter having appended current user message first.
         // We still explicitly include `message` when that message is not present in unseen rows.
-        const inc = await assembleIncrementalContext(deps, userId, threadId, catId, currentUserMessageId, thinkingMode);
+
+        // A+ fix: calculate effective context budget by deducting ALL system parts from maxPromptTokens.
+        // Without this, context (up to maxContextTokens=160k) + system parts (~15-20k) can exceed maxPromptTokens.
+        const catModePromptForBudget = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+        const incBudget = getCatContextBudget(catId as string);
+        const incSystemTokens = estimateTokens(
+          [staticIdentity, invocationContext, catModePromptForBudget, bootstrapContext, mcpInstructions]
+            .filter(Boolean)
+            .join('\n'),
+        );
+        const incMessageTokens = estimateTokens(message);
+        const effectiveContextBudget = Math.min(
+          Math.max(0, incBudget.maxPromptTokens - incSystemTokens - incMessageTokens - 200),
+          incBudget.maxContextTokens,
+        );
+
+        const inc = await assembleIncrementalContext(
+          deps,
+          userId,
+          threadId,
+          catId,
+          currentUserMessageId,
+          thinkingMode,
+          { effectiveMaxContextTokens: effectiveContextBudget },
+        );
         deliveryBoundaryId = inc.boundaryId;
         if (inc.degradation) {
           yield {
@@ -278,8 +302,12 @@ export async function* routeSerial(
         if (history && history.length > 0 && !contextHistory) {
           const budget = getCatContextBudget(catId as string);
           // F8: token-based budget — estimate non-context tokens, remainder goes to context
+          // A+ fix: include catModePrompt + bootstrapContext in system parts estimate (P2-1)
+          const catModePromptLegacyForBudget = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
           const systemPartsTokens = estimateTokens(
-            [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),
+            [staticIdentity, invocationContext, catModePromptLegacyForBudget, bootstrapContext, mcpInstructions]
+              .filter(Boolean)
+              .join('\n'),
           );
           const promptTokens = estimateTokens(prompt);
           const budgetForContext = Math.max(0, budget.maxPromptTokens - systemPartsTokens - promptTokens - 200);
