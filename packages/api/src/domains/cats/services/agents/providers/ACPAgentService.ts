@@ -45,7 +45,26 @@ function buildMetadata(sessionId?: string): MessageMetadata {
   };
 }
 
-function buildAcpMcpServers(options?: AgentServiceOptions): Array<Record<string, unknown>> {
+export function supportsACPStdioMcpFromInitializeResult(result: Record<string, unknown> | undefined): boolean {
+  const agentCapabilities =
+    result && typeof result === 'object' && result.agentCapabilities && typeof result.agentCapabilities === 'object'
+      ? (result.agentCapabilities as { mcpCapabilities?: unknown })
+      : null;
+  if (!agentCapabilities || agentCapabilities.mcpCapabilities === undefined) return true;
+  const capabilities =
+    agentCapabilities.mcpCapabilities && typeof agentCapabilities.mcpCapabilities === 'object'
+      ? (agentCapabilities.mcpCapabilities as Record<string, unknown>)
+      : null;
+  if (!capabilities) return false;
+  if (typeof capabilities.stdio === 'boolean') return capabilities.stdio;
+  return false;
+}
+
+function buildAcpMcpServers(
+  initializeResult: Record<string, unknown> | undefined,
+  options?: AgentServiceOptions,
+): Array<Record<string, unknown>> {
+  if (!supportsACPStdioMcpFromInitializeResult(initializeResult)) return [];
   const catCafeMcp = buildCatCafeMcpRequestConfig(options);
   if (!catCafeMcp) return [];
   return [
@@ -77,11 +96,14 @@ function buildSessionParams(
   providerProfile: RuntimeProviderProfile,
   workingDirectory: string | undefined,
   acpModelProfile: RuntimeAcpModelProfile | undefined,
+  initializeResult: Record<string, unknown> | undefined,
   options?: AgentServiceOptions,
 ): Record<string, unknown> {
+  const resolvedWorkingDirectory = workingDirectory ?? providerProfile.cwd ?? process.cwd();
+  const mcpServers = buildAcpMcpServers(initializeResult, options);
   return {
-    ...(workingDirectory ? { cwd: workingDirectory } : {}),
-    mcpServers: buildAcpMcpServers(options),
+    ...(resolvedWorkingDirectory ? { cwd: resolvedWorkingDirectory } : {}),
+    mcpServers,
     ...(providerProfile.modelAccessMode === 'clowder_default_profile' && acpModelProfile
       ? { modelProfileOverride: buildACPModelProfileOverridePayload(acpModelProfile) }
       : {}),
@@ -96,6 +118,62 @@ function yieldQueuedUpdates(
   const output: AgentMessage[] = [];
   for (const incoming of client.drainMessages()) {
     if (!incoming || incoming.method !== 'session/update') continue;
+    const params = incoming.params;
+    if (!params || typeof params !== 'object') continue;
+    const updateSessionId =
+      typeof (params as { sessionId?: unknown }).sessionId === 'string'
+        ? ((params as { sessionId: string }).sessionId ?? '')
+        : '';
+    if (sessionId && updateSessionId && updateSessionId !== sessionId) continue;
+    const rawUpdate = (params as { update?: unknown }).update;
+    if (!rawUpdate || typeof rawUpdate !== 'object') continue;
+    for (const message of transformACPUpdate(rawUpdate as Record<string, unknown>, catId)) {
+      output.push({
+        ...message,
+        metadata: buildMetadata(sessionId),
+      });
+    }
+  }
+  return output;
+}
+
+function transformIncomingUpdateMessage(
+  incoming: Record<string, unknown> | null,
+  sessionId: string | undefined,
+  catId: CatId,
+): AgentMessage[] {
+  if (!incoming || incoming.method !== 'session/update') return [];
+  const params = incoming.params;
+  if (!params || typeof params !== 'object') return [];
+  const updateSessionId =
+    typeof (params as { sessionId?: unknown }).sessionId === 'string'
+      ? ((params as { sessionId: string }).sessionId ?? '')
+      : '';
+  if (sessionId && updateSessionId && updateSessionId !== sessionId) return [];
+  const rawUpdate = (params as { update?: unknown }).update;
+  if (!rawUpdate || typeof rawUpdate !== 'object') return [];
+  return transformACPUpdate(rawUpdate as Record<string, unknown>, catId).map((message) => ({
+    ...message,
+    metadata: buildMetadata(sessionId),
+  }));
+}
+
+async function collectTrailingUpdates(
+  client: ACPStdioClient,
+  sessionId: string | undefined,
+  catId: CatId,
+  idleMs = 120,
+  maxWaitMs = 1200,
+): Promise<AgentMessage[]> {
+  const output = [...yieldQueuedUpdates(client, sessionId, catId)];
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    const incoming = await Promise.race([
+      client.nextMessage(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), idleMs)),
+    ]);
+    if (!incoming) break;
+    if (incoming.method !== 'session/update') continue;
     const params = incoming.params;
     if (!params || typeof params !== 'object') continue;
     const updateSessionId =
@@ -133,10 +211,10 @@ export async function runACPProviderProbe(input: {
   });
   try {
     await client.start();
-    await client.call('initialize', { protocolVersion: 1 });
+    const initializeResult = await client.call('initialize', { protocolVersion: 1 });
     const created = await client.call(
       'session/new',
-      buildSessionParams(providerProfile, input.workingDirectory, input.acpModelProfile),
+      buildSessionParams(providerProfile, input.workingDirectory, input.acpModelProfile, initializeResult),
     );
     const sessionId = typeof created.sessionId === 'string' ? created.sessionId : undefined;
     if (!sessionId) {
@@ -188,12 +266,13 @@ export class ACPAgentService implements AgentService {
 
     try {
       await client.start();
-      await client.call('initialize', { protocolVersion: 1 });
+      const initializeResult = await client.call('initialize', { protocolVersion: 1 });
 
       const sessionParams = buildSessionParams(
         providerProfile,
         options?.workingDirectory,
         acpModelProfile ?? undefined,
+        initializeResult,
         options,
       );
       if (sessionId) {
@@ -247,7 +326,16 @@ export class ACPAgentService implements AgentService {
           throw outcome.error;
         }
         if (outcome.kind === 'prompt_result') {
-          for (const message of yieldQueuedUpdates(client, sessionId, this.catId)) {
+          const pendingMessage = await Promise.race([
+            nextMessagePromise,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 150)),
+          ]);
+          if (pendingMessage && pendingMessage.kind === 'message') {
+            for (const message of transformIncomingUpdateMessage(pendingMessage.message, sessionId, this.catId)) {
+              yield message;
+            }
+          }
+          for (const message of await collectTrailingUpdates(client, sessionId, this.catId)) {
             yield message;
           }
           done = true;
@@ -255,21 +343,8 @@ export class ACPAgentService implements AgentService {
         }
         const incoming = outcome.message;
         nextMessagePromise = client.nextMessage().then((message) => ({ kind: 'message' as const, message }));
-        if (!incoming || incoming.method !== 'session/update') continue;
-        const params = incoming.params;
-        if (!params || typeof params !== 'object') continue;
-        const updateSessionId =
-          typeof (params as { sessionId?: unknown }).sessionId === 'string'
-            ? ((params as { sessionId: string }).sessionId ?? '')
-            : '';
-        if (sessionId && updateSessionId && updateSessionId !== sessionId) continue;
-        const rawUpdate = (params as { update?: unknown }).update;
-        if (!rawUpdate || typeof rawUpdate !== 'object') continue;
-        for (const message of transformACPUpdate(rawUpdate as Record<string, unknown>, this.catId)) {
-          yield {
-            ...message,
-            metadata: buildMetadata(sessionId),
-          };
+        for (const message of transformIncomingUpdateMessage(incoming, sessionId, this.catId)) {
+          yield message;
         }
       }
 

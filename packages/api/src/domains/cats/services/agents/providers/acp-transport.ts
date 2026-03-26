@@ -1,10 +1,12 @@
 import { spawn as nodeSpawn } from 'node:child_process';
+import { basename } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('acp-transport');
 
 type ACPMessage = Record<string, unknown>;
+type ACPStdioFrameMode = 'content-length' | 'ndjson';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -58,6 +60,22 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function normalizeCommandName(command: string): string {
+  return basename(command).toLowerCase();
+}
+
+export function resolveACPStdioFrameMode(command: string): ACPStdioFrameMode {
+  return normalizeCommandName(command) === 'opencode' ? 'ndjson' : 'content-length';
+}
+
+export function frameACPMessage(message: ACPMessage, mode: ACPStdioFrameMode): Buffer {
+  const payload = Buffer.from(JSON.stringify(message), 'utf8');
+  if (mode === 'ndjson') {
+    return Buffer.concat([payload, Buffer.from('\n', 'utf8')]);
+  }
+  return Buffer.concat([Buffer.from(`Content-Length: ${payload.length}\r\n\r\n`, 'ascii'), payload]);
+}
+
 export class ACPRequestError extends Error {
   readonly code: number;
 
@@ -76,6 +94,7 @@ export interface ACPStdioClientOptions {
 
 export class ACPStdioClient {
   private readonly options: ACPStdioClientOptions;
+  private readonly frameMode: ACPStdioFrameMode;
   private readonly notifications = new ACPAsyncQueue();
   private readonly pending = new Map<number, PendingRequest>();
   private readonly stderrChunks: string[] = [];
@@ -87,6 +106,7 @@ export class ACPStdioClient {
 
   constructor(options: ACPStdioClientOptions) {
     this.options = options;
+    this.frameMode = resolveACPStdioFrameMode(options.command);
   }
 
   get stderrText(): string {
@@ -181,11 +201,7 @@ export class ACPStdioClient {
     if (!this.child?.stdin) {
       throw new Error('ACP subprocess is not running');
     }
-    const payload = Buffer.from(JSON.stringify(message), 'utf8');
-    const framedPayload = Buffer.concat([
-      Buffer.from(`Content-Length: ${payload.length}\r\n\r\n`, 'ascii'),
-      payload,
-    ]);
+    const framedPayload = frameACPMessage(message, this.frameMode);
     await new Promise<void>((resolve, reject) => {
       this.child?.stdin?.write(framedPayload, (error) => {
         if (error) reject(error);
