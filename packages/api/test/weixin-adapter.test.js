@@ -863,7 +863,7 @@ describe('WeixinAdapter', () => {
         }));
 
         const result = await WeixinAdapter.fetchQrCode();
-        assert.equal(result.qrUrl, 'https://weixin.qq.com/qr/abc123');
+        assert.ok(result.qrUrl.startsWith('data:image/png;base64,'), 'qrUrl should be a data URI');
         assert.equal(result.qrPayload, 'payload-xyz');
       });
 
@@ -878,7 +878,7 @@ describe('WeixinAdapter', () => {
         }));
 
         const result = await WeixinAdapter.fetchQrCode();
-        assert.equal(result.qrUrl, 'https://liteapp.weixin.qq.com/q/7GiQu1?qrcode=ef1387e&bot_type=3');
+        assert.ok(result.qrUrl.startsWith('data:image/png;base64,'), 'qrUrl should be a data URI');
         assert.equal(result.qrPayload, 'ef1387e07975295290b7d609dd5e3da7');
       });
 
@@ -894,7 +894,7 @@ describe('WeixinAdapter', () => {
         }));
 
         const result = await WeixinAdapter.fetchQrCode();
-        assert.equal(result.qrUrl, 'https://liteapp.weixin.qq.com/preferred');
+        assert.ok(result.qrUrl.startsWith('data:image/png;base64,'), 'qrUrl should be a data URI (from img_content)');
       });
 
       it('throws on non-zero ret (iLink error format)', async () => {
