@@ -54,12 +54,16 @@ def extract_text_payload(value: Any) -> str | None:
         return merged if merged.strip() else None
 
     if isinstance(value, dict):
-        for key in ("content", "text", "output", "message", "result"):
+        for key in ("content", "text", "output", "message", "result", "stdout"):
             if key in value:
                 extracted = extract_text_payload(value.get(key))
                 if extracted:
                     return extracted
         return None
+
+    # Dataclass-like objects with .output (e.g. ToolResult) — recurse into .output
+    if hasattr(value, "output"):
+        return extract_text_payload(getattr(value, "output"))
 
     normalized = str(value).strip()
     return normalized or None
@@ -78,7 +82,7 @@ def _has_meaningful_fallback_value(value: Any) -> bool:
 def _extract_raw_text_field(output: Any) -> str | None:
     if not isinstance(output, dict):
         return None
-    for key in ("content", "text", "output", "message", "result"):
+    for key in ("content", "text", "output", "message", "result", "stdout"):
         value = output.get(key)
         if isinstance(value, str):
             return value
@@ -93,7 +97,7 @@ def normalize_run_output(output: Any) -> str | None:
     if text:
         return text
     if isinstance(output, dict):
-        text_keys = ("content", "text", "output", "message", "result")
+        text_keys = ("content", "text", "output", "message", "result", "stdout")
         present_text_keys = [key for key in text_keys if key in output]
         if present_text_keys:
             has_non_text_fallback = any(
