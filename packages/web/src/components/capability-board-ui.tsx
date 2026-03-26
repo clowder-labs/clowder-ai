@@ -119,6 +119,7 @@ export function CapabilitySection({
   toggling,
   onToggle,
   onUninstall,
+  hideSkillMountStatus,
 }: {
   icon: ReactNode;
   title: string;
@@ -128,6 +129,7 @@ export function CapabilitySection({
   toggling: string | null;
   onToggle: ToggleHandler;
   onUninstall?: (id: string) => void;
+  hideSkillMountStatus?: boolean;
 }) {
   if (items.length === 0) return null;
   return (
@@ -329,7 +331,7 @@ function CapabilityCard({
               )}
 
               {/* Skill mount status */}
-              {item.type === 'skill' && item.source === 'cat-cafe' && item.mounts && (
+              {!hideSkillMountStatus && item.type === 'skill' && item.source === 'cat-cafe' && item.mounts && (
                 <MountStatusBadges mounts={item.mounts} />
               )}
 

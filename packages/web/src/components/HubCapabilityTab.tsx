@@ -31,7 +31,7 @@ import { useConfirm } from './useConfirm';
 
 type FilterSource = 'all' | 'cat-cafe' | 'external';
 
-export function HubCapabilityTab() {
+export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatus?: boolean }) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
   const [catFamilies, setCatFamilies] = useState<CatFamily[]>([]);
   const [skillHealth, setSkillHealth] = useState<SkillHealthSummary | null>(null);
@@ -242,6 +242,7 @@ export function HubCapabilityTab() {
           catFamilies={catFamilies}
           toggling={toggling}
           onToggle={handleToggle}
+          hideSkillMountStatus={hideSkillMountStatus}
         />
       ))}
 
