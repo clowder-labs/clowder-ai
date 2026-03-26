@@ -3,7 +3,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
 import { HubButton } from './HubButton';
-import { CatCafeLogo } from './icons/CatCafeLogo';
 import { VoiceCompanionButton } from './VoiceCompanionButton';
 
 interface ChatContainerHeaderProps {

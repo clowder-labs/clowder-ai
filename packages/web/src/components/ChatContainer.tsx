@@ -32,12 +32,11 @@ import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
 import { ChannelsPanel } from './ChannelsPanel';
 import { ChatContainerHeader } from './ChatContainerHeader';
+import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
 import { GameOverlayConnector } from './game/GameOverlayConnector';
 import { HubListModal } from './HubListModal';
-import { BootcampIcon } from './icons/BootcampIcon';
-import { PawIcon } from './icons/PawIcon';
 import { MessageActions } from './MessageActions';
 import { MessageNavigator } from './MessageNavigator';
 import { MobileStatusSheet } from './MobileStatusSheet';
@@ -110,7 +109,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const [showHubList, setShowHubList] = useState(false);
   const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>('chat');
   // F106: fetch bootcamp count independently of sidebar lifecycle
-  // refreshKey increments only on modal close → avoids duplicate fetch on open
+  // refreshKey increments only on modal close to avoid duplicate fetch on open
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_bootcampRefreshKey, setBootcampRefreshKey] = useState(0);
   const handleBootcampModalClose = useCallback(() => {
@@ -133,7 +132,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       cancelled = true;
     };
   }, []);
-  // F063: resizable split pane — chatBasis as percentage (20-80), persisted
+  // F063: resizable split pane, chatBasis as percentage (20-80), persisted
   // F063 Gap 6: sidebar width in px, persisted
   const SIDEBAR_DEFAULT = 240;
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
@@ -202,11 +201,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error ?? `Server error: ${res.status}`);
         }
-        const data = await res.json();
+        const responseData = await res.json();
         // Build @mention notification message and send as user message to trigger cats
         const mentions = config.voters.map((v) => `@${v}`).join(' ');
         const optionList = config.options.map((o) => `• ${o}`).join('\n');
-        const notifyMsg = `${mentions}\n投票请求：${data.question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
+        const questionText = String(responseData.question ?? '');
+        const notifyMsg = `${mentions}\n投票请求：${questionText}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
         handleSend(notifyMsg);
       } catch (err) {
         addMessage({
@@ -249,14 +249,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       clearTasks();
       prevThreadRef.current = threadId;
     }
-    // First mount — sync threadId to store without save/restore
+    // First mount: sync threadId to store without save/restore
     setCurrentThread(threadId);
     // F101: Recover game state for the new thread (or clear stale game from previous thread)
     reconnectGame(threadId).catch(() => {});
   }, [
     threadId,
     clearTasks, // Clean up non-thread-scoped refs
-    resetRefs, // First mount — sync threadId to store without save/restore
+    resetRefs, // First mount: sync threadId to store without save/restore
     setCurrentThread,
   ]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -349,13 +349,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, [threadId, clearUnread]);
 
   // F069-R5: Ack read cursor server-side. The backend finds the latest real message
-  // and acks it atomically — no frontend ID guessing, no timing races with fetchHistory.
+  // and acks it atomically, with no frontend ID guessing and no timing races with fetchHistory.
   // Fires on thread entry AND when new messages arrive (messages.length changes),
   // so switching away after receiving new messages still acks to the latest.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _messageCount = messages.length;
   useEffect(() => {
-    // Re-arm suppression before each ack. /read/latest is idempotent — any
+    // Re-arm suppression before each ack. /read/latest is idempotent, so any
     // successful POST means server cursor is at latest, so any successful ack
     // can safely clear suppression (no generation tracking needed).
     armUnreadSuppression(threadId);
@@ -405,7 +405,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     );
   }
 
-  // Export mode: print-friendly layout — no sidebars, no scroll containers
+  // Export mode: print-friendly layout with no sidebars or scroll containers
   if (isExport) {
     return (
       <div className="min-h-screen bg-white">
@@ -430,7 +430,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     <div ref={containerRef} className="flex h-screen h-dvh">
       {sidebarOpen && (
         <>
-          {/* Backdrop — mobile only */}
+          {/* Backdrop, mobile only */}
           <div
             className="fixed inset-0 bg-black/30 z-20 md:hidden"
             onClick={() => setSidebarOpen(false)}
@@ -505,39 +505,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                 <div className="text-center py-3 text-xs text-gray-300">没有更多消息了</div>
               )}
               {messages.length === 0 && !isLoadingHistory ? (
-                <div className="text-center mt-20">
-                  <PawIcon className="w-12 h-12 text-cocreator-light mx-auto mb-4" />
-                  <p className="text-lg text-gray-500 mb-1">欢迎来到 OfficeClaw!</p>
-                  <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
-                  {(() => {
-                    const isCurrentBootcamp = storeThreads.find((t) => t.id === threadId)?.bootcampState;
-                    if (isCurrentBootcamp) return null; // already in bootcamp thread
-                    if (bootcampCount > 0) {
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => setShowBootcampList(true)}
-                          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
-                          data-testid="empty-state-bootcamp-list"
-                        >
-                          <BootcampIcon className="w-4 h-4" />
-                          我的训练营（{bootcampCount}）
-                        </button>
-                      );
-                    }
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => setShowBootcampList(true)}
-                        className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
-                        data-testid="empty-state-bootcamp"
-                      >
-                        <BootcampIcon className="w-4 h-4" />
-                        第一次来？开始猫猫训练营
-                      </button>
-                    );
-                  })()}
-                </div>
+                <ChatEmptyState
+                  bootcampCount={bootcampCount}
+                  isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
+                  onOpenBootcampList={() => setShowBootcampList(true)}
+                />
               ) : (
                 renderItems.map((item) =>
                   item.kind === 'a2a_group' ? (
@@ -596,7 +568,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           />
         )}
 
-        {/* F101: Game overlay — renders when a game is active */}
+        {/* F101: Game overlay, renders when a game is active */}
         <GameOverlayConnector
           gameView={gameView}
           isGameActive={isGameActive}
