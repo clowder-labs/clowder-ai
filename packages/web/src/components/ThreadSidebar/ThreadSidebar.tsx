@@ -450,49 +450,49 @@ export function ThreadSidebar({
         </div>
 
         <div className="px-3 py-2 border-t border-b border-cocreator-light">
-          <div className="flex items-center justify-between mb-2">
-            <a
-              href="/"
-              className="flex w-full items-center gap-1.5 px-2 py-1 text-sm font-semibold text-cafe-black transition-colors hover:text-cocreator-primary"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              对话
-            </a>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={onBootcampClick ?? createBootcampThread}
-                disabled={!onBootcampClick && isCreating}
-                className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
-                title="猫猫训练营"
-                data-testid="sidebar-bootcamp"
+          <div className="flex flex-col gap-4 items-start">
+            <div className="flex items-center justify-between">
+              <a
+                href="/"
+                className="flex items-center gap-1.5 px-2 py-1 text-sm font-semibold text-cafe-black transition-colors hover:text-cocreator-primary"
               >
-                <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
-              </button>
-              {false && onHubClick && (
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                对话
+              </a>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={onHubClick}
-                  className="text-xs px-2 py-1 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                  title="IM Hub"
-                  data-testid="sidebar-hub"
+                  onClick={onBootcampClick ?? createBootcampThread}
+                  disabled={!onBootcampClick && isCreating}
+                  className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
+                  title="猫猫训练营"
+                  data-testid="sidebar-bootcamp"
                 >
-                  <HubIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowPicker(true)}
-                disabled={isCreating}
-                className="text-xs px-3 py-1.5 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors font-medium"
-              >
-                {isCreating ? '...' : '+ 新对话'}
+                  <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
               </button>
+                {false && onHubClick && (
+                  <button
+                    type="button"
+                    onClick={onHubClick}
+                    className="text-xs px-2 py-1 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                    title="IM Hub"
+                    data-testid="sidebar-hub"
+                  >
+                    <HubIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  disabled={isCreating}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors font-medium"
+                >
+                  {isCreating ? '...' : '+ 新对话'}
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col gap-4 items-start">
             <button
               type="button"
               onClick={() => onMenuClick?.('models')}
