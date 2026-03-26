@@ -22,7 +22,7 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   { id: 'anthropic', label: 'Claude', command: 'claude' },
   { id: 'openai', label: 'Codex', command: 'codex' },
   { id: 'google', label: 'Gemini', command: 'gemini' },
-  { id: 'dare', label: 'Code', command: 'dare' },
+  { id: 'dare', label: 'Dare', command: 'dare' },
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
   { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app' },

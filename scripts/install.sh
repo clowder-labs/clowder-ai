@@ -472,7 +472,7 @@ apply_modelarts_custom_env() {
     collect_env "CAT_CAFE_ALLOWED_CLIENTS" "dare"
     collect_env "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
     collect_env "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
-    collect_env "CAT_CAFE_CLIENT_LABELS" "dare:九问"
+    collect_env "CAT_CAFE_CLIENT_LABELS" "dare:jiuwen"
     clear_env "CODEX_AUTH_MODE"
     clear_env "OPENAI_API_KEY"; clear_env "OPENAI_BASE_URL"; clear_env "OPENAI_API_BASE"; clear_env "CAT_CODEX_MODEL"
     clear_env "GEMINI_API_KEY"; clear_env "GEMINI_BASE_URL"; clear_env "CAT_GEMINI_MODEL"

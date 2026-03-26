@@ -724,7 +724,7 @@ function Set-ModelArtsCustomEnv {
     Set-InstallerEnvValue $State "CAT_CAFE_ALLOWED_CLIENTS" "dare"
     Set-InstallerEnvValue $State "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
     Set-InstallerEnvValue $State "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
-    Set-InstallerEnvValue $State "CAT_CAFE_CLIENT_LABELS" "dare:九问"
+    Set-InstallerEnvValue $State "CAT_CAFE_CLIENT_LABELS" "dare:jiuwen"
     Add-InstallerEnvDelete $State "CODEX_AUTH_MODE"
     Add-InstallerEnvDelete $State "OPENAI_API_KEY"
     Add-InstallerEnvDelete $State "OPENAI_BASE_URL"

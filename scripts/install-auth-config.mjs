@@ -456,7 +456,7 @@ function buildModelartsBreed(template, breedId, options) {
   return {
     id: breed.id,
     catId: options.catId,
-    name: breed.name,
+    name: options.displayName ?? breed.name,
     displayName: options.displayName ?? breed.displayName,
     nickname: options.nickname,
     avatar: options.avatar ?? breed.avatar,
