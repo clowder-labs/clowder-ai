@@ -129,14 +129,18 @@ Function un.CloseRunningServices
     ExecWait '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"'
 FunctionEnd
 
-Function CleanupManagedPayload
+; Delete everything in $INSTDIR except user-data dirs, using cmd /c rd for speed.
+; Preserves: .cat-cafe, data, logs, .env, cat-config.json, uninstall.exe
+!macro _CleanupManagedPayload
   RMDir /r "$INSTDIR\packages"
   RMDir /r "$INSTDIR\scripts"
   RMDir /r "$INSTDIR\docs"
   RMDir /r "$INSTDIR\cat-cafe-skills"
-  RMDir /r "$INSTDIR\tools"
   RMDir /r "$INSTDIR\installer-seed"
   RMDir /r "$INSTDIR\vendor"
+  ; tools/python has tens of thousands of files — cmd rd /s /q is much faster than NSIS RMDir /r
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\tools"'
+  Pop $0
   Delete "$INSTDIR\.clowder-release.json"
   Delete "$INSTDIR\.env.example"
   Delete "$INSTDIR\package.json"
@@ -157,36 +161,14 @@ Function CleanupManagedPayload
   Delete "$INSTDIR\tsconfig.base.json"
   Delete "$INSTDIR\.npmrc"
   Delete "$INSTDIR\cat-template.json"
+!macroend
+
+Function CleanupManagedPayload
+  !insertmacro _CleanupManagedPayload
 FunctionEnd
 
 Function un.CleanupManagedPayload
-  RMDir /r "$INSTDIR\packages"
-  RMDir /r "$INSTDIR\scripts"
-  RMDir /r "$INSTDIR\docs"
-  RMDir /r "$INSTDIR\cat-cafe-skills"
-  RMDir /r "$INSTDIR\tools"
-  RMDir /r "$INSTDIR\installer-seed"
-  RMDir /r "$INSTDIR\vendor"
-  Delete "$INSTDIR\.clowder-release.json"
-  Delete "$INSTDIR\.env.example"
-  Delete "$INSTDIR\package.json"
-  Delete "$INSTDIR\pnpm-lock.yaml"
-  Delete "$INSTDIR\pnpm-workspace.yaml"
-  Delete "$INSTDIR\README.md"
-  Delete "$INSTDIR\SETUP.md"
-  Delete "$INSTDIR\LICENSE"
-  Delete "$INSTDIR\AGENTS.md"
-  Delete "$INSTDIR\CLA.md"
-  Delete "$INSTDIR\CLAUDE.md"
-  Delete "$INSTDIR\GEMINI.md"
-  Delete "$INSTDIR\SECURITY.md"
-  Delete "$INSTDIR\CONTRIBUTING.md"
-  Delete "$INSTDIR\MAINTAINERS.md"
-  Delete "$INSTDIR\TRADEMARKS.md"
-  Delete "$INSTDIR\biome.json"
-  Delete "$INSTDIR\tsconfig.base.json"
-  Delete "$INSTDIR\.npmrc"
-  Delete "$INSTDIR\cat-template.json"
+  !insertmacro _CleanupManagedPayload
 FunctionEnd
 
 Function WriteShellShortcuts
