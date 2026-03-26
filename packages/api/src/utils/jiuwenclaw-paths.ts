@@ -51,6 +51,10 @@ export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: str
     if (existsSync(candidate)) return candidate;
   }
 
+  // Shared Python from Windows installer layout (embeddable + deps in Lib/site-packages)
+  const sharedPython = join(resolveRepoRoot(), 'tools', 'python', 'python.exe');
+  if (existsSync(sharedPython)) return sharedPython;
+
   const legacyCandidates =
     process.platform === 'win32'
       ? [

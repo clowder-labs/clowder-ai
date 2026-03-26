@@ -19,6 +19,7 @@ import {
   resolveJiuwenClawExecutable,
   resolveJiuwenClawPythonBin,
 } from '../../../../../utils/jiuwenclaw-paths.js';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './relayclaw-catcafe-mcp.js';
 
 const log = createModuleLogger('relayclaw-sidecar');
@@ -205,14 +206,26 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     this.recentLogs = '';
 
     const launchCommand = buildRelayClawLaunchCommand(runtime);
+
+    // Windows Python: force UTF-8 and prepend bundled Python to PATH
+    const spawnEnv: Record<string, string | undefined> = {
+      ...process.env,
+      ...runtime.env,
+      AGENT_PORT: String(agentPort),
+      WEB_PORT: String(webPort),
+    };
+    if (process.platform === 'win32') {
+      spawnEnv.PYTHONIOENCODING = 'utf-8';
+      spawnEnv.PYTHONUTF8 = '1';
+      const bundledPythonDir = join(resolveCatCafeHostRoot(process.cwd()), 'tools', 'python');
+      if (existsSync(join(bundledPythonDir, 'python.exe'))) {
+        spawnEnv.PATH = `${bundledPythonDir};${process.env.PATH ?? ''}`;
+      }
+    }
+
     const child = this.spawnFn(launchCommand.command, launchCommand.args, {
       cwd: launchCommand.cwd,
-      env: {
-        ...process.env,
-        ...runtime.env,
-        AGENT_PORT: String(agentPort),
-        WEB_PORT: String(webPort),
-      },
+      env: spawnEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     this.child = child;
