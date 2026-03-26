@@ -31,6 +31,13 @@ export interface WindowsShimSpawn {
   args: string[];
 }
 
+export function shouldSpawnNativeWindowsBinary(command: string): boolean {
+  const normalized = String(command ?? '').trim();
+  if (!normalized) return false;
+  if (/\.(cmd|bat|ps1)$/i.test(normalized)) return false;
+  return /\.(exe|com)$/i.test(normalized);
+}
+
 /**
  * Parse a .cmd shim file to extract the Node.js script target path.
  *

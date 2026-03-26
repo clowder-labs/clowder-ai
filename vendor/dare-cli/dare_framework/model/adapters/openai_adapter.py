@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from abc import ABC
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -54,8 +55,8 @@ class OpenAIModelAdapter(IModelAdapter):
     ) -> None:
         self._name = name or "openai"
         self._model = model
-        self._api_key = api_key
-        self._endpoint = endpoint
+        self._api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self._endpoint = endpoint or os.getenv("OPENAI_BASE_URL")
         self._http_client_options = dict(http_client_options or {})
         self._extra: dict[str, Any] = dict(extra or {})
         self._client: Any = None
@@ -134,6 +135,8 @@ class OpenAIModelAdapter(IModelAdapter):
 
         if self._endpoint:
             kwargs["base_url"] = self._endpoint
+            # Some OpenAI-compatible gateways only support streamed chat completions.
+            kwargs.setdefault("streaming", True)
 
         kwargs.update(self._extra)
 

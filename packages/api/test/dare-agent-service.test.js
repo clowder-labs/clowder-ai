@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
 import {
   DareAgentService,
   resolveVendorDarePath,
+  resolveVendoredDareExecutable,
   resolveVenvPython,
 } from '../dist/domains/cats/services/agents/providers/DareAgentService.js';
 
@@ -225,6 +226,33 @@ describe('DareAgentService', () => {
     assert.ok(!args.includes('--workspace'), `should not have --workspace: ${args}`);
     const opts = spawnFn.mock.calls[0].arguments[2];
     assert.strictEqual(opts.cwd, '/opt/dare');
+  });
+
+  test('uses bundled dare executable directly when darePath points to an exe', async () => {
+    const tmpExeDir = join(tmpdir(), `dare-exe-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    mkdirSync(tmpExeDir, { recursive: true });
+    const dareExe = join(tmpExeDir, 'dare.exe');
+    writeFileSync(dareExe, '');
+
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      darePath: dareExe,
+      model: 'test/model',
+    });
+    const promise = collect(service.invoke('Test exe launch', { workingDirectory: '/tmp/project' }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const command = spawnFn.mock.calls[0].arguments[0];
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const opts = spawnFn.mock.calls[0].arguments[2];
+
+    assert.strictEqual(command, dareExe);
+    assert.ok(!args.includes('-m'), `exe launch should not use -m client: ${args}`);
+    assert.strictEqual(opts.cwd, dirname(dareExe));
   });
 
   test('metadata includes provider=dare and model', async () => {
@@ -631,7 +659,7 @@ describe('DareAgentService', () => {
       const messages = await collect(service.invoke('Test missing path'));
       const errorMsg = messages.find((m) => m.type === 'error');
       assert.ok(errorMsg, 'expected error message');
-      assert.match(errorMsg.error, /DARE CLI 未配置路径/);
+      assert.match(errorMsg.error, /DARE CLI path is not configured/);
     } finally {
       if (oldDarePath !== undefined) process.env.DARE_PATH = oldDarePath;
       else delete process.env.DARE_PATH;
@@ -705,7 +733,7 @@ describe('DareAgentService', () => {
     const messages = await collect(service.invoke('Test invalid path'));
     const errorMsg = messages.find((m) => m.type === 'error');
     assert.ok(errorMsg, 'expected error message');
-    assert.match(errorMsg.error, /DARE_PATH 无效/);
+    assert.match(errorMsg.error, /DARE_PATH invalid/);
   });
 
   // DARE_CONTEXT_WINDOW_TOKENS injection via buildEnv
@@ -868,18 +896,25 @@ describe('resolveVendorDarePath (F135)', () => {
   test('returns absolute path ending with vendor/dare-cli', () => {
     const result = resolveVendorDarePath();
     assert.ok(result.endsWith(join('vendor', 'dare-cli')), `expected vendor/dare-cli suffix, got: ${result}`);
-    assert.ok(result.startsWith('/'), `expected absolute path, got: ${result}`);
+    assert.ok(isAbsolute(result), `expected absolute path, got: ${result}`);
   });
 
-  test('does not depend on process.cwd()', () => {
+  test('honors CAT_CAFE_CONFIG_ROOT when process.cwd() changes', () => {
     const originalCwd = process.cwd();
+    const originalConfigRoot = process.env.CAT_CAFE_CONFIG_ROOT;
+    process.env.CAT_CAFE_CONFIG_ROOT = originalCwd;
     const result1 = resolveVendorDarePath();
-    process.chdir('/tmp');
+    process.chdir(tmpdir());
     try {
       const result2 = resolveVendorDarePath();
-      assert.strictEqual(result1, result2, 'resolveVendorDarePath must not vary with cwd');
+      assert.strictEqual(result1, result2, 'resolveVendorDarePath must honor CAT_CAFE_CONFIG_ROOT');
     } finally {
       process.chdir(originalCwd);
+      if (originalConfigRoot === undefined) {
+        delete process.env.CAT_CAFE_CONFIG_ROOT;
+      } else {
+        process.env.CAT_CAFE_CONFIG_ROOT = originalConfigRoot;
+      }
     }
   });
 
@@ -892,6 +927,14 @@ describe('resolveVendorDarePath (F135)', () => {
   });
 });
 
+describe('resolveVendoredDareExecutable', () => {
+  test('returns absolute path ending with vendor/dare.exe', () => {
+    const result = resolveVendoredDareExecutable();
+    assert.ok(result.endsWith(join('vendor', 'dare.exe')), `expected vendor/dare.exe suffix, got: ${result}`);
+    assert.ok(isAbsolute(result), `expected absolute path, got: ${result}`);
+  });
+});
+
 // F135: resolveVenvPython helper
 describe('resolveVenvPython (F135)', () => {
   test('returns .venv/bin/python when it exists', () => {
@@ -900,6 +943,18 @@ describe('resolveVenvPython (F135)', () => {
     mkdirSync(binDir, { recursive: true });
     const py = join(binDir, 'python');
     writeFileSync(py, '#!/usr/bin/env python\n');
+
+    const resolved = resolveVenvPython(tempRoot);
+    assert.strictEqual(resolved, py);
+    assert.ok(existsSync(resolved));
+  });
+
+  test('returns .venv/Scripts/python.exe when it exists', () => {
+    const tempRoot = join(tmpdir(), `dare-test-win-${Date.now()}`);
+    const scriptsDir = join(tempRoot, '.venv', 'Scripts');
+    mkdirSync(scriptsDir, { recursive: true });
+    const py = join(scriptsDir, 'python.exe');
+    writeFileSync(py, '');
 
     const resolved = resolveVenvPython(tempRoot);
     assert.strictEqual(resolved, py);

@@ -260,6 +260,48 @@ describe('HubAddMemberWizard', () => {
     expect(container.textContent).not.toContain('Claude Sponsor');
   });
 
+  it('keeps known clients visible even when their local CLI is unavailable', async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/cats') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/provider-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: null,
+            providers: [],
+          }),
+        );
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [
+              { id: 'anthropic', label: 'Claude', command: 'claude', available: false },
+              { id: 'openai', label: 'Codex', command: 'codex', available: false },
+              { id: 'google', label: 'Gemini', command: 'gemini', available: false },
+              { id: 'dare', label: 'Dare', command: 'dare', available: false },
+              { id: 'opencode', label: 'OpenCode', command: 'opencode', available: false },
+              { id: 'relayclaw', label: 'jiuwenClaw', command: 'jiuwenclaw-app', available: true },
+              { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: false },
+            ],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubAddMemberWizard, { open: true, onClose: vi.fn(), onComplete: vi.fn() }));
+    });
+    await flushEffects();
+
+    expect(queryField(container, '[aria-label="Client Row 1"]').textContent).toContain('Claude');
+    expect(queryField(container, '[aria-label="Client Row 1"]').textContent).toContain('Codex');
+    expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('jiuwenClaw');
+  });
+
   it('allows opencode member with bare model (ocProviderName is set in editor)', async () => {
     const onComplete = vi.fn();
 
