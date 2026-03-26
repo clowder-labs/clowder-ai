@@ -182,10 +182,21 @@ async def run_execute_loop(
             agent._context.stm_add(assistant_message)
 
             outputs.append({"content": response.content})
+
+            # Guard: if the model returned no text and no tool calls, and
+            # prior iterations produced no meaningful text output either,
+            # treat this as a failed execution rather than a vacuous success.
+            has_meaningful_content = bool(
+                (response.content or "").strip()
+            ) or any(
+                isinstance(o, dict)
+                and bool((o.get("content") or "").strip())
+                for o in outputs[:-1]
+            )
             return await agent._finalize_execute(execute_start, {
-                "success": True,
+                "success": has_meaningful_content,
                 "outputs": outputs,
-                "errors": errors,
+                "errors": errors if has_meaningful_content else errors + ["model produced no meaningful output"],
             })
 
         capability_index = await agent._capability_index() if response.tool_calls else {}

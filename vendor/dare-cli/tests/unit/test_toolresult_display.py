@@ -106,7 +106,13 @@ class TestOuterPayloadToolResult:
         assert text is not None
 
     def test_nontext_output_outer_payload(self) -> None:
-        """Outer dict with non-text output structure and ToolResult in result."""
+        """Outer dict with non-text output structure and ToolResult in result.
+
+        When the output contains only non-textual data (e.g. file lists) and
+        no displayable text fields, normalize_run_output returns None so that
+        callers can provide a human-readable fallback instead of dumping raw
+        JSON scaffolding to the user.
+        """
         outer = {
             "success": True,
             "output": {"files": ["a.txt", "b.txt"]},
@@ -116,7 +122,8 @@ class TestOuterPayloadToolResult:
         }
         text = normalize_run_output(outer)
         self._assert_no_repr_leak(text)
-        assert text is not None
+        # Non-text output with only status metadata → None (caller provides fallback)
+        assert text is None
 
     def test_toolresult_serialized_via_json_default(self) -> None:
         """ToolResult in dict should be serialized via _json_default, not repr."""
@@ -127,6 +134,44 @@ class TestOuterPayloadToolResult:
         self._assert_no_repr_leak(text)
         assert text is not None
         assert "hello" in text
+
+
+class TestEmptyToolResultNeverExposedAsJson:
+    """Regression: empty tool results must not be dumped as raw JSON to users.
+
+    Covers the scenario where a command succeeds (exit_code=0) but produces
+    no stdout/stderr.  The old behavior was to json.dumps the entire wrapper
+    dict ({"success":true,"output":{"stdout":""},...}) and return it as the
+    agent's user-visible message.
+    """
+
+    def test_empty_stdout_tool_result_wrapper_returns_none(self) -> None:
+        """Exact structure produced by tool_executor → execute_engine outputs."""
+        wrapper = {
+            "success": True,
+            "status": "success",
+            "output": {"stdout": "", "stderr": "", "exit_code": 0,
+                       "stdout_truncated": False, "stderr_truncated": False},
+            "error": None,
+            "result": {"stdout": "", "stderr": "", "exit_code": 0,
+                       "stdout_truncated": False, "stderr_truncated": False},
+        }
+        text = normalize_run_output(wrapper)
+        assert text is None, (
+            f"Empty tool result should return None, not raw JSON: {text!r}"
+        )
+
+    def test_empty_content_envelope_returns_none(self) -> None:
+        """RunResult.output after _with_output_envelope with empty content."""
+        envelope = {"content": "", "metadata": {}, "usage": None}
+        text = normalize_run_output(envelope)
+        assert text is None
+
+    def test_nonempty_content_envelope_still_works(self) -> None:
+        """Envelope with actual content must still be returned."""
+        envelope = {"content": "Task completed successfully.", "metadata": {}}
+        text = normalize_run_output(envelope)
+        assert text == "Task completed successfully."
 
 
 class TestBuildReplyEnvelopeToolResult:
