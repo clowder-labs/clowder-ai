@@ -484,6 +484,11 @@ export async function* routeSerial(
             textContent += `${textContent ? '\n\n' : ''}[错误] ${msg.error}`;
           }
         }
+        // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
+        // state — mark hadError so we don't fall through to silent_completion.
+        if (msg.type === 'done' && msg.errorCode) {
+          hadError = true;
+        }
         if (msg.metadata && !firstMetadata) {
           firstMetadata = msg.metadata;
         }
