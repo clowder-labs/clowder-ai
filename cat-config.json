@@ -478,7 +478,7 @@
         {
           "id": "dare-default",
           "provider": "dare",
-          "defaultModel": "z-ai/glm-4.7",
+          "defaultModel": "z-ai/glm-5",
           "mcpSupport": false,
           "cli": {
             "command": "python",
