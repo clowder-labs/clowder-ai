@@ -157,6 +157,149 @@ describe('RelayClawAgentService', () => {
     assert.equal(messages[2].content, 'Final answer');
   });
 
+  it('emits final text even after visible deltas have already been streamed', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.delta',
+              content: '我来帮你总结一下。',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: '这里是最终总结。',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Summarize after tooling')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.equal(messages[1].content, '我来帮你总结一下。');
+    assert.equal(messages[2].content, '\n\n这里是最终总结。');
+  });
+
+  it('emits only the final suffix when chat.final extends prior streamed text', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.delta',
+              content: 'Hello',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: 'Hello world',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Reply with Hello world')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.equal(messages[1].content, 'Hello');
+    assert.equal(messages[2].content, ' world');
+  });
+
+  it('normalizes structured chat.final payloads before emitting final text', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: JSON.stringify({ output: '\nNormalized final text', result_type: 'answer' }),
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Reply with normalized final text')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.equal(messages[1].content, 'Normalized final text');
+  });
+
   it('waits for jiuwenclaw initialization markers before treating the sidecar as ready', () => {
     assert.equal(__relayClawInternals.isSidecarReady('server listening'), false);
     assert.equal(__relayClawInternals.isSidecarReady('[JiuWenClaw] 初始化完成: agent_name=main_agent'), true);

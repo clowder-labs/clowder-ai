@@ -9,7 +9,7 @@
 export interface RelayClawAgentConfig {
   /** WebSocket endpoint URL (e.g. "ws://127.0.0.1:18092") */
   url?: string;
-  /** Request timeout in ms (default: 180_000 — agent tasks can be long) */
+  /** Request timeout in ms (default: 600_000 — agent tasks can be long) */
   timeoutMs?: number;
   /** Channel ID sent in requests (default: "catcafe") */
   channelId?: string;
