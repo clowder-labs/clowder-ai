@@ -1165,7 +1165,7 @@ function buildWindowsDesktopLauncher(bundleDir, options) {
 }
 
 function buildInstallerOutputPath(outputDir, version) {
-  return join(outputDir, `ClowderAI-${version}-windows-x64-setup.exe`);
+  return join(outputDir, `OfficeClaw-${version}-windows-x64-setup.exe`);
 }
 
 function invokeMakensis(installerScript, outputExe, bundleDir, version) {
@@ -1225,6 +1225,14 @@ async function main() {
 
   logStep('Building WebView2 desktop launcher');
   buildWindowsDesktopLauncher(bundleDir, options);
+
+  logStep('Staging desktop assets');
+  const desktopSplashSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg');
+  if (existsSync(desktopSplashSource)) {
+    const assetsTarget = join(bundleDir, 'assets');
+    ensureDir(assetsTarget);
+    cpSync(desktopSplashSource, join(assetsTarget, 'splash.jpg'), { force: true });
+  }
 
   logStep('Finalizing runtime bundle');
   ensureRuntimeSkeleton(bundleDir);

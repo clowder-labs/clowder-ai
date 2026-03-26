@@ -65,6 +65,7 @@ internal sealed class LauncherForm : Form
     private readonly object _logLock = new object();
     private readonly NotifyIcon _notifyIcon;
     private readonly Label _statusLabel;
+    private readonly PictureBox _splashBox;
     private readonly string _projectRoot;
     private readonly string _logFilePath;
     private readonly string _runtimeStatePath;
@@ -91,31 +92,34 @@ internal sealed class LauncherForm : Form
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
 
-        // 设置淡粉色到白色渐变背景
-        Paint += (sender, e) =>
+        _splashBox = new PictureBox
         {
-            var graphics = e.Graphics;
-            var rect = new Rectangle(0, 0, Width, Height);
-            using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                rect,
-                Color.FromArgb(255, 240, 245), // 淡粉色
-                Color.White,                      // 白色
-                System.Drawing.Drawing2D.LinearGradientMode.Vertical))
-            {
-                graphics.FillRectangle(brush, rect);
-            }
+            Dock = DockStyle.Fill,
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Black,
         };
+
+        var splashImagePath = Path.Combine(_projectRoot, "assets", "splash.jpg");
+        if (File.Exists(splashImagePath))
+        {
+            try { _splashBox.Image = Image.FromFile(splashImagePath); }
+            catch { /* fall back to plain background */ }
+        }
 
         _statusLabel = new Label
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Bottom,
+            Height = 80,
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font("Segoe UI", 14f, FontStyle.Regular),
+            ForeColor = Color.White,
+            BackColor = Color.Transparent,
             Text = "Preparing Clowder AI...",
             AutoEllipsis = true,
         };
 
-        Controls.Add(_statusLabel);
+        _splashBox.Controls.Add(_statusLabel);
+        Controls.Add(_splashBox);
         Shown += async (_, __) => await InitializeAsync();
         FormClosing += OnFormClosing;
         FormClosed += (_, __) => DisposeNotifyIcon();
@@ -506,6 +510,12 @@ internal sealed class LauncherForm : Form
         };
 
         Controls.Clear();
+        if (_splashBox.Image != null)
+        {
+            _splashBox.Image.Dispose();
+            _splashBox.Image = null;
+        }
+        _splashBox.Dispose();
         Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);

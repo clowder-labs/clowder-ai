@@ -1,9 +1,28 @@
-Unicode True
+﻿Unicode True
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
+!include "nsDialogs.nsh"
+
+; --------------- Visual assets ---------------
+; Place these files under packaging\windows\assets\:
+;   app.ico              — 256x256 multi-res icon
+;   welcome.bmp          — 164x314 px, 24-bit BMP (welcome & finish left panel)
+;   header.bmp           — 150x57  px, 24-bit BMP (directory & instfiles header)
+!define ASSETS_DIR "${__FILEDIR__}\assets"
+
+!define MUI_ICON   "${ASSETS_DIR}\app.ico"
+!define MUI_UNICON "${ASSETS_DIR}\app.ico"
+
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP       "${ASSETS_DIR}\header.bmp"
+!define MUI_HEADERIMAGE_RIGHT
+
+; --------------- Abort warning ---------------
+!define MUI_ABORTWARNING
+!define MUI_ABORTWARNING_TEXT "确定要取消安装 ${APP_NAME} 吗？"
 
 !ifndef APP_VERSION
 !define APP_VERSION "0.0.0"
@@ -14,7 +33,7 @@ SetCompressor /SOLID lzma
 !endif
 
 !ifndef OUTPUT_EXE
-!define OUTPUT_EXE "ClowderAI-windows-x64-setup.exe"
+!define OUTPUT_EXE "OfficeClaw-windows-x64-setup.exe"
 !endif
 
 !ifndef MAX_REL_PATH_LEN
@@ -25,7 +44,7 @@ SetCompressor /SOLID lzma
 !define MAX_INSTALL_ROOT_LEN "8"
 !endif
 
-!define APP_NAME "Clowder AI"
+!define APP_NAME "OfficeClaw"
 !define COMPANY_KEY "ClowderLabs"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define INSTALL_KEY "Software\${COMPANY_KEY}\${APP_NAME}"
@@ -40,14 +59,46 @@ BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
 ShowUninstDetails show
 
-!insertmacro MUI_PAGE_WELCOME
+; --------------- Welcome page (custom nsDialogs, no left bitmap) ---------------
+Page custom WelcomePageCreate
+
+; --------------- Directory page ---------------
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave
 !insertmacro MUI_PAGE_DIRECTORY
+
+; --------------- Install page ---------------
 !insertmacro MUI_PAGE_INSTFILES
+
+; --------------- Finish page ---------------
+!define MUI_FINISHPAGE_TITLE "安装完成"
+!define MUI_FINISHPAGE_TEXT "${APP_NAME} 已成功安装到您的计算机。$\r$\n$\r$\n点击「完成」退出安装向导。"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\ClowderAI.Desktop.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "立即启动 ${APP_NAME}"
+!define MUI_FINISHPAGE_NOREBOOTSUPPORT
 !insertmacro MUI_PAGE_FINISH
+
+; --------------- Uninstaller pages ---------------
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
-!insertmacro MUI_LANGUAGE "English"
+
+; --------------- Language ---------------
+!insertmacro MUI_LANGUAGE "SimpChinese"
+
+Var WelcomeDialog
+
+Function WelcomePageCreate
+  !insertmacro MUI_HEADER_TEXT "欢迎安装 ${APP_NAME}" "本向导将引导您完成 ${APP_NAME} v${APP_VERSION} 的安装"
+  nsDialogs::Create 1018
+  Pop $WelcomeDialog
+  ${If} $WelcomeDialog == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  $\u2713 Node.js 运行时$\r$\n  $\u2713 Redis 数据库$\r$\n  $\u2713 Web 管理界面$\r$\n  $\u2713 MCP Server$\r$\n$\r$\n点击「下一步」选择安装位置。"
+  Pop $0
+
+  nsDialogs::Show
+FunctionEnd
 
 Function .onInit
   SetShellVarContext current
