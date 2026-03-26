@@ -819,7 +819,7 @@
     {
       "id": "F134",
       "name": "Feishu Group Chat — 飞书群聊多用户支持",
-      "status": "done (Phase A-D) | **Owner**: Ragdoll | **Priority**: P1 | **PR**: #697, #699, #700, #705",
+      "status": "done (Phase A-E) | **Owner**: Ragdoll | **Priority**: P1 | **PR**: #697, #699, #700, #705, #745",
       "file": "F134-feishu-group-chat.md"
     },
     {
@@ -837,7 +837,7 @@
     {
       "id": "F137",
       "name": "WeChat Personal Gateway — 微信个人号 iLink Bot 接入",
-      "status": "in-progress | **Owner**: 金渐层 | **Priority**: P1",
+      "status": "done | **Completed**: 2026-03-25 | **Owner**: 金渐层 | **Priority**: P1",
       "file": "F137-weixin-personal-gateway.md"
     },
     {
@@ -845,7 +845,13 @@
       "name": "Cat Café Video Studio — AI 视频制作管线",
       "status": "spec | **Owner**: 金渐层 | **Priority**: P1",
       "file": "F138-video-studio.md"
+    },
+    {
+      "name": "Unified Schedule Abstraction — 统一调度抽象",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F139-unified-schedule-abstraction.md",
+      "id": "F139"
     }
   ],
-  "generated_at": "2026-03-25T03:34:06.623Z"
+  "generated_at": "2026-03-27T03:29:31.270Z"
 }

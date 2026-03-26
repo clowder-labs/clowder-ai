@@ -506,9 +506,16 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'FEISHU_VERIFICATION_TOKEN',
     defaultValue: '(未设置)',
-    description: '飞书 webhook 验证 token',
+    description: '飞书 webhook 验证 token（仅 webhook 模式需要）',
     category: 'connector',
     sensitive: true,
+  },
+  {
+    name: 'FEISHU_CONNECTION_MODE',
+    defaultValue: 'webhook',
+    description: '飞书连接模式：webhook（需公网 URL）或 websocket（长连接，无需公网）',
+    category: 'connector',
+    sensitive: false,
   },
   {
     name: 'DINGTALK_APP_KEY',
