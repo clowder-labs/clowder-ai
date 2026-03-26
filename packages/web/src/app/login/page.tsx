@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
@@ -93,10 +94,7 @@ export default function LoginPage() {
             <div className="flex gap-8">
               <div className="max-w-[150px]">
                 <div className="mb-3">
-                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
-                    <rect width="32" height="32" rx="8" fill="#F3E8FF" />
-                    <path d="M8 10h16v2H8zM8 15h12v2H8zM8 20h14v2H8z" fill="#9333EA" />
-                  </svg>
+                  <Image src="/images/login1.svg" alt="AI PPT" width={32} height={32} />
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">专业级 AI PPT生产力</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">行业专业级 AI 生成能力，一键完成高质量 PPT。</p>
@@ -104,19 +102,7 @@ export default function LoginPage() {
 
               <div className="max-w-[150px]">
                 <div className="mb-3">
-                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
-                    <rect width="32" height="32" rx="8" fill="#DBEAFE" />
-                    <circle cx="10" cy="12" r="3" fill="#2563EB" />
-                    <circle cx="22" cy="12" r="3" fill="#2563EB" />
-                    <circle cx="16" cy="22" r="3" fill="#2563EB" />
-                    <path
-                      d="M10 15l3 3 6-6"
-                      stroke="#2563EB"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <Image src="/images/login2.svg" alt="专家团思辨模式" width={32} height={32} />
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">专家团思辨模式</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
@@ -126,11 +112,7 @@ export default function LoginPage() {
 
               <div className="max-w-[150px]">
                 <div className="mb-3">
-                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
-                    <rect width="32" height="32" rx="8" fill="#DCFCE7" />
-                    <path d="M16 8v8M16 20v4M8 14h6M18 14h6" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" />
-                    <rect x="10" y="10" width="12" height="12" rx="2" stroke="#16A34A" strokeWidth="2" fill="none" />
-                  </svg>
+                  <Image src="/images/login3.svg" alt="一键本地部署" width={32} height={32} />
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">一键本地部署</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">具备本地文件读写能力，无缝处理多格式文件。</p>
@@ -138,18 +120,7 @@ export default function LoginPage() {
 
               <div className="max-w-[150px]">
                 <div className="mb-3">
-                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
-                    <rect width="32" height="32" rx="8" fill="#FEF3C7" />
-                    <circle cx="16" cy="12" r="4" stroke="#D97706" strokeWidth="2" fill="none" />
-                    <path
-                      d="M10 22c0-3.3 2.7-6 6-6s6 2.7 6 6"
-                      stroke="#D97706"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      fill="none"
-                    />
-                    <path d="M12 16h8" stroke="#D97706" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
+                  <Image src="/images/login4.svg" alt="多渠道接入" width={32} height={32} />
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">多渠道接入</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">可接入飞书、微信、钉钉、小艺、Welink 等多渠道。</p>
