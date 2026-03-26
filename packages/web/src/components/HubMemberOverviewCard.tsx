@@ -8,7 +8,8 @@ function safeAvatarSrc(value: string | null | undefined): string | null {
   return null;
 }
 
-function humanizeProvider(provider: string) {
+function humanizeProvider(provider: string, labels?: Record<string, string>) {
+  if (labels?.[provider]) return labels[provider];
   if (provider === 'openai') return 'OpenAI';
   if (provider === 'anthropic') return 'Anthropic';
   if (provider === 'google') return 'Gemini';
@@ -19,7 +20,8 @@ function humanizeProvider(provider: string) {
   return provider;
 }
 
-function clientRuntimeLabel(cat: CatData, configCat?: CatConfig) {
+function clientRuntimeLabel(cat: CatData, configCat?: CatConfig, labels?: Record<string, string>) {
+  if (labels?.[cat.provider]) return labels[cat.provider];
   if (cat.provider === 'relayclaw') return 'jiuwen';
   if (cat.provider === 'dare') return 'Code';
   const accountRef = (cat.accountRef ?? cat.providerProfileId ?? '').toLowerCase();
@@ -31,7 +33,7 @@ function clientRuntimeLabel(cat: CatData, configCat?: CatConfig) {
   if (accountRef.includes('jiu') || accountRef.includes('modelarts')) return 'jiuwen';
   if (cat.provider === 'antigravity') return 'Antigravity';
   if (cat.source === 'runtime' && cat.provider === 'openai') return 'OpenAI-Compatible';
-  return humanizeProvider(configCat?.provider ?? cat.provider);
+  return humanizeProvider(configCat?.provider ?? cat.provider, labels);
 }
 
 function accountSummary(cat: CatData) {
@@ -49,12 +51,12 @@ function accountSummary(cat: CatData) {
   return `API Key · ${accountRef}`;
 }
 
-function getMetaSummary(cat: CatData, configCat?: CatConfig) {
+function getMetaSummary(cat: CatData, configCat?: CatConfig, labels?: Record<string, string>) {
   if (cat.provider === 'antigravity') {
     return `Antigravity · ${configCat?.model ?? cat.defaultModel} · CLI Bridge`;
   }
 
-  return `${clientRuntimeLabel(cat, configCat)} · ${configCat?.model ?? cat.defaultModel} · ${accountSummary(cat)}`;
+  return `${clientRuntimeLabel(cat, configCat, labels)} · ${configCat?.model ?? cat.defaultModel} · ${accountSummary(cat)}`;
 }
 
 function getStatusBadge(cat: CatData) {
@@ -153,12 +155,14 @@ export function HubOverviewToolbar({ onAddMember }: { onAddMember?: () => void }
 export function HubMemberOverviewCard({
   cat,
   configCat,
+  clientLabels,
   onEdit,
   onToggleAvailability,
   togglingAvailability = false,
 }: {
   cat: CatData;
   configCat?: CatConfig;
+  clientLabels?: Record<string, string>;
   onEdit?: (cat: CatData) => void;
   onToggleAvailability?: (cat: CatData) => void;
   togglingAvailability?: boolean;
@@ -206,7 +210,7 @@ export function HubMemberOverviewCard({
         </button>
       </div>
 
-      <p className="mt-2.5 text-[13px] text-[#8A776B]">{getMetaSummary(cat, configCat)}</p>
+      <p className="mt-2.5 text-[13px] text-[#8A776B]">{getMetaSummary(cat, configCat, clientLabels)}</p>
 
       <p className="mt-2 text-[13px] text-[#9D7BC7]">{formatMentionPreview(cat.mentionPatterns)}</p>
     </section>

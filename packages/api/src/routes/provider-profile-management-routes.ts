@@ -14,6 +14,7 @@ import {
 import {
   filterBootstrapBindingsForAllowedClients,
   filterProviderProfilesForVisibility,
+  getClientLabels,
   getVisibleBuiltinAuthClients,
 } from '../utils/client-visibility.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -56,6 +57,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
       providers: filterProviderProfilesForVisibility(data.providers),
       bootstrapBindings: filterBootstrapBindingsForAllowedClients(data.bootstrapBindings),
       visibleBuiltinClients: getVisibleBuiltinAuthClients(),
+      clientLabels: getClientLabels(),
     };
   });
 

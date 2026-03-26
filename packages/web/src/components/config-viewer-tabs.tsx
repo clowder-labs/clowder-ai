@@ -28,6 +28,7 @@ function KV({ label, value }: { label: string; value: string | number | boolean 
 export function CatOverviewTab({
   config,
   cats,
+  clientLabels,
   onAddMember,
   onEditCoCreator,
   onEditMember,
@@ -36,6 +37,7 @@ export function CatOverviewTab({
 }: {
   config: ConfigData;
   cats: CatData[];
+  clientLabels?: Record<string, string>;
   onAddMember?: () => void;
   onEditCoCreator?: () => void;
   onEditMember?: (cat: CatData) => void;
@@ -52,6 +54,7 @@ export function CatOverviewTab({
             key={catData.id}
             cat={catData}
             configCat={config.cats[catData.id]}
+            clientLabels={clientLabels}
             onEdit={onEditMember}
             onToggleAvailability={onToggleAvailability}
             togglingAvailability={togglingCatId === catData.id}

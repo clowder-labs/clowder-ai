@@ -457,19 +457,19 @@ function buildModelartsBreed(template, breedId, options) {
     id: breed.id,
     catId: options.catId,
     name: breed.name,
-    displayName: breed.displayName,
+    displayName: options.displayName ?? breed.displayName,
     nickname: options.nickname,
     avatar: breed.avatar,
     color: breed.color,
     mentionPatterns: options.mentionPatterns,
-    roleDescription: breed.roleDescription,
+    roleDescription: options.roleDescription ?? breed.roleDescription,
     ...(breed.teamStrengths ? { teamStrengths: breed.teamStrengths } : {}),
     ...(breed.caution !== undefined ? { caution: breed.caution } : {}),
     ...(breed.features ? { features: breed.features } : {}),
     defaultVariantId: variantId,
     variants: [
       {
-        ...(baseVariant?.personality ? { personality: baseVariant.personality } : {}),
+        personality: options.personality ?? baseVariant?.personality,
         ...(baseVariant?.strengths ? { strengths: baseVariant.strengths } : {}),
         ...(baseVariant?.contextBudget ? { contextBudget: baseVariant.contextBudget } : {}),
         ...(baseVariant?.voiceConfig ? { voiceConfig: baseVariant.voiceConfig } : {}),
@@ -504,7 +504,6 @@ function applyModelartsPreset(projectDir, apiKey) {
     google: { enabled: false, mode: 'skip' },
     opencode: { enabled: false, mode: 'skip' },
     dare: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
-    relayclaw: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
   };
   writeState(profileFile, secretsFile, profiles, secrets);
 
@@ -515,21 +514,27 @@ function applyModelartsPreset(projectDir, apiKey) {
     coCreator: template.coCreator,
     reviewPolicy: template.reviewPolicy,
     roster: {
-      dare: { ...template.roster.codex, available: true }, // from maine-coon template member "codex"
-      jiu: { ...template.roster.opencode, available: true }, // from golden-chinchilla template member "opencode"
+      office: { ...template.roster.codex, available: true },
+      assistant: { ...template.roster.opencode, available: true },
     },
     breeds: [
       buildModelartsBreed(template, 'maine-coon', {
-        catId: 'dare',
-        nickname: '小因',
-        mentionPatterns: ['@dare'],
+        catId: 'office',
+        nickname: '小九',
+        displayName: '九问Office',
+        mentionPatterns: ['@office', '@小九'],
         provider: 'dare',
+        roleDescription: '商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析',
+        personality: '专业干练，逻辑清晰，善于结构化输出和流程优化',
       }),
       buildModelartsBreed(template, 'golden-chinchilla', {
-        catId: 'jiu',
-        nickname: '小九',
-        mentionPatterns: ['@jiu'],
-        provider: 'relayclaw',
+        catId: 'assistant',
+        nickname: '小理',
+        displayName: '九问助理',
+        mentionPatterns: ['@assistant', '@小理'],
+        provider: 'dare',
+        roleDescription: '个人助理，擅长日常问答、信息整理、创意写作和生活建议',
+        personality: '温暖亲切，耐心细致，善于倾听和陪伴式交流',
       }),
     ],
   };

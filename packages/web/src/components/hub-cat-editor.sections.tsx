@@ -313,14 +313,19 @@ export function AccountSection({
   loadingProfiles: boolean;
   /** When provided, only these client IDs are shown in the Client dropdown. */
   availableClientIds?: ReadonlySet<string>;
+  /** Custom display labels for clients (from CAT_CAFE_CLIENT_LABELS env). */
+  clientLabels?: Record<string, string>;
   onChange: (patch: FormPatch) => void;
 }) {
   const accountOptions = availableProfiles;
   const selectedProfile = availableProfiles.find((p) => p.id === form.accountRef);
   const callHint = buildCallHint(form.client, selectedProfile, form.defaultModel);
-  const filteredClientOptions = availableClientIds
+  const baseOptions = availableClientIds
     ? CLIENT_OPTIONS.filter((opt) => opt.value === 'acp' || availableClientIds.has(opt.value))
     : CLIENT_OPTIONS;
+  const filteredClientOptions = clientLabels
+    ? baseOptions.map((opt) => (clientLabels[opt.value] ? { ...opt, label: clientLabels[opt.value] } : opt))
+    : baseOptions;
   const providerSuggestions = useMemo(
     () => buildProviderSuggestions(selectedProfile?.models ?? []),
     [selectedProfile?.models],

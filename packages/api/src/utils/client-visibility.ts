@@ -77,3 +77,21 @@ export function filterBootstrapBindingsForAllowedClients(bindings: BootstrapBind
     Object.entries(bindings).filter(([client]) => allowedClients.has(client as BuiltinAccountClient)),
   ) as BootstrapBindings;
 }
+
+/**
+ * Parse CAT_CAFE_CLIENT_LABELS env var into a client→label map.
+ * Format: "dare:九问,opencode:OC" → { dare: "九问", opencode: "OC" }
+ */
+export function getClientLabels(): Record<string, string> {
+  const raw = process.env.CAT_CAFE_CLIENT_LABELS;
+  if (!raw?.trim()) return {};
+  const labels: Record<string, string> = {};
+  for (const pair of raw.split(',')) {
+    const colonIdx = pair.indexOf(':');
+    if (colonIdx <= 0) continue;
+    const key = pair.slice(0, colonIdx).trim();
+    const value = pair.slice(colonIdx + 1).trim();
+    if (key && value) labels[key] = value;
+  }
+  return labels;
+}

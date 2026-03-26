@@ -51,7 +51,7 @@ function resolveEditorCat(cat?: CatData | null, configCat?: ConfigData['cats'][s
 
 export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: HubCatEditorProps) {
   const confirm = useConfirm();
-  const { clients: detectedClients } = useAvailableClients();
+  const { clients: detectedClients, clientLabels } = useAvailableClients();
   const availableClientIds = useMemo(() => new Set(detectedClients.map((c) => c.id)), [detectedClients]);
   const resolvedCat = useMemo(() => resolveEditorCat(cat, configCat), [cat, configCat]);
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
@@ -514,6 +514,7 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
             availableProfiles={availableProfiles}
             loadingProfiles={loadingProfiles}
             availableClientIds={availableClientIds.size > 0 ? availableClientIds : undefined}
+            clientLabels={Object.keys(clientLabels).length > 0 ? clientLabels : undefined}
             onChange={patchForm}
           />
           <RoutingSection form={form} hasError={fieldErrors.routing} onChange={patchForm} />

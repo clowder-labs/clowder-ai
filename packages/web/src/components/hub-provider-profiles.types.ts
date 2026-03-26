@@ -43,6 +43,7 @@ export interface ProviderProfilesResponse {
   bootstrapBindings: Partial<Record<BuiltinAccountClient, BootstrapBinding>>;
   providers: ProfileItem[];
   visibleBuiltinClients?: BuiltinAccountClient[];
+  clientLabels?: Record<string, string>;
 }
 
 export interface AcpModelProfileItem {

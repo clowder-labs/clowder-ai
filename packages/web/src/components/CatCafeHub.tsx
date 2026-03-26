@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAvailableClients } from '@/hooks/useAvailableClients';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
@@ -36,6 +37,7 @@ export function CatCafeHub() {
   const hubState = useChatStore((s) => s.hubState);
   const closeHub = useChatStore((s) => s.closeHub);
   const { cats, getCatById, refresh } = useCatData();
+  const { clientLabels } = useAvailableClients();
 
   const open = hubState?.open ?? false;
   const rawRequestedTab = hubState?.tab as HubTabId | undefined;
@@ -234,6 +236,7 @@ export function CatCafeHub() {
                 <CatOverviewTab
                   config={config}
                   cats={cats}
+                  clientLabels={Object.keys(clientLabels).length > 0 ? clientLabels : undefined}
                   onAddMember={openAddMember}
                   onEditCoCreator={openCoCreatorEditor}
                   onEditMember={openEditMember}
