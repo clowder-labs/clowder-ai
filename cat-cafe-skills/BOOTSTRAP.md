@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表（24 个）
+## Skills 列表（49 个）
 
 ### 开发流程链
 ```
@@ -37,6 +37,63 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `cross-thread-sync` | 跨 thread 协同/通知/争用协调 | — |
 | `browser-preview` | 写前端/跑 dev server/看页面效果 | — |
 | `workspace-navigator` | 铲屎官说"打开日志/看代码/打开设计图"等模糊指令 → 猫猫自己找路径 → API 导航 | — |
+ 
+### 文档处理
+
+| Skill | 触发场景 |
+|-------|----------|
+| `pdf` | 读取/合并/拆分/加密/OCR PDF 文件 |
+| `docx` | 创建/编辑 Word 文档（.docx） |
+| `pptx` | 创建/编辑/读取演示文稿（.pptx） |
+| `xlsx` | 创建/编辑/读取电子表格（.xlsx/.csv） |
+| `nano-pdf` | 用自然语言编辑 PDF |
+| `diagram-generator` | 生成流程图/序列图/ER图/架构图 |
+| `doc-coauthoring` | 结构化文档协作（技术提案/spec/决策文档） |
+
+### 搜索与信息
+
+| Skill | 触发场景 |
+|-------|----------|
+| `weather` | 查天气/温度/天气预报 |
+| `github` | GitHub issue/PR/CI 查询操作 |
+| `baidu-search` | 百度 AI 搜索（需 BAIDU_API_KEY） |
+| `multi-search-engine` | 17 搜索引擎聚合搜索 |
+| `summarize` | URL/播客/文件内容摘要提取 |
+
+### Agent 能力
+
+| Skill | 触发场景 |
+|-------|----------|
+| `adaptive-reasoning` | 自动评估任务复杂度，调整推理级别 |
+| `proactive-agent` | 主动式 agent，预判需求并持续改进 |
+| `persistent-agent-memory` | Agent 持久化记忆（跨 session 上下文） |
+| `self-improving-agent` | 捕获错误/纠正，持续自我改进 |
+| `evolver` | Agent 自我进化引擎（分析运行历史） |
+
+### 工具与自动化
+
+| Skill | 触发场景 |
+|-------|----------|
+| `agent-browser` | 无头浏览器自动化（点击/截图/填表） |
+| `airpoint` | Mac 自然语言控制（需 macOS + airpoint） |
+| `mcp-builder` | 创建 MCP 服务器（Python/TypeScript） |
+| `n8n-workflow-automation` | 设计 n8n 自动化工作流 JSON |
+| `auto-updater` | 自动更新 Clawdbot 和已安装 skill |
+
+### 生活与会议
+
+| Skill | 触发场景 |
+|-------|----------|
+| `daily-life-autopilot` | 日常生活管理（邮件/日程/提醒/账单） |
+| `meeting-autopilot-pro` | 会议全生命周期（准备/笔记/跟进） |
+
+### 安全与质量
+
+| Skill | 触发场景 |
+|-------|----------|
+| `credential-manager` | API 密钥/凭证集中管理（.env 标准化） |
+| `skill-vetter` | 安装 skill 前的安全审查 |
+| `skill-creator` | 创建/修改/优化 skill |
 
 ### 参考文件（refs/，按需读取）
 
