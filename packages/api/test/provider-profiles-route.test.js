@@ -19,9 +19,22 @@ async function makeWorkspaceDir(prefix) {
 }
 
 describe('provider profiles routes', () => {
+  /** @type {string | undefined} */ let savedGlobalRoot;
+
+  function setGlobalRoot(dir) {
+    savedGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = dir;
+  }
+
+  function restoreGlobalRoot() {
+    if (savedGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
+  }
+
   it('migrates legacy v1 provider profiles with anthropic protocol metadata', async () => {
     const { readProviderProfiles } = await import('../dist/config/provider-profiles.js');
     const projectDir = await makeTmpDir('legacy-v1');
+    setGlobalRoot(projectDir);
     try {
       const catCafeDir = join(projectDir, '.cat-cafe');
       await mkdir(catCafeDir, { recursive: true });
@@ -56,6 +69,7 @@ describe('provider profiles routes', () => {
         accountRef: 'anthropic-sponsor',
       });
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
     }
   });
@@ -63,6 +77,7 @@ describe('provider profiles routes', () => {
   it('migrates legacy v2 provider profiles by preserving or inferring protocol metadata', async () => {
     const { readProviderProfiles } = await import('../dist/config/provider-profiles.js');
     const projectDir = await makeTmpDir('legacy-v2');
+    setGlobalRoot(projectDir);
     try {
       const catCafeDir = join(projectDir, '.cat-cafe');
       await mkdir(catCafeDir, { recursive: true });
@@ -113,6 +128,7 @@ describe('provider profiles routes', () => {
         accountRef: 'google-sponsor',
       });
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
     }
   });
@@ -138,6 +154,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('crud');
+    setGlobalRoot(projectDir);
     try {
       const createRes = await app.inject({
         method: 'POST',
@@ -183,6 +200,7 @@ describe('provider profiles routes', () => {
       assert.ok(listed);
       assert.equal(listed.hasApiKey, true);
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
@@ -248,6 +266,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('test');
+    setGlobalRoot(projectDir);
     try {
       const createRes = await app.inject({
         method: 'POST',
@@ -278,6 +297,7 @@ describe('provider profiles routes', () => {
       const body = testRes.json();
       assert.equal(body.ok, true);
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
@@ -304,6 +324,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('test-fallback');
+    setGlobalRoot(projectDir);
     try {
       const createRes = await app.inject({
         method: 'POST',
@@ -339,6 +360,7 @@ describe('provider profiles routes', () => {
         ['GET /claudecode/v1/models', 'POST /claudecode/v1/messages'],
       );
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
@@ -367,6 +389,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('test-invalid-model');
+    setGlobalRoot(projectDir);
     try {
       const createRes = await app.inject({
         method: 'POST',
@@ -400,6 +423,7 @@ describe('provider profiles routes', () => {
         ['GET /claudecode/v1/models', 'POST /claudecode/v1/messages'],
       );
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
@@ -413,6 +437,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('blank-name');
+    setGlobalRoot(projectDir);
     try {
       const createRes = await app.inject({
         method: 'POST',
@@ -426,6 +451,7 @@ describe('provider profiles routes', () => {
       });
       assert.equal(createRes.statusCode, 400);
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
@@ -445,6 +471,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('test-openai');
+    setGlobalRoot(projectDir);
     try {
       const createRes = await app.inject({
         method: 'POST',
@@ -476,6 +503,7 @@ describe('provider profiles routes', () => {
       assert.equal(new URL(calls[0].url).pathname, '/v1/models');
       assert.equal(calls[0].headers.authorization, 'Bearer sk-openai');
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
@@ -497,6 +525,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('test-google');
+    setGlobalRoot(projectDir);
     try {
       const createRes = await app.inject({
         method: 'POST',
@@ -527,6 +556,7 @@ describe('provider profiles routes', () => {
       assert.equal(testRes.json().ok, true);
       assert.equal(new URL(calls[0].url).pathname, '/v1beta/models');
     } finally {
+      restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
@@ -540,6 +570,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const workspaceDir = await makeWorkspaceDir('switch');
+    setGlobalRoot(workspaceDir);
     const previousRoots = process.env.PROJECT_ALLOWED_ROOTS;
     const previousAppend = process.env.PROJECT_ALLOWED_ROOTS_APPEND;
     process.env.PROJECT_ALLOWED_ROOTS = '/tmp';
@@ -554,6 +585,7 @@ describe('provider profiles routes', () => {
       assert.equal(res.statusCode, 200);
       assert.equal(res.json().projectPath, await realpath(workspaceDir));
     } finally {
+      restoreGlobalRoot();
       if (previousRoots === undefined) delete process.env.PROJECT_ALLOWED_ROOTS;
       else process.env.PROJECT_ALLOWED_ROOTS = previousRoots;
       if (previousAppend === undefined) delete process.env.PROJECT_ALLOWED_ROOTS_APPEND;
@@ -571,6 +603,7 @@ describe('provider profiles routes', () => {
     await app.ready();
 
     const projectDir = await makeTmpDir('default-root');
+    setGlobalRoot(projectDir);
     const templatePath = join(projectDir, 'cat-template.json');
     await writeFile(templatePath, '{}\n', 'utf-8');
     const prevTemplate = process.env.CAT_TEMPLATE_PATH;
@@ -585,6 +618,7 @@ describe('provider profiles routes', () => {
       assert.equal(res.statusCode, 200);
       assert.equal(res.json().projectPath, await realpath(projectDir));
     } finally {
+      restoreGlobalRoot();
       if (prevTemplate === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = prevTemplate;
       await rm(projectDir, { recursive: true, force: true });

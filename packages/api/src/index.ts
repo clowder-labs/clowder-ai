@@ -100,6 +100,7 @@ import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveJiuwenClawAppDir, resolveJiuwenClawPythonBin } from './utils/jiuwenclaw-paths.js';
 import {
   auditRoutes,
+  authRoutes,
   authorizationRoutes,
   availableClientsRoutes,
   backlogRoutes,
@@ -186,8 +187,12 @@ export function getSocketManager(): SocketManager {
 const PROCESS_START_AT = Date.now();
 
 async function main(): Promise<void> {
-  const { logger: customLogger } = await import('./infrastructure/logger.js');
+  const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
   const app = Fastify({ logger: customLogger as unknown as import('fastify').FastifyBaseLogger });
+
+  if (isDebugMode) {
+    app.log.info({ logDir: LOG_DIR_PATH }, '[api] Debug mode enabled (--debug flag)');
+  }
 
   // CORS for frontend
   await app.register(cors, {
@@ -938,6 +943,7 @@ async function main(): Promise<void> {
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
+  await app.register(authRoutes);
   await app.register(capabilitiesRoutes);
   await app.register(workspaceRoutes, {
     socketEmit: (event, data, room) => {
@@ -1352,6 +1358,8 @@ async function main(): Promise<void> {
       (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = connectorGatewayHandle.weixinAdapter;
       (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling =
         connectorGatewayHandle.startWeixinPolling;
+      // F134 Phase D: Wire permission store to hub routes
+      (connectorHubOpts as { permissionStore?: unknown }).permissionStore = connectorGatewayHandle.permissionStore;
       app.log.info('[api] Connector gateway started');
     }
   } catch (err) {

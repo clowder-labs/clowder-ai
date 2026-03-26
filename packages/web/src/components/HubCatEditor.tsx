@@ -31,16 +31,29 @@ import { useConfirm } from './useConfirm';
 
 interface HubCatEditorProps {
   cat?: CatData | null;
+  configCat?: ConfigData['cats'][string];
   draft?: HubCatEditorDraft | null;
   open: boolean;
   onClose: () => void;
   onSaved: () => Promise<void> | void;
 }
 
-export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEditorProps) {
+function resolveEditorCat(cat?: CatData | null, configCat?: ConfigData['cats'][string]): CatData | null | undefined {
+  if (!cat) return cat;
+  if (!configCat) return cat;
+  return {
+    ...cat,
+    displayName: configCat.displayName || cat.displayName,
+    provider: configCat.provider || cat.provider,
+    defaultModel: configCat.model || cat.defaultModel,
+  };
+}
+
+export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: HubCatEditorProps) {
   const confirm = useConfirm();
   const { clients: detectedClients } = useAvailableClients();
   const availableClientIds = useMemo(() => new Set(detectedClients.map((c) => c.id)), [detectedClients]);
+  const resolvedCat = useMemo(() => resolveEditorCat(cat, configCat), [cat, configCat]);
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [loadingStrategy, setLoadingStrategy] = useState(false);
@@ -52,7 +65,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
-  const [form, setForm] = useState<HubCatEditorFormState>(() => initialState(cat, draft));
+  const [form, setForm] = useState<HubCatEditorFormState>(() => initialState(resolvedCat, draft));
   const [strategyForm, setStrategyForm] = useState<StrategyFormState | null>(null);
   const [strategyBaseline, setStrategyBaseline] = useState<StrategyFormState | null>(null);
   const [strategyBaselineHasOverride, setStrategyBaselineHasOverride] = useState(false);
@@ -73,7 +86,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
 
   useEffect(() => {
     if (!open) return;
-    setForm(initialState(cat, draft));
+    setForm(initialState(resolvedCat, draft));
     setFieldErrors({});
     setError(null);
     setStrategyError(null);
@@ -81,7 +94,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
     setStrategyBaselineHasOverride(false);
     setCodexSettingsBaseline(null);
     setHasUnsavedChanges(false);
-  }, [open, cat, draft]);
+  }, [open, resolvedCat, draft]);
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +120,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   }, [open]);
 
   useEffect(() => {
-    if (!open || !cat) {
+    if (!open || !resolvedCat) {
       setStrategyForm(null);
       setStrategyBaseline(null);
       setStrategyBaselineHasOverride(false);
@@ -125,7 +138,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
       })
       .then((body) => {
         if (cancelled) return;
-        const entry = body.cats?.find((item) => item.catId === cat.id) ?? null;
+        const entry = body.cats?.find((item) => item.catId === resolvedCat.id) ?? null;
         const nextStrategyForm = entry ? toStrategyForm(entry) : null;
         setStrategyForm(nextStrategyForm);
         setStrategyBaseline(nextStrategyForm);
@@ -140,7 +153,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
     return () => {
       cancelled = true;
     };
-  }, [open, cat]);
+  }, [open, resolvedCat]);
 
   useEffect(() => {
     if (!open || !showCodexSettings) {
@@ -176,7 +189,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
     return () => {
       cancelled = true;
     };
-  }, [cat, open, showCodexSettings]);
+  }, [open, resolvedCat, showCodexSettings]);
 
   useEffect(() => {
     if (form.client === 'antigravity') {
@@ -284,9 +297,9 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
       if (!form.defaultModel.trim()) {
         errors.account = true;
         errorMessages.push('Model');
-      } else if (form.client === 'opencode' && !form.defaultModel.includes('/')) {
+      } else if (form.client === 'opencode' && selectedProfile?.authType === 'api_key' && !form.ocProviderName.trim()) {
         errors.account = true;
-        errorMessages.push('OpenCode Model 需要 providerId/modelId 格式');
+        errorMessages.push('OpenCode API Key 认证需填写 Provider 名称');
       }
       if (splitMentionPatterns(form.mentionPatterns).length === 0) {
         errors.routing = true;
@@ -308,17 +321,17 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
       }
     };
     try {
-      const catPayload = buildCatPayload(form, cat);
-      const rollbackCatPayload = cat ? buildCatPayload(initialState(cat, null), cat) : null;
-      const nextStrategyPayload = cat && strategyForm ? buildStrategyPayload(strategyForm) : null;
-      const baselineStrategyPayload = cat && strategyBaseline ? buildStrategyPayload(strategyBaseline) : null;
+      const catPayload = buildCatPayload(form, resolvedCat);
+      const rollbackCatPayload = resolvedCat ? buildCatPayload(initialState(resolvedCat, null), resolvedCat) : null;
+      const nextStrategyPayload = resolvedCat && strategyForm ? buildStrategyPayload(strategyForm) : null;
+      const baselineStrategyPayload = resolvedCat && strategyBaseline ? buildStrategyPayload(strategyBaseline) : null;
       const strategyChanged =
-        cat && nextStrategyPayload
+        resolvedCat && nextStrategyPayload
           ? JSON.stringify(nextStrategyPayload) !== JSON.stringify(baselineStrategyPayload)
           : false;
 
-      if (cat && strategyChanged && nextStrategyPayload) {
-        const strategyRes = await apiFetch(`/api/config/session-strategy/${cat.id}`, {
+      if (resolvedCat && strategyChanged && nextStrategyPayload) {
+        const strategyRes = await apiFetch(`/api/config/session-strategy/${resolvedCat.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(nextStrategyPayload),
@@ -330,7 +343,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
         }
         if (strategyBaselineHasOverride && baselineStrategyPayload) {
           rollbackSteps.push(async () => {
-            await apiFetch(`/api/config/session-strategy/${cat.id}`, {
+            await apiFetch(`/api/config/session-strategy/${resolvedCat.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(baselineStrategyPayload),
@@ -338,15 +351,15 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
           });
         } else {
           rollbackSteps.push(async () => {
-            await apiFetch(`/api/config/session-strategy/${cat.id}`, {
+            await apiFetch(`/api/config/session-strategy/${resolvedCat.id}`, {
               method: 'DELETE',
             });
           });
         }
       }
 
-      const res = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
-        method: cat ? 'PATCH' : 'POST',
+      const res = await apiFetch(resolvedCat ? `/api/cats/${resolvedCat.id}` : '/api/cats', {
+        method: resolvedCat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(catPayload),
       });
@@ -357,9 +370,9 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
         return;
       }
       const persistedCatBody = (await res.json().catch(() => ({}))) as { cat?: { id?: string } };
-      const persistedCatId = persistedCatBody.cat?.id ?? cat?.id ?? null;
+      const persistedCatId = persistedCatBody.cat?.id ?? resolvedCat?.id ?? null;
       if (persistedCatId) {
-        if (cat && rollbackCatPayload) {
+        if (resolvedCat && rollbackCatPayload) {
           rollbackSteps.push(async () => {
             await apiFetch(`/api/cats/${persistedCatId}`, {
               method: 'PATCH',
@@ -367,7 +380,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
               body: JSON.stringify(rollbackCatPayload),
             });
           });
-        } else if (!cat) {
+        } else if (!resolvedCat) {
           rollbackSteps.push(async () => {
             await apiFetch(`/api/cats/${persistedCatId}`, {
               method: 'DELETE',
@@ -446,10 +459,10 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4" onClick={requestClose}>
       <div
-        className="max-h-[88vh] w-full max-w-[560px] overflow-y-auto rounded-[32px] border border-[#F0DDCD] bg-[#FFF8F2] shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-[560px] flex-col rounded-[32px] border border-[#F0DDCD] bg-[#FFF8F2] shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between border-b border-[#F0DDCD] px-7 py-5">
+        <div className="flex shrink-0 items-start justify-between border-b border-[#F0DDCD] px-7 py-5">
           <div>
             <p className="text-[13px] font-semibold text-[#77A777]">
               成员协作 &gt; 总览 &gt; {cat ? '编辑成员' : '添加成员'}
@@ -485,7 +498,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
           </div>
         </div>
 
-        <div className="space-y-4 px-7 py-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-7 py-5">
           <IdentitySection
             cat={cat}
             form={form}
@@ -523,7 +536,7 @@ export function HubCatEditor({ cat, draft, open, onClose, onSaved }: HubCatEdito
           {error ? <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p> : null}
         </div>
 
-        <div className="flex items-center justify-between border-t border-[#F0DDCD] bg-[#FFF3EA] px-7 py-4">
+        <div className="flex shrink-0 items-center justify-between border-t border-[#F0DDCD] bg-[#FFF3EA] px-7 py-4">
           <div className="text-xs leading-5 text-[#8A776B]">
             {buildEditorLoadingNote({ loadingProfiles, loadingStrategy, loadingCodexSettings })}
           </div>

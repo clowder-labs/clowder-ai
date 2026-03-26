@@ -16,7 +16,8 @@
 param(
     [switch]$Start,
     [switch]$SkipBuild,
-    [switch]$SkipCli
+    [switch]$SkipCli,
+    [switch]$Debug
 )
 
 $ErrorActionPreference = "Stop"
@@ -393,5 +394,6 @@ Write-Host ""
 if ($Start) {
     Write-Host "  Auto-starting..." -ForegroundColor Cyan
     $startArgs = @("-Quick")
+    if ($Debug) { $startArgs += "-Debug" }
     & (Join-Path $ProjectRoot "scripts\start-windows.ps1") @startArgs
 }

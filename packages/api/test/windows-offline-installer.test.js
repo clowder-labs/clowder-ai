@@ -8,6 +8,7 @@ import {
   normalizeNodeVersion,
   pickRedisReleaseAsset,
   shouldCopyRepoPath,
+  shouldUseCommandShell,
   WINDOWS_MANAGED_TOP_LEVEL_PATHS,
   WINDOWS_PRESERVE_PATHS,
 } from '../../../scripts/build-windows-installer.mjs';
@@ -49,6 +50,10 @@ test('Windows offline installer normalizes bundled Node versions and filters cop
   assert.equal(shouldCopyRepoPath('node_modules/next/package.json'), false);
   assert.equal(shouldCopyRepoPath('packages/api/dist/index.js'), false);
   assert.equal(shouldCopyRepoPath('packages/web/.next/server.js'), false);
+  assert.equal(shouldUseCommandShell('pnpm', 'win32'), true);
+  assert.equal(shouldUseCommandShell('powershell.exe', 'win32'), true);
+  assert.equal(shouldUseCommandShell('C:\\tools\\pnpm.cmd', 'win32'), false);
+  assert.equal(shouldUseCommandShell('pnpm', 'linux'), false);
 });
 
 test('Windows offline installer prefers plain Redis portable zips before service bundles', () => {
@@ -61,8 +66,11 @@ test('Windows offline installer prefers plain Redis portable zips before service
 });
 
 test('Windows offline bundle builder deploys production packages and bundles Windows runtimes', () => {
-  assert.match(buildScript, /WINDOWS_RUNTIME_NPM_ARGS = \['install', '--omit=dev'/);
-  assert.match(buildScript, /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json', 'vendor'\]/);
+  assert.match(buildScript, /WINDOWS_RUNTIME_NPM_ARGS = \[\s*'install',\s*'--omit=dev'/);
+  assert.match(
+    buildScript,
+    /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json', 'vendor'\]/,
+  );
   assert.match(buildScript, /RUNTIME_SCRIPT_FILES = \[/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'shared'/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'api'/);
@@ -72,6 +80,7 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /RUNTIME_WEB_NEXT_CONFIG = `function resolveApiBaseUrl\(\)/);
   assert.match(buildScript, /runWindowsNpmInstall\(windowsNode\.npmCmdPath/);
   assert.match(buildScript, /run\('pnpm', \['--filter', '@cat-cafe\/shared', 'run', 'build'\]\)/);
+  assert.match(buildScript, /shell: options\.shell \?\? shouldUseCommandShell\(command\)/);
   assert.match(buildScript, /materializeSharedDependency\(windowsPackagesWslDir, packageName\)/);
   assert.match(buildScript, /lstatSync\(sharedLinkPath\)\.isSymbolicLink\(\)/);
   assert.match(buildScript, /powershell\.exe/);
@@ -125,6 +134,16 @@ test('Windows desktop launcher reads runtime state, minimizes to tray, and exits
   assert.match(launcherSource, /RequestExit/);
   assert.match(launcherSource, /TryReadRuntimeStateValue/);
   assert.match(launcherSource, /ShowBalloonTip/);
+});
+
+test('Windows startup script pins bundled config roots for packaged releases', () => {
+  assert.match(buildScript, /'cat-template\.json'/);
+  assert.match(buildScript, /'\.clowder-release\.json'/);
+  assert.match(launcherSource, /AppDomain\.CurrentDomain\.BaseDirectory/);
+  const startWindowsScript = readFileSync(join(repoRoot, 'scripts', 'start-windows.ps1'), 'utf8');
+  assert.match(startWindowsScript, /if \(\$bundledRelease\) \{/);
+  assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_CAFE_CONFIG_ROOT = \$ProjectRoot/);
+  assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_TEMPLATE_PATH = \$bundledTemplatePath/);
 });
 
 test('Local desktop web client derives API URL from the loopback frontend port instead of a baked localhost:3004 value', () => {

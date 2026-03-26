@@ -1,16 +1,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type { ApiProtocol } from './hub-provider-profiles.sections';
 import type { ProfileItem } from './hub-provider-profiles.types';
-import { TagEditor } from './hub-tag-editor';
+import { TagEditor, TagPillList } from './hub-tag-editor';
 import { useConfirm } from './useConfirm';
-
-const PROTOCOL_OPTIONS: Array<{ value: ApiProtocol; label: string }> = [
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'google', label: 'Google' },
-];
 
 export interface ProfileEditPayload {
   displayName: string;
@@ -38,29 +31,27 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [editDisplayName, setEditDisplayName] = useState(profile.displayName);
-  const [editProtocol, setEditProtocol] = useState<ApiProtocol>((profile.protocol as ApiProtocol) ?? 'anthropic');
   const [editBaseUrl, setEditBaseUrl] = useState(profile.baseUrl ?? '');
   const [editApiKey, setEditApiKey] = useState('');
   const [editModels, setEditModels] = useState<string[]>(profile.models ?? []);
 
   const startEdit = useCallback(() => {
     setEditDisplayName(profile.displayName);
-    setEditProtocol((profile.protocol as ApiProtocol) ?? 'anthropic');
     setEditBaseUrl(profile.baseUrl ?? '');
     setEditApiKey('');
     setEditModels(profile.models ?? []);
     setEditing(true);
-  }, [profile.baseUrl, profile.displayName, profile.models, profile.protocol]);
+  }, [profile.baseUrl, profile.displayName, profile.models]);
 
   const saveEdit = useCallback(async () => {
     await onSave(profile.id, {
       displayName: editDisplayName.trim(),
-      ...(profile.authType === 'api_key' ? { protocol: editProtocol, baseUrl: editBaseUrl.trim() } : {}),
+      ...(profile.authType === 'api_key' ? { baseUrl: editBaseUrl.trim() } : {}),
       ...(editApiKey.trim() ? { apiKey: editApiKey.trim() } : {}),
       models: editModels,
     });
     setEditing(false);
-  }, [editApiKey, editBaseUrl, editDisplayName, editModels, editProtocol, onSave, profile.authType, profile.id]);
+  }, [editApiKey, editBaseUrl, editDisplayName, editModels, onSave, profile.authType, profile.id]);
 
   if (editing) {
     return (
@@ -70,25 +61,16 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
             value={editDisplayName}
             onChange={(e) => setEditDisplayName(e.target.value)}
             placeholder="账号显示名"
+            autoComplete="off"
             className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
           />
           {profile.authType === 'api_key' ? (
             <>
-              <select
-                value={editProtocol}
-                onChange={(e) => setEditProtocol(e.target.value as ApiProtocol)}
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm"
-              >
-                {PROTOCOL_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
               <input
                 value={editBaseUrl}
                 onChange={(e) => setEditBaseUrl(e.target.value)}
                 placeholder="API 服务地址，如 https://api.example.com/v1"
+                autoComplete="off"
                 className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
               />
               <div className="relative">
@@ -144,7 +126,18 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
         <div className="min-w-0 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-base font-bold text-[#2D2118]">{profile.displayName}</span>
-            {profile.builtin ? <span className="text-[11px] font-semibold text-[#8A776B]">🔒 内置</span> : null}
+            {profile.builtin ? (
+              <span className="text-[11px] font-semibold text-[#8A776B] flex items-center gap-0.5">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
+                  />
+                </svg>
+                内置
+              </span>
+            ) : null}
             {!profile.builtin ? (
               <span className="rounded-full bg-[#F3E8FF] px-2.5 py-1 text-[11px] font-semibold text-[#9D7BC7]">
                 api_key
@@ -154,22 +147,32 @@ export function HubProviderProfileItem({ profile, busy, onSave, onDelete }: HubP
           {summaryText(profile) ? <p className="text-sm text-[#8A776B]">{summaryText(profile)}</p> : null}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-[#8A776B]">可用模型</p>
-            <TagEditor
-              tags={profile.models ?? []}
-              tone={profile.builtin ? 'orange' : 'purple'}
-              addLabel="+ 添加"
-              placeholder="输入模型名"
-              emptyLabel="(暂无模型)"
-              minCount={1}
-              onChange={(nextModels) => {
-                if (busy) return;
-                void onSave(profile.id, {
-                  displayName: profile.displayName,
-                  ...(profile.authType === 'api_key' ? { baseUrl: profile.baseUrl ?? '' } : {}),
-                  models: nextModels,
-                });
-              }}
-            />
+            {profile.builtin ? (
+              <div className="flex flex-wrap gap-2">
+                <TagPillList
+                  tags={profile.models ?? []}
+                  emptyLabel="(暂无模型)"
+                  tone="orange"
+                />
+              </div>
+            ) : (
+              <TagEditor
+                tags={profile.models ?? []}
+                tone="purple"
+                addLabel="+ 添加"
+                placeholder="输入模型名"
+                emptyLabel="(暂无模型)"
+                minCount={1}
+                onChange={(nextModels) => {
+                  if (busy) return;
+                  void onSave(profile.id, {
+                    displayName: profile.displayName,
+                    ...(profile.authType === 'api_key' ? { baseUrl: profile.baseUrl ?? '' } : {}),
+                    models: nextModels,
+                  });
+                }}
+              />
+            )}
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-1.5">
