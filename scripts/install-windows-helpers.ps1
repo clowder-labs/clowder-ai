@@ -721,8 +721,8 @@ function Set-GeminiApiKeyMode {
 function Set-ModelArtsCustomEnv {
     param($State)
 
-    Set-InstallerEnvValue $State "CAT_CAFE_ALLOWED_CLIENTS" "dare"
-    Set-InstallerEnvValue $State "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
+    # CAT_CAFE_CLIENT_LABELS is the single source of truth:
+    # keys = enabled clients, values = console display names.
     Set-InstallerEnvValue $State "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
     Set-InstallerEnvValue $State "CAT_CAFE_CLIENT_LABELS" "dare:jiuwen"
     Add-InstallerEnvDelete $State "CODEX_AUTH_MODE"

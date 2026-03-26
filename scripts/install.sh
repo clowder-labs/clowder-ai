@@ -469,8 +469,9 @@ set_gemini_api_key_mode() {
     [[ -n "$model" ]] && collect_env "CAT_GEMINI_MODEL" "$model" || clear_env "CAT_GEMINI_MODEL"
 }
 apply_modelarts_custom_env() {
-    collect_env "CAT_CAFE_ALLOWED_CLIENTS" "dare"
-    collect_env "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
+    # CAT_CAFE_CLIENT_LABELS is the single source of truth:
+    # keys = enabled clients, values = console display names.
+    # CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false hides all builtin auth.
     collect_env "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
     collect_env "CAT_CAFE_CLIENT_LABELS" "dare:jiuwen"
     clear_env "CODEX_AUTH_MODE"

@@ -36,11 +36,22 @@ function parseCsvEnv<T extends string>(raw: string | undefined, allowed: readonl
 
 export function getAllowedClientIds(): VisibleClientId[] {
   if (isBuiltinClientsEnabled()) return [...ALL_CLIENT_IDS];
-  const base = parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, ALL_CLIENT_IDS);
-  // CAT_CAFE_CLIENT_LABELS implicitly enables any client listed in it
+
   const labelKeys = Object.keys(getClientLabels()).filter((k): k is VisibleClientId =>
     ALL_CLIENT_IDS.includes(k as VisibleClientId),
   );
+
+  // When builtin clients are explicitly disabled, CAT_CAFE_CLIENT_LABELS is
+  // the single source of truth: its keys define which clients are enabled,
+  // its values define console display names.
+  if (isBuiltinClientsExplicitlyDisabled()) {
+    if (labelKeys.length > 0) return ALL_CLIENT_IDS.filter((id) => labelKeys.includes(id));
+    // Fallback to CAT_CAFE_ALLOWED_CLIENTS if no labels configured
+    return parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, []);
+  }
+
+  // Default (env not set): merge ALLOWED_CLIENTS and label keys
+  const base = parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, ALL_CLIENT_IDS);
   if (labelKeys.length === 0) return base;
   const merged = new Set([...base, ...labelKeys]);
   return ALL_CLIENT_IDS.filter((id) => merged.has(id));
