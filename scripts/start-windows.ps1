@@ -5,7 +5,8 @@
 .DESCRIPTION
   Starts API server and Frontend (Next.js) with .env loading.
   Optionally starts Redis if available.
-  Default: production mode (next build + next start). Use -Dev for hot reload.
+  Default: production mode (standalone server.js when available, otherwise next start).
+  Use -Dev for hot reload.
 
 .EXAMPLE
   .\scripts\start-windows.ps1              # production mode (default)
@@ -445,11 +446,13 @@ try {
         Write-Err ".next directory not found - run without -Quick first to build"
         throw ".next directory not found"
     }
+    $webStandaloneServer = Join-Path $ProjectRoot "packages/web/server.js"
+    $usingStandaloneWebRuntime = (-not $Dev) -and (Test-Path $webStandaloneServer)
     $nextCli = @(
         (Join-Path $ProjectRoot "packages/web/node_modules/next/dist/bin/next"),
         (Join-Path $ProjectRoot "node_modules/next/dist/bin/next")
     ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if (-not (Test-Path $nextCli)) {
+    if (-not $usingStandaloneWebRuntime -and -not (Test-Path $nextCli)) {
         Write-Err "Next CLI not found - run pnpm install first or rebuild the packaged bundle"
         throw "Next CLI not found"
     }
@@ -542,8 +545,17 @@ $runtimeEnvOverrides = @{
             $env:NEXT_IGNORE_INCORRECT_LOCKFILE = "1"
             & $nodeCommand $nextCli dev (Join-Path $root "packages/web") -p $port 2>&1
         } -ArgumentList $ProjectRoot, $WebPort, $nextCli, $nodeCommand
+    } elseif ($usingStandaloneWebRuntime) {
+        # Production mode: prefer the bundled Next standalone runtime when present.
+        Write-Host "  Starting Frontend (port $WebPort, standalone)..."
+        $webJob = Start-Job -Name "web" -ScriptBlock {
+            param($webServerEntry, $port, $nodeCommand)
+            $env:PORT = $port
+            $env:HOSTNAME = "0.0.0.0"
+            & $nodeCommand $webServerEntry 2>&1
+        } -ArgumentList $webStandaloneServer, $WebPort, $nodeCommand
     } else {
-        # Production mode: next start (default - avoids #105 issues)
+        # Production mode fallback for non-standalone builds.
         Write-Host "  Starting Frontend (port $WebPort, production)..."
         $webJob = Start-Job -Name "web" -ScriptBlock {
             param($root, $port, $nextCli, $nodeCommand)
@@ -561,7 +573,13 @@ $runtimeEnvOverrides = @{
     $effectiveRedisUrl = if ($env:REDIS_URL) { $env:REDIS_URL } else { "" }
     $safeEffectiveRedisUrl = Get-RedactedRedisUrl -RedisUrl $effectiveRedisUrl
     $storageMode = if ($useRedis -and $safeEffectiveRedisUrl) { "Redis ($safeEffectiveRedisUrl)" } elseif ($useRedis) { "Redis (redis://localhost:$RedisPort)" } else { "Memory (restart loses data)" }
-    $frontendMode = if ($Dev) { "development (hot reload)" } else { "production (PWA enabled)" }
+    $frontendMode = if ($Dev) {
+        "development (hot reload)"
+    } elseif ($usingStandaloneWebRuntime) {
+        "production (standalone runtime)"
+    } else {
+        "production (next start fallback)"
+    }
     $logDir = Join-Path $ProjectRoot "data/logs/api"
 
     Write-Host ""

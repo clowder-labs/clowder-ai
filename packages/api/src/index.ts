@@ -97,7 +97,11 @@ import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
-import { resolveJiuwenClawAppDir, resolveJiuwenClawPythonBin } from './utils/jiuwenclaw-paths.js';
+import {
+  resolveJiuwenClawAppDir,
+  resolveJiuwenClawExecutable,
+  resolveJiuwenClawPythonBin,
+} from './utils/jiuwenclaw-paths.js';
 import {
   auditRoutes,
   authRoutes,
@@ -605,11 +609,13 @@ async function main(): Promise<void> {
           const wsUrl = process.env[wsEnvKey]?.trim() ?? '';
           const projectRoot = resolveActiveProjectRoot(process.cwd());
           const appDir = resolveJiuwenClawAppDir();
+          const executablePath = resolveJiuwenClawExecutable();
           const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
           service = new RelayClawAgentService({
             catId,
             config: {
               ...(wsUrl ? { url: wsUrl, autoStart: false } : { autoStart: true }),
+              executablePath,
               appDir,
               pythonBin,
               homeDir: join(projectRoot, '.cat-cafe', 'relayclaw', id),

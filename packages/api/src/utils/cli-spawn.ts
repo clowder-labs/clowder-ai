@@ -5,7 +5,13 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { createModuleLogger } from '../infrastructure/logger.js';
-import { escapeBashArg, escapeCmdArg, findGitBashPath, resolveWindowsShimSpawn } from './cli-spawn-win.js';
+import {
+  escapeBashArg,
+  escapeCmdArg,
+  findGitBashPath,
+  resolveWindowsShimSpawn,
+  shouldSpawnNativeWindowsBinary,
+} from './cli-spawn-win.js';
 import { resolveCliTimeoutMs } from './cli-timeout.js';
 import type { ChildProcessLike, CliSpawnOptions, SpawnFn } from './cli-types.js';
 import { isParseError, parseNDJSON } from './ndjson-parser.js';
@@ -402,6 +408,14 @@ function defaultSpawn(
   },
 ): ChildProcessLike {
   if (IS_WINDOWS) {
+    if (shouldSpawnNativeWindowsBinary(command)) {
+      log.info({ command }, 'Windows native binary detected, bypassing shell');
+      return nodeSpawn(command, [...args], {
+        cwd: options.cwd,
+        env: options.env,
+        stdio: options.stdio,
+      });
+    }
     const shimSpawn = resolveWindowsShimSpawn(command, args);
     if (shimSpawn) {
       log.info({ original: command, resolved: shimSpawn.command, args: shimSpawn.args }, 'Windows shim resolved');

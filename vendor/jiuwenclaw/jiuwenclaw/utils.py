@@ -341,13 +341,6 @@ def get_workspace_dir() -> Path:
     return _workspace_dir
 
 
-def get_project_workspace_dir() -> Path:
-    project_dir = (os.getenv("JIUWENCLAW_PROJECT_DIR") or "").strip()
-    if project_dir:
-        return Path(project_dir).resolve()
-    return get_workspace_dir()
-
-
 def get_root_dir() -> Path:
     """Get the root directory path."""
     _resolve_paths()

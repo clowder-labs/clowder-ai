@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import type { AgentServiceOptions } from '../../types.js';
 
 const CAT_CAFE_MCP_CALLBACK_ENV_KEYS = [
@@ -25,9 +25,7 @@ export function resolveCatCafeMcpServer(
   const candidateRoots: string[] = [];
   if (workingDirectory) candidateRoots.push(workingDirectory);
   candidateRoots.push(process.cwd());
-
-  const fileDir = dirname(fileURLToPath(import.meta.url));
-  candidateRoots.push(resolve(fileDir, '../../../../../../../..'));
+  candidateRoots.push(resolveCatCafeHostRoot(process.cwd()));
 
   for (const root of candidateRoots) {
     const repoRoot = resolve(root);

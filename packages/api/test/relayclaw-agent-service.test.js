@@ -7,7 +7,15 @@ import { describe, it } from 'node:test';
 const { RelayClawAgentService, __relayClawInternals } = await import(
   '../dist/domains/cats/services/agents/providers/RelayClawAgentService.js'
 );
-const { jiuwenClawBundleAvailable, resolveJiuwenClawPythonBin } = await import('../dist/utils/jiuwenclaw-paths.js');
+const {
+  buildRelayClawLaunchCommand,
+  isRelayClawRuntimeReady,
+} = await import('../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js');
+const {
+  jiuwenClawBundleAvailable,
+  resolveJiuwenClawExecutable,
+  resolveJiuwenClawPythonBin,
+} = await import('../dist/utils/jiuwenclaw-paths.js');
 
 function createConnectionFactory(onSend) {
   return (requestQueues) => ({
@@ -60,6 +68,71 @@ describe('RelayClawAgentService', () => {
     }
   });
 
+  it('prefers vendored jiuwenclaw executable when present', () => {
+    const appDir = mkdtempSync(join(tmpdir(), 'jiuwenclaw-exe-'));
+    const exePath = join(appDir, 'vendor', 'jiuwenclaw.exe');
+    mkdirSync(dirname(exePath), { recursive: true });
+    writeFileSync(exePath, '');
+
+    const previousExe = process.env.CAT_CAFE_RELAYCLAW_EXE;
+    try {
+      process.env.CAT_CAFE_RELAYCLAW_EXE = exePath;
+      assert.equal(resolveJiuwenClawExecutable(), exePath);
+      assert.equal(jiuwenClawBundleAvailable(), true);
+    } finally {
+      if (previousExe === undefined) {
+        delete process.env.CAT_CAFE_RELAYCLAW_EXE;
+      } else {
+        process.env.CAT_CAFE_RELAYCLAW_EXE = previousExe;
+      }
+    }
+  });
+
+  it('builds an exe launch command when jiuwenclaw.exe is available', () => {
+    const launch = buildRelayClawLaunchCommand({
+      executablePath: 'C:\\vendor\\jiuwenclaw.exe',
+      pythonBin: 'C:\\Python\\python.exe',
+      appDir: 'C:\\vendor\\jiuwenclaw',
+      useExecutable: true,
+      homeDir: 'C:\\runtime-home',
+      agentPort: 19000,
+      webPort: 5173,
+      env: {},
+      signature: {},
+    });
+
+    assert.equal(launch.command, 'C:\\vendor\\jiuwenclaw.exe');
+    assert.deepEqual(launch.args, ['--desktop-run-app']);
+    assert.equal(launch.cwd, 'C:\\vendor');
+  });
+
+  it('treats executable mode as ready when both relayclaw ports are listening', async () => {
+    const calls = [];
+    const ready = await isRelayClawRuntimeReady(
+      {
+        executablePath: 'C:\\vendor\\jiuwenclaw.exe',
+        pythonBin: 'C:\\Python\\python.exe',
+        appDir: 'C:\\vendor\\jiuwenclaw',
+        useExecutable: true,
+        homeDir: 'C:\\runtime-home',
+        agentPort: 19000,
+        webPort: 19001,
+        env: {},
+        signature: {},
+      },
+      async (_host, port) => {
+        calls.push(port);
+        return true;
+      },
+      '',
+      19000,
+      19001,
+    );
+
+    assert.equal(ready, true);
+    assert.deepEqual(calls, [19000, 19001]);
+  });
+
   it('emits final text when the stream only returns chat.final content', async () => {
     const service = new RelayClawAgentService(
       {
@@ -99,6 +172,205 @@ describe('RelayClawAgentService', () => {
 
     assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
     assert.equal(messages[1].content, 'OK');
+  });
+
+  it('treats llm_reasoning deltas as thinking and still emits the final answer', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.delta',
+              content: 'thinking step',
+              source_chunk_type: 'llm_reasoning',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: 'Final answer',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Reply with final answer after reasoning')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'system_info', 'text', 'done']);
+    assert.deepEqual(JSON.parse(messages[1].content), {
+      type: 'thinking',
+      catId: 'relayclaw-debug',
+      text: 'thinking step',
+    });
+    assert.equal(messages[2].content, 'Final answer');
+  });
+
+  it('emits final text even after visible deltas have already been streamed', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.delta',
+              content: '我来帮你总结一下。',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: '这里是最终总结。',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Summarize after tooling')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.equal(messages[1].content, '我来帮你总结一下。');
+    assert.equal(messages[2].content, '\n\n这里是最终总结。');
+  });
+
+  it('emits only the final suffix when chat.final extends prior streamed text', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.delta',
+              content: 'Hello',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: 'Hello world',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Reply with Hello world')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.equal(messages[1].content, 'Hello');
+    assert.equal(messages[2].content, ' world');
+  });
+
+  it('normalizes structured chat.final payloads before emitting final text', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: JSON.stringify({ output: '\nNormalized final text', result_type: 'answer' }),
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Reply with normalized final text')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.equal(messages[1].content, 'Normalized final text');
   });
 
   it('waits for jiuwenclaw initialization markers before treating the sidecar as ready', () => {
@@ -160,7 +432,8 @@ describe('RelayClawAgentService', () => {
         },
       ],
     });
-    assert.equal(capturedRequest.params.cat_cafe_mcp.command, 'node');
+    const normalizedCommand = String(capturedRequest.params.cat_cafe_mcp.command).replaceAll('\\', '/');
+    assert.match(normalizedCommand, /(^node$|\/node(?:\.exe)?$)/);
     assert.ok(Array.isArray(capturedRequest.params.cat_cafe_mcp.args));
     const normalizedMcpPath = String(capturedRequest.params.cat_cafe_mcp.args[0]).replaceAll('\\', '/');
     assert.ok(

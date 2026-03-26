@@ -7,7 +7,7 @@
 
 import { execFile } from 'node:child_process';
 import { dareBundleAvailable } from '../domains/cats/services/agents/providers/DareAgentService.js';
-import { jiuwenClawBundleAvailable } from './jiuwenclaw-paths.js';
+import { jiuwenClawBundleAvailable, resolveVendoredJiuwenClawExecutable } from './jiuwenclaw-paths.js';
 import { filterAllowedClients } from './client-visibility.js';
 
 type ClientId = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode' | 'antigravity' | 'relayclaw' | 'acp';
@@ -25,7 +25,7 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   { id: 'dare', label: 'Dare', command: 'dare' },
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
-  { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app' },
+  { id: 'relayclaw', label: 'jiuwen', command: resolveVendoredJiuwenClawExecutable() },
   { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio' },
 ];
 

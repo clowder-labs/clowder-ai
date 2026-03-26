@@ -46,6 +46,8 @@ describe('getContextWindowFallback', () => {
     assert.ok(keys.some((k) => k.startsWith('gpt-')));
     // Gemini
     assert.ok(keys.some((k) => k.startsWith('gemini-')));
+    // GLM (Huawei ModelArts)
+    assert.ok(keys.some((k) => k.startsWith('glm-')));
   });
 
   test('gpt-5.1-codex has 400k window', async () => {
@@ -54,5 +56,30 @@ describe('getContextWindowFallback', () => {
 
   test('o3 model returns correct window', async () => {
     assert.equal(getContextWindowFallback('o3'), 200_000);
+  });
+
+  // GLM models — exact, prefix, and provider-qualified
+  test('glm-5 exact match returns 196608', async () => {
+    assert.equal(getContextWindowFallback('glm-5'), 196_608);
+  });
+
+  test('glm-4 exact match returns 128000', async () => {
+    assert.equal(getContextWindowFallback('glm-4'), 128_000);
+  });
+
+  test('glm-4.7 prefix-matches glm-4 → 128000', async () => {
+    assert.equal(getContextWindowFallback('glm-4.7'), 128_000);
+  });
+
+  test('provider-qualified huawei-modelarts/glm-5 strips prefix → 196608', async () => {
+    assert.equal(getContextWindowFallback('huawei-modelarts/glm-5'), 196_608);
+  });
+
+  test('provider-qualified z-ai/glm-4.7 strips prefix and prefix-matches → 128000', async () => {
+    assert.equal(getContextWindowFallback('z-ai/glm-4.7'), 128_000);
+  });
+
+  test('provider-qualified zhipu/glm-4 strips prefix → 128000', async () => {
+    assert.equal(getContextWindowFallback('zhipu/glm-4'), 128_000);
   });
 });

@@ -102,7 +102,7 @@ export function validateRuntimeProviderBinding(
     if (profile.authType !== 'api_key') {
       return 'client "jiuwen" requires an API key provider profile';
     }
-    if (profile.protocol !== 'openai') {
+    if (profile.protocol && profile.protocol !== 'openai') {
       return 'client "jiuwen" currently only supports openai-compatible API key profiles';
     }
   }

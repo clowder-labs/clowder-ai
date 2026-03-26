@@ -7,7 +7,6 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
-import { useTheme } from '@/hooks/useTheme';
 import { abortGame, godAction, submitAction } from '@/hooks/useGameApi';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePersistedState } from '@/hooks/usePersistedState';
@@ -15,6 +14,7 @@ import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
+import { useTheme } from '@/hooks/useTheme';
 import { useVadInterrupt } from '@/hooks/useVadInterrupt';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
@@ -26,9 +26,11 @@ import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
+import { AgentsPanel } from './AgentsPanel';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
+import { ChannelsPanel } from './ChannelsPanel';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
@@ -39,17 +41,17 @@ import { PawIcon } from './icons/PawIcon';
 import { MessageActions } from './MessageActions';
 import { MessageNavigator } from './MessageNavigator';
 import { MobileStatusSheet } from './MobileStatusSheet';
+import { ModelsPanel } from './ModelsPanel';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
-import { RightStatusPanel } from './RightStatusPanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
+import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
 import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
-import { WorkspacePanel } from './WorkspacePanel';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 interface ChatContainerProps {
@@ -70,7 +72,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     clearUnread,
     confirmUnreadAck,
     armUnreadSuppression,
-    rightPanelMode,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
@@ -104,10 +105,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   usePreviewAutoOpen(workspaceWorktreeId);
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [statusPanelOpen, setStatusPanelOpen] = useState(true);
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
+  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>('chat');
   // F106: fetch bootcamp count independently of sidebar lifecycle
   // refreshKey increments only on modal close → avoids duplicate fetch on open
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -133,13 +134,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     };
   }, []);
   // F063: resizable split pane — chatBasis as percentage (20-80), persisted
-  const [chatBasis, setChatBasis, resetChatBasis] = usePersistedState('cat-cafe:chatBasis', 50);
-  // clowder-ai#28: right status panel width in px, persisted
-  const STATUS_PANEL_DEFAULT = 288; // w-72
-  const [statusPanelWidth, setStatusPanelWidth, resetStatusPanelWidth] = usePersistedState(
-    'cat-cafe:statusPanelWidth',
-    STATUS_PANEL_DEFAULT,
-  );
   // F063 Gap 6: sidebar width in px, persisted
   const SIDEBAR_DEFAULT = 240;
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
@@ -147,36 +141,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     SIDEBAR_DEFAULT,
   );
   const containerRef = useRef<HTMLDivElement>(null);
-  const handleHorizontalResize = useCallback(
-    (delta: number) => {
-      if (!containerRef.current) return;
-      const totalWidth = containerRef.current.offsetWidth;
-      if (totalWidth === 0) return;
-      const pct = (delta / totalWidth) * 100;
-      setChatBasis((prev) => Math.min(80, Math.max(20, prev + pct)));
-    },
-    [setChatBasis],
-  );
   const handleSidebarResize = useCallback(
     (delta: number) => {
       setSidebarWidth((prev) => Math.min(480, Math.max(180, prev + delta)));
     },
     [setSidebarWidth],
   );
-  // clowder-ai#28: drag-to-resize for right status panel (negative delta = panel wider)
-  const handleStatusPanelResize = useCallback(
-    (delta: number) => {
-      setStatusPanelWidth((prev) => Math.min(480, Math.max(200, prev - delta)));
-    },
-    [setStatusPanelWidth],
-  );
-
-  // F063: auto-open panel when message file path click triggers workspace mode
-  useEffect(() => {
-    if (rightPanelMode === 'workspace' && !statusPanelOpen) {
-      setStatusPanelOpen(true);
-    }
-  }, [rightPanelMode, statusPanelOpen]);
 
   // Desktop: auto-open sidebar on mount (mobile stays closed)
   useEffect(() => {
@@ -456,7 +426,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       </div>
     );
   }
-console.log(theme);
   return (
     <div ref={containerRef} className="flex h-screen h-dvh">
       {sidebarOpen && (
@@ -479,6 +448,8 @@ console.log(theme);
               className="w-full"
               onBootcampClick={() => setShowBootcampList(true)}
               onHubClick={() => setShowHubList(true)}
+              onMenuClick={(menu) => setSidebarMenu(menu)}
+              activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
             />
           </div>
           <div className="hidden md:flex items-center">
@@ -489,92 +460,101 @@ console.log(theme);
 
       <div
         className="flex flex-col min-w-0"
-        style={
-          statusPanelOpen && rightPanelMode === 'workspace'
-            ? { flexBasis: `${chatBasis}%`, flexGrow: 0, flexShrink: 0 }
-            : { flex: '1 1 0%' }
-        }
+        style={{ flex: '1 1 0%' }}
       >
-        <ChatContainerHeader
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((v) => !v)}
-          threadId={threadId}
-          authPendingCount={authPending.length}
-          viewMode={viewMode}
-          onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
-          onOpenMobileStatus={() => setMobileStatusOpen(true)}
-          statusPanelOpen={statusPanelOpen}
-          onToggleStatusPanel={() => setStatusPanelOpen((v) => !v)}
-          defaultCatId={targetCats[0] || 'opus'}
-        />
+        {sidebarMenu === 'chat' && (
+          <ChatContainerHeader
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen((v) => !v)}
+            threadId={threadId}
+            authPendingCount={authPending.length}
+            viewMode={viewMode}
+            onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
+            onOpenMobileStatus={() => setMobileStatusOpen(true)}
+            defaultCatId={targetCats[0] || 'opus'}
+          />
+        )}
 
-        {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
-        {intentMode === 'execute' && <ThinkingIndicator onCancel={cancelInvocation} />}
+        {sidebarMenu === 'chat' && intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
+        {sidebarMenu === 'chat' && intentMode === 'execute' && <ThinkingIndicator onCancel={cancelInvocation} />}
 
         <div className="flex-1 relative overflow-hidden">
-          <main
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-            className="h-full overflow-y-auto p-4"
-            style={{
-              backgroundColor: theme === 'business' ? config.content.bg : undefined,
-            }}
-            data-chat-container
-          >
-            {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
-            {!hasMore && messages.length > 0 && (
-              <div className="text-center py-3 text-xs text-gray-300">没有更多消息了</div>
-            )}
-            {messages.length === 0 && !isLoadingHistory ? (
-              <div className="text-center mt-20">
-                <PawIcon className="w-12 h-12 text-cocreator-light mx-auto mb-4" />
-                <p className="text-lg text-gray-500 mb-1">欢迎来到 Clowder AI!</p>
-                <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
-                {(() => {
-                  const isCurrentBootcamp = storeThreads.find((t) => t.id === threadId)?.bootcampState;
-                  if (isCurrentBootcamp) return null; // already in bootcamp thread
-                  if (bootcampCount > 0) {
+          {sidebarMenu !== 'chat' && (
+            <div
+              className="h-full overflow-y-auto p-6"
+              style={{ backgroundColor: theme === 'business' ? config.content.bg : undefined }}
+            >
+              {sidebarMenu === 'models' && <ModelsPanel />}
+              {sidebarMenu === 'agents' && <AgentsPanel />}
+              {sidebarMenu === 'channels' && <ChannelsPanel />}
+              {sidebarMenu === 'skills' && <SkillsPanel />}
+            </div>
+          )}
+          {sidebarMenu === 'chat' && (
+            <main
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="h-full overflow-y-auto p-4"
+              style={{
+                backgroundColor: theme === 'business' ? config.content.bg : undefined,
+              }}
+              data-chat-container
+            >
+              {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
+              {!hasMore && messages.length > 0 && (
+                <div className="text-center py-3 text-xs text-gray-300">没有更多消息了</div>
+              )}
+              {messages.length === 0 && !isLoadingHistory ? (
+                <div className="text-center mt-20">
+                  <PawIcon className="w-12 h-12 text-cocreator-light mx-auto mb-4" />
+                  <p className="text-lg text-gray-500 mb-1">欢迎来到 OfficeClaw!</p>
+                  <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
+                  {(() => {
+                    const isCurrentBootcamp = storeThreads.find((t) => t.id === threadId)?.bootcampState;
+                    if (isCurrentBootcamp) return null; // already in bootcamp thread
+                    if (bootcampCount > 0) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setShowBootcampList(true)}
+                          className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
+                          data-testid="empty-state-bootcamp-list"
+                        >
+                          <BootcampIcon className="w-4 h-4" />
+                          我的训练营（{bootcampCount}）
+                        </button>
+                      );
+                    }
                     return (
                       <button
                         type="button"
                         onClick={() => setShowBootcampList(true)}
                         className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
-                        data-testid="empty-state-bootcamp-list"
+                        data-testid="empty-state-bootcamp"
                       >
                         <BootcampIcon className="w-4 h-4" />
-                        我的训练营（{bootcampCount}）
+                        第一次来？开始猫猫训练营
                       </button>
                     );
-                  }
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => setShowBootcampList(true)}
-                      className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
-                      data-testid="empty-state-bootcamp"
-                    >
-                      <BootcampIcon className="w-4 h-4" />
-                      第一次来？开始猫猫训练营
-                    </button>
-                  );
-                })()}
-              </div>
-            ) : (
-              renderItems.map((item) =>
-                item.kind === 'a2a_group' ? (
-                  <A2ACollapsible
-                    key={item.groupId}
-                    group={{ groupId: item.groupId, messages: item.messages }}
-                    renderMessage={renderSingleMessage}
-                    getCatColor={(catId) => getCatById(catId)?.color.primary}
-                  />
-                ) : (
-                  renderSingleMessage(item.msg)
-                ),
-              )
-            )}
-            <div ref={messagesEndRef} />
-          </main>
+                  })()}
+                </div>
+              ) : (
+                renderItems.map((item) =>
+                  item.kind === 'a2a_group' ? (
+                    <A2ACollapsible
+                      key={item.groupId}
+                      group={{ groupId: item.groupId, messages: item.messages }}
+                      renderMessage={renderSingleMessage}
+                      getCatColor={(catId) => getCatById(catId)?.color.primary}
+                    />
+                  ) : (
+                    renderSingleMessage(item.msg)
+                  ),
+                )
+              )}
+              <div ref={messagesEndRef} />
+            </main>
+          )}
           <ScrollToBottomButton
             scrollContainerRef={scrollContainerRef}
             messagesEndRef={messagesEndRef}
@@ -584,7 +564,7 @@ console.log(theme);
           {messages.length > 5 && <MessageNavigator messages={messages} scrollContainerRef={scrollContainerRef} />}
         </div>
 
-        {authPending.length > 0 && (
+        {sidebarMenu === 'chat' && authPending.length > 0 && (
           <div className="border-t border-amber-200 bg-amber-50/40 py-2">
             {authPending.map((req) => (
               <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
@@ -592,27 +572,29 @@ console.log(theme);
           </div>
         )}
 
-        <ThreadExecutionBar />
-        <QueuePanel threadId={threadId} />
-        <VoteActiveBar threadId={threadId} onEnd={() => {}} />
+        {sidebarMenu === 'chat' && <ThreadExecutionBar />}
+        {sidebarMenu === 'chat' && <QueuePanel threadId={threadId} />}
+        {sidebarMenu === 'chat' && <VoteActiveBar threadId={threadId} onEnd={() => {}} />}
 
-        {isResearchMode && (
+        {sidebarMenu === 'chat' && isResearchMode && (
           <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
             多猫研究模式 — 文章上下文已注入。请输入研究问题，猫猫会自动调用 multi_mention 邀请其他猫参与分析。
           </div>
         )}
-        <ChatInput
-          key={threadId}
-          threadId={threadId}
-          onSend={(content, images, whisper, deliveryMode) =>
-            handleSend(content, images, undefined, whisper, deliveryMode)
-          }
-          onStop={handleStop}
-          disabled={false}
-          hasActiveInvocation={hasActiveInvocation}
-          uploadStatus={uploadStatus}
-          uploadError={uploadError}
-        />
+        {sidebarMenu === 'chat' && (
+          <ChatInput
+            key={threadId}
+            threadId={threadId}
+            onSend={(content, images, whisper, deliveryMode) =>
+              handleSend(content, images, undefined, whisper, deliveryMode)
+            }
+            onStop={handleStop}
+            disabled={false}
+            hasActiveInvocation={hasActiveInvocation}
+            uploadStatus={uploadStatus}
+            uploadError={uploadError}
+          />
+        )}
 
         {/* F101: Game overlay — renders when a game is active */}
         <GameOverlayConnector
@@ -670,32 +652,6 @@ console.log(theme);
         />
       </div>
 
-      {statusPanelOpen && rightPanelMode === 'status' && (
-        <>
-          <div className="hidden lg:flex">
-            <ResizeHandle
-              direction="horizontal"
-              onResize={handleStatusPanelResize}
-              onDoubleClick={resetStatusPanelWidth}
-            />
-          </div>
-          <RightStatusPanel
-            intentMode={intentMode}
-            targetCats={targetCats}
-            catStatuses={catStatuses}
-            catInvocations={catInvocations}
-            threadId={threadId}
-            messageSummary={messageSummary}
-            width={statusPanelWidth}
-          />
-        </>
-      )}
-      {statusPanelOpen && rightPanelMode === 'workspace' && (
-        <>
-          <ResizeHandle direction="horizontal" onResize={handleHorizontalResize} onDoubleClick={resetChatBasis} />
-          <WorkspacePanel />
-        </>
-      )}
       <MobileStatusSheet
         open={mobileStatusOpen}
         onClose={() => setMobileStatusOpen(false)}

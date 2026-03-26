@@ -22,9 +22,18 @@ interface ThreadSidebarProps {
   className?: string;
   onBootcampClick?: () => void;
   onHubClick?: () => void;
+  onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills') => void;
+  activeMenu?: 'models' | 'agents' | 'channels' | 'skills';
 }
 
-export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick }: ThreadSidebarProps) {
+export function ThreadSidebar({
+  onClose,
+  className,
+  onBootcampClick,
+  onHubClick,
+  onMenuClick,
+  activeMenu,
+}: ThreadSidebarProps) {
   const { theme, config } = useTheme();
   const router = useRouter();
   const {
@@ -404,7 +413,7 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
       >
         <div className="p-3 border-b border-cocreator-light flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/lobster.svg" alt="OfficeClaw" className="w-10 h-10" />
+            <img src="/images/lobster.svg" alt="OfficeClaw" className="w-10 h-10" />
             <span className="text-xl font-bold text-cafe-black">OfficeClaw</span>
           </div>
         </div>
@@ -440,49 +449,96 @@ export function ThreadSidebar({ onClose, className, onBootcampClick, onHubClick 
           </button>
         </div>
 
-        <div className="px-3 py-2 border-t border-b border-cocreator-light flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <a
-              href="/"
-              className="flex items-center gap-1.5 text-sm font-semibold text-cafe-black hover:text-cocreator-primary transition-colors"
+        <div className="px-3 py-2 border-t border-b border-cocreator-light">
+          <div className="flex flex-col gap-4 items-start">
+            <div className="flex w-full items-center justify-between">
+              <a
+                href="/"
+                className="flex items-center gap-1.5 px-2 py-1 text-sm font-semibold text-cafe-black transition-colors hover:text-cocreator-primary"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                对话
+              </a>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={onBootcampClick ?? createBootcampThread}
+                  disabled={!onBootcampClick && isCreating}
+                  className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
+                  title="猫猫训练营"
+                  data-testid="sidebar-bootcamp"
+                >
+                  <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
+              </button>
+                {false && onHubClick && (
+                  <button
+                    type="button"
+                    onClick={onHubClick}
+                    className="text-xs px-2 py-1 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                    title="IM Hub"
+                    data-testid="sidebar-hub"
+                  >
+                    <HubIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  disabled={isCreating}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors font-medium"
+                >
+                  {isCreating ? '...' : '+ 新对话'}
+                </button>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onMenuClick?.('models')}
+              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'models' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+              模型
+            </button>
+            <button
+              type="button"
+              onClick={() => onMenuClick?.('agents')}
+              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'agents' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="19" cy="12" r="2" />
+                <circle cx="5" cy="12" r="2" />
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="19" r="2" />
+              </svg>
+              智能体
+            </button>
+            <button
+              type="button"
+              onClick={() => onMenuClick?.('channels')}
+              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'channels' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                <path d="M8 9h8M8 13h6" />
               </svg>
-              对话
-            </a>
-          </div>
-          <div className="flex items-center gap-1.5">
+              渠道
+            </button>
             <button
               type="button"
-              onClick={onBootcampClick ?? createBootcampThread}
-              disabled={!onBootcampClick && isCreating}
-              className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
-              title="猫猫训练营"
-              data-testid="sidebar-bootcamp"
+              onClick={() => onMenuClick?.('skills')}
+              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'skills' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
             >
-              <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.064 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+              </svg>
+              技能
             </button>
-            {onHubClick && (
-              <button
-                type="button"
-                onClick={onHubClick}
-                className="text-xs px-2 py-1 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                title="IM Hub"
-                data-testid="sidebar-hub"
-              >
-                <HubIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
-              </button>
-            )}
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPicker(true)}
-            disabled={isCreating}
-            className="text-xs px-3 py-1.5 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors font-medium"
-          >
-            {isCreating ? '...' : '+ 新对话'}
-          </button>
         </div>
 
         {bindWarning && (

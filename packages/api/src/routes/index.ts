@@ -54,6 +54,7 @@ export { threadsRoutes } from './threads.js';
 export { ttsRoutes } from './tts.js';
 export { uploadsRoutes } from './uploads.js';
 export { usageRoutes } from './usage.js';
+export { versionRoutes } from './version.js';
 export { voteRoutes } from './votes.js';
 export { workflowSopRoutes } from './workflow-sop.js';
 export { workspaceRoutes } from './workspace.js';

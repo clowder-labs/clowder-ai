@@ -269,6 +269,60 @@ describe('HubCatEditor', () => {
     expect(filterProfiles('acp', profiles).map((profile) => profile.id)).toEqual(['agent-teams-local']);
   });
 
+  it('keeps Claude and Codex in the Client dropdown even when detection marks them unavailable', async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/provider-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: null,
+            providers: [],
+          }),
+        );
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [
+              { id: 'anthropic', label: 'Claude', command: 'claude', available: false },
+              { id: 'openai', label: 'Codex', command: 'codex', available: false },
+              { id: 'google', label: 'Gemini', command: 'gemini', available: false },
+              { id: 'dare', label: 'Dare', command: 'dare', available: false },
+              { id: 'opencode', label: 'OpenCode', command: 'opencode', available: false },
+              { id: 'relayclaw', label: 'jiuwenClaw', command: 'jiuwenclaw-app', available: true },
+              { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio', available: false },
+              { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: false },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/config/session-strategy') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/config') {
+        return Promise.resolve(jsonResponse({ config: {} }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(HubCatEditor, {
+          open: true,
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const clientSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="Client"]');
+    const optionLabels = Array.from(clientSelect.options).map((option) => option.textContent ?? '');
+    expect(optionLabels).toContain('Claude');
+    expect(optionLabels).toContain('Codex');
+    expect(optionLabels).toContain('jiuwenClaw');
+  });
+
   it('renders normal member provider/model fields and saves to /api/cats', async () => {
     const onSaved = vi.fn(() => Promise.resolve());
     mockApiFetch.mockImplementation((path: string) => {

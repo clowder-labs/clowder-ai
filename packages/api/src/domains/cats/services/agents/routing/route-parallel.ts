@@ -356,6 +356,11 @@ export async function* routeParallel(
         catText.set(msg.catId, `${prev + (prev ? '\n\n' : '')}[错误] ${msg.error}`);
       }
     }
+    // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
+    // state — mark catHadError so we don't fall through to silent_completion.
+    if (msg.type === 'done' && msg.errorCode && msg.catId) {
+      catHadError.add(msg.catId);
+    }
     // Accumulate tool events per cat
     const toolEvt = toStoredToolEvent(msg);
     if (toolEvt && msg.catId) {
