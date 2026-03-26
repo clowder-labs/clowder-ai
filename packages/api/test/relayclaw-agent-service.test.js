@@ -101,6 +101,62 @@ describe('RelayClawAgentService', () => {
     assert.equal(messages[1].content, 'OK');
   });
 
+  it('treats llm_reasoning deltas as thinking and still emits the final answer', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.delta',
+              content: 'thinking step',
+              source_chunk_type: 'llm_reasoning',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.final',
+              content: 'Final answer',
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Reply with final answer after reasoning')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'system_info', 'text', 'done']);
+    assert.deepEqual(JSON.parse(messages[1].content), {
+      type: 'thinking',
+      catId: 'relayclaw-debug',
+      text: 'thinking step',
+    });
+    assert.equal(messages[2].content, 'Final answer');
+  });
+
   it('waits for jiuwenclaw initialization markers before treating the sidecar as ready', () => {
     assert.equal(__relayClawInternals.isSidecarReady('server listening'), false);
     assert.equal(__relayClawInternals.isSidecarReady('[JiuWenClaw] 初始化完成: agent_name=main_agent'), true);
