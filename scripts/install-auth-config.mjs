@@ -463,14 +463,18 @@ function buildModelartsBreed(template, breedId, options) {
     color: options.color ?? breed.color,
     mentionPatterns: options.mentionPatterns,
     roleDescription: options.roleDescription ?? breed.roleDescription,
-    ...(breed.teamStrengths ? { teamStrengths: breed.teamStrengths } : {}),
+    ...(options.teamStrengths ?? breed.teamStrengths
+      ? { teamStrengths: options.teamStrengths ?? breed.teamStrengths }
+      : {}),
     ...(breed.caution !== undefined ? { caution: breed.caution } : {}),
     ...(breed.features ? { features: breed.features } : {}),
     defaultVariantId: variantId,
     variants: [
       {
         personality: options.personality ?? baseVariant?.personality,
-        ...(baseVariant?.strengths ? { strengths: baseVariant.strengths } : {}),
+        ...(options.strengths ?? baseVariant?.strengths
+          ? { strengths: options.strengths ?? baseVariant.strengths }
+          : {}),
         ...(baseVariant?.contextBudget ? { contextBudget: baseVariant.contextBudget } : {}),
         ...(baseVariant?.voiceConfig ? { voiceConfig: baseVariant.voiceConfig } : {}),
         id: variantId,
@@ -528,6 +532,8 @@ function applyModelartsPreset(projectDir, apiKey) {
         provider: 'dare',
         roleDescription: '商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析',
         personality: '专业干练，逻辑清晰，善于结构化输出和流程优化',
+        teamStrengths: '文档撰写、会议纪要、项目管理、数据分析',
+        strengths: ['document-writing', 'meeting-notes', 'project-management', 'data-analysis'],
       }),
       buildModelartsBreed(template, 'golden-chinchilla', {
         catId: 'assistant',
@@ -539,6 +545,8 @@ function applyModelartsPreset(projectDir, apiKey) {
         provider: 'dare',
         roleDescription: '个人助理，擅长日常问答、信息整理、创意写作和生活建议',
         personality: '温暖亲切，耐心细致，善于倾听和陪伴式交流',
+        teamStrengths: '日常问答、信息整理、创意写作、生活建议',
+        strengths: ['daily-qa', 'info-organization', 'creative-writing', 'life-advice'],
       }),
     ],
   };
