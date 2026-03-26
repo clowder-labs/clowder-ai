@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -254,7 +255,7 @@ async def bootstrap_runtime(options: RuntimeOptions) -> ClientRuntime:
             if ctx_window > 0:
                 builder = builder.with_context_window_tokens(ctx_window)
         except (ValueError, TypeError):
-            pass
+            logging.warning("Invalid DARE_CONTEXT_WINDOW_TOKENS=%r, ignoring", ctx_window_env)
     prompt_override = _resolve_system_prompt_override(config=config, model=model)
     if prompt_override is not None:
         builder = builder.with_prompt(prompt_override)

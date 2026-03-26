@@ -130,6 +130,9 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
 function compactTools(tools: readonly ToolDef[]): readonly ToolDef[] {
   return tools.map((t) => {
     const compact = COMPACT_DESCRIPTIONS[t.name];
+    if (!compact) {
+      console.error(`[compact-mcp] Missing compact description for tool: ${t.name}, using verbose fallback`);
+    }
     return compact ? { ...t, description: compact } : t;
   });
 }

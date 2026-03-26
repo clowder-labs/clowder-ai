@@ -443,7 +443,7 @@ export class DareAgentService implements AgentService {
     if (model) {
       const ctxWindow = getContextWindowFallback(model);
       if (ctxWindow) {
-        // Reserve ~10% for output tokens and serialization overhead.
+        // Reserve ~15% for output tokens and serialization overhead.
         const inputBudget = Math.floor(ctxWindow * 0.85);
         env.DARE_CONTEXT_WINDOW_TOKENS = String(inputBudget);
       }
