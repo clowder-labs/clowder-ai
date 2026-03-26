@@ -173,6 +173,30 @@ if (-not $nodeOk) {
             Write-Warn "winget Node.js install failed - falling back to manual prerequisite check"
         }
     }
+    # Fallback: download Node.js MSI directly from nodejs.org
+    if (-not $nodeOk) {
+        try {
+            $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+            $nodeUrl = "https://nodejs.org/dist/latest/node-latest-$arch.msi"
+            $msiPath = Join-Path $env:TEMP "node-latest-$arch.msi"
+            Write-Host "  Downloading Node.js LTS from nodejs.org ($arch)..."
+            Invoke-WebRequest -Uri $nodeUrl -OutFile $msiPath -UseBasicParsing
+            Write-Host "  Installing Node.js (silent MSI)..."
+            Start-Process msiexec.exe -ArgumentList "/i `"$msiPath`" /qn /norestart" -Wait -NoNewWindow
+            Remove-Item $msiPath -ErrorAction SilentlyContinue
+            Refresh-Path
+            $nodeRaw = & node --version 2>$null
+            if ($nodeRaw -match 'v(\d+)\.(\d+)') {
+                $nodeMajor = [int]$Matches[1]
+                if ($nodeMajor -ge 20) {
+                    Write-Ok "Node.js $nodeRaw installed (direct download)"
+                    $nodeOk = $true
+                }
+            }
+        } catch {
+            Write-Warn "Direct Node.js download failed: $_"
+        }
+    }
     if (-not $nodeOk) {
         Write-Err "Node.js >= 20 required. Install from https://nodejs.org/"
         exit 1
