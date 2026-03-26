@@ -319,32 +319,8 @@ Write-Step "Step 6/9 - Skills mount"
 Mount-InstallerSkills -ProjectRoot $ProjectRoot
 
 Write-Step "Step 7/9 - AI CLI tools"
-Write-Host "  Custom install keeps only opencode + dare + jiuwen"
-
-if (-not $SkipCli) {
-    $openCodeCommand = Resolve-ToolCommand -Name "opencode"
-    if ($openCodeCommand) {
-        Write-Ok "OpenCode CLI already installed"
-    } else {
-        $npmInstallCommand = Resolve-ToolCommand -Name "npm"
-        Write-Host "  Installing OpenCode CLI..."
-        try {
-            if (-not $npmInstallCommand) { throw "npm command not found" }
-            & $npmInstallCommand install -g opencode-ai 2>$null
-            if (Resolve-ToolCommandWithRetry -Name "opencode" -Attempts 6) {
-                Write-Ok "OpenCode CLI installed"
-            } else {
-                Write-ToolResolutionDiagnostics -Name "opencode"
-                Write-Warn "OpenCode CLI install completed but command was not visible yet"
-            }
-        } catch {
-            Exit-InstallerIfCancelled -ErrorRecord $_ -Context "OpenCode CLI install"
-            Write-Warn "Could not install OpenCode CLI: npm install -g opencode-ai"
-        }
-    }
-} else {
-    Write-Warn "CLI tools install skipped (-SkipCli)"
-}
+Write-Host "  Custom install — no external CLI tools required"
+Write-Ok "Skipped (opencode/dare/jiuwen use vendored runtimes)"
 
 $dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot
 $jiuwenClawRuntimeReady = Ensure-WindowsJiuwenClawRuntime -ProjectRoot $ProjectRoot
@@ -353,8 +329,6 @@ Write-Step "Step 8/9 - Auth config"
 Configure-InstallerAuth -ProjectRoot $ProjectRoot -State $authState
 
 Apply-InstallerAuthEnv -State $authState -EnvFile $envFile
-
-$hasOpenCode = $null -ne (Resolve-ToolCommandWithRetry -Name "opencode" -Attempts 6)
 
 Write-Step "Step 9/9 - Verify and launch"
 
@@ -378,7 +352,6 @@ Write-Host ""
 Write-Host "  Project: $ProjectRoot"
 Write-Host "  Node:    $(node --version)"
 Write-Host "  Redis:   $(if ($hasRedis) { 'available' } else { 'not configured' })"
-Write-Host "  OpenCode: $(if ($hasOpenCode) { 'ready' } else { 'not installed' })"
 Write-Host "  Dare:     $(if ($dareRuntimeReady) { 'ready' } else { 'not installed' })"
 Write-Host "  jiuwen:   $(if ($jiuwenClawRuntimeReady) { 'ready' } else { 'not installed' })"
 Write-Host ""

@@ -723,6 +723,7 @@ function Set-ModelArtsCustomEnv {
 
     Set-InstallerEnvValue $State "CAT_CAFE_ALLOWED_CLIENTS" "opencode,dare,relayclaw"
     Set-InstallerEnvValue $State "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
+    Set-InstallerEnvValue $State "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
     Add-InstallerEnvDelete $State "CODEX_AUTH_MODE"
     Add-InstallerEnvDelete $State "OPENAI_API_KEY"
     Add-InstallerEnvDelete $State "OPENAI_BASE_URL"

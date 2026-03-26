@@ -471,6 +471,7 @@ set_gemini_api_key_mode() {
 apply_modelarts_custom_env() {
     collect_env "CAT_CAFE_ALLOWED_CLIENTS" "opencode,dare,relayclaw"
     collect_env "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
+    collect_env "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
     clear_env "CODEX_AUTH_MODE"
     clear_env "OPENAI_API_KEY"; clear_env "OPENAI_BASE_URL"; clear_env "OPENAI_API_BASE"; clear_env "CAT_CODEX_MODEL"
     clear_env "GEMINI_API_KEY"; clear_env "GEMINI_BASE_URL"; clear_env "CAT_GEMINI_MODEL"
@@ -757,14 +758,10 @@ if [[ -f "$JIUWEN_VENDOR_DIR/jiuwenclaw/app.py" ]]; then
     fi
 fi
 
-# ── [6/9] Install AI agent CLI tools ─────────────────────
-step "[6/9] Installing AI CLI tools / 安装 AI 命令行工具..."
-info "  Custom install installs only the required opencode client"
-install_npm_cli() {
-    local name="$1" cmd="$2" pkg="$3"; info "  Installing $name ($pkg)..."; npm_global_install "$pkg" 2>&1; hash -r 2>/dev/null || true
-    command -v "$cmd" &>/dev/null || { fail "$name install failed. Try: npm install -g $pkg"; exit 1; }; ok "$name installed"
-}
-command -v opencode &>/dev/null && ok "OpenCode CLI already installed" || install_npm_cli "OpenCode CLI" "opencode" "opencode-ai"
+# ── [6/9] AI CLI tools (skipped for custom install) ──────
+step "[6/9] AI CLI tools / AI 命令行工具..."
+info "  Custom install — no external CLI tools required"
+ok "Skipped (opencode/dare/jiuwen use vendored runtimes)"
 
 # ── [7/9] Authentication setup / 认证配置 ─────────────────
 step "[7/9] Authentication setup / 认证配置..."

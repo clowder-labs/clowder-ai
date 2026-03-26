@@ -240,17 +240,55 @@ describe('provider profiles routes', () => {
 
       const list = listRes.json();
       assert.deepEqual(list.visibleBuiltinClients, []);
-      assert.deepEqual(
-        list.providers.map((profile) => profile.id),
-        ['modelarts-shared'],
-      );
-      assert.equal(list.providers[0].builtin, false);
+      // Profile store is global — only assert that no builtin profiles leak through
+      const builtinProviders = list.providers.filter((p) => p.builtin);
+      assert.equal(builtinProviders.length, 0, 'builtin profiles should be hidden when preset disables them');
+      assert.ok(list.providers.some((p) => p.id === 'modelarts-shared'), 'custom profile should still be visible');
       assert.deepEqual(Object.keys(list.bootstrapBindings), ['dare', 'opencode']);
     } finally {
       if (previousAllowedClients === undefined) delete process.env.CAT_CAFE_ALLOWED_CLIENTS;
       else process.env.CAT_CAFE_ALLOWED_CLIENTS = previousAllowedClients;
       if (previousVisibleBuiltinAuthClients === undefined) delete process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS;
       else process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = previousVisibleBuiltinAuthClients;
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('GET /api/provider-profiles shows all builtin auth when CAT_CAFE_BUILTIN_CLIENTS_ENABLED=true', async () => {
+    const saved = {
+      allowed: process.env.CAT_CAFE_ALLOWED_CLIENTS,
+      visible: process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS,
+      toggle: process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED,
+    };
+    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'opencode,dare,relayclaw';
+    process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
+    process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED = 'true';
+
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('toggle-builtin-on');
+    try {
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      assert.equal(listRes.statusCode, 200);
+      const list = listRes.json();
+      assert.deepEqual(list.visibleBuiltinClients, ['anthropic', 'openai', 'google', 'dare', 'opencode']);
+      assert.ok(Object.keys(list.bootstrapBindings).includes('anthropic'));
+      assert.ok(Object.keys(list.bootstrapBindings).includes('google'));
+    } finally {
+      for (const [key, val] of Object.entries(saved)) {
+        const envKey = key === 'allowed' ? 'CAT_CAFE_ALLOWED_CLIENTS' : key === 'visible' ? 'CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS' : 'CAT_CAFE_BUILTIN_CLIENTS_ENABLED';
+        if (val === undefined) delete process.env[envKey];
+        else process.env[envKey] = val;
+      }
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }

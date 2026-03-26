@@ -27,7 +27,6 @@ test('Windows installer exits immediately when native installs are cancelled by 
   assert.match(installScript, /Write-Err "\$Context cancelled by user"/);
   assert.match(installScript, /Exit-InstallerIfCancelled -ErrorRecord \$_ -Context "pnpm installation"/);
   assert.match(installScript, /Exit-InstallerIfCancelled -ErrorRecord \$frozenInstallError -Context "pnpm install"/);
-  assert.match(installScript, /Exit-InstallerIfCancelled -ErrorRecord \$_ -Context "OpenCode CLI install"/);
   assert.match(installScript, /exit 1/);
 });
 
@@ -211,7 +210,6 @@ test('Windows installer and startup reuse shared tool resolution instead of raw 
   assert.match(installScript, /Resolve-ToolCommand -Name "pnpm"/);
   assert.match(installScript, /\$corepackCommand = Resolve-ToolCommand -Name "corepack"/);
   assert.match(installScript, /\$npmCommand = Resolve-ToolCommand -Name "npm"/);
-  assert.match(installScript, /Resolve-ToolCommand -Name "opencode"/);
   assert.match(startWindowsScript, /Resolve-BundledNodeCommand -ProjectRoot \$ProjectRoot/);
   assert.match(startWindowsScript, /\$nodeCommand = Resolve-ToolCommand -Name "node"/);
   assert.match(startWindowsScript, /\$pnpmCommand = Resolve-ToolCommand -Name "pnpm"/);
@@ -229,7 +227,6 @@ test('Windows CLI install and vendored runtimes reuse retry-based tool resolutio
   assert.match(commandHelpersScript, /param\(\[string\]\$Name, \[int\]\$Attempts = 1, \[int\]\$DelayMs = 500\)/);
   assert.match(commandHelpersScript, /for \(\$attempt = 0; \$attempt -lt \$Attempts; \$attempt\+\+\)/);
   assert.match(commandHelpersScript, /Start-Sleep -Milliseconds \$DelayMs/);
-  assert.match(installScript, /Resolve-ToolCommandWithRetry -Name "opencode" -Attempts 6/);
   assert.match(helpersScript, /Resolve-ToolCommandWithRetry -Name "python" -Attempts 2/);
   assert.match(helpersScript, /Resolve-ToolCommandWithRetry -Name "py" -Attempts 2/);
 });

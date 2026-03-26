@@ -12,6 +12,11 @@ export type VisibleClientId =
 const ALL_CLIENT_IDS: VisibleClientId[] = ['anthropic', 'openai', 'google', 'dare', 'opencode', 'antigravity', 'relayclaw'];
 const ALL_BUILTIN_AUTH_CLIENTS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'dare', 'opencode'];
 
+function isBuiltinClientsEnabled(): boolean {
+  const raw = process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED;
+  return raw === 'true' || raw === '1';
+}
+
 function parseCsvEnv<T extends string>(raw: string | undefined, allowed: readonly T[], fallback: readonly T[]): T[] {
   if (raw === undefined) return [...fallback];
   if (!raw.trim()) return [];
@@ -25,6 +30,7 @@ function parseCsvEnv<T extends string>(raw: string | undefined, allowed: readonl
 }
 
 export function getAllowedClientIds(): VisibleClientId[] {
+  if (isBuiltinClientsEnabled()) return [...ALL_CLIENT_IDS];
   return parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, ALL_CLIENT_IDS);
 }
 
@@ -43,6 +49,7 @@ export function getAllowedBuiltinBindingClients(): BuiltinAccountClient[] {
 }
 
 export function getVisibleBuiltinAuthClients(): BuiltinAccountClient[] {
+  if (isBuiltinClientsEnabled()) return [...ALL_BUILTIN_AUTH_CLIENTS];
   const allowedBuiltinClients = getAllowedBuiltinBindingClients();
   return parseCsvEnv(
     process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS,
