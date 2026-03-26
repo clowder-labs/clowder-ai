@@ -413,7 +413,7 @@ export function ThreadSidebar({
       >
         <div className="p-3 border-b border-cocreator-light flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/lobster.svg" alt="OfficeClaw" className="w-10 h-10" />
+            <img src="/images/lobster.svg" alt="OfficeClaw" className="w-10 h-10" />
             <span className="text-xl font-bold text-cafe-black">OfficeClaw</span>
           </div>
         </div>

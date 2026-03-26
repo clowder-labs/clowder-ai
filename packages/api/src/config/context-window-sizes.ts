@@ -24,13 +24,20 @@ export const CONTEXT_WINDOW_SIZES: Record<string, number> = {
   'gemini-2.5-flash': 1_000_000,
   'gemini-3-pro': 1_000_000,
   'gemini-3.1-pro-preview': 1_000_000,
+  // Huawei ModelArts (GLM)
+  'glm-5': 196_608,
+  'glm-4': 128_000,
 };
 
 export function getContextWindowFallback(model: string): number | undefined {
   if (CONTEXT_WINDOW_SIZES[model]) return CONTEXT_WINDOW_SIZES[model];
-  // Try prefix match (e.g. 'claude-opus-4-6-20260101' matches 'claude-opus-4-6')
+  // Strip provider prefix (e.g. 'huawei-modelarts/glm-5' → 'glm-5', 'z-ai/glm-4.7' → 'glm-4.7')
+  const bare = model.includes('/') ? model.slice(model.lastIndexOf('/') + 1) : model;
+  if (bare !== model && CONTEXT_WINDOW_SIZES[bare]) return CONTEXT_WINDOW_SIZES[bare];
+  // Try prefix match (e.g. 'claude-opus-4-6-20260101' matches 'claude-opus-4-6',
+  // 'glm-4.7' matches 'glm-4')
   for (const [key, value] of Object.entries(CONTEXT_WINDOW_SIZES)) {
-    if (model.startsWith(key)) return value;
+    if (bare.startsWith(key)) return value;
   }
   return undefined;
 }

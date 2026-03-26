@@ -8,12 +8,10 @@
  */
 
 import { readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { RICH_BLOCK_RULES } from '../domains/cats/services/context/rich-block-rules.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
 
 /** Strip YAML frontmatter (between --- delimiters) from markdown content. */
 function stripFrontmatter(content: string): string {
@@ -23,8 +21,7 @@ function stripFrontmatter(content: string): string {
 
 /** Resolve path to a refs file in cat-cafe-skills/refs/. */
 function refsPath(fileName: string): string {
-  // From packages/api/src/routes/ → go up 4 levels to project root
-  return resolve(__dirname, '..', '..', '..', '..', 'cat-cafe-skills', 'refs', fileName);
+  return resolve(resolveCatCafeHostRoot(process.cwd()), 'cat-cafe-skills', 'refs', fileName);
 }
 
 /**

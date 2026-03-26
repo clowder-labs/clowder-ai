@@ -9,12 +9,14 @@
 export interface RelayClawAgentConfig {
   /** WebSocket endpoint URL (e.g. "ws://127.0.0.1:18092") */
   url?: string;
-  /** Request timeout in ms (default: 180_000 — agent tasks can be long) */
+  /** Request timeout in ms (default: 600_000 — agent tasks can be long) */
   timeoutMs?: number;
   /** Channel ID sent in requests (default: "catcafe") */
   channelId?: string;
   /** Start a dedicated local jiuwenclaw sidecar when url is not provided */
   autoStart?: boolean;
+  /** Preferred executable used to launch vendored jiuwenclaw on packaged runtimes */
+  executablePath?: string;
   /** Python executable used to launch relay-claw */
   pythonBin?: string;
   /** relay-claw repository / package working directory */

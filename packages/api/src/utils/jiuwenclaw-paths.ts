@@ -1,16 +1,19 @@
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
+import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
 
 const LEGACY_JIUWENCLAW_APP_DIR = '/usr/code/relay-claw';
 
 function resolveRepoRoot(): string {
-  const fileDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(fileDir, '../../../../');
+  return resolveCatCafeHostRoot(process.cwd());
 }
 
 export function resolveVendoredJiuwenClawAppDir(): string {
   return resolve(resolveRepoRoot(), 'vendor/jiuwenclaw');
+}
+
+export function resolveVendoredJiuwenClawExecutable(): string {
+  return resolve(resolveRepoRoot(), 'vendor/jiuwenclaw.exe');
 }
 
 export function resolveJiuwenClawAppDir(explicitAppDir?: string): string {
@@ -21,6 +24,12 @@ export function resolveJiuwenClawAppDir(explicitAppDir?: string): string {
   if (existsSync(join(vendored, 'jiuwenclaw', 'app.py'))) return vendored;
 
   return LEGACY_JIUWENCLAW_APP_DIR;
+}
+
+export function resolveJiuwenClawExecutable(explicitExecutable?: string): string {
+  const configured = explicitExecutable?.trim() || process.env.CAT_CAFE_RELAYCLAW_EXE?.trim();
+  if (configured) return configured;
+  return resolveVendoredJiuwenClawExecutable();
 }
 
 export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: string): string {
@@ -60,6 +69,9 @@ export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: str
 }
 
 export function jiuwenClawBundleAvailable(): boolean {
+  const executablePath = resolveJiuwenClawExecutable();
+  if (existsSync(executablePath)) return true;
+
   const appDir = resolveJiuwenClawAppDir();
   const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
   return existsSync(join(appDir, 'jiuwenclaw', 'app.py')) && existsSync(pythonBin);

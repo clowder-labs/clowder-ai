@@ -17,12 +17,12 @@
 
 import { existsSync } from 'node:fs';
 import { dirname, join, parse, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
@@ -144,11 +144,7 @@ function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Reco
   const candidateRoots: string[] = [];
   if (workingDirectory) candidateRoots.push(workingDirectory);
   candidateRoots.push(process.cwd());
-
-  // file path: packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts
-  // repo root = dirname(fileURLToPath(import.meta.url)) up to .../cat-cafe
-  const fileDir = dirname(fileURLToPath(import.meta.url));
-  candidateRoots.push(resolve(fileDir, '../../../../../../../..'));
+  candidateRoots.push(resolveCatCafeHostRoot(process.cwd()));
 
   let serverPath: string | undefined;
   for (const root of candidateRoots) {

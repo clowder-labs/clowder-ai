@@ -12,6 +12,7 @@
  */
 
 import crypto from 'node:crypto';
+import QRCode from 'qrcode';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
 
@@ -815,12 +816,14 @@ export class WeixinAdapter implements IOutboundAdapter {
     if (errorCode && errorCode !== 0) {
       throw new Error(`get_bot_qrcode errcode ${errorCode}: ${data.errmsg ?? 'unknown'}`);
     }
-    // iLink API returns qrcode_img_content (not qrcode_url) — accept both for resilience
-    const qrUrl = data.qrcode_img_content ?? data.qrcode_url;
+    // iLink API returns qrcode_img_content as a webpage URL (not an image).
+    // We must generate the actual QR code image locally from that URL.
+    const qrTarget = data.qrcode_img_content ?? data.qrcode_url;
     const qrPayload = data.qrcode;
-    if (!qrUrl || !qrPayload) {
+    if (!qrTarget || !qrPayload) {
       throw new Error('get_bot_qrcode: missing qrcode_img_content/qrcode_url or qrcode in response');
     }
+    const qrUrl = await QRCode.toDataURL(qrTarget, { width: 384, margin: 2 });
     return { qrUrl, qrPayload };
   }
 
