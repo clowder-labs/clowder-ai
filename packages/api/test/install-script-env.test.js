@@ -242,7 +242,7 @@ for i in "\${!ENV_KEYS[@]}"; do write_env_key "\${ENV_KEYS[$i]}" "\${ENV_VALUES[
 cat .env
 `);
 
-    assert.match(output, /^CAT_CAFE_ALLOWED_CLIENTS='opencode,dare,relayclaw'$/m);
+    assert.match(output, /^CAT_CAFE_ALLOWED_CLIENTS='dare,relayclaw'$/m);
     assert.match(output, /^CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS=''$/m);
     assert.match(output, /^CAT_CAFE_BUILTIN_CLIENTS_ENABLED='false'$/m);
     assert.doesNotMatch(output, /^CODEX_AUTH_MODE=/m);

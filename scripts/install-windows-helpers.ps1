@@ -721,7 +721,7 @@ function Set-GeminiApiKeyMode {
 function Set-ModelArtsCustomEnv {
     param($State)
 
-    Set-InstallerEnvValue $State "CAT_CAFE_ALLOWED_CLIENTS" "opencode,dare,relayclaw"
+    Set-InstallerEnvValue $State "CAT_CAFE_ALLOWED_CLIENTS" "dare,relayclaw"
     Set-InstallerEnvValue $State "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
     Set-InstallerEnvValue $State "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
     Add-InstallerEnvDelete $State "CODEX_AUTH_MODE"
@@ -777,7 +777,7 @@ function Configure-InstallerAuth {
 
     Invoke-InstallerAuthHelper $State @("modelarts-preset", "apply", "--project-dir", $ProjectRoot)
     Set-ModelArtsCustomEnv $State
-    Write-Ok "ModelArts preset written: 3 cats / shared glm-5 profile / opencode+dare+jiuwen only"
+    Write-Ok "ModelArts preset written: 2 cats / shared glm-5 profile / dare+jiuwen only"
 }
 
 function Apply-InstallerAuthEnv {

@@ -488,7 +488,7 @@ function buildModelartsBreed(template, breedId, options) {
 
 function applyModelartsPreset(projectDir, apiKey) {
   const sharedApiKey = apiKey?.trim() || `modelarts-${randomBytes(12).toString('hex')}`;
-  upsertInstallerApiKeyAccount(projectDir, 'opencode', {
+  upsertInstallerApiKeyAccount(projectDir, 'dare', {
     profileId: 'modelarts-shared',
     displayName: 'ModelArts Shared',
     apiKey: sharedApiKey,
@@ -502,8 +502,8 @@ function applyModelartsPreset(projectDir, apiKey) {
     anthropic: { enabled: false, mode: 'skip' },
     openai: { enabled: false, mode: 'skip' },
     google: { enabled: false, mode: 'skip' },
+    opencode: { enabled: false, mode: 'skip' },
     dare: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
-    opencode: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
   };
   writeState(profileFile, secretsFile, profiles, secrets);
 
@@ -513,17 +513,10 @@ function applyModelartsPreset(projectDir, apiKey) {
     coCreator: template.coCreator,
     reviewPolicy: template.reviewPolicy,
     roster: {
-      opencode: { ...template.roster.opus, available: true }, // from ragdoll template member "opus"
       dare: { ...template.roster.codex, available: true }, // from maine-coon template member "codex"
       jiu: { ...template.roster.opencode, available: true }, // from golden-chinchilla template member "opencode"
     },
     breeds: [
-      buildModelartsBreed(template, 'ragdoll', {
-        catId: 'opencode',
-        nickname: '布布',
-        mentionPatterns: ['@opencode'],
-        provider: 'opencode',
-      }),
       buildModelartsBreed(template, 'maine-coon', {
         catId: 'dare',
         nickname: '小因',

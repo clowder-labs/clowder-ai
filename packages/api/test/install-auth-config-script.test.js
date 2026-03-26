@@ -192,7 +192,7 @@ test('claude-profile create and remove keeps installer-managed account in sync',
   }
 });
 
-test('modelarts-preset apply seeds one shared profile and exactly three runtime members', () => {
+test('modelarts-preset apply seeds one shared profile and exactly two runtime members', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-modelarts-preset-'));
 
   try {
@@ -211,8 +211,8 @@ test('modelarts-preset apply seeds one shared profile and exactly three runtime 
       anthropic: { enabled: false, mode: 'skip' },
       openai: { enabled: false, mode: 'skip' },
       google: { enabled: false, mode: 'skip' },
+      opencode: { enabled: false, mode: 'skip' },
       dare: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
-      opencode: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
     });
     assert.deepEqual(modelartsProfile, {
       id: 'modelarts-shared',
@@ -239,14 +239,6 @@ test('modelarts-preset apply seeds one shared profile and exactly three runtime 
         defaultModel: breed.variants[0].defaultModel,
       })),
       [
-        {
-          catId: 'opencode',
-          nickname: '布布',
-          mentionPatterns: ['@opencode'],
-          provider: 'opencode',
-          accountRef: 'modelarts-shared',
-          defaultModel: 'glm-5',
-        },
         {
           catId: 'dare',
           nickname: '小因',

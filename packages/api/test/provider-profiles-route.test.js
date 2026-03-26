@@ -209,7 +209,7 @@ describe('provider profiles routes', () => {
   it('GET /api/provider-profiles hides builtin auth cards when the install preset disables them', async () => {
     const previousAllowedClients = process.env.CAT_CAFE_ALLOWED_CLIENTS;
     const previousVisibleBuiltinAuthClients = process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS;
-    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'opencode,dare,relayclaw';
+    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'dare,relayclaw';
     process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
 
     const Fastify = (await import('fastify')).default;
@@ -244,7 +244,7 @@ describe('provider profiles routes', () => {
       const builtinProviders = list.providers.filter((p) => p.builtin);
       assert.equal(builtinProviders.length, 0, 'builtin profiles should be hidden when preset disables them');
       assert.ok(list.providers.some((p) => p.id === 'modelarts-shared'), 'custom profile should still be visible');
-      assert.deepEqual(Object.keys(list.bootstrapBindings), ['dare', 'opencode']);
+      assert.deepEqual(Object.keys(list.bootstrapBindings), ['dare']);
     } finally {
       if (previousAllowedClients === undefined) delete process.env.CAT_CAFE_ALLOWED_CLIENTS;
       else process.env.CAT_CAFE_ALLOWED_CLIENTS = previousAllowedClients;
@@ -261,7 +261,7 @@ describe('provider profiles routes', () => {
       visible: process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS,
       toggle: process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED,
     };
-    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'opencode,dare,relayclaw';
+    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'dare,relayclaw';
     process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
     process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED = 'true';
 

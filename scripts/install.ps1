@@ -320,7 +320,7 @@ Mount-InstallerSkills -ProjectRoot $ProjectRoot
 
 Write-Step "Step 7/9 - AI CLI tools"
 Write-Host "  Custom install — no external CLI tools required"
-Write-Ok "Skipped (opencode/dare/jiuwen use vendored runtimes)"
+Write-Ok "Skipped (dare/jiuwen use vendored runtimes)"
 
 $dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot
 $jiuwenClawRuntimeReady = Ensure-WindowsJiuwenClawRuntime -ProjectRoot $ProjectRoot

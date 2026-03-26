@@ -469,7 +469,7 @@ set_gemini_api_key_mode() {
     [[ -n "$model" ]] && collect_env "CAT_GEMINI_MODEL" "$model" || clear_env "CAT_GEMINI_MODEL"
 }
 apply_modelarts_custom_env() {
-    collect_env "CAT_CAFE_ALLOWED_CLIENTS" "opencode,dare,relayclaw"
+    collect_env "CAT_CAFE_ALLOWED_CLIENTS" "dare,relayclaw"
     collect_env "CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS" ""
     collect_env "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
     clear_env "CODEX_AUTH_MODE"
@@ -761,13 +761,13 @@ fi
 # ── [6/9] AI CLI tools (skipped for custom install) ──────
 step "[6/9] AI CLI tools / AI 命令行工具..."
 info "  Custom install — no external CLI tools required"
-ok "Skipped (opencode/dare/jiuwen use vendored runtimes)"
+ok "Skipped (dare/jiuwen use vendored runtimes)"
 
 # ── [7/9] Authentication setup / 认证配置 ─────────────────
 step "[7/9] Authentication setup / 认证配置..."
 node scripts/install-auth-config.mjs modelarts-preset apply --project-dir "$PROJECT_DIR"
 apply_modelarts_custom_env
-ok "ModelArts preset written: 3 cats / shared glm-5 profile / opencode+dare+jiuwen only"
+ok "ModelArts preset written: 2 cats / shared glm-5 profile / dare+jiuwen only"
 
 # ── [8/9] Generate .env with all collected config ─────────
 step "[8/9] Generating config / 生成配置..."

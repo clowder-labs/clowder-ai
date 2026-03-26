@@ -408,7 +408,6 @@ describe('CatCafeHub provider profiles tab', () => {
             visibleBuiltinClients: [],
             bootstrapBindings: {
               dare: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
-              opencode: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
             },
             providers: [
               {
