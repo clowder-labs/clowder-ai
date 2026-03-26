@@ -435,10 +435,12 @@ export class DareAgentService implements AgentService {
       env.DARE_SKILL_PATHS = JSON.stringify([catCafeSkillsDir]);
     }
 
+    // Reserve 30% to account for: output tokens (~15%), serialization overhead,
+    // and DARE's heuristic token estimator approximation error on CJK content.
     if (model) {
       const ctxWindow = getContextWindowFallback(model);
       if (ctxWindow) {
-        const inputBudget = Math.floor(ctxWindow * 0.85);
+        const inputBudget = Math.floor(ctxWindow * 0.70);
         env.DARE_CONTEXT_WINDOW_TOKENS = String(inputBudget);
       }
     }
