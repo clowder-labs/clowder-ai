@@ -1,6 +1,6 @@
 ﻿Unicode True
 RequestExecutionLevel user
-SetCompressor /SOLID lzma
+SetCompress off
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
@@ -28,20 +28,12 @@ SetCompressor /SOLID lzma
 !define APP_VERSION "0.0.0"
 !endif
 
-!ifndef BUNDLE_DIR
-!error "BUNDLE_DIR define is required"
+!ifndef PAYLOAD_TAR
+!error "PAYLOAD_TAR define is required"
 !endif
 
 !ifndef OUTPUT_EXE
 !define OUTPUT_EXE "OfficeClaw-windows-x64-setup.exe"
-!endif
-
-!ifndef MAX_REL_PATH_LEN
-!define MAX_REL_PATH_LEN "250"
-!endif
-
-!ifndef MAX_INSTALL_ROOT_LEN
-!define MAX_INSTALL_ROOT_LEN "8"
 !endif
 
 !define APP_NAME "OfficeClaw"
@@ -57,7 +49,7 @@ InstallDir "${DEFAULT_INSTALL_DIR}"
 InstallDirRegKey HKCU "${INSTALL_KEY}" "InstallDir"
 BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
-ShowUninstDetails show
+ShowUninstDetails nevershow
 
 ; --------------- Welcome page (custom nsDialogs, no left bitmap) ---------------
 Page custom WelcomePageCreate
@@ -103,7 +95,7 @@ FunctionEnd
 Function .onInit
   SetShellVarContext current
   StrLen $0 $INSTDIR
-  ${If} $0 > ${MAX_INSTALL_ROOT_LEN}
+  ${If} $0 > 60
     StrCpy $INSTDIR "${DEFAULT_INSTALL_DIR}"
   ${EndIf}
 FunctionEnd
@@ -114,15 +106,15 @@ FunctionEnd
 
 Function .onVerifyInstDir
   StrLen $0 $INSTDIR
-  ${If} $0 > ${MAX_INSTALL_ROOT_LEN}
+  ${If} $0 > 60
     Abort
   ${EndIf}
 FunctionEnd
 
 Function VerifyInstallDirLeave
   StrLen $0 $INSTDIR
-  ${If} $0 > ${MAX_INSTALL_ROOT_LEN}
-    MessageBox MB_ICONEXCLAMATION|MB_OK "Install path too long for this build.$\r$\n$\r$\nChoose a path with at most ${MAX_INSTALL_ROOT_LEN} characters, for example ${DEFAULT_INSTALL_DIR}."
+  ${If} $0 > 60
+    MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长，请选择较短的路径（如 ${DEFAULT_INSTALL_DIR}）。"
     Abort
   ${EndIf}
 FunctionEnd
@@ -222,8 +214,14 @@ Section "Install"
   CreateDirectory "$INSTDIR"
   Call CleanupManagedPayload
 
+  ; Extract payload tar to a temp location then unpack via Windows tar.exe
+  DetailPrint "正在释放安装文件..."
   SetOutPath "$INSTDIR"
-  File /r "${BUNDLE_DIR}\*"
+  File "${PAYLOAD_TAR}"
+  DetailPrint "正在解压安装文件..."
+  nsExec::ExecToLog '"$WINDIR\System32\tar.exe" -xzf "$INSTDIR\payload.tar.gz" -C "$INSTDIR"'
+  Pop $0
+  Delete "$INSTDIR\payload.tar.gz"
 
   CreateDirectory "$INSTDIR\data"
   CreateDirectory "$INSTDIR\logs"

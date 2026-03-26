@@ -608,7 +608,10 @@ function removeNamedDirectoriesRecursive(rootDir, directoryNames) {
 
 function pruneRuntimePackage(targetDir, options = {}) {
   removePaths(targetDir, options.removePaths ?? []);
-  removeNamedDirectoriesRecursive(targetDir, ['test', 'tests', '__tests__']);
+  removeNamedDirectoriesRecursive(targetDir, [
+    'test', 'tests', '__tests__',
+    'src', 'example', 'examples', 'doc', 'docs',
+  ]);
   walkFiles(targetDir, (fullPath, entry) => {
     const fileName = entry.name;
     if (fileName === 'package-lock.json' || fileName === '.package-lock.json') {
@@ -619,10 +622,57 @@ function pruneRuntimePackage(targetDir, options = {}) {
       rmSync(fullPath, { force: true });
       return;
     }
+    if (fileName.endsWith('.ts') || fileName.endsWith('.cts') || fileName.endsWith('.mts')) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (fileName.endsWith('.md') || fileName.endsWith('.yml') || fileName.endsWith('.yaml')) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
     if (/^(README|CHANGELOG|CONTRIBUTING)(\..+)?$/i.test(fileName)) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (/^\.(eslintrc|prettierrc|editorconfig|babelrc)/i.test(fileName)) {
       rmSync(fullPath, { force: true });
     }
   });
+}
+
+function pruneNativePrebuilds(rootDir) {
+  if (!existsSync(rootDir)) return;
+  const stack = [rootDir];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries;
+    try { entries = readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const fullPath = join(current, entry.name);
+      if (entry.name === 'prebuilds') {
+        for (const platform of readdirSync(fullPath, { withFileTypes: true })) {
+          if (!platform.isDirectory()) continue;
+          if (!platform.name.startsWith('win32-x64')) {
+            rmSync(join(fullPath, platform.name), { recursive: true, force: true });
+          }
+        }
+        continue;
+      }
+      stack.push(fullPath);
+    }
+  }
+}
+
+function pruneDateFnsLocales(rootDir) {
+  const localeDir = join(rootDir, 'date-fns', 'locale');
+  if (!existsSync(localeDir)) return;
+  const keepPrefixes = ['en-US', 'zh-CN', 'types', 'cdn'];
+  for (const entry of readdirSync(localeDir, { withFileTypes: true })) {
+    const name = entry.name.replace(/\.(js|cjs|mjs)$/, '');
+    if (keepPrefixes.some((p) => name === p)) continue;
+    rmSync(join(localeDir, entry.name), { recursive: true, force: true });
+  }
 }
 
 function createRuntimePackageJson(sourcePath, options = {}) {
@@ -896,6 +946,9 @@ async function installWindowsRuntimeDependencies(bundleDir, options) {
     runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(join(bundlePackagesDir, packageName)));
     materializeSharedDependency(bundlePackagesDir, packageName);
     pruneRuntimePackage(join(bundlePackagesDir, packageName));
+    const nmDir = join(bundlePackagesDir, packageName, 'node_modules');
+    pruneNativePrebuilds(nmDir);
+    pruneDateFnsLocales(nmDir);
   }
 }
 
@@ -1168,20 +1221,27 @@ function buildInstallerOutputPath(outputDir, version) {
   return join(outputDir, `OfficeClaw-${version}-windows-x64-setup.exe`);
 }
 
-function invokeMakensis(installerScript, outputExe, bundleDir, version) {
+function createPayloadTar(bundleDir, tarPath) {
+  rmSync(tarPath, { force: true });
+  const tarExe = process.platform === 'win32'
+    ? join(process.env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'tar.exe')
+    : 'tar';
+  run(tarExe, ['-czf', tarPath, '-C', bundleDir, '.']);
+  if (!existsSync(tarPath)) {
+    throw new Error(`Failed to create payload archive: ${tarPath}`);
+  }
+}
+
+function invokeMakensis(installerScript, outputExe, payloadTar, version) {
   const makensisCommand = process.env.MAKENSIS_PATH ?? 'makensis';
   if (!commandExists(makensisCommand)) {
     throw new Error('makensis not found on PATH. Install NSIS or run with --bundle-only.');
   }
   const definePrefix = process.platform === 'win32' ? '/D' : '-D';
-  const maxRelativePathLength = computeMaxRelativePathLength(bundleDir);
-  const maxInstallRootLength = 259 - maxRelativePathLength - 1;
   run(makensisCommand, [
     `${definePrefix}APP_VERSION=${version}`,
-    `${definePrefix}BUNDLE_DIR=${toNsisDirPath(bundleDir)}`,
+    `${definePrefix}PAYLOAD_TAR=${toNsisDirPath(payloadTar)}`,
     `${definePrefix}OUTPUT_EXE=${toNsisFilePath(outputExe)}`,
-    `${definePrefix}MAX_REL_PATH_LEN=${maxRelativePathLength}`,
-    `${definePrefix}MAX_INSTALL_ROOT_LEN=${maxInstallRootLength}`,
     toNsisFilePath(installerScript),
   ]);
 }
@@ -1253,8 +1313,12 @@ async function main() {
     return;
   }
 
+  logStep('Creating payload archive');
+  const payloadTar = join(options.outputDir, 'payload.tar.gz');
+  createPayloadTar(bundleDir, payloadTar);
+
   logStep('Compiling NSIS installer');
-  invokeMakensis(installerScript, outputExe, bundleDir, packageJson.version);
+  invokeMakensis(installerScript, outputExe, payloadTar, packageJson.version);
   logStep(`Installer ready at ${outputExe}`);
 }
 
