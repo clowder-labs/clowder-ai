@@ -687,6 +687,7 @@ console.log(theme);
             threadId={threadId}
             messageSummary={messageSummary}
             width={statusPanelWidth}
+            onClose={() => setStatusPanelOpen(false)}
           />
         </>
       )}

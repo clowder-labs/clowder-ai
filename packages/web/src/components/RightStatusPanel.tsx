@@ -27,6 +27,8 @@ export interface RightStatusPanelProps {
   };
   /** Panel width in px (clowder-ai#28: drag-to-resize). Falls back to 288 (w-72). */
   width?: number;
+  /** Hide the status panel (mirrors WorkspacePanel's close button) */
+  onClose?: () => void;
 }
 
 /* ── Cat invocation card (shared between active/history) ──── */
@@ -284,6 +286,7 @@ export function RightStatusPanel({
   threadId,
   messageSummary,
   width,
+  onClose,
 }: RightStatusPanelProps) {
   // F26: Split into active (working now) vs history (appeared before)
   const { activeCats, historyCats } = useMemo(() => {
@@ -321,11 +324,26 @@ export function RightStatusPanel({
       className="hidden lg:flex border-l border-cocreator-light bg-white/90 px-4 py-4 flex-col gap-4 overflow-y-auto"
       style={{ width: width ?? 288, flexShrink: 0 }}
     >
-      <div>
-        <h2 className="text-sm font-bold text-cafe-black">状态栏</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          当前模式: <span className="font-medium">{modeLabel(intentMode)}</span>
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-cafe-black">状态栏</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            当前模式: <span className="font-medium">{modeLabel(intentMode)}</span>
+          </p>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-6 h-6 flex items-center justify-center rounded-md text-cocreator-dark/40 hover:text-cocreator-dark hover:bg-cocreator-light/60 transition-colors"
+            title="隐藏状态栏"
+            aria-label="隐藏状态栏"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M2 2l8 8M10 2l-8 8" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* ── Active cats: currently working ──────────────── */}
