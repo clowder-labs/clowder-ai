@@ -6,7 +6,6 @@
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type {
   CatBreed,
   CatCafeConfig,
@@ -23,6 +22,7 @@ import type {
 import { createCatId } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
+import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
 import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
 
 const log = createModuleLogger('cat-config');
@@ -34,7 +34,7 @@ const log = createModuleLogger('cat-config');
  * not the repo root. Resolve relative to this file instead to keep behavior
  * stable across different launch directories.
  */
-const DEFAULT_CAT_TEMPLATE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..', 'cat-template.json');
+const DEFAULT_CAT_TEMPLATE_PATH = resolve(resolveCatCafeHostRoot(process.cwd()), 'cat-template.json');
 
 const cliConfigSchema = z.object({
   command: z.string().min(1),

@@ -74,18 +74,47 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   );
   assert.match(buildScript, /RUNTIME_SCRIPT_FILES = \[/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'shared'/);
-  assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'api'/);
+  assert.match(
+    buildScript,
+    /const API_RUNTIME_EXTERNAL_DEPENDENCIES = \[\s*'better-sqlite3',\s*'node-pty',\s*'pino',\s*'pino-roll',\s*'puppeteer',\s*'sharp',\s*'sqlite-vec',\s*\]/,
+  );
+  assert.match(buildScript, /await stageBundledApiRuntime\(targetRootDir\)/);
+  assert.match(buildScript, /const \{ build \} = await import\('esbuild'\)/);
+  assert.match(buildScript, /bundle: true/);
+  assert.match(buildScript, /format: 'esm'/);
+  assert.match(buildScript, /external: API_RUNTIME_EXTERNAL_DEPENDENCIES/);
+  assert.match(buildScript, /createRequire as __createRequire/);
+  assert.match(buildScript, /fileURLToPath as __fileURLToPath/);
+  assert.match(buildScript, /const __dirname = __pathDirname\(__filename\)/);
+  assert.match(buildScript, /createBundledApiRuntimePackageJson/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'mcp-server'/);
-  assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'web'/);
+  assert.match(
+    buildScript,
+    /const WEB_STANDALONE_BUILD_DIR = join\(repoRoot, 'packages', 'web', '\.next', 'standalone'\)/,
+  );
+  assert.match(buildScript, /const WEB_RUNTIME_DEPENDENCIES = \['next', 'react', 'react-dom', 'sharp'\]/);
+  assert.match(buildScript, /stageStandaloneWebRuntime\(targetRootDir\)/);
   assert.match(buildScript, /dependencies\['@cat-cafe\/shared'\] = 'file:\.\.\/shared'/);
-  assert.match(buildScript, /RUNTIME_WEB_NEXT_CONFIG = `function resolveApiBaseUrl\(\)/);
+  assert.match(buildScript, /const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require\('node:fs'\);/);
+  assert.match(buildScript, /const requiredServerFiles = JSON\.parse\(/);
+  assert.match(buildScript, /function createStandaloneWebRuntimePackageJson\(sourcePath\)/);
+  assert.match(buildScript, /resolveInstalledPackageVersion\(WEB_STANDALONE_NODE_MODULES_DIR, dependency\)/);
+  assert.match(buildScript, /cpSync\(WEB_STANDALONE_APP_DIR, targetDir, \{ recursive: true, force: true \}\)/);
+  assert.match(buildScript, /rmSync\(join\(targetDir, 'node_modules'\), \{ recursive: true, force: true \}\)/);
+  assert.match(buildScript, /copyIfPresent\(WEB_BUILD_STATIC_DIR, join\(targetDir, '\.next', 'static'\)\)/);
+  assert.match(
+    buildScript,
+    /writeJson\(join\(targetDir, 'package\.json'\), createStandaloneWebRuntimePackageJson\(join\(repoRoot, 'packages', 'web', 'package\.json'\)\)\)/,
+  );
+  assert.match(buildScript, /writeFileSync\(join\(targetDir, 'server\.js'\), RUNTIME_WEB_STANDALONE_SERVER, 'utf8'\)/);
   assert.match(buildScript, /runWindowsNpmInstall\(windowsNode\.npmCmdPath/);
+  assert.match(buildScript, /for \(const packageName of \['api', 'mcp-server', 'web'\]\)/);
   assert.match(buildScript, /buildVendoredJiuwenClawExecutable\(options\)/);
   assert.match(buildScript, /stageVendoredJiuwenClawExecutable\(bundleDir, jiuwenClawExecutable\)/);
   assert.match(buildScript, /cpSync\(executablePath, join\(vendorDir, 'jiuwenclaw\.exe'\), \{ force: true \}\)/);
   assert.match(buildScript, /run\('pnpm', \['--filter', '@cat-cafe\/shared', 'run', 'build'\]\)/);
   assert.match(buildScript, /shell: options\.shell \?\? shouldUseCommandShell\(command\)/);
-  assert.match(buildScript, /materializeSharedDependency\(windowsPackagesWslDir, packageName\)/);
+  assert.match(buildScript, /materializeSharedDependency\(bundlePackagesDir, packageName\)/);
   assert.match(buildScript, /lstatSync\(sharedLinkPath\)\.isSymbolicLink\(\)/);
   assert.match(buildScript, /powershell\.exe/);
   assert.match(buildScript, /--package-lock=false/);
@@ -95,7 +124,6 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /'tailwind\.config\.js'/);
   assert.match(buildScript, /'vitest\.config\.ts'/);
   assert.match(buildScript, /'\.next\/types'/);
-  assert.match(buildScript, /'\.next\/standalone'/);
   assert.match(buildScript, /removeNamedDirectoriesRecursive\(targetDir, \['test', 'tests', '__tests__'\]\)/);
   assert.match(buildScript, /fileName === 'package-lock\.json' \|\| fileName === '\.package-lock\.json'/);
   assert.match(buildScript, /removePaths\(targetDir, \['node_modules', 'corepack', 'include', 'share'\]\)/);
@@ -190,6 +218,10 @@ test('Windows startup script pins bundled config roots for packaged releases', (
   assert.match(startWindowsScript, /if \(\$bundledRelease\) \{/);
   assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_CAFE_CONFIG_ROOT = \$ProjectRoot/);
   assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_TEMPLATE_PATH = \$bundledTemplatePath/);
+  assert.match(startWindowsScript, /\$webStandaloneServer = Join-Path \$ProjectRoot "packages\/web\/server\.js"/);
+  assert.match(startWindowsScript, /\$usingStandaloneWebRuntime = \(-not \$Dev\) -and \(Test-Path \$webStandaloneServer\)/);
+  assert.match(startWindowsScript, /Starting Frontend \(port \$WebPort, standalone\)/);
+  assert.match(startWindowsScript, /\$env:HOSTNAME = "0\.0\.0\.0"/);
 });
 
 test('Local desktop web client derives API URL from the loopback frontend port instead of a baked localhost:3004 value', () => {
