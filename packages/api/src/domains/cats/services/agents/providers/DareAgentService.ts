@@ -17,10 +17,10 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
@@ -79,9 +79,6 @@ interface DareWorkspaceConfig {
   model?: string;
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
 const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
 
@@ -138,13 +135,11 @@ function resolveMetadataModel(catId: CatId, explicitModel?: string, workspaceCon
 }
 
 /**
- * F135: Resolve vendor/dare-cli path from project root (not cwd).
- * Uses import.meta.url to derive the project root from this module's location.
- * packages/api/src/domains/cats/services/agents/providers/ → 8 levels up = project root
+ * Resolve vendor/dare-cli from the host Clowder root so bundled API builds
+ * keep working after module paths are collapsed.
  */
 export function resolveVendorDarePath(): string {
-  // packages/api/{src|dist}/domains/cats/services/agents/providers → 8 levels to root
-  return join(__dirname, '..', '..', '..', '..', '..', '..', '..', '..', 'vendor', 'dare-cli');
+  return join(resolveCatCafeHostRoot(process.cwd()), 'vendor', 'dare-cli');
 }
 
 /**
@@ -431,7 +426,7 @@ export class DareAgentService implements AgentService {
     // Inject absolute skill paths so DARE can find cat-cafe-skills
     // regardless of which workspace directory the thread uses.
     // Derive project root from vendor/dare-cli path (sibling to cat-cafe-skills/).
-    const projectRoot = resolve(resolveVendorDarePath(), '..', '..');
+    const projectRoot = resolveCatCafeHostRoot(process.cwd());
     const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
     if (existsSync(catCafeSkillsDir)) {
       env.DARE_SKILL_PATHS = JSON.stringify([catCafeSkillsDir]);

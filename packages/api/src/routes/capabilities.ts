@@ -15,7 +15,6 @@ import { existsSync } from 'node:fs';
 import { lstat, readdir, readFile, readlink, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type {
   CapabilityBoardItem,
@@ -41,6 +40,7 @@ import {
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
+import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
 import { pathsEqual, validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { type McpProbeResult, probeMcpCapability } from './mcp-probe.js';
@@ -163,16 +163,7 @@ async function resolveMainRepoPath(): Promise<string> {
 }
 
 /** Walk up from CWD to find pnpm-workspace.yaml — the monorepo root. */
-function findMonorepoRoot(): string {
-  let dir = process.cwd();
-  while (dir !== dirname(dir)) {
-    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) return dir;
-    dir = dirname(dir);
-  }
-  return process.cwd();
-}
-
-const PROJECT_ROOT = findMonorepoRoot();
+const PROJECT_ROOT = resolveCatCafeHostRoot(process.cwd());
 
 function getProjectRoot(): string {
   return PROJECT_ROOT;
@@ -183,12 +174,6 @@ function getProjectRoot(): string {
  * This avoids false "未挂载" when projectPath points to another repo (e.g. cat-cafe-runtime).
  */
 function resolveCatCafeSkillsSourceDir(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  while (dir !== dirname(dir)) {
-    const candidate = join(dir, 'cat-cafe-skills', 'manifest.yaml');
-    if (existsSync(candidate)) return join(dir, 'cat-cafe-skills');
-    dir = dirname(dir);
-  }
   return join(getProjectRoot(), 'cat-cafe-skills');
 }
 

@@ -1,12 +1,11 @@
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
+import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
 
 const LEGACY_JIUWENCLAW_APP_DIR = '/usr/code/relay-claw';
 
 function resolveRepoRoot(): string {
-  const fileDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(fileDir, '../../../../');
+  return resolveCatCafeHostRoot(process.cwd());
 }
 
 export function resolveVendoredJiuwenClawAppDir(): string {
