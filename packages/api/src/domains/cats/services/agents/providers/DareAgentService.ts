@@ -1,21 +1,12 @@
 /**
  * DARE Agent Service
- * 通过 DARE CLI 子进程调用外部 DARE agent（headless 模式）
  *
- * CLI 调用方式:
- *   python -m client --adapter openrouter --model MODEL \
- *     run --task "prompt" --full-auto --headless
- *   (API key passed via child process env, not CLI args)
- *
- * NDJSON 事件格式 (headless envelope v1):
- *   session.started  → session_init
- *   tool.invoke      → tool_use
- *   tool.result      → tool_result
- *   task.completed   → text (rendered_output)
- *   task.failed      → error
+ * Invokes the external DARE CLI in headless mode. The runtime can be either:
+ * - a source checkout launched as `python -m client`
+ * - a bundled standalone executable such as `vendor/dare.exe`
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
@@ -28,8 +19,7 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata }
 import { transformDareEvent } from './dare-event-transform.js';
 
 function resolveDefaultDareMcpServerPath(cwd = process.cwd()): string | undefined {
-  // Prefer compact MCP entry (one-line tool descriptions) to stay within
-  // narrow context windows. Falls back to full entry if compact isn't built.
+  // Prefer the compact MCP entry to reduce tool-schema token overhead.
   const roots = [
     resolve(cwd, '../mcp-server/dist'),
     resolve(cwd, 'packages/mcp-server/dist'),
@@ -44,12 +34,6 @@ function resolveDefaultDareMcpServerPath(cwd = process.cwd()): string | undefine
   return undefined;
 }
 
-/**
- * When the configured MCP path points to index.js (full toolset),
- * swap to dare.js (compact descriptions) if it exists in the same directory.
- * This ensures compact mode activates even when CAT_CAFE_MCP_SERVER_PATH
- * is explicitly set by start-dev.sh or other launch scripts.
- */
 function preferCompactMcpEntry(mcpPath: string): string {
   if (!mcpPath.endsWith('index.js')) return mcpPath;
   const compactPath = join(dirname(mcpPath), 'dare.js');
@@ -58,25 +42,29 @@ function preferCompactMcpEntry(mcpPath: string): string {
 
 interface DareAgentServiceOptions {
   catId?: CatId;
-  /** DARE adapter override. Omit to honor workspace .dare/config.json. */
   adapter?: string;
-  /** Model override. Omit to honor workspace .dare/config.json. */
   model?: string;
-  /** Optional endpoint override (maps to DARE CLI --endpoint) */
   endpoint?: string;
-  /** Generic API key override for any adapter (mapped to adapter-specific env var) */
   apiKey?: string;
-  /** Path to DARE repo (used as cwd fallback) */
+  /** Path to a DARE source checkout, or a bundled dare executable. */
   darePath?: string;
-  /** Absolute path to MCP server entry (dist/index.js) for --mcp-path */
+  /** Absolute path to the MCP server entry file for --mcp-path. */
   mcpServerPath?: string;
-  /** Inject a custom spawn function (for testing) */
   spawnFn?: SpawnFn;
 }
 
 interface DareWorkspaceConfig {
   adapter?: string;
   model?: string;
+}
+
+type DareLaunchMode = 'module' | 'executable';
+
+interface DareLaunchSpec {
+  command: string;
+  argsPrefix: string[];
+  cwd?: string;
+  runtimeMode: DareLaunchMode;
 }
 
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
@@ -134,31 +122,73 @@ function resolveMetadataModel(catId: CatId, explicitModel?: string, workspaceCon
   }
 }
 
-/**
- * Resolve vendor/dare-cli from the host Clowder root so bundled API builds
- * keep working after module paths are collapsed.
- */
 export function resolveVendorDarePath(): string {
   return join(resolveCatCafeHostRoot(process.cwd()), 'vendor', 'dare-cli');
 }
 
-/**
- * F135: Resolve venv python for a given DARE path.
- * macOS/Linux: .venv/bin/python; Windows: .venv/Scripts/python.exe (future KD-5)
- */
+export function resolveVendoredDareExecutable(): string {
+  return join(resolveCatCafeHostRoot(process.cwd()), 'vendor', 'dare.exe');
+}
+
+function isExistingFile(path: string): boolean {
+  try {
+    return lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
 export function resolveVenvPython(darePath: string): string {
-  const venvPython = join(darePath, '.venv', 'bin', 'python');
-  if (existsSync(venvPython)) return venvPython;
+  const candidates =
+    process.platform === 'win32'
+      ? [join(darePath, '.venv', 'Scripts', 'python.exe'), join(darePath, '.venv', 'bin', 'python')]
+      : [join(darePath, '.venv', 'bin', 'python'), join(darePath, '.venv', 'Scripts', 'python.exe')];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
   return 'python';
 }
 
+function buildModuleLaunchSpec(darePath?: string): DareLaunchSpec {
+  return {
+    command: darePath ? resolveVenvPython(darePath) : 'python',
+    argsPrefix: ['-m', 'client'],
+    ...(darePath ? { cwd: darePath } : {}),
+    runtimeMode: 'module',
+  };
+}
+
+function resolveConfiguredDareLaunchSpec(darePath: string | undefined): DareLaunchSpec | null {
+  if (!darePath) return null;
+  if (existsSync(join(darePath, 'client', '__main__.py'))) {
+    return buildModuleLaunchSpec(darePath);
+  }
+  if (isExistingFile(darePath)) {
+    return {
+      command: darePath,
+      argsPrefix: [],
+      cwd: dirname(darePath),
+      runtimeMode: 'executable',
+    };
+  }
+  return null;
+}
+
 function resolveDefaultDarePath(): string | undefined {
+  const vendoredExecutable = resolveVendoredDareExecutable();
+  if (isExistingFile(vendoredExecutable)) return vendoredExecutable;
+
   const vendorPath = resolveVendorDarePath();
   if (existsSync(join(vendorPath, 'client', '__main__.py'))) return vendorPath;
-  // Legacy fallback for existing installs
+
   const legacyPath = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
   if (existsSync(join(legacyPath, 'client', '__main__.py'))) return legacyPath;
+
   return undefined;
+}
+
+function formatInvalidDarePath(darePath: string): string {
+  return `DARE_PATH invalid: ${darePath} (missing client/__main__.py and not an executable file)`;
 }
 
 export class DareAgentService implements AgentService {
@@ -178,11 +208,10 @@ export class DareAgentService implements AgentService {
     this.endpoint = options?.endpoint ?? process.env[DARE_ENDPOINT_ENV];
     this.apiKey = options?.apiKey ?? process.env[DARE_API_KEY_ENV];
     this.darePath = options?.darePath ?? process.env.DARE_PATH ?? resolveDefaultDarePath();
+
     const configuredMcp = options?.mcpServerPath ?? process.env.CAT_CAFE_MCP_SERVER_PATH;
     if (configuredMcp && configuredMcp.trim().length > 0) {
       const resolved = isAbsolute(configuredMcp) ? configuredMcp : resolve(process.cwd(), configuredMcp);
-      // Prefer compact MCP entry (dare.js) over full entry (index.js)
-      // to keep tool descriptions within narrow context windows.
       this.mcpServerPath = preferCompactMcpEntry(resolved);
     } else {
       this.mcpServerPath = resolveDefaultDareMcpServerPath();
@@ -192,47 +221,26 @@ export class DareAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const workspaceConfig = readWorkspaceDareConfig(options?.workingDirectory);
-    // effectiveModel: explicit overrides only (constructor model, env override).
-    const effectiveModel =
-      options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
+    const effectiveModel = options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
 
-    // cliModel: what goes into --model CLI arg.
-    // Falls through to getCatModel() so huawei-modelarts adapter gets a model
-    // even when no explicit override is set (reads CAT_DARE_MODEL from env).
     let cliModel = effectiveModel;
     if (!cliModel) {
       try {
         cliModel = getCatModel(this.catId as string);
       } catch {
-        // No model configured — DARE CLI will use its own config/adapter default
+        // Let DARE fall back to its own config if no explicit model is available.
       }
     }
 
-    // metadata.model must reflect the actual model sent to CLI (cliModel),
-    // not just the display hint. Workspace config is only used when
-    // neither explicit override nor getCatModel provides a value.
     const metadataModel = resolveMetadataModel(this.catId, cliModel, workspaceConfig);
+    const configuredLaunchSpec = resolveConfiguredDareLaunchSpec(this.darePath);
 
-    // Runtime mode: require resolvable DARE module path to avoid opaque "No module named client".
-    // Unit tests pass spawnFn and may not provide a real filesystem path; skip hard check there.
     if (!this.darePath && !this.spawnFn) {
       const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
       yield {
         type: 'error',
         catId: this.catId,
-        error: `DARE CLI 未配置路径：请设置 DARE_PATH，或运行 installer 自动安装到 vendor/dare-cli/`,
-        metadata,
-        timestamp: Date.now(),
-      };
-      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
-      return;
-    }
-    if (this.darePath && !this.spawnFn && !existsSync(join(this.darePath, 'client', '__main__.py'))) {
-      const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
-      yield {
-        type: 'error',
-        catId: this.catId,
-        error: `DARE_PATH 无效：${this.darePath}（未找到 client/__main__.py）`,
+        error: 'DARE CLI path is not configured: set DARE_PATH or install vendor/dare.exe / vendor/dare-cli via the installer.',
         metadata,
         timestamp: Date.now(),
       };
@@ -240,8 +248,23 @@ export class DareAgentService implements AgentService {
       return;
     }
 
+    if (this.darePath && !this.spawnFn && configuredLaunchSpec === null) {
+      const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
+      yield {
+        type: 'error',
+        catId: this.catId,
+        error: formatInvalidDarePath(this.darePath),
+        metadata,
+        timestamp: Date.now(),
+      };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+      return;
+    }
+
+    const launchSpec = configuredLaunchSpec ?? buildModuleLaunchSpec(this.darePath);
     const endpoint = this.resolveEndpoint(options?.callbackEnv);
     const args = this.buildArgs(prompt, {
+      argsPrefix: launchSpec.argsPrefix,
       workspace: options?.workingDirectory,
       sessionId: options?.sessionId,
       endpoint,
@@ -250,21 +273,15 @@ export class DareAgentService implements AgentService {
       systemPrompt: options?.systemPrompt,
       mcpServerPath: options?.callbackEnv ? this.mcpServerPath : undefined,
     });
-    // P1-1: cwd must ALWAYS be darePath (where `python -m client` can find the module).
-    // Thread's workingDirectory goes to --workspace instead.
-    const cwd = this.darePath;
-    // F135: Prefer DARE repo's own venv python (has required deps like openai)
-    const pythonCmd = cwd ? resolveVenvPython(cwd) : 'python';
-    // P1-3: Pass API key via child env, not CLI args (avoids ps/audit leakage)
     const childEnv = this.buildEnv(options?.callbackEnv, cliModel);
     const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
     let sessionInitEmitted = false;
 
     try {
       const cliOpts = {
-        command: pythonCmd,
+        command: launchSpec.command,
         args,
-        ...(cwd ? { cwd } : {}),
+        ...(launchSpec.cwd ? { cwd: launchSpec.cwd } : {}),
         env: childEnv,
         ...(options?.signal ? { signal: options.signal } : {}),
         ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
@@ -302,7 +319,7 @@ export class DareAgentService implements AgentService {
           };
           continue;
         }
-        // F118 Phase C: Forward liveness warnings to frontend with catId
+
         if (isLivenessWarning(event)) {
           yield {
             type: 'system_info' as const,
@@ -312,6 +329,7 @@ export class DareAgentService implements AgentService {
           };
           continue;
         }
+
         if (isCliError(event)) {
           yield {
             type: 'error',
@@ -325,8 +343,6 @@ export class DareAgentService implements AgentService {
 
         const result = transformDareEvent(event, this.catId);
         if (result !== null) {
-          // P2-1: Only emit the first session_init; subsequent session.started events
-          // in multi-step runs are silently dropped to avoid duplicate session metrics.
           if (result.type === 'session_init') {
             if (sessionInitEmitted) continue;
             sessionInitEmitted = true;
@@ -352,6 +368,7 @@ export class DareAgentService implements AgentService {
   private buildArgs(
     prompt: string,
     opts?: {
+      argsPrefix?: readonly string[];
       workspace?: string;
       sessionId?: string;
       endpoint?: string;
@@ -361,7 +378,7 @@ export class DareAgentService implements AgentService {
       mcpServerPath?: string;
     },
   ): string[] {
-    const args = ['-m', 'client'];
+    const args = [...(opts?.argsPrefix ?? ['-m', 'client'])];
     if (this.adapter) {
       args.push('--adapter', this.adapter);
     }
@@ -371,38 +388,28 @@ export class DareAgentService implements AgentService {
     if (opts?.endpoint) {
       args.push('--endpoint', opts.endpoint);
     }
-
-    // P1-1: Pass thread's project directory as DARE workspace
     if (opts?.workspace) {
       args.push('--workspace', opts.workspace);
     }
-
-    // System prompt: inject via --system-prompt-text (DARE CLI supports append mode)
     if (opts?.systemPrompt) {
       args.push('--system-prompt-mode', 'append');
       args.push('--system-prompt-text', opts.systemPrompt);
     }
-
-    // MCP server: inject via --mcp-path when callback env is available
     if (opts?.mcpServerPath) {
       args.push('--mcp-path', opts.mcpServerPath);
     }
-
-    // P1-3: API key is passed via child env (buildEnv), NOT CLI args
 
     args.push('run');
     if (opts?.sessionId) {
       args.push('--session-id', opts.sessionId);
     }
 
-    // User-defined CLI args from the member editor (parity with opencode).
     for (const arg of opts?.cliConfigArgs ?? []) {
       const parts = arg.trim().split(/\s+/);
       args.push(...parts);
     }
 
     args.push('--task', prompt, '--full-auto', '--headless');
-
     return args;
   }
 
@@ -419,26 +426,18 @@ export class DareAgentService implements AgentService {
       env[apiKeyEnvName] = apiKey;
     }
 
-    // Normalize generic override into provider-specific env only.
     env[DARE_API_KEY_ENV] = null;
     env[DARE_ENDPOINT_ENV] = null;
 
-    // Inject absolute skill paths so DARE can find cat-cafe-skills
-    // regardless of which workspace directory the thread uses.
-    // Derive project root from vendor/dare-cli path (sibling to cat-cafe-skills/).
     const projectRoot = resolveCatCafeHostRoot(process.cwd());
     const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
     if (existsSync(catCafeSkillsDir)) {
       env.DARE_SKILL_PATHS = JSON.stringify([catCafeSkillsDir]);
     }
 
-    // Inject context window size so DARE's MovingCompressor can prune STM
-    // before the assembled prompt exceeds the model's input limit.
-    // Without this, GLM-5 (196K limit) overflows when MCP tools + skills + history accumulate.
     if (model) {
       const ctxWindow = getContextWindowFallback(model);
       if (ctxWindow) {
-        // Reserve ~15% for output tokens and serialization overhead.
         const inputBudget = Math.floor(ctxWindow * 0.85);
         env.DARE_CONTEXT_WINDOW_TOKENS = String(inputBudget);
       }

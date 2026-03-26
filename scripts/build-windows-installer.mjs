@@ -68,6 +68,7 @@ const RUNTIME_SCRIPT_FILES = [
   'windows-command-helpers.ps1',
   'windows-installer-ui.ps1',
 ];
+const DARE_WINDOWS_EXE_SOURCE = join(repoRoot, 'vendor', 'dare-cli', 'dist', 'dare.exe');
 const JIUWENCLAW_WINDOWS_EXE_SOURCE = join(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw.exe');
 const WEB_STANDALONE_BUILD_DIR = join(repoRoot, 'packages', 'web', '.next', 'standalone');
 const WEB_STANDALONE_APP_DIR = join(WEB_STANDALONE_BUILD_DIR, 'packages', 'web');
@@ -363,6 +364,23 @@ function commandExists(command) {
   return result.status === 0;
 }
 
+function resolveLocalEsbuildCommand() {
+  const binCandidates =
+    process.platform === 'win32'
+      ? [
+          join(ROOT_NODE_MODULES_DIR, '@esbuild', 'win32-x64', 'esbuild.exe'),
+          join(ROOT_NODE_MODULES_DIR, '.bin', 'esbuild.cmd'),
+          join(ROOT_NODE_MODULES_DIR, '.bin', 'esbuild'),
+        ]
+      : [join(ROOT_NODE_MODULES_DIR, '.bin', 'esbuild')];
+  for (const candidate of binCandidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error(`esbuild executable not found in ${join(ROOT_NODE_MODULES_DIR, '.bin')}`);
+}
+
 function ensureDir(path) {
   mkdirSync(path, { recursive: true });
 }
@@ -490,10 +508,37 @@ function buildVendoredJiuwenClawExecutable(options) {
   return JIUWENCLAW_WINDOWS_EXE_SOURCE;
 }
 
+function buildVendoredDareExecutable(options) {
+  const buildScript = join(repoRoot, 'vendor', 'dare-cli', 'scripts', 'build-exe.ps1');
+  if (!existsSync(buildScript)) {
+    throw new Error(`Missing DARE build script: ${buildScript}`);
+  }
+  if (options.skipBuild && existsSync(DARE_WINDOWS_EXE_SOURCE)) {
+    return DARE_WINDOWS_EXE_SOURCE;
+  }
+  run('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    toWindowsPath(buildScript),
+  ]);
+  if (!existsSync(DARE_WINDOWS_EXE_SOURCE)) {
+    throw new Error(`DARE executable not found after build: ${DARE_WINDOWS_EXE_SOURCE}`);
+  }
+  return DARE_WINDOWS_EXE_SOURCE;
+}
+
 function stageVendoredJiuwenClawExecutable(bundleDir, executablePath) {
   const vendorDir = join(bundleDir, 'vendor');
   ensureDir(vendorDir);
   cpSync(executablePath, join(vendorDir, 'jiuwenclaw.exe'), { force: true });
+}
+
+function stageVendoredDareExecutable(bundleDir, executablePath) {
+  const vendorDir = join(bundleDir, 'vendor');
+  ensureDir(vendorDir);
+  cpSync(executablePath, join(vendorDir, 'dare.exe'), { force: true });
 }
 
 function stageInstallerSeed(bundleDir) {
@@ -703,37 +748,78 @@ async function stageBundledApiRuntime(targetRootDir) {
   resetDir(targetDir);
   ensureDir(join(targetDir, 'dist'));
 
-  const { build } = await import('esbuild');
-  await build({
-    entryPoints: [sourceEntry],
-    bundle: true,
-    platform: 'node',
-    format: 'esm',
-    target: 'node20',
-    outfile: join(targetDir, 'dist', 'index.js'),
-    external: API_RUNTIME_EXTERNAL_DEPENDENCIES,
-    banner: {
-      js: [
-        "import { createRequire as __createRequire } from 'node:module';",
-        "import { dirname as __pathDirname } from 'node:path';",
-        "import { fileURLToPath as __fileURLToPath } from 'node:url';",
-        'const require = __createRequire(import.meta.url);',
-        'const __filename = __fileURLToPath(import.meta.url);',
-        'const __dirname = __pathDirname(__filename);',
-      ].join(' '),
-    },
-    logLevel: 'silent',
-  });
+  try {
+    const esbuildCommand = resolveLocalEsbuildCommand();
+    const banner = [
+      "import { createRequire as __createRequire } from 'node:module';",
+      "import { dirname as __pathDirname } from 'node:path';",
+      "import { fileURLToPath as __fileURLToPath } from 'node:url';",
+      'const require = __createRequire(import.meta.url);',
+      'const __filename = __fileURLToPath(import.meta.url);',
+      'const __dirname = __pathDirname(__filename);',
+    ].join(' ');
+    run(esbuildCommand, [
+      sourceEntry,
+      '--bundle',
+      '--platform=node',
+      '--format=esm',
+      '--target=node20',
+      `--outfile=${join(targetDir, 'dist', 'index.js')}`,
+      `--banner:js=${banner}`,
+      '--log-level=error',
+      ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dependency) => `--external:${dependency}`),
+    ]);
 
-  writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(sourceDir, 'package.json')));
+    writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(sourceDir, 'package.json')));
+  } catch (error) {
+    logStep(`API bundling unavailable, falling back to staged dist (${error instanceof Error ? error.message : String(error)})`);
+    copyIfPresent(join(sourceDir, 'dist'), join(targetDir, 'dist'));
+    writeJson(
+      join(targetDir, 'package.json'),
+      createRuntimePackageJson(join(sourceDir, 'package.json'), {
+        scripts: {
+          start: 'node dist/index.js',
+        },
+      }),
+    );
+  }
   pruneRuntimePackage(targetDir, { removePaths: ['src', 'test', 'scripts', 'uploads', 'tsconfig.json'] });
 }
 
 function stageStandaloneWebRuntime(targetRootDir) {
+  const sourceDir = join(repoRoot, 'packages', 'web');
   const targetDir = join(targetRootDir, 'packages', 'web');
   const standaloneServerPath = join(WEB_STANDALONE_APP_DIR, 'server.js');
   if (!existsSync(standaloneServerPath)) {
-    throw new Error(`Missing Next standalone server build artifact: ${standaloneServerPath}`);
+    resetDir(targetDir);
+    copyIfPresent(join(sourceDir, '.next'), join(targetDir, '.next'));
+    copyIfPresent(WEB_PUBLIC_DIR, join(targetDir, 'public'));
+    copyIfPresent(join(sourceDir, 'next.config.js'), join(targetDir, 'next.config.js'));
+    writeJson(
+      join(targetDir, 'package.json'),
+      createRuntimePackageJson(join(sourceDir, 'package.json'), {
+        scripts: {
+          start: 'next start',
+        },
+      }),
+    );
+    pruneRuntimePackage(targetDir, {
+      removePaths: [
+        'src',
+        'test',
+        'worker',
+        '.next/cache',
+        '.next/standalone',
+        '.next/types',
+        '.eslintrc.json',
+        'next-env.d.ts',
+        'postcss.config.js',
+        'tailwind.config.js',
+        'tsconfig.json',
+        'vitest.config.ts',
+      ],
+    });
+    return;
   }
   if (!existsSync(WEB_STANDALONE_NODE_MODULES_DIR)) {
     throw new Error(`Missing Next standalone node_modules: ${WEB_STANDALONE_NODE_MODULES_DIR}`);
@@ -1117,11 +1203,15 @@ async function main() {
 
   ensureBuildArtifacts(options);
 
+  logStep('Building Dare executable');
+  const dareExecutable = buildVendoredDareExecutable(options);
+
   logStep('Building JiuwenClaw executable');
   const jiuwenClawExecutable = buildVendoredJiuwenClawExecutable(options);
 
   logStep('Copying project sources');
   copyTopLevelProject(bundleDir);
+  stageVendoredDareExecutable(bundleDir, dareExecutable);
   stageVendoredJiuwenClawExecutable(bundleDir, jiuwenClawExecutable);
   stageInstallerSeed(bundleDir);
 

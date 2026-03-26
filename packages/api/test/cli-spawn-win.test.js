@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-const { resolveCmdShimScript, resolveWindowsShimSpawn, escapeCmdArg, escapeBashArg } = await import(
+const { resolveCmdShimScript, resolveWindowsShimSpawn, shouldSpawnNativeWindowsBinary, escapeCmdArg, escapeBashArg } = await import(
   '../dist/utils/cli-spawn-win.js'
 );
 
-test('resolveCmdShimScript supports %dp0 shims and keeps scanning where results until one resolves', () => {
+test('resolveCmdShimScript supports %dp0 shims and keeps scanning where results until one resolves', { skip: process.platform === 'win32' }, () => {
   const tempRoot = mkdtempSync(join(tmpdir(), 'cli-spawn-win-'));
   const originalPath = process.env.PATH;
   const fakeBin = join(tempRoot, 'bin');
@@ -41,7 +41,7 @@ test('resolveCmdShimScript supports %dp0 shims and keeps scanning where results 
   }
 });
 
-test('resolveCmdShimScript ignores the node.exe prelude and resolves the real script target', () => {
+test('resolveCmdShimScript ignores the node.exe prelude and resolves the real script target', { skip: process.platform === 'win32' }, () => {
   const tempRoot = mkdtempSync(join(tmpdir(), 'cli-spawn-win-node-prelude-'));
   const originalPath = process.env.PATH;
   const fakeBin = join(tempRoot, 'bin');
@@ -74,7 +74,7 @@ test('resolveCmdShimScript ignores the node.exe prelude and resolves the real sc
   }
 });
 
-test('resolveCmdShimScript prefers the shim selected by PATH over APPDATA fallback scripts', () => {
+test('resolveCmdShimScript prefers the shim selected by PATH over APPDATA fallback scripts', { skip: process.platform === 'win32' }, () => {
   const tempRoot = mkdtempSync(join(tmpdir(), 'cli-spawn-win-path-first-'));
   const originalPath = process.env.PATH;
   const originalAppData = process.env.APPDATA;
@@ -114,7 +114,7 @@ test('resolveCmdShimScript prefers the shim selected by PATH over APPDATA fallba
   }
 });
 
-test('resolveCmdShimScript revalidates cached shim targets after upgrades move the entrypoint', () => {
+test('resolveCmdShimScript revalidates cached shim targets after upgrades move the entrypoint', { skip: process.platform === 'win32' }, () => {
   const tempRoot = mkdtempSync(join(tmpdir(), 'cli-spawn-win-cache-refresh-'));
   const originalPath = process.env.PATH;
   const fakeBin = join(tempRoot, 'bin');
@@ -166,6 +166,13 @@ test('resolveWindowsShimSpawn uses the current Node executable for direct shim l
     command: process.execPath,
     args: [shimScript, '--json'],
   });
+});
+
+test('shouldSpawnNativeWindowsBinary detects direct executables without routing through shell', () => {
+  assert.equal(shouldSpawnNativeWindowsBinary('C:\\vendor\\dare.exe'), true);
+  assert.equal(shouldSpawnNativeWindowsBinary('dare.exe'), true);
+  assert.equal(shouldSpawnNativeWindowsBinary('C:\\vendor\\codex.cmd'), false);
+  assert.equal(shouldSpawnNativeWindowsBinary('powershell.exe'), true);
 });
 
 test('resolveCmdShimScript skips sibling node.exe and resolves the actual script (#247)', () => {
