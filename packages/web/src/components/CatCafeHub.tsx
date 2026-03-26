@@ -24,7 +24,6 @@ import { HubGovernanceTab } from './HubGovernanceTab';
 import { HubLeaderboardTab } from './HubLeaderboardTab';
 import { HubProviderProfilesTab } from './HubProviderProfilesTab';
 import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
-import { HubSkillsTab } from './HubSkillsTab';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 
@@ -248,7 +247,6 @@ export function CatCafeHub() {
             {tab === 'health' && <BrakeSettingsPanel />}
             {tab === 'rescue' && <HubClaudeRescueSection />}
             {tab === 'leaderboard' && <HubLeaderboardTab />}
-            {tab === 'skills' && <HubSkillsTab />}
           </div>
         </div>
         <HubCatEditor
