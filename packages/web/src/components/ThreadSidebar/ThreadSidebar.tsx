@@ -451,7 +451,7 @@ export function ThreadSidebar({
 
         <div className="px-3 py-2 border-t border-b border-cocreator-light">
           <div className="flex flex-col gap-4 items-start">
-            <div className="flex items-center justify-between">
+            <div className="flex w-full items-center justify-between">
               <a
                 href="/"
                 className="flex items-center gap-1.5 px-2 py-1 text-sm font-semibold text-cafe-black transition-colors hover:text-cocreator-primary"
