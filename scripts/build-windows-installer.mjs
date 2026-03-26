@@ -784,10 +784,6 @@ function ensureWindowsBuildNode(options) {
   };
 }
 
-function escapePowerShellString(value) {
-  return value.replaceAll("'", "''");
-}
-
 function runWindowsNpmInstall(npmCmdPath, packageWindowsDir) {
   run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, { cwd: packageWindowsDir, shell: true });
 }
