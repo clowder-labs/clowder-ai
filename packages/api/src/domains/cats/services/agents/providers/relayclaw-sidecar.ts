@@ -2,10 +2,17 @@ import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:chi
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
 import type { AgentServiceOptions } from '../../types.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import {
+  buildRelayClawAppSignature,
+  buildRelayClawDisabledSkillsSignature,
+  buildRelayClawSharedSkillsSignature,
+  resolveRelayClawDisabledSkills,
+  resolveRelayClawSharedSkillsDirs,
+} from '../../../../../utils/relayclaw-skills.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import {
   resolveJiuwenClawAppDir,
@@ -130,7 +137,10 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const provider = apiBase.includes('openrouter.ai') ? 'OpenRouter' : 'OpenAI';
     const modelName = this.config.modelName?.trim() || 'gpt-5.4';
     const projectDir = options?.workingDirectory?.trim() || '';
+    const projectRoot = projectDir || process.cwd();
     const catCafeMcp = resolveCatCafeMcpServer(options?.workingDirectory);
+    const sharedSkillDirs = resolveRelayClawSharedSkillsDirs();
+    const disabledSkills = resolveRelayClawDisabledSkills(projectRoot, this.catId as string);
 
     return {
       executablePath,
@@ -149,7 +159,10 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         MODEL_NAME: modelName,
         MODEL_PROVIDER: provider,
         JIUWENCLAW_AGENT_ROOT: join(homeDir, 'agent'),
+        JIUWENCLAW_RUNTIME_SKILLS_DIR: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
         ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
+        ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
+        ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
         ...(catCafeMcp
           ? {
               CAT_CAFE_MCP_SERVER_PATH: catCafeMcp.serverPath,
@@ -166,10 +179,14 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         pythonBin,
         appDir,
         homeDir,
+        appSignature: buildRelayClawAppSignature(appDir),
         apiBase,
         modelName,
         provider,
         projectDir,
+        runtimeSkillsDir: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
+        sharedSkillsSignature: buildRelayClawSharedSkillsSignature(),
+        disabledSkillsSignature: buildRelayClawDisabledSkillsSignature(projectRoot, this.catId as string),
         catCafeMcpPath: catCafeMcp?.serverPath ?? '',
         keyHash: apiKey ? createHash('sha256').update(apiKey).digest('hex') : '',
       },

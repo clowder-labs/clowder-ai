@@ -501,10 +501,17 @@ function ToggleSwitch({
 
 /** Mount status badges for a cat-cafe skill (claude/codex/gemini) */
 function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
-  const providers = [
+  const knownProviders = [
     { key: 'claude', label: 'Claude' },
     { key: 'codex', label: 'Codex' },
     { key: 'gemini', label: 'Gemini' },
+    { key: 'relayclaw', label: 'jiuwenClaw' },
+  ];
+  const providers = [
+    ...knownProviders.filter(({ key }) => key in mounts),
+    ...Object.keys(mounts)
+      .filter((key) => !knownProviders.some((provider) => provider.key === key))
+      .map((key) => ({ key, label: key })),
   ];
   return (
     <div>
