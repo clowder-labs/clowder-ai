@@ -32,7 +32,7 @@ export function parsePreviewUrl(input: string): ParsedPreviewUrl {
   for (const pattern of HUB_PATH_PATTERNS) {
     if (pattern.test(path)) {
       warning =
-        'This URL looks like a Clowder AI Hub page, not a dev server. ' +
+        'This URL looks like an OfficeClaw Hub page, not a dev server. ' +
         'Preview is designed for dev servers (Vite, Next.js, etc.).';
       break;
     }
