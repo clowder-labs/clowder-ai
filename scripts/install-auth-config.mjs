@@ -448,6 +448,15 @@ function readSeedTemplate() {
   return template;
 }
 
+function readModelartsPreset() {
+  const presetPath = new URL('../modelarts-preset.json', import.meta.url);
+  const preset = readJson(presetPath, null);
+  if (!preset?.sharedAccount || !preset?.members) {
+    throw new Error('Failed to load modelarts-preset.json');
+  }
+  return preset;
+}
+
 function buildModelartsBreed(template, breedId, options) {
   const breed = template.breeds.find((entry) => entry.id === breedId);
   if (!breed) throw new Error(`ModelArts preset template breed "${breedId}" not found`);
@@ -491,14 +500,16 @@ function buildModelartsBreed(template, breedId, options) {
 }
 
 function applyModelartsPreset(projectDir, apiKey) {
+  const preset = readModelartsPreset();
+  const account = preset.sharedAccount;
   const sharedApiKey = apiKey?.trim() || `modelarts-${randomBytes(12).toString('hex')}`;
   upsertInstallerApiKeyAccount(projectDir, 'dare', {
-    profileId: 'modelarts-shared',
-    displayName: 'ModelArts Shared',
+    profileId: account.profileId,
+    displayName: account.displayName,
     apiKey: sharedApiKey,
-    baseUrl: 'https://api.modelarts-maas.com/v2',
-    models: ['glm-5'],
-    protocol: 'openai',
+    baseUrl: account.baseUrl,
+    models: account.models,
+    protocol: account.protocol,
   });
 
   const { profileFile, secretsFile, profiles, secrets } = readState(projectDir);
@@ -507,48 +518,25 @@ function applyModelartsPreset(projectDir, apiKey) {
     openai: { enabled: false, mode: 'skip' },
     google: { enabled: false, mode: 'skip' },
     opencode: { enabled: false, mode: 'skip' },
-    dare: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
+    dare: { enabled: true, mode: 'api_key', accountRef: account.profileId },
   };
   writeState(profileFile, secretsFile, profiles, secrets);
 
   const template = readSeedTemplate();
+  const roster = {};
+  const rosterTemplateMap = { office: 'codex', assistant: 'opencode' };
+  for (const member of preset.members) {
+    roster[member.catId] = { ...template.roster[rosterTemplateMap[member.catId] ?? member.catId], available: true };
+  }
   const catalog = {
     version: 2,
     preset: true,
     coCreator: template.coCreator,
     reviewPolicy: template.reviewPolicy,
-    roster: {
-      office: { ...template.roster.codex, available: true },
-      assistant: { ...template.roster.opencode, available: true },
-    },
-    breeds: [
-      buildModelartsBreed(template, 'maine-coon', {
-        catId: 'office',
-        nickname: '小九',
-        displayName: '九问Office',
-        avatar: '/avatars/office.svg',
-        color: { primary: '#2B5797', secondary: '#C0D0E8' },
-        mentionPatterns: ['@office', '@小九'],
-        provider: 'dare',
-        roleDescription: '商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析',
-        personality: '专业干练，逻辑清晰，善于结构化输出和流程优化',
-        teamStrengths: '文档撰写、会议纪要、项目管理、数据分析',
-        strengths: ['document-writing', 'meeting-notes', 'project-management', 'data-analysis'],
-      }),
-      buildModelartsBreed(template, 'golden-chinchilla', {
-        catId: 'assistant',
-        nickname: '小理',
-        displayName: '九问助理',
-        avatar: '/avatars/assistant.svg',
-        color: { primary: '#E8913A', secondary: '#FFF0DD' },
-        mentionPatterns: ['@assistant', '@小理'],
-        provider: 'dare',
-        roleDescription: '个人助理，擅长日常问答、信息整理、创意写作和生活建议',
-        personality: '温暖亲切，耐心细致，善于倾听和陪伴式交流',
-        teamStrengths: '日常问答、信息整理、创意写作、生活建议',
-        strengths: ['daily-qa', 'info-organization', 'creative-writing', 'life-advice'],
-      }),
-    ],
+    roster,
+    breeds: preset.members.map((member) =>
+      buildModelartsBreed(template, member.breedId, member),
+    ),
   };
   writeCatalog(projectDir, catalog);
 }

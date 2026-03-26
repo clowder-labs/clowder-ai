@@ -36,19 +36,24 @@ function clientRuntimeLabel(cat: CatData, configCat?: CatConfig, labels?: Record
   return humanizeProvider(configCat?.provider ?? cat.provider, labels);
 }
 
+function cleanAccountRef(raw: string): string {
+  return raw.replace(/-migrated-\d+$/, '');
+}
+
 function accountSummary(cat: CatData) {
   const accountRef = cat.accountRef?.trim() ?? cat.providerProfileId?.trim() ?? '';
   if (!accountRef) return humanizeProvider(cat.provider);
+  const cleaned = cleanAccountRef(accountRef);
   if (
-    accountRef === 'claude' ||
-    accountRef === 'codex' ||
-    accountRef === 'gemini' ||
-    accountRef === 'dare' ||
-    accountRef === 'opencode'
+    cleaned === 'claude' ||
+    cleaned === 'codex' ||
+    cleaned === 'gemini' ||
+    cleaned === 'dare' ||
+    cleaned === 'opencode'
   ) {
     return '内置 OAuth 账号';
   }
-  return `API Key · ${accountRef}`;
+  return `API Key · ${cleaned}`;
 }
 
 function getMetaSummary(cat: CatData, configCat?: CatConfig, labels?: Record<string, string>) {

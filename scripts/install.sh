@@ -471,6 +471,9 @@ set_gemini_api_key_mode() {
 apply_modelarts_custom_env() {
     # CAT_CAFE_CLIENT_LABELS is the single source of truth:
     # keys = enabled clients, values = console display names.
+    # Format: "clientId:DisplayName,clientId:DisplayName"
+    # Available client IDs: anthropic | openai | google | dare | opencode | antigravity | relayclaw
+    # Example: "dare:jiuwen,anthropic:Claude,opencode:OpenCode"
     # CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false hides all builtin auth.
     collect_env "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
     collect_env "CAT_CAFE_CLIENT_LABELS" "dare:jiuwen"
