@@ -707,6 +707,160 @@ describe('DareAgentService', () => {
     assert.ok(errorMsg, 'expected error message');
     assert.match(errorMsg.error, /DARE_PATH 无效/);
   });
+
+  // DARE_CONTEXT_WINDOW_TOKENS injection via buildEnv
+  test('injects DARE_CONTEXT_WINDOW_TOKENS for glm-5 model', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'glm-5',
+      darePath: '/opt/dare',
+    });
+    const promise = collect(service.invoke('Test', { callbackEnv: {} }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const opts = spawnFn.mock.calls[0].arguments[2];
+    const tokenBudget = Number(opts.env.DARE_CONTEXT_WINDOW_TOKENS);
+    // 196608 * 0.85 = 167116.8 → floor = 167116
+    assert.strictEqual(tokenBudget, Math.floor(196_608 * 0.85));
+  });
+
+  test('injects DARE_CONTEXT_WINDOW_TOKENS for provider-qualified huawei-modelarts/glm-5', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const oldOverride = process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    const oldCatModel = process.env.CAT_DARE_MODEL;
+    delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    process.env.CAT_DARE_MODEL = 'huawei-modelarts/glm-5';
+
+    try {
+      const service = new DareAgentService({
+        catId: 'dare',
+        spawnFn,
+        darePath: '/opt/dare',
+        adapter: 'huawei-modelarts',
+      });
+      const promise = collect(service.invoke('Test', { callbackEnv: {} }));
+      emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+      await promise;
+
+      const opts = spawnFn.mock.calls[0].arguments[2];
+      const tokenBudget = Number(opts.env.DARE_CONTEXT_WINDOW_TOKENS);
+      assert.strictEqual(tokenBudget, Math.floor(196_608 * 0.85));
+    } finally {
+      if (oldOverride !== undefined) process.env.CAT_CAFE_DARE_MODEL_OVERRIDE = oldOverride;
+      else delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+      if (oldCatModel !== undefined) process.env.CAT_DARE_MODEL = oldCatModel;
+      else delete process.env.CAT_DARE_MODEL;
+    }
+  });
+
+  test('injects DARE_CONTEXT_WINDOW_TOKENS for provider-qualified z-ai/glm-4.7', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'z-ai/glm-4.7',
+      darePath: '/opt/dare',
+    });
+    const promise = collect(service.invoke('Test', { callbackEnv: {} }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const opts = spawnFn.mock.calls[0].arguments[2];
+    const tokenBudget = Number(opts.env.DARE_CONTEXT_WINDOW_TOKENS);
+    // z-ai/glm-4.7 → bare glm-4.7 → prefix-matches glm-4 → 128000 * 0.85
+    assert.strictEqual(tokenBudget, Math.floor(128_000 * 0.85));
+  });
+
+  test('does not inject DARE_CONTEXT_WINDOW_TOKENS for unknown model', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'unknown-model-xyz',
+      darePath: '/opt/dare',
+    });
+    const promise = collect(service.invoke('Test', { callbackEnv: {} }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const opts = spawnFn.mock.calls[0].arguments[2];
+    assert.strictEqual(opts.env.DARE_CONTEXT_WINDOW_TOKENS, undefined);
+  });
+
+  // preferCompactMcpEntry: swaps index.js → dare.js when dare.js exists
+  test('preferCompactMcpEntry: uses dare.js when configured path is index.js', async () => {
+    const tmpMcp = join(tmpdir(), `dare-mcp-compact-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    mkdirSync(tmpMcp, { recursive: true });
+    writeFileSync(join(tmpMcp, 'index.js'), '');
+    writeFileSync(join(tmpMcp, 'dare.js'), '');
+
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'test/model',
+      mcpServerPath: join(tmpMcp, 'index.js'),
+    });
+    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const mcpIdx = args.indexOf('--mcp-path');
+    assert.ok(mcpIdx >= 0, `expected --mcp-path in args: ${args}`);
+    assert.strictEqual(args[mcpIdx + 1], join(tmpMcp, 'dare.js'));
+  });
+
+  test('preferCompactMcpEntry: keeps index.js when dare.js does not exist', async () => {
+    const tmpMcp = join(tmpdir(), `dare-mcp-no-compact-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    mkdirSync(tmpMcp, { recursive: true });
+    writeFileSync(join(tmpMcp, 'index.js'), '');
+    // No dare.js
+
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'test/model',
+      mcpServerPath: join(tmpMcp, 'index.js'),
+    });
+    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const mcpIdx = args.indexOf('--mcp-path');
+    assert.ok(mcpIdx >= 0, `expected --mcp-path in args: ${args}`);
+    assert.strictEqual(args[mcpIdx + 1], join(tmpMcp, 'index.js'));
+  });
+
+  test('preferCompactMcpEntry: does not change non-index.js paths', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'test/model',
+      mcpServerPath: '/opt/mcp/dist/custom-entry.js',
+    });
+    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const mcpIdx = args.indexOf('--mcp-path');
+    assert.ok(mcpIdx >= 0, `expected --mcp-path in args: ${args}`);
+    assert.strictEqual(args[mcpIdx + 1], '/opt/mcp/dist/custom-entry.js');
+  });
 });
 
 // F135: resolveVendorDarePath — project root resolution
