@@ -44,7 +44,6 @@ import { MobileStatusSheet } from './MobileStatusSheet';
 import { ModelsPanel } from './ModelsPanel';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
-import { RightStatusPanel } from './RightStatusPanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
@@ -53,7 +52,6 @@ import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
 import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
-import { WorkspacePanel } from './WorkspacePanel';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 interface ChatContainerProps {
@@ -74,7 +72,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     clearUnread,
     confirmUnreadAck,
     armUnreadSuppression,
-    rightPanelMode,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
@@ -108,7 +105,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   usePreviewAutoOpen(workspaceWorktreeId);
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [statusPanelOpen, setStatusPanelOpen] = useState(true);
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
@@ -138,13 +134,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     };
   }, []);
   // F063: resizable split pane — chatBasis as percentage (20-80), persisted
-  const [chatBasis, setChatBasis, resetChatBasis] = usePersistedState('cat-cafe:chatBasis', 50);
-  // clowder-ai#28: right status panel width in px, persisted
-  const STATUS_PANEL_DEFAULT = 288; // w-72
-  const [statusPanelWidth, setStatusPanelWidth, resetStatusPanelWidth] = usePersistedState(
-    'cat-cafe:statusPanelWidth',
-    STATUS_PANEL_DEFAULT,
-  );
   // F063 Gap 6: sidebar width in px, persisted
   const SIDEBAR_DEFAULT = 240;
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
@@ -152,36 +141,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     SIDEBAR_DEFAULT,
   );
   const containerRef = useRef<HTMLDivElement>(null);
-  const handleHorizontalResize = useCallback(
-    (delta: number) => {
-      if (!containerRef.current) return;
-      const totalWidth = containerRef.current.offsetWidth;
-      if (totalWidth === 0) return;
-      const pct = (delta / totalWidth) * 100;
-      setChatBasis((prev) => Math.min(80, Math.max(20, prev + pct)));
-    },
-    [setChatBasis],
-  );
   const handleSidebarResize = useCallback(
     (delta: number) => {
       setSidebarWidth((prev) => Math.min(480, Math.max(180, prev + delta)));
     },
     [setSidebarWidth],
   );
-  // clowder-ai#28: drag-to-resize for right status panel (negative delta = panel wider)
-  const handleStatusPanelResize = useCallback(
-    (delta: number) => {
-      setStatusPanelWidth((prev) => Math.min(480, Math.max(200, prev - delta)));
-    },
-    [setStatusPanelWidth],
-  );
-
-  // F063: auto-open panel when message file path click triggers workspace mode
-  useEffect(() => {
-    if (rightPanelMode === 'workspace' && !statusPanelOpen) {
-      setStatusPanelOpen(true);
-    }
-  }, [rightPanelMode, statusPanelOpen]);
 
   // Desktop: auto-open sidebar on mount (mobile stays closed)
   useEffect(() => {
@@ -461,7 +426,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       </div>
     );
   }
-  console.log(theme);
   return (
     <div ref={containerRef} className="flex h-screen h-dvh">
       {sidebarOpen && (
@@ -496,11 +460,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
       <div
         className="flex flex-col min-w-0"
-        style={
-          statusPanelOpen && rightPanelMode === 'workspace'
-            ? { flexBasis: `${chatBasis}%`, flexGrow: 0, flexShrink: 0 }
-            : { flex: '1 1 0%' }
-        }
+        style={{ flex: '1 1 0%' }}
       >
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
@@ -511,8 +471,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             viewMode={viewMode}
             onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
             onOpenMobileStatus={() => setMobileStatusOpen(true)}
-            statusPanelOpen={statusPanelOpen}
-            onToggleStatusPanel={() => setStatusPanelOpen((v) => !v)}
             defaultCatId={targetCats[0] || 'opus'}
           />
         )}
@@ -694,32 +652,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
       </div>
 
-      {statusPanelOpen && rightPanelMode === 'status' && (
-        <>
-          <div className="hidden lg:flex">
-            <ResizeHandle
-              direction="horizontal"
-              onResize={handleStatusPanelResize}
-              onDoubleClick={resetStatusPanelWidth}
-            />
-          </div>
-          <RightStatusPanel
-            intentMode={intentMode}
-            targetCats={targetCats}
-            catStatuses={catStatuses}
-            catInvocations={catInvocations}
-            threadId={threadId}
-            messageSummary={messageSummary}
-            width={statusPanelWidth}
-          />
-        </>
-      )}
-      {statusPanelOpen && rightPanelMode === 'workspace' && (
-        <>
-          <ResizeHandle direction="horizontal" onResize={handleHorizontalResize} onDoubleClick={resetChatBasis} />
-          <WorkspacePanel />
-        </>
-      )}
       <MobileStatusSheet
         open={mobileStatusOpen}
         onClose={() => setMobileStatusOpen(false)}

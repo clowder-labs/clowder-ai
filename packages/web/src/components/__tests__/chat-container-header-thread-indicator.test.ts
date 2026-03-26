@@ -29,8 +29,6 @@ const TEST_THREADS = [
 
 const mockStore: Record<string, unknown> = {
   threads: TEST_THREADS,
-  rightPanelMode: 'status',
-  setRightPanelMode: vi.fn(),
 };
 vi.mock('@/stores/chatStore', () => {
   const hook = Object.assign(
@@ -47,8 +45,6 @@ const defaultProps = {
   viewMode: 'single' as const,
   onToggleViewMode: vi.fn(),
   onOpenMobileStatus: vi.fn(),
-  statusPanelOpen: false,
-  onToggleStatusPanel: vi.fn(),
   defaultCatId: 'opus',
 };
 
