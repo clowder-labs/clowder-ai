@@ -96,12 +96,10 @@ import {
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
-import { resolveActiveProjectRoot } from './utils/active-project-root.js';
-import { resolveJiuwenClawAppDir, resolveJiuwenClawPythonBin } from './utils/jiuwenclaw-paths.js';
 import {
   auditRoutes,
-  authRoutes,
   authorizationRoutes,
+  authRoutes,
   availableClientsRoutes,
   backlogRoutes,
   bootcampRoutes,
@@ -154,6 +152,7 @@ import {
   ttsRoutes,
   uploadsRoutes,
   usageRoutes,
+  versionRoutes,
   workflowSopRoutes,
   workspaceEditRoutes,
   workspaceGitRoutes,
@@ -164,6 +163,8 @@ import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
+import { resolveActiveProjectRoot } from './utils/active-project-root.js';
+import { resolveJiuwenClawAppDir, resolveJiuwenClawPythonBin } from './utils/jiuwenclaw-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
 
@@ -600,7 +601,9 @@ async function main(): Promise<void> {
           break;
         }
         case 'relayclaw': {
-          const { RelayClawAgentService } = await import('./domains/cats/services/agents/providers/RelayClawAgentService.js');
+          const { RelayClawAgentService } = await import(
+            './domains/cats/services/agents/providers/RelayClawAgentService.js'
+          );
           const wsEnvKey = `CAT_${id.toUpperCase()}_WS_URL`;
           const wsUrl = process.env[wsEnvKey]?.trim() ?? '';
           const projectRoot = resolveActiveProjectRoot(process.cwd());
@@ -939,6 +942,7 @@ async function main(): Promise<void> {
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
+  await app.register(versionRoutes);
   await app.register(featureDocDetailRoutes);
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/utils/api-client';
+import { useEffect, useState } from 'react';
 import { ChatContainer } from '@/components/ChatContainer';
+import { apiFetch } from '@/utils/api-client';
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -11,28 +11,23 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    checkLoginStatus();
-  }, []);
-
-  const checkLoginStatus = async () => {
-    try {
-      const response = await apiFetch('/api/islogin');
-      const data = await response.json();
-
-      if (data.isLoggedIn) {
-        setIsLoggedIn(true);
-      } else {
-        // 未登录，跳转到登录页面
+    (async () => {
+      try {
+        const response = await apiFetch('/api/islogin');
+        const data = await response.json();
+        if (data.isLoggedIn) {
+          setIsLoggedIn(true);
+        } else {
+          router.replace('/login');
+        }
+      } catch (err) {
+        console.error('检查登录状态失败:', err);
         router.replace('/login');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error('检查登录状态失败:', err);
-      // 出错时也跳转到登录页面
-      router.replace('/login');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    })();
+  }, [router]);
 
   if (isLoading) {
     return (
