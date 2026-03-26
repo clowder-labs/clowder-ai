@@ -86,6 +86,27 @@ export function filterBootstrapBindingsForAllowedClients(bindings: BootstrapBind
 }
 
 /**
+ * Compute UI visibility hints for the Hub based on client visibility config.
+ * When builtin clients are explicitly disabled (simplified deployment), hide
+ * tabs and env categories that aren't relevant.
+ */
+export function getUiHints(): { hiddenHubTabs: string[]; hiddenEnvCategories: string[] } {
+  if (!isBuiltinClientsExplicitlyDisabled()) return { hiddenHubTabs: [], hiddenEnvCategories: [] };
+  const allowed = new Set(getAllowedClientIds());
+  const hiddenHubTabs: string[] = [];
+  if (!allowed.has('anthropic')) hiddenHubTabs.push('rescue');
+  if (!allowed.has('anthropic') && !allowed.has('openai') && !allowed.has('google')) {
+    hiddenHubTabs.push('capabilities', 'routing');
+  }
+  const hiddenEnvCategories: string[] = [];
+  if (!allowed.has('openai')) hiddenEnvCategories.push('codex');
+  if (!allowed.has('google')) hiddenEnvCategories.push('gemini');
+  // In simplified deployments, dare env is auto-configured by the preset
+  hiddenEnvCategories.push('dare');
+  return { hiddenHubTabs, hiddenEnvCategories };
+}
+
+/**
  * Parse CAT_CAFE_CLIENT_LABELS env var into a client→label map.
  * Format: "dare:九问,opencode:OC" → { dare: "九问", opencode: "OC" }
  */

@@ -7,14 +7,14 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { getAvailableClients, refreshAvailableClients } from '../utils/client-detection.js';
-import { getClientLabels } from '../utils/client-visibility.js';
+import { getClientLabels, getUiHints } from '../utils/client-visibility.js';
 
 export const availableClientsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/available-clients', async () => {
-    return { clients: await getAvailableClients(), clientLabels: getClientLabels() };
+    return { clients: await getAvailableClients(), clientLabels: getClientLabels(), uiHints: getUiHints() };
   });
 
   app.post('/api/available-clients/refresh', async () => {
-    return { clients: await refreshAvailableClients(), clientLabels: getClientLabels() };
+    return { clients: await refreshAvailableClients(), clientLabels: getClientLabels(), uiHints: getUiHints() };
   });
 };

@@ -263,6 +263,7 @@ function EnvVarsSection({
   drafts,
   isDirty,
   saveState,
+  hiddenCategories,
   onDraftChange,
   onSave,
 }: {
@@ -271,10 +272,13 @@ function EnvVarsSection({
   drafts: Record<string, string>;
   isDirty: boolean;
   saveState: { saving: boolean; error: string | null; success: string | null };
+  hiddenCategories?: string[];
   onDraftChange: (name: string, value: string) => void;
   onSave: () => void;
 }) {
+  const hiddenSet = hiddenCategories ? new Set(hiddenCategories) : null;
   const grouped = Object.entries(categories)
+    .filter(([key]) => !hiddenSet?.has(key))
     .map(([key, label]) => ({
       key,
       label,
@@ -373,7 +377,7 @@ function DataDirsSection({ dataDirs, projectRoot }: { dataDirs: DataDirs; projec
   );
 }
 
-export function HubEnvFilesTab() {
+export function HubEnvFilesTab({ hiddenCategories }: { hiddenCategories?: string[] }) {
   const [data, setData] = useState<EnvSummaryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -473,6 +477,7 @@ export function HubEnvFilesTab() {
         drafts={drafts}
         isDirty={isDirty}
         saveState={saveState}
+        hiddenCategories={hiddenCategories}
         onDraftChange={handleDraftChange}
         onSave={handleSave}
       />

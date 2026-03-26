@@ -67,7 +67,8 @@ export function CatOverviewTab({
   );
 }
 
-export function SystemTab({ config }: { config: ConfigData }) {
+export function SystemTab({ config, hiddenHubTabs }: { config: ConfigData; hiddenHubTabs?: string[] }) {
+  const hideCodex = hiddenHubTabs?.includes('capabilities');
   return (
     <>
       <Section title="A2A 猫猫互调">
@@ -82,7 +83,7 @@ export function SystemTab({ config }: { config: ConfigData }) {
           <KV label="每线程最大 key 数" value={config.memory.maxKeysPerThread} />
         </div>
       </Section>
-      {config.codexExecution ? (
+      {config.codexExecution && !hideCodex ? (
         <Section title="Codex 推理执行">
           <div className="space-y-1.5">
             <KV label="Model" value={config.codexExecution.model} />
