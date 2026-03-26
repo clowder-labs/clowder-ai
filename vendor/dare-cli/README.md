@@ -70,3 +70,21 @@ from dare_framework.model import OpenAIModelAdapter
 
 - `client/README.md`：CLI 使用方式与运行参数
 - `docs/README.md`：设计、治理和模块文档导航
+- `scripts/README-pyinstaller.md`：PyInstaller 独立可执行文件打包说明
+
+## PyInstaller 打包
+
+如果你需要像 `vendor/jiuwenclaw` 一样构建独立的 CLI 可执行文件，可以在仓库根目录执行：
+
+```powershell
+.\scripts\build-exe.ps1
+```
+
+或手动执行：
+
+```bash
+python -m pip install -r requirements.txt pyinstaller
+python -m PyInstaller scripts/dare.spec
+```
+
+更多细节见 `scripts/README-pyinstaller.md`。

@@ -67,11 +67,11 @@ test('Windows offline installer prefers plain Redis portable zips before service
 
 test('Windows offline bundle builder deploys production packages and bundles Windows runtimes', () => {
   assert.match(buildScript, /WINDOWS_RUNTIME_NPM_ARGS = \[\s*'install',\s*'--omit=dev'/);
+  assert.match(buildScript, /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json'\]/);
   assert.match(
     buildScript,
-    /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json'\]/,
+    /const JIUWENCLAW_WINDOWS_EXE_SOURCE = join\(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw\.exe'\)/,
   );
-  assert.match(buildScript, /const JIUWENCLAW_WINDOWS_EXE_SOURCE = join\(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw\.exe'\)/);
   assert.match(buildScript, /RUNTIME_SCRIPT_FILES = \[/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'shared'/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'api'/);
@@ -115,17 +115,43 @@ test('Windows offline bundle builder deploys production packages and bundles Win
 test('JiuwenClaw build spec targets a self-contained Windows executable and exposes a sidecar app flag', () => {
   const jiuwenSpec = readFileSync(join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'jiuwenclaw.spec'), 'utf8');
   const jiuwenBuildScript = readFileSync(join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'build-exe.ps1'), 'utf8');
-  const jiuwenEntry = readFileSync(join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'jiuwenclaw_exe_entry.py'), 'utf8');
+  const jiuwenEntry = readFileSync(
+    join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'jiuwenclaw_exe_entry.py'),
+    'utf8',
+  );
 
   assert.match(jiuwenSpec, /if sys\.platform == "win32":/);
   assert.match(jiuwenSpec, /a\.binaries/);
   assert.match(jiuwenSpec, /a\.zipfiles/);
   assert.match(jiuwenSpec, /a\.datas/);
-  assert.doesNotMatch(jiuwenSpec, /COLLECT\(\s*exe,\s*a\.binaries,\s*a\.zipfiles,\s*a\.datas,\s*strip=False,\s*upx=True,\s*upx_exclude=\[\],\s*name="jiuwenclaw"\s*\)\s*$/m);
+  assert.doesNotMatch(
+    jiuwenSpec,
+    /COLLECT\(\s*exe,\s*a\.binaries,\s*a\.zipfiles,\s*a\.datas,\s*strip=False,\s*upx=True,\s*upx_exclude=\[\],\s*name="jiuwenclaw"\s*\)\s*$/m,
+  );
   assert.match(jiuwenBuildScript, /Resolve-UvCommand/);
   assert.match(jiuwenBuildScript, /\.build-venv/);
   assert.match(jiuwenBuildScript, /pip install -e "\.\[dev\]"/);
   assert.match(jiuwenEntry, /--desktop-run-app/);
+});
+
+test('DARE build spec exposes a standalone CLI executable with mirrored packaging scripts', () => {
+  const dareSpec = readFileSync(join(repoRoot, 'vendor', 'dare-cli', 'scripts', 'dare.spec'), 'utf8');
+  const dareBuildScript = readFileSync(join(repoRoot, 'vendor', 'dare-cli', 'scripts', 'build-exe.ps1'), 'utf8');
+  const dareEntry = readFileSync(join(repoRoot, 'vendor', 'dare-cli', 'scripts', 'dare_exe_entry.py'), 'utf8');
+  const dareReadme = readFileSync(join(repoRoot, 'vendor', 'dare-cli', 'scripts', 'README-pyinstaller.md'), 'utf8');
+
+  assert.match(dareSpec, /collect_submodules\("client"\)/);
+  assert.match(dareSpec, /collect_submodules\("dare_framework"\)/);
+  assert.match(dareSpec, /client\/examples\/basic\.script\.txt/);
+  assert.match(dareSpec, /copy_metadata\("langchain-openai", recursive=True\)/);
+  assert.match(dareSpec, /name="dare"/);
+  assert.match(dareBuildScript, /Resolve-UvCommand/);
+  assert.match(dareBuildScript, /\.build-venv/);
+  assert.match(dareBuildScript, /requirements\.txt/);
+  assert.match(dareBuildScript, /PyInstaller/);
+  assert.match(dareEntry, /multiprocessing\.freeze_support/);
+  assert.match(dareEntry, /sync_main/);
+  assert.match(dareReadme, /dist\/dare\.exe/);
 });
 
 test('Windows WebView2 launcher build bundles the required SDK files and desktop host logic', () => {
