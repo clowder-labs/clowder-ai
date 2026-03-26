@@ -79,6 +79,56 @@ class TestToolResultNeverLeaksRepr:
         assert text == "extracted"
 
 
+class TestOuterPayloadToolResult:
+    """Test runtime-shaped dicts where ToolResult is nested in a 'result' field.
+
+    This covers the real execute_engine path where tool_result dicts contain
+    a 'result' key holding a ToolResult object (codex review round 2).
+    """
+
+    @staticmethod
+    def _assert_no_repr_leak(text: str | None) -> None:
+        if text is not None:
+            assert "ToolResult(" not in text, f"ToolResult repr leaked: {text!r}"
+
+    def test_stderr_only_outer_payload(self) -> None:
+        """Outer dict with empty stdout, stderr content, and ToolResult in result."""
+        outer = {
+            "success": True,
+            "output": {"stdout": "", "stderr": "some error", "exit_code": 1},
+            "result": ToolResult(
+                success=True,
+                output={"stdout": "", "stderr": "some error", "exit_code": 1},
+            ),
+        }
+        text = normalize_run_output(outer)
+        self._assert_no_repr_leak(text)
+        assert text is not None
+
+    def test_nontext_output_outer_payload(self) -> None:
+        """Outer dict with non-text output structure and ToolResult in result."""
+        outer = {
+            "success": True,
+            "output": {"files": ["a.txt", "b.txt"]},
+            "result": ToolResult(
+                success=True, output={"files": ["a.txt", "b.txt"]}
+            ),
+        }
+        text = normalize_run_output(outer)
+        self._assert_no_repr_leak(text)
+        assert text is not None
+
+    def test_toolresult_serialized_via_json_default(self) -> None:
+        """ToolResult in dict should be serialized via _json_default, not repr."""
+        outer = {
+            "result": ToolResult(success=True, output="hello"),
+        }
+        text = normalize_run_output(outer)
+        self._assert_no_repr_leak(text)
+        assert text is not None
+        assert "hello" in text
+
+
 class TestBuildReplyEnvelopeToolResult:
     """Test _build_reply_envelope handles ToolResult correctly."""
 

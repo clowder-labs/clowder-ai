@@ -89,6 +89,13 @@ def _extract_raw_text_field(output: Any) -> str | None:
     return None
 
 
+def _json_default(obj: Any) -> Any:
+    """JSON serializer fallback for non-serializable objects like ToolResult."""
+    if hasattr(obj, "output"):
+        return getattr(obj, "output")
+    return str(obj)
+
+
 def normalize_run_output(output: Any) -> str | None:
     """Normalize RunResult.output for display/logging channels."""
     if output is None:
@@ -113,9 +120,12 @@ def normalize_run_output(output: Any) -> str | None:
                 if all_text_fields_empty:
                     return None
         try:
-            return json.dumps(output, ensure_ascii=False, indent=2)
-        except TypeError:
+            return json.dumps(output, ensure_ascii=False, indent=2, default=_json_default)
+        except (TypeError, ValueError):
             pass
+    # For ToolResult-like objects, extract .output instead of repr
+    if hasattr(output, "output"):
+        return normalize_run_output(getattr(output, "output"))
     normalized = str(output).strip()
     return normalized or None
 
