@@ -15,6 +15,8 @@ export interface RelayClawAgentConfig {
   channelId?: string;
   /** Start a dedicated local jiuwenclaw sidecar when url is not provided */
   autoStart?: boolean;
+  /** Preferred executable used to launch vendored jiuwenclaw on packaged runtimes */
+  executablePath?: string;
   /** Python executable used to launch relay-claw */
   pythonBin?: string;
   /** relay-claw repository / package working directory */

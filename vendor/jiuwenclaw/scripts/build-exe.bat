@@ -28,5 +28,5 @@ if errorlevel 1 exit /b 1
 echo.
 echo === 打包完成 ===
 echo 桌面版目录: %cd%\dist\jiuwenclaw
-echo 主程序: %cd%\dist\jiuwenclaw\jiuwenclaw.exe
+echo 主程序: %cd%\dist\jiuwenclaw.exe
 pause

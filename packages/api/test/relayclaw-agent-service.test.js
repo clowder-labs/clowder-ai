@@ -7,7 +7,15 @@ import { describe, it } from 'node:test';
 const { RelayClawAgentService, __relayClawInternals } = await import(
   '../dist/domains/cats/services/agents/providers/RelayClawAgentService.js'
 );
-const { jiuwenClawBundleAvailable, resolveJiuwenClawPythonBin } = await import('../dist/utils/jiuwenclaw-paths.js');
+const {
+  buildRelayClawLaunchCommand,
+  isRelayClawRuntimeReady,
+} = await import('../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js');
+const {
+  jiuwenClawBundleAvailable,
+  resolveJiuwenClawExecutable,
+  resolveJiuwenClawPythonBin,
+} = await import('../dist/utils/jiuwenclaw-paths.js');
 
 function createConnectionFactory(onSend) {
   return (requestQueues) => ({
@@ -58,6 +66,71 @@ describe('RelayClawAgentService', () => {
         process.env.CAT_CAFE_RELAYCLAW_APP_DIR = previousAppDir;
       }
     }
+  });
+
+  it('prefers vendored jiuwenclaw executable when present', () => {
+    const appDir = mkdtempSync(join(tmpdir(), 'jiuwenclaw-exe-'));
+    const exePath = join(appDir, 'vendor', 'jiuwenclaw.exe');
+    mkdirSync(dirname(exePath), { recursive: true });
+    writeFileSync(exePath, '');
+
+    const previousExe = process.env.CAT_CAFE_RELAYCLAW_EXE;
+    try {
+      process.env.CAT_CAFE_RELAYCLAW_EXE = exePath;
+      assert.equal(resolveJiuwenClawExecutable(), exePath);
+      assert.equal(jiuwenClawBundleAvailable(), true);
+    } finally {
+      if (previousExe === undefined) {
+        delete process.env.CAT_CAFE_RELAYCLAW_EXE;
+      } else {
+        process.env.CAT_CAFE_RELAYCLAW_EXE = previousExe;
+      }
+    }
+  });
+
+  it('builds an exe launch command when jiuwenclaw.exe is available', () => {
+    const launch = buildRelayClawLaunchCommand({
+      executablePath: 'C:\\vendor\\jiuwenclaw.exe',
+      pythonBin: 'C:\\Python\\python.exe',
+      appDir: 'C:\\vendor\\jiuwenclaw',
+      useExecutable: true,
+      homeDir: 'C:\\runtime-home',
+      agentPort: 19000,
+      webPort: 5173,
+      env: {},
+      signature: {},
+    });
+
+    assert.equal(launch.command, 'C:\\vendor\\jiuwenclaw.exe');
+    assert.deepEqual(launch.args, ['--desktop-run-app']);
+    assert.equal(launch.cwd, 'C:\\vendor');
+  });
+
+  it('treats executable mode as ready when both relayclaw ports are listening', async () => {
+    const calls = [];
+    const ready = await isRelayClawRuntimeReady(
+      {
+        executablePath: 'C:\\vendor\\jiuwenclaw.exe',
+        pythonBin: 'C:\\Python\\python.exe',
+        appDir: 'C:\\vendor\\jiuwenclaw',
+        useExecutable: true,
+        homeDir: 'C:\\runtime-home',
+        agentPort: 19000,
+        webPort: 19001,
+        env: {},
+        signature: {},
+      },
+      async (_host, port) => {
+        calls.push(port);
+        return true;
+      },
+      '',
+      19000,
+      19001,
+    );
+
+    assert.equal(ready, true);
+    assert.deepEqual(calls, [19000, 19001]);
   });
 
   it('emits final text when the stream only returns chat.final content', async () => {
@@ -160,7 +233,8 @@ describe('RelayClawAgentService', () => {
         },
       ],
     });
-    assert.equal(capturedRequest.params.cat_cafe_mcp.command, 'node');
+    const normalizedCommand = String(capturedRequest.params.cat_cafe_mcp.command).replaceAll('\\', '/');
+    assert.match(normalizedCommand, /(^node$|\/node(?:\.exe)?$)/);
     assert.ok(Array.isArray(capturedRequest.params.cat_cafe_mcp.args));
     const normalizedMcpPath = String(capturedRequest.params.cat_cafe_mcp.args[0]).replaceAll('\\', '/');
     assert.ok(

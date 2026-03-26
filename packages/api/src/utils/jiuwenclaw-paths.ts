@@ -13,6 +13,10 @@ export function resolveVendoredJiuwenClawAppDir(): string {
   return resolve(resolveRepoRoot(), 'vendor/jiuwenclaw');
 }
 
+export function resolveVendoredJiuwenClawExecutable(): string {
+  return resolve(resolveRepoRoot(), 'vendor/jiuwenclaw.exe');
+}
+
 export function resolveJiuwenClawAppDir(explicitAppDir?: string): string {
   const configured = explicitAppDir?.trim() || process.env.CAT_CAFE_RELAYCLAW_APP_DIR?.trim();
   if (configured) return configured;
@@ -21,6 +25,12 @@ export function resolveJiuwenClawAppDir(explicitAppDir?: string): string {
   if (existsSync(join(vendored, 'jiuwenclaw', 'app.py'))) return vendored;
 
   return LEGACY_JIUWENCLAW_APP_DIR;
+}
+
+export function resolveJiuwenClawExecutable(explicitExecutable?: string): string {
+  const configured = explicitExecutable?.trim() || process.env.CAT_CAFE_RELAYCLAW_EXE?.trim();
+  if (configured) return configured;
+  return resolveVendoredJiuwenClawExecutable();
 }
 
 export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: string): string {
@@ -60,6 +70,9 @@ export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: str
 }
 
 export function jiuwenClawBundleAvailable(): boolean {
+  const executablePath = resolveJiuwenClawExecutable();
+  if (existsSync(executablePath)) return true;
+
   const appDir = resolveJiuwenClawAppDir();
   const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
   return existsSync(join(appDir, 'jiuwenclaw', 'app.py')) && existsSync(pythonBin);

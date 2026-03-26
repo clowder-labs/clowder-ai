@@ -6,7 +6,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { jiuwenClawBundleAvailable } from './jiuwenclaw-paths.js';
+import { jiuwenClawBundleAvailable, resolveVendoredJiuwenClawExecutable } from './jiuwenclaw-paths.js';
 
 type ClientId = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode' | 'antigravity' | 'relayclaw' | 'acp';
 
@@ -23,7 +23,7 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   { id: 'dare', label: 'Dare', command: 'dare' },
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
-  { id: 'relayclaw', label: 'jiuwenClaw', command: 'jiuwenclaw-app' },
+  { id: 'relayclaw', label: 'jiuwenClaw', command: resolveVendoredJiuwenClawExecutable() },
   { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio' },
 ];
 
