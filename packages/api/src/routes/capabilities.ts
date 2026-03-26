@@ -42,6 +42,11 @@ import {
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
 import { pathsEqual, validateProjectPath } from '../utils/project-path.js';
+import {
+  listRelayClawSharedSkillNames,
+  resolveCatCafeSkillsSourceDir,
+  resolveRelayClawSharedSkillsDirs,
+} from '../utils/relayclaw-skills.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { type McpProbeResult, probeMcpCapability } from './mcp-probe.js';
 
@@ -167,14 +172,6 @@ const PROJECT_ROOT = resolveCatCafeHostRoot(process.cwd());
 
 function getProjectRoot(): string {
   return PROJECT_ROOT;
-}
-
-/**
- * Resolve Clowder AI skills source from module location (stable), not selected project path.
- * This avoids false "未挂载" when projectPath points to another repo (e.g. cat-cafe-runtime).
- */
-function resolveCatCafeSkillsSourceDir(): string {
-  return join(getProjectRoot(), 'cat-cafe-skills');
 }
 
 const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();
@@ -477,10 +474,21 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // Includes both .claude/skills/ AND cat-cafe-skills/ entries
     const projectSkillNames = new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? [])]);
 
+    const catIds = catRegistry.getAllIds().map((id) => id as string);
+    const relayclawSkillNames = listRelayClawSharedSkillNames();
+    const relayclawApplicableSkills = new Map<string, string[]>();
+    for (const catId of catIds) {
+      const entry = catRegistry.tryGet(catId);
+      if (entry?.config.provider === 'relayclaw') {
+        relayclawApplicableSkills.set(catId, relayclawSkillNames);
+      }
+    }
+
     const providerSkills: Record<string, string[]> = {
       anthropic: [...new Set([...(claudeProjectSkills ?? []), ...(claudeUserSkills ?? [])])],
       openai: codexSkills ?? [],
       google: geminiSkills ?? [],
+      relayclaw: relayclawSkillNames,
     };
 
     // 3. Sync discovered skills into capabilities.json
@@ -629,7 +637,6 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // 5. Build board items from capabilities.json
-    const catIds = catRegistry.getAllIds().map((id) => id as string);
     const items: CapabilityBoardItem[] = [];
 
     // MCP capabilities
@@ -660,7 +667,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       for (const catId of catIds) {
         const entry = catRegistry.tryGet(catId);
         const provider = entry?.config.provider ?? 'unknown';
-        const presentForProvider = (providerSkills[provider] ?? []).includes(cap.id);
+        const presentForProvider =
+          provider === 'relayclaw'
+            ? (relayclawApplicableSkills.get(catId) ?? []).includes(cap.id)
+            : (providerSkills[provider] ?? []).includes(cap.id);
         if (!presentForProvider) continue; // Sparse cats: omit irrelevant cats so frontend filter works
         const override = cap.overrides?.find((o) => o.catId === catId);
         const enabled = override ? override.enabled : cap.enabled;
@@ -735,6 +745,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       codex: join(home, '.codex', 'skills'),
       gemini: join(home, '.gemini', 'skills'),
     };
+    const relayclawSharedSkillsEnabled = resolveRelayClawSharedSkillsDirs().length > 0;
     await Promise.all(
       catCafeSkillItems.map(async (item) => {
         const expectedTarget = join(mountSkillsSrc, item.id);
@@ -743,7 +754,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
           isCorrectSymlink(join(providerDirs.codex, item.id), expectedTarget, item.id, mainSkillsSrc),
           isCorrectSymlink(join(providerDirs.gemini, item.id), expectedTarget, item.id, mainSkillsSrc),
         ]);
-        item.mounts = { claude, codex, gemini };
+        item.mounts = {
+          claude,
+          codex,
+          gemini,
+          relayclaw: relayclawSharedSkillsEnabled && mountSourceNames.has(item.id),
+        };
       }),
     );
 

@@ -29,10 +29,13 @@ from jiuwenclaw.gateway.cron import CronController, CronTargetChannel
 from jiuwenclaw.utils import (
     get_agent_root_dir,
     get_agent_home_dir,
+    get_agent_registered_skill_dirs,
     get_checkpoint_dir,
     get_env_file,
+    get_project_workspace_dir,
     get_workspace_dir,
     logger,
+    sync_shared_agent_skills_cache,
 )
 from jiuwenclaw.config import get_config
 from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent
@@ -265,11 +268,11 @@ class JiuWenClaw:
         agent_config = self._load_react_config(config_base)
 
         sysop_card_id: str | None = None
+        project_workspace_dir = get_project_workspace_dir()
         try:
             sysop_card = SysOperationCard(
                 mode=OperationMode.LOCAL,
-                # Scope sys_operation to agent root so skills/memory/home/workspace are all accessible.
-                work_config=LocalWorkConfig(work_dir=str(get_agent_root_dir())),
+                work_config=LocalWorkConfig(work_dir=str(project_workspace_dir)),
             )
             Runner.resource_mgr.add_sys_operation(sysop_card)
             sysop_card_id = sysop_card.id
@@ -279,6 +282,7 @@ class JiuWenClaw:
 
         agent_card = AgentCard(name=self._agent_name, id='jiuwenclaw')
         self._instance = JiuClawReActAgent(card=agent_card)
+        self._instance.set_workspace(str(project_workspace_dir), self._agent_name)
 
         if sysop_card_id and hasattr(self._instance, "_skill_util"):
             agent_config.sys_operation_id = sysop_card_id
@@ -290,7 +294,16 @@ class JiuWenClaw:
         # register installed skills (compatible with openjiuwen variants).
         if hasattr(self._instance, "_skill_util"):
             try:
-                await self._instance.register_skill(str(_SKILLS_DIR))
+                sync_shared_agent_skills_cache()
+                skill_paths = [str(path) for path in get_agent_registered_skill_dirs() if path.exists()]
+                if len(skill_paths) == 1:
+                    await self._instance.register_skill(skill_paths[0])
+                elif len(skill_paths) > 1:
+                    try:
+                        await self._instance.register_skill(skill_paths)
+                    except TypeError:
+                        for skill_path in skill_paths:
+                            await self._instance.register_skill(skill_path)
             except Exception as exc:
                 logger.warning("[JiuWenClaw] register_skill failed, continue without skills: %s", exc)
 
