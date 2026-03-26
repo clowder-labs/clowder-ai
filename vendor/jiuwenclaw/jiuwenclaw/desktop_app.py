@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 from logging.handlers import RotatingFileHandler
 
@@ -23,6 +24,7 @@ FRONTEND_HOST = "127.0.0.1"
 FRONTEND_PORT = 5173
 APP_CHILD_FLAG = "--desktop-run-app"
 WEB_CHILD_FLAG = "--desktop-run-web"
+UPDATE_HELPER_FLAG = "--desktop-install-update"
 STARTUP_TIMEOUT_SECONDS = 45.0
 
 DESKTOP_BRIDGE_SCRIPT = r"""
@@ -215,13 +217,13 @@ def _setup_logger() -> logging.Logger:
     logs_dir = get_logs_dir()
     logs_dir.mkdir(parents=True, exist_ok=True)
 
-    logger = logging.getLogger("jiuwenclaw.desktop")
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
+    desktop_logger = logging.getLogger("jiuwenclaw.desktop")
+    desktop_logger.setLevel(logging.INFO)
+    desktop_logger.propagate = False
 
-    for handler in logger.handlers[:]:
+    for handler in desktop_logger.handlers[:]:
         handler.close()
-        logger.removeHandler(handler)
+        desktop_logger.removeHandler(handler)
 
     formatter = logging.Formatter(
         fmt="%(asctime)s.%(msecs)03d %(levelname)s %(name)s: %(message)s",
@@ -239,9 +241,9 @@ def _setup_logger() -> logging.Logger:
     )
     file_handler.setFormatter(formatter)
 
-    logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
-    return logger
+    desktop_logger.addHandler(stream_handler)
+    desktop_logger.addHandler(file_handler)
+    return desktop_logger
 
 
 logger = _setup_logger()
@@ -255,11 +257,19 @@ def _creationflags() -> int:
 
 def _build_child_command(name: str, extra_args: list[str] | None = None) -> list[str]:
     if getattr(sys, "frozen", False):
-        base = [sys.executable, APP_CHILD_FLAG if name == "app" else WEB_CHILD_FLAG]
+        if name == "app":
+            flag = APP_CHILD_FLAG
+        elif name == "web":
+            flag = WEB_CHILD_FLAG
+        else:
+            flag = UPDATE_HELPER_FLAG
+        base = [sys.executable, flag]
     elif name == "app":
         base = [sys.executable, "-m", "jiuwenclaw.app"]
-    else:
+    elif name == "web":
         base = [sys.executable, "-m", "jiuwenclaw.app_web"]
+    else:
+        base = [sys.executable, "-m", "jiuwenclaw.desktop_app", UPDATE_HELPER_FLAG]
     if extra_args:
         base.extend(extra_args)
     return base
@@ -339,7 +349,48 @@ def _wait_for_http(
             conn.close()
         time.sleep(0.35)
 
-    raise RuntimeError(f"Timed out waiting for http://{host}:{port}{path}: {last_error}")
+    raise RuntimeError(
+        f"Timed out waiting for http://{host}:{port}{path}: {last_error}"
+    )
+
+
+def _wait_for_pid_exit(pid: int, timeout: float = 60.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return
+        time.sleep(0.5)
+
+
+def _launch_windows_installer_helper(installer_path: str, app_executable: str) -> None:
+    target = Path(installer_path).expanduser().resolve()
+    app_path = Path(app_executable).expanduser().resolve()
+
+    _wait_for_pid_exit(os.getppid())
+
+    subprocess.run(
+        [
+            str(target),
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/SP-",
+            "/CLOSEAPPLICATIONS",
+        ],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=_creationflags(),
+    )
+    time.sleep(2)
+    subprocess.Popen(
+        [str(app_path)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=_creationflags(),
+    )
 
 
 class _WindowApi:
@@ -360,7 +411,9 @@ class _WindowApi:
 
 
 class DesktopRuntime:
-    def __init__(self, frontend_host: str, frontend_port: int, backend_port: int) -> None:
+    def __init__(
+        self, frontend_host: str, frontend_port: int, backend_port: int
+    ) -> None:
         self.frontend_host = frontend_host
         self.frontend_port = frontend_port
         self.backend_port = backend_port
@@ -438,30 +491,7 @@ class DesktopRuntime:
             logger.error("[desktop] installer not found: %s", target)
             return False
 
-        updates_dir = USER_WORKSPACE_DIR / ".updates"
-        updates_dir.mkdir(parents=True, exist_ok=True)
-        script_path = updates_dir / "install-update.cmd"
         app_executable = Path(sys.executable).resolve()
-        script_path.write_text(
-            "\r\n".join([
-                "@echo off",
-                "setlocal",
-                f"set \"TARGET_PID={os.getpid()}\"",
-                f"set \"INSTALLER={target}\"",
-                f"set \"APP_EXE={app_executable}\"",
-                ":wait_loop",
-                'tasklist /FI "PID eq %TARGET_PID%" | findstr /B /C:"%TARGET_PID%" >nul',
-                "if %ERRORLEVEL%==0 (",
-                "  timeout /t 1 /nobreak >nul",
-                "  goto wait_loop",
-                ")",
-                'start "" /wait "%INSTALLER%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /CLOSEAPPLICATIONS',
-                "timeout /t 2 /nobreak >nul",
-                'start "" "%APP_EXE%"',
-                "endlocal",
-            ]),
-            encoding="utf-8",
-        )
 
         detached_flags = (
             getattr(subprocess, "DETACHED_PROCESS", 0)
@@ -469,12 +499,20 @@ class DesktopRuntime:
             | _creationflags()
         )
         subprocess.Popen(
-            ["cmd.exe", "/C", str(script_path)],
+            _build_child_command(
+                "update-helper",
+                [
+                    "--installer-path",
+                    str(target),
+                    "--app-executable",
+                    str(app_executable),
+                ],
+            ),
             creationflags=detached_flags,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        logger.info("[desktop] launched update installer helper: %s", script_path)
+        logger.info("[desktop] launched update installer helper: %s", target)
         self.close_window()
         return True
 
@@ -550,17 +588,26 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Launch JiuwenClaw desktop window.")
     parser.add_argument("--title", default="JiuwenClaw", help="Desktop window title.")
     parser.add_argument("--width", type=int, default=1440, help="Initial window width.")
-    parser.add_argument("--height", type=int, default=960, help="Initial window height.")
+    parser.add_argument(
+        "--height", type=int, default=960, help="Initial window height."
+    )
     parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable pywebview debug mode.",
     )
+    parser.add_argument(UPDATE_HELPER_FLAG, action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--installer-path", default="", help=argparse.SUPPRESS)
+    parser.add_argument("--app-executable", default="", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
+    if getattr(args, "desktop_install_update", False):
+        _launch_windows_installer_helper(args.installer_path, args.app_executable)
+        return
+
     runtime = DesktopRuntime(
         frontend_host=FRONTEND_HOST,
         frontend_port=FRONTEND_PORT,

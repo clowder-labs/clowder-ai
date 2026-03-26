@@ -1,0 +1,191 @@
+{
+  "home": [
+    {
+      "name": "HEARTBEAT.md",
+      "path": "agent/home/HEARTBEAT.md",
+      "isMarkdown": true
+    },
+    {
+      "name": "PRINCIPLE.md",
+      "path": "agent/home/PRINCIPLE.md",
+      "isMarkdown": true
+    },
+    {
+      "name": "TONE.md",
+      "path": "agent/home/TONE.md",
+      "isMarkdown": true
+    }
+  ],
+  "memory": [
+    {
+      "name": "MEMORY.md",
+      "path": "agent/memory/MEMORY.md",
+      "isMarkdown": true
+    },
+    {
+      "name": "USER.md",
+      "path": "agent/memory/USER.md",
+      "isMarkdown": true
+    }
+  ],
+  "skills/daily-report": [
+    {
+      "name": "AI_ANALYSIS_TASKS.md",
+      "path": "agent/skills/daily-report/AI_ANALYSIS_TASKS.md",
+      "isMarkdown": true
+    },
+    {
+      "name": "report_helper.py",
+      "path": "agent/skills/daily-report/report_helper.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "run_report.py",
+      "path": "agent/skills/daily-report/run_report.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "SKILL.md",
+      "path": "agent/skills/daily-report/SKILL.md",
+      "isMarkdown": true
+    }
+  ],
+  "skills/daily-report/analyzers": [
+    {
+      "name": "__init__.py",
+      "path": "agent/skills/daily-report/analyzers/__init__.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "ai_analyzer.py",
+      "path": "agent/skills/daily-report/analyzers/ai_analyzer.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "work_analyzer.py",
+      "path": "agent/skills/daily-report/analyzers/work_analyzer.py",
+      "isMarkdown": false
+    }
+  ],
+  "skills/daily-report/collectors": [
+    {
+      "name": "__init__.py",
+      "path": "agent/skills/daily-report/collectors/__init__.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "aggregator.py",
+      "path": "agent/skills/daily-report/collectors/aggregator.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "email_collector.py",
+      "path": "agent/skills/daily-report/collectors/email_collector.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "git_collector.py",
+      "path": "agent/skills/daily-report/collectors/git_collector.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "memory_collector.py",
+      "path": "agent/skills/daily-report/collectors/memory_collector.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "todo_collector.py",
+      "path": "agent/skills/daily-report/collectors/todo_collector.py",
+      "isMarkdown": false
+    }
+  ],
+  "skills/daily-report/generators": [
+    {
+      "name": "__init__.py",
+      "path": "agent/skills/daily-report/generators/__init__.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "report_generator.py",
+      "path": "agent/skills/daily-report/generators/report_generator.py",
+      "isMarkdown": false
+    }
+  ],
+  "skills/delayed-restart-app": [
+    {
+      "name": "launch_delayed_restart.py",
+      "path": "agent/skills/delayed-restart-app/launch_delayed_restart.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "SKILL.md",
+      "path": "agent/skills/delayed-restart-app/SKILL.md",
+      "isMarkdown": true
+    }
+  ],
+  "skills/financial-document-parser": [
+    {
+      "name": "financial_parser.py",
+      "path": "agent/skills/financial-document-parser/financial_parser.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "SKILL.md",
+      "path": "agent/skills/financial-document-parser/SKILL.md",
+      "isMarkdown": true
+    }
+  ],
+  "skills/openJiuwen-DeepSearch": [
+    {
+      "name": ".env.example",
+      "path": "agent/skills/openJiuwen-DeepSearch/.env.example",
+      "isMarkdown": false
+    },
+    {
+      "name": "README.md",
+      "path": "agent/skills/openJiuwen-DeepSearch/README.md",
+      "isMarkdown": true
+    },
+    {
+      "name": "SKILL.md",
+      "path": "agent/skills/openJiuwen-DeepSearch/SKILL.md",
+      "isMarkdown": true
+    },
+    {
+      "name": "uv.lock",
+      "path": "agent/skills/openJiuwen-DeepSearch/uv.lock",
+      "isMarkdown": false
+    }
+  ],
+  "skills/openJiuwen-DeepSearch/scripts": [
+    {
+      "name": "main.py",
+      "path": "agent/skills/openJiuwen-DeepSearch/scripts/main.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "validate_environment.py",
+      "path": "agent/skills/openJiuwen-DeepSearch/scripts/validate_environment.py",
+      "isMarkdown": false
+    },
+    {
+      "name": "verify_skill_structure.py",
+      "path": "agent/skills/openJiuwen-DeepSearch/scripts/verify_skill_structure.py",
+      "isMarkdown": false
+    }
+  ],
+  "skills/skill_creation": [
+    {
+      "name": "SKILL.md",
+      "path": "agent/skills/skill_creation/SKILL.md",
+      "isMarkdown": true
+    }
+  ],
+  "workspace": [
+    {
+      "name": "agent-data.json",
+      "path": "agent/workspace/agent-data.json",
+      "isMarkdown": false
+    }
+  ]
+}
