@@ -54,12 +54,16 @@ def extract_text_payload(value: Any) -> str | None:
         return merged if merged.strip() else None
 
     if isinstance(value, dict):
-        for key in ("content", "text", "output", "message", "result"):
+        for key in ("content", "text", "output", "message", "result", "stdout"):
             if key in value:
                 extracted = extract_text_payload(value.get(key))
                 if extracted:
                     return extracted
         return None
+
+    # Dataclass-like objects with .output (e.g. ToolResult) — recurse into .output
+    if hasattr(value, "output"):
+        return extract_text_payload(getattr(value, "output"))
 
     normalized = str(value).strip()
     return normalized or None
@@ -78,11 +82,18 @@ def _has_meaningful_fallback_value(value: Any) -> bool:
 def _extract_raw_text_field(output: Any) -> str | None:
     if not isinstance(output, dict):
         return None
-    for key in ("content", "text", "output", "message", "result"):
+    for key in ("content", "text", "output", "message", "result", "stdout"):
         value = output.get(key)
         if isinstance(value, str):
             return value
     return None
+
+
+def _json_default(obj: Any) -> Any:
+    """JSON serializer fallback for non-serializable objects like ToolResult."""
+    if hasattr(obj, "output"):
+        return getattr(obj, "output")
+    return str(obj)
 
 
 def normalize_run_output(output: Any) -> str | None:
@@ -93,7 +104,7 @@ def normalize_run_output(output: Any) -> str | None:
     if text:
         return text
     if isinstance(output, dict):
-        text_keys = ("content", "text", "output", "message", "result")
+        text_keys = ("content", "text", "output", "message", "result", "stdout")
         present_text_keys = [key for key in text_keys if key in output]
         if present_text_keys:
             has_non_text_fallback = any(
@@ -109,9 +120,12 @@ def normalize_run_output(output: Any) -> str | None:
                 if all_text_fields_empty:
                     return None
         try:
-            return json.dumps(output, ensure_ascii=False, indent=2)
-        except TypeError:
+            return json.dumps(output, ensure_ascii=False, indent=2, default=_json_default)
+        except (TypeError, ValueError):
             pass
+    # For ToolResult-like objects, extract .output instead of repr
+    if hasattr(output, "output"):
+        return normalize_run_output(getattr(output, "output"))
     normalized = str(output).strip()
     return normalized or None
 
