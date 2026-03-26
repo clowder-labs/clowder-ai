@@ -280,6 +280,22 @@ export class QueueProcessor {
    */
   async tryAutoExecute(threadId: string): Promise<void> {
     const entries = (this.deps.queue.listAutoExecute?.(threadId) ?? []).sort((a, b) => a.createdAt - b.createdAt);
+    if (entries.length > 0) {
+      const now = Date.now();
+      this.deps.log.info(
+        {
+          threadId,
+          entryCount: entries.length,
+          entries: entries.map((entry) => ({
+            id: entry.id,
+            targetCat: entry.targetCats[0] ?? 'unknown',
+            createdAt: entry.createdAt,
+            ageMs: now - entry.createdAt,
+          })),
+        },
+        '[DIAG/a2a] tryAutoExecute candidate scan',
+      );
+    }
 
     for (const entry of entries) {
       const entryCat = entry.targetCats[0] ?? 'unknown';

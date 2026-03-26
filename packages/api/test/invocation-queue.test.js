@@ -513,6 +513,36 @@ describe('InvocationQueue', () => {
     assert.equal(queue.hasQueuedAgentForCat('t1', 'codex'), false);
   });
 
+  it('listAutoExecute ignores stale queued entries older than threshold', () => {
+    queue.enqueue({
+      threadId: 't1',
+      userId: 'system',
+      content: 'fresh',
+      source: 'agent',
+      targetCats: ['codex'],
+      intent: 'execute',
+      autoExecute: true,
+      callerCatId: 'opus',
+    });
+    queue.enqueue({
+      threadId: 't1',
+      userId: 'system',
+      content: 'stale',
+      source: 'agent',
+      targetCats: ['opencode'],
+      intent: 'execute',
+      autoExecute: true,
+      callerCatId: 'opus',
+    });
+
+    const listed = queue.list('t1', 'system');
+    listed[1].createdAt = Date.now() - InvocationQueue.STALE_QUEUED_THRESHOLD_MS - 1;
+
+    const autoEntries = queue.listAutoExecute('t1');
+    assert.equal(autoEntries.length, 1, 'stale queued autoExecute entries must be filtered out');
+    assert.equal(autoEntries[0].targetCats[0], 'codex');
+  });
+
   // ── hasActiveOrQueuedAgentForCat: checks both queued AND processing (route-serial dedup) ──
 
   it('hasActiveOrQueuedAgentForCat returns true for queued entry', () => {

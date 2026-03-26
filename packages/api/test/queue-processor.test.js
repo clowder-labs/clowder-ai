@@ -584,6 +584,26 @@ describe('QueueProcessor', () => {
       assert.equal(deps.invocationTracker.start.mock.calls.length, 0, 'should not execute user entries');
     });
 
+    it('skips stale queued autoExecute entries older than threshold', async () => {
+      enqueueEntry(deps.queue, {
+        userId: 'system',
+        source: 'agent',
+        targetCats: ['opus'],
+        autoExecute: true,
+        callerCatId: 'codex',
+      });
+      const queued = deps.queue.list('t1', 'system');
+      queued[0].createdAt = Date.now() - 120_000;
+
+      await processor.tryAutoExecute('t1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      assert.equal(deps.invocationTracker.start.mock.calls.length, 0, 'stale autoExecute entry must not start');
+      const stillQueued = deps.queue.list('t1', 'system');
+      assert.equal(stillQueued.length, 1);
+      assert.equal(stillQueued[0].status, 'queued');
+    });
+
     it('autoExecute entry bypasses pause state', async () => {
       // Set up a paused state
       enqueueEntry(deps.queue, { userId: 'u1', source: 'user' });

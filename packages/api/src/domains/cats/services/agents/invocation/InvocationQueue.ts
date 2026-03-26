@@ -373,11 +373,16 @@ export class InvocationQueue {
 
   /** F122B: List all queued autoExecute entries for a thread (for scanning past busy slots). */
   listAutoExecute(threadId: string): QueueEntry[] {
+    const now = Date.now();
     const result: QueueEntry[] = [];
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
-        if (e.status === 'queued' && e.autoExecute) result.push({ ...e });
+        if (e.status !== 'queued' || !e.autoExecute) continue;
+        // Keep auto-execute scan consistent with dedup guard semantics:
+        // stale queued entries must not be picked up indefinitely.
+        if (now - e.createdAt >= InvocationQueue.STALE_QUEUED_THRESHOLD_MS) continue;
+        result.push({ ...e });
       }
     }
     return result;
