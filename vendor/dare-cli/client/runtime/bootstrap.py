@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -244,6 +246,16 @@ async def bootstrap_runtime(options: RuntimeOptions) -> ClientRuntime:
     )
     if options.user_input_handler is not None:
         builder = builder.with_user_input_handler(options.user_input_handler)
+    # Allow host process to set context window limit for MovingCompressor via env var.
+    # Without this, the compressor doesn't know the model's input limit and won't prune.
+    ctx_window_env = os.environ.get("DARE_CONTEXT_WINDOW_TOKENS")
+    if ctx_window_env:
+        try:
+            ctx_window = int(ctx_window_env)
+            if ctx_window > 0:
+                builder = builder.with_context_window_tokens(ctx_window)
+        except (ValueError, TypeError):
+            logging.warning("Invalid DARE_CONTEXT_WINDOW_TOKENS=%r, ignoring", ctx_window_env)
     prompt_override = _resolve_system_prompt_override(config=config, model=model)
     if prompt_override is not None:
         builder = builder.with_prompt(prompt_override)

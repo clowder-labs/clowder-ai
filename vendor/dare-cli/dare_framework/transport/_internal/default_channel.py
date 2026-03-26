@@ -359,6 +359,14 @@ def _build_reply_envelope(
             if isinstance(result, dict):
                 text = str(result.get("output") or "")
                 data["result"] = result
+            elif hasattr(result, "output"):
+                # ToolResult or similar dataclass — extract .output
+                from dare_framework.agent._internal.output_normalizer import (
+                    normalize_run_output,
+                )
+
+                text = normalize_run_output(result.output) or ""
+                data["result"] = result
             else:
                 text = str(result or "")
                 data["result"] = result

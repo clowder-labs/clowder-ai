@@ -179,7 +179,7 @@ function defaultCliForClient(client: CatProvider): { command: string; outputForm
     case 'a2a':
       return { command: 'a2a', outputFormat: 'json' };
     case 'relayclaw':
-      return { command: 'jiuwenclaw-app', outputFormat: 'json' };
+      return { command: 'vendor/jiuwenclaw.exe', outputFormat: 'json' };
     case 'acp':
       return { command: 'agent-teams', outputFormat: 'json' };
     default:

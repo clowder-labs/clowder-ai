@@ -46,6 +46,14 @@ export function transformRelayClawChunk(
     case 'chat.delta': {
       const content = payload.content;
       if (!content) return null;
+      if (payload.source_chunk_type === 'llm_reasoning') {
+        return {
+          type: 'system_info',
+          catId,
+          content: JSON.stringify({ type: 'thinking', catId, text: content }),
+          timestamp: Date.now(),
+        };
+      }
       return msg('text', catId, content);
     }
 

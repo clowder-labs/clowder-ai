@@ -17,9 +17,10 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
+import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
@@ -27,15 +28,32 @@ import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata }
 import { transformDareEvent } from './dare-event-transform.js';
 
 function resolveDefaultDareMcpServerPath(cwd = process.cwd()): string | undefined {
-  const candidates = [
-    resolve(cwd, '../mcp-server/dist/index.js'),
-    resolve(cwd, 'packages/mcp-server/dist/index.js'),
-    resolve(cwd, '../../packages/mcp-server/dist/index.js'),
+  // Prefer compact MCP entry (one-line tool descriptions) to stay within
+  // narrow context windows. Falls back to full entry if compact isn't built.
+  const roots = [
+    resolve(cwd, '../mcp-server/dist'),
+    resolve(cwd, 'packages/mcp-server/dist'),
+    resolve(cwd, '../../packages/mcp-server/dist'),
   ];
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
+  for (const root of roots) {
+    const compact = join(root, 'dare.js');
+    if (existsSync(compact)) return compact;
+    const full = join(root, 'index.js');
+    if (existsSync(full)) return full;
   }
   return undefined;
+}
+
+/**
+ * When the configured MCP path points to index.js (full toolset),
+ * swap to dare.js (compact descriptions) if it exists in the same directory.
+ * This ensures compact mode activates even when CAT_CAFE_MCP_SERVER_PATH
+ * is explicitly set by start-dev.sh or other launch scripts.
+ */
+function preferCompactMcpEntry(mcpPath: string): string {
+  if (!mcpPath.endsWith('index.js')) return mcpPath;
+  const compactPath = join(dirname(mcpPath), 'dare.js');
+  return existsSync(compactPath) ? compactPath : mcpPath;
 }
 
 interface DareAgentServiceOptions {
@@ -60,9 +78,6 @@ interface DareWorkspaceConfig {
   adapter?: string;
   model?: string;
 }
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
 const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
@@ -120,13 +135,11 @@ function resolveMetadataModel(catId: CatId, explicitModel?: string, workspaceCon
 }
 
 /**
- * F135: Resolve vendor/dare-cli path from project root (not cwd).
- * Uses import.meta.url to derive the project root from this module's location.
- * packages/api/src/domains/cats/services/agents/providers/ → 8 levels up = project root
+ * Resolve vendor/dare-cli from the host Clowder root so bundled API builds
+ * keep working after module paths are collapsed.
  */
 export function resolveVendorDarePath(): string {
-  // packages/api/{src|dist}/domains/cats/services/agents/providers → 8 levels to root
-  return join(__dirname, '..', '..', '..', '..', '..', '..', '..', '..', 'vendor', 'dare-cli');
+  return join(resolveCatCafeHostRoot(process.cwd()), 'vendor', 'dare-cli');
 }
 
 /**
@@ -167,7 +180,10 @@ export class DareAgentService implements AgentService {
     this.darePath = options?.darePath ?? process.env.DARE_PATH ?? resolveDefaultDarePath();
     const configuredMcp = options?.mcpServerPath ?? process.env.CAT_CAFE_MCP_SERVER_PATH;
     if (configuredMcp && configuredMcp.trim().length > 0) {
-      this.mcpServerPath = isAbsolute(configuredMcp) ? configuredMcp : resolve(process.cwd(), configuredMcp);
+      const resolved = isAbsolute(configuredMcp) ? configuredMcp : resolve(process.cwd(), configuredMcp);
+      // Prefer compact MCP entry (dare.js) over full entry (index.js)
+      // to keep tool descriptions within narrow context windows.
+      this.mcpServerPath = preferCompactMcpEntry(resolved);
     } else {
       this.mcpServerPath = resolveDefaultDareMcpServerPath();
     }
@@ -240,7 +256,7 @@ export class DareAgentService implements AgentService {
     // F135: Prefer DARE repo's own venv python (has required deps like openai)
     const pythonCmd = cwd ? resolveVenvPython(cwd) : 'python';
     // P1-3: Pass API key via child env, not CLI args (avoids ps/audit leakage)
-    const childEnv = this.buildEnv(options?.callbackEnv);
+    const childEnv = this.buildEnv(options?.callbackEnv, cliModel);
     const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
     let sessionInitEmitted = false;
 
@@ -390,7 +406,7 @@ export class DareAgentService implements AgentService {
     return args;
   }
 
-  private buildEnv(callbackEnv?: Record<string, string>): Record<string, string | null> {
+  private buildEnv(callbackEnv?: Record<string, string>, model?: string): Record<string, string | null> {
     const env: Record<string, string | null> = { ...callbackEnv };
     const apiKeyEnvName = this.adapter ? ADAPTER_KEY_ENV[this.adapter] : undefined;
     const apiKey =
@@ -410,10 +426,22 @@ export class DareAgentService implements AgentService {
     // Inject absolute skill paths so DARE can find cat-cafe-skills
     // regardless of which workspace directory the thread uses.
     // Derive project root from vendor/dare-cli path (sibling to cat-cafe-skills/).
-    const projectRoot = resolve(resolveVendorDarePath(), '..', '..');
+    const projectRoot = resolveCatCafeHostRoot(process.cwd());
     const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
     if (existsSync(catCafeSkillsDir)) {
       env.DARE_SKILL_PATHS = JSON.stringify([catCafeSkillsDir]);
+    }
+
+    // Inject context window size so DARE's MovingCompressor can prune STM
+    // before the assembled prompt exceeds the model's input limit.
+    // Without this, GLM-5 (196K limit) overflows when MCP tools + skills + history accumulate.
+    if (model) {
+      const ctxWindow = getContextWindowFallback(model);
+      if (ctxWindow) {
+        // Reserve ~15% for output tokens and serialization overhead.
+        const inputBudget = Math.floor(ctxWindow * 0.85);
+        env.DARE_CONTEXT_WINDOW_TOKENS = String(inputBudget);
+      }
     }
 
     return env;

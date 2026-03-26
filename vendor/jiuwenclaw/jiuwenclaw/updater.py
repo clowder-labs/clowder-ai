@@ -106,7 +106,10 @@ class WindowsUpdaterService:
 
     def check(self, manual: bool = False) -> dict[str, Any]:
         if sys.platform != "win32":
-            self._update_status(state="unsupported", error="Windows updater is only available on Windows.")
+            self._update_status(
+                state="unsupported",
+                error="Windows updater is only available on Windows.",
+            )
             return self.get_status()
 
         config = self._load_config()
@@ -116,7 +119,9 @@ class WindowsUpdaterService:
 
         self._update_status(state="checking", error="")
         try:
-            release = self._fetch_json(config["release_api_url"], config["timeout_seconds"])
+            release = self._fetch_json(
+                config["release_api_url"], config["timeout_seconds"]
+            )
             latest_version = _normalize_version(str(release.get("tag_name") or ""))
             if not latest_version:
                 raise RuntimeError("Latest release tag is missing.")
@@ -124,7 +129,11 @@ class WindowsUpdaterService:
             asset_name = config["asset_name_pattern"].format(version=latest_version)
             assets = release.get("assets") or []
             asset = next(
-                (item for item in assets if isinstance(item, dict) and item.get("name") == asset_name),
+                (
+                    item
+                    for item in assets
+                    if isinstance(item, dict) and item.get("name") == asset_name
+                ),
                 None,
             )
             if asset is None:
@@ -133,7 +142,11 @@ class WindowsUpdaterService:
             sha256_url = ""
             sha256_name = config["sha256_name_pattern"].format(version=latest_version)
             sha_asset = next(
-                (item for item in assets if isinstance(item, dict) and item.get("name") == sha256_name),
+                (
+                    item
+                    for item in assets
+                    if isinstance(item, dict) and item.get("name") == sha256_name
+                ),
                 None,
             )
             if isinstance(sha_asset, dict):
@@ -155,13 +168,22 @@ class WindowsUpdaterService:
                 installing=False,
             )
         except Exception as exc:  # noqa: BLE001
-            error_prefix = "Manual update check failed" if manual else "Startup update check failed"
-            self._update_status(state="error", error=f"{error_prefix}: {exc}", checked_at=time.time())
+            error_prefix = (
+                "Manual update check failed"
+                if manual
+                else "Startup update check failed"
+            )
+            self._update_status(
+                state="error", error=f"{error_prefix}: {exc}", checked_at=time.time()
+            )
         return self.get_status()
 
     def start_download(self) -> dict[str, Any]:
         if sys.platform != "win32":
-            self._update_status(state="unsupported", error="Windows updater is only available on Windows.")
+            self._update_status(
+                state="unsupported",
+                error="Windows updater is only available on Windows.",
+            )
             return self.get_status()
 
         status = self.get_status()
@@ -173,14 +195,29 @@ class WindowsUpdaterService:
             if not status["has_update"] or not status["download_url"]:
                 return status
 
-        self._update_status(state="downloading", error="", downloaded_bytes=0, total_bytes=0, installing=False)
-        thread = threading.Thread(target=self._download_worker, daemon=True, name="jiuwenclaw-updater-download")
+        self._update_status(
+            state="downloading",
+            error="",
+            downloaded_bytes=0,
+            total_bytes=0,
+            installing=False,
+        )
+        thread = threading.Thread(
+            target=self._download_worker,
+            daemon=True,
+            name="jiuwenclaw-updater-download",
+        )
         self._download_thread = thread
         thread.start()
         return self.get_status()
 
     def mark_installing(self, installer_path: str) -> dict[str, Any]:
-        self._update_status(state="installing", installing=True, downloaded_path=installer_path, error="")
+        self._update_status(
+            state="installing",
+            installing=True,
+            downloaded_path=installer_path,
+            error="",
+        )
         return self.get_status()
 
     def _download_worker(self) -> None:
@@ -193,7 +230,9 @@ class WindowsUpdaterService:
         try:
             self._download_file(download_url, partial_path)
             if sha256_url:
-                sha_raw = self._fetch_text(sha256_url, self._load_config()["timeout_seconds"])
+                sha_raw = self._fetch_text(
+                    sha256_url, self._load_config()["timeout_seconds"]
+                )
                 expected_sha = _parse_sha256(sha_raw)
                 if not expected_sha:
                     raise RuntimeError("Invalid SHA256 sidecar format.")
@@ -213,14 +252,24 @@ class WindowsUpdaterService:
         except Exception as exc:  # noqa: BLE001
             if partial_path.exists():
                 partial_path.unlink(missing_ok=True)
-            self._update_status(state="error", error=f"Update download failed: {exc}", downloaded_bytes=0)
+            self._update_status(
+                state="error",
+                error=f"Update download failed: {exc}",
+                downloaded_bytes=0,
+            )
 
     def _download_file(self, url: str, destination: Path) -> None:
         request = Request(url, headers=self._request_headers())
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with urlopen(request, timeout=self._load_config()["timeout_seconds"]) as response, open(destination, "wb") as handle:
+        timeout_seconds = self._load_config()["timeout_seconds"]
+        with (
+            urlopen(request, timeout=timeout_seconds) as response,
+            open(destination, "wb") as handle,
+        ):
             total_header = response.headers.get("Content-Length")
-            total_bytes = int(total_header) if total_header and total_header.isdigit() else 0
+            total_bytes = (
+                int(total_header) if total_header and total_header.isdigit() else 0
+            )
             self._update_status(total_bytes=total_bytes)
 
             downloaded = 0
@@ -230,7 +279,9 @@ class WindowsUpdaterService:
                     break
                 handle.write(chunk)
                 downloaded += len(chunk)
-                self._update_status(downloaded_bytes=downloaded, total_bytes=total_bytes)
+                self._update_status(
+                    downloaded_bytes=downloaded, total_bytes=total_bytes
+                )
 
     def _fetch_json(self, url: str, timeout_seconds: int) -> dict[str, Any]:
         return json.loads(self._fetch_text(url, timeout_seconds))
@@ -243,9 +294,12 @@ class WindowsUpdaterService:
         except HTTPError as exc:
             raise RuntimeError(f"HTTP {exc.code} when requesting {url}") from exc
         except URLError as exc:
-            raise RuntimeError(f"Network error when requesting {url}: {exc.reason}") from exc
+            raise RuntimeError(
+                f"Network error when requesting {url}: {exc.reason}"
+            ) from exc
 
-    def _request_headers(self) -> dict[str, str]:
+    @staticmethod
+    def _request_headers() -> dict[str, str]:
         headers = {
             "Accept": "application/vnd.github+json",
             "User-Agent": f"JiuwenClaw-Updater/{__version__}",
@@ -255,7 +309,8 @@ class WindowsUpdaterService:
             headers["Authorization"] = f"Bearer {token}"
         return headers
 
-    def _load_config(self) -> dict[str, Any]:
+    @staticmethod
+    def _load_config() -> dict[str, Any]:
         raw = get_config_raw() or {}
         updater = raw.get("updater") or {}
         owner = str(updater.get("repo_owner") or "CharlieZhao95").strip()
@@ -275,12 +330,17 @@ class WindowsUpdaterService:
             "repo_owner": owner,
             "repo_name": repo,
             "release_api_url": release_api_url,
-            "asset_name_pattern": str(updater.get("asset_name_pattern") or DEFAULT_ASSET_PATTERN),
-            "sha256_name_pattern": str(updater.get("sha256_name_pattern") or DEFAULT_SHA256_PATTERN),
+            "asset_name_pattern": str(
+                updater.get("asset_name_pattern") or DEFAULT_ASSET_PATTERN
+            ),
+            "sha256_name_pattern": str(
+                updater.get("sha256_name_pattern") or DEFAULT_SHA256_PATTERN
+            ),
             "timeout_seconds": timeout_seconds,
         }
 
-    def _sha256_file(self, path: Path) -> str:
+    @staticmethod
+    def _sha256_file(path: Path) -> str:
         digest = hashlib.sha256()
         with open(path, "rb") as handle:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):

@@ -68,7 +68,27 @@ const RUNTIME_SCRIPT_FILES = [
   'windows-command-helpers.ps1',
   'windows-installer-ui.ps1',
 ];
-const RUNTIME_WEB_NEXT_CONFIG = `function resolveApiBaseUrl() {
+const JIUWENCLAW_WINDOWS_EXE_SOURCE = join(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw.exe');
+const WEB_STANDALONE_BUILD_DIR = join(repoRoot, 'packages', 'web', '.next', 'standalone');
+const WEB_STANDALONE_APP_DIR = join(WEB_STANDALONE_BUILD_DIR, 'packages', 'web');
+const WEB_STANDALONE_NODE_MODULES_DIR = join(WEB_STANDALONE_BUILD_DIR, 'node_modules');
+const WEB_BUILD_STATIC_DIR = join(repoRoot, 'packages', 'web', '.next', 'static');
+const WEB_PUBLIC_DIR = join(repoRoot, 'packages', 'web', 'public');
+const ROOT_NODE_MODULES_DIR = join(repoRoot, 'node_modules');
+const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
+  'better-sqlite3',
+  'node-pty',
+  'pino',
+  'pino-roll',
+  'puppeteer',
+  'sharp',
+  'sqlite-vec',
+];
+const WEB_RUNTIME_DEPENDENCIES = ['next', 'react', 'react-dom', 'sharp'];
+const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require('node:fs');
+const path = require('node:path');
+
+function resolveApiBaseUrl() {
   const explicit = process.env.NEXT_PUBLIC_API_URL?.replace(/\\/+$/, '');
   if (explicit) return explicit;
 
@@ -85,21 +105,62 @@ const RUNTIME_WEB_NEXT_CONFIG = `function resolveApiBaseUrl() {
   return 'http://localhost:3004';
 }
 
-const apiBaseUrl = resolveApiBaseUrl();
+const dir = __dirname;
 
-module.exports = {
-  reactStrictMode: true,
-  output: 'standalone',
-  allowedDevOrigins: ['100.0.0.0/8'],
-  async rewrites() {
-    return [
-      {
-        source: '/uploads/:path*',
-        destination: \`\${apiBaseUrl}/uploads/:path*\`,
-      },
-    ];
-  },
+process.env.NODE_ENV = 'production';
+process.chdir(__dirname);
+
+const currentPort = parseInt(process.env.PORT, 10) || 3000;
+const hostname = process.env.HOSTNAME || '0.0.0.0';
+
+let keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT, 10);
+
+const requiredServerFiles = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '.next', 'required-server-files.json'), 'utf8'),
+);
+const nextConfig = requiredServerFiles.config || {};
+const rewrites = nextConfig._originalRewrites || {};
+const afterFiles = Array.isArray(rewrites.afterFiles)
+  ? rewrites.afterFiles.filter((entry) => entry && entry.source !== '/uploads/:path*')
+  : [];
+
+nextConfig._originalRewrites = {
+  beforeFiles: Array.isArray(rewrites.beforeFiles) ? rewrites.beforeFiles : [],
+  afterFiles: [
+    ...afterFiles,
+    {
+      source: '/uploads/:path*',
+      destination: \`\${resolveApiBaseUrl()}/uploads/:path*\`,
+    },
+  ],
+  fallback: Array.isArray(rewrites.fallback) ? rewrites.fallback : [],
 };
+
+process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify(nextConfig);
+
+require('next');
+const { startServer } = require('next/dist/server/lib/start-server');
+
+if (
+  Number.isNaN(keepAliveTimeout) ||
+  !Number.isFinite(keepAliveTimeout) ||
+  keepAliveTimeout < 0
+) {
+  keepAliveTimeout = undefined;
+}
+
+startServer({
+  dir,
+  isDev: false,
+  config: nextConfig,
+  hostname,
+  port: currentPort,
+  allowRetry: false,
+  keepAliveTimeout,
+}).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
 `;
 
 export function normalizeNodeVersion(version) {
@@ -386,13 +447,10 @@ function createIcoFromPng(pngPath, icoPath) {
 }
 
 function copyTopLevelProject(bundleDir) {
-  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json', 'vendor'];
+  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json'];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
     if (!existsSync(source)) {
-      if (entry === 'vendor') {
-        continue;
-      }
       throw new Error(`Missing required bundle entry: ${source}`);
     }
     const destination = join(bundleDir, entry);
@@ -409,6 +467,33 @@ function copyTopLevelProject(bundleDir) {
     }
     cpSync(source, join(scriptsDir, scriptName), { force: true });
   }
+}
+
+function buildVendoredJiuwenClawExecutable(options) {
+  const buildScript = join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'build-exe.ps1');
+  if (!existsSync(buildScript)) {
+    throw new Error(`Missing JiuwenClaw build script: ${buildScript}`);
+  }
+  if (options.skipBuild && existsSync(JIUWENCLAW_WINDOWS_EXE_SOURCE)) {
+    return JIUWENCLAW_WINDOWS_EXE_SOURCE;
+  }
+  run('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    toWindowsPath(buildScript),
+  ]);
+  if (!existsSync(JIUWENCLAW_WINDOWS_EXE_SOURCE)) {
+    throw new Error(`JiuwenClaw executable not found after build: ${JIUWENCLAW_WINDOWS_EXE_SOURCE}`);
+  }
+  return JIUWENCLAW_WINDOWS_EXE_SOURCE;
+}
+
+function stageVendoredJiuwenClawExecutable(bundleDir, executablePath) {
+  const vendorDir = join(bundleDir, 'vendor');
+  ensureDir(vendorDir);
+  cpSync(executablePath, join(vendorDir, 'jiuwenclaw.exe'), { force: true });
 }
 
 function stageInstallerSeed(bundleDir) {
@@ -530,6 +615,67 @@ function createRuntimePackageJson(sourcePath, options = {}) {
   return runtimePackage;
 }
 
+function createBundledApiRuntimePackageJson(sourcePath) {
+  const source = readJson(sourcePath);
+  const runtimePackage = createRuntimePackageJson(sourcePath, {
+    scripts: {
+      start: 'node dist/index.js',
+    },
+  });
+  const runtimeDependencies = Object.fromEntries(
+    API_RUNTIME_EXTERNAL_DEPENDENCIES.flatMap((dependency) => {
+      const sourceVersion = source.dependencies?.[dependency];
+      if (sourceVersion) {
+        return [[dependency, sourceVersion]];
+      }
+      const installedVersion = resolveInstalledPackageVersion(ROOT_NODE_MODULES_DIR, dependency);
+      return installedVersion ? [[dependency, installedVersion]] : [];
+    }),
+  );
+  if (Object.keys(runtimeDependencies).length > 0) {
+    runtimePackage.dependencies = runtimeDependencies;
+  } else {
+    delete runtimePackage.dependencies;
+  }
+  delete runtimePackage.optionalDependencies;
+  return runtimePackage;
+}
+
+function resolveInstalledPackageVersion(nodeModulesDir, packageName) {
+  const packageJsonPath = join(nodeModulesDir, packageName, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return null;
+  }
+  const installed = readJson(packageJsonPath);
+  return typeof installed.version === 'string' && installed.version.trim().length > 0 ? installed.version.trim() : null;
+}
+
+function createStandaloneWebRuntimePackageJson(sourcePath) {
+  const source = readJson(sourcePath);
+  const runtimePackage = createRuntimePackageJson(sourcePath, {
+    scripts: {
+      start: 'node server.js',
+    },
+  });
+  const runtimeDependencies = Object.fromEntries(
+    WEB_RUNTIME_DEPENDENCIES.flatMap((dependency) => {
+      const sourceVersion = source.dependencies?.[dependency];
+      if (sourceVersion) {
+        return [[dependency, sourceVersion]];
+      }
+      const installedVersion = resolveInstalledPackageVersion(WEB_STANDALONE_NODE_MODULES_DIR, dependency);
+      return installedVersion ? [[dependency, installedVersion]] : [];
+    }),
+  );
+  if (Object.keys(runtimeDependencies).length > 0) {
+    runtimePackage.dependencies = runtimeDependencies;
+  } else {
+    delete runtimePackage.dependencies;
+  }
+  delete runtimePackage.optionalDependencies;
+  return runtimePackage;
+}
+
 function stageRuntimePackageTemplate(targetRootDir, packageName, config) {
   const sourceDir = join(repoRoot, 'packages', packageName);
   const targetDir = join(targetRootDir, 'packages', packageName);
@@ -544,6 +690,77 @@ function stageRuntimePackageTemplate(targetRootDir, packageName, config) {
     }
   }
   pruneRuntimePackage(targetDir, { removePaths: config.removePaths ?? [] });
+}
+
+async function stageBundledApiRuntime(targetRootDir) {
+  const sourceDir = join(repoRoot, 'packages', 'api');
+  const sourceEntry = join(sourceDir, 'dist', 'index.js');
+  const targetDir = join(targetRootDir, 'packages', 'api');
+  if (!existsSync(sourceEntry)) {
+    throw new Error(`Missing API build artifact for bundling: ${sourceEntry}`);
+  }
+
+  resetDir(targetDir);
+  ensureDir(join(targetDir, 'dist'));
+
+  const { build } = await import('esbuild');
+  await build({
+    entryPoints: [sourceEntry],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    outfile: join(targetDir, 'dist', 'index.js'),
+    external: API_RUNTIME_EXTERNAL_DEPENDENCIES,
+    banner: {
+      js: [
+        "import { createRequire as __createRequire } from 'node:module';",
+        "import { dirname as __pathDirname } from 'node:path';",
+        "import { fileURLToPath as __fileURLToPath } from 'node:url';",
+        'const require = __createRequire(import.meta.url);',
+        'const __filename = __fileURLToPath(import.meta.url);',
+        'const __dirname = __pathDirname(__filename);',
+      ].join(' '),
+    },
+    logLevel: 'silent',
+  });
+
+  writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(sourceDir, 'package.json')));
+  pruneRuntimePackage(targetDir, { removePaths: ['src', 'test', 'scripts', 'uploads', 'tsconfig.json'] });
+}
+
+function stageStandaloneWebRuntime(targetRootDir) {
+  const targetDir = join(targetRootDir, 'packages', 'web');
+  const standaloneServerPath = join(WEB_STANDALONE_APP_DIR, 'server.js');
+  if (!existsSync(standaloneServerPath)) {
+    throw new Error(`Missing Next standalone server build artifact: ${standaloneServerPath}`);
+  }
+  if (!existsSync(WEB_STANDALONE_NODE_MODULES_DIR)) {
+    throw new Error(`Missing Next standalone node_modules: ${WEB_STANDALONE_NODE_MODULES_DIR}`);
+  }
+
+  resetDir(targetDir);
+  cpSync(WEB_STANDALONE_APP_DIR, targetDir, { recursive: true, force: true });
+  rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
+  copyIfPresent(WEB_BUILD_STATIC_DIR, join(targetDir, '.next', 'static'));
+  copyIfPresent(WEB_PUBLIC_DIR, join(targetDir, 'public'));
+  writeJson(join(targetDir, 'package.json'), createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')));
+  writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
+  pruneRuntimePackage(targetDir, {
+    removePaths: [
+      'src',
+      'test',
+      'worker',
+      '.next/cache',
+      '.next/types',
+      '.eslintrc.json',
+      'next-env.d.ts',
+      'postcss.config.js',
+      'tailwind.config.js',
+      'tsconfig.json',
+      'vitest.config.ts',
+    ],
+  });
 }
 
 function getWindowsTempPath() {
@@ -589,66 +806,28 @@ function materializeSharedDependency(stagePackagesDir, packageName) {
   pruneRuntimePackage(sharedLinkPath);
 }
 
-function installWindowsRuntimeDependencies(bundleDir, options) {
-  const windowsTemp = getWindowsTempPath();
-  const windowsStageDir = win32.join(windowsTemp, `clowder-runtime-stage-${Date.now()}`);
-  const windowsStageWslDir = toWslPath(windowsStageDir);
+async function installWindowsRuntimeDependencies(bundleDir, options) {
   const bundlePackagesDir = join(bundleDir, 'packages');
-  const windowsPackagesWslDir = join(windowsStageWslDir, 'packages');
   const windowsNode = ensureWindowsBuildNode(options);
 
-  resetDir(windowsStageWslDir);
-  stageWorkspacePackages(windowsStageWslDir);
-
-  try {
-    for (const packageName of ['api', 'mcp-server', 'web']) {
-      runWindowsNpmInstall(windowsNode.npmCmdPath, win32.join(windowsStageDir, 'packages', packageName));
-      materializeSharedDependency(windowsPackagesWslDir, packageName);
-      cpSync(
-        join(windowsPackagesWslDir, packageName, 'node_modules'),
-        join(bundlePackagesDir, packageName, 'node_modules'),
-        { recursive: true, force: true },
-      );
-      pruneRuntimePackage(join(bundlePackagesDir, packageName));
-    }
-  } finally {
-    rmSync(windowsStageWslDir, { recursive: true, force: true });
+  for (const packageName of ['api', 'mcp-server', 'web']) {
+    runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(join(bundlePackagesDir, packageName)));
+    materializeSharedDependency(bundlePackagesDir, packageName);
+    pruneRuntimePackage(join(bundlePackagesDir, packageName));
   }
 }
 
-function stageWorkspacePackages(targetRootDir) {
+async function stageWorkspacePackages(targetRootDir) {
   stageRuntimePackageTemplate(targetRootDir, 'shared', {
     copyPaths: ['dist'],
     removePaths: ['tsconfig.json'],
   });
-  stageRuntimePackageTemplate(targetRootDir, 'api', {
-    copyPaths: ['dist'],
-    removePaths: ['src', 'test', 'scripts', 'uploads', 'tsconfig.json'],
-  });
+  await stageBundledApiRuntime(targetRootDir);
   stageRuntimePackageTemplate(targetRootDir, 'mcp-server', {
     copyPaths: ['dist'],
     removePaths: ['src', 'test', 'tsconfig.json'],
   });
-  stageRuntimePackageTemplate(targetRootDir, 'web', {
-    copyPaths: ['.next', 'public'],
-    removePaths: [
-      'src',
-      'test',
-      'worker',
-      '.next/cache',
-      '.next/standalone',
-      '.next/types',
-      '.eslintrc.json',
-      'next-env.d.ts',
-      'postcss.config.js',
-      'tailwind.config.js',
-      'tsconfig.json',
-      'vitest.config.ts',
-    ],
-    writeFiles: {
-      'next.config.js': RUNTIME_WEB_NEXT_CONFIG,
-    },
-  });
+  stageStandaloneWebRuntime(targetRootDir);
 }
 
 function stripLeadingDirectory(targetDir, predicate) {
@@ -938,12 +1117,16 @@ async function main() {
 
   ensureBuildArtifacts(options);
 
+  logStep('Building JiuwenClaw executable');
+  const jiuwenClawExecutable = buildVendoredJiuwenClawExecutable(options);
+
   logStep('Copying project sources');
   copyTopLevelProject(bundleDir);
+  stageVendoredJiuwenClawExecutable(bundleDir, jiuwenClawExecutable);
   stageInstallerSeed(bundleDir);
 
   logStep('Preparing runtime package payload');
-  stageWorkspacePackages(bundleDir);
+  await stageWorkspacePackages(bundleDir);
 
   logStep('Bundling Windows Node runtime');
   const windowsNode = await stageWindowsNode(bundleDir, options);
@@ -952,7 +1135,7 @@ async function main() {
   const redis = await stageWindowsRedis(bundleDir, options);
 
   logStep('Installing Windows runtime dependencies');
-  installWindowsRuntimeDependencies(bundleDir, options);
+  await installWindowsRuntimeDependencies(bundleDir, options);
 
   logStep('Building WebView2 desktop launcher');
   buildWindowsDesktopLauncher(bundleDir, options);
