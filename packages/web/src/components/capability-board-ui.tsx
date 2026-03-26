@@ -152,6 +152,7 @@ export function CapabilitySection({
             toggling={toggling}
             onToggle={onToggle}
             onUninstall={onUninstall}
+            hideSkillMountStatus={hideSkillMountStatus}
           />
         ))}
       </div>
@@ -167,12 +168,14 @@ function CapabilityCard({
   toggling,
   onToggle,
   onUninstall,
+  hideSkillMountStatus,
 }: {
   item: CapabilityBoardItem;
   catFamilies: CatFamily[];
   toggling: string | null;
   onToggle: ToggleHandler;
   onUninstall?: (id: string) => void;
+  hideSkillMountStatus?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isToggling = toggling === `${item.type}:${item.id}`;
