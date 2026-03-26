@@ -3,7 +3,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
 import { HubButton } from './HubButton';
-import { CatCafeLogo } from './icons/CatCafeLogo';
 import { VoiceCompanionButton } from './VoiceCompanionButton';
 
 interface ChatContainerHeaderProps {
@@ -55,7 +54,7 @@ export function ChatContainerHeader({
             />
           </svg>
         </button>
-        <CatCafeLogo className="h-16 w-auto -my-3" />
+        <img src="/images/lobster.svg" alt="OfficeClaw" className="w-10 h-10" />
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-cafe-black">OfficeClaw</h1>
           <ThreadIndicator threadId={threadId} />
