@@ -10,7 +10,7 @@ import { dareBundleAvailable } from '../domains/cats/services/agents/providers/D
 import { jiuwenClawBundleAvailable } from './jiuwenclaw-paths.js';
 import { filterAllowedClients } from './client-visibility.js';
 
-type ClientId = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode' | 'antigravity' | 'relayclaw';
+type ClientId = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode' | 'antigravity' | 'relayclaw' | 'acp';
 
 interface ClientInfo {
   id: ClientId;
@@ -26,6 +26,7 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
   { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app' },
+  { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio' },
 ];
 
 export interface AvailableClient {
@@ -46,6 +47,11 @@ function commandExists(command: string): Promise<boolean> {
   });
 }
 
+async function acpRuntimeAvailable(): Promise<boolean> {
+  const checks = await Promise.all([commandExists('uv'), commandExists('agent-teams')]);
+  return checks.some(Boolean);
+}
+
 function relayClawSidecarAvailable(): boolean {
   return jiuwenClawBundleAvailable();
 }
@@ -63,7 +69,9 @@ export async function detectAvailableClients(): Promise<AvailableClient[]> {
           ? relayClawSidecarAvailable()
           : info.id === 'dare'
             ? dareRuntimeAvailable()
-            : await commandExists(info.command);
+            : info.id === 'acp'
+              ? await acpRuntimeAvailable()
+              : await commandExists(info.command);
       return {
         id: info.id,
         label: info.label,

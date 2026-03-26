@@ -1,8 +1,10 @@
-export type ProfileMode = 'subscription' | 'api_key';
-export type ProfileAuthType = 'oauth' | 'api_key';
-export type ProfileKind = 'builtin' | 'api_key';
+export type ProfileMode = 'subscription' | 'api_key' | 'none';
+export type ProfileAuthType = 'oauth' | 'api_key' | 'none';
+export type ProfileKind = 'builtin' | 'api_key' | 'acp';
 export type BuiltinAccountClient = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode';
 export type BootstrapBindingMode = 'oauth' | 'api_key' | 'skip';
+export type AcpModelAccessMode = 'self_managed' | 'clowder_default_profile';
+export type AcpModelProviderType = 'openai_compatible' | 'bigmodel' | 'minimax' | 'echo';
 
 export interface BootstrapBinding {
   enabled: boolean;
@@ -25,6 +27,11 @@ export interface ProfileItem {
   models?: string[];
   modelOverride?: string | null;
   oauthLikeClient?: string;
+  command?: string;
+  args?: string[];
+  cwd?: string;
+  modelAccessMode?: AcpModelAccessMode;
+  defaultModelProfileRef?: string;
   hasApiKey: boolean;
   createdAt: string;
   updatedAt: string;
@@ -36,6 +43,29 @@ export interface ProviderProfilesResponse {
   bootstrapBindings: Partial<Record<BuiltinAccountClient, BootstrapBinding>>;
   providers: ProfileItem[];
   visibleBuiltinClients?: BuiltinAccountClient[];
+}
+
+export interface AcpModelProfileItem {
+  id: string;
+  displayName: string;
+  name: string;
+  provider: AcpModelProviderType;
+  model: string;
+  baseUrl: string;
+  sslVerify?: boolean | null;
+  temperature?: number;
+  topP?: number;
+  maxTokens?: number;
+  contextWindow?: number;
+  connectTimeoutSeconds?: number;
+  hasApiKey: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AcpModelProfilesResponse {
+  projectPath: string;
+  profiles: AcpModelProfileItem[];
 }
 
 export interface ProfileTestResult {
