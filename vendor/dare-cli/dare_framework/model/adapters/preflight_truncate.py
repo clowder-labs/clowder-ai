@@ -17,7 +17,10 @@ from typing import Any
 def _estimate_payload_tokens(text: str) -> int:
     """CJK-aware rough token estimate for a serialized string.
 
-    CJK chars: ~1.5 tokens each; non-CJK chars: ~0.25 tokens each (4 chars/token).
+    CJK chars: ~2 tokens each (GLM tokenizer is closer to 2 than 1.5).
+    Non-CJK chars: ~0.4 tokens each (~2.5 chars/token — JSON schema keys like
+    "type", "description", "properties" are often 1 token per 1-2 chars, so the
+    old 4 chars/token assumption was far too optimistic for structured text).
     """
     cjk = 0
     for ch in text:
@@ -25,7 +28,7 @@ def _estimate_payload_tokens(text: str) -> int:
         if 0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF or 0xF900 <= cp <= 0xFAFF:
             cjk += 1
     non_cjk = len(text) - cjk
-    return int(cjk * 1.5) + max(1, non_cjk // 4)
+    return int(cjk * 2.0) + max(1, int(non_cjk * 0.4))
 
 
 def preflight_truncate(
