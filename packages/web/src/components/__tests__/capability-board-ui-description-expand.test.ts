@@ -45,7 +45,7 @@ describe('CapabilitySection description expansion', () => {
         React.createElement(CapabilitySection, {
           icon: null,
           title: '协作',
-          subtitle: 'Clowder AI Skills',
+          subtitle: 'OfficeClaw Skills',
           items: [item],
           catFamilies: [],
           toggling: null,

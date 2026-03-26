@@ -12,7 +12,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Clowder AI',
+  title: 'OfficeClaw',
   description: 'Your AI team collaboration space',
   manifest: '/manifest.json',
   icons: {
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Clowder AI',
+    title: 'OfficeClaw',
   },
 };
 
