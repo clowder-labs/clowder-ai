@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import type { ApiProtocol } from './hub-provider-profiles.sections';
 import type { AcpModelAccessMode, AcpModelProfileItem, ProfileItem } from './hub-provider-profiles.types';
-import { TagEditor, TagPillList } from './hub-tag-editor';
+import { TagEditor } from './hub-tag-editor';
 import { useConfirm } from './useConfirm';
 
 const ACP_MODEL_ACCESS_OPTIONS: Array<{ value: AcpModelAccessMode; label: string }> = [
@@ -279,28 +279,22 @@ export function HubProviderProfileItem({
           ) : (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[#8A776B]">可用模型</p>
-              {profile.builtin ? (
-                <div className="flex flex-wrap gap-2">
-                  <TagPillList tags={profile.models ?? []} emptyLabel="(暂无模型)" tone="orange" />
-                </div>
-              ) : (
-                <TagEditor
-                  tags={profile.models ?? []}
-                  tone="purple"
-                  addLabel="+ 添加"
-                  placeholder="输入模型名"
-                  emptyLabel="(暂无模型)"
-                  minCount={1}
-                  onChange={(nextModels) => {
-                    if (busy) return;
-                    void onSave({
-                      displayName: profile.displayName,
-                      ...(profile.authType === 'api_key' ? { baseUrl: profile.baseUrl ?? '' } : {}),
-                      models: nextModels,
-                    });
-                  }}
-                />
-              )}
+              <TagEditor
+                tags={profile.models ?? []}
+                tone={profile.builtin ? 'orange' : 'purple'}
+                addLabel="+ 添加"
+                placeholder="输入模型名"
+                emptyLabel="(暂无模型)"
+                minCount={1}
+                onChange={(nextModels) => {
+                  if (busy) return;
+                  void onSave({
+                    displayName: profile.displayName,
+                    ...(profile.authType === 'api_key' ? { baseUrl: profile.baseUrl ?? '' } : {}),
+                    models: nextModels,
+                  });
+                }}
+              />
             </div>
           )}
         </div>
