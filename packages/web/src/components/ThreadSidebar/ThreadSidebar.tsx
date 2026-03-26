@@ -453,7 +453,7 @@ export function ThreadSidebar({
           <div className="flex items-center justify-between mb-2">
             <a
               href="/"
-              className="flex items-center gap-1.5 text-sm font-semibold text-cafe-black hover:text-cocreator-primary transition-colors"
+              className="flex w-full items-center gap-1.5 px-2 py-1 text-sm font-semibold text-cafe-black transition-colors hover:text-cocreator-primary"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
