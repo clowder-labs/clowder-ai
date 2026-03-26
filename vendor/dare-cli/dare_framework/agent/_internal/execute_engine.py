@@ -10,10 +10,28 @@ import time
 from typing import Any, Protocol
 from uuid import uuid4
 
+from dare_framework.agent._internal.output_normalizer import extract_text_payload
 from dare_framework.context import Message
 from dare_framework.hook.types import HookDecision, HookPhase
 from dare_framework.model import ModelInput
 from dare_framework.plan.types import ToolLoopRequest
+
+
+def _has_extractable_output(output: Any) -> bool:
+    """Return True if a tool-loop output dict carries user-meaningful content.
+
+    Checks whether ``extract_text_payload`` can find displayable text in the
+    output's ``output`` or ``content`` fields.  This deliberately excludes
+    bare ``success=True`` wrappers whose payload is empty (e.g. run_command
+    with empty stdout/stderr).
+    """
+    if not isinstance(output, dict):
+        return False
+    for key in ("output", "content"):
+        value = output.get(key)
+        if value is not None and extract_text_payload(value):
+            return True
+    return False
 
 
 class ExecuteEngineAgent(Protocol):
@@ -186,13 +204,19 @@ async def run_execute_loop(
             # Guard: if the model returned no text and no tool calls, and
             # prior iterations produced no meaningful output either,
             # treat this as a failed execution rather than a vacuous success.
-            # A successful tool call (e.g. write_file returning {path, bytes_written})
-            # counts as meaningful even when it has no "content" key.
+            #
+            # "Meaningful" means either:
+            #   - The model's final response has non-empty text, OR
+            #   - A prior tool call produced extractable text content
+            #     (e.g. write_file → {path, bytes_written} or run_command → stdout).
+            #
+            # A tool returning success=True but empty output (run_command with
+            # empty stdout/stderr) is NOT meaningful — the tool ran but produced
+            # nothing the user can act on.
             has_meaningful_content = bool(
                 (response.content or "").strip()
             ) or any(
-                (isinstance(o, dict) and o.get("success") is True)
-                for o in outputs[:-1]
+                _has_extractable_output(o) for o in outputs[:-1]
             )
             return await agent._finalize_execute(execute_start, {
                 "success": has_meaningful_content,
