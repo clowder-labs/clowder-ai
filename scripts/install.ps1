@@ -139,11 +139,9 @@ try {
     $nodeRaw = & node --version 2>$null
     if ($nodeRaw -match 'v(\d+)\.(\d+)') {
         $nodeMajor = [int]$Matches[1]
-        if ($nodeMajor -ge 20 -and $nodeMajor -le 22) {
+        if ($nodeMajor -ge 20) {
             Write-Ok "Node.js $nodeRaw"
             $nodeOk = $true
-        } elseif ($nodeMajor -gt 22) {
-            Write-Warn "Node.js $nodeRaw is too new (v24+ breaks Next.js 14). Please install Node.js 22 LTS from https://nodejs.org/"
         } else {
             Write-Warn "Node.js $nodeRaw too old (need >= 20), upgrading..."
         }
@@ -159,11 +157,9 @@ if (-not $nodeOk) {
             $nodeRaw = & node --version 2>$null
             if ($nodeRaw -match 'v(\d+)\.(\d+)') {
                 $nodeMajor = [int]$Matches[1]
-                if ($nodeMajor -ge 20 -and $nodeMajor -le 22) {
+                if ($nodeMajor -ge 20) {
                     Write-Ok "Node.js $nodeRaw installed"
                     $nodeOk = $true
-                } elseif ($nodeMajor -gt 22) {
-                    Write-Warn "Node.js $nodeRaw too new after winget install (need LTS 20-22)"
                 } else {
                     Write-Warn "Node.js $nodeRaw still too old after winget install"
                 }

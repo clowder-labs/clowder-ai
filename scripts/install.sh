@@ -585,7 +585,6 @@ node_needs_install() {
     command -v node &>/dev/null || return 0
     local v; v=$(node -v | sed 's/v//' | cut -d. -f1)
     [[ "$v" -lt 20 ]] && { warn "Node.js $(node -v) < v20 — upgrading"; return 0; }
-    [[ "$v" -gt 22 ]] && { warn "Node.js $(node -v) is v${v}.x (too new, breaks Next.js 14). Need LTS 20-22."; return 0; }
     return 1
 }
 install_node_fnm() {
