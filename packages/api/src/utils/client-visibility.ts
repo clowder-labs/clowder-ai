@@ -90,22 +90,32 @@ export function filterBootstrapBindingsForAllowedClients(bindings: BootstrapBind
  * When builtin clients are explicitly disabled (simplified deployment), hide
  * tabs and env categories that aren't relevant.
  */
-export function getUiHints(): { hiddenHubTabs: string[]; hiddenEnvCategories: string[]; hideSkillMountStatus: boolean } {
-  if (!isBuiltinClientsExplicitlyDisabled()) return { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false };
+export function getUiHints(): {
+  hiddenHubTabs: string[];
+  hiddenEnvCategories: string[];
+  hideSkillMountStatus: boolean;
+  hideAgentGuides: boolean;
+} {
+  if (!isBuiltinClientsExplicitlyDisabled()) {
+    return { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false };
+  }
   const allowed = new Set(getAllowedClientIds());
   const hiddenHubTabs: string[] = [];
   if (!allowed.has('anthropic')) hiddenHubTabs.push('rescue');
   if (!allowed.has('anthropic') && !allowed.has('openai') && !allowed.has('google')) {
     hiddenHubTabs.push('routing');
   }
+  // Hide voice settings in simplified deployments
+  hiddenHubTabs.push('voice');
   const hiddenEnvCategories: string[] = [];
   if (!allowed.has('openai')) hiddenEnvCategories.push('codex');
   if (!allowed.has('google')) hiddenEnvCategories.push('gemini');
   // In simplified deployments, dare env is auto-configured by the preset
   hiddenEnvCategories.push('dare');
-  // Hide skill mount status badges when builtin providers are not available
   const hideSkillMountStatus = !allowed.has('anthropic') && !allowed.has('openai') && !allowed.has('google');
-  return { hiddenHubTabs, hiddenEnvCategories, hideSkillMountStatus };
+  // Hide CLAUDE.md / AGENTS.md / GEMINI.md agent guides
+  const hideAgentGuides = !allowed.has('anthropic') && !allowed.has('openai') && !allowed.has('google');
+  return { hiddenHubTabs, hiddenEnvCategories, hideSkillMountStatus, hideAgentGuides };
 }
 
 /**

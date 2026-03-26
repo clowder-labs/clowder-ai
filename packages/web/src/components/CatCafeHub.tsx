@@ -265,7 +265,7 @@ export function CatCafeHub() {
               ) : null)}
             {tab === 'commands' && <HubCommandsTab />}
             {tab === 'routing' && <HubRoutingPolicyTab />}
-            {tab === 'env' && <HubEnvFilesTab hiddenCategories={uiHints.hiddenEnvCategories} />}
+            {tab === 'env' && <HubEnvFilesTab hiddenCategories={uiHints.hiddenEnvCategories} hideAgentGuides={uiHints.hideAgentGuides} />}
             {tab === 'provider-profiles' && <HubProviderProfilesTab />}
             {tab === 'voice' && <VoiceSettingsPanel />}
             {tab === 'notify' && <PushSettingsPanel />}

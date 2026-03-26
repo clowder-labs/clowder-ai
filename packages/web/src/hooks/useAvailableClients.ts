@@ -12,6 +12,7 @@ export interface UiHints {
   hiddenHubTabs: string[];
   hiddenEnvCategories: string[];
   hideSkillMountStatus: boolean;
+  hideAgentGuides: boolean;
 }
 
 interface AvailableClientsState {
@@ -30,7 +31,7 @@ export function useAvailableClients(): AvailableClientsState {
   const [state, setState] = useState<AvailableClientsState>({
     clients: [],
     clientLabels: {},
-    uiHints: { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false },
+    uiHints: { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false },
     loading: true,
     error: null,
   });
@@ -47,7 +48,7 @@ export function useAvailableClients(): AvailableClientsState {
           setState({
             clients: body.clients.filter((c) => c.available),
             clientLabels: body.clientLabels ?? {},
-            uiHints: body.uiHints ?? { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false },
+            uiHints: body.uiHints ?? { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false },
             loading: false,
             error: null,
           });
@@ -55,7 +56,7 @@ export function useAvailableClients(): AvailableClientsState {
       })
       .catch((err) => {
         if (!cancelled) {
-          setState({ clients: [], clientLabels: {}, uiHints: { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false }, loading: false, error: err instanceof Error ? err.message : String(err) });
+          setState({ clients: [], clientLabels: {}, uiHints: { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false }, loading: false, error: err instanceof Error ? err.message : String(err) });
         }
       });
     return () => {
