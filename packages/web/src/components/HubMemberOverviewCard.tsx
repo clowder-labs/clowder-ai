@@ -21,6 +21,7 @@ function humanizeProvider(provider: string) {
 
 function clientRuntimeLabel(cat: CatData, configCat?: CatConfig) {
   if (cat.provider === 'relayclaw') return 'jiuwen';
+  if (cat.provider === 'dare') return 'Dare';
   const accountRef = (cat.accountRef ?? cat.providerProfileId ?? '').toLowerCase();
   if (accountRef.includes('claude')) return 'Claude';
   if (accountRef.includes('codex')) return 'Codex';
