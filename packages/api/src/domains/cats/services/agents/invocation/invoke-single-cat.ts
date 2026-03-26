@@ -425,14 +425,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   try {
     let sessionId: string | undefined;
     const sessionChainActive = isSessionChainEnabled(catId);
-    // Cats with sessionChain=false (e.g. dare) intentionally start fresh each turn.
-    // Skip sessionManager lookup entirely to avoid resuming stale sessions.
-    if (sessionChainActive) {
-      try {
-        sessionId = await sessionManager.get(userId, catId, threadId);
-      } catch {
-        // Redis read failure — continue without session
-      }
+    // Session resume is a basic CLI capability independent of chain management.
+    // All cats read sessionId so the CLI can --resume/--session into prior context.
+    // sessionChain only gates advanced chain management (sealing, bootstrap, digest).
+    try {
+      sessionId = await sessionManager.get(userId, catId, threadId);
+    } catch {
+      // Redis read failure — continue without session
     }
 
     // R8 P1: Read-side short-circuit — if sessionChainStore has sealed/sealing sessions
