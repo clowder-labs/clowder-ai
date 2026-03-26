@@ -44,7 +44,7 @@ $cscPath = Resolve-CscPath
 $packagePath = Join-Path $CacheDir "microsoft.web.webview2.$WebView2Version.nupkg"
 $extractDir = Join-Path $CacheDir "webview2-$WebView2Version"
 $buildDir = Join-Path ([IO.Path]::GetTempPath()) ("clowder-webview2-launcher-" + [Guid]::NewGuid().ToString("N"))
-$outputExe = Join-Path $buildDir "ClowderAI.Desktop.exe"
+$outputExe = Join-Path $buildDir "OfficeClaw.exe"
 $localSourceFile = Join-Path $buildDir ([IO.Path]::GetFileName($SourceFile))
 $manifestFile = [IO.Path]::ChangeExtension($SourceFile, ".manifest")
 $coreDllPath = Join-Path $extractDir "lib\net462\Microsoft.Web.WebView2.Core.dll"
@@ -127,8 +127,8 @@ if ($LASTEXITCODE -ne 0) {
 </configuration>
 "@ | Set-Content -Path "$outputExe.config" -Encoding ASCII
 
-Copy-Item -Path $outputExe -Destination (Join-Path $OutputDir "ClowderAI.Desktop.exe") -Force
-Copy-Item -Path "$outputExe.config" -Destination (Join-Path $OutputDir "ClowderAI.Desktop.exe.config") -Force
+Copy-Item -Path $outputExe -Destination (Join-Path $OutputDir "OfficeClaw.exe") -Force
+Copy-Item -Path "$outputExe.config" -Destination (Join-Path $OutputDir "OfficeClaw.exe.config") -Force
 foreach ($runtimeFile in $localSdkFiles) {
     Copy-Item -Path $runtimeFile -Destination (Join-Path $OutputDir ([IO.Path]::GetFileName($runtimeFile))) -Force
 }
