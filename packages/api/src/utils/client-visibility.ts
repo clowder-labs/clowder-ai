@@ -36,7 +36,14 @@ function parseCsvEnv<T extends string>(raw: string | undefined, allowed: readonl
 
 export function getAllowedClientIds(): VisibleClientId[] {
   if (isBuiltinClientsEnabled()) return [...ALL_CLIENT_IDS];
-  return parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, ALL_CLIENT_IDS);
+  const base = parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, ALL_CLIENT_IDS);
+  // CAT_CAFE_CLIENT_LABELS implicitly enables any client listed in it
+  const labelKeys = Object.keys(getClientLabels()).filter((k): k is VisibleClientId =>
+    ALL_CLIENT_IDS.includes(k as VisibleClientId),
+  );
+  if (labelKeys.length === 0) return base;
+  const merged = new Set([...base, ...labelKeys]);
+  return ALL_CLIENT_IDS.filter((id) => merged.has(id));
 }
 
 export function isClientAllowed(client: string): client is VisibleClientId {
