@@ -471,7 +471,7 @@ export function ThreadSidebar({
               >
                 <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
               </button>
-              {onHubClick && (
+              {false && onHubClick && (
                 <button
                   type="button"
                   onClick={onHubClick}
