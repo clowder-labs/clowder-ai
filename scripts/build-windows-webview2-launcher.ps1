@@ -46,6 +46,7 @@ $extractDir = Join-Path $CacheDir "webview2-$WebView2Version"
 $buildDir = Join-Path ([IO.Path]::GetTempPath()) ("clowder-webview2-launcher-" + [Guid]::NewGuid().ToString("N"))
 $outputExe = Join-Path $buildDir "ClowderAI.Desktop.exe"
 $localSourceFile = Join-Path $buildDir ([IO.Path]::GetFileName($SourceFile))
+$manifestFile = [IO.Path]::ChangeExtension($SourceFile, ".manifest")
 $coreDllPath = Join-Path $extractDir "lib\net462\Microsoft.Web.WebView2.Core.dll"
 
 Ensure-WebView2Package -DestinationPath $packagePath -Version $WebView2Version
@@ -97,6 +98,10 @@ $compileArgs = @(
 
 if ($IconFile -and (Test-Path $IconFile)) {
     $compileArgs += "/win32icon:$IconFile"
+}
+
+if (Test-Path $manifestFile) {
+    $compileArgs += "/win32manifest:$manifestFile"
 }
 
 foreach ($reference in ($frameworkReferences + $localSdkFiles[0..1])) {

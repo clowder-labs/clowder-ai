@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,9 +13,31 @@ using Microsoft.Web.WebView2.WinForms;
 
 internal static class Program
 {
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDPIAware();
+
+    [DllImport("shcore.dll", SetLastError = true)]
+    private static extern int SetProcessDpiAwareness(int awareness);
+
+    private static void EnableHighDpi()
+    {
+        try
+        {
+            // PROCESS_PER_MONITOR_DPI_AWARE = 2
+            SetProcessDpiAwareness(2);
+        }
+        catch
+        {
+            // Fallback for Windows 7 / early Win8
+            try { SetProcessDPIAware(); } catch { }
+        }
+    }
+
     [STAThread]
     private static void Main()
     {
+        EnableHighDpi();
+
         bool createdNew;
         using (var mutex = new Mutex(true, @"Local\ClowderAI.WebView2Desktop", out createdNew))
         {
@@ -470,7 +493,18 @@ internal sealed class LauncherForm : Form
         Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
-        _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+        var settings = _webView.CoreWebView2.Settings;
+        settings.IsStatusBarEnabled = false;
+        settings.AreDevToolsEnabled = false;
+        settings.AreDefaultContextMenusEnabled = false;
+        settings.IsZoomControlEnabled = false;
+        settings.AreBrowserAcceleratorKeysEnabled = false;
+        settings.IsPinchZoomEnabled = false;
+        settings.IsPasswordAutosaveEnabled = false;
+        settings.IsGeneralAutofillEnabled = false;
+        settings.IsSwipeNavigationEnabled = false;
+
         _webView.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
         _webView.CoreWebView2.ProcessFailed += (_, eventArgs) =>
         {
