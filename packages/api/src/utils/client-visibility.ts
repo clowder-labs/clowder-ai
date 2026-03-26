@@ -17,6 +17,11 @@ function isBuiltinClientsEnabled(): boolean {
   return raw === 'true' || raw === '1';
 }
 
+function isBuiltinClientsExplicitlyDisabled(): boolean {
+  const raw = process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED;
+  return raw === 'false' || raw === '0';
+}
+
 function parseCsvEnv<T extends string>(raw: string | undefined, allowed: readonly T[], fallback: readonly T[]): T[] {
   if (raw === undefined) return [...fallback];
   if (!raw.trim()) return [];
@@ -53,10 +58,11 @@ export function getAllowedBuiltinBindingClients(): BuiltinAccountClient[] {
 export function getVisibleBuiltinAuthClients(): BuiltinAccountClient[] {
   if (isBuiltinClientsEnabled()) return [...ALL_BUILTIN_AUTH_CLIENTS];
   const allowedBuiltinClients = getAllowedBuiltinBindingClients();
+  const defaultFallback = isBuiltinClientsExplicitlyDisabled() ? [] : allowedBuiltinClients;
   return parseCsvEnv(
     process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS,
     ALL_BUILTIN_AUTH_CLIENTS,
-    allowedBuiltinClients,
+    defaultFallback,
   ).filter((client) => allowedBuiltinClients.includes(client));
 }
 

@@ -9,7 +9,7 @@ const FALLBACK_BUILTIN_PROFILE_SPECS: Array<{
   { client: 'anthropic', id: 'claude', displayName: 'Claude (OAuth)', models: [] },
   { client: 'openai', id: 'codex', displayName: 'Codex (OAuth)', models: [] },
   { client: 'google', id: 'gemini', displayName: 'Gemini (OAuth)', models: [] },
-  { client: 'dare', id: 'dare', displayName: 'Dare (client-auth)', models: [] },
+  { client: 'dare', id: 'dare', displayName: 'Code (client-auth)', models: [] },
   { client: 'opencode', id: 'opencode', displayName: 'OpenCode (client-auth)', models: [] },
 ];
 
@@ -79,7 +79,7 @@ export function builtinClientLabel(client?: BuiltinAccountClient): string {
     case 'google':
       return 'Gemini';
     case 'dare':
-      return 'Dare';
+      return 'Code';
     case 'opencode':
       return 'OpenCode';
     default:
