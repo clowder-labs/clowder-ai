@@ -27,7 +27,6 @@ import {
   StatusDot,
 } from './capability-board-ui';
 import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-utils';
-import { useConfirm } from './useConfirm';
 
 type FilterSource = 'all' | 'cat-cafe' | 'external';
 
@@ -39,8 +38,6 @@ export function HubCapabilityTab() {
   const [loading, setLoading] = useState(true);
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
   const [toggling, setToggling] = useState<string | null>(null);
-
-  const confirm = useConfirm();
 
   // Multi-project state
   const [projectPath, setProjectPath] = useState<string | null>(null);
@@ -76,17 +73,6 @@ export function HubCapabilityTab() {
   useEffect(() => {
     fetchCapabilities();
   }, [fetchCapabilities]);
-
-  // Re-fetch when tab becomes visible (e.g. after installing a SkillHub skill)
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        fetchCapabilities(projectPath ?? undefined);
-      }
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [fetchCapabilities, projectPath]);
 
   const switchProject = useCallback(
     (path: string | null) => {
@@ -129,32 +115,6 @@ export function HubCapabilityTab() {
       }
     },
     [fetchCapabilities, projectPath],
-  );
-
-  const handleUninstall = useCallback(
-    async (skillId: string) => {
-      const ok = await confirm({
-        title: '卸载 Skill',
-        message: `确定要卸载 "${skillId}" 吗？此操作不可恢复。`,
-        confirmLabel: '卸载',
-        cancelLabel: '取消',
-        variant: 'danger',
-      });
-      if (!ok) return;
-      try {
-        const res = await apiFetch('/api/skills/uninstall', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: skillId }),
-        });
-        if (res.ok) {
-          await fetchCapabilities(projectPath ?? undefined);
-        }
-      } catch {
-        // ignore
-      }
-    },
-    [confirm, fetchCapabilities, projectPath],
   );
 
   // Filter + group
@@ -248,13 +208,12 @@ export function HubCapabilityTab() {
       {/* External Skills Section */}
       <CapabilitySection
         icon={<SectionIconExtension />}
-        title="Skill扩展"
+        title="Extensions"
         subtitle="外部扩展 Skills"
         items={externalSkills}
         catFamilies={catFamilies}
         toggling={toggling}
         onToggle={handleToggle}
-        onUninstall={handleUninstall}
       />
 
       {filtered.length === 0 && (
