@@ -210,7 +210,7 @@ export function HubCapabilityTab() {
           value={filterSource}
           options={[
             { value: 'all', label: '全部' },
-            { value: 'cat-cafe', label: 'Clowder AI' },
+            { value: 'cat-cafe', label: 'OfficeClaw' },
             { value: 'external', label: '外部' },
           ]}
           onChange={(v) => setFilterSource(v as FilterSource)}
@@ -237,7 +237,7 @@ export function HubCapabilityTab() {
           key={group.category}
           icon={<SectionIconSkill />}
           title={group.category}
-          subtitle="Clowder AI Skills"
+          subtitle="OfficeClaw Skills"
           items={group.items}
           catFamilies={catFamilies}
           toggling={toggling}

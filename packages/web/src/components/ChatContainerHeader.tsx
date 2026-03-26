@@ -57,7 +57,7 @@ export function ChatContainerHeader({
         </button>
         <CatCafeLogo className="h-16 w-auto -my-3" />
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-cafe-black">Clowder AI</h1>
+          <h1 className="text-lg font-bold text-cafe-black">OfficeClaw</h1>
           <ThreadIndicator threadId={threadId} />
         </div>
         <ExportButton threadId={threadId} />

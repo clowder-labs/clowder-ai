@@ -1,6 +1,6 @@
 /**
  * Thread indicator in ChatContainerHeader.
- * Verifies that the header shows the current thread title (not just "Clowder AI").
+ * Verifies that the header shows the current thread title (not just "OfficeClaw").
  */
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -130,14 +130,14 @@ describe('ChatContainerHeader thread indicator', () => {
 
   it('maps internal basename to brand name when NEXT_PUBLIC_BRAND_NAME is set', () => {
     const origEnv = process.env.NEXT_PUBLIC_BRAND_NAME;
-    process.env.NEXT_PUBLIC_BRAND_NAME = 'Clowder AI';
+    process.env.NEXT_PUBLIC_BRAND_NAME = 'OfficeClaw';
     try {
       mockStore.threads = [{ ...TEST_THREADS[0], id: 'thread_brand', projectPath: '/home/user/cat-cafe' }];
       act(() => {
         root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'thread_brand' }));
       });
 
-      expect(container.textContent).toContain('Clowder AI');
+      expect(container.textContent).toContain('OfficeClaw');
       expect(container.textContent).not.toContain('cat-cafe');
     } finally {
       if (origEnv === undefined) delete process.env.NEXT_PUBLIC_BRAND_NAME;
