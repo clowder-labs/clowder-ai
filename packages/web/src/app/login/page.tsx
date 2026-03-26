@@ -70,32 +70,95 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-white px-[200px]">
-      <div className="flex w-full max-w-7xl items-center">
-        <div className="flex-1 text-gray-900 flex flex-col justify-center pr-12">
-          <h1 className="text-4xl font-bold leading-[48px] mb-4">OfficeClaw</h1>
-          <p className="text-2xl leading-[48px] text-gray-600 max-w-xl mb-12">
-            即可部署专属AI 享 7x24 小时 稳定在线的超级助手
-          </p>
+    <div className="h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-white pr-[10%]">
+      <div className="flex w-full items-center">
+        <div className="flex-1 flex flex-col justify-center items-center">
+          <div className="w-full flex flex-col justify-center items-center">
+            <h1
+              className="text-4xl font-bold leading-[48px] mb-4 text-center"
+              style={{
+                background:
+                  'linear-gradient(224.38deg, rgba(123, 72, 255, 1) 0%, rgba(200, 27, 181, 0.74) 24%, rgba(255, 100, 84, 0.44) 50%, rgba(255, 119, 49, 0.35) 72%, rgba(255, 92, 12, 1) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              OfficeClaw
+            </h1>
+            <p className="text-2xl leading-[48px] text-gray-600 max-w-xl mb-12 font-semibold text-center">
+              即可部署专属AI 享 7x24 小时 稳定在线的超级助手
+            </p>
 
-          <div className="flex gap-6">
-            <div className="w-[250px] h-[162px] border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
-              <h3 className="text-lg font-semibold mb-3 text-gray-900">智能对话</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                基于先进AI模型，提供自然流畅的对话体验，支持多轮对话和上下文理解。
-              </p>
-            </div>
+            <div className="flex gap-8">
+              <div className="max-w-[150px]">
+                <div className="mb-3">
+                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="#F3E8FF" />
+                    <path d="M8 10h16v2H8zM8 15h12v2H8zM8 20h14v2H8z" fill="#9333EA" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">专业级 AI PPT生产力</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">行业专业级 AI 生成能力，一键完成高质量 PPT。</p>
+              </div>
 
-            <div className="w-[250px] h-[162px] border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
-              <h3 className="text-lg font-semibold mb-3 text-gray-900">文档处理</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                强大的文档分析和处理能力，支持多种格式文档的智能解析和摘要生成。
-              </p>
+              <div className="max-w-[150px]">
+                <div className="mb-3">
+                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="#DBEAFE" />
+                    <circle cx="10" cy="12" r="3" fill="#2563EB" />
+                    <circle cx="22" cy="12" r="3" fill="#2563EB" />
+                    <circle cx="16" cy="22" r="3" fill="#2563EB" />
+                    <path
+                      d="M10 15l3 3 6-6"
+                      stroke="#2563EB"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">专家团思辨模式</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  支持创建多角色，高效分工，零门槛组建专属专家团队。
+                </p>
+              </div>
+
+              <div className="max-w-[150px]">
+                <div className="mb-3">
+                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="#DCFCE7" />
+                    <path d="M16 8v8M16 20v4M8 14h6M18 14h6" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" />
+                    <rect x="10" y="10" width="12" height="12" rx="2" stroke="#16A34A" strokeWidth="2" fill="none" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">一键本地部署</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">具备本地文件读写能力，无缝处理多格式文件。</p>
+              </div>
+
+              <div className="max-w-[150px]">
+                <div className="mb-3">
+                  <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="#FEF3C7" />
+                    <circle cx="16" cy="12" r="4" stroke="#D97706" strokeWidth="2" fill="none" />
+                    <path
+                      d="M10 22c0-3.3 2.7-6 6-6s6 2.7 6 6"
+                      stroke="#D97706"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      fill="none"
+                    />
+                    <path d="M12 16h8" stroke="#D97706" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">多渠道接入</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">可接入飞书、微信、钉钉、小艺、Welink 等多渠道。</p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="w-[450px] flex-shrink-0">
+        <div className="w-[450px] flex-shrink-0 pl-0">
           <div className="w-[450px] bg-white border border-gray-200 rounded-xl shadow-lg p-8">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎使用OfficeClaw</h2>
