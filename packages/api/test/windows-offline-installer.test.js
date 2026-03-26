@@ -69,8 +69,9 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /WINDOWS_RUNTIME_NPM_ARGS = \[\s*'install',\s*'--omit=dev'/);
   assert.match(
     buildScript,
-    /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json', 'vendor'\]/,
+    /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json'\]/,
   );
+  assert.match(buildScript, /const JIUWENCLAW_WINDOWS_EXE_SOURCE = join\(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw\.exe'\)/);
   assert.match(buildScript, /RUNTIME_SCRIPT_FILES = \[/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'shared'/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'api'/);
@@ -79,6 +80,9 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /dependencies\['@cat-cafe\/shared'\] = 'file:\.\.\/shared'/);
   assert.match(buildScript, /RUNTIME_WEB_NEXT_CONFIG = `function resolveApiBaseUrl\(\)/);
   assert.match(buildScript, /runWindowsNpmInstall\(windowsNode\.npmCmdPath/);
+  assert.match(buildScript, /buildVendoredJiuwenClawExecutable\(options\)/);
+  assert.match(buildScript, /stageVendoredJiuwenClawExecutable\(bundleDir, jiuwenClawExecutable\)/);
+  assert.match(buildScript, /cpSync\(executablePath, join\(vendorDir, 'jiuwenclaw\.exe'\), \{ force: true \}\)/);
   assert.match(buildScript, /run\('pnpm', \['--filter', '@cat-cafe\/shared', 'run', 'build'\]\)/);
   assert.match(buildScript, /shell: options\.shell \?\? shouldUseCommandShell\(command\)/);
   assert.match(buildScript, /materializeSharedDependency\(windowsPackagesWslDir, packageName\)/);
@@ -106,6 +110,22 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /Building WebView2 desktop launcher/);
   assert.match(buildScript, /Finalizing runtime bundle/);
   assert.match(buildScript, /writeReleaseMetadata\(bundleDir, \{/);
+});
+
+test('JiuwenClaw build spec targets a self-contained Windows executable and exposes a sidecar app flag', () => {
+  const jiuwenSpec = readFileSync(join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'jiuwenclaw.spec'), 'utf8');
+  const jiuwenBuildScript = readFileSync(join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'build-exe.ps1'), 'utf8');
+  const jiuwenEntry = readFileSync(join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'jiuwenclaw_exe_entry.py'), 'utf8');
+
+  assert.match(jiuwenSpec, /if sys\.platform == "win32":/);
+  assert.match(jiuwenSpec, /a\.binaries/);
+  assert.match(jiuwenSpec, /a\.zipfiles/);
+  assert.match(jiuwenSpec, /a\.datas/);
+  assert.doesNotMatch(jiuwenSpec, /COLLECT\(\s*exe,\s*a\.binaries,\s*a\.zipfiles,\s*a\.datas,\s*strip=False,\s*upx=True,\s*upx_exclude=\[\],\s*name="jiuwenclaw"\s*\)\s*$/m);
+  assert.match(jiuwenBuildScript, /Resolve-UvCommand/);
+  assert.match(jiuwenBuildScript, /\.build-venv/);
+  assert.match(jiuwenBuildScript, /pip install -e "\.\[dev\]"/);
+  assert.match(jiuwenEntry, /--desktop-run-app/);
 });
 
 test('Windows WebView2 launcher build bundles the required SDK files and desktop host logic', () => {

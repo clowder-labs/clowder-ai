@@ -3,7 +3,7 @@
 #define MyAppPublisher "JiuwenClaw"
 #define MyAppURL "https://github.com/"
 #define MyAppExeName "jiuwenclaw.exe"
-#define MyDistDir "..\dist\jiuwenclaw"
+#define MyDistDir "..\dist"
 
 [Setup]
 AppId={{6DDF1C96-B2CE-4A2F-A7E7-A2E8627AE0A2}}
@@ -42,7 +42,7 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Name: "runinit"; Description: "安装完成后初始化工作区"; GroupDescription: "首次使用:"; Flags: checkedonce
 
 [Files]
-Source: "{#MyDistDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyDistDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

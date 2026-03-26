@@ -68,6 +68,7 @@ const RUNTIME_SCRIPT_FILES = [
   'windows-command-helpers.ps1',
   'windows-installer-ui.ps1',
 ];
+const JIUWENCLAW_WINDOWS_EXE_SOURCE = join(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw.exe');
 const RUNTIME_WEB_NEXT_CONFIG = `function resolveApiBaseUrl() {
   const explicit = process.env.NEXT_PUBLIC_API_URL?.replace(/\\/+$/, '');
   if (explicit) return explicit;
@@ -386,13 +387,10 @@ function createIcoFromPng(pngPath, icoPath) {
 }
 
 function copyTopLevelProject(bundleDir) {
-  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json', 'vendor'];
+  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json'];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
     if (!existsSync(source)) {
-      if (entry === 'vendor') {
-        continue;
-      }
       throw new Error(`Missing required bundle entry: ${source}`);
     }
     const destination = join(bundleDir, entry);
@@ -409,6 +407,33 @@ function copyTopLevelProject(bundleDir) {
     }
     cpSync(source, join(scriptsDir, scriptName), { force: true });
   }
+}
+
+function buildVendoredJiuwenClawExecutable(options) {
+  const buildScript = join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'build-exe.ps1');
+  if (!existsSync(buildScript)) {
+    throw new Error(`Missing JiuwenClaw build script: ${buildScript}`);
+  }
+  if (options.skipBuild && existsSync(JIUWENCLAW_WINDOWS_EXE_SOURCE)) {
+    return JIUWENCLAW_WINDOWS_EXE_SOURCE;
+  }
+  run('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    toWindowsPath(buildScript),
+  ]);
+  if (!existsSync(JIUWENCLAW_WINDOWS_EXE_SOURCE)) {
+    throw new Error(`JiuwenClaw executable not found after build: ${JIUWENCLAW_WINDOWS_EXE_SOURCE}`);
+  }
+  return JIUWENCLAW_WINDOWS_EXE_SOURCE;
+}
+
+function stageVendoredJiuwenClawExecutable(bundleDir, executablePath) {
+  const vendorDir = join(bundleDir, 'vendor');
+  ensureDir(vendorDir);
+  cpSync(executablePath, join(vendorDir, 'jiuwenclaw.exe'), { force: true });
 }
 
 function stageInstallerSeed(bundleDir) {
@@ -938,8 +963,12 @@ async function main() {
 
   ensureBuildArtifacts(options);
 
+  logStep('Building JiuwenClaw executable');
+  const jiuwenClawExecutable = buildVendoredJiuwenClawExecutable(options);
+
   logStep('Copying project sources');
   copyTopLevelProject(bundleDir);
+  stageVendoredJiuwenClawExecutable(bundleDir, jiuwenClawExecutable);
   stageInstallerSeed(bundleDir);
 
   logStep('Preparing runtime package payload');
