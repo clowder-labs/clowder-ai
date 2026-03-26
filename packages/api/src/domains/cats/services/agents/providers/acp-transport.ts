@@ -61,7 +61,8 @@ function toErrorMessage(error: unknown): string {
 }
 
 function normalizeCommandName(command: string): string {
-  return basename(command).toLowerCase();
+  const normalized = basename(command.replaceAll('\\', '/')).toLowerCase();
+  return normalized.endsWith('.exe') ? normalized.slice(0, -4) : normalized;
 }
 
 export function resolveACPStdioFrameMode(command: string): ACPStdioFrameMode {

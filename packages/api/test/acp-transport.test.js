@@ -12,6 +12,12 @@ describe('acp transport framing', () => {
     assert.equal(frameACPMessage({ jsonrpc: '2.0', id: 1, method: 'initialize' }, mode).toString('utf8').endsWith('\n'), true);
   });
 
+  it('treats Windows opencode.exe paths as NDJSON ACP subprocesses', async () => {
+    const { resolveACPStdioFrameMode } = await import('../dist/domains/cats/services/agents/providers/acp-transport.js');
+
+    assert.equal(resolveACPStdioFrameMode('C:\\tools\\opencode.exe'), 'ndjson');
+  });
+
   it('keeps Content-Length framing for non-opencode ACP subprocesses', async () => {
     const { frameACPMessage, resolveACPStdioFrameMode } = await import(
       '../dist/domains/cats/services/agents/providers/acp-transport.js'
