@@ -504,12 +504,14 @@ function applyModelartsPreset(projectDir, apiKey) {
     google: { enabled: false, mode: 'skip' },
     opencode: { enabled: false, mode: 'skip' },
     dare: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
+    relayclaw: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
   };
   writeState(profileFile, secretsFile, profiles, secrets);
 
   const template = readSeedTemplate();
   const catalog = {
     version: 2,
+    preset: true,
     coCreator: template.coCreator,
     reviewPolicy: template.reviewPolicy,
     roster: {
