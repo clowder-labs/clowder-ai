@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any
 
 from dare_framework.model.kernel import IModelAdapter
 from dare_framework.model.types import GenerateOptions, ModelInput, ModelResponse
+from dare_framework.model.adapters.preflight_truncate import preflight_truncate
 
 _MODELARTS_BASE_URL = "https://api.modelarts-maas.com/v2"
+_logger = logging.getLogger(__name__)
 
 
 class HuaweiModelArtsModelAdapter(IModelAdapter):
@@ -32,6 +35,10 @@ class HuaweiModelArtsModelAdapter(IModelAdapter):
         self._http_client_options = dict(http_client_options or {})
         self._extra = dict(extra or {})
         self._client: Any = None
+        # Hard input limit for pre-flight truncation.
+        # Read from env (set by Cat Cafe host) or default to ModelArts GLM-5 limit.
+        _env_limit = os.getenv("DARE_CONTEXT_WINDOW_TOKENS", "")
+        self._max_input_tokens = int(_env_limit) if _env_limit.isdigit() and int(_env_limit) > 0 else 196_608
 
         if not self._api_key:
             raise ValueError(
@@ -77,6 +84,13 @@ class HuaweiModelArtsModelAdapter(IModelAdapter):
                 }
                 for tool in model_input.tools
             ]
+
+        # Pre-flight: estimate total token count and truncate messages if over limit.
+        if self._max_input_tokens > 0:
+            messages = preflight_truncate(
+                api_params, self._max_input_tokens, _logger,
+            )
+            api_params["messages"] = messages
 
         if self._extra:
             api_params.update(self._extra)

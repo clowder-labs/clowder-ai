@@ -711,6 +711,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             threadId={threadId}
             messageSummary={messageSummary}
             width={statusPanelWidth}
+            onClose={() => setStatusPanelOpen(false)}
           />
         </>
       )}
