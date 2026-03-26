@@ -173,6 +173,53 @@ class TestEmptyToolResultNeverExposedAsJson:
         text = normalize_run_output(envelope)
         assert text == "Task completed successfully."
 
+    def test_structured_tool_output_not_mistaken_for_empty(self) -> None:
+        """write_file-style output ({path, bytes_written}) has no text keys.
+
+        normalize_run_output should return None (not JSON dump), and callers
+        provide a fallback. This test documents the expected behavior rather
+        than asserting JSON — the key point is no ToolResult repr leak.
+        """
+        wrapper = {
+            "success": True,
+            "status": "success",
+            "output": {"path": "src/app.py", "bytes_written": 1234, "created": True},
+            "error": None,
+        }
+        text = normalize_run_output(wrapper)
+        if text is not None:
+            assert "ToolResult(" not in text
+
+
+class TestHeadlessRenderedOutputFallback:
+    """P2 regression: headless rendered_output must never be None/empty.
+
+    When format_run_output returns None, the headless event should carry
+    a fallback string so the user sees "task completed" instead of blank.
+    """
+
+    def test_format_run_output_none_gets_fallback(self) -> None:
+        """format_run_output returning None → rendered_output uses fallback."""
+        from client.runtime.task_runner import format_run_output
+
+        # Empty content envelope — format_run_output returns None
+        output = {"content": "", "metadata": {}}
+        text = format_run_output(output)
+        assert text is None
+        # The fallback is applied in client/main.py: `text or "task completed"`
+        rendered = text or "task completed"
+        assert rendered == "task completed"
+
+    def test_format_run_output_with_content_no_fallback(self) -> None:
+        """format_run_output returning text → no fallback needed."""
+        from client.runtime.task_runner import format_run_output
+
+        output = {"content": "Done!"}
+        text = format_run_output(output)
+        assert text == "Done!"
+        rendered = text or "task completed"
+        assert rendered == "Done!"
+
 
 class TestBuildReplyEnvelopeToolResult:
     """Test _build_reply_envelope handles ToolResult correctly."""

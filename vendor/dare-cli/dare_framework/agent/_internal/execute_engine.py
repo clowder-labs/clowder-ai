@@ -184,13 +184,14 @@ async def run_execute_loop(
             outputs.append({"content": response.content})
 
             # Guard: if the model returned no text and no tool calls, and
-            # prior iterations produced no meaningful text output either,
+            # prior iterations produced no meaningful output either,
             # treat this as a failed execution rather than a vacuous success.
+            # A successful tool call (e.g. write_file returning {path, bytes_written})
+            # counts as meaningful even when it has no "content" key.
             has_meaningful_content = bool(
                 (response.content or "").strip()
             ) or any(
-                isinstance(o, dict)
-                and bool((o.get("content") or "").strip())
+                (isinstance(o, dict) and o.get("success") is True)
                 for o in outputs[:-1]
             )
             return await agent._finalize_execute(execute_start, {
