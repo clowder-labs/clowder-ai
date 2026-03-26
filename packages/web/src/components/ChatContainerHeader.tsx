@@ -14,8 +14,6 @@ interface ChatContainerHeaderProps {
   viewMode: 'single' | 'split';
   onToggleViewMode: () => void;
   onOpenMobileStatus: () => void;
-  statusPanelOpen: boolean;
-  onToggleStatusPanel: () => void;
   /** F092: Default cat for voice companion */
   defaultCatId: string;
 }
@@ -25,14 +23,12 @@ export function ChatContainerHeader({
   onToggleSidebar,
   threadId,
   authPendingCount,
-  // F099/OQ-4: viewMode toggle hidden — candidate for removal (KD-7)
+  // F099/OQ-4: viewMode toggle hidden - candidate for removal (KD-7)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   viewMode: _viewMode,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onToggleViewMode: _onToggleViewMode,
   onOpenMobileStatus,
-  statusPanelOpen,
-  onToggleStatusPanel,
   defaultCatId,
 }: ChatContainerHeaderProps) {
   const { theme, config, toggleTheme } = useTheme();
@@ -61,7 +57,7 @@ export function ChatContainerHeader({
         </button>
         <CatCafeLogo className="h-16 w-auto -my-3" />
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-cafe-black">Clowder AI</h1>
+          <h1 className="text-lg font-bold text-cafe-black">OfficeClaw</h1>
           <ThreadIndicator threadId={threadId} />
         </div>
         <ExportButton threadId={threadId} />
@@ -88,9 +84,7 @@ export function ChatContainerHeader({
             🔐 {authPendingCount}
           </span>
         )}
-        {/* F099 P1-2: Hub gear in top bar — always reachable even when right panel shows workspace */}
         <HubButton />
-        {/* 主题切换按钮 */}
         <button
           onClick={toggleTheme}
           className="p-1 rounded-lg hover:bg-cocreator-light transition-colors"
@@ -121,7 +115,6 @@ export function ChatContainerHeader({
             </svg>
           )}
         </button>
-        {/* Mobile/tablet: status sheet trigger */}
         <button
           onClick={onOpenMobileStatus}
           className="p-1 rounded-lg hover:bg-cocreator-light transition-colors ml-1 lg:hidden"
@@ -136,14 +129,11 @@ export function ChatContainerHeader({
             />
           </svg>
         </button>
-        {/* F099: Unified right panel toggle (merged workspace + status panel) */}
-        <RightPanelToggle onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
       </div>
     </header>
   );
 }
 
-/** Thread indicator: shows which thread you're currently chatting in */
 function ThreadIndicator({ threadId }: { threadId: string }) {
   const threads = useChatStore((s) => s.threads);
   const currentThread = threads.find((t) => t.id === threadId);
@@ -154,82 +144,15 @@ function ThreadIndicator({ threadId }: { threadId: string }) {
 
   const title = currentThread?.title ?? '未命名对话';
   const rawPath = currentThread?.projectPath ?? '';
-  // 'default' is a sentinel for threads without a real projectPath — match exact value, not basename
   const rawBasename = rawPath === 'default' ? '' : (rawPath.split(/[/\\]/).pop() ?? '');
-  // Map known internal repo basenames to brand name; preserve real project paths for multi-workspace
-  const INTERNAL_BASENAMES = ['cat-cafe', 'cat-cafe-runtime', 'clowder-ai'];
+  const internalBasenames = ['cat-cafe', 'cat-cafe-runtime', 'clowder-ai'];
   const brandName = process.env.NEXT_PUBLIC_BRAND_NAME ?? '';
-  const projectName = INTERNAL_BASENAMES.includes(rawBasename) && brandName ? brandName : rawBasename;
+  const projectName = internalBasenames.includes(rawBasename) && brandName ? brandName : rawBasename;
 
   return (
     <p className="text-xs text-gray-500 truncate" title={`${title}${projectName ? ` · ${projectName}` : ''}`}>
       <span className="font-medium text-gray-700">{title}</span>
       {projectName && <span className="text-gray-400"> · {projectName}</span>}
     </p>
-  );
-}
-
-/**
- * F099: Pure state-transition logic for the right panel toggle.
- * Exported for testability — the component delegates to this function.
- */
-export function rightPanelToggleTransition(
-  statusPanelOpen: boolean,
-  rightPanelMode: 'status' | 'workspace',
-  callbacks: {
-    onToggleStatusPanel: () => void;
-    setRightPanelMode: (mode: 'status' | 'workspace') => void;
-  },
-) {
-  if (!statusPanelOpen) {
-    callbacks.onToggleStatusPanel();
-    callbacks.setRightPanelMode('status');
-  } else if (rightPanelMode !== 'workspace') {
-    callbacks.setRightPanelMode('workspace');
-  } else {
-    callbacks.onToggleStatusPanel();
-    callbacks.setRightPanelMode('status');
-  }
-}
-
-/** F099: Unified right panel toggle — cycles closed → status → workspace → closed */
-function RightPanelToggle({
-  onToggleStatusPanel,
-  statusPanelOpen,
-}: {
-  onToggleStatusPanel: () => void;
-  statusPanelOpen: boolean;
-}) {
-  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
-  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
-
-  const handleClick = () => {
-    rightPanelToggleTransition(statusPanelOpen, rightPanelMode, {
-      onToggleStatusPanel,
-      setRightPanelMode,
-    });
-  };
-
-  const isWorkspace = rightPanelMode === 'workspace';
-  const label = !statusPanelOpen ? '打开面板' : isWorkspace ? '关闭面板' : '工作区';
-
-  return (
-    <button
-      onClick={handleClick}
-      className={`p-1 rounded-lg hover:bg-cocreator-light transition-colors ml-1 hidden lg:block ${
-        statusPanelOpen ? (isWorkspace ? 'bg-blue-50 text-blue-600' : 'bg-gray-100') : ''
-      }`}
-      aria-label={label}
-      title={label}
-    >
-      <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-        <path
-          fillRule="evenodd"
-          d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z"
-          clipRule="evenodd"
-        />
-        {statusPanelOpen && <rect x="12" y="4" width="4" height="12" rx="0.5" opacity="0.3" />}
-      </svg>
-    </button>
   );
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
@@ -89,6 +90,21 @@ internal sealed class LauncherForm : Form
         WindowState = FormWindowState.Maximized;
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
+
+        // 设置淡粉色到白色渐变背景
+        Paint += (sender, e) =>
+        {
+            var graphics = e.Graphics;
+            var rect = new Rectangle(0, 0, Width, Height);
+            using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
+                rect,
+                Color.FromArgb(255, 240, 245), // 淡粉色
+                Color.White,                      // 白色
+                System.Drawing.Drawing2D.LinearGradientMode.Vertical))
+            {
+                graphics.FillRectangle(brush, rect);
+            }
+        };
 
         _statusLabel = new Label
         {
