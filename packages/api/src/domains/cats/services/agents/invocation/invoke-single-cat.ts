@@ -15,12 +15,13 @@ import { type CatId, type ContextHealth, catRegistry, type MessageContent } from
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
 import {
   resolveBuiltinClientForProvider,
   validateRuntimeProviderBinding,
 } from '../../../../../config/provider-binding-compat.js';
 import {
-  resolveAnthropicRuntimeProfile,
+  resolveRuntimeProviderProfileById,
   resolveRuntimeProviderProfileForClient,
 } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
@@ -424,14 +425,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   try {
     let sessionId: string | undefined;
     const sessionChainActive = isSessionChainEnabled(catId);
-    // Cats with sessionChain=false (e.g. dare) intentionally start fresh each turn.
-    // Skip sessionManager lookup entirely to avoid resuming stale sessions.
-    if (sessionChainActive) {
-      try {
-        sessionId = await sessionManager.get(userId, catId, threadId);
-      } catch {
-        // Redis read failure — continue without session
-      }
+    // Session resume is a basic CLI capability independent of chain management.
+    // All cats read sessionId so the CLI can --resume/--session into prior context.
+    // sessionChain only gates advanced chain management (sealing, bootstrap, digest).
+    try {
+      sessionId = await sessionManager.get(userId, catId, threadId);
+    } catch {
+      // Redis read failure — continue without session
     }
 
     // R8 P1: Read-side short-circuit — if sessionChainStore has sealed/sealing sessions
@@ -604,6 +604,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const projectRoot = workingDirectory ? findMonorepoRoot(workingDirectory) : resolveActiveProjectRoot(process.cwd());
     const boundAccountRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
     const resolveRuntimeAccount = async () => {
+      if (provider === 'acp') {
+        if (!boundAccountRef) return null;
+        return resolveRuntimeProviderProfileById(projectRoot, boundAccountRef);
+      }
       if (!builtinClient) return null;
       const runtime = await resolveRuntimeProviderProfileForClient(projectRoot, builtinClient, boundAccountRef);
       if (boundAccountRef && !runtime) {
@@ -769,6 +773,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
+    let resolvedAcpModelProfile: Awaited<ReturnType<typeof resolveRuntimeAcpModelProfileById>> = null;
+    if (provider === 'acp' && resolvedAccount?.kind === 'acp') {
+      if (resolvedAccount.modelAccessMode === 'clowder_default_profile') {
+        const modelProfileRef = resolvedAccount.defaultModelProfileRef?.trim();
+        if (!modelProfileRef) {
+          throw new Error(`ACP provider "${resolvedAccount.id}" requires a default model profile`);
+        }
+        resolvedAcpModelProfile = await resolveRuntimeAcpModelProfileById(projectRoot, modelProfileRef);
+        if (!resolvedAcpModelProfile) {
+          throw new Error(`ACP model profile "${modelProfileRef}" not found or missing apiKey`);
+        }
+      }
+    }
+
     // F-BLOAT: Only inject staticIdentity (systemPrompt) on new sessions for cats
     // that support persistent sessions (sessionChain=true).
     // Cats with sessionChain=false always need it — each turn is effectively new.
@@ -830,6 +848,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
       livenessProbe: {},
       ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),
+      ...(resolvedAccount ? { providerProfile: resolvedAccount } : {}),
+      ...(resolvedAcpModelProfile ? { acpModelProfile: resolvedAcpModelProfile } : {}),
     };
 
     let lastErrorMessage: string | undefined;

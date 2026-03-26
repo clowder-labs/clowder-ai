@@ -76,7 +76,7 @@ export class RelayClawAgentService implements AgentService {
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
-    const signal = buildSignal(this.config.timeoutMs ?? 180_000, options?.signal);
+    const signal = buildSignal(this.config.timeoutMs ?? 600_000, options?.signal);
     yield agentMsg('session_init', this.catId);
 
     try {
@@ -132,7 +132,7 @@ export class RelayClawAgentService implements AgentService {
     callerSignal?: AbortSignal,
   ): AsyncIterable<AgentMessage> {
     let sawError = false;
-    let emittedText = false;
+    let streamedText = '';
 
     while (!signal.aborted) {
       const frame = await queue.take();
@@ -142,19 +142,18 @@ export class RelayClawAgentService implements AgentService {
       const message = transformRelayClawChunk(frame, this.catId);
       if (message) {
         yield message;
-        if (message.type === 'text' && message.content) emittedText = true;
+        if (message.type === 'text' && message.content) streamedText += message.content;
         if (message.type === 'error') {
           sawError = true;
           break;
         }
-      } else if (
-        !emittedText &&
-        payload?.event_type === 'chat.final' &&
-        typeof payload.content === 'string' &&
-        payload.content.length > 0
-      ) {
-        emittedText = true;
-        yield agentMsg('text', this.catId, payload.content);
+      } else if (payload?.event_type === 'chat.final') {
+        const finalText = normalizeRelayClawFinalContent(payload.content);
+        const deltaToEmit = computeFinalTextDelta(streamedText, finalText);
+        if (deltaToEmit) {
+          streamedText += deltaToEmit;
+          yield agentMsg('text', this.catId, deltaToEmit);
+        }
       }
 
       if (frame.is_complete === true || payload?.is_complete === true) break;
@@ -179,6 +178,59 @@ function buildSignal(timeoutMs: number, callerSignal?: AbortSignal): AbortSignal
   const signals: AbortSignal[] = [AbortSignal.timeout(timeoutMs)];
   if (callerSignal) signals.push(callerSignal);
   return signals.length === 1 ? signals[0] : AbortSignal.any(signals);
+}
+
+function decodeQuotedPythonLikeString(raw: string): string {
+  return raw
+    .replace(/\\r/g, '\r')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\'/g, "'")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
+function normalizeRelayClawFinalContent(rawContent: unknown): string {
+  if (typeof rawContent !== 'string') return '';
+
+  const trimmed = rawContent.trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      if (typeof parsed.output === 'string') {
+        return parsed.output.replace(/^(?:\r?\n)+/, '');
+      }
+    } catch {
+      // Fall through to Python-dict-style extraction.
+    }
+  }
+
+  if (!trimmed.includes('result_type') || !trimmed.includes('output')) {
+    return rawContent.replace(/^(?:\r?\n)+/, '');
+  }
+
+  const singleQuoted = rawContent.match(/['"]output['"]\s*:\s*'((?:\\'|[^'])*)'/s);
+  if (singleQuoted?.[1] != null) {
+    return decodeQuotedPythonLikeString(singleQuoted[1]).replace(/^(?:\r?\n)+/, '');
+  }
+
+  const doubleQuoted = rawContent.match(/['"]output['"]\s*:\s*"((?:\\"|[^"])*)"/s);
+  if (doubleQuoted?.[1] != null) {
+    return decodeQuotedPythonLikeString(doubleQuoted[1]).replace(/^(?:\r?\n)+/, '');
+  }
+
+  return rawContent.replace(/^(?:\r?\n)+/, '');
+}
+
+function computeFinalTextDelta(streamedText: string, finalText: string): string {
+  if (!finalText) return '';
+  if (!streamedText) return finalText;
+  if (finalText === streamedText) return '';
+  if (finalText.startsWith(streamedText)) return finalText.slice(streamedText.length);
+  if (streamedText.startsWith(finalText)) return '';
+  return `${streamedText.endsWith('\n') ? '' : '\n\n'}${finalText}`;
 }
 
 function buildRequest(

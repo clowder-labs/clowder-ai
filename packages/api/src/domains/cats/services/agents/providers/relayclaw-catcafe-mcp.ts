@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import type { AgentServiceOptions } from '../../types.js';
 
 const CAT_CAFE_MCP_CALLBACK_ENV_KEYS = [
@@ -13,6 +13,8 @@ const CAT_CAFE_MCP_CALLBACK_ENV_KEYS = [
 ] as const;
 
 export interface RelayClawCatCafeMcpServer {
+  command: string;
+  args: string[];
   serverPath: string;
   repoRoot: string;
 }
@@ -23,15 +25,28 @@ export function resolveCatCafeMcpServer(
   const candidateRoots: string[] = [];
   if (workingDirectory) candidateRoots.push(workingDirectory);
   candidateRoots.push(process.cwd());
-
-  const fileDir = dirname(fileURLToPath(import.meta.url));
-  candidateRoots.push(resolve(fileDir, '../../../../../../../..'));
+  candidateRoots.push(resolveCatCafeHostRoot(process.cwd()));
 
   for (const root of candidateRoots) {
     const repoRoot = resolve(root);
-    const serverPath = resolve(repoRoot, 'packages/mcp-server/dist/index.js');
-    if (existsSync(serverPath)) {
-      return { serverPath, repoRoot };
+    const distServerPath = resolve(repoRoot, 'packages/mcp-server/dist/index.js');
+    if (existsSync(distServerPath)) {
+      return {
+        command: process.execPath,
+        args: [distServerPath],
+        serverPath: distServerPath,
+        repoRoot,
+      };
+    }
+
+    const sourceServerPath = resolve(repoRoot, 'packages/mcp-server/src/index.ts');
+    if (existsSync(sourceServerPath)) {
+      return {
+        command: process.execPath,
+        args: ['--import', 'tsx', sourceServerPath],
+        serverPath: sourceServerPath,
+        repoRoot,
+      };
     }
   }
 
@@ -50,8 +65,8 @@ export function buildCatCafeMcpRequestConfig(options?: AgentServiceOptions): Rec
   if (!resolved) return undefined;
 
   return {
-    command: 'node',
-    args: [resolved.serverPath],
+    command: resolved.command,
+    args: resolved.args,
     cwd: resolved.repoRoot,
     env: buildCatCafeMcpEnv(options?.callbackEnv),
   };

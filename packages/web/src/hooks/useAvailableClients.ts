@@ -15,8 +15,11 @@ interface AvailableClientsState {
 }
 
 /**
- * Fetches the list of CLI clients detected by the backend at startup.
- * Returns only the available ones by default.
+ * Fetches the list of known clients and their runtime availability.
+ *
+ * The Hub configuration UI must keep showing known clients even when a
+ * particular CLI is not installed on this machine yet; otherwise packaged
+ * runtimes hide valid configuration paths such as OpenAI/Anthropic bindings.
  */
 export function useAvailableClients(): AvailableClientsState {
   const [state, setState] = useState<AvailableClientsState>({
@@ -35,7 +38,7 @@ export function useAvailableClients(): AvailableClientsState {
       .then((body) => {
         if (!cancelled) {
           setState({
-            clients: body.clients.filter((c) => c.available),
+            clients: body.clients,
             loading: false,
             error: null,
           });

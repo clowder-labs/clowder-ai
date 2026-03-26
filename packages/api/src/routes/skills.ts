@@ -12,7 +12,6 @@ import { existsSync } from 'node:fs';
 import { lstat, mkdir, readFile, readlink, realpath, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
@@ -24,6 +23,7 @@ import {
   SkillInstallError,
   uninstallSkill,
 } from '../domains/cats/services/skillhub/SkillInstallManager.js';
+import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
 import { pathsEqual } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -54,13 +54,7 @@ interface SkillsResponse {
 }
 
 function resolveCatCafeSkillsSourceDir(): string {
-  let dir = dirname(fileURLToPath(import.meta.url));
-  while (dir !== dirname(dir)) {
-    const candidate = join(dir, 'cat-cafe-skills', 'manifest.yaml');
-    if (existsSync(candidate)) return join(dir, 'cat-cafe-skills');
-    dir = dirname(dir);
-  }
-  return resolve(process.cwd(), 'cat-cafe-skills');
+  return resolve(resolveCatCafeHostRoot(process.cwd()), 'cat-cafe-skills');
 }
 
 const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();

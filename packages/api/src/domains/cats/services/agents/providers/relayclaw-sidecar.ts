@@ -1,25 +1,37 @@
-import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
 import type { AgentServiceOptions } from '../../types.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
-import { resolveJiuwenClawAppDir, resolveJiuwenClawPythonBin } from '../../../../../utils/jiuwenclaw-paths.js';
+import {
+  resolveJiuwenClawAppDir,
+  resolveJiuwenClawExecutable,
+  resolveJiuwenClawPythonBin,
+} from '../../../../../utils/jiuwenclaw-paths.js';
 import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './relayclaw-catcafe-mcp.js';
 
 const log = createModuleLogger('relayclaw-sidecar');
 
 export interface RelayClawSidecarRuntime {
+  executablePath: string;
   pythonBin: string;
   appDir: string;
+  useExecutable: boolean;
   homeDir: string;
   agentPort: number;
   webPort: number;
   env: Record<string, string>;
-  signature: Record<string, string | number>;
+  signature: Record<string, string | number | boolean>;
+}
+
+export interface RelayClawLaunchCommand {
+  command: string;
+  args: string[];
+  cwd: string;
 }
 
 export interface RelayClawSidecarController {
@@ -91,7 +103,11 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
 
   stop(): void {
     if (this.child && this.child.exitCode === null) {
-      this.child.kill('SIGTERM');
+      if (process.platform === 'win32' && this.child.pid) {
+        spawnSync('taskkill', ['/PID', String(this.child.pid), '/T', '/F'], { stdio: 'ignore' });
+      } else {
+        this.child.kill('SIGTERM');
+      }
     }
     this.child = null;
     this.runtimeHash = null;
@@ -105,7 +121,9 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
   private buildRuntime(options?: AgentServiceOptions): RelayClawSidecarRuntime {
     const callbackEnv = options?.callbackEnv ?? {};
     const appDir = resolveJiuwenClawAppDir(this.config.appDir);
+    const executablePath = resolveJiuwenClawExecutable(this.config.executablePath);
     const pythonBin = resolveJiuwenClawPythonBin(this.config.pythonBin, appDir);
+    const useExecutable = existsSync(executablePath);
     const homeDir = this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
     const apiBase = callbackEnv.API_BASE || callbackEnv.OPENAI_BASE_URL || callbackEnv.OPENAI_API_BASE || '';
@@ -115,8 +133,10 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const catCafeMcp = resolveCatCafeMcpServer(options?.workingDirectory);
 
     return {
+      executablePath,
       pythonBin,
       appDir,
+      useExecutable,
       homeDir,
       agentPort: this.config.agentPort ?? 0,
       webPort: this.config.webPort ?? 0,
@@ -133,14 +153,16 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         ...(catCafeMcp
           ? {
               CAT_CAFE_MCP_SERVER_PATH: catCafeMcp.serverPath,
-              CAT_CAFE_MCP_COMMAND: 'node',
-              CAT_CAFE_MCP_ARGS_JSON: JSON.stringify([catCafeMcp.serverPath]),
+              CAT_CAFE_MCP_COMMAND: catCafeMcp.command,
+              CAT_CAFE_MCP_ARGS_JSON: JSON.stringify(catCafeMcp.args),
               CAT_CAFE_MCP_CWD: catCafeMcp.repoRoot,
             }
           : {}),
         ...buildCatCafeMcpEnv(callbackEnv),
       },
       signature: {
+        executablePath,
+        useExecutable,
         pythonBin,
         appDir,
         homeDir,
@@ -165,8 +187,9 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     this.resolvedUrl = `ws://127.0.0.1:${agentPort}`;
     this.recentLogs = '';
 
-    const child = this.spawnFn(runtime.pythonBin, ['-m', 'jiuwenclaw.app'], {
-      cwd: runtime.appDir,
+    const launchCommand = buildRelayClawLaunchCommand(runtime);
+    const child = this.spawnFn(launchCommand.command, launchCommand.args, {
+      cwd: launchCommand.cwd,
       env: {
         ...process.env,
         ...runtime.env,
@@ -204,7 +227,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       if (!this.child || this.child.exitCode !== null) {
         throw new Error(`jiuwenClaw sidecar exited during startup${this.recentLogs ? `: ${summarizeLogs(this.recentLogs)}` : ''}`);
       }
-      if (await this.tcpProbeFn('127.0.0.1', agentPort, 400) && isSidecarReady(this.recentLogs)) {
+      if (await isRelayClawRuntimeReady(runtime, this.tcpProbeFn, this.recentLogs, agentPort, webPort)) {
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -213,6 +236,41 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     this.stop();
     throw new Error(`jiuwenClaw sidecar did not become ready in time${this.recentLogs ? `: ${summarizeLogs(this.recentLogs)}` : ''}`);
   }
+}
+
+export function buildRelayClawLaunchCommand(runtime: RelayClawSidecarRuntime): RelayClawLaunchCommand {
+  if (runtime.useExecutable) {
+    return {
+      command: runtime.executablePath,
+      args: ['--desktop-run-app'],
+      cwd: dirname(runtime.executablePath),
+    };
+  }
+
+  return {
+    command: runtime.pythonBin,
+    args: ['-m', 'jiuwenclaw.app'],
+    cwd: runtime.appDir,
+  };
+}
+
+export async function isRelayClawRuntimeReady(
+  runtime: RelayClawSidecarRuntime,
+  tcpProbeFn: typeof tcpProbe,
+  recentLogs: string,
+  agentPort: number,
+  webPort: number,
+): Promise<boolean> {
+  if (!(await tcpProbeFn('127.0.0.1', agentPort, 400))) {
+    return false;
+  }
+  if (isSidecarReady(recentLogs)) {
+    return true;
+  }
+  if (runtime.useExecutable && (await tcpProbeFn('127.0.0.1', webPort, 400))) {
+    return true;
+  }
+  return false;
 }
 
 export function isSidecarReady(recentLogs: string): boolean {

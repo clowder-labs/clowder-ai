@@ -54,12 +54,16 @@ def extract_text_payload(value: Any) -> str | None:
         return merged if merged.strip() else None
 
     if isinstance(value, dict):
-        for key in ("content", "text", "output", "message", "result"):
+        for key in ("content", "text", "output", "message", "result", "stdout", "stderr"):
             if key in value:
                 extracted = extract_text_payload(value.get(key))
                 if extracted:
                     return extracted
         return None
+
+    # Dataclass-like objects with .output (e.g. ToolResult) — recurse into .output
+    if hasattr(value, "output"):
+        return extract_text_payload(getattr(value, "output"))
 
     normalized = str(value).strip()
     return normalized or None
@@ -78,11 +82,18 @@ def _has_meaningful_fallback_value(value: Any) -> bool:
 def _extract_raw_text_field(output: Any) -> str | None:
     if not isinstance(output, dict):
         return None
-    for key in ("content", "text", "output", "message", "result"):
+    for key in ("content", "text", "output", "message", "result", "stdout", "stderr"):
         value = output.get(key)
         if isinstance(value, str):
             return value
     return None
+
+
+def _json_default(obj: Any) -> Any:
+    """JSON serializer fallback for non-serializable objects like ToolResult."""
+    if hasattr(obj, "output"):
+        return getattr(obj, "output")
+    return str(obj)
 
 
 def normalize_run_output(output: Any) -> str | None:
@@ -93,25 +104,32 @@ def normalize_run_output(output: Any) -> str | None:
     if text:
         return text
     if isinstance(output, dict):
-        text_keys = ("content", "text", "output", "message", "result")
+        text_keys = ("content", "text", "output", "message", "result", "stdout", "stderr")
         present_text_keys = [key for key in text_keys if key in output]
         if present_text_keys:
-            has_non_text_fallback = any(
-                _has_meaningful_fallback_value(value)
-                for key, value in output.items()
-                if key not in text_keys
+            all_text_fields_empty = all(
+                extract_text_payload(output.get(key)) is None
+                for key in present_text_keys
             )
-            if not has_non_text_fallback:
-                all_text_fields_empty = all(
-                    extract_text_payload(output.get(key)) is None
-                    for key in present_text_keys
+            if all_text_fields_empty:
+                # Check if the non-text keys carry genuinely useful data,
+                # or are just status-envelope metadata (success/status/error)
+                # that should not be dumped as raw JSON to the user.
+                _status_meta_keys = frozenset({"success", "status", "error"})
+                has_non_meta_fallback = any(
+                    _has_meaningful_fallback_value(value)
+                    for key, value in output.items()
+                    if key not in text_keys and key not in _status_meta_keys
                 )
-                if all_text_fields_empty:
+                if not has_non_meta_fallback:
                     return None
         try:
-            return json.dumps(output, ensure_ascii=False, indent=2)
-        except TypeError:
+            return json.dumps(output, ensure_ascii=False, indent=2, default=_json_default)
+        except (TypeError, ValueError):
             pass
+    # For ToolResult-like objects, extract .output instead of repr
+    if hasattr(output, "output"):
+        return normalize_run_output(getattr(output, "output"))
     normalized = str(output).strip()
     return normalized or None
 

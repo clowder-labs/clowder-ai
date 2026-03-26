@@ -7,12 +7,13 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from typing import Any, AsyncIterator
 
 from dotenv import load_dotenv
 from openjiuwen.core.context_engine import MessageOffloaderConfig, DialogueCompressorConfig
 from openjiuwen.core.foundation.llm import ModelRequestConfig
-from openjiuwen.core.foundation.tool import McpServerConfig, ToolCard
+from openjiuwen.core.foundation.tool import ToolCard
 from openjiuwen.core.runner import Runner
 from openjiuwen.core.single_agent import AgentCard, ReActAgentConfig
 from openjiuwen.core.sys_operation import SysOperationCard, OperationMode, LocalWorkConfig
@@ -30,7 +31,6 @@ from jiuwenclaw.utils import (
     get_agent_home_dir,
     get_checkpoint_dir,
     get_env_file,
-    get_project_workspace_dir,
     get_workspace_dir,
     logger,
 )
@@ -52,7 +52,23 @@ from jiuwenclaw.agentserver.tools.memory_tools import (
     edit_memory,
     read_memory,
 )
+from jiuwenclaw.agentserver.tools.task_tools import (
+    get_task_tools,
+    _is_task_memory_enabled,
+)
 from jiuwenclaw.agentserver.tools.video_tools import video_understanding
+from jiuwenclaw.agentserver.tools.xiaoyi_phone_tools import (
+    get_user_location,
+    create_note, search_notes, modify_note,
+    create_calendar_event, search_calendar,
+    search_contacts,
+    search_photo_gallery, upload_photo,
+    search_files, upload_files, send_file_to_user,
+    call_phone,
+    send_message, search_messages,
+    create_alarm, search_alarms, modify_alarm, delete_alarm,
+    xiaoyi_collection,
+)
 from jiuwenclaw.agentserver.tools.multimodal_config import (
     apply_audio_model_config_from_yaml,
     apply_vision_model_config_from_yaml,
@@ -70,6 +86,7 @@ from jiuwenclaw.agentserver.skill_manager import SkillManager, _SKILLS_DIR
 from jiuwenclaw.evolution.service import EvolutionService
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
 from jiuwenclaw.agentserver.memory import get_memory_manager
+from jiuwenclaw.agentserver.session_history import append_history_record
 from jiuwenclaw.schema.message import ReqMethod
 
 load_dotenv(dotenv_path=get_env_file())
@@ -88,62 +105,6 @@ SYSTEM_PROMPT = """# 角色
 
 存储类型："in_memory"（会话缓存）
 """
-
-_CAT_CAFE_MCP_SERVER_NAME = "cat-cafe"
-
-
-def _result_is_ok(result: Any) -> bool:
-    return bool(hasattr(result, "is_ok") and result.is_ok())
-
-
-def _result_error_text(result: Any) -> str:
-    if hasattr(result, "unwrap_err"):
-        try:
-            return str(result.unwrap_err())
-        except Exception:
-            pass
-    return str(result)
-
-
-def _build_cat_cafe_mcp_config(spec: dict[str, Any] | None) -> tuple[McpServerConfig, str] | None:
-    if not isinstance(spec, dict):
-        return None
-
-    command = str(spec.get("command") or "").strip()
-    args = [str(arg) for arg in (spec.get("args") or []) if str(arg).strip()]
-    if not command or not args:
-        return None
-
-    env = {
-        str(key): str(value)
-        for key, value in (spec.get("env") or {}).items()
-        if key and value is not None and str(value).strip()
-    }
-    cwd = str(spec.get("cwd") or "").strip()
-    signature = json.dumps(
-        {
-            "command": command,
-            "args": args,
-            "env": env,
-            "cwd": cwd,
-        },
-        ensure_ascii=False,
-        sort_keys=True,
-    )
-    return (
-        McpServerConfig(
-            server_name=_CAT_CAFE_MCP_SERVER_NAME,
-            server_path=f"stdio://{_CAT_CAFE_MCP_SERVER_NAME}",
-            client_type="stdio",
-            params={
-                "command": command,
-                "args": args,
-                "env": env,
-                **({"cwd": cwd} if cwd else {}),
-            },
-        ),
-        signature,
-    )
 
 TODO_PROMPT = """
 # 任务执行规则
@@ -200,10 +161,11 @@ class JiuWenClaw:
         self._vision_mcp_registered: bool = False
         self._audio_mcp_registered: bool = False
         self._memory_tools_registered: bool = False
+        self._task_memory_tools_registered: bool = False
         self._mcp_tools_registered: bool = False
-        self._cat_cafe_mcp_signature: str | None = None
         self._video_tool_registered: bool = False
         self._send_file_tool_registered: bool = False
+        self._xiaoyi_phone_tools_registered: bool = False
         self._todo_tool_sessions_registered: set[str] = set()
         self._sysop_card_id: str | None = None
 
@@ -303,11 +265,11 @@ class JiuWenClaw:
         agent_config = self._load_react_config(config_base)
 
         sysop_card_id: str | None = None
-        project_workspace_dir = get_project_workspace_dir()
         try:
             sysop_card = SysOperationCard(
                 mode=OperationMode.LOCAL,
-                work_config=LocalWorkConfig(work_dir=str(project_workspace_dir)),
+                # Scope sys_operation to agent root so skills/memory/home/workspace are all accessible.
+                work_config=LocalWorkConfig(work_dir=str(get_agent_root_dir())),
             )
             Runner.resource_mgr.add_sys_operation(sysop_card)
             sysop_card_id = sysop_card.id
@@ -317,7 +279,6 @@ class JiuWenClaw:
 
         agent_card = AgentCard(name=self._agent_name, id='jiuwenclaw')
         self._instance = JiuClawReActAgent(card=agent_card)
-        self._instance.set_workspace(str(project_workspace_dir), self._agent_name)
 
         if sysop_card_id and hasattr(self._instance, "_skill_util"):
             agent_config.sys_operation_id = sysop_card_id
@@ -386,6 +347,17 @@ class JiuWenClaw:
             self._instance.ability_manager.add(tool.card)
         self._memory_tools_registered = True
 
+        # add task memory tools (TaskMemoryService skill)
+        if _is_task_memory_enabled():
+            try:
+                for tool in get_task_tools():
+                    Runner.resource_mgr.add_tool(tool)
+                    self._instance.ability_manager.add(tool.card)
+                self._task_memory_tools_registered = True
+                logger.info("[JiuWenClaw] task memory tools registered")
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] task memory tools registration failed: %s", exc)
+
         # add video_understanding tool
         try:
             if not Runner.resource_mgr.get_tool(video_understanding.card.id):
@@ -440,6 +412,42 @@ class JiuWenClaw:
             logger.info("[JiuWenClaw] audio tools registered successfully")
         except Exception as exc:
             logger.warning("[JiuWenClaw] audio tools registration skipped: %s", exc)
+
+        # add device-side plugins (xiaoyi phone tools)
+        config_base = get_config()
+        channels_cfg = config_base.get("channels", {})
+        xiaoyi_cfg = channels_cfg.get("xiaoyi", {})
+        xiaoyi_phone_tools_enabled = xiaoyi_cfg.get("phone_tools_enabled", False)
+
+        if xiaoyi_phone_tools_enabled:
+            try:
+                # 批量注册所有设备侧工具
+                phone_tools = [
+                    get_user_location,
+                    create_note, search_notes, modify_note,
+                    create_calendar_event, search_calendar,
+                    search_contacts,
+                    search_photo_gallery, upload_photo,
+                    search_files, upload_files, send_file_to_user,
+                    call_phone,
+                    send_message, search_messages,
+                    create_alarm, search_alarms, modify_alarm, delete_alarm,
+                    xiaoyi_collection,
+                ]
+
+                for tool in phone_tools:
+                    try:
+                        Runner.resource_mgr.add_tool(tool)
+                        self._instance.ability_manager.add(tool.card)
+                    except Exception as tool_exc:
+                        logger.warning(f"[JiuWenClaw] Failed to register tool {tool.card.name}: {tool_exc}")
+
+                self._xiaoyi_phone_tools_registered = True
+                logger.info(f"[JiuWenClaw] {len(phone_tools)} xiaoyi phone tools registered successfully")
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] xiaoyi phone tools registration skipped: %s", exc)
+        else:
+            logger.info("[JiuWenClaw] xiaoyi channel not enabled, skipping phone tools")
 
         # add cron tools
         try:
@@ -500,8 +508,7 @@ class JiuWenClaw:
             self, session_id: str | None,
             channel_id: str | None,
             request_id: str | None,
-            mode="plan",
-            request_params: dict[str, Any] | None = None,
+            mode="plan"
     ) -> None:
         """Register per-request tools for current agent execution."""
         if self._instance is None:
@@ -539,6 +546,38 @@ class JiuWenClaw:
                 if not Runner.resource_mgr.get_tool(cron_tool.card.id):
                     Runner.resource_mgr.add_tool(cron_tool)
                 self._instance.ability_manager.add(cron_tool.card)
+
+        # 小艺手机端插件(xiaoyi phone tools)未生效时重新加载
+        config_base = get_config()
+        channels_cfg = config_base.get("channels", {})
+        xiaoyi_cfg = channels_cfg.get("xiaoyi", {})
+        xiaoyi_phone_tools_enabled = xiaoyi_cfg.get("phone_tools_enabled", False)
+
+        if xiaoyi_phone_tools_enabled and not self._xiaoyi_phone_tools_registered:
+            try:
+                phone_tools = [
+                    get_user_location,
+                    create_note, search_notes, modify_note,
+                    create_calendar_event, search_calendar,
+                    search_contacts,
+                    search_photo_gallery, upload_photo,
+                    search_files, upload_files, send_file_to_user,
+                    call_phone,
+                    send_message, search_messages,
+                    create_alarm, search_alarms, modify_alarm, delete_alarm,
+                    xiaoyi_collection,
+                ]
+
+                for tool in phone_tools:
+                    try:
+                        if not Runner.resource_mgr.get_tool(tool.card.id):
+                            Runner.resource_mgr.add_tool(tool)
+                            self._instance.ability_manager.add(tool.card)
+                    except Exception as tool_exc:
+                        logger.debug(f"[JiuWenClaw] Tool {tool.card.name} may already exist: {tool_exc}")
+
+            except Exception as exc:
+                logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
         if mode == "plan":
@@ -587,6 +626,16 @@ class JiuWenClaw:
                 self._instance.ability_manager.add(tool.card)
             self._memory_tools_registered = True
 
+        if not self._task_memory_tools_registered and _is_task_memory_enabled():
+            try:
+                for tool in get_task_tools():
+                    if not Runner.resource_mgr.get_tool(tool.card.id):
+                        Runner.resource_mgr.add_tool(tool)
+                    self._instance.ability_manager.add(tool.card)
+                self._task_memory_tools_registered = True
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] ensure task memory tools failed: %s", exc)
+
         if not self._video_tool_registered:
             try:
                 if not Runner.resource_mgr.get_tool(video_understanding.card.id):
@@ -621,22 +670,6 @@ class JiuWenClaw:
                 Runner.resource_mgr.add_tool(mcp_tool)
                 self._instance.ability_manager.add(mcp_tool.card)
             self._mcp_tools_registered = True
-
-        cat_cafe_mcp = _build_cat_cafe_mcp_config((request_params or {}).get("cat_cafe_mcp"))
-        if cat_cafe_mcp:
-            cfg, signature = cat_cafe_mcp
-            if self._cat_cafe_mcp_signature != signature:
-                try:
-                    await Runner.resource_mgr.remove_mcp_server(server_name=_CAT_CAFE_MCP_SERVER_NAME, ignore_exception=True)
-                except Exception as exc:
-                    logger.warning("[JiuWenClaw] remove cat-cafe MCP failed: %s", exc)
-                result = await Runner.resource_mgr.add_mcp_server(cfg, tag=f"agent.{self._agent_name}")
-                if not _result_is_ok(result):
-                    error_text = _result_error_text(result)
-                    if "already exist" not in error_text.lower():
-                        raise RuntimeError(f"cat-cafe MCP registration failed: {error_text}")
-                self._instance.ability_manager.add(cfg)
-                self._cat_cafe_mcp_signature = signature
 
         config_base = get_config()
         self._instance._config.prompt_template = [{
@@ -990,6 +1023,15 @@ class JiuWenClaw:
             )
 
         session_id = self._get_session_id(request)
+        query = request.params.get("query", "")
+        append_history_record(
+            session_id=session_id,
+            request_id=request.request_id,
+            channel_id=request.channel_id,
+            role="user",
+            content=query,
+            timestamp=time.time(),
+        )
 
         # 确保 session 的任务处理器在运行
         await self._ensure_session_processor(session_id)
@@ -1009,7 +1051,6 @@ class JiuWenClaw:
             ),
         }
 
-        query = request.params.get("query", "")
         if self._compaction_manager:
             self._compaction_manager.add_message("user", query)
 
@@ -1030,8 +1071,7 @@ class JiuWenClaw:
                     request.session_id,
                     request.channel_id,
                     request.request_id,
-                    request.params.get("mode", "plan"),
-                    request.params,
+                    request.params.get("mode", "plan")
                 )
                 return await Runner.run_agent(agent=self._instance, inputs=inputs)
             except asyncio.CancelledError:
@@ -1074,6 +1114,17 @@ class JiuWenClaw:
                 content_str = str(content)
             self._compaction_manager.add_message("assistant", content_str)
 
+        assistant_content = content if isinstance(content, str) else str(content)
+        append_history_record(
+            session_id=session_id,
+            request_id=request.request_id,
+            channel_id=request.channel_id,
+            role="assistant",
+            event_type="chat.final",
+            content=assistant_content,
+            timestamp=time.time(),
+        )
+
         return AgentResponse(
             request_id=request.request_id,
             channel_id=request.channel_id,
@@ -1112,6 +1163,15 @@ class JiuWenClaw:
             return
 
         session_id = self._get_session_id(request)
+        query = request.params.get("query", "")
+        append_history_record(
+            session_id=session_id,
+            request_id=request.request_id,
+            channel_id=request.channel_id,
+            role="user",
+            content=query,
+            timestamp=time.time(),
+        )
         await self._ensure_session_processor(session_id)
 
         logger.info(
@@ -1130,7 +1190,6 @@ class JiuWenClaw:
         }
 
         # supplement 任务：读取现有 todo 待办，拼入 query 让 agent 知道有未完成的任务
-        query = request.params.get("query", "")
         if self._compaction_manager:
             self._compaction_manager.add_message("user", query)
             memory_mgr = await get_memory_manager(
@@ -1155,8 +1214,7 @@ class JiuWenClaw:
                     request.session_id,
                     request.channel_id,
                     request.request_id,
-                    request.params.get("mode", "plan"),
-                    request.params,
+                    request.params.get("mode", "plan")
                 )
                 async for chunk in Runner.run_agent_streaming(self._instance, inputs):
                     parsed = self._parse_stream_chunk(chunk)
@@ -1196,6 +1254,15 @@ class JiuWenClaw:
                     if isinstance(data, asyncio.CancelledError):
                         logger.info("[JiuWenClaw] 流式处理被中断: request_id=%s", rid)
                         raise data
+                    append_history_record(
+                        session_id=session_id,
+                        request_id=rid,
+                        channel_id=cid,
+                        role="assistant",
+                        event_type="chat.error",
+                        content=str(data),
+                        timestamp=time.time(),
+                    )
                     yield AgentResponseChunk(
                         request_id=rid,
                         channel_id=cid,
@@ -1203,6 +1270,17 @@ class JiuWenClaw:
                         is_complete=False,
                     )
                 else:
+                    if isinstance(data, dict) and isinstance(data.get("event_type"), str):
+                        append_history_record(
+                            session_id=session_id,
+                            request_id=rid,
+                            channel_id=cid,
+                            role="assistant",
+                            event_type=str(data.get("event_type")),
+                            content=data.get("content") or data.get("error") or "",
+                            timestamp=time.time(),
+                            extra={"event_payload": dict(data)},
+                        )
                     yield AgentResponseChunk(
                         request_id=rid,
                         channel_id=cid,
