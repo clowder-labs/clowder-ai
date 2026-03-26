@@ -304,6 +304,7 @@ export function AccountSection({
   availableProfiles,
   loadingProfiles,
   availableClientIds,
+  clientLabels,
   onChange,
 }: {
   form: HubCatEditorFormState;
