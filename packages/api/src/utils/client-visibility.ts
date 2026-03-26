@@ -38,9 +38,11 @@ export function isClientAllowed(client: string): client is VisibleClientId {
   return getAllowedClientIds().includes(client as VisibleClientId);
 }
 
-export function filterAllowedClients<T extends { id: string }>(clients: readonly T[]): T[] {
+export function filterAllowedClients<T extends { id: string; available?: boolean }>(clients: readonly T[]): T[] {
   const allowed = new Set(getAllowedClientIds());
-  return clients.filter((client) => allowed.has(client.id as VisibleClientId));
+  return clients
+    .filter((client) => allowed.has(client.id as VisibleClientId))
+    .map((client) => ({ ...client, available: true }));
 }
 
 export function getAllowedBuiltinBindingClients(): BuiltinAccountClient[] {
