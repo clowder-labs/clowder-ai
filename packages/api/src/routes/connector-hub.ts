@@ -128,6 +128,22 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { text: '授权成功后自动连接，无需重启服务' },
     ],
   },
+  {
+    id: 'xiaoyi',
+    name: '小艺',
+    nameEn: 'Huawei XiaoYi',
+    fields: [
+      { envName: 'XIAOYI_AGENT_ID', label: 'Agent ID', sensitive: false },
+      { envName: 'XIAOYI_AK', label: 'Access Key (AK)', sensitive: true },
+      { envName: 'XIAOYI_SK', label: 'Secret Key (SK)', sensitive: true },
+    ],
+    docsUrl: 'https://developer.huawei.com/consumer/cn/hag/abilityportal/',
+    steps: [
+      { text: '在华为小艺开放平台创建智能体，新建凭证获取 AK / SK' },
+      { text: '配置白名单分组，添加调试用华为账号' },
+      { text: '填写以下配置并保存，重启 API 服务后生效' },
+    ],
+  },
 ];
 
 /** Mask a sensitive value: show only that it is set, no suffix. Aligns with env-registry *** policy. */

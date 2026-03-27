@@ -54,6 +54,7 @@ export interface XiaoyiAttachment {
 // ── Constants ──
 
 const DEFAULT_WS_URL = 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
+const DEFAULT_BACKUP_WS_URL = 'wss://116.63.174.231/openclaw/v1/ws/link';
 const HEARTBEAT_INTERVAL_MS = 20_000;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
@@ -205,13 +206,14 @@ export class XiaoyiAdapter implements IOutboundAdapter {
   constructor(log: FastifyBaseLogger, options: XiaoyiAdapterOptions) {
     this.log = log;
     this.opts = {
-      wsUrl1: DEFAULT_WS_URL,
       enableStreaming: true,
       ...options,
+      wsUrl1: options.wsUrl1 || DEFAULT_WS_URL,
     };
+    const primaryUrl = this.opts.wsUrl1!;
     this.channels = [
-      this.createChannel(this.opts.wsUrl1!, 'primary'),
-      this.createChannel(this.opts.wsUrl2 ?? this.opts.wsUrl1!, 'backup'),
+      this.createChannel(primaryUrl, 'primary'),
+      this.createChannel(this.opts.wsUrl2 || DEFAULT_BACKUP_WS_URL, 'backup'),
     ];
   }
 
@@ -297,7 +299,9 @@ export class XiaoyiAdapter implements IOutboundAdapter {
     });
 
     ch.ws.on('message', (data: Buffer | string) => {
-      this.handleRawMessage(ch, data.toString());
+      const raw = data.toString();
+      this.log.info({ channel: ch.label, raw: raw.slice(0, 500) }, '[XiaoYi] ← recv');
+      this.handleRawMessage(ch, raw);
     });
 
     ch.ws.on('close', (code: number, reason: Buffer) => {
@@ -405,8 +409,10 @@ export class XiaoyiAdapter implements IOutboundAdapter {
     const params = msg.params as Record<string, unknown> | undefined;
     if (!params) return;
 
-    const sessionId = (msg.sessionId ?? params.sessionId) as string | undefined;
-    const taskId = (params.id ?? msg.taskId) as string | undefined;
+    // P1-1 fix: params.sessionId is the stable conversationId;
+    // top-level msg.sessionId rotates on app restart — never use it as chatId
+    const sessionId = (params.sessionId ?? msg.conversationId ?? msg.sessionId) as string | undefined;
+    const taskId = (params.id ?? msg.id ?? msg.taskId) as string | undefined;
     if (!sessionId || !taskId) {
       this.log.warn('[XiaoYi] message/stream missing sessionId or taskId');
       return;
@@ -441,13 +447,15 @@ export class XiaoyiAdapter implements IOutboundAdapter {
   }
 
   private handleClearContext(msg: Record<string, unknown>): void {
-    const sessionId = msg.sessionId as string | undefined;
+    const params = msg.params as Record<string, unknown> | undefined;
+    const sessionId = (params?.sessionId ?? msg.conversationId ?? msg.sessionId) as string | undefined;
     this.log.info({ sessionId }, '[XiaoYi] clearContext received');
   }
 
   private handleTaskCancel(msg: Record<string, unknown>): void {
     const params = msg.params as Record<string, unknown> | undefined;
-    const taskId = (params?.id ?? msg.taskId) as string | undefined;
+    // P1-2a fix: cancel payload has taskId at top-level `id`, not in params
+    const taskId = (params?.id ?? msg.id ?? msg.taskId) as string | undefined;
     if (taskId) {
       this.sessionMap.delete(taskId);
     }
@@ -485,10 +493,12 @@ export class XiaoyiAdapter implements IOutboundAdapter {
   }
 
   private resolveTaskId(sessionId: string): string | undefined {
-    // Find taskId by sessionId (reverse lookup)
+    // P1-2b fix: return the LATEST taskId for this session, not the oldest.
+    // Map iterates in insertion order; the last match is the most recent task.
+    let latest: string | undefined;
     for (const [taskId, sid] of this.sessionMap) {
-      if (sid === sessionId) return taskId;
+      if (sid === sessionId) latest = taskId;
     }
-    return undefined;
+    return latest;
   }
 }

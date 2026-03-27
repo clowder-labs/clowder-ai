@@ -560,6 +560,10 @@ export async function startConnectorGateway(
 
   // ── XiaoYi (华为小艺 A2A WebSocket) ──
   if (hasXiaoyi) {
+    const skMasked = config.xiaoyiSk!.length > 6
+      ? config.xiaoyiSk!.slice(0, 3) + '***' + config.xiaoyiSk!.slice(-3)
+      : '***';
+    log.info({ ak: config.xiaoyiAk, sk: skMasked, agentId: config.xiaoyiAgentId }, '[ConnectorGateway] XiaoYi credentials loaded');
     const xiaoyi = new XiaoyiAdapter(log, {
       ak: config.xiaoyiAk!,
       sk: config.xiaoyiSk!,

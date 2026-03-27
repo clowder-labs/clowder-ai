@@ -531,6 +531,27 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'connector',
     sensitive: true,
   },
+  {
+    name: 'XIAOYI_AGENT_ID',
+    defaultValue: '(未设置 → 不启用)',
+    description: '小艺智能体 Agent ID',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'XIAOYI_AK',
+    defaultValue: '(未设置)',
+    description: '小艺 Access Key',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'XIAOYI_SK',
+    defaultValue: '(未设置)',
+    description: '小艺 Secret Key',
+    category: 'connector',
+    sensitive: true,
+  },
 
   // --- codex ---
   {

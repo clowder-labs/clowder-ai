@@ -74,6 +74,14 @@ export class SocketManager {
       const authUserId = typeof socket.handshake.auth?.userId === 'string' ? socket.handshake.auth.userId.trim() : '';
       const queryUserId = typeof socket.handshake.query.userId === 'string' ? socket.handshake.query.userId.trim() : '';
       const userId = authUserId || queryUserId || 'anonymous';
+
+      // Auto-capture the first authenticated Web user as connector thread owner.
+      // This eliminates the need to manually set DEFAULT_OWNER_USER_ID.
+      if (userId !== 'anonymous' && userId !== 'default-user' && !process.env.DEFAULT_OWNER_USER_ID) {
+        process.env.DEFAULT_OWNER_USER_ID = userId;
+        log.info({ userId }, 'Auto-set DEFAULT_OWNER_USER_ID from first Web user');
+      }
+
       log.info({ socketId: socket.id, userId }, 'Client connected');
       log.debug(
         {
