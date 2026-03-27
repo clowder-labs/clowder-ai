@@ -62,6 +62,9 @@ const INSPIRATION_TEMPLATES = [
   },
 ];
 
+const TEMPLATE_PREVIEW_WIDTH = 400;
+const TEMPLATE_PREVIEW_SIDE_PADDING = 24;
+
 function formatBudgetLabel(value?: number): string {
   if (!value || Number.isNaN(value)) return '-- KB';
   const kb = Math.max(1, Math.round(value / 1024));
@@ -80,9 +83,12 @@ export function AgentsPanel() {
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
+  const [hoveredTemplatePosition, setHoveredTemplatePosition] = useState<{ left: number; top: number } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const templatePreviewLayerRef = useRef<HTMLDivElement | null>(null);
+  const hoveredTemplateTriggerRef = useRef<HTMLElement | null>(null);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -152,20 +158,65 @@ export function AgentsPanel() {
     };
   }, []);
 
-  const handleTemplateHoverStart = useCallback((templateId: string) => {
+  const positionTemplatePreview = useCallback((triggerElement: HTMLElement | null) => {
+    const previewLayer = templatePreviewLayerRef.current;
+    if (!previewLayer || !triggerElement) return;
+
+    const previewLayerRect = previewLayer.getBoundingClientRect();
+    const triggerRect = triggerElement.getBoundingClientRect();
+    const triggerCenter = triggerRect.left - previewLayerRect.left + triggerRect.width / 2;
+    const minLeft = TEMPLATE_PREVIEW_WIDTH / 2 + TEMPLATE_PREVIEW_SIDE_PADDING;
+    const maxLeft = previewLayerRect.width - TEMPLATE_PREVIEW_WIDTH / 2 - TEMPLATE_PREVIEW_SIDE_PADDING;
+    const clampedLeft =
+      previewLayerRect.width <= TEMPLATE_PREVIEW_WIDTH + TEMPLATE_PREVIEW_SIDE_PADDING * 2
+        ? previewLayerRect.width / 2
+        : Math.min(Math.max(triggerCenter, minLeft), maxLeft);
+
+    setHoveredTemplatePosition({
+      left: Math.round(clampedLeft),
+      top: Math.round(triggerRect.top - previewLayerRect.top),
+    });
+  }, []);
+
+  const handleTemplateHoverStart = useCallback((templateId: string, triggerElement?: HTMLElement | null) => {
     if (hoverClearTimerRef.current) {
       clearTimeout(hoverClearTimerRef.current);
       hoverClearTimerRef.current = null;
     }
+
+    const resolvedTrigger = triggerElement ?? hoveredTemplateTriggerRef.current;
+    if (resolvedTrigger) {
+      hoveredTemplateTriggerRef.current = resolvedTrigger;
+      positionTemplatePreview(resolvedTrigger);
+    }
+
     setHoveredTemplateId(templateId);
-  }, []);
+  }, [positionTemplatePreview]);
 
   const handleTemplateHoverEnd = useCallback((templateId: string) => {
     hoverClearTimerRef.current = setTimeout(() => {
-      setHoveredTemplateId((current) => (current === templateId ? null : current));
+      setHoveredTemplateId((current) => {
+        if (current !== templateId) return current;
+        hoveredTemplateTriggerRef.current = null;
+        setHoveredTemplatePosition(null);
+        return null;
+      });
       hoverClearTimerRef.current = null;
     }, 100);
   }, []);
+
+  useEffect(() => {
+    if (!hoveredTemplateId) return;
+
+    const handleWindowResize = () => {
+      positionTemplatePreview(hoveredTemplateTriggerRef.current);
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+    return () => {
+      window.removeEventListener('resize', handleWindowResize);
+    };
+  }, [hoveredTemplateId, positionTemplatePreview]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -267,35 +318,15 @@ export function AgentsPanel() {
             {fetchError ? <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{fetchError}</p> : null}
 
             <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E7EBF1] bg-white">
-              <div className="flex h-full flex-col">
+              <div ref={templatePreviewLayerRef} data-testid="template-preview-layer" className="relative flex h-full flex-col">
                 <div className="px-6 pt-5 text-xs text-[#B2B9C5]">
                   请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
                 </div>
 
                 <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden px-6 py-6">
-                  {hoveredTemplate ? (
-                    <div className="w-[400px] max-h-[300px]  rounded-2xl border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]">
-                      <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
-                        {selectedCat?.displayName ?? '九问Office'}
-                      </h3>
-                      <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">
-                        人格定义 (Persona)
-                      </div>
-                      <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
-                        {hoveredTemplate.persona.map((item) => (
-                          <li key={item}>• {item}</li>
-                        ))}
-                      </ul>
-                      <button
-                        type="button"
-                        className="mt-6 rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
-                      >
-                        {hoveredTemplate.applyLabel}
-                      </button>
-                    </div>
-                  ) : (
+                  {!hoveredTemplate ? (
                     <div className="text-center text-sm text-[#A0A8B6]">将鼠标移动到下方模板卡片以预览人格定义</div>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="border-t border-[#EEF2F7] px-6 pb-4 pt-3">
@@ -307,9 +338,10 @@ export function AgentsPanel() {
                         <button
                           key={template.id}
                           type="button"
-                          onMouseEnter={() => handleTemplateHoverStart(template.id)}
+                          data-testid={`template-trigger-${template.id}`}
+                          onMouseEnter={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
                           onMouseLeave={() => handleTemplateHoverEnd(template.id)}
-                          onFocus={() => handleTemplateHoverStart(template.id)}
+                          onFocus={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
                           onBlur={() => handleTemplateHoverEnd(template.id)}
                           className={`rounded-lg border px-3 py-2 text-left transition ${
                             isHovered
@@ -325,6 +357,36 @@ export function AgentsPanel() {
                   </div>
                   <div className="mt-1 text-right text-[#A9B0BD]">‹ ›</div>
                 </div>
+
+                {hoveredTemplate && hoveredTemplatePosition ? (
+                  <div
+                    data-testid="template-hover-preview"
+                    onMouseEnter={() => handleTemplateHoverStart(hoveredTemplate.id)}
+                    onMouseLeave={() => handleTemplateHoverEnd(hoveredTemplate.id)}
+                    className="absolute z-20 w-[400px] max-h-[300px] overflow-y-auto rounded-2xl border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]"
+                    style={{
+                      left: hoveredTemplatePosition.left,
+                      top: hoveredTemplatePosition.top,
+                      transform: 'translate(-50%, calc(-100% - 16px))',
+                    }}
+                  >
+                    <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
+                      {selectedCat?.displayName ?? '九问Office'}
+                    </h3>
+                    <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">人格定义 (Persona)</div>
+                    <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
+                      {hoveredTemplate.persona.map((item) => (
+                        <li key={item}>• {item}</li>
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      className="mt-6 rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
+                    >
+                      {hoveredTemplate.applyLabel}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>
