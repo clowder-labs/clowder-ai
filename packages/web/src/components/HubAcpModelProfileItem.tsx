@@ -4,7 +4,10 @@ import { useCallback, useState } from 'react';
 import type { AcpModelProfileItem, AcpModelProviderType } from './hub-provider-profiles.types';
 import { useConfirm } from './useConfirm';
 
-const PROVIDER_OPTIONS: Array<{ value: AcpModelProviderType; label: string }> = [
+type EditableAcpModelProvider = AcpModelProviderType | '';
+
+const PROVIDER_OPTIONS: Array<{ value: EditableAcpModelProvider; label: string }> = [
+  { value: '', label: '(未设置)' },
   { value: 'openai_compatible', label: 'openai_compatible' },
   { value: 'bigmodel', label: 'bigmodel' },
   { value: 'minimax', label: 'minimax' },
@@ -13,7 +16,7 @@ const PROVIDER_OPTIONS: Array<{ value: AcpModelProviderType; label: string }> = 
 
 export interface AcpModelProfileEditPayload {
   displayName: string;
-  provider: AcpModelProviderType;
+  provider?: AcpModelProviderType | null;
   model: string;
   baseUrl: string;
   apiKey?: string;
@@ -33,14 +36,14 @@ export function HubAcpModelProfileItem({
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [displayName, setDisplayName] = useState(profile.displayName);
-  const [provider, setProvider] = useState<AcpModelProviderType>(profile.provider);
+  const [provider, setProvider] = useState<EditableAcpModelProvider>(profile.provider ?? '');
   const [model, setModel] = useState(profile.model);
   const [baseUrl, setBaseUrl] = useState(profile.baseUrl);
   const [apiKey, setApiKey] = useState('');
 
   const startEdit = useCallback(() => {
     setDisplayName(profile.displayName);
-    setProvider(profile.provider);
+    setProvider(profile.provider ?? '');
     setModel(profile.model);
     setBaseUrl(profile.baseUrl);
     setApiKey('');
@@ -58,7 +61,7 @@ export function HubAcpModelProfileItem({
         />
         <select
           value={provider}
-          onChange={(e) => setProvider(e.target.value as AcpModelProviderType)}
+          onChange={(e) => setProvider(e.target.value as EditableAcpModelProvider)}
           className="w-full rounded border border-[#D9D6F5] bg-white px-3 py-2 text-sm"
         >
           {PROVIDER_OPTIONS.map((option) => (
@@ -93,7 +96,7 @@ export function HubAcpModelProfileItem({
             onClick={async () => {
               await onSave(profile.id, {
                 displayName: displayName.trim(),
-                provider,
+                provider: provider || null,
                 model: model.trim(),
                 baseUrl: baseUrl.trim(),
                 ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
@@ -125,7 +128,7 @@ export function HubAcpModelProfileItem({
           <div className="flex items-center gap-2">
             <span className="text-base font-bold text-[#2D2118]">{profile.displayName}</span>
             <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#5C5AB1]">
-              {profile.provider}
+              {profile.provider ?? '(未设置)'}
             </span>
           </div>
           <p className="text-sm text-[#6B679C]">

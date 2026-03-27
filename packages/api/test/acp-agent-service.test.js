@@ -614,3 +614,29 @@ process.stdin.on('data', (chunk) => {
     }
   });
 });
+
+describe('buildACPModelProfileOverridePayload', () => {
+  it('omits provider when a legacy ACP model profile leaves it unset', async () => {
+    const { buildACPModelProfileOverridePayload } = await import(
+      '../dist/domains/cats/services/agents/providers/acp-model-profile-override.js'
+    );
+
+    assert.deepEqual(
+      buildACPModelProfileOverridePayload({
+        id: 'legacy-default',
+        displayName: 'Legacy Default',
+        model: 'gpt-5.3-codex',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+        createdAt: '2026-03-27T00:00:00.000Z',
+        updatedAt: '2026-03-27T00:00:00.000Z',
+      }),
+      {
+        name: 'default',
+        model: 'gpt-5.3-codex',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+      },
+    );
+  });
+});

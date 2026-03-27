@@ -5,6 +5,8 @@ import { parseProviderEnvText } from './hub-provider-env';
 import type { AcpProviderKind } from './hub-provider-profiles.sections';
 import type { AcpModelAccessMode, AcpModelProfileItem, AcpModelProviderType } from './hub-provider-profiles.types';
 
+type EditableAcpModelProvider = AcpModelProviderType | '';
+
 const DEFAULT_ACP_ARGS = 'gateway acp stdio';
 const DEFAULT_ACP_CWD = '/opt/workspace/agent-teams';
 
@@ -39,7 +41,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
   const [createAcpModelProfileRef, setCreateAcpModelProfileRef] = useState('');
 
   const [createAcpModelDisplayName, setCreateAcpModelDisplayName] = useState('');
-  const [createAcpModelProvider, setCreateAcpModelProvider] = useState<AcpModelProviderType>('openai_compatible');
+  const [createAcpModelProvider, setCreateAcpModelProvider] = useState<EditableAcpModelProvider>('');
   const [createAcpModel, setCreateAcpModel] = useState('');
   const [createAcpModelBaseUrl, setCreateAcpModelBaseUrl] = useState('');
   const [createAcpModelApiKey, setCreateAcpModelApiKey] = useState('');
@@ -60,6 +62,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
 
   const resetCreateAcpModelForm = useCallback(() => {
     setCreateAcpModelDisplayName('');
+    setCreateAcpModelProvider('');
     setCreateAcpModel('');
     setCreateAcpModelBaseUrl('');
     setCreateAcpModelApiKey('');
@@ -158,7 +161,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
         body: JSON.stringify({
           projectPath: options.mutationProjectPath ?? undefined,
           displayName: createAcpModelDisplayName.trim(),
-          provider: createAcpModelProvider,
+          ...(createAcpModelProvider ? { provider: createAcpModelProvider } : {}),
           model: createAcpModel.trim(),
           baseUrl: createAcpModelBaseUrl.trim(),
           apiKey: createAcpModelApiKey.trim(),

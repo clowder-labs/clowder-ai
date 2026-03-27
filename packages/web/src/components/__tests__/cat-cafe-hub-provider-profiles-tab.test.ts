@@ -669,6 +669,72 @@ describe('CatCafeHub provider profiles tab', () => {
     });
   });
 
+  it('creates ACP model profiles without provider type when left unset', async () => {
+    let createPayload: Record<string, unknown> | null = null;
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/acp-model-profiles' && init?.method === 'POST') {
+        createPayload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return Promise.resolve(
+          jsonResponse({
+            profile: {
+              id: 'gateway-default',
+              displayName: 'Gateway Default',
+              model: 'gpt-5.3-codex',
+              baseUrl: 'https://api.example.com/v1',
+            },
+          }),
+        );
+      }
+      if (path.startsWith('/api/acp-model-profiles')) {
+        return Promise.resolve(emptyAcpModelProfilesResponse());
+      }
+      if (path.startsWith('/api/provider-profiles')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: null,
+            bootstrapBindings: {},
+            providers: [],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubProviderProfilesTab));
+    });
+    await flushEffects();
+
+    await act(async () => {
+      queryButton(container, 'ACP Model Profile').click();
+    });
+    await flushEffects();
+
+    const displayNameInput = container.querySelector('input[placeholder*="gateway-default-openai"]') as HTMLInputElement;
+    const modelInput = container.querySelector('input[placeholder*="gpt-4.1"]') as HTMLInputElement;
+    const baseUrlInput = container.querySelector('input[placeholder*="https://api.openai.com/v1"]') as HTMLInputElement;
+    const apiKeyInput = container.querySelector('input[placeholder="API Key"]') as HTMLInputElement;
+
+    await changeField(displayNameInput, 'Gateway Default');
+    await changeField(modelInput, 'gpt-5.3-codex');
+    await changeField(baseUrlInput, 'https://api.example.com/v1');
+    await changeField(apiKeyInput, 'sk-test');
+
+    await act(async () => {
+      queryButton(container, '创建').click();
+    });
+    await flushEffects();
+
+    expect(createPayload).toMatchObject({
+      displayName: 'Gateway Default',
+      model: 'gpt-5.3-codex',
+      baseUrl: 'https://api.example.com/v1',
+      apiKey: 'sk-test',
+    });
+    expect(createPayload).not.toHaveProperty('provider');
+  });
+
   it('creates api-key profile from name, url, api key, and supported models only', async () => {
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
       if (path.startsWith('/api/acp-model-profiles')) {

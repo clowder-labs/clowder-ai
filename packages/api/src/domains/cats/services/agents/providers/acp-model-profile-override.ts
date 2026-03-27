@@ -2,7 +2,7 @@ import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-pro
 
 export interface ACPModelProfileOverridePayload {
   name: 'default';
-  provider: RuntimeAcpModelProfile['provider'];
+  provider?: RuntimeAcpModelProfile['provider'];
   model: string;
   baseUrl: string;
   apiKey: string;
@@ -19,7 +19,7 @@ export function buildACPModelProfileOverridePayload(
 ): ACPModelProfileOverridePayload {
   return {
     name: 'default',
-    provider: profile.provider,
+    ...(profile.provider ? { provider: profile.provider } : {}),
     model: profile.model,
     baseUrl: profile.baseUrl,
     apiKey: profile.apiKey,
