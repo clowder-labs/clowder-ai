@@ -5,6 +5,7 @@ import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import type { ConfigData } from './config-viewer-types';
 import { HubCatEditor } from './HubCatEditor';
+import { useConfirm } from './useConfirm';
 
 type AgentTabKey = 'persona' | 'collab' | 'memory' | 'preference';
 
@@ -78,6 +79,7 @@ function catInitial(name?: string): string {
 
 export function AgentsPanel() {
   const { cats, refresh } = useCatData();
+  const confirm = useConfirm();
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
@@ -85,12 +87,14 @@ export function AgentsPanel() {
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const [hoveredTemplatePosition, setHoveredTemplatePosition] = useState<{ left: number; top: number } | null>(null);
+  const [openActionMenuCatId, setOpenActionMenuCatId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const templatePreviewLayerRef = useRef<HTMLDivElement | null>(null);
   const hoveredTemplateTriggerRef = useRef<HTMLElement | null>(null);
   const personaTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -217,6 +221,63 @@ export function AgentsPanel() {
     personaTextareaRef.current?.focus();
   }, []);
 
+  const toggleActionMenu = useCallback((catId: string) => {
+    setOpenActionMenuCatId((current) => (current === catId ? null : catId));
+  }, []);
+
+  const handleDeleteMember = useCallback(
+    async (catId: string) => {
+      const cat = cats.find((item) => item.id === catId);
+      if (!cat) return;
+
+      setOpenActionMenuCatId(null);
+      const ok = await confirm({
+        title: '删除确认',
+        message: `确认删除成员「${cat.displayName}」吗？此操作不可撤销。`,
+        variant: 'danger',
+        confirmLabel: '删除',
+      });
+      if (!ok) return;
+
+      setFetchError(null);
+      try {
+        const res = await apiFetch(`/api/cats/${cat.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+          setFetchError((payload.error as string) ?? `删除失败 (${res.status})`);
+          return;
+        }
+        await Promise.all([fetchData(), refresh()]);
+      } catch {
+        setFetchError('删除失败');
+      }
+    },
+    [cats, confirm, fetchData, refresh],
+  );
+
+  useEffect(() => {
+    if (!openActionMenuCatId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+        setOpenActionMenuCatId(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenActionMenuCatId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [openActionMenuCatId]);
+
   useEffect(() => {
     if (!hoveredTemplateId) return;
 
@@ -281,14 +342,53 @@ export function AgentsPanel() {
                           {modelText} · {budgetText}
                         </div>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditMember(cat.id)}
-                        aria-label={`编辑 ${cat.displayName}`}
-                        className="rounded-md px-1.5 py-1 text-[#ADB4C1] transition hover:bg-[#EEF2F7] hover:text-[#6A7280]"
-                      >
-                        ⋮
-                      </button>
+                      <div ref={openActionMenuCatId === cat.id ? actionMenuRef : null} className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleActionMenu(cat.id)}
+                          aria-label={`操作 ${cat.displayName}`}
+                          aria-haspopup="menu"
+                          aria-expanded={openActionMenuCatId === cat.id}
+                          className="rounded-md px-1.5 py-1 text-[#ADB4C1] transition hover:bg-[#EEF2F7] hover:text-[#6A7280]"
+                        >
+                          ⋮
+                        </button>
+
+                        {openActionMenuCatId === cat.id ? (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[116px] rounded-xl border border-[#E6EAF0] bg-white p-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenActionMenuCatId(null);
+                                openEditMember(cat.id);
+                              }}
+                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-[12px] text-[#334155] transition hover:bg-[#F4F7FB]"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => setOpenActionMenuCatId(null)}
+                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-[12px] text-[#94A3B8] transition hover:bg-[#F4F7FB]"
+                            >
+                              复制
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => void handleDeleteMember(cat.id)}
+                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-[12px] text-[#DC2626] transition hover:bg-[#FEF2F2]"
+                            >
+                              删除
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 );
@@ -341,7 +441,7 @@ export function AgentsPanel() {
               </button>
               </div>
               <div ref={templatePreviewLayerRef} data-testid="template-preview-layer" className="relative flex h-full flex-col">
-                <div className="flex min-h-0 flex-1 overflow-hidden px-6 py-6">
+                <div className="flex min-h-0 flex-1 overflow-hidden px-1 py-1">
                     <textarea
                       ref={personaTextareaRef}
                       value={personaDraft}
