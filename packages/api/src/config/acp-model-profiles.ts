@@ -66,7 +66,6 @@ export async function createAcpModelProfile(
     const { meta, secrets, metaPath, secretsPath } = await readRaw(projectRoot);
     const displayName = requireDisplayName(input);
     const provider = normalizeProvider(input.provider);
-    if (!provider) throw new Error('provider is required');
     const model = input.model?.trim();
     if (!model) throw new Error('model is required');
     const baseUrl = normalizeBaseUrl(input.baseUrl);
@@ -78,7 +77,7 @@ export async function createAcpModelProfile(
     const profile: AcpModelProfileMeta = {
       id: createUniqueProfileId(meta.profiles, displayName),
       displayName,
-      provider,
+      ...(provider ? { provider } : {}),
       model,
       baseUrl,
       ...(input.sslVerify !== undefined ? { sslVerify: input.sslVerify } : {}),
@@ -120,9 +119,13 @@ export async function updateAcpModelProfile(
       profile.displayName = requireDisplayName(input);
     }
     if (input.provider !== undefined) {
-      const provider = normalizeProvider(input.provider);
-      if (!provider) throw new Error('provider is invalid');
-      profile.provider = provider;
+      if (input.provider === null) {
+        delete profile.provider;
+      } else {
+        const provider = normalizeProvider(input.provider);
+        if (!provider) throw new Error('provider is invalid');
+        profile.provider = provider;
+      }
     }
     if (input.model !== undefined) {
       const model = input.model.trim();

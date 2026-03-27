@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { TagEditor } from './hub-tag-editor';
 import type { AcpModelProfileItem, AcpModelProviderType, AcpModelAccessMode } from './hub-provider-profiles.types';
 
+type EditableAcpModelProvider = AcpModelProviderType | '';
+
 export function ProviderProfilesSummaryCard() {
   return (
     <div className="rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]">
@@ -22,7 +24,8 @@ const PROTOCOL_OPTIONS: Array<{ value: ApiProtocol; label: string }> = [
   { value: 'google', label: 'Google' },
 ];
 
-const ACP_MODEL_PROVIDER_OPTIONS: Array<{ value: AcpModelProviderType; label: string }> = [
+const ACP_MODEL_PROVIDER_OPTIONS: Array<{ value: EditableAcpModelProvider; label: string }> = [
+  { value: '', label: '(未设置)' },
   { value: 'openai_compatible', label: 'openai_compatible' },
   { value: 'bigmodel', label: 'bigmodel' },
   { value: 'minimax', label: 'minimax' },
@@ -253,13 +256,13 @@ export function CreateAcpModelProfileSection({
   onCreate,
 }: {
   displayName: string;
-  provider: AcpModelProviderType;
+  provider: EditableAcpModelProvider;
   model: string;
   baseUrl: string;
   apiKey: string;
   busy: boolean;
   onDisplayNameChange: (value: string) => void;
-  onProviderChange: (value: AcpModelProviderType) => void;
+  onProviderChange: (value: EditableAcpModelProvider) => void;
   onModelChange: (value: string) => void;
   onBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
@@ -295,7 +298,7 @@ export function CreateAcpModelProfileSection({
           />
           <select
             value={provider}
-            onChange={(e) => onProviderChange(e.target.value as AcpModelProviderType)}
+            onChange={(e) => onProviderChange(e.target.value as EditableAcpModelProvider)}
             className="w-full rounded border border-[#D9D6F5] bg-white px-3 py-2 text-sm"
           >
             {ACP_MODEL_PROVIDER_OPTIONS.map((option) => (
