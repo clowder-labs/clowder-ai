@@ -45,6 +45,13 @@ Set-Location $ProjectRoot
 Write-Host "Cat Cafe - Windows Startup" -ForegroundColor Cyan
 Write-Host "=========================="
 
+try {
+    Mount-InstallerSkills -ProjectRoot $ProjectRoot
+} catch {
+    Write-Warn "Skills mount refresh failed - continuing startup"
+    Write-InstallerExceptionDetails -Context "Skills mount" -ErrorRecord $_
+}
+
 # -- Load .env -----------------------------------------------
 $envFile = Join-Path $ProjectRoot ".env"
 if (Test-Path $envFile) {

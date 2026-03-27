@@ -3,7 +3,7 @@ export type AcpModelProviderType = 'openai_compatible' | 'bigmodel' | 'minimax' 
 export interface AcpModelProfileMeta {
   id: string;
   displayName: string;
-  provider: AcpModelProviderType;
+  provider?: AcpModelProviderType;
   model: string;
   baseUrl: string;
   sslVerify?: boolean | null;
@@ -28,7 +28,7 @@ export interface AcpModelProfilesView {
 export interface CreateAcpModelProfileInput {
   name?: string;
   displayName?: string;
-  provider: AcpModelProviderType;
+  provider?: AcpModelProviderType;
   model: string;
   baseUrl: string;
   apiKey: string;
@@ -43,7 +43,7 @@ export interface CreateAcpModelProfileInput {
 export interface UpdateAcpModelProfileInput {
   name?: string;
   displayName?: string;
-  provider?: AcpModelProviderType;
+  provider?: AcpModelProviderType | null;
   model?: string;
   baseUrl?: string;
   apiKey?: string;

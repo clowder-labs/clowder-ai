@@ -20,6 +20,7 @@ const launcherBuildScript = readFileSync(join(repoRoot, 'scripts', 'build-window
 const launcherSource = readFileSync(join(repoRoot, 'packaging', 'windows', 'desktop', 'ClowderDesktop.cs'), 'utf8');
 const apiClientSource = readFileSync(join(repoRoot, 'packages', 'web', 'src', 'utils', 'api-client.ts'), 'utf8');
 const nsisScript = readFileSync(join(repoRoot, 'packaging', 'windows', 'installer.nsi'), 'utf8');
+const windowsInstallHelpersScript = readFileSync(join(repoRoot, 'scripts', 'install-windows-helpers.ps1'), 'utf8');
 
 test('Windows offline installer keeps mutable state outside managed payload cleanup', () => {
   assert.deepEqual(WINDOWS_PRESERVE_PATHS, ['.env', 'cat-config.json', 'data', 'logs', '.cat-cafe']);
@@ -226,6 +227,7 @@ test('Windows startup script pins bundled config roots for packaged releases', (
   assert.match(buildScript, /'\.clowder-release\.json'/);
   assert.match(launcherSource, /AppDomain\.CurrentDomain\.BaseDirectory/);
   const startWindowsScript = readFileSync(join(repoRoot, 'scripts', 'start-windows.ps1'), 'utf8');
+  assert.match(startWindowsScript, /Mount-InstallerSkills -ProjectRoot \$ProjectRoot/);
   assert.match(startWindowsScript, /if \(\$bundledRelease\) \{/);
   assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_CAFE_CONFIG_ROOT = \$ProjectRoot/);
   assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_TEMPLATE_PATH = \$bundledTemplatePath/);
@@ -233,6 +235,15 @@ test('Windows startup script pins bundled config roots for packaged releases', (
   assert.match(startWindowsScript, /\$usingStandaloneWebRuntime = \(-not \$Dev\) -and \(Test-Path \$webStandaloneServer\)/);
   assert.match(startWindowsScript, /Starting Frontend \(port \$WebPort, standalone\)/);
   assert.match(startWindowsScript, /\$env:HOSTNAME = "0\.0\.0\.0"/);
+});
+
+test('Windows skill mount keeps refs and top-level skill metadata files', () => {
+  assert.doesNotMatch(windowsInstallHelpersScript, /Where-Object \{ \$_.Name -ne "refs" \}/);
+  assert.match(windowsInstallHelpersScript, /\$skillItems = Get-ChildItem \$skillsSource -Force/);
+  assert.match(windowsInstallHelpersScript, /if \(\$skill\.PSIsContainer\) \{/);
+  assert.match(windowsInstallHelpersScript, /Mount-InstallerSkillDirectory/);
+  assert.match(windowsInstallHelpersScript, /Sync-InstallerSkillFile/);
+  assert.match(windowsInstallHelpersScript, /Copy-Item -Path \$SourcePath -Destination \$TargetPath -Force/);
 });
 
 test('Local desktop web client derives API URL from the loopback frontend port instead of a baked localhost:3004 value', () => {

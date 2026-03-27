@@ -133,6 +133,47 @@ describe('provider profiles routes', () => {
     }
   });
 
+  it('normalizes command-only legacy ACP profiles so ACP clients can still bind them', async () => {
+    const { readProviderProfiles } = await import('../dist/config/provider-profiles.js');
+    const projectDir = await makeTmpDir('legacy-acp-command');
+    setGlobalRoot(projectDir);
+    try {
+      const catCafeDir = join(projectDir, '.cat-cafe');
+      await mkdir(catCafeDir, { recursive: true });
+      await writeFile(
+        join(catCafeDir, 'provider-profiles.json'),
+        JSON.stringify({
+          version: 3,
+          activeProfileId: null,
+          providers: [
+            {
+              id: 'agent-teams-local',
+              displayName: 'Agent Teams Local',
+              builtin: false,
+              command: 'agent-teams',
+              args: ['gateway', 'acp', 'stdio'],
+              cwd: '/opt/workspace/agent-teams',
+              createdAt: '2026-03-27T00:00:00.000Z',
+              updatedAt: '2026-03-27T00:00:00.000Z',
+            },
+          ],
+          bootstrapBindings: {},
+        }),
+      );
+
+      const view = await readProviderProfiles(projectDir);
+      const normalized = view.providers.find((profile) => profile.id === 'agent-teams-local');
+      assert.ok(normalized, 'legacy ACP profile should still be listed');
+      assert.equal(normalized.kind, 'acp');
+      assert.equal(normalized.authType, 'none');
+      assert.equal(normalized.protocol, 'acp');
+      assert.equal(normalized.command, 'agent-teams');
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+    }
+  });
+
   it('GET /api/provider-profiles requires identity', async () => {
     const Fastify = (await import('fastify')).default;
     const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
@@ -199,6 +240,45 @@ describe('provider profiles routes', () => {
       const listed = list.providers.find((p) => p.id === created.profile.id);
       assert.ok(listed);
       assert.equal(listed.hasApiKey, true);
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('creates ACP model profiles even when provider type is omitted', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('acp-model-no-provider');
+    setGlobalRoot(projectDir);
+    try {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/acp-model-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          displayName: 'Gateway Default',
+          model: 'gpt-5.3-codex',
+          baseUrl: 'https://api.example.com/v1',
+          apiKey: 'sk-test',
+        }),
+      });
+      assert.equal(createRes.statusCode, 200);
+      assert.equal(createRes.json().profile.provider, undefined);
+
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/api/acp-model-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      assert.equal(listRes.statusCode, 200);
+      assert.equal(listRes.json().profiles[0]?.provider, undefined);
     } finally {
       restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });
