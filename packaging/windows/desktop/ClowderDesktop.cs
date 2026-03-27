@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -409,6 +410,8 @@ internal sealed class LauncherForm : Form
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
 
         _serviceHostProcess = new Process
@@ -616,7 +619,8 @@ internal sealed class LauncherForm : Form
         {
             File.AppendAllText(
                 _logFilePath,
-                DateTime.Now.ToString("u") + " " + message + Environment.NewLine
+                DateTime.Now.ToString("u") + " " + message + Environment.NewLine,
+                Encoding.UTF8
             );
         }
     }

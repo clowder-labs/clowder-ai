@@ -25,6 +25,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# -- Encoding (ensure UTF-8 output for CJK text) ------------
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # -- Helpers -------------------------------------------------
 function Write-Step  { param([string]$msg) Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Write-Ok    { param([string]$msg) Write-Host "  [OK] $msg" -ForegroundColor Green }

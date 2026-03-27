@@ -534,9 +534,9 @@ function installSharedPythonDeps(bundleDir) {
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
 
-  // Install JiuwenClaw as package (includes all its deps)
+  // Install JiuwenClaw as package (skip deps — sources are on the Python path via ._pth)
   const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', jiuwenClawDir]);
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', '--no-deps', jiuwenClawDir]);
 
   // Install office automation libraries for MCP servers
   const officeDeps = [
@@ -1339,11 +1339,15 @@ async function main() {
   buildWindowsDesktopLauncher(bundleDir, options);
 
   logStep('Staging desktop assets');
+  const assetsTarget = join(bundleDir, 'assets');
+  ensureDir(assetsTarget);
   const desktopSplashSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg');
   if (existsSync(desktopSplashSource)) {
-    const assetsTarget = join(bundleDir, 'assets');
-    ensureDir(assetsTarget);
     cpSync(desktopSplashSource, join(assetsTarget, 'splash.jpg'), { force: true });
+  }
+  const appIconSource = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
+  if (existsSync(appIconSource)) {
+    cpSync(appIconSource, join(assetsTarget, 'app.ico'), { force: true });
   }
 
   logStep('Finalizing runtime bundle');
