@@ -199,6 +199,31 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     assert.equal(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN, 'tok-456');
   });
 
+  test('injects bundled Python Scripts into gemini child PATH', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+    const originalPlatform = process.platform;
+    const originalPath = process.env.PATH;
+
+    try {
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      process.env.PATH = 'C:\\Windows\\System32';
+
+      const promise = collect(service.invoke('test', { callbackEnv: { PATH: 'C:\\GeminiCustom' } }));
+      emitGeminiEvents(proc, [{ type: 'init', session_id: 's1', model: 'auto' }]);
+      await promise;
+
+      const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+      assert.match(spawnOpts.env.PATH, /tools\\python\\Scripts/i);
+      assert.match(spawnOpts.env.PATH, /C:\\GeminiCustom/i);
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+    }
+  });
+
   test('maps tool_use events', async () => {
     const proc = createMockProcess();
     const spawnFn = createMockSpawnFn(proc);

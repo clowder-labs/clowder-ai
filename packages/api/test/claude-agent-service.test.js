@@ -317,6 +317,40 @@ test('F062: api_key profile injects ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL', a
   }
 });
 
+test('injects bundled Python Scripts into claude child PATH', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+  const originalPlatform = process.platform;
+  const originalPath = process.env.PATH;
+
+  try {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    process.env.PATH = 'C:\\Windows\\System32';
+
+    const promise = collect(
+      service.invoke('hello', {
+        callbackEnv: {
+          CAT_CAFE_API_URL: 'http://localhost:3004',
+          CAT_CAFE_INVOCATION_ID: 'inv-path',
+          CAT_CAFE_CALLBACK_TOKEN: 'token-path',
+          PATH: 'C:\\ClaudeCustom',
+        },
+      }),
+    );
+    emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+    await promise;
+
+    const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+    assert.match(spawnOpts.env.PATH, /tools\\python\\Scripts/i);
+    assert.match(spawnOpts.env.PATH, /C:\\ClaudeCustom/i);
+  } finally {
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+  }
+});
+
 test('pickGitBashPathFromWhere accepts nonstandard bash.exe locations returned by where', () => {
   const whereOutput = [
     'C:\\Users\\lang\\scoop\\apps\\git\\current\\bin\\bash.exe',

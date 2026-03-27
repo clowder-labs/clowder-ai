@@ -11,6 +11,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
@@ -111,7 +112,11 @@ function formatWorkspaceModel(config: DareWorkspaceConfig | null): string | unde
   return undefined;
 }
 
-function resolveMetadataModel(catId: CatId, explicitModel?: string, workspaceConfig?: DareWorkspaceConfig | null): string {
+function resolveMetadataModel(
+  catId: CatId,
+  explicitModel?: string,
+  workspaceConfig?: DareWorkspaceConfig | null,
+): string {
   if (explicitModel) return explicitModel;
   const workspaceModel = formatWorkspaceModel(workspaceConfig ?? null);
   if (workspaceModel) return workspaceModel;
@@ -213,7 +218,7 @@ export class DareAgentService implements AgentService {
   constructor(options?: DareAgentServiceOptions) {
     this.catId = options?.catId ?? createCatId('dare');
     this.adapter = options?.adapter?.trim() || process.env.DARE_ADAPTER?.trim() || undefined;
-    this.model = options?.model?.trim() || (process.env.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || undefined);
+    this.model = options?.model?.trim() || process.env.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || undefined;
     this.endpoint = options?.endpoint ?? process.env[DARE_ENDPOINT_ENV];
     this.apiKey = options?.apiKey ?? process.env[DARE_API_KEY_ENV];
     this.darePath = options?.darePath ?? process.env.DARE_PATH ?? resolveDefaultDarePath();
@@ -249,7 +254,8 @@ export class DareAgentService implements AgentService {
       yield {
         type: 'error',
         catId: this.catId,
-        error: 'DARE CLI path is not configured: set DARE_PATH or install vendor/dare.exe / vendor/dare-cli via the installer.',
+        error:
+          'DARE CLI path is not configured: set DARE_PATH or install vendor/dare.exe / vendor/dare-cli via the installer.',
         metadata,
         timestamp: Date.now(),
       };
@@ -448,12 +454,7 @@ export class DareAgentService implements AgentService {
     if (process.platform === 'win32') {
       env.PYTHONIOENCODING = 'utf-8';
       env.PYTHONUTF8 = '1';
-      // Prepend bundled Python to PATH so MCP servers spawned by DARE find it
-      const bundledPythonDir = join(projectRoot, 'tools', 'python');
-      if (existsSync(join(bundledPythonDir, 'python.exe'))) {
-        const currentPath = callbackEnv?.PATH ?? process.env.PATH ?? '';
-        env.PATH = `${bundledPythonDir};${currentPath}`;
-      }
+      Object.assign(env, withBundledPythonPath(env, projectRoot));
     }
 
     // Reserve 30% to account for: output tokens (~15%), serialization overhead,
@@ -461,7 +462,7 @@ export class DareAgentService implements AgentService {
     if (model) {
       const ctxWindow = getContextWindowFallback(model);
       if (ctxWindow) {
-        const inputBudget = Math.floor(ctxWindow * 0.70);
+        const inputBudget = Math.floor(ctxWindow * 0.7);
         env.DARE_CONTEXT_WINDOW_TOKENS = String(inputBudget);
       }
     }
