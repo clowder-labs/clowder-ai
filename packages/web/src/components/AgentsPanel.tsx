@@ -1,19 +1,88 @@
-'use client';
+﻿'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import type { ConfigData } from './config-viewer-types';
 import { HubCatEditor } from './HubCatEditor';
-import { HubCoCreatorOverviewCard, HubMemberOverviewCard, HubOverviewToolbar } from './HubMemberOverviewCard';
+
+type AgentTabKey = 'persona' | 'collab' | 'memory' | 'preference';
+
+const AGENT_TABS: Array<{ id: AgentTabKey; label: string }> = [
+  { id: 'persona', label: '灵魂配置' },
+  { id: 'collab', label: '协作配置' },
+  { id: 'memory', label: '记忆配置' },
+  { id: 'preference', label: '用户偏好' },
+];
+
+const INSPIRATION_TEMPLATES = [
+  {
+    id: 'customer-service',
+    title: '专业客服助手',
+    description: '遵循服务规范，礼貌应答，流程引导，问题定位与转接明确。',
+    persona: [
+      '身份：资深客服顾问，擅长复杂问题拆解与安抚沟通。',
+      '性格：耐心克制、语气专业、表达清晰。',
+      '行为：先确认诉求，再给步骤方案，必要时主动引导升级处理。',
+    ],
+    applyLabel: '接入模板',
+  },
+  {
+    id: 'content-creation',
+    title: '内容创作助手',
+    description: '支持文案策写、标题优化、脚本创作，风格适配，结构清晰。',
+    persona: [
+      '身份：资深内容创作者，擅长根据主题快速成稿。',
+      '性格：创意灵活、语气温和、结构清晰。',
+      '行为：聚焦目标、突出重点，给出可执行建议。',
+    ],
+    applyLabel: '接入模板',
+  },
+  {
+    id: 'knowledge-answering',
+    title: '知识解答专家',
+    description: '以严谨准确为原则，条理输出，解释清楚，给出可执行建议。',
+    persona: [
+      '身份：知识顾问，擅长多源信息整合与严谨解释。',
+      '性格：理性克制、客观中立、注重依据。',
+      '行为：先定义问题边界，再逐层解释并给出结论与风险提示。',
+    ],
+    applyLabel: '接入模板',
+  },
+  {
+    id: 'work-efficiency',
+    title: '职场效率助手',
+    description: '聚焦沟通协作、汇报提炼、流程推进，帮助提升交付效率。',
+    persona: [
+      '身份：项目协作教练，擅长流程梳理与任务推进。',
+      '性格：简洁务实、节奏明确、结果导向。',
+      '行为：优先给行动清单，再补充沟通模板与复盘建议。',
+    ],
+    applyLabel: '接入模板',
+  },
+];
+
+function formatBudgetLabel(value?: number): string {
+  if (!value || Number.isNaN(value)) return '-- KB';
+  const kb = Math.max(1, Math.round(value / 1024));
+  return `${kb} KB`;
+}
+
+function catInitial(name?: string): string {
+  if (!name) return '智';
+  return name.slice(0, 1).toUpperCase();
+}
 
 export function AgentsPanel() {
   const { cats, refresh } = useCatData();
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [togglingCatId, setTogglingCatId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -34,31 +103,6 @@ export function AgentsPanel() {
     fetchData();
   }, [fetchData]);
 
-  const handleToggleAvailability = useCallback(
-    async (catId: string) => {
-      setTogglingCatId(catId);
-      setFetchError(null);
-      try {
-        const res = await apiFetch(`/api/cats/${catId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ available: true }),
-        });
-        if (!res.ok) {
-          const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-          setFetchError((payload.error as string) ?? `成员状态切换失败 (${res.status})`);
-          return;
-        }
-        await Promise.all([fetchData(), refresh()]);
-      } catch {
-        setFetchError('成员状态切换失败');
-      } finally {
-        setTogglingCatId(null);
-      }
-    },
-    [fetchData, refresh],
-  );
-
   const openAddMember = useCallback(() => {
     setEditingCatId(null);
     setEditorOpen(true);
@@ -78,47 +122,213 @@ export function AgentsPanel() {
     await Promise.all([fetchData(), refresh()]);
   }, [fetchData, refresh]);
 
-  const openCoCreatorEditor = useCallback(() => {
-    // TODO: Open co-creator editor
-  }, []);
-
   const editingCat = editingCatId ? cats.find((c) => c.id === editingCatId) : null;
   const editingConfigCat = editingCatId && config ? config.cats[editingCatId] : undefined;
 
+  const selectedCat = useMemo(
+    () => (selectedCatId ? cats.find((cat) => cat.id === selectedCatId) ?? null : cats[0] ?? null),
+    [cats, selectedCatId],
+  );
+  const hoveredTemplate = useMemo(
+    () => INSPIRATION_TEMPLATES.find((template) => template.id === hoveredTemplateId) ?? null,
+    [hoveredTemplateId],
+  );
+
+  useEffect(() => {
+    if (cats.length === 0) {
+      setSelectedCatId(null);
+      return;
+    }
+    if (!selectedCatId || !cats.some((cat) => cat.id === selectedCatId)) {
+      setSelectedCatId(cats[0].id);
+    }
+  }, [cats, selectedCatId]);
+
+  useEffect(() => {
+    return () => {
+      if (hoverClearTimerRef.current) {
+        clearTimeout(hoverClearTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleTemplateHoverStart = useCallback((templateId: string) => {
+    if (hoverClearTimerRef.current) {
+      clearTimeout(hoverClearTimerRef.current);
+      hoverClearTimerRef.current = null;
+    }
+    setHoveredTemplateId(templateId);
+  }, []);
+
+  const handleTemplateHoverEnd = useCallback((templateId: string) => {
+    hoverClearTimerRef.current = setTimeout(() => {
+      setHoveredTemplateId((current) => (current === templateId ? null : current));
+      hoverClearTimerRef.current = null;
+    }, 100);
+  }, []);
+
   return (
-    <div className="h-full flex flex-col">
-      <div className="mb-4">
-        <h1 className="mb-1 text-[20px] font-bold leading-[30px] text-gray-900">智能体管理</h1>
-        <p className="text-sm text-gray-500">管理 AI 成员及其配置</p>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-5">
+        <h1 className="mb-1 text-[28px] font-bold leading-[36px] text-[#1F2329]">智能体管理</h1>
+        <p className="text-sm text-[#8B93A1]">管理 AI 智能体与角色配置</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {fetchError && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-4">{fetchError}</p>}
-
-        {config ? (
-          <div className="space-y-4">
-            <HubOverviewToolbar onAddMember={openAddMember} />
-            {config.coCreator ? (
-              <HubCoCreatorOverviewCard coCreator={config.coCreator} onEdit={openCoCreatorEditor} />
-            ) : null}
-            <div className="space-y-3">
-              {cats.map((catData) => (
-                <HubMemberOverviewCard
-                  key={catData.id}
-                  cat={catData}
-                  configCat={config.cats[catData.id]}
-                  onEdit={() => openEditMember(catData.id)}
-                  onToggleAvailability={() => handleToggleAvailability(catData.id)}
-                  togglingAvailability={togglingCatId === catData.id}
-                />
-              ))}
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#E6EAF0] bg-white">
+        <div className="flex h-full min-h-0">
+          <aside className="flex h-full w-[276px] shrink-0 flex-col border-r border-[#ECEFF3] bg-[#FFFFFF] p-3">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <span className="text-[13px] font-semibold text-[#2E3440]">智能体</span>
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-sm text-[#6A7280] transition hover:bg-[#EEF2F7]"
+                onClick={openAddMember}
+              >
+                +
+              </button>
             </div>
-            <p className="text-[13px] text-[#B59A88]">点击任意卡片进入成员配置 →</p>
-            {cats.length === 0 && <p className="text-sm text-gray-400">未找到成员配置数据</p>}
-          </div>
-        ) : !fetchError ? (
-          <p className="text-sm text-gray-400">加载中...</p>
-        ) : null}
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+              {cats.map((cat) => {
+                const isSelected = selectedCat?.id === cat.id;
+                const configCat = config?.cats[cat.id];
+                const modelText = configCat?.model ?? cat.defaultModel ?? '未配置模型';
+                const budgetText = formatBudgetLabel(cat.contextBudget?.maxContextTokens);
+                const avatar = cat.avatar?.trim() ?? '';
+                const avatarLooksLikeUrl = /^(https?:\/\/|\/)/.test(avatar);
+
+                return (
+                  <div
+                    key={cat.id}
+                    className={`w-full rounded-xl border px-3 py-2 transition ${
+                      isSelected
+                        ? 'border-[#8CB9FF] bg-[#F7FBFF] shadow-[0_0_0_1px_rgba(122,174,255,0.18)]'
+                        : 'border-[#ECEFF3] bg-[#FAFBFC] hover:border-[#DCE5EF] hover:bg-[#FFFFFF]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-semibold text-white"
+                        style={{ backgroundColor: cat.color?.primary ?? '#7AAEFF' }}
+                      >
+                        <span>{avatarLooksLikeUrl ? catInitial(cat.displayName) : avatar || catInitial(cat.displayName)}</span>
+                      </div>
+                      <button type="button" onClick={() => setSelectedCatId(cat.id)} className="min-w-0 flex-1 text-left">
+                        <div className="truncate text-[13px] font-semibold text-[#2A303C]">{cat.displayName}</div>
+                        <div className="mt-1 truncate text-[11px] text-[#9AA2B0]">
+                          {modelText} · {budgetText}
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditMember(cat.id)}
+                        aria-label={`编辑 ${cat.displayName}`}
+                        className="rounded-md px-1.5 py-1 text-[#ADB4C1] transition hover:bg-[#EEF2F7] hover:text-[#6A7280]"
+                      >
+                        ⋮
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {cats.length === 0 && (
+                <div className="rounded-xl border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
+                  暂无智能体数据
+                </div>
+              )}
+            </div>
+          </aside>
+
+          <section className="flex min-w-0 flex-1 flex-col bg-white p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-[#EEF2F7] pb-2">
+              {AGENT_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                    activeTab === tab.id
+                      ? 'bg-[#F3F6FA] font-semibold text-[#445066]'
+                      : 'text-[#6F7785] hover:bg-[#F8FAFC]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => (selectedCat ? openEditMember(selectedCat.id) : openAddMember())}
+                className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
+              >
+                灵感模板
+              </button>
+            </div>
+
+            {fetchError ? <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{fetchError}</p> : null}
+
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E7EBF1] bg-white">
+              <div className="flex h-full flex-col">
+                <div className="px-6 pt-5 text-xs text-[#B2B9C5]">
+                  请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
+                </div>
+
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden px-6 py-6">
+                  {hoveredTemplate ? (
+                    <div className="w-[400px] max-h-[300px]  rounded-2xl border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]">
+                      <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
+                        {selectedCat?.displayName ?? '九问Office'}
+                      </h3>
+                      <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">
+                        人格定义 (Persona)
+                      </div>
+                      <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
+                        {hoveredTemplate.persona.map((item) => (
+                          <li key={item}>• {item}</li>
+                        ))}
+                      </ul>
+                      <button
+                        type="button"
+                        className="mt-6 rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
+                      >
+                        {hoveredTemplate.applyLabel}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center text-sm text-[#A0A8B6]">将鼠标移动到下方模板卡片以预览人格定义</div>
+                  )}
+                </div>
+
+                <div className="border-t border-[#EEF2F7] px-6 pb-4 pt-3">
+                  <div className="mb-2 text-xs text-[#8D95A3]">灵感模板</div>
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+                    {INSPIRATION_TEMPLATES.map((template) => {
+                      const isHovered = hoveredTemplateId === template.id;
+                      return (
+                        <button
+                          key={template.id}
+                          type="button"
+                          onMouseEnter={() => handleTemplateHoverStart(template.id)}
+                          onMouseLeave={() => handleTemplateHoverEnd(template.id)}
+                          onFocus={() => handleTemplateHoverStart(template.id)}
+                          onBlur={() => handleTemplateHoverEnd(template.id)}
+                          className={`rounded-lg border px-3 py-2 text-left transition ${
+                            isHovered
+                              ? 'border-[#BFD3EA] bg-[#F4F8FF]'
+                              : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-[#FAFCFF]'
+                          }`}
+                        >
+                          <div className="text-[13px] font-semibold text-[#2E3542]">{template.title}</div>
+                          <div className="mt-1 text-[11px] leading-5 text-[#9AA2AF]">{template.description}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-1 text-right text-[#A9B0BD]">‹ ›</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
 
       <HubCatEditor
