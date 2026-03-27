@@ -476,7 +476,7 @@ apply_modelarts_custom_env() {
     # Example: "dare:jiuwen,anthropic:Claude,opencode:OpenCode"
     # CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false hides all builtin auth.
     collect_env "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
-    collect_env "CAT_CAFE_CLIENT_LABELS" "dare:jiuwen"
+    collect_env "CAT_CAFE_CLIENT_LABELS" "dare:dare,relayclaw:jiuwen"
     clear_env "CODEX_AUTH_MODE"
     clear_env "OPENAI_API_KEY"; clear_env "OPENAI_BASE_URL"; clear_env "OPENAI_API_BASE"; clear_env "CAT_CODEX_MODEL"
     clear_env "GEMINI_API_KEY"; clear_env "GEMINI_BASE_URL"; clear_env "CAT_GEMINI_MODEL"

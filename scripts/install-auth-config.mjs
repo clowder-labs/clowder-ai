@@ -489,11 +489,12 @@ function buildModelartsBreed(template, breedId, options) {
         id: variantId,
         catId: options.catId,
         provider: options.provider,
-        defaultModel: 'glm-5',
+        defaultModel: options.defaultModel ?? 'glm-5',
         mcpSupport: true,
         cli: defaultCliForProvider(options.provider),
-        accountRef: 'modelarts-shared',
-        providerProfileId: 'modelarts-shared',
+        ...(options.provider !== 'relayclaw'
+          ? { accountRef: 'modelarts-shared', providerProfileId: 'modelarts-shared' }
+          : { accountRef: `${options.catId}-relayclaw` }),
       },
     ],
   };
