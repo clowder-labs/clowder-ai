@@ -21,6 +21,21 @@ internal static class Program
     [DllImport("shcore.dll", SetLastError = true)]
     private static extern int SetProcessDpiAwareness(int awareness);
 
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    private const int SW_RESTORE = 9;
+    private const int SW_SHOW = 5;
+
     private static void EnableHighDpi()
     {
         try
@@ -35,6 +50,26 @@ internal static class Program
         }
     }
 
+    private static void ActivateExistingInstance()
+    {
+        var hWnd = FindWindow(null, "OfficeClaw");
+        if (hWnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        if (IsIconic(hWnd))
+        {
+            ShowWindow(hWnd, SW_RESTORE);
+        }
+        else
+        {
+            ShowWindow(hWnd, SW_SHOW);
+        }
+
+        SetForegroundWindow(hWnd);
+    }
+
     [STAThread]
     private static void Main()
     {
@@ -45,12 +80,7 @@ internal static class Program
         {
             if (!createdNew)
             {
-                MessageBox.Show(
-                    "OfficeClaw is already running.",
-                    "OfficeClaw",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
+                ActivateExistingInstance();
                 return;
             }
 
@@ -202,6 +232,7 @@ internal sealed class LauncherForm : Form
     private NotifyIcon CreateNotifyIcon()
     {
         var contextMenu = new ContextMenuStrip();
+        contextMenu.ShowImageMargin = false;
         contextMenu.Items.Add("打开 OfficeClaw", null, (_, __) => RestoreFromTray());
         contextMenu.Items.Add("退出", null, (_, __) => RequestExit());
 
