@@ -106,6 +106,25 @@ const TASK_FAILED = {
   event: 'task.failed',
   data: { task: 'do thing', error: 'Approval timed out' },
 };
+const THINKING_TRANSPORT = {
+  schema_version: 'client-headless-event-envelope.v1',
+  ts: 1709500002.5,
+  session_id: 'dare-sess-1',
+  run_id: 'run-1',
+  seq: 3.5,
+  event: 'transport.raw',
+  data: {
+    id: 'env-thinking-1',
+    kind: 'message',
+    payload: {
+      id: 'msg-thinking-1',
+      role: 'assistant',
+      message_kind: 'thinking',
+      text: 'I am reasoning about the requested change.',
+      data: { target: 'model' },
+    },
+  },
+};
 
 describe('DareAgentService', () => {
   test('yields session_init, text, done from headless events', async () => {
@@ -137,6 +156,23 @@ describe('DareAgentService', () => {
     const types = messages.map((m) => m.type);
     assert.ok(types.includes('tool_use'));
     assert.ok(types.includes('tool_result'));
+  });
+
+  test('yields system_info(thinking) for transport thinking payloads', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
+    const promise = collect(service.invoke('Think first'));
+    emitDareEvents(proc, [SESSION_STARTED, THINKING_TRANSPORT, TASK_COMPLETED]);
+    const messages = await promise;
+
+    const thinkingMsg = messages.find((m) => m.type === 'system_info');
+    assert.ok(thinkingMsg, 'expected system_info message');
+    assert.deepStrictEqual(JSON.parse(thinkingMsg.content), {
+      type: 'thinking',
+      catId: 'dare',
+      text: 'I am reasoning about the requested change.',
+    });
   });
 
   test('passes --headless and --full-auto in CLI args', async () => {
