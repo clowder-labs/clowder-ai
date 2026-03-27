@@ -81,6 +81,7 @@ export function AgentsPanel() {
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
+  const [personaDraft, setPersonaDraft] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const [hoveredTemplatePosition, setHoveredTemplatePosition] = useState<{ left: number; top: number } | null>(null);
@@ -89,6 +90,7 @@ export function AgentsPanel() {
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const templatePreviewLayerRef = useRef<HTMLDivElement | null>(null);
   const hoveredTemplateTriggerRef = useRef<HTMLElement | null>(null);
+  const personaTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -139,6 +141,10 @@ export function AgentsPanel() {
     () => INSPIRATION_TEMPLATES.find((template) => template.id === hoveredTemplateId) ?? null,
     [hoveredTemplateId],
   );
+
+  useEffect(() => {
+    setPersonaDraft(selectedCat?.personality ?? '');
+  }, [selectedCat]);
 
   useEffect(() => {
     if (cats.length === 0) {
@@ -203,6 +209,12 @@ export function AgentsPanel() {
       });
       hoverClearTimerRef.current = null;
     }, 100);
+  }, []);
+
+  const handleTemplateApply = useCallback((template: (typeof INSPIRATION_TEMPLATES)[number]) => {
+    const templateText = template.persona.join('\n');
+    setPersonaDraft((current) => (current.trim() ? `${current.trimEnd()}\n\n${templateText}` : templateText));
+    personaTextareaRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -306,27 +318,37 @@ export function AgentsPanel() {
                 </button>
               ))}
               <div className="flex-1" />
-              <button
+ 
+            </div>
+
+            {fetchError ? <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{fetchError}</p> : null}
+
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E7EBF1] bg-white">
+              <div className="flex w-full justify-end">
+                <button
+                type="button"
+                onClick={() => (selectedCat ? openEditMember(selectedCat.id) : openAddMember())}
+                className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
+              >
+                清除
+              </button>
+                <button
                 type="button"
                 onClick={() => (selectedCat ? openEditMember(selectedCat.id) : openAddMember())}
                 className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
               >
                 灵感模板
               </button>
-            </div>
-
-            {fetchError ? <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{fetchError}</p> : null}
-
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E7EBF1] bg-white">
+              </div>
               <div ref={templatePreviewLayerRef} data-testid="template-preview-layer" className="relative flex h-full flex-col">
-                <div className="px-6 pt-5 text-xs text-[#B2B9C5]">
-                  请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
-                </div>
-
-                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden px-6 py-6">
-                  {!hoveredTemplate ? (
-                    <div className="text-center text-sm text-[#A0A8B6]">将鼠标移动到下方模板卡片以预览人格定义</div>
-                  ) : null}
+                <div className="flex min-h-0 flex-1 overflow-hidden px-6 py-6">
+                    <textarea
+                      ref={personaTextareaRef}
+                      value={personaDraft}
+                      onChange={(event) => setPersonaDraft(event.target.value)}
+                      placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
+                      className="w-full min-h-0 flex-1 resize-none rounded-2xl  text-[12px] leading-7 text-[#334155] outline-none transition placeholder:text-[#A0A8B6]"
+                    />
                 </div>
 
                 <div className="border-t border-[#EEF2F7] px-6 pb-4 pt-3">
@@ -381,6 +403,7 @@ export function AgentsPanel() {
                     </ul>
                     <button
                       type="button"
+                      onClick={() => handleTemplateApply(hoveredTemplate)}
                       className="mt-6 rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
                     >
                       {hoveredTemplate.applyLabel}
