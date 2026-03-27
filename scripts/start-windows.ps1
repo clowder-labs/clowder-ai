@@ -59,7 +59,7 @@ try {
 # -- Load .env -----------------------------------------------
 $envFile = Join-Path $ProjectRoot ".env"
 if (Test-Path $envFile) {
-    Get-Content $envFile | ForEach-Object {
+    Get-Content $envFile -Encoding UTF8 | ForEach-Object {
         $line = $_.Trim()
         if ($line -and -not $line.StartsWith("#")) {
             $parts = $line -split "=", 2

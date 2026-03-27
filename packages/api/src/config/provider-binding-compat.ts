@@ -100,10 +100,10 @@ export function validateRuntimeProviderBinding(
 
   if (provider === 'relayclaw') {
     if (profile.authType !== 'api_key') {
-      return 'client "jiuwen" requires an API key provider profile';
+      return 'client "relayclaw" requires an API key provider profile';
     }
     if (profile.protocol && profile.protocol !== 'openai') {
-      return 'client "jiuwen" currently only supports openai-compatible API key profiles';
+      return 'client "relayclaw" currently only supports openai-compatible API key profiles';
     }
   }
 
@@ -122,7 +122,7 @@ export function validateRuntimeProviderBinding(
   // The invocation chain uses account.protocol for env var injection.
 
   const trimmedModel = defaultModel?.trim().replace(/\x1B\[[^m]*m|\[\d+m\]/g, '');
-  if (trimmedModel && profile.models?.length && !profile.models.includes(trimmedModel)) {
+  if (trimmedModel && profile.kind === 'builtin' && profile.models?.length && !profile.models.includes(trimmedModel)) {
     return `model "${trimmedModel}" is not available on provider "${profile.id}"`;
   }
 
