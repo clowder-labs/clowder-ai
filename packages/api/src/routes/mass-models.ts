@@ -54,9 +54,10 @@ export const massModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
   });
 
   app.get('/api/maas-send', async (request) => {
-    const modelInfo: any = {};
+    const userId = request.headers['x-cat-cafe-user'] as string;
+    const modelInfo:any = sessions.get(userId)?.modelInfo || {};
     try {
-      const modelResponse = await fetch(`https://${modelInfo.model_api_url_base}/v2/chart/completions`,{
+      const modelResponse = await fetch(`https://${modelInfo.model_api_url_base}/v2/chat/completions`,{
         method: 'POST',
         headers: {
           'Content-Type': 'application/json;charset=utf8',
@@ -69,7 +70,7 @@ export const massModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
         throw new Error(`${modelResponse.status}`);
       }
       const data: any = await modelResponse.json();
-      return { success: true, list: data.data };
+      return data;
     } catch (error) {
       console.error('获取模型失败:', error);
       return { success: true, list: [] };
