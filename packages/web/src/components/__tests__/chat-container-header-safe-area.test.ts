@@ -3,10 +3,18 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainerHeader } from '@/components/ChatContainerHeader';
 
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) =>
-    React.createElement('a', { href, ...rest }, children),
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({ theme: 'default', config: null, toggleTheme: vi.fn() }),
 }));
+
+vi.mock('@/stores/chatStore', () => {
+  const state = { openHub: vi.fn() };
+  const hook = Object.assign(
+    (selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state),
+    { getState: () => state },
+  );
+  return { useChatStore: hook };
+});
 
 describe('ChatContainerHeader safe-area', () => {
   let container: HTMLDivElement;
@@ -33,7 +41,7 @@ describe('ChatContainerHeader safe-area', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('applies top safe-area class so iOS standalone status bar does not overlap header', async () => {
+  it('keeps safe-area class while using compact controls row', async () => {
     await act(async () => {
       root.render(
         React.createElement(ChatContainerHeader, {
@@ -52,10 +60,9 @@ describe('ChatContainerHeader safe-area', () => {
     const header = container.querySelector('header');
     expect(header).not.toBeNull();
     expect(header?.className).toContain('safe-area-top');
-    expect(header?.className).not.toContain('py-3');
 
     const innerRow = header?.querySelector('div');
     expect(innerRow).not.toBeNull();
-    expect(innerRow?.className).toContain('py-3');
+    expect(innerRow?.className).toContain('py-2');
   });
 });

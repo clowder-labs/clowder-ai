@@ -1,39 +1,22 @@
-/**
- * Thread indicator in ChatContainerHeader.
- * Verifies that the header shows the current thread title (not just "OfficeClaw").
- */
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainerHeader } from '@/components/ChatContainerHeader';
 
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) =>
-    React.createElement('a', { href, ...rest }, children),
+const { mockToggleTheme, mockOpenHub } = vi.hoisted(() => ({
+  mockToggleTheme: vi.fn(),
+  mockOpenHub: vi.fn(),
 }));
 
-const TEST_THREADS = [
-  {
-    id: 'thread_xyz',
-    title: '讨论 F095 设计',
-    projectPath: '/projects/cat-cafe',
-    createdBy: 'user1',
-    participants: ['user1'],
-    lastActiveAt: Date.now(),
-    createdAt: Date.now(),
-    pinned: false,
-    favorited: false,
-    preferredCats: [] as string[],
-  },
-];
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({ theme: 'default', config: null, toggleTheme: mockToggleTheme }),
+}));
 
-const mockStore: Record<string, unknown> = {
-  threads: TEST_THREADS,
-};
 vi.mock('@/stores/chatStore', () => {
+  const state = { openHub: mockOpenHub };
   const hook = Object.assign(
-    (selector?: (s: typeof mockStore) => unknown) => (selector ? selector(mockStore) : mockStore),
-    { getState: () => mockStore },
+    (selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state),
+    { getState: () => state },
   );
   return { useChatStore: hook };
 });
@@ -41,6 +24,7 @@ vi.mock('@/stores/chatStore', () => {
 const defaultProps = {
   sidebarOpen: false,
   onToggleSidebar: vi.fn(),
+  threadId: 'default',
   authPendingCount: 0,
   viewMode: 'single' as const,
   onToggleViewMode: vi.fn(),
@@ -48,7 +32,7 @@ const defaultProps = {
   defaultCatId: 'opus',
 };
 
-describe('ChatContainerHeader thread indicator', () => {
+describe('ChatContainerHeader controls', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -61,6 +45,8 @@ describe('ChatContainerHeader thread indicator', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockToggleTheme.mockReset();
+    mockOpenHub.mockReset();
   });
 
   afterEach(() => {
@@ -73,75 +59,34 @@ describe('ChatContainerHeader thread indicator', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('shows "大厅" when threadId is default', () => {
+  it('removes page title area while keeping settings/theme controls', () => {
     act(() => {
-      root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'default' }));
+      root.render(React.createElement(ChatContainerHeader, defaultProps));
     });
 
-    expect(container.textContent).toContain('大厅');
+    expect(container.querySelector('h1')).toBeNull();
+    expect(container.querySelector('img[alt="OfficeClaw"]')).toBeNull();
+
+    const hubBtn = container.querySelector('button[aria-label="OfficeClaw Hub"]') as HTMLButtonElement | null;
+    const themeBtn = container.querySelector('button[aria-label="Switch to business theme"]') as HTMLButtonElement | null;
+    expect(hubBtn).toBeTruthy();
+    expect(themeBtn).toBeTruthy();
   });
 
-  it('shows thread title and project name when a specific thread is selected', () => {
+  it('still supports settings and theme button interactions', () => {
     act(() => {
-      root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'thread_xyz' }));
+      root.render(React.createElement(ChatContainerHeader, defaultProps));
     });
 
-    expect(container.textContent).toContain('讨论 F095 设计');
-    expect(container.textContent).toContain('cat-cafe');
-  });
+    const hubBtn = container.querySelector('button[aria-label="OfficeClaw Hub"]') as HTMLButtonElement;
+    const themeBtn = container.querySelector('button[aria-label="Switch to business theme"]') as HTMLButtonElement;
 
-  it('shows "未命名对话" when thread has no title', () => {
-    mockStore.threads = [{ ...TEST_THREADS[0], id: 'thread_no_title', title: null }];
     act(() => {
-      root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'thread_no_title' }));
+      hubBtn.click();
+      themeBtn.click();
     });
 
-    expect(container.textContent).toContain('未命名对话');
-  });
-
-  it('hides sentinel projectPath "default" from thread label', () => {
-    mockStore.threads = [{ ...TEST_THREADS[0], id: 'thread_sentinel', projectPath: 'default' }];
-    act(() => {
-      root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'thread_sentinel' }));
-    });
-
-    expect(container.textContent).toContain('讨论 F095 设计');
-    expect(container.textContent).not.toContain('default');
-  });
-
-  it('preserves "default" label for real path ending in /default', () => {
-    mockStore.threads = [{ ...TEST_THREADS[0], id: 'thread_real_default', projectPath: '/tmp/default' }];
-    act(() => {
-      root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'thread_real_default' }));
-    });
-
-    expect(container.textContent).toContain('讨论 F095 设计');
-    expect(container.textContent).toContain('default');
-  });
-
-  it('extracts basename from Windows backslash path', () => {
-    mockStore.threads = [{ ...TEST_THREADS[0], id: 'thread_win', projectPath: 'C:\\Users\\dev\\my-app' }];
-    act(() => {
-      root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'thread_win' }));
-    });
-
-    expect(container.textContent).toContain('my-app');
-  });
-
-  it('maps internal basename to brand name when NEXT_PUBLIC_BRAND_NAME is set', () => {
-    const origEnv = process.env.NEXT_PUBLIC_BRAND_NAME;
-    process.env.NEXT_PUBLIC_BRAND_NAME = 'OfficeClaw';
-    try {
-      mockStore.threads = [{ ...TEST_THREADS[0], id: 'thread_brand', projectPath: '/home/user/cat-cafe' }];
-      act(() => {
-        root.render(React.createElement(ChatContainerHeader, { ...defaultProps, threadId: 'thread_brand' }));
-      });
-
-      expect(container.textContent).toContain('OfficeClaw');
-      expect(container.textContent).not.toContain('cat-cafe');
-    } finally {
-      if (origEnv === undefined) delete process.env.NEXT_PUBLIC_BRAND_NAME;
-      else process.env.NEXT_PUBLIC_BRAND_NAME = origEnv;
-    }
+    expect(mockOpenHub).toHaveBeenCalledTimes(1);
+    expect(mockToggleTheme).toHaveBeenCalledTimes(1);
   });
 });

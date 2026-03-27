@@ -6,7 +6,6 @@ import { useCatData } from '@/hooks/useCatData';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
-import { useTheme } from '@/hooks/useTheme';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
@@ -55,7 +54,6 @@ export function ChatInput({
   uploadStatus = 'idle',
   uploadError = null,
 }: ChatInputProps) {
-  const { theme, config } = useTheme();
   const { cats } = useCatData();
   const catOptions = useMemo(() => buildCatOptions(cats), [cats]);
   const whisperOptions = useMemo(() => buildWhisperOptions(cats), [cats]);
@@ -502,14 +500,11 @@ export function ChatInput({
     setGhostSuggestion(match);
   }, [input, findHistoryMatch]);
 
-  // Auto-resize textarea based on content
+  // Fixed footer input box size by design.
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
-    ta.style.height = 'auto';
-    const isMobile = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 767px)').matches : false;
-    const maxH = isMobile ? 120 : 200; // ~5 lines mobile, ~8 lines desktop
-    ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
+    ta.style.height = '100px';
   }, [input]);
 
   useEffect(() => {
@@ -528,13 +523,8 @@ export function ChatInput({
     return () => document.removeEventListener('mousedown', handler);
   }, [activeMenu, closeMenus]);
 
-  const footerBgColor = theme === 'business' && config?.footer?.bg ? config.footer.bg : undefined;
-
   return (
-    <div
-      className="border-t border-cocreator-light bg-cocreator-bg relative safe-area-bottom"
-      style={footerBgColor ? { backgroundColor: footerBgColor } : undefined}
-    >
+    <div className="relative safe-area-bottom bg-transparent">
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
         <div className="px-4 pt-2 flex items-center gap-2">
@@ -670,16 +660,6 @@ export function ChatInput({
           </svg>
         </button>
 
-        {/* Desktop: tool buttons always visible */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-          className="hidden md:block p-3 rounded-xl text-gray-400 hover:text-cocreator-primary hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          aria-label="Attach images"
-        >
-          <AttachIcon className="w-5 h-5" />
-        </button>
-
         <button
           onClick={handleWhisperToggle}
           disabled={disabled || sendTemporarilyDisabled}
@@ -713,8 +693,9 @@ export function ChatInput({
           </svg>
         </button>
 
-        <div className="flex-1 relative">
-          <textarea
+        <div className="flex-1">
+          <div className="relative mx-auto w-[80%]">
+            <textarea
             ref={textareaRef}
             value={input}
             onChange={handleChange}
@@ -723,7 +704,7 @@ export function ChatInput({
             placeholder={
               whisperMode ? '悄悄话...' : hasActiveInvocation ? '继续输入，消息会排队...' : '输入消息... (@ 召唤猫猫)'
             }
-            className={`w-full resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
+            className={`block h-[100px] w-full resize-none rounded-xl border p-3 pr-12 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
               whisperMode
                 ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
                 : 'border-cocreator-light bg-white focus:ring-cocreator-primary'
@@ -734,13 +715,22 @@ export function ChatInput({
           {ghostSuggestion && !pathCompletion.isOpen && (
             <div
               data-testid="ghost-suggestion"
-              className="absolute inset-0 pointer-events-none p-3 text-sm whitespace-pre-wrap break-words overflow-hidden rounded-xl"
+              className="pointer-events-none absolute inset-0 h-[100px] w-full overflow-hidden whitespace-pre-wrap break-words rounded-xl p-3 pr-12 text-sm"
               aria-hidden="true"
             >
               <span className="invisible">{input}</span>
               <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
             </div>
           )}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
+              className="absolute bottom-2 right-2 hidden rounded-lg p-2 text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30 md:block"
+              aria-label="Attach images"
+            >
+              <AttachIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <ChatInputActionButton
