@@ -48,7 +48,7 @@ export function normalizeBaseUrl(baseUrl: string | undefined): string | undefine
   return trimmed ? trimmed.replace(/\/+$/, '') : undefined;
 }
 
-export function normalizeProvider(provider: string | undefined): AcpModelProviderType | undefined {
+export function normalizeProvider(provider: string | null | undefined): AcpModelProviderType | undefined {
   if (
     provider === 'openai_compatible' ||
     provider === 'bigmodel' ||
@@ -88,29 +88,32 @@ export function normalizeMeta(meta: AcpModelProfilesMetaFile | null): AcpModelPr
     version: 1,
     profiles: meta.profiles
       .filter((profile) => typeof profile?.id === 'string' && profile.id.trim().length > 0)
-      .map((profile) => ({
-        id: profile.id.trim(),
-        displayName: profile.displayName.trim(),
-        provider: profile.provider,
-        model: profile.model.trim(),
-        baseUrl: profile.baseUrl.trim(),
-        ...(profile.sslVerify !== undefined ? { sslVerify: profile.sslVerify } : {}),
-        ...(normalizeTemperature(profile.temperature) !== undefined
-          ? { temperature: normalizeTemperature(profile.temperature) }
-          : {}),
-        ...(normalizeUnitInterval(profile.topP) !== undefined ? { topP: normalizeUnitInterval(profile.topP) } : {}),
-        ...(normalizePositiveNumber(profile.maxTokens) !== undefined
-          ? { maxTokens: normalizePositiveNumber(profile.maxTokens) }
-          : {}),
-        ...(normalizePositiveNumber(profile.contextWindow) !== undefined
-          ? { contextWindow: normalizePositiveNumber(profile.contextWindow) }
-          : {}),
-        ...(normalizePositiveNumber(profile.connectTimeoutSeconds) !== undefined
-          ? { connectTimeoutSeconds: normalizePositiveNumber(profile.connectTimeoutSeconds) }
-          : {}),
-        createdAt: profile.createdAt,
-        updatedAt: profile.updatedAt,
-      })),
+      .map((profile) => {
+        const normalizedProvider = normalizeProvider(profile.provider);
+        return {
+          id: profile.id.trim(),
+          displayName: profile.displayName.trim(),
+          ...(normalizedProvider ? { provider: normalizedProvider } : {}),
+          model: profile.model.trim(),
+          baseUrl: profile.baseUrl.trim(),
+          ...(profile.sslVerify !== undefined ? { sslVerify: profile.sslVerify } : {}),
+          ...(normalizeTemperature(profile.temperature) !== undefined
+            ? { temperature: normalizeTemperature(profile.temperature) }
+            : {}),
+          ...(normalizeUnitInterval(profile.topP) !== undefined ? { topP: normalizeUnitInterval(profile.topP) } : {}),
+          ...(normalizePositiveNumber(profile.maxTokens) !== undefined
+            ? { maxTokens: normalizePositiveNumber(profile.maxTokens) }
+            : {}),
+          ...(normalizePositiveNumber(profile.contextWindow) !== undefined
+            ? { contextWindow: normalizePositiveNumber(profile.contextWindow) }
+            : {}),
+          ...(normalizePositiveNumber(profile.connectTimeoutSeconds) !== undefined
+            ? { connectTimeoutSeconds: normalizePositiveNumber(profile.connectTimeoutSeconds) }
+            : {}),
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
+        };
+      }),
   };
 }
 

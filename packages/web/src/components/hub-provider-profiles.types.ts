@@ -51,7 +51,7 @@ export interface AcpModelProfileItem {
   id: string;
   displayName: string;
   name: string;
-  provider: AcpModelProviderType;
+  provider?: AcpModelProviderType;
   model: string;
   baseUrl: string;
   sslVerify?: boolean | null;

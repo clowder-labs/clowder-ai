@@ -11,7 +11,7 @@ function Mount-InstallerSkills {
         return
     }
 
-    $skillItems = Get-ChildItem $skillsSource -Directory | Where-Object { $_.Name -ne "refs" }
+    $skillItems = Get-ChildItem $skillsSource -Force
     foreach ($cliDir in $cliDirs) {
         $skillsRoot = Join-Path $cliDir "skills"
         if (-not (Test-Path $skillsRoot)) {
@@ -19,37 +19,64 @@ function Mount-InstallerSkills {
         }
         foreach ($skill in $skillItems) {
             $skillTarget = Join-Path $skillsRoot $skill.Name
-            $expectedTarget = Get-InstallerNormalizedPath -Path $skill.FullName
-            $existingItem = Get-Item -LiteralPath $skillTarget -Force -ErrorAction SilentlyContinue
-            if ($existingItem) {
-                $existingTarget = Get-InstallerSkillLinkTarget -Path $skillTarget
-                if ($existingTarget -eq $expectedTarget) {
-                    Write-Ok "Skill already mounted: $skillTarget"
-                    continue
-                }
-                $linkType = "$($existingItem.LinkType)"
-                if ($linkType -notin @("Junction", "SymbolicLink")) {
-                    Write-Warn "Skill target exists and is not a junction: $skillTarget"
-                    continue
-                }
-                Write-Warn "Refreshing stale skill mount: $skillTarget"
-                cmd /c rmdir "$skillTarget" 2>$null | Out-Null
-                if (Get-Item -LiteralPath $skillTarget -Force -ErrorAction SilentlyContinue) {
-                    throw "stale junction cleanup failed"
-                }
-            }
-            try {
-                cmd /c mklink /J "$skillTarget" "$($skill.FullName)" 2>$null | Out-Null
-                if (Test-Path $skillTarget) {
-                    Write-Ok "Skill mounted: $skillTarget"
-                } else {
-                    throw "junction failed"
-                }
-            } catch {
-                Write-Warn "Could not create junction for $skillTarget"
-                Write-Warn "Run manually: mklink /J `"$skillTarget`" `"$($skill.FullName)`""
+            if ($skill.PSIsContainer) {
+                Mount-InstallerSkillDirectory -SourcePath $skill.FullName -TargetPath $skillTarget
+            } else {
+                Sync-InstallerSkillFile -SourcePath $skill.FullName -TargetPath $skillTarget
             }
         }
+    }
+}
+
+function Mount-InstallerSkillDirectory {
+    param([string]$SourcePath, [string]$TargetPath)
+
+    $expectedTarget = Get-InstallerNormalizedPath -Path $SourcePath
+    $existingItem = Get-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue
+    if ($existingItem) {
+        $existingTarget = Get-InstallerSkillLinkTarget -Path $TargetPath
+        if ($existingTarget -eq $expectedTarget) {
+            Write-Ok "Skill mounted: $TargetPath"
+            return
+        }
+        $linkType = "$($existingItem.LinkType)"
+        if ($linkType -notin @("Junction", "SymbolicLink")) {
+            Write-Warn "Skill target exists and is not a junction: $TargetPath"
+            return
+        }
+        Write-Warn "Refreshing stale skill mount: $TargetPath"
+        cmd /c rmdir "$TargetPath" 2>$null | Out-Null
+        if (Get-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue) {
+            throw "stale junction cleanup failed"
+        }
+    }
+    try {
+        cmd /c mklink /J "$TargetPath" "$SourcePath" 2>$null | Out-Null
+        if (Test-Path $TargetPath) {
+            Write-Ok "Skill mounted: $TargetPath"
+        } else {
+            throw "junction failed"
+        }
+    } catch {
+        Write-Warn "Could not create junction for $TargetPath"
+        Write-Warn "Run manually: mklink /J `"$TargetPath`" `"$SourcePath`""
+    }
+}
+
+function Sync-InstallerSkillFile {
+    param([string]$SourcePath, [string]$TargetPath)
+
+    $existingItem = Get-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue
+    if ($existingItem -and $existingItem.PSIsContainer) {
+        Write-Warn "Skill metadata target exists as a directory: $TargetPath"
+        return
+    }
+
+    try {
+        Copy-Item -Path $SourcePath -Destination $TargetPath -Force
+        Write-Ok "Skill metadata synced: $TargetPath"
+    } catch {
+        Write-Warn "Could not sync skill metadata file to $TargetPath"
     }
 }
 
