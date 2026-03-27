@@ -9,9 +9,9 @@ import {
   DareAgentService,
   resolveDefaultDarePath,
   resolvePreferredDarePath,
+  resolveSystemPythonCommand,
   resolveVendorDarePath,
   resolveVendoredDareExecutable,
-  resolveSystemPythonCommand,
   resolveVenvPython,
 } from '../dist/domains/cats/services/agents/providers/DareAgentService.js';
 
@@ -507,6 +507,38 @@ describe('DareAgentService', () => {
       if (oldModelArtsKey !== undefined) process.env.HUAWEI_MODELARTS_API_KEY = oldModelArtsKey;
       else delete process.env.HUAWEI_MODELARTS_API_KEY;
     }
+  });
+
+  test('callbackEnv adapter override controls --adapter and key env mapping', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'glm-5',
+      adapter: 'openrouter',
+    });
+
+    const promise = collect(
+      service.invoke('Test adapter override', {
+        callbackEnv: {
+          CAT_CAFE_DARE_ADAPTER: 'huawei-modelarts',
+          DARE_API_KEY: 'sk-modelarts',
+        },
+      }),
+    );
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const adapterIdx = args.indexOf('--adapter');
+    assert.ok(adapterIdx >= 0, `expected --adapter in args: ${args}`);
+    assert.strictEqual(args[adapterIdx + 1], 'huawei-modelarts');
+
+    const opts = spawnFn.mock.calls[0].arguments[2];
+    assert.strictEqual(opts.env.HUAWEI_MODELARTS_API_KEY, 'sk-modelarts');
+    assert.ok(!('OPENROUTER_API_KEY' in opts.env), 'old adapter env should not be injected');
+    assert.ok(!('DARE_API_KEY' in opts.env), 'generic key should not leak to child env');
   });
 
   test('always yields exactly one final done', async () => {

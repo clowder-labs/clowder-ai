@@ -6,7 +6,7 @@
  * - a bundled standalone executable such as `vendor/dare.exe`
  */
 
-import { accessSync, constants as fsConstants, existsSync, lstatSync, readFileSync } from 'node:fs';
+import { accessSync, existsSync, constants as fsConstants, lstatSync, readFileSync } from 'node:fs';
 import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
@@ -70,6 +70,7 @@ interface DareLaunchSpec {
 
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
 const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
+const DARE_ADAPTER_OVERRIDE_ENV = 'CAT_CAFE_DARE_ADAPTER';
 
 const ADAPTER_KEY_ENV: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
@@ -288,6 +289,7 @@ export class DareAgentService implements AgentService {
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const workspaceConfig = readWorkspaceDareConfig(options?.workingDirectory);
     const effectiveModel = options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
+    const effectiveAdapter = this.resolveAdapter(options?.callbackEnv);
 
     let cliModel = effectiveModel;
     if (!cliModel) {
@@ -329,9 +331,10 @@ export class DareAgentService implements AgentService {
     }
 
     const launchSpec = configuredLaunchSpec ?? buildModuleLaunchSpec(this.darePath);
-    const endpoint = this.resolveEndpoint(options?.callbackEnv);
+    const endpoint = this.resolveEndpoint(options?.callbackEnv, effectiveAdapter);
     const args = this.buildArgs(prompt, {
       argsPrefix: launchSpec.argsPrefix,
+      adapter: effectiveAdapter,
       workspace: options?.workingDirectory,
       sessionId: options?.sessionId,
       endpoint,
@@ -340,7 +343,7 @@ export class DareAgentService implements AgentService {
       systemPrompt: options?.systemPrompt,
       mcpServerPath: options?.callbackEnv ? this.mcpServerPath : undefined,
     });
-    const childEnv = this.buildEnv(options?.callbackEnv, cliModel);
+    const childEnv = this.buildEnv(options?.callbackEnv, cliModel, effectiveAdapter);
     const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
     let sessionInitEmitted = false;
 
@@ -436,6 +439,7 @@ export class DareAgentService implements AgentService {
     prompt: string,
     opts?: {
       argsPrefix?: readonly string[];
+      adapter?: string;
       workspace?: string;
       sessionId?: string;
       endpoint?: string;
@@ -446,8 +450,8 @@ export class DareAgentService implements AgentService {
     },
   ): string[] {
     const args = [...(opts?.argsPrefix ?? ['-m', 'client'])];
-    if (this.adapter) {
-      args.push('--adapter', this.adapter);
+    if (opts?.adapter) {
+      args.push('--adapter', opts.adapter);
     }
     if (opts?.model) {
       args.push('--model', opts.model);
@@ -480,9 +484,13 @@ export class DareAgentService implements AgentService {
     return args;
   }
 
-  private buildEnv(callbackEnv?: Record<string, string>, model?: string): Record<string, string | null> {
+  private buildEnv(
+    callbackEnv?: Record<string, string>,
+    model?: string,
+    adapter?: string,
+  ): Record<string, string | null> {
     const env: Record<string, string | null> = { ...callbackEnv };
-    const apiKeyEnvName = this.adapter ? ADAPTER_KEY_ENV[this.adapter] : undefined;
+    const apiKeyEnvName = adapter ? ADAPTER_KEY_ENV[adapter] : undefined;
     const apiKey =
       callbackEnv?.[DARE_API_KEY_ENV] ??
       (apiKeyEnvName ? callbackEnv?.[apiKeyEnvName] : undefined) ??
@@ -522,12 +530,16 @@ export class DareAgentService implements AgentService {
     return env;
   }
 
-  private getAdapterEndpointEnvName(): string | undefined {
-    return this.adapter ? ADAPTER_ENDPOINT_ENV[this.adapter] : undefined;
+  private resolveAdapter(callbackEnv?: Record<string, string>): string | undefined {
+    return callbackEnv?.[DARE_ADAPTER_OVERRIDE_ENV]?.trim() || this.adapter;
   }
 
-  private resolveEndpoint(callbackEnv?: Record<string, string>): string | undefined {
-    const adapterEndpointEnv = this.getAdapterEndpointEnvName();
+  private getAdapterEndpointEnvName(adapter?: string): string | undefined {
+    return adapter ? ADAPTER_ENDPOINT_ENV[adapter] : undefined;
+  }
+
+  private resolveEndpoint(callbackEnv?: Record<string, string>, adapter?: string): string | undefined {
+    const adapterEndpointEnv = this.getAdapterEndpointEnvName(adapter);
     return (
       callbackEnv?.[DARE_ENDPOINT_ENV] ??
       (adapterEndpointEnv ? callbackEnv?.[adapterEndpointEnv] : undefined) ??
