@@ -11,7 +11,6 @@ import {
   StatusDotIdle,
   StepBadge,
   TriangleAlertIcon,
-  WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
 
@@ -276,7 +275,7 @@ export function HubConnectorConfigTab() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
                       <StepBadge num={Math.max(selectedPlatform.steps.length + 1, 2)} />
-                      <span className="text-[13px] font-medium text-gray-900">测试连接并保存</span>
+                      <span className="text-[13px] font-medium text-gray-900">保存配置</span>
                     </div>
                     {saveResult && (
                       <div
@@ -291,14 +290,6 @@ export function HubConnectorConfigTab() {
                       </div>
                     )}
                     <div className="ml-[26px] flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                        onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
-                      >
-                        <WifiIcon />
-                        测试连接
-                      </button>
                       {selectedPlatform.fields.some((f) => !f.sensitive) ? (
                         <button
                           type="button"
