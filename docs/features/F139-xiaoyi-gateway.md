@@ -219,10 +219,10 @@ HAG webhook — 长任务完成后推送摘要到手机。
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 华为开发者账号是否已注册？能否在小艺开放平台创建智能体？ | ⬜ 未定 |
-| OQ-2 | 使用 xiaoyi_channel（AK/SK）还是 xiaoyi_claw（UID/API_KEY）？ | ⬜ 未定 |
-| OQ-3 | reasoningText 是否转发到前端展示？ | ⬜ 未定 |
-| OQ-4 | 手机工具调用 Agent 侧 API 如何暴露？ | ⬜ 未定 |
+| OQ-1 | 华为开发者账号是否已注册？能否在小艺开放平台创建智能体？ | ✅ 已注册（2026-03-27 铲屎官确认） |
+| OQ-2 | 使用 xiaoyi_channel（AK/SK）还是 xiaoyi_claw（UID/API_KEY）？ | ✅ 用 AK/SK 模式（2026-03-27 铲屎官确认） |
+| OQ-3 | reasoningText 是否转发到前端展示？ | ✅ 需要转发（2026-03-27 铲屎官确认） |
+| OQ-4 | 手机工具调用 Agent 侧 API 如何暴露？ | ⬜ 讨论中（见下方分析） |
 
 ## Key Decisions
 
@@ -232,6 +232,8 @@ HAG webhook — 长任务完成后推送摘要到手机。
 | KD-2 | 复用 IM HUB 公共层 | F088 三层架构原则，Adapter 只做协议 | 2026-03-27 |
 | KD-3 | 参考 jiuwenclaw 用 TypeScript 重写 | 适配 Node.js + IM HUB 架构 | 2026-03-27 |
 | KD-4 | Scope 限定为小艺对接 | 铲屎官指示不扩散到其他频道 | 2026-03-27 |
+| KD-5 | 使用 AK/SK 认证模式 | 铲屎官确认，xiaoyi_claw 模式不需要实现 | 2026-03-27 |
+| KD-6 | reasoningText 转发到前端 | 铲屎官确认需要展示思考过程 | 2026-03-27 |
 
 ## Timeline
 
