@@ -15,7 +15,13 @@ from dare_framework.model.factories import create_default_prompt_store
 from dare_framework.model.interfaces import IPromptStore
 from dare_framework.model.types import Prompt
 from dare_framework.plan import DefaultPlanner, DefaultRemediator
-from dare_framework.tool._internal.tools import ReadFileTool, RunCommandTool, SearchCodeTool, WriteFileTool
+from dare_framework.tool._internal.tools import (
+    ReadTool,
+    RunCommandTool,
+    SearchCodeTool,
+    UpdateTool,
+    WriteTool,
+)
 from dare_framework.tool._internal.tools.ask_user import IUserInputHandler
 from dare_framework.transport import AgentChannel, DirectClientChannel
 
@@ -240,7 +246,13 @@ async def bootstrap_runtime(options: RuntimeOptions) -> ClientRuntime:
         .with_config_provider(provider)
         .with_model(model)
         .with_agent_channel(channel)
-        .add_tools(ReadFileTool(), WriteFileTool(), SearchCodeTool(), RunCommandTool())
+        .add_tools(
+            ReadTool(),
+            WriteTool(),
+            UpdateTool(),
+            SearchCodeTool(),
+            RunCommandTool(),
+        )
         .with_planner(DefaultPlanner(model, verbose=False))
         .with_remediator(DefaultRemediator(model, verbose=False))
     )

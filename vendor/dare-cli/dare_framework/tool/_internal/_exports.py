@@ -17,8 +17,11 @@ __all__ = [
     "EchoTool",
     "NoopTool",
     "RunCommandTool",
+    "ReadTool",
     "ReadFileTool",
     "SearchCodeTool",
+    "UpdateTool",
+    "WriteTool",
     "WriteFileTool",
     "EditLineTool",
 ]
@@ -57,8 +60,11 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "EchoTool": ("dare_framework.tool._internal.tools.echo_tool", "EchoTool"),
     "NoopTool": ("dare_framework.tool._internal.tools.noop_tool", "NoopTool"),
     "RunCommandTool": ("dare_framework.tool._internal.tools.run_command_tool", "RunCommandTool"),
+    "ReadTool": ("dare_framework.tool._internal.tools.read", "ReadTool"),
     "ReadFileTool": ("dare_framework.tool._internal.tools.read_file", "ReadFileTool"),
     "SearchCodeTool": ("dare_framework.tool._internal.tools.search_code", "SearchCodeTool"),
+    "UpdateTool": ("dare_framework.tool._internal.tools.update", "UpdateTool"),
+    "WriteTool": ("dare_framework.tool._internal.tools.write", "WriteTool"),
     "WriteFileTool": ("dare_framework.tool._internal.tools.write_file", "WriteFileTool"),
     "EditLineTool": ("dare_framework.tool._internal.tools.edit_line", "EditLineTool"),
 }

@@ -1,4 +1,11 @@
 {
+  "allow_tools": [
+    "read",
+    "write",
+    "update",
+    "search_code",
+    "run_command"
+  ],
   "llm": {
     "adapter": "huawei-modelarts",
     "model": "modelarts-pro"

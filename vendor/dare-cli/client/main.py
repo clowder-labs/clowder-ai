@@ -773,7 +773,7 @@ DEFAULT_AUTO_APPROVE_TOOLS: frozenset[str] = frozenset(
     {
         # Low-risk built-in tools; callers can extend with --auto-approve-tool.
         # Keep this set aligned with currently registered runtime tool names.
-        "read_file",
+        "read",
         "search_code",
     }
 )
