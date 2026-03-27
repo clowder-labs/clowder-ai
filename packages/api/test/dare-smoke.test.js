@@ -15,14 +15,15 @@ import { existsSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import {
   DareAgentService,
+  resolvePreferredDarePath,
   resolveVendorDarePath,
 } from '../dist/domains/cats/services/agents/providers/DareAgentService.js';
 
-// F135: prefer env DARE_PATH > vendor/dare-cli (if DARE exists there) > legacy /tmp path
+// Prefer vendored dare in this repo, then env DARE_PATH, then legacy /tmp path.
 const LEGACY_DARE_PATH = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
 const vendorPath = resolveVendorDarePath();
 const vendorHasDare = existsSync(`${vendorPath}/client/__main__.py`);
-const DARE_PATH = process.env.DARE_PATH || (vendorHasDare ? vendorPath : LEGACY_DARE_PATH);
+const DARE_PATH = resolvePreferredDarePath() || (vendorHasDare ? vendorPath : LEGACY_DARE_PATH);
 const HAS_DARE = existsSync(`${DARE_PATH}/client/__main__.py`);
 const HAS_KEY = !!process.env.OPENROUTER_API_KEY;
 
