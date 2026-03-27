@@ -40,13 +40,13 @@ internal static class Program
         EnableHighDpi();
 
         bool createdNew;
-        using (var mutex = new Mutex(true, @"Local\ClowderAI.WebView2Desktop", out createdNew))
+        using (var mutex = new Mutex(true, @"Local\OfficeClaw.WebView2Desktop", out createdNew))
         {
             if (!createdNew)
             {
                 MessageBox.Show(
-                    "Clowder AI is already running.",
-                    "Clowder AI",
+                    "OfficeClaw is already running.",
+                    "OfficeClaw",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
                 );
@@ -84,7 +84,7 @@ internal sealed class LauncherForm : Form
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
-        Text = "Clowder AI";
+        Text = "OfficeClaw";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
@@ -114,7 +114,7 @@ internal sealed class LauncherForm : Form
             Font = new Font("Segoe UI", 14f, FontStyle.Regular),
             ForeColor = Color.White,
             BackColor = Color.Transparent,
-            Text = "Preparing Clowder AI...",
+            Text = "Preparing OfficeClaw...",
             AutoEllipsis = true,
         };
 
@@ -157,7 +157,7 @@ internal sealed class LauncherForm : Form
             MessageBox.Show(
                 this,
                 ex.Message + Environment.NewLine + Environment.NewLine + "See log: " + _logFilePath,
-                "Clowder AI",
+                "OfficeClaw",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error
             );
@@ -196,12 +196,12 @@ internal sealed class LauncherForm : Form
     private NotifyIcon CreateNotifyIcon()
     {
         var contextMenu = new ContextMenuStrip();
-        contextMenu.Items.Add("Open Clowder AI", null, (_, __) => RestoreFromTray());
+        contextMenu.Items.Add("Open OfficeClaw", null, (_, __) => RestoreFromTray());
         contextMenu.Items.Add("Exit", null, (_, __) => RequestExit());
 
         var notifyIcon = new NotifyIcon
         {
-            Text = "Clowder AI",
+            Text = "OfficeClaw",
             Visible = true,
             Icon = Icon ?? SystemIcons.Application,
             ContextMenuStrip = contextMenu,
@@ -239,8 +239,8 @@ internal sealed class LauncherForm : Form
         {
             _notifyIcon.ShowBalloonTip(
                 2500,
-                "Clowder AI",
-                "Clowder AI is still running here. Use the tray icon menu to exit.",
+                "OfficeClaw",
+                "OfficeClaw is still running here. Use the tray icon menu to exit.",
                 ToolTipIcon.Info
             );
             _trayHintShown = true;

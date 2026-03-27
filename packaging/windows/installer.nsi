@@ -41,7 +41,7 @@ SetCompress off
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define INSTALL_KEY "Software\${COMPANY_KEY}\${APP_NAME}"
 !define STARTMENU_DIR "$SMPROGRAMS\${APP_NAME}"
-!define DEFAULT_INSTALL_DIR "C:\CAI"
+!define DEFAULT_INSTALL_DIR "$LOCALAPPDATA\Programs\${APP_NAME}"
 
 Name "${APP_NAME}"
 OutFile "${OUTPUT_EXE}"
@@ -64,7 +64,7 @@ Page custom WelcomePageCreate
 ; --------------- Finish page ---------------
 !define MUI_FINISHPAGE_TITLE "安装完成"
 !define MUI_FINISHPAGE_TEXT "${APP_NAME} 已成功安装到您的计算机。$\r$\n$\r$\n点击「完成」退出安装向导。"
-!define MUI_FINISHPAGE_RUN "$INSTDIR\ClowderAI.Desktop.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\OfficeClaw.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "立即启动 ${APP_NAME}"
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
 !insertmacro MUI_PAGE_FINISH
@@ -86,7 +86,7 @@ Function WelcomePageCreate
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  $\u2713 Node.js 运行时$\r$\n  $\u2713 Redis 数据库$\r$\n  $\u2713 Web 管理界面$\r$\n  $\u2713 MCP Server$\r$\n$\r$\n点击「下一步」选择安装位置。"
+  ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  - Node.js 运行时$\r$\n  - Python 运行时$\r$\n  - Redis 数据库$\r$\n  - Web 管理界面$\r$\n  - MCP Server$\r$\n$\r$\n点击「下一步」选择安装位置。"
   Pop $0
 
   nsDialogs::Show
@@ -94,10 +94,6 @@ FunctionEnd
 
 Function .onInit
   SetShellVarContext current
-  StrLen $0 $INSTDIR
-  ${If} $0 > 60
-    StrCpy $INSTDIR "${DEFAULT_INSTALL_DIR}"
-  ${EndIf}
 FunctionEnd
 
 Function un.onInit
@@ -106,40 +102,56 @@ FunctionEnd
 
 Function .onVerifyInstDir
   StrLen $0 $INSTDIR
-  ${If} $0 > 60
+  ${If} $0 > 200
     Abort
   ${EndIf}
 FunctionEnd
 
 Function VerifyInstallDirLeave
   StrLen $0 $INSTDIR
-  ${If} $0 > 60
-    MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长，请选择较短的路径（如 ${DEFAULT_INSTALL_DIR}）。"
+  ${If} $0 > 200
+    MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长（$0 字符），请选择较短的路径。"
     Abort
   ${EndIf}
 FunctionEnd
 
+; Force-kill every process whose executable lives under $INSTDIR.
+; Uses env var to pass the path safely (avoids quoting issues with spaces/parens).
+!macro _ForceKillInstalledProcesses
+  ; Kill by matching executable path under $INSTDIR
+  System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$INSTDIR")i'
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+  Pop $0
+  ; Fallback: kill desktop launcher by image name in case Path was inaccessible
+  nsExec::ExecToLog 'taskkill /F /IM OfficeClaw.exe'
+  Pop $0
+  Sleep 1500
+!macroend
+
 Function CloseRunningServices
-  IfFileExists "$INSTDIR\scripts\stop-windows.ps1" +2 0
-    ExecWait '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"'
+  !insertmacro _ForceKillInstalledProcesses
 FunctionEnd
 
 Function un.CloseRunningServices
-  IfFileExists "$INSTDIR\scripts\stop-windows.ps1" +2 0
-    ExecWait '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"'
+  !insertmacro _ForceKillInstalledProcesses
 FunctionEnd
 
-; Delete everything in $INSTDIR except user-data dirs, using cmd /c rd for speed.
-; Preserves: .cat-cafe, data, logs, .env, cat-config.json, uninstall.exe
+; Delete all managed dirs/files in $INSTDIR, preserving user-data (.cat-cafe, data, logs, .env, cat-config.json).
+; Uses cmd /c rd /s /q for speed — handles tens of thousands of files near-instantly.
 !macro _CleanupManagedPayload
-  RMDir /r "$INSTDIR\packages"
-  RMDir /r "$INSTDIR\scripts"
-  RMDir /r "$INSTDIR\docs"
-  RMDir /r "$INSTDIR\cat-cafe-skills"
-  RMDir /r "$INSTDIR\installer-seed"
-  RMDir /r "$INSTDIR\vendor"
-  ; tools/python has tens of thousands of files — cmd rd /s /q is much faster than NSIS RMDir /r
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\packages"'
+  Pop $0
   nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\tools"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\vendor"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\scripts"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\docs"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\cat-cafe-skills"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\installer-seed"'
   Pop $0
   Delete "$INSTDIR\.clowder-release.json"
   Delete "$INSTDIR\.env.example"
@@ -173,10 +185,10 @@ FunctionEnd
 
 Function WriteShellShortcuts
   CreateDirectory "${STARTMENU_DIR}"
-  CreateShortCut "${STARTMENU_DIR}\Start ${APP_NAME}.lnk" "$INSTDIR\ClowderAI.Desktop.exe" "" "$INSTDIR\ClowderAI.Desktop.exe"
+  CreateShortCut "${STARTMENU_DIR}\Start ${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\OfficeClaw.exe"
   CreateShortCut "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"' "$INSTDIR\scripts\stop-windows.ps1"
   CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
-  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\ClowderAI.Desktop.exe" "" "$INSTDIR\ClowderAI.Desktop.exe"
+  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\OfficeClaw.exe"
 FunctionEnd
 
 Function WriteUninstallRegistry
@@ -214,10 +226,18 @@ Section "Install"
   IfFileExists "$INSTDIR\cat-config.json" +2 0
     CopyFiles /SILENT "$INSTDIR\installer-seed\cat-config.json" "$INSTDIR\cat-config.json"
 
+  ; Add firewall rules so Windows does not prompt user when node.exe listens on a port
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js"'
+  Pop $0
+  nsExec::ExecToLog 'netsh advfirewall firewall add rule name="${APP_NAME} Node.js" dir=in action=allow program="$INSTDIR\tools\node\node.exe" enable=yes profile=any'
+  Pop $0
+
   WriteUninstaller "$INSTDIR\uninstall.exe"
   Call WriteShellShortcuts
   Call WriteUninstallRegistry
 SectionEnd
+
+Var RemoveUserData
 
 Section "Uninstall"
   Call un.CloseRunningServices
@@ -231,9 +251,23 @@ Section "Uninstall"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "${INSTALL_KEY}"
 
-  Call un.CleanupManagedPayload
-  Delete "$INSTDIR\uninstall.exe"
-  RMDir "$INSTDIR"
+  ; Remove firewall rule
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js"'
+  Pop $0
 
-  MessageBox MB_ICONINFORMATION|MB_OK "${APP_NAME} binaries were removed.$\r$\n$\r$\nUser data in data, logs, .cat-cafe, .env, and cat-config.json was preserved."
+  ; Ask user whether to remove user data
+  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除用户数据（配置、数据库、日志）？$\r$\n$\r$\n选择「否」将保留 data、logs、.cat-cafe、.env 和 cat-config.json。" IDYES +3
+    StrCpy $RemoveUserData "0"
+    Goto +2
+    StrCpy $RemoveUserData "1"
+
+  ; Remove entire install dir via cmd rd for speed
+  Delete "$INSTDIR\uninstall.exe"
+  ${If} $RemoveUserData == "1"
+    nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR"'
+    Pop $0
+  ${Else}
+    Call un.CleanupManagedPayload
+    RMDir "$INSTDIR"
+  ${EndIf}
 SectionEnd
