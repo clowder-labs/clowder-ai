@@ -11,6 +11,12 @@ import {
   readProviderProfiles,
   updateProviderProfile,
 } from '../config/provider-profiles.js';
+import {
+  filterBootstrapBindingsForAllowedClients,
+  filterProviderProfilesForVisibility,
+  getClientLabels,
+  getVisibleBuiltinAuthClients,
+} from '../utils/client-visibility.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import {
   activateBodySchema,
@@ -48,6 +54,10 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
     return {
       projectPath: projectRoot,
       ...data,
+      providers: filterProviderProfilesForVisibility(data.providers),
+      bootstrapBindings: filterBootstrapBindingsForAllowedClients(data.bootstrapBindings),
+      visibleBuiltinClients: getVisibleBuiltinAuthClients(),
+      clientLabels: getClientLabels(),
     };
   });
 

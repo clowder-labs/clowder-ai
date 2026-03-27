@@ -272,7 +272,7 @@ function buildCallHint(client: string, profile: ProfileItem | undefined, model: 
   const hasV1Suffix = /\/v1$/i.test(base);
 
   if (client === 'relayclaw') {
-    return `jiuwenClaw 会启动本地 sidecar，并把该 OpenAI-compatible 端点注入为 API_BASE: ${base}`;
+    return `jiuwen 会启动本地 sidecar，并把该 OpenAI-compatible 端点注入为 API_BASE: ${base}`;
   }
 
   // Claude CLI internally adds /v1, so if user already has /v1 it will become /v1/v1
@@ -304,6 +304,7 @@ export function AccountSection({
   availableProfiles,
   loadingProfiles,
   availableClientIds,
+  clientLabels,
   onChange,
 }: {
   form: HubCatEditorFormState;
@@ -313,14 +314,19 @@ export function AccountSection({
   loadingProfiles: boolean;
   /** When provided, only these client IDs are shown in the Client dropdown. */
   availableClientIds?: ReadonlySet<string>;
+  /** Custom display labels for clients (from CAT_CAFE_CLIENT_LABELS env). */
+  clientLabels?: Record<string, string>;
   onChange: (patch: FormPatch) => void;
 }) {
   const accountOptions = availableProfiles;
   const selectedProfile = availableProfiles.find((p) => p.id === form.accountRef);
   const callHint = buildCallHint(form.client, selectedProfile, form.defaultModel);
-  const filteredClientOptions = availableClientIds
+  const baseOptions = availableClientIds
     ? CLIENT_OPTIONS.filter((opt) => opt.value === 'acp' || availableClientIds.has(opt.value))
     : CLIENT_OPTIONS;
+  const filteredClientOptions = clientLabels
+    ? baseOptions.map((opt) => (clientLabels[opt.value] ? { ...opt, label: clientLabels[opt.value] } : opt))
+    : baseOptions;
   const providerSuggestions = useMemo(
     () => buildProviderSuggestions(selectedProfile?.models ?? []),
     [selectedProfile?.models],

@@ -190,6 +190,12 @@ function resolveDefaultDarePath(): string | undefined {
   return undefined;
 }
 
+export function dareBundleAvailable(darePath = process.env.DARE_PATH ?? resolveDefaultDarePath()): boolean {
+  const resolvedPath = darePath?.trim();
+  if (!resolvedPath) return false;
+  return existsSync(join(resolvedPath, 'client', '__main__.py')) && resolveVenvPython(resolvedPath) !== 'python';
+}
+
 function formatInvalidDarePath(darePath: string): string {
   return `DARE_PATH invalid: ${darePath} (missing client/__main__.py and not an executable file)`;
 }

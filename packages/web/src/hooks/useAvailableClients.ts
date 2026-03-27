@@ -8,8 +8,17 @@ export interface AvailableClient {
   available: boolean;
 }
 
+export interface UiHints {
+  hiddenHubTabs: string[];
+  hiddenEnvCategories: string[];
+  hideSkillMountStatus: boolean;
+  hideAgentGuides: boolean;
+}
+
 interface AvailableClientsState {
   clients: AvailableClient[];
+  clientLabels: Record<string, string>;
+  uiHints: UiHints;
   loading: boolean;
   error: string | null;
 }
@@ -24,6 +33,8 @@ interface AvailableClientsState {
 export function useAvailableClients(): AvailableClientsState {
   const [state, setState] = useState<AvailableClientsState>({
     clients: [],
+    clientLabels: {},
+    uiHints: { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false },
     loading: true,
     error: null,
   });
@@ -33,12 +44,14 @@ export function useAvailableClients(): AvailableClientsState {
     apiFetch('/api/available-clients')
       .then(async (res) => {
         if (!res.ok) throw new Error(`Failed to load available clients (${res.status})`);
-        return (await res.json()) as { clients: AvailableClient[] };
+        return (await res.json()) as { clients: AvailableClient[]; clientLabels?: Record<string, string>; uiHints?: UiHints };
       })
       .then((body) => {
         if (!cancelled) {
           setState({
-            clients: body.clients,
+            clients: body.clients.filter((c) => c.available),
+            clientLabels: body.clientLabels ?? {},
+            uiHints: body.uiHints ?? { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false },
             loading: false,
             error: null,
           });
@@ -46,7 +59,7 @@ export function useAvailableClients(): AvailableClientsState {
       })
       .catch((err) => {
         if (!cancelled) {
-          setState({ clients: [], loading: false, error: err instanceof Error ? err.message : String(err) });
+          setState({ clients: [], clientLabels: {}, uiHints: { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false }, loading: false, error: err instanceof Error ? err.message : String(err) });
         }
       });
     return () => {

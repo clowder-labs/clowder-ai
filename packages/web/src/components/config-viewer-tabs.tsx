@@ -28,6 +28,7 @@ function KV({ label, value }: { label: string; value: string | number | boolean 
 export function CatOverviewTab({
   config,
   cats,
+  clientLabels,
   onAddMember,
   onEditCoCreator,
   onEditMember,
@@ -36,6 +37,7 @@ export function CatOverviewTab({
 }: {
   config: ConfigData;
   cats: CatData[];
+  clientLabels?: Record<string, string>;
   onAddMember?: () => void;
   onEditCoCreator?: () => void;
   onEditMember?: (cat: CatData) => void;
@@ -52,6 +54,7 @@ export function CatOverviewTab({
             key={catData.id}
             cat={catData}
             configCat={config.cats[catData.id]}
+            clientLabels={clientLabels}
             onEdit={onEditMember}
             onToggleAvailability={onToggleAvailability}
             togglingAvailability={togglingCatId === catData.id}
@@ -64,7 +67,8 @@ export function CatOverviewTab({
   );
 }
 
-export function SystemTab({ config }: { config: ConfigData }) {
+export function SystemTab({ config, hiddenHubTabs }: { config: ConfigData; hiddenHubTabs?: string[] }) {
+  const hideCodex = hiddenHubTabs?.includes('capabilities');
   return (
     <>
       <Section title="A2A 猫猫互调">
@@ -79,7 +83,7 @@ export function SystemTab({ config }: { config: ConfigData }) {
           <KV label="每线程最大 key 数" value={config.memory.maxKeysPerThread} />
         </div>
       </Section>
-      {config.codexExecution ? (
+      {config.codexExecution && !hideCodex ? (
         <Section title="Codex 推理执行">
           <div className="space-y-1.5">
             <KV label="Model" value={config.codexExecution.model} />

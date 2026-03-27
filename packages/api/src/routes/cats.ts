@@ -24,6 +24,7 @@ import {
 import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+// client-visibility imports removed: client validation is console-only, no backend blocking
 
 const colorSchema = z.object({
   primary: z.string().min(1),
@@ -127,6 +128,7 @@ function resolveOperator(raw: unknown): string | null {
 function resolveProjectRoot(): string {
   return resolveActiveProjectRoot();
 }
+
 
 type CatSource = 'seed' | 'runtime';
 

@@ -430,13 +430,19 @@ export function readCatCatalog(projectRoot: string): CatCafeConfig | null {
 export function bootstrapCatCatalog(projectRoot: string, templatePath: string): string {
   const catalogPath = resolveCatCatalogPath(projectRoot);
   if (existsSync(catalogPath)) {
-    const sourcePath = existsSync(resolve(projectRoot, 'cat-config.json')) ? resolve(projectRoot, 'cat-config.json') : templatePath;
     try {
       const existingCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8')) as CatCafeConfig;
-      const sourceCatalog = JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
-      const reconciled = reconcileCatalogWithSourceCatalog(existingCatalog, sourceCatalog);
-      if (reconciled.dirty) {
-        writeFileAtomic(catalogPath, `${JSON.stringify(reconciled.catalog, null, 2)}\n`);
+      // Skip reconciliation for preset-managed catalogs (e.g. ModelArts custom install).
+      // These catalogs intentionally contain a subset of members; reconciling with the
+      // full template would re-add members the preset explicitly removed.
+      const isPresetCatalog = (existingCatalog as unknown as Record<string, unknown>).preset === true;
+      if (!isPresetCatalog) {
+        const sourcePath = existsSync(resolve(projectRoot, 'cat-config.json')) ? resolve(projectRoot, 'cat-config.json') : templatePath;
+        const sourceCatalog = JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
+        const reconciled = reconcileCatalogWithSourceCatalog(existingCatalog, sourceCatalog);
+        if (reconciled.dirty) {
+          writeFileAtomic(catalogPath, `${JSON.stringify(reconciled.catalog, null, 2)}\n`);
+        }
       }
     } catch (err) {
       log.warn({ err, projectRoot, catalogPath }, 'catalog reconciliation failed');
