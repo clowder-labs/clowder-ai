@@ -538,6 +538,542 @@ skills:
     sop_step: null
     merged_from: null
 
+  # ── 文档处理 ──
+  pdf:
+    description: >
+      PDF 读取/合并/拆分/旋转/水印/加密/表单填充/OCR。
+      Use when: 涉及 .pdf 文件的任何操作。
+      Not for: Word/Excel/PPT 处理（分别用 docx/xlsx/pptx）。
+    triggers:
+      - "pdf"
+      - "PDF"
+      - "读取PDF"
+      - "合并PDF"
+      - "拆分PDF"
+      - "PDF加水印"
+      - "PDF加密"
+      - "提取PDF文字"
+    not_for:
+      - "Word文档"
+      - "Excel表格"
+    output: "PDF file or extracted text/table"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  docx:
+    description: >
+      Word 文档创建、编辑、格式化。
+      Use when: 创建/编辑 .docx 文件、生成报告/备忘录/信函。
+      Not for: PDF、纯文本、Markdown。
+    triggers:
+      - "word"
+      - "Word文档"
+      - "docx"
+      - "写报告"
+      - "写备忘录"
+      - "生成文档"
+      - "报告模板"
+    not_for:
+      - "PDF"
+      - "Markdown"
+    output: ".docx file"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  pptx:
+    description: >
+      演示文稿创建、编辑、读取。
+      Use when: 创建/编辑 .pptx 文件、做幻灯片/pitch deck。
+      Not for: PDF 报告、纯文档。
+    triggers:
+      - "ppt"
+      - "PPT"
+      - "pptx"
+      - "幻灯片"
+      - "演示文稿"
+      - "做slides"
+      - "pitch deck"
+      - "slide"
+    not_for:
+      - "PDF报告"
+      - "纯文档"
+    output: ".pptx file"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  xlsx:
+    description: >
+      电子表格创建、编辑、数据分析。
+      Use when: 创建/编辑 .xlsx/.csv/.tsv 文件、数据分析、公式计算。
+      Not for: Word 文档、HTML 报告、纯 Python 脚本。
+    triggers:
+      - "excel"
+      - "Excel"
+      - "xlsx"
+      - "电子表格"
+      - "表格"
+      - "csv"
+      - "数据分析表"
+      - "做个表"
+    not_for:
+      - "Word文档"
+      - "HTML报告"
+    output: ".xlsx/.csv file"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  nano-pdf:
+    description: >
+      用自然语言指令编辑 PDF。
+      Use when: 简单 PDF 编辑任务，不想写代码。
+      Not for: 复杂 PDF 操作（用 pdf skill）。
+    triggers:
+      - "nano-pdf"
+      - "自然语言编辑PDF"
+    not_for:
+      - "复杂PDF操作"
+    output: "Edited PDF file"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  diagram-generator:
+    description: >
+      生成各种图表：流程图、序列图、ER图、架构图、思维导图。
+      Use when: 需要画图、生成 Mermaid/draw.io/Excalidraw 图表。
+      Not for: 纯文字描述、PPT 设计。
+    triggers:
+      - "画图"
+      - "流程图"
+      - "序列图"
+      - "架构图"
+      - "ER图"
+      - "mermaid"
+      - "draw.io"
+      - "思维导图"
+      - "类图"
+      - "拓扑图"
+    not_for:
+      - "纯文字描述"
+      - "PPT设计"
+    output: "Diagram file (.drawio/.mmd/.excalidraw)"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  doc-coauthoring:
+    description: >
+      结构化文档协作工作流：上下文收集 → 迭代精炼 → 读者测试。
+      Use when: 写技术提案、spec、决策文档等需要协作的结构化文档。
+      Not for: 简单文本编辑、已有明确大纲直接写。
+    triggers:
+      - "写文档"
+      - "写提案"
+      - "写spec"
+      - "写技术方案"
+      - "写决策文档"
+      - "co-writing"
+      - "协作写文档"
+    not_for:
+      - "简单文本编辑"
+      - "直接写代码"
+    output: "Structured document draft"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── 搜索与信息 ──
+  weather:
+    description: >
+      查询当前天气和天气预报。
+      Use when: 用户询问天气、温度、天气预报。
+      Not for: 历史天气数据、极端天气预警。
+    triggers:
+      - "天气"
+      - "温度"
+      - "天气预报"
+      - "今天天气"
+      - "明天天气"
+      - "weather"
+    not_for:
+      - "历史天气"
+      - "极端天气预警"
+    output: "Weather info text"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  github:
+    description: >
+      使用 gh CLI 与 GitHub 交互：issue、PR、CI 运行、API 查询。
+      Use when: 查看/创建 issue、PR、查看 CI 状态、GitHub API 操作。
+      Not for: GitLab、Bitbucket。
+    triggers:
+      - "github"
+      - "GitHub"
+      - "gh"
+      - "issue"
+      - "PR"
+      - "pull request"
+      - "CI"
+      - "GitHub Actions"
+      - "查看PR"
+      - "创建issue"
+    not_for:
+      - "GitLab"
+      - "Bitbucket"
+    output: "GitHub query results / PR / issue data"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  baidu-search:
+    description: >
+      百度 AI 搜索引擎（BDSE）。
+      Use when: 需要实时信息、文档查询、研究主题（优先百度生态结果）。
+      Not for: 英文搜索（用 multi-search-engine）。
+    triggers:
+      - "百度搜索"
+      - "百度一下"
+      - "baidu"
+      - "搜索百度"
+    not_for:
+      - "英文搜索"
+    output: "Search results"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  multi-search-engine:
+    description: >
+      17 搜索引擎聚合搜索（8 中文 + 9 全球），支持高级搜索操作符、时间过滤。
+      Use when: 需要搜索信息、对比多源结果、不需要 API key。
+      Not for: 已知精确 URL（直接 fetch）。
+    triggers:
+      - "搜索"
+      - "search"
+      - "谷歌搜索"
+      - "搜一下"
+      - "帮我搜"
+      - "查一下"
+      - "网上搜"
+      - "bing"
+      - "duckduckgo"
+    not_for:
+      - "已知URL直接访问"
+    output: "Search results from multiple engines"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  summarize:
+    description: >
+      从 URL、播客、本地文件提取和总结内容。
+      Use when: 需要总结网页/视频/播客/文件内容。
+      Not for: 代码审查总结。
+    triggers:
+      - "总结"
+      - "摘要"
+      - "summarize"
+      - "帮我总结"
+      - "提取内容"
+      - "转录"
+      - "transcribe"
+      - "视频总结"
+      - "播客总结"
+    not_for:
+      - "代码审查总结"
+    output: "Summary text"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── Agent 能力 ──
+  adaptive-reasoning:
+    description: >
+      自动评估任务复杂度，动态调整推理级别。
+      Use when: 复杂问题需要更深思考、自动预处理。
+      Not for: 简单问答。
+    triggers: []
+    not_for:
+      - "简单问答"
+    output: "Reasoning level adjustment (internal)"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  proactive-agent:
+    description: >
+      将 agent 从被动执行者转变为主动合作伙伴，预判需求并持续改进。
+      Use when: 需要 agent 主动预判、持续优化工作流。
+      Not for: 简单一次性任务。
+    triggers:
+      - "主动"
+      - "proactive"
+      - "预判需求"
+      - "持续改进"
+    not_for:
+      - "简单一次性任务"
+    output: "Proactive suggestions and actions"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  persistent-agent-memory:
+    description: >
+      Agent 持久化记忆：跨 session 记住上下文、延续长期工作流。
+      Use when: 需要 agent 记住之前的工作、跨会话保持上下文。
+      Not for: 临时单次对话。
+    triggers:
+      - "记忆"
+      - "记住"
+      - "memory"
+      - "持久化"
+      - "跨session"
+      - "之前的工作"
+    not_for:
+      - "临时单次对话"
+    output: "Persistent memory operations"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  self-improving-agent:
+    description: >
+      捕获错误和纠正，持续自我改进。
+      Use when: 命令失败、用户纠正、发现更好方法、API 报错。
+      Not for: 已知原因的简单修复。
+    triggers:
+      - "学习"
+      - "改进"
+      - "self-improvement"
+      - "纠正"
+      - "错了"
+      - "不对"
+    not_for:
+      - "简单已知修复"
+    output: "Learnings logged to markdown"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  evolver:
+    description: >
+      Agent 自我进化引擎：分析运行历史，识别改进点，应用协议约束的进化。
+      Use when: 同类错误反复出现、SOP 流程缺口、有价值的知识值得沉淀。
+      Not for: 日常 SOP 正常执行、一次性 bug fix。
+    triggers:
+      - "进化"
+      - "evolve"
+      - "自我进化"
+      - "流程改进"
+      - "知识沉淀"
+    not_for:
+      - "日常执行"
+      - "一次性bug"
+    output: "Evolution proposal / episode card"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── 工具与自动化 ──
+  agent-browser:
+    description: >
+      无头浏览器自动化：导航、点击、输入、截图、提取结构化数据。
+      Use when: 需要自动化网页交互、抓取数据、填写表单、测试 Web UI。
+      Not for: 简单 HTTP 请求（直接 fetch）。
+    triggers:
+      - "浏览器"
+      - "browser"
+      - "网页抓取"
+      - "爬虫"
+      - "截图"
+      - "自动化测试"
+      - "点击网页"
+      - "填表"
+    not_for:
+      - "简单HTTP请求"
+    output: "Screenshot / extracted data"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  airpoint:
+    description: >
+      通过自然语言控制 Mac：打开应用、点击按钮、读取屏幕、输入文本、管理窗口。
+      Use when: 需要操作 Mac 桌面应用、自动化多步任务。
+      Not for: Windows/Linux、纯网页操作。
+    triggers:
+      - "打开应用"
+      - "点击按钮"
+      - "控制Mac"
+      - "mac自动化"
+      - "airpoint"
+    not_for:
+      - "Windows"
+      - "Linux"
+    output: "Mac automation actions"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  mcp-builder:
+    description: >
+      创建高质量 MCP 服务器指南：Python (FastMCP) 或 Node/TypeScript (MCP SDK)。
+      Use when: 构建 MCP 服务器集成外部 API/服务。
+      Not for: 使用已有 MCP 服务。
+    triggers:
+      - "MCP"
+      - "mcp server"
+      - "创建MCP"
+      - "MCP开发"
+      - "Model Context Protocol"
+    not_for:
+      - "使用已有MCP"
+    output: "MCP server code"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  n8n-workflow-automation:
+    description: >
+      设计 n8n 工作流 JSON：触发器、幂等性、错误处理、重试、人工审核队列。
+      Use when: 需要自动化工作流、n8n 集成。
+      Not for: 简单脚本自动化。
+    triggers:
+      - "n8n"
+      - "工作流"
+      - "workflow"
+      - "自动化流程"
+      - "自动化工作流"
+    not_for:
+      - "简单脚本"
+    output: "n8n workflow JSON"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  auto-updater:
+    description: >
+      自动更新 Clawdbot 和所有已安装 skill（每日 cron）。
+      Use when: 需要检查更新、自动升级。
+      Not for: 手动更新单个包。
+    triggers:
+      - "更新"
+      - "升级"
+      - "update"
+      - "自动更新"
+      - "检查更新"
+    not_for:
+      - "手动更新单个包"
+    output: "Update summary"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── 生活与会议 ──
+  daily-life-autopilot:
+    description: >
+      全面的主动式生活管理：早间简报、邮件分拣、跟进追踪、账单监控、文件整理、会议准备、健康提醒。
+      Use when: 需要 AI 主动管理日常生活运营。
+      Not for: 纯技术开发任务。
+    triggers:
+      - "生活管理"
+      - "日程"
+      - "邮件分拣"
+      - "账单"
+      - "提醒"
+      - "daily life"
+      - "早间简报"
+    not_for:
+      - "纯技术开发"
+    output: "Life management actions and summaries"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  meeting-autopilot-pro:
+    description: >
+      会议全生命周期管理：会前准备（上下文/参会人/要点）、会中笔记、会后跟进（行动项/摘要/跟踪）。
+      Use when: 准备会议、做会议笔记、发送会议摘要、跟踪行动项。
+      Not for: 非会议场景。
+    triggers:
+      - "会议"
+      - "meeting"
+      - "会议准备"
+      - "会议笔记"
+      - "会议摘要"
+      - "行动项"
+      - "meeting notes"
+    not_for:
+      - "非会议场景"
+    output: "Meeting prep / notes / action items"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── 安全与质量 ──
+  credential-manager:
+    description: >
+      将分散的 API 密钥和凭证集中到安全的 .env 文件。
+      Use when: 设置 OpenClaw、迁移凭证、安全审计、强制 .env 标准。
+      Not for: 日常开发。
+    triggers:
+      - "凭证"
+      - "API key"
+      - "密钥管理"
+      - ".env"
+      - "credential"
+      - "安全审计"
+      - "密码管理"
+    not_for:
+      - "日常开发"
+    output: "Unified .env file with mode 600"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  skill-vetter:
+    description: >
+      Skill 安装前的安全审查：检查红旗、权限范围、可疑模式。
+      Use when: 从 ClawdHub/GitHub 安装 skill 前的安全检查。
+      Not for: 已安装 skill 的日常使用。
+    triggers:
+      - "审查skill"
+      - "skill安全"
+      - "vet skill"
+      - "安全检查"
+      - "安装前检查"
+    not_for:
+      - "已安装skill使用"
+    output: "Security vetting report"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  skill-creator:
+    description: >
+      创建、修改、优化 skill，运行 eval 测试，性能基准分析。
+      Use when: 从零创建 skill、编辑/优化已有 skill、运行测试。
+      Not for: 使用已有 skill。
+    triggers:
+      - "创建skill"
+      - "写skill"
+      - "新skill"
+      - "优化skill"
+      - "skill测试"
+      - "skill eval"
+    not_for:
+      - "使用已有skill"
+    output: "New/updated SKILL.md + manifest entry"
+    next: []
+    sop_step: null
+    merged_from: null
+
 # ─── 降级为 refs/（不再是独立 skill） ─────────────────
 refs:
   mcp-callbacks:

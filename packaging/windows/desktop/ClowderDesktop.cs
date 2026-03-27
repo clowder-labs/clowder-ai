@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,9 +14,31 @@ using Microsoft.Web.WebView2.WinForms;
 
 internal static class Program
 {
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDPIAware();
+
+    [DllImport("shcore.dll", SetLastError = true)]
+    private static extern int SetProcessDpiAwareness(int awareness);
+
+    private static void EnableHighDpi()
+    {
+        try
+        {
+            // PROCESS_PER_MONITOR_DPI_AWARE = 2
+            SetProcessDpiAwareness(2);
+        }
+        catch
+        {
+            // Fallback for Windows 7 / early Win8
+            try { SetProcessDPIAware(); } catch { }
+        }
+    }
+
     [STAThread]
     private static void Main()
     {
+        EnableHighDpi();
+
         bool createdNew;
         using (var mutex = new Mutex(true, @"Local\ClowderAI.WebView2Desktop", out createdNew))
         {
@@ -41,6 +65,7 @@ internal sealed class LauncherForm : Form
     private readonly object _logLock = new object();
     private readonly NotifyIcon _notifyIcon;
     private readonly Label _statusLabel;
+    private readonly PictureBox _splashBox;
     private readonly string _projectRoot;
     private readonly string _logFilePath;
     private readonly string _runtimeStatePath;
@@ -67,16 +92,34 @@ internal sealed class LauncherForm : Form
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
 
-        _statusLabel = new Label
+        _splashBox = new PictureBox
         {
             Dock = DockStyle.Fill,
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Black,
+        };
+
+        var splashImagePath = Path.Combine(_projectRoot, "assets", "splash.jpg");
+        if (File.Exists(splashImagePath))
+        {
+            try { _splashBox.Image = Image.FromFile(splashImagePath); }
+            catch { /* fall back to plain background */ }
+        }
+
+        _statusLabel = new Label
+        {
+            Dock = DockStyle.Bottom,
+            Height = 80,
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font("Segoe UI", 14f, FontStyle.Regular),
+            ForeColor = Color.White,
+            BackColor = Color.Transparent,
             Text = "Preparing Clowder AI...",
             AutoEllipsis = true,
         };
 
-        Controls.Add(_statusLabel);
+        _splashBox.Controls.Add(_statusLabel);
+        Controls.Add(_splashBox);
         Shown += async (_, __) => await InitializeAsync();
         FormClosing += OnFormClosing;
         FormClosed += (_, __) => DisposeNotifyIcon();
@@ -467,10 +510,27 @@ internal sealed class LauncherForm : Form
         };
 
         Controls.Clear();
+        if (_splashBox.Image != null)
+        {
+            _splashBox.Image.Dispose();
+            _splashBox.Image = null;
+        }
+        _splashBox.Dispose();
         Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
-        _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+        var settings = _webView.CoreWebView2.Settings;
+        settings.IsStatusBarEnabled = false;
+        settings.AreDevToolsEnabled = false;
+        settings.AreDefaultContextMenusEnabled = false;
+        settings.IsZoomControlEnabled = false;
+        settings.AreBrowserAcceleratorKeysEnabled = false;
+        settings.IsPinchZoomEnabled = false;
+        settings.IsPasswordAutosaveEnabled = false;
+        settings.IsGeneralAutofillEnabled = false;
+        settings.IsSwipeNavigationEnabled = false;
+
         _webView.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
         _webView.CoreWebView2.ProcessFailed += (_, eventArgs) =>
         {

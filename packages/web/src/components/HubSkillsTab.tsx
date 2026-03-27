@@ -108,7 +108,7 @@ function SkillList({
       <p className="text-[10px] text-gray-400 mb-2">
         共 {results.total} 条{showPagination && `，第 ${results.page} 页`}
       </p>
-      <div className="space-y-1.5">
+      <div className="grid grid-cols-2 gap-2">
         {results.skills.map((skill) => (
           <div
             key={skill.id}
@@ -319,15 +319,6 @@ export function HubSkillsTab() {
         </div>
       )}
 
-      {/* Upload button */}
-      <button
-        type="button"
-        onClick={() => setShowUpload(true)}
-        className="w-full py-2 text-xs font-medium rounded-lg border border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors"
-      >
-        + 上传 Skill
-      </button>
-
       {/* Upload modal */}
       <UploadSkillModal
         open={showUpload}
@@ -338,7 +329,7 @@ export function HubSkillsTab() {
       />
 
       {/* Search */}
-      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+      <section className="rounded-lg border border-gray-200 bg-white p-3 space-y-3">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -356,23 +347,28 @@ export function HubSkillsTab() {
           >
             {searchLoading ? '搜索中...' : '搜索'}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowUpload(true)}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+          >
+            + 上传
+          </button>
         </div>
-        {searchError && <p className="text-[11px] text-red-500 mt-2">{searchError}</p>}
+        {searchError && <p className="text-[11px] text-red-500">{searchError}</p>}
         {searchResults && (
-          <div className="mt-3">
-            <SkillList
-              results={searchResults}
-              installStatus={installStatus}
-              onInstall={handleInstall}
-              onLoadMore={handleLoadMore}
-              loadingMore={loadingMore}
-            />
-          </div>
+          <SkillList
+            results={searchResults}
+            installStatus={installStatus}
+            onInstall={handleInstall}
+            onLoadMore={handleLoadMore}
+            loadingMore={loadingMore}
+          />
         )}
       </section>
 
       {/* Trending — always expanded */}
-      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+      <section className="rounded-lg border border-gray-200 bg-white p-3">
         <h3 className="text-xs font-semibold text-gray-700 mb-2">热门推荐</h3>
         {trendingLoading && <p className="text-[11px] text-gray-400">加载中...</p>}
         {trendingResults && (

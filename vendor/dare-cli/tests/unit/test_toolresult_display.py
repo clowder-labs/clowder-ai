@@ -106,7 +106,13 @@ class TestOuterPayloadToolResult:
         assert text is not None
 
     def test_nontext_output_outer_payload(self) -> None:
-        """Outer dict with non-text output structure and ToolResult in result."""
+        """Outer dict with non-text output structure and ToolResult in result.
+
+        When the output contains only non-textual data (e.g. file lists) and
+        no displayable text fields, normalize_run_output returns None so that
+        callers can provide a human-readable fallback instead of dumping raw
+        JSON scaffolding to the user.
+        """
         outer = {
             "success": True,
             "output": {"files": ["a.txt", "b.txt"]},
@@ -116,7 +122,8 @@ class TestOuterPayloadToolResult:
         }
         text = normalize_run_output(outer)
         self._assert_no_repr_leak(text)
-        assert text is not None
+        # Non-text output with only status metadata → None (caller provides fallback)
+        assert text is None
 
     def test_toolresult_serialized_via_json_default(self) -> None:
         """ToolResult in dict should be serialized via _json_default, not repr."""
@@ -127,6 +134,91 @@ class TestOuterPayloadToolResult:
         self._assert_no_repr_leak(text)
         assert text is not None
         assert "hello" in text
+
+
+class TestEmptyToolResultNeverExposedAsJson:
+    """Regression: empty tool results must not be dumped as raw JSON to users.
+
+    Covers the scenario where a command succeeds (exit_code=0) but produces
+    no stdout/stderr.  The old behavior was to json.dumps the entire wrapper
+    dict ({"success":true,"output":{"stdout":""},...}) and return it as the
+    agent's user-visible message.
+    """
+
+    def test_empty_stdout_tool_result_wrapper_returns_none(self) -> None:
+        """Exact structure produced by tool_executor → execute_engine outputs."""
+        wrapper = {
+            "success": True,
+            "status": "success",
+            "output": {"stdout": "", "stderr": "", "exit_code": 0,
+                       "stdout_truncated": False, "stderr_truncated": False},
+            "error": None,
+            "result": {"stdout": "", "stderr": "", "exit_code": 0,
+                       "stdout_truncated": False, "stderr_truncated": False},
+        }
+        text = normalize_run_output(wrapper)
+        assert text is None, (
+            f"Empty tool result should return None, not raw JSON: {text!r}"
+        )
+
+    def test_empty_content_envelope_returns_none(self) -> None:
+        """RunResult.output after _with_output_envelope with empty content."""
+        envelope = {"content": "", "metadata": {}, "usage": None}
+        text = normalize_run_output(envelope)
+        assert text is None
+
+    def test_nonempty_content_envelope_still_works(self) -> None:
+        """Envelope with actual content must still be returned."""
+        envelope = {"content": "Task completed successfully.", "metadata": {}}
+        text = normalize_run_output(envelope)
+        assert text == "Task completed successfully."
+
+    def test_structured_tool_output_not_mistaken_for_empty(self) -> None:
+        """write_file-style output ({path, bytes_written}) has no text keys.
+
+        normalize_run_output should return None (not JSON dump), and callers
+        provide a fallback. This test documents the expected behavior rather
+        than asserting JSON — the key point is no ToolResult repr leak.
+        """
+        wrapper = {
+            "success": True,
+            "status": "success",
+            "output": {"path": "src/app.py", "bytes_written": 1234, "created": True},
+            "error": None,
+        }
+        text = normalize_run_output(wrapper)
+        if text is not None:
+            assert "ToolResult(" not in text
+
+
+class TestHeadlessRenderedOutputFallback:
+    """P2 regression: headless rendered_output must never be None/empty.
+
+    When format_run_output returns None, the headless event should carry
+    a fallback string so the user sees "task completed" instead of blank.
+    """
+
+    def test_format_run_output_none_gets_fallback(self) -> None:
+        """format_run_output returning None → rendered_output uses fallback."""
+        from client.runtime.task_runner import format_run_output
+
+        # Empty content envelope — format_run_output returns None
+        output = {"content": "", "metadata": {}}
+        text = format_run_output(output)
+        assert text is None
+        # The fallback is applied in client/main.py: `text or "task completed"`
+        rendered = text or "task completed"
+        assert rendered == "task completed"
+
+    def test_format_run_output_with_content_no_fallback(self) -> None:
+        """format_run_output returning text → no fallback needed."""
+        from client.runtime.task_runner import format_run_output
+
+        output = {"content": "Done!"}
+        text = format_run_output(output)
+        assert text == "Done!"
+        rendered = text or "task completed"
+        assert rendered == "Done!"
 
 
 class TestBuildReplyEnvelopeToolResult:

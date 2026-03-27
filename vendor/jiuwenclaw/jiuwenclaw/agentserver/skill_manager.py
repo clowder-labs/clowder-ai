@@ -16,7 +16,13 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 from urllib.parse import urlparse
 
-from jiuwenclaw.utils import get_agent_root_dir, get_agent_skills_dir, logger
+from jiuwenclaw.utils import (
+    get_agent_root_dir,
+    get_agent_skill_source_dirs,
+    get_agent_skills_dir,
+    get_disabled_agent_skill_names,
+    logger,
+)
 
 _SKILLNET_DOWNLOAD_TIMEOUT: int = int(os.environ.get("SKILLNET_DOWNLOAD_TIMEOUT", "60"))
 _SKILLNET_MAX_RETRIES: int = int(os.environ.get("SKILLNET_MAX_RETRIES", "3"))
@@ -130,20 +136,17 @@ class SkillManager:
         if not name:
             raise ValueError("缺少参数: name")
 
-        # 先在本地 skills 目录中查找
-        for child in _SKILLS_DIR.iterdir():
-            if child.name.startswith("_") or not child.is_dir():
+        # 先在本地 skills 目录中查找（共享源优先，overlay 兜底）
+        for record in self._iter_local_skill_records(include_disabled=True):
+            if record["name"] != name:
                 continue
-            md = self._try_find_skill_file(child)
-            if md is None:
-                continue
-            meta = self._parse_skill_md(md)
-            if meta and meta.get("name") == name:
-                # 字段转换以符合前端期望
-                meta["content"] = meta.pop("body", "")
-                meta["file_path"] = meta.pop("path", "")
-                meta["source"] = self._resolve_skill_source(meta.get("name", ""))
-                return meta
+            meta = dict(record["meta"])
+            meta["name"] = record["name"]
+            # 字段转换以符合前端期望
+            meta["content"] = meta.pop("body", "")
+            meta["file_path"] = meta.pop("path", "")
+            meta["source"] = self._resolve_skill_source(meta.get("name", ""))
+            return meta
 
         # 再在 marketplace 目录中查找
         if _MARKETPLACE_DIR.exists():
@@ -825,6 +828,9 @@ class SkillManager:
         meta.setdefault("description", "")
         meta.setdefault("version", "")
         meta.setdefault("author", "")
+        if "allowed_tools" not in meta and "allowed-tools" in meta:
+            meta["allowed_tools"] = meta.get("allowed-tools")
+
         meta["tags"] = SkillManager._coerce_str_list(meta.get("tags"))
         meta["allowed_tools"] = SkillManager._coerce_str_list(meta.get("allowed_tools"))
 
@@ -850,6 +856,50 @@ class SkillManager:
 
         return None
 
+    @staticmethod
+    def _iter_local_skill_records(include_disabled: bool = False) -> list[dict[str, Any]]:
+        """Collect local skill dirs from shared sources + writable overlay with stable precedence."""
+        disabled_names = get_disabled_agent_skill_names()
+        seen_names: set[str] = set()
+        results: list[dict[str, Any]] = []
+
+        for base_dir in get_agent_skill_source_dirs():
+            if not base_dir.exists():
+                continue
+            try:
+                children = sorted(base_dir.iterdir(), key=lambda item: item.name)
+            except Exception:
+                continue
+
+            for child in children:
+                if not child.is_dir() or child.name.startswith("_"):
+                    continue
+                md = SkillManager._try_find_skill_file(child)
+                if md is None:
+                    continue
+                meta = SkillManager._parse_skill_md(md)
+                if meta is None:
+                    continue
+
+                skill_name = str(meta.get("name") or child.name).strip()
+                if not skill_name or skill_name in seen_names:
+                    continue
+                if not include_disabled and skill_name in disabled_names:
+                    continue
+
+                seen_names.add(skill_name)
+                results.append(
+                    {
+                        "name": skill_name,
+                        "dir": child,
+                        "md": md,
+                        "meta": meta,
+                        "base_dir": base_dir,
+                    }
+                )
+
+        return results
+
     # -----------------------------------------------------------------------
     # 目录扫描
     # -----------------------------------------------------------------------
@@ -857,18 +907,11 @@ class SkillManager:
     def _scan_local_skills(self) -> list[dict]:
         """扫描 agent/skills/ 下的本地 skill（跳过 _marketplace）."""
         results: list[dict] = []
-        if not _SKILLS_DIR.exists():
+        if not any(base_dir.exists() for base_dir in get_agent_skill_source_dirs()):
             return results
 
-        for child in _SKILLS_DIR.iterdir():
-            if not child.is_dir() or child.name.startswith("_"):
-                continue
-            md = self._try_find_skill_file(child)
-            if md is None:
-                continue
-            meta = self._parse_skill_md(md)
-            if meta is None:
-                continue
+        for record in self._iter_local_skill_records():
+            meta = dict(record["meta"])
 
             # 判断 source 类型
             installed = self._get_installed_plugins()
@@ -890,6 +933,7 @@ class SkillManager:
                     break
 
             meta["source"] = source
+            meta["name"] = record["name"]
             # 不在列表中返回 body
             meta.pop("body", None)
             results.append(meta)

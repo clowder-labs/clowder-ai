@@ -28,13 +28,33 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
+def _count_cjk_chars(text: str) -> int:
+    """Count characters in CJK Unified Ideographs ranges (Chinese/Japanese/Korean)."""
+    count = 0
+    for ch in text:
+        cp = ord(ch)
+        # CJK Unified Ideographs (U+4E00–U+9FFF) + Extension A (U+3400–U+4DBF)
+        # + CJK Compatibility Ideographs (U+F900–U+FAFF)
+        if 0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF or 0xF900 <= cp <= 0xFAFF:
+            count += 1
+    return count
+
+
 def _estimate_tokens(messages: List[Message]) -> int:
-    """Rough token estimate: ~4 chars/token + 8 per message overhead."""
+    """Rough token estimate with CJK awareness.
+
+    CJK: ~2 tokens/char (GLM tokenizer empirically closer to 2 than 1.5).
+    Non-CJK: ~0.4 tokens/char (~2.5 chars/token — structured JSON keys are
+    often 1 token per 1-2 chars, so the old 4 chars/token was too optimistic).
+    """
     total = 0
     for msg in messages:
         content = (msg.text or "").strip()
+        cjk_count = _count_cjk_chars(content)
+        non_cjk_len = len(content) - cjk_count
+        content_tokens = int(cjk_count * 2.0) + max(1, int(non_cjk_len * 0.4))
         attachment_tokens = len(msg.attachments) * 32
-        total += max(1, len(content) // 4) + attachment_tokens + 8
+        total += content_tokens + attachment_tokens + 8
     return total
 
 

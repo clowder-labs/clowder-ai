@@ -551,7 +551,7 @@ async def _execute_task_and_report(
                 {
                     "task": task_text,
                     "output": _serialize(result.output),
-                    "rendered_output": text,
+                    "rendered_output": text or "task completed",
                 },
             )
             return True

@@ -70,6 +70,10 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json'\]/);
   assert.match(
     buildScript,
+    /const DARE_WINDOWS_EXE_SOURCE = join\(repoRoot, 'vendor', 'dare-cli', 'dist', 'dare\.exe'\)/,
+  );
+  assert.match(
+    buildScript,
     /const JIUWENCLAW_WINDOWS_EXE_SOURCE = join\(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw\.exe'\)/,
   );
   assert.match(buildScript, /RUNTIME_SCRIPT_FILES = \[/);
@@ -79,14 +83,16 @@ test('Windows offline bundle builder deploys production packages and bundles Win
     /const API_RUNTIME_EXTERNAL_DEPENDENCIES = \[\s*'better-sqlite3',\s*'node-pty',\s*'pino',\s*'pino-roll',\s*'puppeteer',\s*'sharp',\s*'sqlite-vec',\s*\]/,
   );
   assert.match(buildScript, /await stageBundledApiRuntime\(targetRootDir\)/);
-  assert.match(buildScript, /const \{ build \} = await import\('esbuild'\)/);
-  assert.match(buildScript, /bundle: true/);
-  assert.match(buildScript, /format: 'esm'/);
-  assert.match(buildScript, /external: API_RUNTIME_EXTERNAL_DEPENDENCIES/);
+  assert.match(buildScript, /function resolveLocalEsbuildCommand\(\)/);
+  assert.match(buildScript, /const esbuildCommand = resolveLocalEsbuildCommand\(\)/);
+  assert.match(buildScript, /'--bundle'/);
+  assert.match(buildScript, /'--format=esm'/);
+  assert.match(buildScript, /API_RUNTIME_EXTERNAL_DEPENDENCIES\.map\(\(dependency\) => `--external:\$\{dependency\}`\)/);
   assert.match(buildScript, /createRequire as __createRequire/);
   assert.match(buildScript, /fileURLToPath as __fileURLToPath/);
   assert.match(buildScript, /const __dirname = __pathDirname\(__filename\)/);
   assert.match(buildScript, /createBundledApiRuntimePackageJson/);
+  assert.match(buildScript, /API bundling unavailable, falling back to staged dist/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'mcp-server'/);
   assert.match(
     buildScript,
@@ -102,6 +108,8 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /cpSync\(WEB_STANDALONE_APP_DIR, targetDir, \{ recursive: true, force: true \}\)/);
   assert.match(buildScript, /rmSync\(join\(targetDir, 'node_modules'\), \{ recursive: true, force: true \}\)/);
   assert.match(buildScript, /copyIfPresent\(WEB_BUILD_STATIC_DIR, join\(targetDir, '\.next', 'static'\)\)/);
+  assert.match(buildScript, /copyIfPresent\(join\(sourceDir, '\.next'\), join\(targetDir, '\.next'\)\)/);
+  assert.match(buildScript, /copyIfPresent\(join\(sourceDir, 'next\.config\.js'\), join\(targetDir, 'next\.config\.js'\)\)/);
   assert.match(
     buildScript,
     /writeJson\(join\(targetDir, 'package\.json'\), createStandaloneWebRuntimePackageJson\(join\(repoRoot, 'packages', 'web', 'package\.json'\)\)\)/,
@@ -109,6 +117,9 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /writeFileSync\(join\(targetDir, 'server\.js'\), RUNTIME_WEB_STANDALONE_SERVER, 'utf8'\)/);
   assert.match(buildScript, /runWindowsNpmInstall\(windowsNode\.npmCmdPath/);
   assert.match(buildScript, /for \(const packageName of \['api', 'mcp-server', 'web'\]\)/);
+  assert.match(buildScript, /buildVendoredDareExecutable\(options\)/);
+  assert.match(buildScript, /stageVendoredDareExecutable\(bundleDir, dareExecutable\)/);
+  assert.match(buildScript, /cpSync\(executablePath, join\(vendorDir, 'dare\.exe'\), \{ force: true \}\)/);
   assert.match(buildScript, /buildVendoredJiuwenClawExecutable\(options\)/);
   assert.match(buildScript, /stageVendoredJiuwenClawExecutable\(bundleDir, jiuwenClawExecutable\)/);
   assert.match(buildScript, /cpSync\(executablePath, join\(vendorDir, 'jiuwenclaw\.exe'\), \{ force: true \}\)/);
