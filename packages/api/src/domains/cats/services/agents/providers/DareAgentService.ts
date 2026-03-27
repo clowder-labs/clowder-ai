@@ -146,6 +146,9 @@ export function resolveVenvPython(darePath: string): string {
   for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate;
   }
+  // Shared Python from Windows installer layout (embeddable + deps in Lib/site-packages)
+  const sharedPython = join(resolveCatCafeHostRoot(process.cwd()), 'tools', 'python', 'python.exe');
+  if (existsSync(sharedPython)) return sharedPython;
   return 'python';
 }
 
@@ -433,6 +436,18 @@ export class DareAgentService implements AgentService {
     const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
     if (existsSync(catCafeSkillsDir)) {
       env.DARE_SKILL_PATHS = JSON.stringify([catCafeSkillsDir]);
+    }
+
+    // Windows Python: force UTF-8 stdout/stderr to avoid GBK encode errors on emoji/CJK
+    if (process.platform === 'win32') {
+      env.PYTHONIOENCODING = 'utf-8';
+      env.PYTHONUTF8 = '1';
+      // Prepend bundled Python to PATH so MCP servers spawned by DARE find it
+      const bundledPythonDir = join(projectRoot, 'tools', 'python');
+      if (existsSync(join(bundledPythonDir, 'python.exe'))) {
+        const currentPath = callbackEnv?.PATH ?? process.env.PATH ?? '';
+        env.PATH = `${bundledPythonDir};${currentPath}`;
+      }
     }
 
     // Reserve 30% to account for: output tokens (~15%), serialization overhead,
