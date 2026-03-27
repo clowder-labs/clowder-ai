@@ -534,9 +534,9 @@ function installSharedPythonDeps(bundleDir) {
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
 
-  // Install JiuwenClaw as package (skip deps — sources are on the Python path via ._pth)
+  // Install JiuwenClaw as package (includes all its deps)
   const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', '--no-deps', jiuwenClawDir]);
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', jiuwenClawDir]);
 
   // Install office automation libraries for MCP servers
   const officeDeps = [
@@ -1238,16 +1238,12 @@ function ensureBuildArtifacts(options) {
 function buildWindowsDesktopLauncher(bundleDir, options) {
   const launcherScript = join(repoRoot, 'scripts', 'build-windows-webview2-launcher.ps1');
   const launcherSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'ClowderDesktop.cs');
-  const launcherIconSource = join(repoRoot, 'packages', 'web', 'public', 'icons', 'icon-192x192.png');
-  const launcherIconPath = join(options.cacheDir, 'ClowderAI.ico');
+  const launcherIconPath = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
   if (!existsSync(launcherScript) || !existsSync(launcherSource)) {
     throw new Error('Missing WebView2 launcher build assets');
   }
   if (!commandExists('powershell.exe')) {
     throw new Error('powershell.exe is required to build the Windows WebView2 launcher');
-  }
-  if (existsSync(launcherIconSource)) {
-    createIcoFromPng(launcherIconSource, launcherIconPath);
   }
 
   run('powershell.exe', [

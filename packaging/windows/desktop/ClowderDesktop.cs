@@ -186,6 +186,11 @@ internal sealed class LauncherForm : Form
     {
         try
         {
+            var icoPath = Path.Combine(_projectRoot, "assets", "app.ico");
+            if (File.Exists(icoPath))
+            {
+                return new Icon(icoPath);
+            }
             return Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
         }
         catch
@@ -197,8 +202,8 @@ internal sealed class LauncherForm : Form
     private NotifyIcon CreateNotifyIcon()
     {
         var contextMenu = new ContextMenuStrip();
-        contextMenu.Items.Add("Open OfficeClaw", null, (_, __) => RestoreFromTray());
-        contextMenu.Items.Add("Exit", null, (_, __) => RequestExit());
+        contextMenu.Items.Add("打开 OfficeClaw", null, (_, __) => RestoreFromTray());
+        contextMenu.Items.Add("退出", null, (_, __) => RequestExit());
 
         var notifyIcon = new NotifyIcon
         {
@@ -241,7 +246,7 @@ internal sealed class LauncherForm : Form
             _notifyIcon.ShowBalloonTip(
                 2500,
                 "OfficeClaw",
-                "OfficeClaw is still running here. Use the tray icon menu to exit.",
+                "OfficeClaw 仍在后台运行，右键托盘图标可退出。",
                 ToolTipIcon.Info
             );
             _trayHintShown = true;
