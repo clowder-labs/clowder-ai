@@ -24,6 +24,8 @@ import {
 } from './relayclaw-sidecar.js';
 import { transformRelayClawChunk } from './relayclaw-event-transform.js';
 
+const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
+
 export interface RelayClawAgentServiceOptions {
   catId?: CatId;
   config: RelayClawAgentConfig;
@@ -76,7 +78,7 @@ export class RelayClawAgentService implements AgentService {
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
-    const signal = buildSignal(this.config.timeoutMs ?? 600_000, options?.signal);
+    const signal = buildSignal(this.config.timeoutMs ?? DEFAULT_RELAYCLAW_TIMEOUT_MS, options?.signal);
     yield agentMsg('session_init', this.catId);
 
     try {
