@@ -254,6 +254,7 @@ describe('HubProviderProfileItem', () => {
       command: 'uv',
       args: ['--directory', '/opt/workspace/agent-teams', 'run', 'agent-teams', 'gateway', 'acp', 'stdio'],
       cwd: '/opt/workspace/agent-teams',
+      envKeys: ['ACP_TRACE_STDIO'],
       modelAccessMode: 'clowder_default_profile',
       defaultModelProfileRef: 'default-openai',
       hasApiKey: false,
@@ -289,6 +290,19 @@ describe('HubProviderProfileItem', () => {
     await act(async () => {
       queryButton(container, '编辑').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
+    const envInput = container.querySelector(
+      'textarea[placeholder*="每行 KEY=value；留空保持现有值"]',
+    ) as HTMLTextAreaElement | null;
+    expect(envInput).not.toBeNull();
+    await act(async () => {
+      envInput?.dispatchEvent(new Event('focus', { bubbles: true }));
+      const descriptor = envInput
+        ? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(envInput), 'value')
+        : undefined;
+      descriptor?.set?.call(envInput, 'ACP_TRACE_STDIO=1\nAGENT_TEAMS_LOG_LEVEL=DEBUG');
+      envInput?.dispatchEvent(new Event('input', { bubbles: true }));
+      envInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     await act(async () => {
       queryButton(container, '保存').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
@@ -299,6 +313,10 @@ describe('HubProviderProfileItem', () => {
       command: 'uv',
       args: ['--directory', '/opt/workspace/agent-teams', 'run', 'agent-teams', 'gateway', 'acp', 'stdio'],
       cwd: '/opt/workspace/agent-teams',
+      env: {
+        ACP_TRACE_STDIO: '1',
+        AGENT_TEAMS_LOG_LEVEL: 'DEBUG',
+      },
       modelAccessMode: 'clowder_default_profile',
       defaultModelProfileRef: 'default-openai',
     } satisfies ProfileEditPayload);

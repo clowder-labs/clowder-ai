@@ -44,6 +44,7 @@ export function CreateApiKeyProfileSection({
   command,
   args,
   cwd,
+  envText,
   modelAccessMode,
   defaultModelProfileRef,
   acpModelProfiles,
@@ -57,6 +58,7 @@ export function CreateApiKeyProfileSection({
   onCommandChange,
   onArgsChange,
   onCwdChange,
+  onEnvTextChange,
   onModelAccessModeChange,
   onDefaultModelProfileRefChange,
   onCreate,
@@ -70,6 +72,7 @@ export function CreateApiKeyProfileSection({
   command: string;
   args: string;
   cwd: string;
+  envText: string;
   modelAccessMode: AcpModelAccessMode;
   defaultModelProfileRef: string;
   acpModelProfiles: AcpModelProfileItem[];
@@ -83,6 +86,7 @@ export function CreateApiKeyProfileSection({
   onCommandChange: (value: string) => void;
   onArgsChange: (value: string) => void;
   onCwdChange: (value: string) => void;
+  onEnvTextChange: (value: string) => void;
   onModelAccessModeChange: (value: AcpModelAccessMode) => void;
   onDefaultModelProfileRefChange: (value: string) => void;
   onCreate: () => void;
@@ -143,6 +147,13 @@ export function CreateApiKeyProfileSection({
                 value={cwd}
                 onChange={(e) => onCwdChange(e.target.value)}
                 placeholder="可选 cwd，例如 /opt/workspace/agent-teams"
+                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+              />
+              <textarea
+                value={envText}
+                onChange={(e) => onEnvTextChange(e.target.value)}
+                rows={4}
+                placeholder="可选环境变量，每行 KEY=value，例如 ACP_TRACE_STDIO=1"
                 className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
               />
               <select

@@ -31,6 +31,7 @@ import {
   resolveProviderProfilesRoot,
   resolveProviderProfilesRootSync,
 } from './provider-profiles-root.js';
+import { normalizeACPEnvEntries } from './acp-env.js';
 
 export type {
   ACPModelAccessMode,
@@ -226,6 +227,19 @@ function normalizeCwd(cwd: string | undefined | null): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function normalizeEnvKeys(
+  values: string[] | undefined,
+  modelAccessMode: ACPModelAccessMode | undefined,
+): string[] | undefined {
+  if (!Array.isArray(values)) return undefined;
+  const normalized = normalizeACPEnvEntries(
+    Object.fromEntries(values.map((value) => [value, ''])),
+    modelAccessMode,
+    { strict: false },
+  ).env;
+  return normalized ? Object.keys(normalized) : undefined;
+}
+
 function normalizeAcpModelAccessMode(value: string | undefined): ACPModelAccessMode | undefined {
   if (value === 'self_managed' || value === 'clowder_default_profile') {
     return value;
@@ -370,6 +384,7 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
       throw new Error(`ACP account "${profile.id}" requires a command`);
     }
     const modelAccessMode = normalizedModelAccessMode ?? 'self_managed';
+    const envKeys = normalizeEnvKeys(profile.envKeys, modelAccessMode);
     return {
       id: profile.id,
       displayName: profile.displayName?.trim() || profile.id,
@@ -380,6 +395,7 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
       command: normalizedCommand,
       ...(normalizedArgs?.length ? { args: normalizedArgs } : {}),
       ...(normalizeCwd(profile.cwd) ? { cwd: normalizeCwd(profile.cwd) } : {}),
+      ...(envKeys?.length ? { envKeys } : {}),
       modelAccessMode,
       ...(modelAccessMode === 'clowder_default_profile' && normalizedDefaultModelProfileRef
         ? { defaultModelProfileRef: normalizedDefaultModelProfileRef }
@@ -822,13 +838,66 @@ async function readRawAtStorageRoot(storageRoot: string): Promise<{
       ProviderProfilesSecretsFile | LegacyProviderProfilesSecretsFileV1 | LegacyProviderProfilesSecretsFileV2
     >(secretsPath),
   );
+  const envDirty = syncAcpEnvMetadata(normalizedMeta.value, normalizedSecrets.value);
   return {
     meta: normalizedMeta.value,
     secrets: normalizedSecrets.value,
     metaPath,
     secretsPath,
-    dirty: normalizedMeta.dirty || normalizedSecrets.dirty,
+    dirty: normalizedMeta.dirty || normalizedSecrets.dirty || envDirty,
   };
+}
+
+function syncAcpEnvMetadata(meta: ProviderProfilesMetaFile, secrets: ProviderProfilesSecretsFile): boolean {
+  let dirty = false;
+
+  for (const profile of meta.providers) {
+    const existingSecretEntry = secrets.profiles[profile.id];
+    if (profile.kind !== 'acp') {
+      if (profile.envKeys !== undefined) {
+        delete profile.envKeys;
+        dirty = true;
+      }
+      if (existingSecretEntry?.env !== undefined) {
+        const nextEntry = { ...existingSecretEntry };
+        delete nextEntry.env;
+        if (nextEntry.apiKey) {
+          secrets.profiles[profile.id] = nextEntry;
+        } else {
+          delete secrets.profiles[profile.id];
+        }
+        dirty = true;
+      }
+      continue;
+    }
+
+    const normalizedEnv = normalizeACPEnvEntries(existingSecretEntry?.env, profile.modelAccessMode, { strict: false }).env;
+    const nextEnvKeys = normalizedEnv ? Object.keys(normalizedEnv) : undefined;
+    if (JSON.stringify(profile.envKeys ?? []) !== JSON.stringify(nextEnvKeys ?? [])) {
+      if (nextEnvKeys?.length) profile.envKeys = nextEnvKeys;
+      else delete profile.envKeys;
+      dirty = true;
+    }
+
+    const currentEnv = existingSecretEntry?.env;
+    if (JSON.stringify(currentEnv ?? null) !== JSON.stringify(normalizedEnv ?? null)) {
+      if (existingSecretEntry) {
+        const nextEntry = { ...existingSecretEntry };
+        if (normalizedEnv) nextEntry.env = normalizedEnv;
+        else delete nextEntry.env;
+        if (nextEntry.apiKey || nextEntry.env) {
+          secrets.profiles[profile.id] = nextEntry;
+        } else {
+          delete secrets.profiles[profile.id];
+        }
+      } else if (normalizedEnv) {
+        secrets.profiles[profile.id] = { env: normalizedEnv };
+      }
+      dirty = true;
+    }
+  }
+
+  return dirty;
 }
 
 async function writeRaw(
@@ -1054,6 +1123,7 @@ export async function createProviderProfile(
       if (!command) throw new Error('command is required for ACP providers');
       const modelAccessMode = normalizeAcpModelAccessMode(input.modelAccessMode) ?? 'self_managed';
       const defaultModelProfileRef = input.defaultModelProfileRef?.trim();
+      const env = normalizeACPEnvEntries(input.env, modelAccessMode).env;
       if (modelAccessMode === 'clowder_default_profile' && !defaultModelProfileRef) {
         throw new Error('defaultModelProfileRef is required when modelAccessMode=clowder_default_profile');
       }
@@ -1070,6 +1140,7 @@ export async function createProviderProfile(
         command,
         ...(normalizeStringList(input.args)?.length ? { args: normalizeStringList(input.args) } : {}),
         ...(normalizeCwd(input.cwd) ? { cwd: normalizeCwd(input.cwd) } : {}),
+        ...(env ? { envKeys: Object.keys(env) } : {}),
         modelAccessMode,
         ...(modelAccessMode === 'clowder_default_profile' && defaultModelProfileRef
           ? { defaultModelProfileRef }
@@ -1077,10 +1148,16 @@ export async function createProviderProfile(
         createdAt: now,
         updatedAt: now,
       };
+      if (env) {
+        secrets.profiles[profile.id] = { ...(secrets.profiles[profile.id] ?? {}), env };
+      }
     } else {
       const authType = input.authType ?? modeToAuthType(input.mode);
       if (authType !== 'api_key') {
         throw new Error('only api_key accounts can be created');
+      }
+      if (input.env) {
+        throw new Error('env is only supported for ACP providers');
       }
       const apiKey = input.apiKey?.trim();
       if (!apiKey) throw new Error('apiKey is required for api_key mode');
@@ -1159,8 +1236,36 @@ export async function updateProviderProfile(
         if (ref) profile.defaultModelProfileRef = ref;
         else delete profile.defaultModelProfileRef;
       }
+      if (input.env !== undefined) {
+        const normalizedEnv = normalizeACPEnvEntries(input.env, profile.modelAccessMode).env;
+        const nextSecretEntry = { ...(secrets.profiles[profile.id] ?? {}) };
+        if (normalizedEnv) nextSecretEntry.env = normalizedEnv;
+        else delete nextSecretEntry.env;
+        if (nextSecretEntry.apiKey || nextSecretEntry.env) {
+          secrets.profiles[profile.id] = nextSecretEntry;
+        } else {
+          delete secrets.profiles[profile.id];
+        }
+        if (normalizedEnv) profile.envKeys = Object.keys(normalizedEnv);
+        else delete profile.envKeys;
+      }
       if ((profile.modelAccessMode ?? 'self_managed') === 'clowder_default_profile' && !profile.defaultModelProfileRef) {
         throw new Error('defaultModelProfileRef is required when modelAccessMode=clowder_default_profile');
+      }
+      if (input.env === undefined) {
+        const normalizedEnv = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.modelAccessMode, {
+          strict: false,
+        }).env;
+        const nextSecretEntry = { ...(secrets.profiles[profile.id] ?? {}) };
+        if (normalizedEnv) nextSecretEntry.env = normalizedEnv;
+        else delete nextSecretEntry.env;
+        if (nextSecretEntry.apiKey || nextSecretEntry.env) {
+          secrets.profiles[profile.id] = nextSecretEntry;
+        } else {
+          delete secrets.profiles[profile.id];
+        }
+        if (normalizedEnv) profile.envKeys = Object.keys(normalizedEnv);
+        else delete profile.envKeys;
       }
       profile.updatedAt = new Date().toISOString();
       await writeRaw(metaPath, secretsPath, meta, secrets);
@@ -1180,6 +1285,7 @@ export async function updateProviderProfile(
         input.command !== undefined ||
         input.args !== undefined ||
         input.cwd !== undefined ||
+        input.env !== undefined ||
         input.modelAccessMode !== undefined ||
         input.defaultModelProfileRef !== undefined;
       if (hasNonModelUpdates) {
@@ -1199,6 +1305,9 @@ export async function updateProviderProfile(
     const nextAuthType = input.authType ?? (input.mode ? modeToAuthType(input.mode) : profile.authType);
     if (nextAuthType !== 'api_key') {
       throw new Error('api key accounts cannot be converted to oauth');
+    }
+    if (input.env !== undefined) {
+      throw new Error('env is only supported for ACP providers');
     }
     if (typeof input.baseUrl === 'string') {
       const normalizedBaseUrl = normalizeBaseUrl(input.baseUrl);
@@ -1299,6 +1408,7 @@ function toRuntimeProviderProfile(
   secrets: ProviderProfilesSecretsFile,
 ): RuntimeProviderProfile | null {
   if (profile.kind === 'acp') {
+    const env = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.modelAccessMode, { strict: false }).env;
     return {
       id: profile.id,
       kind: 'acp',
@@ -1307,6 +1417,7 @@ function toRuntimeProviderProfile(
       ...(profile.command ? { command: profile.command } : {}),
       ...(profile.args ? { args: profile.args } : {}),
       ...(profile.cwd ? { cwd: profile.cwd } : {}),
+      ...(env ? { env } : {}),
       ...(profile.modelAccessMode ? { modelAccessMode: profile.modelAccessMode } : {}),
       ...(profile.defaultModelProfileRef ? { defaultModelProfileRef: profile.defaultModelProfileRef } : {}),
     };
