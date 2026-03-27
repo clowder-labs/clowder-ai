@@ -25,6 +25,7 @@ export { intentCardRoutes } from './intent-card-routes.js';
 export { invocationsRoutes } from './invocations.js';
 export { leaderboardRoutes } from './leaderboard.js';
 export { leaderboardEventsRoutes } from './leaderboard-events.js';
+export { massModelsRoutes } from './mass-models.js';
 export { memoryRoutes } from './memory.js';
 export { memoryPublishRoutes } from './memory-publish.js';
 export { messageActionsRoutes } from './message-actions.js';

@@ -51,7 +51,7 @@ export function ResizeHandle({ direction, onResize, onDoubleClick }: ResizeHandl
       aria-orientation={isH ? 'vertical' : 'horizontal'}
       onMouseDown={handleMouseDown}
       onDoubleClick={onDoubleClick}
-      className={`flex-shrink-0 group relative ${
+      className={`flex-shrink-0 group relative hidden ${
         isH
           ? 'w-1 cursor-col-resize hover:bg-cocreator-primary/20 active:bg-cocreator-primary/30'
           : 'h-1 cursor-row-resize hover:bg-cocreator-primary/20 active:bg-cocreator-primary/30'

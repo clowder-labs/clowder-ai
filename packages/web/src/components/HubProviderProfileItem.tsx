@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { parseProviderEnvText } from './hub-provider-env';
 import type { ApiProtocol } from './hub-provider-profiles.sections';
 import type { AcpModelAccessMode, AcpModelProfileItem, ProfileItem } from './hub-provider-profiles.types';
 import { TagEditor } from './hub-tag-editor';
@@ -21,7 +20,6 @@ export interface ProfileEditPayload {
   command?: string;
   args?: string[];
   cwd?: string | null;
-  env?: Record<string, string> | null;
   modelAccessMode?: AcpModelAccessMode;
   defaultModelProfileRef?: string | null;
 }
@@ -64,7 +62,6 @@ export function HubProviderProfileItem({
   const [editCommand, setEditCommand] = useState(profile.command ?? '');
   const [editArgs, setEditArgs] = useState((profile.args ?? []).join(' '));
   const [editCwd, setEditCwd] = useState(profile.cwd ?? '');
-  const [editEnvText, setEditEnvText] = useState('');
   const [editModelAccessMode, setEditModelAccessMode] = useState<AcpModelAccessMode>(
     profile.modelAccessMode ?? 'self_managed',
   );
@@ -79,7 +76,6 @@ export function HubProviderProfileItem({
     setEditCommand(profile.command ?? '');
     setEditArgs((profile.args ?? []).join(' '));
     setEditCwd(profile.cwd ?? '');
-    setEditEnvText('');
     setEditModelAccessMode(profile.modelAccessMode ?? 'self_managed');
     setEditDefaultModelProfileRef(profile.defaultModelProfileRef ?? '');
     setEditing(true);
@@ -105,7 +101,6 @@ export function HubProviderProfileItem({
           .map((value) => value.trim())
           .filter(Boolean),
         cwd: editCwd.trim() || null,
-        ...(parseProviderEnvText(editEnvText) ? { env: parseProviderEnvText(editEnvText) } : {}),
         modelAccessMode: editModelAccessMode,
         defaultModelProfileRef:
           editModelAccessMode === 'clowder_default_profile' ? editDefaultModelProfileRef.trim() || null : null,
@@ -125,7 +120,6 @@ export function HubProviderProfileItem({
     editBaseUrl,
     editCommand,
     editCwd,
-    editEnvText,
     editDefaultModelProfileRef,
     editDisplayName,
     editModelAccessMode,
@@ -139,14 +133,14 @@ export function HubProviderProfileItem({
 
   if (editing) {
     return (
-      <div className="space-y-3 rounded-[20px] border-2 border-[#E8C9AF] bg-[#FFF8F2] p-[18px]">
+      <div className="space-y-3 rounded-2xl border border-[#E5EAF2] bg-[#F8FAFD] p-4">
         <div className="space-y-2">
           <input
             value={editDisplayName}
             onChange={(e) => setEditDisplayName(e.target.value)}
             placeholder="账号显示名"
             autoComplete="off"
-            className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
           />
           {profile.kind === 'acp' ? (
             <>
@@ -154,35 +148,25 @@ export function HubProviderProfileItem({
                 value={editCommand}
                 onChange={(e) => setEditCommand(e.target.value)}
                 placeholder="命令"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <textarea
                 value={editArgs}
                 onChange={(e) => setEditArgs(e.target.value)}
                 rows={3}
                 placeholder="参数按空格分隔"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <input
                 value={editCwd}
                 onChange={(e) => setEditCwd(e.target.value)}
                 placeholder="可选 cwd"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
-              <textarea
-                value={editEnvText}
-                onChange={(e) => setEditEnvText(e.target.value)}
-                rows={4}
-                placeholder="可选环境变量，每行 KEY=value；留空保持现有值"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
-              />
-              {profile.envKeys?.length ? (
-                <p className="text-xs leading-5 text-[#8A776B]">当前环境变量: {profile.envKeys.join(', ')}</p>
-              ) : null}
               <select
                 value={editModelAccessMode}
                 onChange={(e) => setEditModelAccessMode(e.target.value as AcpModelAccessMode)}
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
               >
                 {ACP_MODEL_ACCESS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -194,7 +178,7 @@ export function HubProviderProfileItem({
                 <select
                   value={editDefaultModelProfileRef}
                   onChange={(e) => setEditDefaultModelProfileRef(e.target.value)}
-                  className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm"
+                  className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
                 >
                   <option value="">选择 ACP Model Profile</option>
                   {acpModelProfiles.map((item) => (
@@ -212,7 +196,7 @@ export function HubProviderProfileItem({
                 onChange={(e) => setEditBaseUrl(e.target.value)}
                 placeholder="API 服务地址，如 https://api.example.com/v1"
                 autoComplete="off"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <input
                 type="password"
@@ -220,10 +204,10 @@ export function HubProviderProfileItem({
                 value={editApiKey}
                 onChange={(e) => setEditApiKey(e.target.value)}
                 placeholder={profile.hasApiKey ? '已配置 sk-••••••••（留空保持不变）' : 'sk-xxxxxxxxxxxxxxxx'}
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-[#8A776B]">可用模型</p>
+                <p className="text-xs font-semibold text-[#6E7785]">可用模型</p>
                 <TagEditor
                   tags={editModels}
                   tone="purple"
@@ -242,7 +226,7 @@ export function HubProviderProfileItem({
             type="button"
             onClick={saveEdit}
             disabled={busy}
-            className="rounded bg-[#D49266] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#c47f52] disabled:opacity-50"
+            className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
           >
             {busy ? '保存中...' : '保存'}
           </button>
@@ -250,7 +234,7 @@ export function HubProviderProfileItem({
             type="button"
             onClick={() => setEditing(false)}
             disabled={busy}
-            className="rounded border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            className="rounded border border-[#D8DEE8] px-3 py-1.5 text-xs text-[#647083] hover:bg-[#F5F7FB]"
           >
             取消
           </button>
@@ -260,13 +244,13 @@ export function HubProviderProfileItem({
   }
 
   return (
-    <div className="rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]">
+    <div className="rounded-2xl border border-[#E5EAF2] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-base font-bold text-[#2D2118]">{profile.displayName}</span>
+            <span className="text-base font-semibold text-[#2D3545]">{profile.displayName}</span>
             {profile.builtin ? (
-              <span className="text-[11px] font-semibold text-[#8A776B] flex items-center gap-0.5">
+              <span className="text-[11px] font-semibold text-[#7A8495] flex items-center gap-0.5">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path
                     strokeLinecap="round"
@@ -280,26 +264,21 @@ export function HubProviderProfileItem({
             {!profile.builtin ? (
               <span
                 className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                  profile.kind === 'acp' ? 'bg-[#E8EEFF] text-[#4E63A6]' : 'bg-[#F3E8FF] text-[#9D7BC7]'
+                  profile.kind === 'acp' ? 'bg-[#E8EEFF] text-[#4E63A6]' : 'bg-[#EEF3FF] text-[#5970B6]'
                 }`}
               >
                 {profile.kind === 'acp' ? 'acp' : 'api_key'}
               </span>
             ) : null}
           </div>
-          {summaryText(profile) ? <p className="text-sm text-[#8A776B]">{summaryText(profile)}</p> : null}
+          {summaryText(profile) ? <p className="text-sm text-[#727D8F]">{summaryText(profile)}</p> : null}
           {profile.kind === 'acp' ? (
-            <div className="space-y-1">
-              <p className="text-xs leading-5 text-[#8A776B]">
-                模型接入: {profile.modelAccessMode === 'clowder_default_profile' ? 'Clowder default profile' : 'Agent Teams 自管'}
-              </p>
-              {profile.envKeys?.length ? (
-                <p className="text-xs leading-5 text-[#8A776B]">环境变量: {profile.envKeys.join(', ')}</p>
-              ) : null}
-            </div>
+            <p className="text-xs leading-5 text-[#727D8F]">
+              模型接入: {profile.modelAccessMode === 'clowder_default_profile' ? 'Clowder default profile' : 'Agent Teams 自管'}
+            </p>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs font-semibold text-[#8A776B]">可用模型</p>
+              <p className="text-xs font-semibold text-[#6E7785]">可用模型</p>
               <TagEditor
                 tags={profile.models ?? []}
                 tone={profile.builtin ? 'orange' : 'purple'}
@@ -323,7 +302,7 @@ export function HubProviderProfileItem({
           {!profile.builtin ? (
             <button
               type="button"
-              className="rounded-full bg-[#F7F3F0] px-3 py-1.5 text-xs font-semibold text-[#8A776B]"
+              className="rounded-full border border-[#D9DFEA] bg-[#F8FAFD] px-3 py-1.5 text-xs font-semibold text-[#697487]"
               onClick={startEdit}
               disabled={busy}
             >
@@ -333,7 +312,7 @@ export function HubProviderProfileItem({
           {!profile.builtin && onTest ? (
             <button
               type="button"
-              className="rounded-full bg-[#EEF7F0] px-3 py-1.5 text-xs font-semibold text-[#4E8A5B]"
+              className="rounded-full border border-[#CDEAD4] bg-[#EDF9F1] px-3 py-1.5 text-xs font-semibold text-[#2F8A4A]"
               onClick={() => void onTest()}
               disabled={busy}
             >
@@ -343,7 +322,7 @@ export function HubProviderProfileItem({
           {!profile.builtin ? (
             <button
               type="button"
-              className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600"
+              className="rounded-full border border-[#F8D1D1] bg-[#FFF3F3] px-3 py-1.5 text-xs font-semibold text-[#D14646]"
               onClick={async () => {
                 if (
                   await confirm({

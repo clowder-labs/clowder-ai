@@ -13,6 +13,7 @@ interface UserInfo {
   token: string;
   expiresAt: string;
   credential: Record<string, string>;
+  modelInfo: Record<string, unknown>;
 }
 
 interface TokenResult {
@@ -30,7 +31,7 @@ interface CredentialResult {
 
 interface ModelInfoResult {
   success: boolean;
-  modelInfo?: any;
+  modelInfo?: Record<string, unknown>;
   message?: string;
 }
 
@@ -45,14 +46,15 @@ const userInfo: UserInfo = {
   userId: '',
   token: '',
   expiresAt: '',
-  credential: {}
+  credential: {},
+  modelInfo: {},
 };
 
 const IAM_URL = 'https://iam.myhuaweicloud.com';
-export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, options) => {
 
-  // 简单的session存储（生产环境应该使用Redis或数据库）
-  const sessions = new Map<string, UserInfo>();
+// 简单的session存储（生产环境应该使用Redis或数据库）
+export const sessions = new Map<string, UserInfo>();
+export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, options) => {
 
   // 检查登录状态接口
   app.get('/api/islogin', async (request, reply) => {
@@ -94,10 +96,15 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
       return { success: false, message: credentialResult?.message || '认证失败' };
     }
 
+    const modelInfoResult = await subscriptionClaw(tokenResult.token);
+    if (!modelInfoResult?.success) {
+      return { success: false, message: modelInfoResult?.message || '\u5f00\u901a\u5931\u8d25' };
+    }
     userInfo.userId = `${domainName}:${name ?? ''}`;
     userInfo.token = tokenResult.token ?? '';
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
     userInfo.credential = credentialResult.credential ?? {};
+    userInfo.modelInfo = modelInfoResult.modelInfo ?? {};
 
     // 创建session（简单实现，生产环境应该生成JWT token）
     const sessionId = `session-${Date.now()}-${Math.random()}`;
@@ -112,7 +119,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   // 退出登录接口
   app.post('/api/logout', async (request) => {
     const userId = request.headers['x-cat-cafe-user'] as string;
-    
+
     if (userId) {
       // 删除 session
       sessions.delete(userId);
@@ -185,7 +192,7 @@ async function getSecuritytokens(app: FastifyInstance, token = ''): Promise<Cred
     });
 
     if (!authResponse.ok) {
-      throw new Error(`获取IAM临时访问密钥失败，状态码: ${authResponse.statusText}`);
+      throw new Error(`获取IAM临时访问密钥失败，状态码: ${authResponse.status}`);
     }
     const data: any = await authResponse.json();
     return { success: true, credential: data.credential };
@@ -199,16 +206,19 @@ async function getSecuritytokens(app: FastifyInstance, token = ''): Promise<Cred
 async function subscriptionClaw(token = ''): Promise<ModelInfoResult> {
   // 调用华为云认证接口
   try {
-    const subResponse = await fetch(`${IAM_URL}/v1/claw/client-subscription`, {
+    const subResponse = await fetch(`https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-subscription`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json;charset=utf8',
-        'X-Auth-Token': token
+        'X-Auth-Token': token,
       },
+      body: JSON.stringify({
+        promotion_code: "huawei_dev_blue"
+      })
     });
 
     if (!subResponse.ok) {
-      throw new Error(`开通客户端claw失败，状态码: ${subResponse.statusText}`);
+      throw new Error(`开通客户端claw失败，状态码: ${subResponse.status}`);
     }
     const data: any = await subResponse.json();
     return { success: true, modelInfo: data.model_info };

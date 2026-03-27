@@ -143,7 +143,7 @@ export function CapabilitySection({
           </p>
         </div>
       </div>
-      <div className="space-y-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         {items.map((item) => (
           <CapabilityCard
             key={`${item.type}:${item.id}`}

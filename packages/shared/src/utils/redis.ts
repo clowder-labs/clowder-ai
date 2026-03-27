@@ -70,7 +70,7 @@ return 1
 `;
 
 export class SessionStore {
-  constructor(private redis: RedisClient) {}
+  constructor(public readonly redis: RedisClient) {}
 
   async getSessionId(userId: string, catId: string, threadId: string): Promise<string | null> {
     return this.redis.get(SessionKeys.session(userId, catId, threadId));

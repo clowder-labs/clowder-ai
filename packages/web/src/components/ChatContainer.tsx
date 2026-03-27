@@ -38,7 +38,6 @@ import { ChatMessage } from './ChatMessage';
 import { GameOverlayConnector } from './game/GameOverlayConnector';
 import { HubListModal } from './HubListModal';
 import { MessageActions } from './MessageActions';
-import { MessageNavigator } from './MessageNavigator';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { ModelsPanel } from './ModelsPanel';
 import { ParallelStatusBar } from './ParallelStatusBar';
@@ -458,10 +457,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         </>
       )}
 
-      <div
-        className="flex flex-col min-w-0"
-        style={{ flex: '1 1 0%' }}
-      >
+      <div className="flex flex-col min-w-0" style={{ flex: '1 1 0%' }}>
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}
@@ -481,8 +477,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <div className="flex-1 relative overflow-hidden">
           {sidebarMenu !== 'chat' && (
             <div
-              className="h-full overflow-y-auto p-6"
-              style={{ backgroundColor: theme === 'business' ? config.content.bg : undefined }}
+              className="h-full overflow-hidden px-12 pt-12 pb-12"
+              style={{ backgroundColor: theme === 'business' && config ? config.content.bg : '#FFFFFF' }}
             >
               {sidebarMenu === 'models' && <ModelsPanel />}
               {sidebarMenu === 'agents' && <AgentsPanel />}
@@ -496,7 +492,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               onScroll={handleScroll}
               className="h-full overflow-y-auto p-4"
               style={{
-                backgroundColor: theme === 'business' ? config.content.bg : undefined,
+                backgroundColor:
+                  threadId === 'default' ? '#FFFFFF' : theme === 'business' && config ? config.content.bg : undefined,
               }}
               data-chat-container
             >
@@ -525,15 +522,20 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                 )
               )}
               <div ref={messagesEndRef} />
+              {sidebarMenu === 'chat' && (
+                <ScrollToBottomButton
+                  scrollContainerRef={scrollContainerRef}
+                  messagesEndRef={messagesEndRef}
+                  recomputeSignal={computeScrollRecomputeSignal(
+                    threadId,
+                    messages,
+                    uiThinkingExpandedByDefault ? 1 : 0,
+                  )}
+                  observerKey={threadId}
+                />
+              )}
             </main>
           )}
-          <ScrollToBottomButton
-            scrollContainerRef={scrollContainerRef}
-            messagesEndRef={messagesEndRef}
-            recomputeSignal={computeScrollRecomputeSignal(threadId, messages, uiThinkingExpandedByDefault ? 1 : 0)}
-            observerKey={threadId}
-          />
-          {messages.length > 5 && <MessageNavigator messages={messages} scrollContainerRef={scrollContainerRef} />}
         </div>
 
         {sidebarMenu === 'chat' && authPending.length > 0 && (

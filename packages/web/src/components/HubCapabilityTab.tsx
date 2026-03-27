@@ -26,8 +26,10 @@ import {
   SkillHealthBanner,
   StatusDot,
 } from './capability-board-ui';
+import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
 import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-utils';
 import { useConfirm } from './useConfirm';
+import { useProviderProfilesState } from './useProviderProfilesState';
 
 type FilterSource = 'all' | 'cat-cafe' | 'external';
 
@@ -39,6 +41,9 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   const [loading, setLoading] = useState(true);
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
   const [toggling, setToggling] = useState<string | null>(null);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
+
+  const { providerCreateSectionProps } = useProviderProfilesState();
 
   const confirm = useConfirm();
 
@@ -198,23 +203,32 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
       {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
       {/* Header: project + filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <ProjectSelector
-          resolvedPath={resolvedProjectPath}
-          knownProjects={knownProjects}
-          currentSelection={projectPath}
-          onSwitch={switchProject}
-        />
-        <FilterChips
-          label="来源"
-          value={filterSource}
-          options={[
-            { value: 'all', label: '全部' },
-            { value: 'cat-cafe', label: 'OfficeClaw' },
-            { value: 'external', label: '外部' },
-          ]}
-          onChange={(v) => setFilterSource(v as FilterSource)}
-        />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ProjectSelector
+            resolvedPath={resolvedProjectPath}
+            knownProjects={knownProjects}
+            currentSelection={projectPath}
+            onSwitch={switchProject}
+          />
+          <FilterChips
+            label="来源"
+            value={filterSource}
+            options={[
+              { value: 'all', label: '全部' },
+              { value: 'cat-cafe', label: 'OfficeClaw' },
+              { value: 'external', label: '外部' },
+            ]}
+            onChange={(v) => setFilterSource(v as FilterSource)}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAddModelModal(true)}
+          className="rounded-lg bg-[#111418] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#2A3038]"
+        >
+          + 添加模型
+        </button>
       </div>
 
       {/* Skill health banner */}
@@ -297,6 +311,31 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           </span>
         </div>
       </div>
+
+      {/* 添加模型弹框 */}
+      {showAddModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowAddModelModal(false)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2E3440]">新建 API Key 账号</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(false)}
+                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                关闭
+              </button>
+            </div>
+            <CreateApiKeyProfileSection {...providerCreateSectionProps} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,13 +4,11 @@ import { useMemo, useState } from 'react';
 import { TagEditor } from './hub-tag-editor';
 import type { AcpModelProfileItem, AcpModelProviderType, AcpModelAccessMode } from './hub-provider-profiles.types';
 
-type EditableAcpModelProvider = AcpModelProviderType | '';
-
 export function ProviderProfilesSummaryCard() {
   return (
-    <div className="rounded-[20px] border border-[#F1E7DF] bg-[#FFFDFC] p-[18px]">
-      <p className="text-[13px] font-semibold text-[#E29578]">系统配置 &gt; 账号配置</p>
-      <p className="mt-2 text-[13px] leading-6 text-[#8A776B]">每个账号可添加或删除模型。</p>
+    <div className="rounded-2xl border border-[#E6EAF2] bg-[#F8FAFD] p-4">
+      <p className="text-[13px] font-semibold text-[#637188]">系统配置 &gt; 账号配置</p>
+      <p className="mt-2 text-[13px] leading-6 text-[#7E8899]">每个账号可添加或删除模型。</p>
     </div>
   );
 }
@@ -24,8 +22,7 @@ const PROTOCOL_OPTIONS: Array<{ value: ApiProtocol; label: string }> = [
   { value: 'google', label: 'Google' },
 ];
 
-const ACP_MODEL_PROVIDER_OPTIONS: Array<{ value: EditableAcpModelProvider; label: string }> = [
-  { value: '', label: '(未设置)' },
+const ACP_MODEL_PROVIDER_OPTIONS: Array<{ value: AcpModelProviderType; label: string }> = [
   { value: 'openai_compatible', label: 'openai_compatible' },
   { value: 'bigmodel', label: 'bigmodel' },
   { value: 'minimax', label: 'minimax' },
@@ -47,7 +44,6 @@ export function CreateApiKeyProfileSection({
   command,
   args,
   cwd,
-  envText,
   modelAccessMode,
   defaultModelProfileRef,
   acpModelProfiles,
@@ -61,10 +57,10 @@ export function CreateApiKeyProfileSection({
   onCommandChange,
   onArgsChange,
   onCwdChange,
-  onEnvTextChange,
   onModelAccessModeChange,
   onDefaultModelProfileRefChange,
   onCreate,
+  defaultExpanded = false,
 }: {
   kind: AcpProviderKind;
   displayName: string;
@@ -75,7 +71,6 @@ export function CreateApiKeyProfileSection({
   command: string;
   args: string;
   cwd: string;
-  envText: string;
   modelAccessMode: AcpModelAccessMode;
   defaultModelProfileRef: string;
   acpModelProfiles: AcpModelProfileItem[];
@@ -89,10 +84,10 @@ export function CreateApiKeyProfileSection({
   onCommandChange: (value: string) => void;
   onArgsChange: (value: string) => void;
   onCwdChange: (value: string) => void;
-  onEnvTextChange: (value: string) => void;
   onModelAccessModeChange: (value: AcpModelAccessMode) => void;
   onDefaultModelProfileRefChange: (value: string) => void;
   onCreate: () => void;
+  defaultExpanded?: boolean;
 }) {
   const canCreate =
     kind === 'acp'
@@ -100,26 +95,26 @@ export function CreateApiKeyProfileSection({
         command.trim().length > 0 &&
         (modelAccessMode !== 'clowder_default_profile' || defaultModelProfileRef.trim().length > 0)
       : displayName.trim().length > 0 && baseUrl.trim().length > 0 && apiKey.trim().length > 0 && models.length > 0;
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
-    <div className="rounded-[20px] border border-[#E8C9AF] bg-[#F7EEE6] p-[18px]">
+    <div className="p-4">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between text-left hidden"
       >
-        <h4 className="text-base font-bold text-[#D49266]">
+        <h4 className="text-base font-semibold text-[#2E3440]">
           {kind === 'acp' ? '+ 新建 ACP Provider' : '+ 新建 API Key 账号'}
         </h4>
-        <span className="text-sm text-[#C8946B]">{expanded ? '▾ 收起' : '▸ 展开'}</span>
+        <span className="text-sm text-[#8A93A2]">{expanded ? '▾ 收起' : '▸ 展开'}</span>
       </button>
       {expanded && (
         <div className="mt-4 space-y-3">
           <select
             value={kind}
             onChange={(e) => onKindChange(e.target.value as AcpProviderKind)}
-            className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm"
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
           >
             <option value="api_key">API Key</option>
             <option value="acp">ACP</option>
@@ -129,40 +124,33 @@ export function CreateApiKeyProfileSection({
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={kind === 'acp' ? 'Provider 显示名，如 agent-teams-local' : '账号显示名，如 my-glm'}
             autoComplete="off"
-            className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
           />
           {kind === 'acp' ? (
             <>
               <input
                 value={command}
                 onChange={(e) => onCommandChange(e.target.value)}
-                placeholder="命令，如 agent-teams"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                placeholder="命令，如 uv"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <textarea
                 value={args}
                 onChange={(e) => onArgsChange(e.target.value)}
                 rows={3}
-                placeholder="参数按空格分隔，例如 gateway acp stdio"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                placeholder="参数按空格分隔，例如 --directory /opt/workspace/agent-teams run agent-teams gateway acp stdio"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <input
                 value={cwd}
                 onChange={(e) => onCwdChange(e.target.value)}
                 placeholder="可选 cwd，例如 /opt/workspace/agent-teams"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
-              />
-              <textarea
-                value={envText}
-                onChange={(e) => onEnvTextChange(e.target.value)}
-                rows={4}
-                placeholder="可选环境变量，每行 KEY=value，例如 ACP_TRACE_STDIO=1"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <select
                 value={modelAccessMode}
                 onChange={(e) => onModelAccessModeChange(e.target.value as AcpModelAccessMode)}
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
               >
                 {ACP_MODEL_ACCESS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -174,7 +162,7 @@ export function CreateApiKeyProfileSection({
                 <select
                   value={defaultModelProfileRef}
                   onChange={(e) => onDefaultModelProfileRefChange(e.target.value)}
-                  className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm"
+                  className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
                 >
                   <option value="">选择 ACP Model Profile</option>
                   {acpModelProfiles.map((profile) => (
@@ -190,7 +178,7 @@ export function CreateApiKeyProfileSection({
               <select
                 value={protocol}
                 onChange={(e) => onProtocolChange(e.target.value as ApiProtocol)}
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
               >
                 {PROTOCOL_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -203,7 +191,7 @@ export function CreateApiKeyProfileSection({
                 onChange={(e) => onBaseUrlChange(e.target.value)}
                 placeholder="API 服务地址，如 https://api.example.com/v1"
                 autoComplete="off"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <input
                 type="password"
@@ -211,10 +199,10 @@ export function CreateApiKeyProfileSection({
                 value={apiKey}
                 onChange={(e) => onApiKeyChange(e.target.value)}
                 placeholder="sk-xxxxxxxxxxxxxxxx"
-                className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-[#8A776B]">可用模型 *</p>
+                <p className="text-xs font-semibold text-[#6E7785]">可用模型 *</p>
                 <TagEditor
                   tags={models}
                   tone="purple"
@@ -231,7 +219,7 @@ export function CreateApiKeyProfileSection({
             type="button"
             onClick={onCreate}
             disabled={busy || !canCreate}
-            className="rounded bg-[#D49266] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#c47f52] disabled:opacity-50"
+            className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
           >
             {busy ? '创建中...' : '创建'}
           </button>
@@ -256,13 +244,13 @@ export function CreateAcpModelProfileSection({
   onCreate,
 }: {
   displayName: string;
-  provider: EditableAcpModelProvider;
+  provider: AcpModelProviderType;
   model: string;
   baseUrl: string;
   apiKey: string;
   busy: boolean;
   onDisplayNameChange: (value: string) => void;
-  onProviderChange: (value: EditableAcpModelProvider) => void;
+  onProviderChange: (value: AcpModelProviderType) => void;
   onModelChange: (value: string) => void;
   onBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
@@ -279,14 +267,14 @@ export function CreateAcpModelProfileSection({
   );
 
   return (
-    <div className="rounded-[20px] border border-[#D9D6F5] bg-[#F6F5FF] p-[18px]">
+    <div className="rounded-2xl border border-[#E6EAF2] bg-[#F8FAFD] p-4">
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
         className="flex w-full items-center justify-between text-left"
       >
-        <h4 className="text-base font-bold text-[#5C5AB1]">+ 新建 ACP Model Profile</h4>
-        <span className="text-sm text-[#7A78C6]">{expanded ? '▾ 收起' : '▸ 展开'}</span>
+        <h4 className="text-base font-semibold text-[#2E3440]">+ 新建 ACP Model Profile</h4>
+        <span className="text-sm text-[#8A93A2]">{expanded ? '▾ 收起' : '▸ 展开'}</span>
       </button>
       {expanded ? (
         <div className="mt-4 space-y-3">
@@ -294,12 +282,12 @@ export function CreateAcpModelProfileSection({
             value={displayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder="显示名，如 gateway-default-openai"
-            className="w-full rounded border border-[#D9D6F5] bg-white px-3 py-2 text-sm placeholder:text-[#B8B6E6]"
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
           />
           <select
             value={provider}
-            onChange={(e) => onProviderChange(e.target.value as EditableAcpModelProvider)}
-            className="w-full rounded border border-[#D9D6F5] bg-white px-3 py-2 text-sm"
+            onChange={(e) => onProviderChange(e.target.value as AcpModelProviderType)}
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
           >
             {ACP_MODEL_PROVIDER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -311,13 +299,13 @@ export function CreateAcpModelProfileSection({
             value={model}
             onChange={(e) => onModelChange(e.target.value)}
             placeholder="模型名，如 gpt-4.1"
-            className="w-full rounded border border-[#D9D6F5] bg-white px-3 py-2 text-sm placeholder:text-[#B8B6E6]"
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
           />
           <input
             value={baseUrl}
             onChange={(e) => onBaseUrlChange(e.target.value)}
             placeholder="Base URL，如 https://api.openai.com/v1"
-            className="w-full rounded border border-[#D9D6F5] bg-white px-3 py-2 text-sm placeholder:text-[#B8B6E6]"
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
           />
           <input
             type="password"
@@ -325,13 +313,13 @@ export function CreateAcpModelProfileSection({
             value={apiKey}
             onChange={(e) => onApiKeyChange(e.target.value)}
             placeholder="API Key"
-            className="w-full rounded border border-[#D9D6F5] bg-white px-3 py-2 text-sm placeholder:text-[#B8B6E6]"
+            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
           />
           <button
             type="button"
             onClick={onCreate}
             disabled={busy || !canCreate}
-            className="rounded bg-[#5C5AB1] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#4f4d9c] disabled:opacity-50"
+            className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
           >
             {busy ? '创建中...' : '创建'}
           </button>
