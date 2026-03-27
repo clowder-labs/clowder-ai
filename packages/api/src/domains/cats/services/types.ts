@@ -159,6 +159,8 @@ export type SpawnCliOverride = (options: CliSpawnOptions) => AsyncGenerator<unkn
 export interface AgentServiceOptions {
   /** Session ID to resume (optional) */
   sessionId?: string;
+  /** When true, providers that support it should resume the active interrupted run instead of prompting anew. */
+  resumeSession?: boolean;
   /** Working directory for the agent */
   workingDirectory?: string;
   /** Env vars to pass to CLI process for MCP callback auth */

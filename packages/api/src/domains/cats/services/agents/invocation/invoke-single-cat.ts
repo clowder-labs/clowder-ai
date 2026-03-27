@@ -185,6 +185,8 @@ export interface InvocationParams {
   readonly uploadDir?: string;
   readonly signal?: AbortSignal;
   readonly isLastCat: boolean;
+  /** Use protocol-native resume for interrupted sessions when supported by the provider. */
+  readonly resumeSession?: boolean;
   /** Static identity prompt — prepended to prompt on new sessions (gated by F-BLOAT logic) */
   readonly systemPrompt?: string;
   /** F108 fix: InvocationRecordStore's parent invocation ID for worklist key alignment */
@@ -845,6 +847,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(spawnCliOverride ? { spawnCliOverride } : {}),
       invocationId,
       ...(sessionId ? { cliSessionId: sessionId } : {}),
+      ...(params.resumeSession ? { resumeSession: true } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
       livenessProbe: {},
       ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),

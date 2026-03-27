@@ -55,10 +55,12 @@ import { useSendMessage } from '@/hooks/useSendMessage';
 function SendRunner({
   activeThreadId,
   overrideThreadId,
+  sendOptions,
   onDone,
 }: {
   activeThreadId?: string;
   overrideThreadId?: string;
+  sendOptions?: { resumeCatId?: string };
   onDone: () => void;
 }) {
   const { handleSend } = useSendMessage(activeThreadId);
@@ -67,8 +69,8 @@ function SendRunner({
   useEffect(() => {
     if (called.current) return;
     called.current = true;
-    handleSend('@布偶 @缅因 看图', undefined, overrideThreadId).then(onDone);
-  }, [handleSend, onDone, overrideThreadId]);
+    handleSend('@布偶 @缅因 看图', undefined, overrideThreadId, undefined, undefined, sendOptions).then(onDone);
+  }, [handleSend, onDone, overrideThreadId, sendOptions]);
 
   return null;
 }
@@ -123,6 +125,7 @@ describe('useSendMessage thread source', () => {
         React.createElement(SendRunner, {
           activeThreadId: 'thread-route',
           overrideThreadId: undefined,
+          sendOptions: undefined,
           onDone: () => {},
         }),
       );
@@ -140,6 +143,7 @@ describe('useSendMessage thread source', () => {
         React.createElement(SendRunner, {
           activeThreadId: undefined,
           overrideThreadId: undefined,
+          sendOptions: undefined,
           onDone: () => {},
         }),
       );
@@ -156,6 +160,7 @@ describe('useSendMessage thread source', () => {
         React.createElement(SendRunner, {
           activeThreadId: 'thread-route',
           overrideThreadId: 'thread-target',
+          sendOptions: undefined,
           onDone: () => {},
         }),
       );
@@ -164,6 +169,23 @@ describe('useSendMessage thread source', () => {
     expect(mockSetThreadLoading).toHaveBeenCalledWith('thread-target', true);
     expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-target', true);
     expect(mockSetLoading).not.toHaveBeenCalled();
+  });
+
+  it('includes resumeCatId in the message payload when requested', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-route',
+          overrideThreadId: undefined,
+          sendOptions: { resumeCatId: 'opus' },
+          onDone: () => {},
+        }),
+      );
+    });
+
+    expect(mockApiFetch).toHaveBeenCalled();
+    const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
+    expect(payload.resumeCatId).toBe('opus');
   });
 
   it('routes send error message to override target thread in split-pane mode', async () => {
@@ -178,6 +200,7 @@ describe('useSendMessage thread source', () => {
         React.createElement(SendRunner, {
           activeThreadId: 'thread-route',
           overrideThreadId: 'thread-target',
+          sendOptions: undefined,
           onDone: () => {},
         }),
       );
@@ -209,6 +232,7 @@ describe('useSendMessage thread source', () => {
         React.createElement(SendRunner, {
           activeThreadId: 'thread-A',
           overrideThreadId: undefined,
+          sendOptions: undefined,
           onDone: () => {},
         }),
       );
@@ -240,6 +264,7 @@ describe('useSendMessage thread source', () => {
         React.createElement(SendRunner, {
           activeThreadId: 'thread-route',
           overrideThreadId: undefined,
+          sendOptions: undefined,
           onDone: () => {},
         }),
       );
@@ -262,6 +287,7 @@ describe('useSendMessage thread source', () => {
         React.createElement(SendRunner, {
           activeThreadId: 'thread-route',
           overrideThreadId: undefined,
+          sendOptions: undefined,
           onDone: () => {},
         }),
       );

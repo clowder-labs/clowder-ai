@@ -14,7 +14,7 @@ import {
   transformIncomingUpdateMessage,
 } from './acp-session-helpers.js';
 import { ACPStdioClient } from './acp-transport.js';
-import { buildCatCafeMcpRequestConfig } from './relayclaw-catcafe-mcp.js';
+import { ACPMcpBridge, buildAcpMcpServers, resolveACPMcpTransportFromInitializeResult } from './acp-mcp-bridge.js';
 
 const DEFAULT_ACP_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -42,35 +42,27 @@ function errorMessage(catId: CatId, error: string, sessionId?: string, metadataM
 }
 
 export function supportsACPStdioMcpFromInitializeResult(result: Record<string, unknown> | undefined): boolean {
-  const agentCapabilities =
-    result && typeof result === 'object' && result.agentCapabilities && typeof result.agentCapabilities === 'object'
-      ? (result.agentCapabilities as { mcpCapabilities?: unknown })
-      : null;
-  if (!agentCapabilities || agentCapabilities.mcpCapabilities === undefined) return true;
-  const capabilities =
-    agentCapabilities.mcpCapabilities && typeof agentCapabilities.mcpCapabilities === 'object'
-      ? (agentCapabilities.mcpCapabilities as Record<string, unknown>)
-      : null;
-  if (!capabilities) return false;
-  if (typeof capabilities.stdio === 'boolean') return capabilities.stdio;
-  return false;
+  return resolveACPMcpTransportFromInitializeResult(result) === 'stdio';
 }
 
-function buildAcpMcpServers(
-  initializeResult: Record<string, unknown> | undefined,
+function buildACPExecutionCall(
+  sessionId: string,
+  prompt: string,
   options?: AgentServiceOptions,
-): Array<Record<string, unknown>> {
-  if (!supportsACPStdioMcpFromInitializeResult(initializeResult)) return [];
-  const catCafeMcp = buildCatCafeMcpRequestConfig(options);
-  if (!catCafeMcp) return [];
-  return [
-    {
-      id: 'cat-cafe',
-      name: 'cat-cafe',
-      transport: 'stdio',
-      ...catCafeMcp,
+): {
+  method: 'session/prompt' | 'session/resume';
+  params: Record<string, unknown>;
+} {
+  if (options?.resumeSession) {
+    return { method: 'session/resume', params: { sessionId } };
+  }
+  return {
+    method: 'session/prompt',
+    params: {
+      sessionId,
+      prompt: [{ type: 'text', text: prompt }],
     },
-  ];
+  };
 }
 
 function buildACPSubprocessEnv(providerProfile: RuntimeProviderProfile): NodeJS.ProcessEnv {
@@ -119,29 +111,46 @@ export async function runACPProviderProbe(input: {
     cwd: providerProfile.cwd,
     env: buildACPSubprocessEnv(providerProfile),
   });
+  const mcpBridge = new ACPMcpBridge();
   try {
     await client.start();
     const initializeResult = await client.call('initialize', { protocolVersion: 1 });
-    const created = await client.call(
-      'session/new',
-      buildSessionParams(providerProfile, input.workingDirectory, input.acpModelProfile, initializeResult),
-    );
+    const sessionParams = buildSessionParams(providerProfile, input.workingDirectory, input.acpModelProfile, initializeResult);
+    const created = await client.call('session/new', sessionParams);
     const sessionId = typeof created.sessionId === 'string' ? created.sessionId : undefined;
     if (!sessionId) {
       return { ok: false, error: 'ACP probe did not return sessionId' };
     }
+    if (resolveACPMcpTransportFromInitializeResult(initializeResult) === 'acp') {
+      await mcpBridge.connectSessionServers(
+        client,
+        sessionId,
+        Array.isArray(sessionParams.mcpServers) ? (sessionParams.mcpServers as Array<Record<string, unknown>>) : [],
+      );
+    }
     client.drainMessages();
     if (providerProfile.modelAccessMode === 'clowder_default_profile') {
-      await client.call('session/prompt', {
+      const promptResult = client.call('session/prompt', {
         sessionId,
         prompt: [{ type: 'text', text: 'ping' }],
       });
+      while (true) {
+        const outcome = await Promise.race([
+          promptResult.then(() => ({ kind: 'result' as const })),
+          client.nextMessage().then((message) => ({ kind: 'message' as const, message })),
+        ]);
+        if (outcome.kind === 'result') break;
+        if (!outcome.message) continue;
+        await mcpBridge.handleInboundMessage(client, outcome.message, sessionId);
+      }
     }
     return { ok: true };
   } catch (error) {
     const stderr = client.stderrText.trim();
     return { ok: false, error: stderr || (error instanceof Error ? error.message : String(error)) };
   } finally {
+    await mcpBridge.disconnectSessionServers(client).catch(() => {});
+    await mcpBridge.closeAll();
     await client.close();
   }
 }
@@ -170,7 +179,9 @@ export class ACPAgentService implements AgentService {
       env: buildACPSubprocessEnv(providerProfile),
     });
     let sessionId = options?.sessionId;
+    const loadedExistingSession = Boolean(sessionId);
     let aborted = false;
+    const mcpBridge = new ACPMcpBridge(options);
     const abortSignal = options?.signal;
     const timeoutSignal = AbortSignal.timeout(DEFAULT_ACP_TIMEOUT_MS);
     const combinedSignal = abortSignal ? AbortSignal.any([abortSignal, timeoutSignal]) : timeoutSignal;
@@ -186,6 +197,9 @@ export class ACPAgentService implements AgentService {
         initializeResult,
         options,
       );
+      const sessionMcpServers = Array.isArray(sessionParams.mcpServers)
+        ? (sessionParams.mcpServers as Array<Record<string, unknown>>)
+        : [];
       if (sessionId) {
         const loaded = await client.call('session/load', { sessionId, ...sessionParams });
         if (typeof loaded.sessionId === 'string' && loaded.sessionId.trim()) {
@@ -199,6 +213,19 @@ export class ACPAgentService implements AgentService {
         sessionId = created.sessionId.trim();
       }
 
+      if (sessionId && resolveACPMcpTransportFromInitializeResult(initializeResult) === 'acp') {
+        await mcpBridge.connectSessionServers(client, sessionId, sessionMcpServers);
+      }
+      if (!sessionId) {
+        throw new Error('ACP session setup did not yield a sessionId');
+      }
+      if (loadedExistingSession) {
+        // session/load may replay historical session/update notifications after the
+        // RPC result returns, including while ACP MCP reconnect is still running.
+        // Drain and discard them once session setup is fully complete.
+        await collectTrailingUpdates(client, sessionId, this.catId, metadataModel, 80, 1_500);
+      }
+
       client.drainMessages();
 
       yield {
@@ -209,11 +236,9 @@ export class ACPAgentService implements AgentService {
         timestamp: Date.now(),
       };
 
+      const executionCall = buildACPExecutionCall(sessionId, prompt, options);
       const promptPromise = client
-        .call('session/prompt', {
-          sessionId,
-          prompt: [{ type: 'text', text: prompt }],
-        })
+        .call(executionCall.method, executionCall.params)
         .then(
           (result) => ({ kind: 'prompt_result' as const, result }),
           (error) => ({ kind: 'prompt_error' as const, error }),
@@ -242,13 +267,15 @@ export class ACPAgentService implements AgentService {
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 150)),
           ]);
           if (pendingMessage && pendingMessage.kind === 'message') {
-            for (const message of transformIncomingUpdateMessage(
-              pendingMessage.message,
-              sessionId,
-              this.catId,
-              metadataModel,
-            )) {
-              yield message;
+            if (!(await mcpBridge.handleInboundMessage(client, pendingMessage.message, sessionId))) {
+              for (const message of transformIncomingUpdateMessage(
+                pendingMessage.message,
+                sessionId,
+                this.catId,
+                metadataModel,
+              )) {
+                yield message;
+              }
             }
           }
           for (const message of await collectTrailingUpdates(client, sessionId, this.catId, metadataModel)) {
@@ -259,6 +286,9 @@ export class ACPAgentService implements AgentService {
         }
         const incoming = outcome.message;
         nextMessagePromise = client.nextMessage().then((message) => ({ kind: 'message' as const, message }));
+        if (await mcpBridge.handleInboundMessage(client, incoming, sessionId)) {
+          continue;
+        }
         for (const message of transformIncomingUpdateMessage(incoming, sessionId, this.catId, metadataModel)) {
           yield message;
         }
@@ -279,6 +309,8 @@ export class ACPAgentService implements AgentService {
         yield doneMessage(this.catId, sessionId, metadataModel);
       }
     } finally {
+      await mcpBridge.disconnectSessionServers(client).catch(() => {});
+      await mcpBridge.closeAll();
       await client.close();
     }
   }

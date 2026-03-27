@@ -7,6 +7,7 @@ const log = createModuleLogger('acp-transport');
 
 type ACPMessage = Record<string, unknown>;
 type ACPStdioFrameMode = 'content-length' | 'ndjson';
+type JsonRpcId = number | string;
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -166,6 +167,14 @@ export class ACPStdioClient {
 
   async notify(method: string, params: Record<string, unknown>): Promise<void> {
     await this.send({ jsonrpc: '2.0', method, params });
+  }
+
+  async sendResult(id: JsonRpcId, result: Record<string, unknown>): Promise<void> {
+    await this.send({ jsonrpc: '2.0', id, result });
+  }
+
+  async sendError(id: JsonRpcId, error: Record<string, unknown>): Promise<void> {
+    await this.send({ jsonrpc: '2.0', id, error });
   }
 
   async nextMessage(): Promise<ACPMessage | null> {
