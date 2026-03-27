@@ -174,7 +174,10 @@ export function useProviderProfilesState() {
     [callApi, mutationProjectPath, refresh],
   );
 
-  const displayProfiles = useMemo(() => ensureBuiltinProviderProfiles(data?.providers ?? []), [data?.providers]);
+  const displayProfiles = useMemo(
+    () => ensureBuiltinProviderProfiles(data?.providers ?? [], data?.visibleBuiltinClients),
+    [data?.providers, data?.visibleBuiltinClients],
+  );
   const builtinProfiles = useMemo(() => displayProfiles.filter((profile) => profile.builtin), [displayProfiles]);
   const customProfiles = useMemo(() => displayProfiles.filter((profile) => !profile.builtin), [displayProfiles]);
 

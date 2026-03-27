@@ -68,8 +68,10 @@ const RUNTIME_SCRIPT_FILES = [
   'windows-command-helpers.ps1',
   'windows-installer-ui.ps1',
 ];
-const DARE_WINDOWS_EXE_SOURCE = join(repoRoot, 'vendor', 'dare-cli', 'dist', 'dare.exe');
-const JIUWENCLAW_WINDOWS_EXE_SOURCE = join(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw.exe');
+const PYTHON_EMBED_VERSION = '3.13.4';
+const PYTHON_EMBED_URL = `https://www.python.org/ftp/python/${PYTHON_EMBED_VERSION}/python-${PYTHON_EMBED_VERSION}-embed-amd64.zip`;
+const GET_PIP_URL = 'https://bootstrap.pypa.io/get-pip.py';
+const PYTHON_MAJOR_MINOR = PYTHON_EMBED_VERSION.split('.').slice(0, 2).join('');
 const WEB_STANDALONE_BUILD_DIR = join(repoRoot, 'packages', 'web', '.next', 'standalone');
 const WEB_STANDALONE_APP_DIR = join(WEB_STANDALONE_BUILD_DIR, 'packages', 'web');
 const WEB_STANDALONE_NODE_MODULES_DIR = join(WEB_STANDALONE_BUILD_DIR, 'node_modules');
@@ -487,58 +489,107 @@ function copyTopLevelProject(bundleDir) {
   }
 }
 
-function buildVendoredJiuwenClawExecutable(options) {
-  const buildScript = join(repoRoot, 'vendor', 'jiuwenclaw', 'scripts', 'build-exe.ps1');
-  if (!existsSync(buildScript)) {
-    throw new Error(`Missing JiuwenClaw build script: ${buildScript}`);
+async function stageWindowsPython(bundleDir, options) {
+  const archiveName = `python-${PYTHON_EMBED_VERSION}-embed-amd64.zip`;
+  const archivePath = join(options.cacheDir, archiveName);
+  await ensureCachedDownload(PYTHON_EMBED_URL, archivePath);
+
+  const targetDir = join(bundleDir, 'tools', 'python');
+  resetDir(targetDir);
+  extractZip(archivePath, targetDir);
+
+  // Enable site-packages and add vendor paths to ._pth
+  const pthFile = join(targetDir, `python${PYTHON_MAJOR_MINOR}._pth`);
+  if (existsSync(pthFile)) {
+    const pthContent = [
+      `python${PYTHON_MAJOR_MINOR}.zip`,
+      '.',
+      'Lib/site-packages',
+      '../../vendor/dare-cli',
+      '../../vendor/jiuwenclaw',
+      'import site',
+    ].join('\n');
+    writeFileSync(pthFile, pthContent, 'utf8');
   }
-  if (options.skipBuild && existsSync(JIUWENCLAW_WINDOWS_EXE_SOURCE)) {
-    return JIUWENCLAW_WINDOWS_EXE_SOURCE;
-  }
-  run('powershell.exe', [
-    '-NoProfile',
-    '-ExecutionPolicy',
-    'Bypass',
-    '-File',
-    toWindowsPath(buildScript),
-  ]);
-  if (!existsSync(JIUWENCLAW_WINDOWS_EXE_SOURCE)) {
-    throw new Error(`JiuwenClaw executable not found after build: ${JIUWENCLAW_WINDOWS_EXE_SOURCE}`);
-  }
-  return JIUWENCLAW_WINDOWS_EXE_SOURCE;
+
+  // Bootstrap pip
+  const getPipPath = join(options.cacheDir, 'get-pip.py');
+  await ensureCachedDownload(GET_PIP_URL, getPipPath);
+  const pythonExe = join(targetDir, 'python.exe');
+  run(pythonExe, [getPipPath, '--no-warn-script-location', '-q']);
+
+  return { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
 }
 
-function buildVendoredDareExecutable(options) {
-  const buildScript = join(repoRoot, 'vendor', 'dare-cli', 'scripts', 'build-exe.ps1');
-  if (!existsSync(buildScript)) {
-    throw new Error(`Missing DARE build script: ${buildScript}`);
-  }
-  if (options.skipBuild && existsSync(DARE_WINDOWS_EXE_SOURCE)) {
-    return DARE_WINDOWS_EXE_SOURCE;
-  }
-  run('powershell.exe', [
-    '-NoProfile',
-    '-ExecutionPolicy',
-    'Bypass',
-    '-File',
-    toWindowsPath(buildScript),
-  ]);
-  if (!existsSync(DARE_WINDOWS_EXE_SOURCE)) {
-    throw new Error(`DARE executable not found after build: ${DARE_WINDOWS_EXE_SOURCE}`);
-  }
-  return DARE_WINDOWS_EXE_SOURCE;
+function installSharedPythonDeps(bundleDir) {
+  const pythonExe = join(bundleDir, 'tools', 'python', 'python.exe');
+
+  // Ensure setuptools is available (needed by some packages with pyproject.toml builds)
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'setuptools', 'wheel']);
+
+  // Install DARE dependencies (from pyproject.toml, excluding test deps)
+  const dareDeps = [
+    'anthropic', 'langchain-openai', 'langchain-core',
+    'httpx>=0.27.0', 'starlette>=0.37.0', 'uvicorn>=0.30.0', 'chromadb>=0.4.0',
+  ];
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
+
+  // Install JiuwenClaw as package (includes all its deps)
+  const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', jiuwenClawDir]);
+
+  // Install office automation libraries for MCP servers
+  const officeDeps = [
+    'python-pptx',   // PowerPoint read/write
+    'openpyxl',      // Excel read/write
+    'python-docx',   // Word read/write
+    'xlsxwriter',    // Excel write (fast, chart support)
+    'pypdf',         // PDF read/merge/split
+    'reportlab',     // PDF creation
+    'markitdown',    // Microsoft multi-format → Markdown converter
+  ];
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...officeDeps]);
+
+  // Install agent-teams CLI for ACP multi-agent orchestration
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'cool-play-agent-teams']);
+
+  // Prune site-packages to reduce size
+  const sitePackages = join(bundleDir, 'tools', 'python', 'Lib', 'site-packages');
+  removeNamedDirectoriesRecursive(sitePackages, ['__pycache__', 'tests', 'test', '__tests__']);
+  walkFiles(sitePackages, (fullPath, entry) => {
+    if (entry.name.endsWith('.pyc') || entry.name.endsWith('.pyo')) {
+      rmSync(fullPath, { force: true });
+    }
+  });
 }
 
-function stageVendoredJiuwenClawExecutable(bundleDir, executablePath) {
+function stageVendorPythonSources(bundleDir) {
+  const excludeDirs = new Set([
+    'dist', '.venv', '.build-venv', '__pycache__', 'tests', 'test',
+    '.git', 'node_modules', 'build', '.mypy_cache', '.pytest_cache',
+  ]);
+  const excludeFiles = new Set(['uv.lock']);
+
+  function copySourceTree(srcDir, destDir) {
+    ensureDir(destDir);
+    for (const entry of readdirSync(srcDir, { withFileTypes: true })) {
+      const srcPath = join(srcDir, entry.name);
+      const destPath = join(destDir, entry.name);
+      if (entry.isDirectory()) {
+        if (excludeDirs.has(entry.name)) continue;
+        copySourceTree(srcPath, destPath);
+      } else {
+        if (excludeFiles.has(entry.name)) continue;
+        if (entry.name.endsWith('.pyc') || entry.name.endsWith('.pyo')) continue;
+        cpSync(srcPath, destPath, { force: true });
+      }
+    }
+  }
+
   const vendorDir = join(bundleDir, 'vendor');
   ensureDir(vendorDir);
-  cpSync(executablePath, join(vendorDir, 'jiuwenclaw.exe'), { force: true });
-}
-
-function stageVendoredDareExecutable(bundleDir, executablePath) {
-  const vendorDir = join(bundleDir, 'vendor');
-  ensureDir(vendorDir);
-  cpSync(executablePath, join(vendorDir, 'dare.exe'), { force: true });
+  copySourceTree(join(repoRoot, 'vendor', 'dare-cli'), join(vendorDir, 'dare-cli'));
+  copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
 }
 
 function stageInstallerSeed(bundleDir) {
@@ -608,7 +659,10 @@ function removeNamedDirectoriesRecursive(rootDir, directoryNames) {
 
 function pruneRuntimePackage(targetDir, options = {}) {
   removePaths(targetDir, options.removePaths ?? []);
-  removeNamedDirectoriesRecursive(targetDir, ['test', 'tests', '__tests__']);
+  removeNamedDirectoriesRecursive(targetDir, [
+    'test', 'tests', '__tests__',
+    'example', 'examples', 'doc', 'docs',
+  ]);
   walkFiles(targetDir, (fullPath, entry) => {
     const fileName = entry.name;
     if (fileName === 'package-lock.json' || fileName === '.package-lock.json') {
@@ -619,10 +673,57 @@ function pruneRuntimePackage(targetDir, options = {}) {
       rmSync(fullPath, { force: true });
       return;
     }
+    if (fileName.endsWith('.ts') || fileName.endsWith('.cts') || fileName.endsWith('.mts')) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (fileName.endsWith('.md') || fileName.endsWith('.yml') || fileName.endsWith('.yaml')) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
     if (/^(README|CHANGELOG|CONTRIBUTING)(\..+)?$/i.test(fileName)) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (/^\.(eslintrc|prettierrc|editorconfig|babelrc)/i.test(fileName)) {
       rmSync(fullPath, { force: true });
     }
   });
+}
+
+function pruneNativePrebuilds(rootDir) {
+  if (!existsSync(rootDir)) return;
+  const stack = [rootDir];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries;
+    try { entries = readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const fullPath = join(current, entry.name);
+      if (entry.name === 'prebuilds') {
+        for (const platform of readdirSync(fullPath, { withFileTypes: true })) {
+          if (!platform.isDirectory()) continue;
+          if (!platform.name.startsWith('win32-x64')) {
+            rmSync(join(fullPath, platform.name), { recursive: true, force: true });
+          }
+        }
+        continue;
+      }
+      stack.push(fullPath);
+    }
+  }
+}
+
+function pruneDateFnsLocales(rootDir) {
+  const localeDir = join(rootDir, 'date-fns', 'locale');
+  if (!existsSync(localeDir)) return;
+  const keepPrefixes = ['en-US', 'zh-CN', '_lib', 'types', 'cdn'];
+  for (const entry of readdirSync(localeDir, { withFileTypes: true })) {
+    const name = entry.name.replace(/\.(js|cjs|mjs)$/, '');
+    if (keepPrefixes.some((p) => name === p)) continue;
+    rmSync(join(localeDir, entry.name), { recursive: true, force: true });
+  }
 }
 
 function createRuntimePackageJson(sourcePath, options = {}) {
@@ -896,6 +997,9 @@ async function installWindowsRuntimeDependencies(bundleDir, options) {
     runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(join(bundlePackagesDir, packageName)));
     materializeSharedDependency(bundlePackagesDir, packageName);
     pruneRuntimePackage(join(bundlePackagesDir, packageName));
+    const nmDir = join(bundlePackagesDir, packageName, 'node_modules');
+    pruneNativePrebuilds(nmDir);
+    pruneDateFnsLocales(nmDir);
   }
 }
 
@@ -1165,23 +1269,30 @@ function buildWindowsDesktopLauncher(bundleDir, options) {
 }
 
 function buildInstallerOutputPath(outputDir, version) {
-  return join(outputDir, `ClowderAI-${version}-windows-x64-setup.exe`);
+  return join(outputDir, `OfficeClaw-${version}-windows-x64-setup.exe`);
 }
 
-function invokeMakensis(installerScript, outputExe, bundleDir, version) {
+function createPayloadTar(bundleDir, tarPath) {
+  rmSync(tarPath, { force: true });
+  const tarExe = process.platform === 'win32'
+    ? join(process.env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'tar.exe')
+    : 'tar';
+  run(tarExe, ['-czf', tarPath, '-C', bundleDir, '.']);
+  if (!existsSync(tarPath)) {
+    throw new Error(`Failed to create payload archive: ${tarPath}`);
+  }
+}
+
+function invokeMakensis(installerScript, outputExe, payloadTar, version) {
   const makensisCommand = process.env.MAKENSIS_PATH ?? 'makensis';
   if (!commandExists(makensisCommand)) {
     throw new Error('makensis not found on PATH. Install NSIS or run with --bundle-only.');
   }
   const definePrefix = process.platform === 'win32' ? '/D' : '-D';
-  const maxRelativePathLength = computeMaxRelativePathLength(bundleDir);
-  const maxInstallRootLength = 259 - maxRelativePathLength - 1;
   run(makensisCommand, [
     `${definePrefix}APP_VERSION=${version}`,
-    `${definePrefix}BUNDLE_DIR=${toNsisDirPath(bundleDir)}`,
+    `${definePrefix}PAYLOAD_TAR=${toNsisDirPath(payloadTar)}`,
     `${definePrefix}OUTPUT_EXE=${toNsisFilePath(outputExe)}`,
-    `${definePrefix}MAX_REL_PATH_LEN=${maxRelativePathLength}`,
-    `${definePrefix}MAX_INSTALL_ROOT_LEN=${maxInstallRootLength}`,
     toNsisFilePath(installerScript),
   ]);
 }
@@ -1199,17 +1310,18 @@ async function main() {
 
   ensureBuildArtifacts(options);
 
-  logStep('Building Dare executable');
-  const dareExecutable = buildVendoredDareExecutable(options);
-
-  logStep('Building JiuwenClaw executable');
-  const jiuwenClawExecutable = buildVendoredJiuwenClawExecutable(options);
-
   logStep('Copying project sources');
   copyTopLevelProject(bundleDir);
-  stageVendoredDareExecutable(bundleDir, dareExecutable);
-  stageVendoredJiuwenClawExecutable(bundleDir, jiuwenClawExecutable);
   stageInstallerSeed(bundleDir);
+
+  logStep('Staging vendor Python sources');
+  stageVendorPythonSources(bundleDir);
+
+  logStep('Bundling Python embeddable runtime');
+  const pythonEmbed = await stageWindowsPython(bundleDir, options);
+
+  logStep('Installing shared Python dependencies');
+  installSharedPythonDeps(bundleDir);
 
   logStep('Preparing runtime package payload');
   await stageWorkspacePackages(bundleDir);
@@ -1226,6 +1338,14 @@ async function main() {
   logStep('Building WebView2 desktop launcher');
   buildWindowsDesktopLauncher(bundleDir, options);
 
+  logStep('Staging desktop assets');
+  const desktopSplashSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg');
+  if (existsSync(desktopSplashSource)) {
+    const assetsTarget = join(bundleDir, 'assets');
+    ensureDir(assetsTarget);
+    cpSync(desktopSplashSource, join(assetsTarget, 'splash.jpg'), { force: true });
+  }
+
   logStep('Finalizing runtime bundle');
   ensureRuntimeSkeleton(bundleDir);
   writeReleaseMetadata(bundleDir, {
@@ -1235,6 +1355,7 @@ async function main() {
     managedTopLevelPaths: WINDOWS_MANAGED_TOP_LEVEL_PATHS,
     preservedPaths: WINDOWS_PRESERVE_PATHS,
     windowsNode,
+    pythonEmbed,
     redis,
     webview2Version: options.webview2Version,
     maxRelativePathLength: computeMaxRelativePathLength(bundleDir),
@@ -1245,8 +1366,12 @@ async function main() {
     return;
   }
 
+  logStep('Creating payload archive');
+  const payloadTar = join(options.outputDir, 'payload.tar.gz');
+  createPayloadTar(bundleDir, payloadTar);
+
   logStep('Compiling NSIS installer');
-  invokeMakensis(installerScript, outputExe, bundleDir, packageJson.version);
+  invokeMakensis(installerScript, outputExe, payloadTar, packageJson.version);
   logStep(`Installer ready at ${outputExe}`);
 }
 

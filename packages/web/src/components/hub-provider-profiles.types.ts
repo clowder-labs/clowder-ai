@@ -30,6 +30,7 @@ export interface ProfileItem {
   command?: string;
   args?: string[];
   cwd?: string;
+  envKeys?: string[];
   modelAccessMode?: AcpModelAccessMode;
   defaultModelProfileRef?: string;
   hasApiKey: boolean;
@@ -42,6 +43,8 @@ export interface ProviderProfilesResponse {
   activeProfileId: string | null;
   bootstrapBindings: Partial<Record<BuiltinAccountClient, BootstrapBinding>>;
   providers: ProfileItem[];
+  visibleBuiltinClients?: BuiltinAccountClient[];
+  clientLabels?: Record<string, string>;
 }
 
 export interface AcpModelProfileItem {

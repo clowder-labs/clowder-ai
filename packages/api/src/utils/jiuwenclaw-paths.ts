@@ -39,17 +39,15 @@ export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: str
   const resolvedAppDir = resolveJiuwenClawAppDir(appDir);
   const localCandidates =
     process.platform === 'win32'
-      ? [
-          join(resolvedAppDir, '.venv', 'Scripts', 'python.exe'),
-          join(resolvedAppDir, '.venv', 'bin', 'python'),
-        ]
-      : [
-          join(resolvedAppDir, '.venv', 'bin', 'python'),
-          join(resolvedAppDir, '.venv', 'Scripts', 'python.exe'),
-        ];
+      ? [join(resolvedAppDir, '.venv', 'Scripts', 'python.exe'), join(resolvedAppDir, '.venv', 'bin', 'python')]
+      : [join(resolvedAppDir, '.venv', 'bin', 'python'), join(resolvedAppDir, '.venv', 'Scripts', 'python.exe')];
   for (const candidate of localCandidates) {
     if (existsSync(candidate)) return candidate;
   }
+
+  // Shared Python from Windows installer layout (embeddable + deps in Lib/site-packages)
+  const sharedPython = join(resolveRepoRoot(), 'tools', 'python', 'python.exe');
+  if (existsSync(sharedPython)) return sharedPython;
 
   const legacyCandidates =
     process.platform === 'win32'

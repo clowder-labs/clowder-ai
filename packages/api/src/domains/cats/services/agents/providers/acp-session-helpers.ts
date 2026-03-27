@@ -8,10 +8,10 @@ import type { ACPStdioClient } from './acp-transport.js';
 const TRAILING_UPDATE_IDLE_MS = 120;
 const TRAILING_UPDATE_MAX_WAIT_MS = 1200;
 
-export function buildACPMetadata(sessionId?: string): MessageMetadata {
+export function buildACPMetadata(sessionId?: string, model = 'acp'): MessageMetadata {
   return {
     provider: 'acp',
-    model: 'agent-teams',
+    model,
     ...(sessionId ? { sessionId } : {}),
   };
 }
@@ -20,6 +20,7 @@ export function transformIncomingUpdateMessage(
   incoming: Record<string, unknown> | null,
   sessionId: string | undefined,
   catId: CatId,
+  metadataModel = 'acp',
 ): AgentMessage[] {
   if (!incoming || incoming.method !== 'session/update') return [];
   const params = incoming.params;
@@ -33,7 +34,7 @@ export function transformIncomingUpdateMessage(
   if (!rawUpdate || typeof rawUpdate !== 'object') return [];
   return transformACPUpdate(rawUpdate as Record<string, unknown>, catId).map((message) => ({
     ...message,
-    metadata: buildACPMetadata(sessionId),
+    metadata: buildACPMetadata(sessionId, metadataModel),
   }));
 }
 
@@ -41,10 +42,11 @@ export function drainQueuedUpdates(
   client: ACPStdioClient,
   sessionId: string | undefined,
   catId: CatId,
+  metadataModel = 'acp',
 ): AgentMessage[] {
   const output: AgentMessage[] = [];
   for (const incoming of client.drainMessages()) {
-    output.push(...transformIncomingUpdateMessage(incoming, sessionId, catId));
+    output.push(...transformIncomingUpdateMessage(incoming, sessionId, catId, metadataModel));
   }
   return output;
 }
@@ -53,18 +55,17 @@ export async function collectTrailingUpdates(
   client: ACPStdioClient,
   sessionId: string | undefined,
   catId: CatId,
+  metadataModel = 'acp',
   idleMs = TRAILING_UPDATE_IDLE_MS,
   maxWaitMs = TRAILING_UPDATE_MAX_WAIT_MS,
 ): Promise<AgentMessage[]> {
-  const output = [...drainQueuedUpdates(client, sessionId, catId)];
+  const output = [...drainQueuedUpdates(client, sessionId, catId, metadataModel)];
   const deadline = Date.now() + maxWaitMs;
   while (Date.now() < deadline) {
-    const incoming = await Promise.race([
-      client.nextMessage(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), idleMs)),
-    ]);
-    if (!incoming) break;
-    output.push(...transformIncomingUpdateMessage(incoming, sessionId, catId));
+    await new Promise<void>((resolve) => setTimeout(resolve, idleMs));
+    const drained = drainQueuedUpdates(client, sessionId, catId, metadataModel);
+    if (drained.length === 0) break;
+    output.push(...drained);
   }
   return output;
 }

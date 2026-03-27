@@ -1,17 +1,26 @@
-import { spawn, spawnSync, type ChildProcess, type SpawnOptions } from 'node:child_process';
+import { type ChildProcess, type SpawnOptions, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
-import type { AgentServiceOptions } from '../../types.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
-import { tcpProbe } from '../../../../../utils/tcp-probe.js';
+import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import {
   resolveJiuwenClawAppDir,
   resolveJiuwenClawExecutable,
   resolveJiuwenClawPythonBin,
 } from '../../../../../utils/jiuwenclaw-paths.js';
+import {
+  buildRelayClawAppSignature,
+  buildRelayClawDisabledSkillsSignature,
+  buildRelayClawSharedSkillsSignature,
+  resolveRelayClawDisabledSkills,
+  resolveRelayClawSharedSkillsDirs,
+} from '../../../../../utils/relayclaw-skills.js';
+import { tcpProbe } from '../../../../../utils/tcp-probe.js';
+import type { AgentServiceOptions } from '../../types.js';
 import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './relayclaw-catcafe-mcp.js';
 
 const log = createModuleLogger('relayclaw-sidecar');
@@ -58,11 +67,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
   private resolvedUrl: string | null = null;
   private recentLogs = '';
 
-  constructor(
-    catId: CatId,
-    config: RelayClawAgentConfig,
-    deps?: RelayClawSidecarControllerDeps,
-  ) {
+  constructor(catId: CatId, config: RelayClawAgentConfig, deps?: RelayClawSidecarControllerDeps) {
     this.catId = catId;
     this.config = config;
     this.spawnFn = deps?.spawnFn ?? ((command, args, options) => spawn(command, args, options));
@@ -130,7 +135,10 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const provider = apiBase.includes('openrouter.ai') ? 'OpenRouter' : 'OpenAI';
     const modelName = this.config.modelName?.trim() || 'gpt-5.4';
     const projectDir = options?.workingDirectory?.trim() || '';
+    const projectRoot = projectDir || process.cwd();
     const catCafeMcp = resolveCatCafeMcpServer(options?.workingDirectory);
+    const sharedSkillDirs = resolveRelayClawSharedSkillsDirs();
+    const disabledSkills = resolveRelayClawDisabledSkills(projectRoot, this.catId as string);
 
     return {
       executablePath,
@@ -149,7 +157,10 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         MODEL_NAME: modelName,
         MODEL_PROVIDER: provider,
         JIUWENCLAW_AGENT_ROOT: join(homeDir, 'agent'),
+        JIUWENCLAW_RUNTIME_SKILLS_DIR: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
         ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
+        ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
+        ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
         ...(catCafeMcp
           ? {
               CAT_CAFE_MCP_SERVER_PATH: catCafeMcp.serverPath,
@@ -166,10 +177,14 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         pythonBin,
         appDir,
         homeDir,
+        appSignature: buildRelayClawAppSignature(appDir),
         apiBase,
         modelName,
         provider,
         projectDir,
+        runtimeSkillsDir: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
+        sharedSkillsSignature: buildRelayClawSharedSkillsSignature(),
+        disabledSkillsSignature: buildRelayClawDisabledSkillsSignature(projectRoot, this.catId as string),
         catCafeMcpPath: catCafeMcp?.serverPath ?? '',
         keyHash: apiKey ? createHash('sha256').update(apiKey).digest('hex') : '',
       },
@@ -178,7 +193,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
 
   private async start(runtime: RelayClawSidecarRuntime, signal?: AbortSignal): Promise<void> {
     if (!runtime.env.API_KEY || !runtime.env.API_BASE) {
-      throw new Error('jiuwenClaw requires a bound openai-compatible API key profile');
+      throw new Error('jiuwen requires a bound openai-compatible API key profile');
     }
 
     mkdirSync(runtime.homeDir, { recursive: true });
@@ -188,14 +203,23 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     this.recentLogs = '';
 
     const launchCommand = buildRelayClawLaunchCommand(runtime);
+
+    // Windows Python: force UTF-8 and prepend bundled Python to PATH
+    const spawnEnv: Record<string, string | undefined> = {
+      ...process.env,
+      ...runtime.env,
+      AGENT_PORT: String(agentPort),
+      WEB_PORT: String(webPort),
+    };
+    if (process.platform === 'win32') {
+      spawnEnv.PYTHONIOENCODING = 'utf-8';
+      spawnEnv.PYTHONUTF8 = '1';
+      Object.assign(spawnEnv, withBundledPythonPath(spawnEnv, resolveCatCafeHostRoot(process.cwd())));
+    }
+
     const child = this.spawnFn(launchCommand.command, launchCommand.args, {
       cwd: launchCommand.cwd,
-      env: {
-        ...process.env,
-        ...runtime.env,
-        AGENT_PORT: String(agentPort),
-        WEB_PORT: String(webPort),
-      },
+      env: spawnEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     this.child = child;
@@ -215,17 +239,19 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
 
     if (signal?.aborted) {
       this.stop();
-      throw new Error('jiuwenClaw sidecar startup aborted');
+      throw new Error('jiuwen sidecar startup aborted');
     }
 
     const timeoutAt = Date.now() + (this.config.startupTimeoutMs ?? 45_000);
     while (Date.now() < timeoutAt) {
       if (signal?.aborted) {
         this.stop();
-        throw new Error('jiuwenClaw sidecar startup aborted');
+        throw new Error('jiuwen sidecar startup aborted');
       }
       if (!this.child || this.child.exitCode !== null) {
-        throw new Error(`jiuwenClaw sidecar exited during startup${this.recentLogs ? `: ${summarizeLogs(this.recentLogs)}` : ''}`);
+        throw new Error(
+          `jiuwen sidecar exited during startup${this.recentLogs ? `: ${summarizeLogs(this.recentLogs)}` : ''}`,
+        );
       }
       if (await isRelayClawRuntimeReady(runtime, this.tcpProbeFn, this.recentLogs, agentPort, webPort)) {
         return;
@@ -234,7 +260,9 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     }
 
     this.stop();
-    throw new Error(`jiuwenClaw sidecar did not become ready in time${this.recentLogs ? `: ${summarizeLogs(this.recentLogs)}` : ''}`);
+    throw new Error(
+      `jiuwen sidecar did not become ready in time${this.recentLogs ? `: ${summarizeLogs(this.recentLogs)}` : ''}`,
+    );
   }
 }
 

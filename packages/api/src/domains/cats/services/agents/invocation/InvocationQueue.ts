@@ -10,6 +10,7 @@
  * 系统级出队（invocation 完成后）通过 *AcrossUsers 方法跨用户 FIFO。
  */
 
+import type { CatId } from '@cat-cafe/shared';
 import { randomUUID } from 'node:crypto';
 
 export interface QueueEntry {
@@ -30,6 +31,8 @@ export interface QueueEntry {
   callerCatId?: string;
   /** F134: sender identity for connector group chat messages (used for UI display) */
   senderMeta?: { id: string; name?: string };
+  /** Explicit interrupted-session resume target for provider integrations that support resume semantics. */
+  resumeCatId?: CatId;
 }
 
 export interface EnqueueResult {
@@ -85,6 +88,7 @@ export class InvocationQueue {
       tail.source === input.source &&
       tail.source !== 'connector' &&
       tail.intent === input.intent &&
+      tail.resumeCatId === input.resumeCatId &&
       arraysEqual(sorted(tail.targetCats), sorted(input.targetCats))
     ) {
       // Save snapshot for rollback
@@ -114,6 +118,7 @@ export class InvocationQueue {
       autoExecute: input.autoExecute ?? false,
       callerCatId: input.callerCatId,
       senderMeta: input.senderMeta,
+      resumeCatId: input.resumeCatId,
     };
     q.push(entry);
     this.originalContents.set(entry.id, input.content);

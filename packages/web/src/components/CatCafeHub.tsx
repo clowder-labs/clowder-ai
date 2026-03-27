@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAvailableClients } from '@/hooks/useAvailableClients';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
@@ -36,6 +37,18 @@ export function CatCafeHub() {
   const hubState = useChatStore((s) => s.hubState);
   const closeHub = useChatStore((s) => s.closeHub);
   const { cats, getCatById, refresh } = useCatData();
+  const { clientLabels, uiHints } = useAvailableClients();
+
+  const hiddenTabs = new Set(uiHints.hiddenHubTabs);
+  const visibleGroups = useMemo(
+    () =>
+      HUB_GROUPS.map((group) => ({
+        ...group,
+        tabs: group.tabs.filter((t) => !hiddenTabs.has(t.id)),
+      })).filter((group) => group.tabs.length > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [uiHints.hiddenHubTabs.join()],
+  );
 
   const open = hubState?.open ?? false;
   const rawRequestedTab = hubState?.tab as HubTabId | undefined;
@@ -210,7 +223,7 @@ export function CatCafeHub() {
 
           {/* Accordion navigation */}
           <div className="space-y-2">
-            {HUB_GROUPS.map((g) => (
+            {visibleGroups.map((g) => (
               <AccordionSection
                 key={g.id}
                 group={g}
@@ -226,7 +239,7 @@ export function CatCafeHub() {
           <div className="rounded-xl bg-white shadow-[0_1px_8px_rgba(0,0,0,0.03)] p-4">
             {(tab === 'capabilities' || capTabEverOpened) && (
               <div className={tab === 'capabilities' ? '' : 'hidden'}>
-                <HubCapabilityTab />
+                <HubCapabilityTab hideSkillMountStatus={uiHints.hideSkillMountStatus} />
               </div>
             )}
             {tab === 'cats' &&
@@ -234,6 +247,7 @@ export function CatCafeHub() {
                 <CatOverviewTab
                   config={config}
                   cats={cats}
+                  clientLabels={Object.keys(clientLabels).length > 0 ? clientLabels : undefined}
                   onAddMember={openAddMember}
                   onEditCoCreator={openCoCreatorEditor}
                   onEditMember={openEditMember}
@@ -245,13 +259,13 @@ export function CatCafeHub() {
               ) : null)}
             {tab === 'system' &&
               (config ? (
-                <SystemTab config={config} />
+                <SystemTab config={config} hiddenHubTabs={uiHints.hiddenHubTabs} />
               ) : !fetchError ? (
                 <p className="text-sm text-gray-400">加载中...</p>
               ) : null)}
             {tab === 'commands' && <HubCommandsTab />}
             {tab === 'routing' && <HubRoutingPolicyTab />}
-            {tab === 'env' && <HubEnvFilesTab />}
+            {tab === 'env' && <HubEnvFilesTab hiddenCategories={uiHints.hiddenEnvCategories} hideAgentGuides={uiHints.hideAgentGuides} />}
             {tab === 'provider-profiles' && <HubProviderProfilesTab />}
             {tab === 'voice' && <VoiceSettingsPanel />}
             {tab === 'notify' && <PushSettingsPanel />}

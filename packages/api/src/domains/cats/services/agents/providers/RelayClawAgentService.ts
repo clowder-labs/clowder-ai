@@ -24,6 +24,8 @@ import {
 } from './relayclaw-sidecar.js';
 import { transformRelayClawChunk } from './relayclaw-event-transform.js';
 
+const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
+
 export interface RelayClawAgentServiceOptions {
   catId?: CatId;
   config: RelayClawAgentConfig;
@@ -76,7 +78,7 @@ export class RelayClawAgentService implements AgentService {
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
-    const signal = buildSignal(this.config.timeoutMs ?? 600_000, options?.signal);
+    const signal = buildSignal(this.config.timeoutMs ?? DEFAULT_RELAYCLAW_TIMEOUT_MS, options?.signal);
     yield agentMsg('session_init', this.catId);
 
     try {
@@ -85,7 +87,7 @@ export class RelayClawAgentService implements AgentService {
       yield {
         type: 'error',
         catId: this.catId,
-        error: `jiuwenClaw connection failed: ${err instanceof Error ? err.message : String(err)}`,
+        error: `jiuwen connection failed: ${err instanceof Error ? err.message : String(err)}`,
         timestamp: Date.now(),
       };
       return;
@@ -107,7 +109,7 @@ export class RelayClawAgentService implements AgentService {
         yield {
           type: 'error',
           catId: this.catId,
-          error: `jiuwenClaw error: ${err instanceof Error ? err.message : String(err)}`,
+          error: `jiuwen error: ${err instanceof Error ? err.message : String(err)}`,
           timestamp: Date.now(),
         };
       }
@@ -122,7 +124,7 @@ export class RelayClawAgentService implements AgentService {
       this.resolvedUrl = await this.sidecar.ensureStarted(options, signal);
     }
     const url = this.resolvedUrl ?? this.config.url;
-    if (!url) throw new Error('jiuwenClaw WebSocket URL is not configured');
+    if (!url) throw new Error('jiuwen WebSocket URL is not configured');
     await this.connection.ensureConnected(url, signal);
   }
 
@@ -164,7 +166,7 @@ export class RelayClawAgentService implements AgentService {
       yield {
         type: 'error',
         catId: this.catId,
-        error: 'jiuwenClaw request timed out before completion',
+        error: 'jiuwen request timed out before completion',
         timestamp: Date.now(),
       };
     }

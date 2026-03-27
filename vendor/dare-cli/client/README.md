@@ -164,6 +164,22 @@ cp .dare/config.openrouter.example.json .dare/config.json
 export OPENROUTER_API_KEY=sk-or-...
 ```
 
+如果你希望把模型可见工具固定为当前推荐集合，可以在配置里显式写：
+
+```json
+{
+  "allow_tools": [
+    "read",
+    "write",
+    "update",
+    "search_code",
+    "run_command"
+  ]
+}
+```
+
+这会把文件操作统一收敛到 `read` / `write` / `update`，不再把旧的 `read_file` / `write_file` / `edit_line` 暴露给模型。
+
 ### `llm` 字段说明
 
 - `adapter`：模型适配器，当前支持 `openai`、`openrouter`、`anthropic`、`huawei-modelarts`。不写时默认是 `openai`。

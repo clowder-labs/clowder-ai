@@ -119,6 +119,7 @@ export function CapabilitySection({
   toggling,
   onToggle,
   onUninstall,
+  hideSkillMountStatus,
 }: {
   icon: ReactNode;
   title: string;
@@ -128,6 +129,7 @@ export function CapabilitySection({
   toggling: string | null;
   onToggle: ToggleHandler;
   onUninstall?: (id: string) => void;
+  hideSkillMountStatus?: boolean;
 }) {
   if (items.length === 0) return null;
   return (
@@ -150,6 +152,7 @@ export function CapabilitySection({
             toggling={toggling}
             onToggle={onToggle}
             onUninstall={onUninstall}
+            hideSkillMountStatus={hideSkillMountStatus}
           />
         ))}
       </div>
@@ -165,12 +168,14 @@ function CapabilityCard({
   toggling,
   onToggle,
   onUninstall,
+  hideSkillMountStatus,
 }: {
   item: CapabilityBoardItem;
   catFamilies: CatFamily[];
   toggling: string | null;
   onToggle: ToggleHandler;
   onUninstall?: (id: string) => void;
+  hideSkillMountStatus?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isToggling = toggling === `${item.type}:${item.id}`;
@@ -329,7 +334,7 @@ function CapabilityCard({
               )}
 
               {/* Skill mount status */}
-              {item.type === 'skill' && item.source === 'cat-cafe' && item.mounts && (
+              {!hideSkillMountStatus && item.type === 'skill' && item.source === 'cat-cafe' && item.mounts && (
                 <MountStatusBadges mounts={item.mounts} />
               )}
 
@@ -501,10 +506,17 @@ function ToggleSwitch({
 
 /** Mount status badges for a cat-cafe skill (claude/codex/gemini) */
 function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
-  const providers = [
+  const knownProviders = [
     { key: 'claude', label: 'Claude' },
     { key: 'codex', label: 'Codex' },
     { key: 'gemini', label: 'Gemini' },
+    { key: 'relayclaw', label: 'jiuwenClaw' },
+  ];
+  const providers = [
+    ...knownProviders.filter(({ key }) => key in mounts),
+    ...Object.keys(mounts)
+      .filter((key) => !knownProviders.some((provider) => provider.key === key))
+      .map((key) => ({ key, label: key })),
   ];
   return (
     <div>

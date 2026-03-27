@@ -64,7 +64,7 @@ export const CLIENT_OPTIONS: Array<{ value: ClientValue; label: string }> = [
   { value: 'google', label: 'Gemini' },
   { value: 'dare', label: 'Dare' },
   { value: 'opencode', label: 'OpenCode' },
-  { value: 'relayclaw', label: 'jiuwenClaw' },
+  { value: 'relayclaw', label: 'jiuwen' },
   { value: 'acp', label: 'ACP' },
   { value: 'antigravity', label: 'Antigravity' },
 ];

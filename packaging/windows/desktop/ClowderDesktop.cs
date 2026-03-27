@@ -40,13 +40,13 @@ internal static class Program
         EnableHighDpi();
 
         bool createdNew;
-        using (var mutex = new Mutex(true, @"Local\ClowderAI.WebView2Desktop", out createdNew))
+        using (var mutex = new Mutex(true, @"Local\OfficeClaw.WebView2Desktop", out createdNew))
         {
             if (!createdNew)
             {
                 MessageBox.Show(
-                    "Clowder AI is already running.",
-                    "Clowder AI",
+                    "OfficeClaw is already running.",
+                    "OfficeClaw",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information
                 );
@@ -65,6 +65,7 @@ internal sealed class LauncherForm : Form
     private readonly object _logLock = new object();
     private readonly NotifyIcon _notifyIcon;
     private readonly Label _statusLabel;
+    private readonly PictureBox _splashBox;
     private readonly string _projectRoot;
     private readonly string _logFilePath;
     private readonly string _runtimeStatePath;
@@ -83,7 +84,7 @@ internal sealed class LauncherForm : Form
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
-        Text = "Clowder AI";
+        Text = "OfficeClaw";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
@@ -91,31 +92,34 @@ internal sealed class LauncherForm : Form
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
 
-        // 设置淡粉色到白色渐变背景
-        Paint += (sender, e) =>
+        _splashBox = new PictureBox
         {
-            var graphics = e.Graphics;
-            var rect = new Rectangle(0, 0, Width, Height);
-            using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                rect,
-                Color.FromArgb(255, 240, 245), // 淡粉色
-                Color.White,                      // 白色
-                System.Drawing.Drawing2D.LinearGradientMode.Vertical))
-            {
-                graphics.FillRectangle(brush, rect);
-            }
+            Dock = DockStyle.Fill,
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Black,
         };
+
+        var splashImagePath = Path.Combine(_projectRoot, "assets", "splash.jpg");
+        if (File.Exists(splashImagePath))
+        {
+            try { _splashBox.Image = Image.FromFile(splashImagePath); }
+            catch { /* fall back to plain background */ }
+        }
 
         _statusLabel = new Label
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Bottom,
+            Height = 80,
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font("Segoe UI", 14f, FontStyle.Regular),
-            Text = "Preparing Clowder AI...",
+            ForeColor = Color.White,
+            BackColor = Color.Transparent,
+            Text = "Preparing OfficeClaw...",
             AutoEllipsis = true,
         };
 
-        Controls.Add(_statusLabel);
+        _splashBox.Controls.Add(_statusLabel);
+        Controls.Add(_splashBox);
         Shown += async (_, __) => await InitializeAsync();
         FormClosing += OnFormClosing;
         FormClosed += (_, __) => DisposeNotifyIcon();
@@ -153,7 +157,7 @@ internal sealed class LauncherForm : Form
             MessageBox.Show(
                 this,
                 ex.Message + Environment.NewLine + Environment.NewLine + "See log: " + _logFilePath,
-                "Clowder AI",
+                "OfficeClaw",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error
             );
@@ -192,12 +196,12 @@ internal sealed class LauncherForm : Form
     private NotifyIcon CreateNotifyIcon()
     {
         var contextMenu = new ContextMenuStrip();
-        contextMenu.Items.Add("Open Clowder AI", null, (_, __) => RestoreFromTray());
+        contextMenu.Items.Add("Open OfficeClaw", null, (_, __) => RestoreFromTray());
         contextMenu.Items.Add("Exit", null, (_, __) => RequestExit());
 
         var notifyIcon = new NotifyIcon
         {
-            Text = "Clowder AI",
+            Text = "OfficeClaw",
             Visible = true,
             Icon = Icon ?? SystemIcons.Application,
             ContextMenuStrip = contextMenu,
@@ -235,8 +239,8 @@ internal sealed class LauncherForm : Form
         {
             _notifyIcon.ShowBalloonTip(
                 2500,
-                "Clowder AI",
-                "Clowder AI is still running here. Use the tray icon menu to exit.",
+                "OfficeClaw",
+                "OfficeClaw is still running here. Use the tray icon menu to exit.",
                 ToolTipIcon.Info
             );
             _trayHintShown = true;
@@ -506,6 +510,12 @@ internal sealed class LauncherForm : Form
         };
 
         Controls.Clear();
+        if (_splashBox.Image != null)
+        {
+            _splashBox.Image.Dispose();
+            _splashBox.Image = null;
+        }
+        _splashBox.Dispose();
         Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);

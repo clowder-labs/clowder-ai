@@ -10,6 +10,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { CatInvocationInfo } from '@/stores/chatStore';
 
 const origCreateElement = document.createElement.bind(document);
+const mockHandleSend = vi.fn();
+const mockConfirm = vi.fn(async () => true);
 
 /* ── Mocks ────────────────────────────────────────────────── */
 vi.mock('@/hooks/useCatData', () => ({
@@ -31,11 +33,15 @@ vi.mock('@/hooks/useCatData', () => ({
 }));
 
 vi.mock('@/hooks/useSendMessage', () => ({
-  useSendMessage: () => ({ handleSend: vi.fn() }),
+  useSendMessage: () => ({ handleSend: mockHandleSend }),
 }));
 
 vi.mock('@/utils/taskProgressContinue', () => ({
   buildContinueMessage: () => 'continue',
+}));
+
+vi.mock('../useConfirm', () => ({
+  useConfirm: () => mockConfirm,
 }));
 
 /* ── Helpers ──────────────────────────────────────────────── */
@@ -71,6 +77,9 @@ afterAll(() => {
 });
 
 beforeEach(() => {
+  mockHandleSend.mockReset();
+  mockConfirm.mockReset();
+  mockConfirm.mockResolvedValue(true);
   container = origCreateElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -274,6 +283,30 @@ describe('F055: PlanBoardPanel (猫猫祟祟)', () => {
     expect(container.textContent).toContain('已中断');
     const continueBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('继续'));
     expect(continueBtn).not.toBeUndefined();
+  });
+
+  it('passes resumeCatId when continuing an interrupted task', async () => {
+    await renderPanel('thread-1', {
+      opus: makeInvocation({
+        taskProgress: {
+          tasks: makeTasks([{ status: 'pending', subject: 'Resume me' }]),
+          lastUpdate: Date.now(),
+          snapshotStatus: 'interrupted',
+        },
+      }),
+    });
+
+    const continueBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('继续'));
+    expect(continueBtn).toBeDefined();
+
+    await act(async () => {
+      continueBtn?.click();
+      await Promise.resolve();
+    });
+
+    expect(mockHandleSend).toHaveBeenCalledWith('continue', undefined, 'thread-1', undefined, undefined, {
+      resumeCatId: 'opus',
+    });
   });
 
   it('AC-6: re-renders when taskProgress changes (new invocation)', async () => {

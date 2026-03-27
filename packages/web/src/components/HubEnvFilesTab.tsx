@@ -232,8 +232,13 @@ function buildDataDirs(dataDirs: DataDirs) {
   ];
 }
 
-function ConfigFilesSection({ projectRoot }: { projectRoot: string }) {
-  const files = useMemo(() => buildConfigFiles(projectRoot), [projectRoot]);
+const AGENT_GUIDE_NAMES = new Set(['CLAUDE.md', 'AGENTS.md', 'GEMINI.md']);
+
+function ConfigFilesSection({ projectRoot, hideAgentGuides }: { projectRoot: string; hideAgentGuides?: boolean }) {
+  const files = useMemo(() => {
+    const all = buildConfigFiles(projectRoot);
+    return hideAgentGuides ? all.filter((f) => !AGENT_GUIDE_NAMES.has(f.name)) : all;
+  }, [projectRoot, hideAgentGuides]);
   return (
     <Section title="配置文件">
       <div className="space-y-2">
@@ -263,6 +268,7 @@ function EnvVarsSection({
   drafts,
   isDirty,
   saveState,
+  hiddenCategories,
   onDraftChange,
   onSave,
 }: {
@@ -271,10 +277,13 @@ function EnvVarsSection({
   drafts: Record<string, string>;
   isDirty: boolean;
   saveState: { saving: boolean; error: string | null; success: string | null };
+  hiddenCategories?: string[];
   onDraftChange: (name: string, value: string) => void;
   onSave: () => void;
 }) {
+  const hiddenSet = hiddenCategories ? new Set(hiddenCategories) : null;
   const grouped = Object.entries(categories)
+    .filter(([key]) => !hiddenSet?.has(key))
     .map(([key, label]) => ({
       key,
       label,
@@ -373,7 +382,7 @@ function DataDirsSection({ dataDirs, projectRoot }: { dataDirs: DataDirs; projec
   );
 }
 
-export function HubEnvFilesTab() {
+export function HubEnvFilesTab({ hiddenCategories, hideAgentGuides }: { hiddenCategories?: string[]; hideAgentGuides?: boolean }) {
   const [data, setData] = useState<EnvSummaryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -473,10 +482,11 @@ export function HubEnvFilesTab() {
         drafts={drafts}
         isDirty={isDirty}
         saveState={saveState}
+        hiddenCategories={hiddenCategories}
         onDraftChange={handleDraftChange}
         onSave={handleSave}
       />
-      <ConfigFilesSection projectRoot={data.paths.projectRoot} />
+      <ConfigFilesSection projectRoot={data.paths.projectRoot} hideAgentGuides={hideAgentGuides} />
       <DataDirsSection dataDirs={data.paths.dataDirs} projectRoot={data.paths.projectRoot} />
     </div>
   );

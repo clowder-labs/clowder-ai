@@ -75,6 +75,7 @@ if (-not $nodeCommand) {
 }
 Write-Ok "Node: $nodeCommand"
 
+$dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot
 $jiuwenClawRuntimeReady = Ensure-WindowsJiuwenClawRuntime -ProjectRoot $ProjectRoot
 
 $pnpmCommand = $null

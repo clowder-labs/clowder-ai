@@ -8,51 +8,60 @@ function safeAvatarSrc(value: string | null | undefined): string | null {
   return null;
 }
 
-function humanizeProvider(provider: string) {
+function humanizeProvider(provider: string, labels?: Record<string, string>) {
+  if (labels?.[provider]) return labels[provider];
   if (provider === 'openai') return 'OpenAI';
   if (provider === 'anthropic') return 'Anthropic';
   if (provider === 'google') return 'Gemini';
   if (provider === 'dare') return 'Dare';
   if (provider === 'opencode') return 'OpenCode';
-  if (provider === 'relayclaw') return 'jiuwenClaw';
+  if (provider === 'relayclaw') return 'jiuwen';
   if (provider === 'antigravity') return 'Antigravity';
   return provider;
 }
 
-function clientRuntimeLabel(cat: CatData, configCat?: CatConfig) {
-  if (cat.provider === 'relayclaw') return 'jiuwenClaw';
+function clientRuntimeLabel(cat: CatData, configCat?: CatConfig, labels?: Record<string, string>) {
+  if (labels?.[cat.provider]) return labels[cat.provider];
+  if (cat.provider === 'relayclaw') return 'jiuwen';
+  if (cat.provider === 'dare') return 'Dare';
   const accountRef = (cat.accountRef ?? cat.providerProfileId ?? '').toLowerCase();
   if (accountRef.includes('claude')) return 'Claude';
   if (accountRef.includes('codex')) return 'Codex';
   if (accountRef.includes('gemini')) return 'Gemini';
   if (accountRef.includes('opencode')) return 'OpenCode';
   if (accountRef.includes('dare')) return 'Dare';
+  if (accountRef.includes('jiu') || accountRef.includes('modelarts')) return 'jiuwen';
   if (cat.provider === 'antigravity') return 'Antigravity';
   if (cat.source === 'runtime' && cat.provider === 'openai') return 'OpenAI-Compatible';
-  return humanizeProvider(configCat?.provider ?? cat.provider);
+  return humanizeProvider(configCat?.provider ?? cat.provider, labels);
+}
+
+function cleanAccountRef(raw: string): string {
+  return raw.replace(/-migrated-\d+$/, '');
 }
 
 function accountSummary(cat: CatData) {
   const accountRef = cat.accountRef?.trim() ?? cat.providerProfileId?.trim() ?? '';
   if (!accountRef) return humanizeProvider(cat.provider);
+  const cleaned = cleanAccountRef(accountRef);
   if (
-    accountRef === 'claude' ||
-    accountRef === 'codex' ||
-    accountRef === 'gemini' ||
-    accountRef === 'dare' ||
-    accountRef === 'opencode'
+    cleaned === 'claude' ||
+    cleaned === 'codex' ||
+    cleaned === 'gemini' ||
+    cleaned === 'dare' ||
+    cleaned === 'opencode'
   ) {
     return '内置 OAuth 账号';
   }
-  return `API Key · ${accountRef}`;
+  return `API Key · ${cleaned}`;
 }
 
-function getMetaSummary(cat: CatData, configCat?: CatConfig) {
+function getMetaSummary(cat: CatData, configCat?: CatConfig, labels?: Record<string, string>) {
   if (cat.provider === 'antigravity') {
     return `Antigravity · ${configCat?.model ?? cat.defaultModel} · CLI Bridge`;
   }
 
-  return `${clientRuntimeLabel(cat, configCat)} · ${configCat?.model ?? cat.defaultModel} · ${accountSummary(cat)}`;
+  return `${clientRuntimeLabel(cat, configCat, labels)} · ${configCat?.model ?? cat.defaultModel} · ${accountSummary(cat)}`;
 }
 
 function getStatusBadge(cat: CatData) {
@@ -151,12 +160,14 @@ export function HubOverviewToolbar({ onAddMember }: { onAddMember?: () => void }
 export function HubMemberOverviewCard({
   cat,
   configCat,
+  clientLabels,
   onEdit,
   onToggleAvailability,
   togglingAvailability = false,
 }: {
   cat: CatData;
   configCat?: CatConfig;
+  clientLabels?: Record<string, string>;
   onEdit?: (cat: CatData) => void;
   onToggleAvailability?: (cat: CatData) => void;
   togglingAvailability?: boolean;
@@ -204,7 +215,7 @@ export function HubMemberOverviewCard({
         </button>
       </div>
 
-      <p className="mt-2.5 text-[13px] text-[#8A776B]">{getMetaSummary(cat, configCat)}</p>
+      <p className="mt-2.5 text-[13px] text-[#8A776B]">{getMetaSummary(cat, configCat, clientLabels)}</p>
 
       <p className="mt-2 text-[13px] text-[#9D7BC7]">{formatMentionPreview(cat.mentionPatterns)}</p>
     </section>

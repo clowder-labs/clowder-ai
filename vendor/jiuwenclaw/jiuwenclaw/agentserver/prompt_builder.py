@@ -2,15 +2,35 @@
 import json
 import os
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from typing import Optional
 
-from jiuwenclaw.utils import USER_WORKSPACE_DIR, logger
+from jiuwenclaw.utils import (
+    USER_WORKSPACE_DIR,
+    get_disabled_agent_skill_names,
+    get_agent_registered_skill_dirs,
+    get_project_workspace_dir,
+    logger,
+)
 
 CONFIG_DIR = USER_WORKSPACE_DIR / "config"
 HOME_DIR = USER_WORKSPACE_DIR / "agent" / "home"
 MEMORY_DIR = USER_WORKSPACE_DIR / "agent" / "memory"
-SKILL_DIR = USER_WORKSPACE_DIR / "agent" / "skills"
-WORKSPACE_DIR = USER_WORKSPACE_DIR / "agent" / "workspace"
+WORKSPACE_DIR = Path(get_project_workspace_dir())
+
+
+def _is_under_workspace(path: Path, workspace: Path) -> bool:
+    try:
+        return os.path.commonpath([str(workspace), str(path.resolve())]) == str(workspace)
+    except (OSError, ValueError):
+        return False
+
+
+def _prompt_skill_dirs() -> list[Path]:
+    workspace = WORKSPACE_DIR.resolve()
+    registered_dirs = [path.resolve() for path in get_agent_registered_skill_dirs() if path.exists()]
+    workspace_dirs = [path for path in registered_dirs if _is_under_workspace(path, workspace)]
+    return workspace_dirs if workspace_dirs else registered_dirs
 
 
 def _memory_prompt(language: str, is_cron: bool = False) -> str:
@@ -494,12 +514,34 @@ Tools are built-in methods.
 
 
 def _skills_prompt(language: str) -> str:
-    skills = os.listdir(SKILL_DIR)
-    skills_str = "\n".join(skills)
+    disabled_names = get_disabled_agent_skill_names()
+    seen_names: set[str] = set()
+    skills: list[str] = []
+    for base_dir in _prompt_skill_dirs():
+        if not base_dir.exists():
+            continue
+        try:
+            children = sorted(base_dir.iterdir(), key=lambda item: item.name)
+        except Exception:
+            continue
+        for child in children:
+            if not child.is_dir() or child.name.startswith("_"):
+                continue
+            if child.name in disabled_names or child.name in seen_names:
+                continue
+            if not (child / "SKILL.md").is_file():
+                continue
+            seen_names.add(child.name)
+            skills.append(child.name)
+
+    skills_str = "\n".join(skills) if skills else "（无）" if language == "zh" else "(none)"
+    skill_dirs = ", ".join(str(path) for path in _prompt_skill_dirs())
     if language == "zh":
         return f"""## 技能
 
-技能存放在 `{SKILL_DIR}` 目录下。
+当前可访问的技能目录：`{skill_dirs}`。
+查看技能说明时，只从这些目录中读取对应技能的 `SKILL.md`。
+不要尝试读取当前工作区之外的 skill 源码目录。
 
 当前可用技能：
 {skills_str}
@@ -507,11 +549,18 @@ def _skills_prompt(language: str) -> str:
     else:
         return f"""## Skills
 
-Skills live under `{SKILL_DIR}`.
+Currently accessible skill directories: `{skill_dirs}`.
+When you need to read a skill description, open that skill's `SKILL.md` only from these directories.
+Do not attempt to read skill directories outside the current workspace.
 
 Available skills:
 {skills_str}
 """
+
+
+def _skill_dirs_text() -> str:
+    dirs = [str(path) for path in _prompt_skill_dirs()]
+    return ", ".join(dirs) if dirs else "(none)"
 
 
 def _context_prompt(language: str) -> str:
@@ -776,6 +825,7 @@ After completing a system task, notify the user via a reply.
 
 
 def _start_prompt(language: str) -> str:
+    skill_dirs_text = _skill_dirs_text()
     if language == "zh":
         return f"""你是一个私人小助手，由 JiuwenClaw 创建并在 JiuwenClaw 项目下运行。你的任务是像一个有温度的人类助手一样与用户互动，让用户感到自然、舒适。
 
@@ -790,7 +840,7 @@ def _start_prompt(language: str) -> str:
 | `{CONFIG_DIR}` | 配置信息 | 不要轻易改动，错误配置可能导致异常 |
 | `{HOME_DIR}` | 身份与任务信息 | 可适当更新，以更好地服务用户 |
 | `{MEMORY_DIR}` | 持久化记忆 | 将其视为你记忆的一部分，随时查阅 |
-| `{SKILL_DIR}` | 技能库 | 可随时翻阅、调用，不可修改 |
+| `{skill_dirs_text}` | 技能库 | 可随时翻阅、调用，不可修改 |
 | `{WORKSPACE_DIR}` | 工作区 | 你的安全屋，可自由读写，注意不要影响系统其他部分 |
 
 ## 配置信息
@@ -816,7 +866,7 @@ Everything starts from the `.jiuwenclaw` directory.
 | `{CONFIG_DIR}` | Configuration | Do not modify lightly; bad config can cause failures |
 | `{HOME_DIR}` | Identity and task info | You may update this to better serve your user |
 | `{MEMORY_DIR}` | Persistent memory | Treat it as part of your memory; consult it anytime |
-| `{SKILL_DIR}` | Skill library | Read and invoke freely; do not modify |
+| `{skill_dirs_text}` | Skill library | Read and invoke freely; do not modify |
 | `{WORKSPACE_DIR}` | Workspace | Your safe space; read and write freely, but avoid affecting other parts of the system |
 
 ## Configuration

@@ -206,6 +206,151 @@ describe('provider profiles routes', () => {
     }
   });
 
+  it('persists ACP provider env keys in views and runtime resolution', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { resolveRuntimeProviderProfileById } = await import('../dist/config/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('acp-env');
+    setGlobalRoot(projectDir);
+    try {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          kind: 'acp',
+          displayName: 'agent-teams-env',
+          command: 'agent-teams',
+          args: ['gateway', 'acp', 'stdio'],
+          env: {
+            ACP_TRACE_STDIO: '1',
+            AGENT_TEAMS_LOG_LEVEL: 'DEBUG',
+          },
+        }),
+      });
+      assert.equal(createRes.statusCode, 200);
+      const created = createRes.json();
+      assert.deepEqual(created.profile.envKeys, ['ACP_TRACE_STDIO', 'AGENT_TEAMS_LOG_LEVEL']);
+
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      assert.equal(listRes.statusCode, 200);
+      const listed = listRes.json().providers.find((profile) => profile.id === created.profile.id);
+      assert.deepEqual(listed?.envKeys, ['ACP_TRACE_STDIO', 'AGENT_TEAMS_LOG_LEVEL']);
+
+      const runtime = await resolveRuntimeProviderProfileById(projectDir, created.profile.id);
+      assert.deepEqual(runtime?.env, {
+        ACP_TRACE_STDIO: '1',
+        AGENT_TEAMS_LOG_LEVEL: 'DEBUG',
+      });
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('GET /api/provider-profiles hides builtin auth cards when the install preset disables them', async () => {
+    const previousAllowedClients = process.env.CAT_CAFE_ALLOWED_CLIENTS;
+    const previousVisibleBuiltinAuthClients = process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS;
+    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'dare,relayclaw';
+    process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
+
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('custom-install-filter');
+    try {
+      await createProviderProfile(projectDir, {
+        provider: 'openai',
+        displayName: 'ModelArts Shared',
+        authType: 'api_key',
+        protocol: 'openai',
+        baseUrl: 'https://api.modelarts-maas.com/v2',
+        apiKey: 'sk-modelarts',
+        models: ['glm-5'],
+      });
+
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      assert.equal(listRes.statusCode, 200);
+
+      const list = listRes.json();
+      assert.deepEqual(list.visibleBuiltinClients, []);
+      // Profile store is global — only assert that no builtin profiles leak through
+      const builtinProviders = list.providers.filter((p) => p.builtin);
+      assert.equal(builtinProviders.length, 0, 'builtin profiles should be hidden when preset disables them');
+      assert.ok(list.providers.some((p) => p.id === 'modelarts-shared'), 'custom profile should still be visible');
+      assert.deepEqual(Object.keys(list.bootstrapBindings), ['dare']);
+    } finally {
+      if (previousAllowedClients === undefined) delete process.env.CAT_CAFE_ALLOWED_CLIENTS;
+      else process.env.CAT_CAFE_ALLOWED_CLIENTS = previousAllowedClients;
+      if (previousVisibleBuiltinAuthClients === undefined) delete process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS;
+      else process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = previousVisibleBuiltinAuthClients;
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('GET /api/provider-profiles shows all builtin auth when CAT_CAFE_BUILTIN_CLIENTS_ENABLED=true', async () => {
+    const saved = {
+      allowed: process.env.CAT_CAFE_ALLOWED_CLIENTS,
+      visible: process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS,
+      toggle: process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED,
+    };
+    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'dare,relayclaw';
+    process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
+    process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED = 'true';
+
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('toggle-builtin-on');
+    try {
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      assert.equal(listRes.statusCode, 200);
+      const list = listRes.json();
+      assert.deepEqual(list.visibleBuiltinClients, ['anthropic', 'openai', 'google', 'dare', 'opencode']);
+      assert.ok(Object.keys(list.bootstrapBindings).includes('anthropic'));
+      assert.ok(Object.keys(list.bootstrapBindings).includes('google'));
+    } finally {
+      for (const [key, val] of Object.entries(saved)) {
+        const envKey =
+          key === 'allowed'
+            ? 'CAT_CAFE_ALLOWED_CLIENTS'
+            : key === 'visible'
+              ? 'CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS'
+              : 'CAT_CAFE_BUILTIN_CLIENTS_ENABLED';
+        if (val === undefined) delete process.env[envKey];
+        else process.env[envKey] = val;
+      }
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
   it('POST /api/provider-profiles/:id/test validates api_key profile via fetch', async () => {
     const Fastify = (await import('fastify')).default;
     const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');

@@ -550,6 +550,141 @@ function Ensure-WindowsJiuwenClawRuntime {
         return $false
     }
 
+    function Test-PythonModuleAvailable {
+        param([string]$PythonCommand, [string]$ModuleName)
+
+        if (-not $PythonCommand -or -not (Test-Path $PythonCommand)) {
+            return $false
+        }
+
+        try {
+            & $PythonCommand -c "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('$ModuleName') else 1)" 1>$null 2>$null
+            return $LASTEXITCODE -eq 0
+        } catch {
+            return $false
+        }
+    }
+
+    function Test-JiuwenClawPythonVersion {
+        param([string]$PythonCommand, [string[]]$PythonArgs = @())
+
+        if (-not $PythonCommand -or -not (Test-Path $PythonCommand)) {
+            return $false
+        }
+
+        try {
+            & $PythonCommand @PythonArgs -c "import sys; raise SystemExit(0 if (sys.version_info.major == 3 and (3, 11) <= sys.version_info[:2] < (3, 14)) else 1)" 1>$null 2>$null
+            return $LASTEXITCODE -eq 0
+        } catch {
+            return $false
+        }
+    }
+
+    function Test-JiuwenClawRuntimePython {
+        param([string]$PythonCommand)
+
+        return (Test-JiuwenClawPythonVersion -PythonCommand $PythonCommand) -and
+            (Test-PythonModuleAvailable -PythonCommand $PythonCommand -ModuleName "jiuwenclaw") -and
+            (Test-PythonModuleAvailable -PythonCommand $PythonCommand -ModuleName "dotenv")
+    }
+
+    function Resolve-JiuwenClawBootstrapPython {
+        $pythonCommand = Resolve-ToolCommandWithRetry -Name "python" -Attempts 2
+        if ($pythonCommand -and (Test-JiuwenClawPythonVersion -PythonCommand $pythonCommand)) {
+            return [pscustomobject]@{ Command = $pythonCommand; Args = @(); Label = $pythonCommand }
+        }
+
+        $python3Command = Resolve-ToolCommandWithRetry -Name "python3" -Attempts 2
+        if ($python3Command -and (Test-JiuwenClawPythonVersion -PythonCommand $python3Command)) {
+            return [pscustomobject]@{ Command = $python3Command; Args = @(); Label = $python3Command }
+        }
+
+        $pyCommand = Resolve-ToolCommandWithRetry -Name "py" -Attempts 2
+        if ($pyCommand) {
+            foreach ($version in @("-3.13", "-3.12", "-3.11", "-3")) {
+                $candidateArgs = @($version)
+                if (Test-JiuwenClawPythonVersion -PythonCommand $pyCommand -PythonArgs $candidateArgs) {
+                    return [pscustomobject]@{ Command = $pyCommand; Args = $candidateArgs; Label = "$pyCommand $version" }
+                }
+            }
+        }
+
+        return $null
+    }
+
+    $venvPython = Join-Path $appDir ".venv\Scripts\python.exe"
+    $recreateVenv = $false
+    if (Test-Path $venvPython) {
+        if (Test-JiuwenClawRuntimePython -PythonCommand $venvPython) {
+            return $true
+        }
+        if (-not (Test-JiuwenClawPythonVersion -PythonCommand $venvPython)) {
+            $recreateVenv = $true
+            Write-Warn "jiuwen runtime .venv uses unsupported Python - recreating local environment"
+        } else {
+            Write-Warn "jiuwen runtime missing dependencies in .venv - repairing local environment"
+        }
+    }
+
+    $bootstrapPython = $null
+    if ($recreateVenv -or -not (Test-Path $venvPython)) {
+        $bootstrapPython = Resolve-JiuwenClawBootstrapPython
+    }
+    if (($recreateVenv -or -not (Test-Path $venvPython)) -and -not $bootstrapPython) {
+        Write-Warn "jiuwen runtime unavailable - Python 3.11-3.13 not found"
+        return $false
+    }
+
+    Write-Host "  Preparing jiuwen runtime..."
+    try {
+        Push-Location $appDir
+        if ($bootstrapPython) {
+            Write-Host "  Using jiuwen bootstrap Python: $($bootstrapPython.Label)"
+            $venvArgs = @('-m', 'venv')
+            if ($recreateVenv -and (Test-Path $venvPython)) {
+                $venvArgs += '--clear'
+            }
+            $venvArgs += '.venv'
+            & $bootstrapPython.Command @($bootstrapPython.Args + $venvArgs)
+            if ($LASTEXITCODE -ne 0) {
+                throw "python -m venv failed"
+            }
+        }
+        & $venvPython -m pip install --upgrade pip setuptools wheel
+        if ($LASTEXITCODE -ne 0) {
+            throw "pip bootstrap failed"
+        }
+        & $venvPython -m pip install -e .
+        if ($LASTEXITCODE -ne 0) {
+            throw "jiuwen dependency install failed"
+        }
+        if (-not (Test-JiuwenClawRuntimePython -PythonCommand $venvPython)) {
+            throw "jiuwen runtime validation failed"
+        }
+        Write-Ok "jiuwen runtime prepared"
+        return $true
+    } catch {
+        Write-Warn "jiuwen runtime setup failed - sidecar will stay unavailable"
+        Write-InstallerExceptionDetails -Context "jiuwen runtime" -ErrorRecord $_
+        return $false
+    } finally {
+        Pop-Location
+    }
+}
+
+function Ensure-WindowsDareRuntime {
+    param([string]$ProjectRoot)
+
+    if (-not $ProjectRoot) {
+        return $false
+    }
+
+    $appDir = Join-Path $ProjectRoot "vendor\dare-cli"
+    $appEntry = Join-Path $appDir "client\__main__.py"
+    if (-not (Test-Path $appEntry)) {
+        return $false
+    }
+
     $venvPython = Join-Path $appDir ".venv\Scripts\python.exe"
     if (Test-Path $venvPython) {
         return $true
@@ -564,11 +699,11 @@ function Ensure-WindowsJiuwenClawRuntime {
         }
     }
     if (-not $pythonCommand) {
-        Write-Warn "jiuwenClaw runtime unavailable - Python 3.11+ not found"
+        Write-Warn "DARE runtime unavailable - Python 3.11+ not found"
         return $false
     }
 
-    Write-Host "  Preparing jiuwenClaw runtime..."
+    Write-Host "  Preparing DARE runtime..."
     try {
         Push-Location $appDir
         & $pythonCommand @pythonArgs -m venv ".venv"
@@ -579,15 +714,15 @@ function Ensure-WindowsJiuwenClawRuntime {
         if ($LASTEXITCODE -ne 0) {
             throw "pip bootstrap failed"
         }
-        & $venvPython -m pip install -e .
+        & $venvPython -m pip install -r requirements.txt "httpx[socks]"
         if ($LASTEXITCODE -ne 0) {
-            throw "jiuwenClaw dependency install failed"
+            throw "DARE dependency install failed"
         }
-        Write-Ok "jiuwenClaw runtime prepared"
+        Write-Ok "DARE runtime prepared"
         return $true
     } catch {
-        Write-Warn "jiuwenClaw runtime setup failed - sidecar will stay unavailable"
-        Write-InstallerExceptionDetails -Context "jiuwenClaw runtime" -ErrorRecord $_
+        Write-Warn "DARE runtime setup failed - client will stay unavailable"
+        Write-InstallerExceptionDetails -Context "DARE runtime" -ErrorRecord $_
         return $false
     } finally {
         Pop-Location
@@ -661,6 +796,26 @@ function Set-GeminiApiKeyMode {
     if ($Model) { Set-InstallerEnvValue $State "CAT_GEMINI_MODEL" $Model } else { Add-InstallerEnvDelete $State "CAT_GEMINI_MODEL" }
 }
 
+function Set-ModelArtsCustomEnv {
+    param($State)
+
+    # CAT_CAFE_CLIENT_LABELS is the single source of truth:
+    # keys = enabled clients, values = console display names.
+    # Format: "clientId:DisplayName,clientId:DisplayName"
+    # Available client IDs: anthropic | openai | google | dare | opencode | antigravity | relayclaw
+    # Example: "dare:jiuwen,anthropic:Claude,opencode:OpenCode"
+    Set-InstallerEnvValue $State "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
+    Set-InstallerEnvValue $State "CAT_CAFE_CLIENT_LABELS" "dare:dare,relayclaw:jiuwen"
+    Add-InstallerEnvDelete $State "CODEX_AUTH_MODE"
+    Add-InstallerEnvDelete $State "OPENAI_API_KEY"
+    Add-InstallerEnvDelete $State "OPENAI_BASE_URL"
+    Add-InstallerEnvDelete $State "OPENAI_API_BASE"
+    Add-InstallerEnvDelete $State "CAT_CODEX_MODEL"
+    Add-InstallerEnvDelete $State "GEMINI_API_KEY"
+    Add-InstallerEnvDelete $State "GEMINI_BASE_URL"
+    Add-InstallerEnvDelete $State "CAT_GEMINI_MODEL"
+}
+
 function Set-ClaudeInstallerProfile {
     param($State, [string]$ApiKey, [string]$BaseUrl, [string]$Model)
 
@@ -702,119 +857,9 @@ function Read-InstallerSecret {
 function Configure-InstallerAuth {
     param([string]$ProjectRoot, $State)
 
-    $hasClaude = $null -ne (Resolve-ToolCommandWithRetry -Name "claude" -Attempts 6)
-    $hasCodex = $null -ne (Resolve-ToolCommandWithRetry -Name "codex" -Attempts 6)
-    $hasGemini = $null -ne (Resolve-ToolCommandWithRetry -Name "gemini" -Attempts 6)
-    $isInteractive = [Environment]::UserInteractive -and -not $env:CI
-
-    if (-not $isInteractive) {
-        Write-Warn "Non-interactive mode - skipping auth prompts. Run claude / codex / gemini manually after install."
-        return
-    }
-
-    if ($hasClaude) {
-        Write-Host ""
-        Write-Host "  Claude (claude):"
-        $hasExistingProfile = Test-Path (Join-Path $ProjectRoot ".cat-cafe/provider-profiles.json")
-        $claudeOptions = @()
-        if ($hasExistingProfile) {
-            $claudeOptions += @{ Label = "&Keep existing"; Help = "Keep the current Claude auth configuration"; Value = "keep" }
-        }
-        $claudeOptions += @(
-            @{ Label = if ($hasExistingProfile) { "&OAuth" } else { "&OAuth (recommended)" }; Help = "Use Claude subscription / OAuth"; Value = "oauth" },
-            @{ Label = "&API Key"; Help = "Write an installer-managed Claude API key profile"; Value = "api_key" },
-            @{ Label = "&Skip"; Help = "Skip Claude auth setup for now"; Value = "skip" }
-        )
-        $choice = Select-InstallerChoice -Title "Claude auth" -Prompt "Choose how to configure Claude" -Options $claudeOptions
-        if ($choice -eq "keep") {
-            Write-Ok "Claude: keeping existing configuration"
-        } elseif ($choice -eq "api_key") {
-            $apiKey = Read-InstallerSecret "    API Key"
-            $baseUrl = Read-Host "    Base URL (Enter = https://api.anthropic.com)"
-            $model = Read-Host "    Model (Enter = default)"
-            if ($apiKey) {
-                Set-ClaudeInstallerProfile $State $apiKey $baseUrl $model
-                Write-Ok "Claude API key profile written to .cat-cafe/"
-            } else {
-                Remove-ClaudeInstallerProfile $State
-                Write-Warn "Claude API key empty - keeping OAuth"
-            }
-        } elseif ($choice -eq "oauth") {
-            Remove-ClaudeInstallerProfile $State
-            Write-Ok "Claude: OAuth mode"
-        } else {
-            Write-Warn "Claude auth setup skipped"
-        }
-    }
-
-    if ($hasCodex) {
-        Write-Host ""
-        Write-Host "  Codex (codex):"
-        $existingCodexKey = Get-InstallerEnvValueFromFile -EnvFile (Join-Path $ProjectRoot ".env") -Key "OPENAI_API_KEY"
-        $codexOptions = @()
-        if ($existingCodexKey) {
-            $codexOptions += @{ Label = "&Keep existing"; Help = "Keep the current Codex auth configuration"; Value = "keep" }
-        }
-        $codexOptions += @(
-            @{ Label = if ($existingCodexKey) { "&OAuth" } else { "&OAuth (recommended)" }; Help = "Use Codex OAuth / subscription"; Value = "oauth" },
-            @{ Label = "&API Key"; Help = "Store OpenAI API settings in .env"; Value = "api_key" },
-            @{ Label = "&Skip"; Help = "Skip Codex auth setup for now"; Value = "skip" }
-        )
-        $choice = Select-InstallerChoice -Title "Codex auth" -Prompt "Choose how to configure Codex" -Options $codexOptions
-        if ($choice -eq "keep") {
-            Write-Ok "Codex: keeping existing configuration"
-        } elseif ($choice -eq "api_key") {
-            $apiKey = Read-InstallerSecret "    API Key"
-            $baseUrl = Read-Host "    Base URL (Enter = default)"
-            $model = Read-Host "    Model (Enter = default)"
-            if ($apiKey) {
-                Set-CodexApiKeyMode $State $apiKey $baseUrl $model
-                Write-Ok "Codex API key collected for .env"
-            } else {
-                Set-CodexOAuthMode $State
-                Write-Warn "Codex API key empty - keeping OAuth"
-            }
-        } elseif ($choice -eq "oauth") {
-            Set-CodexOAuthMode $State
-            Write-Ok "Codex: OAuth mode"
-        } else {
-            Write-Warn "Codex auth setup skipped"
-        }
-    }
-
-    if ($hasGemini) {
-        Write-Host ""
-        Write-Host "  Gemini (gemini):"
-        $existingGeminiKey = Get-InstallerEnvValueFromFile -EnvFile (Join-Path $ProjectRoot ".env") -Key "GEMINI_API_KEY"
-        $geminiOptions = @()
-        if ($existingGeminiKey) {
-            $geminiOptions += @{ Label = "&Keep existing"; Help = "Keep the current Gemini auth configuration"; Value = "keep" }
-        }
-        $geminiOptions += @(
-            @{ Label = if ($existingGeminiKey) { "&OAuth" } else { "&OAuth (recommended)" }; Help = "Use Gemini OAuth / subscription"; Value = "oauth" },
-            @{ Label = "&API Key"; Help = "Store Gemini API settings in .env"; Value = "api_key" },
-            @{ Label = "&Skip"; Help = "Skip Gemini auth setup for now"; Value = "skip" }
-        )
-        $choice = Select-InstallerChoice -Title "Gemini auth" -Prompt "Choose how to configure Gemini" -Options $geminiOptions
-        if ($choice -eq "keep") {
-            Write-Ok "Gemini: keeping existing configuration"
-        } elseif ($choice -eq "api_key") {
-            $apiKey = Read-InstallerSecret "    API Key"
-            $model = Read-Host "    Model (Enter = default)"
-            if ($apiKey) {
-                Set-GeminiApiKeyMode $State $apiKey $model
-                Write-Ok "Gemini API key collected for .env"
-            } else {
-                Set-GeminiOAuthMode $State
-                Write-Warn "Gemini API key empty - keeping OAuth"
-            }
-        } elseif ($choice -eq "oauth") {
-            Set-GeminiOAuthMode $State
-            Write-Ok "Gemini: OAuth mode"
-        } else {
-            Write-Warn "Gemini auth setup skipped"
-        }
-    }
+    Invoke-InstallerAuthHelper $State @("modelarts-preset", "apply", "--project-dir", $ProjectRoot)
+    Set-ModelArtsCustomEnv $State
+    Write-Ok "ModelArts preset written: 2 cats / shared glm-5 profile / dare+jiuwen only"
 }
 
 function Apply-InstallerAuthEnv {

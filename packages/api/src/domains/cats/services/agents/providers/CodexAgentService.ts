@@ -22,6 +22,7 @@ import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
@@ -335,7 +336,7 @@ export class CodexAgentService implements AgentService {
           rawEnv.USERPROFILE = isolatedHome;
         }
       }
-      const codexEnv = applyAuthMode(rawEnv, authMode);
+      const codexEnv = withBundledPythonPath(applyAuthMode(rawEnv, authMode), resolveCatCafeHostRoot(process.cwd()));
 
       const semanticCompletionController = new AbortController();
 

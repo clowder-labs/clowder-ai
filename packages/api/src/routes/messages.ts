@@ -176,6 +176,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     let threadId: string | undefined;
     let contentBlocks: MessageContent[] | undefined;
     let idempotencyKey: string | undefined;
+    let resumeCatId: CatId | undefined;
     // F35: Whisper fields
     let whisperVisibility: 'whisper' | undefined;
     let whisperRecipients: readonly CatId[] | undefined;
@@ -193,6 +194,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       ({ content, userId: legacyUserId, threadId, contentBlocks } = parsed);
       if ('idempotencyKey' in parsed && parsed.idempotencyKey) {
         idempotencyKey = parsed.idempotencyKey;
+      }
+      if ('resumeCatId' in parsed && parsed.resumeCatId) {
+        resumeCatId = parsed.resumeCatId as CatId;
       }
       // F35: Extract whisper fields from multipart
       if (parsed.visibility === 'whisper' && parsed.whisperTo) {
@@ -212,6 +216,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       }
       ({ content, userId: legacyUserId, threadId, idempotencyKey } = parseResult.data);
       deliveryMode = parseResult.data.deliveryMode;
+      resumeCatId = parseResult.data.resumeCatId as CatId | undefined;
       // F35: Extract whisper fields from parsed body
       if (parseResult.data.visibility === 'whisper') {
         whisperVisibility = 'whisper';
@@ -358,10 +363,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     const { targetCats: resolvedTargetCats, intent } = await router.resolveTargetsAndIntent(content, resolvedThreadId, {
       persist: true,
     });
-    // F35: When sending a whisper, override routing targets to only whisperTo recipients.
-    // This prevents non-recipient cats from being invoked and seeing whisper content.
     const targetCats =
-      whisperVisibility === 'whisper' && whisperRecipients?.length
+      resumeCatId
+        ? [resumeCatId]
+        : whisperVisibility === 'whisper' && whisperRecipients?.length
         ? [...new Set(whisperRecipients)]
         : [...resolvedTargetCats];
     const primaryCat = targetCats[0] ?? 'unknown';
@@ -386,6 +391,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         source: 'user',
         targetCats,
         intent: intent.intent,
+        ...(resumeCatId ? { resumeCatId } : {}),
       });
 
       // Queue full → 429, no message written (no ghost message)
@@ -504,6 +510,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               source: 'user',
               targetCats,
               intent: intent.intent,
+              ...(resumeCatId ? { resumeCatId } : {}),
             });
             if (enqueueResult.outcome === 'full') {
               opts.socketManager.emitToUser(userId, 'queue_full_warning', {
@@ -744,6 +751,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               cursorBoundaries,
               persistenceContext,
               parentInvocationId: createResult.invocationId,
+              ...(resumeCatId ? { resumeCatId } : {}),
             },
           )) {
             // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)

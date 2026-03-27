@@ -678,6 +678,36 @@ test('callbackEnv auth mode overrides process default when launching codex child
   }
 });
 
+test('injects bundled Python Scripts into codex child PATH when callbackEnv is present', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+  const originalPlatform = process.platform;
+  const originalPath = process.env.PATH;
+
+  try {
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    process.env.PATH = 'C:\\Windows\\System32';
+
+    const promise = collect(
+      service.invoke('path test', {
+        callbackEnv: { PATH: 'C:\\CustomBin' },
+      }),
+    );
+    emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'path-thread' }]);
+    await promise;
+
+    const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+    assert.match(spawnOpts.env.PATH, /tools\\python\\Scripts/i);
+    assert.match(spawnOpts.env.PATH, /tools\\python/i);
+    assert.match(spawnOpts.env.PATH, /C:\\CustomBin/i);
+  } finally {
+    Object.defineProperty(process, 'platform', { value: originalPlatform });
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+  }
+});
+
 test('callbackEnv model override takes precedence over constructor model', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

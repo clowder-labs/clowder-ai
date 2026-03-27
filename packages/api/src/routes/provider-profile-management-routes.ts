@@ -11,6 +11,12 @@ import {
   readProviderProfiles,
   updateProviderProfile,
 } from '../config/provider-profiles.js';
+import {
+  filterBootstrapBindingsForAllowedClients,
+  filterProviderProfilesForVisibility,
+  getClientLabels,
+  getVisibleBuiltinAuthClients,
+} from '../utils/client-visibility.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import {
   activateBodySchema,
@@ -48,6 +54,10 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
     return {
       projectPath: projectRoot,
       ...data,
+      providers: filterProviderProfilesForVisibility(data.providers),
+      bootstrapBindings: filterBootstrapBindingsForAllowedClients(data.bootstrapBindings),
+      visibleBuiltinClients: getVisibleBuiltinAuthClients(),
+      clientLabels: getClientLabels(),
     };
   });
 
@@ -84,6 +94,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
         ...(parsed.data.command != null ? { command: parsed.data.command } : {}),
         ...(parsed.data.args != null ? { args: parsed.data.args } : {}),
         ...(parsed.data.cwd != null ? { cwd: parsed.data.cwd } : {}),
+        ...(parsed.data.env != null ? { env: parsed.data.env } : {}),
         ...(parsed.data.modelAccessMode != null ? { modelAccessMode: parsed.data.modelAccessMode } : {}),
         ...(parsed.data.defaultModelProfileRef != null ? { defaultModelProfileRef: parsed.data.defaultModelProfileRef } : {}),
         ...(parsed.data.setActive != null ? { setActive: parsed.data.setActive } : {}),
@@ -132,6 +143,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
           ...(parsed.data.command != null ? { command: parsed.data.command } : {}),
           ...(parsed.data.args != null ? { args: parsed.data.args } : {}),
           ...(parsed.data.cwd !== undefined ? { cwd: parsed.data.cwd } : {}),
+          ...(parsed.data.env !== undefined ? { env: parsed.data.env } : {}),
           ...(parsed.data.modelAccessMode != null
             ? { modelAccessMode: parsed.data.modelAccessMode as ACPModelAccessMode }
             : {}),

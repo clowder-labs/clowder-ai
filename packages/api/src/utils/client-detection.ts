@@ -6,7 +6,9 @@
  */
 
 import { execFile } from 'node:child_process';
+import { dareBundleAvailable } from '../domains/cats/services/agents/providers/DareAgentService.js';
 import { jiuwenClawBundleAvailable, resolveVendoredJiuwenClawExecutable } from './jiuwenclaw-paths.js';
+import { filterAllowedClients } from './client-visibility.js';
 
 type ClientId = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode' | 'antigravity' | 'relayclaw' | 'acp';
 
@@ -23,7 +25,7 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   { id: 'dare', label: 'Dare', command: 'dare' },
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
-  { id: 'relayclaw', label: 'jiuwenClaw', command: resolveVendoredJiuwenClawExecutable() },
+  { id: 'relayclaw', label: 'jiuwen', command: resolveVendoredJiuwenClawExecutable() },
   { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio' },
 ];
 
@@ -46,12 +48,15 @@ function commandExists(command: string): Promise<boolean> {
 }
 
 async function acpRuntimeAvailable(): Promise<boolean> {
-  const checks = await Promise.all([commandExists('uv'), commandExists('agent-teams')]);
-  return checks.some(Boolean);
+  return commandExists('agent-teams');
 }
 
 function relayClawSidecarAvailable(): boolean {
   return jiuwenClawBundleAvailable();
+}
+
+function dareRuntimeAvailable(): boolean {
+  return dareBundleAvailable();
 }
 
 /** Detect all clients and cache the result. */
@@ -61,9 +66,11 @@ export async function detectAvailableClients(): Promise<AvailableClient[]> {
       const available =
         info.id === 'relayclaw'
           ? relayClawSidecarAvailable()
-          : info.id === 'acp'
-            ? await acpRuntimeAvailable()
-            : await commandExists(info.command);
+          : info.id === 'dare'
+            ? dareRuntimeAvailable()
+            : info.id === 'acp'
+              ? await acpRuntimeAvailable()
+              : await commandExists(info.command);
       return {
         id: info.id,
         label: info.label,
@@ -72,8 +79,8 @@ export async function detectAvailableClients(): Promise<AvailableClient[]> {
       };
     }),
   );
-  cachedClients = results;
-  return results;
+  cachedClients = filterAllowedClients(results);
+  return cachedClients;
 }
 
 /** Return cached detection results (runs detection if not yet cached). */
