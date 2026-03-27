@@ -31,36 +31,7 @@ interface PlatformStatus {
   configured: boolean;
   fields: PlatformFieldStatus[];
   docsUrl: string;
-  steps: Array<string | { text?: string; mode?: string }>;
-}
-
-function normalizeSteps(steps: PlatformStatus['steps']): string[] {
-  return (Array.isArray(steps) ? steps : [])
-    .map((step) => {
-      if (typeof step === 'string') return step.trim();
-      if (step && typeof step === 'object' && typeof step.text === 'string') return step.text.trim();
-      return '';
-    })
-    .filter((step) => step.length > 0);
-}
-
-function normalizeDocsUrl(url: string | null | undefined): string | null {
-  if (typeof url !== 'string' || url.trim().length === 0) return null;
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
-
-function docsHostname(url: string): string {
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return url;
-  }
+  steps: string[];
 }
 
 export function HubConnectorConfigTab() {
@@ -148,10 +119,7 @@ export function HubConnectorConfigTab() {
       {platforms.map((platform) => {
         const isExpanded = expandedId === platform.id;
         const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
-        const steps = normalizeSteps(platform.steps);
-        const guideSteps = steps.slice(0, -1);
-        const safeDocsUrl = normalizeDocsUrl(platform.docsUrl);
-        const docsHost = safeDocsUrl ? docsHostname(safeDocsUrl) : null;
+        const guideSteps = platform.steps.slice(0, -1);
 
         return (
           <div
@@ -186,7 +154,7 @@ export function HubConnectorConfigTab() {
 
             {isExpanded && platform.id === 'weixin' && (
               <div className="border-t border-gray-100 px-4 py-4 space-y-3.5">
-                {steps.map((step, idx) => (
+                {platform.steps.map((step, idx) => (
                   <div key={idx} className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <StepBadge num={idx + 1} />
@@ -210,15 +178,15 @@ export function HubConnectorConfigTab() {
                       <StepBadge num={idx + 1} />
                       <span className="text-[13px] font-medium text-gray-900">{step}</span>
                     </div>
-                    {idx === 0 && safeDocsUrl && (
+                    {idx === 0 && (
                       <a
-                        href={safeDocsUrl}
+                        href={platform.docsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs text-blue-600 bg-sky-50 rounded-lg px-3 py-2 hover:bg-sky-100 transition-colors ml-[26px]"
                       >
                         <ExternalLinkIcon />
-                        <span>{docsHost ? `${docsHost} → 查看官方文档` : '查看官方文档'}</span>
+                        <span>{new URL(platform.docsUrl).hostname} → 查看官方文档</span>
                       </a>
                     )}
                   </div>
@@ -266,7 +234,7 @@ export function HubConnectorConfigTab() {
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <StepBadge num={steps.length} />
+                    <StepBadge num={platform.steps.length} />
                     <span className="text-[13px] font-medium text-gray-900">测试连接并保存</span>
                   </div>
                   {saveResult && (
@@ -326,4 +294,3 @@ export function HubConnectorConfigTab() {
     </div>
   );
 }
-
