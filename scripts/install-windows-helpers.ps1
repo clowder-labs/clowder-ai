@@ -550,30 +550,105 @@ function Ensure-WindowsJiuwenClawRuntime {
         return $false
     }
 
-    $venvPython = Join-Path $appDir ".venv\Scripts\python.exe"
-    if (Test-Path $venvPython) {
-        return $true
-    }
+    function Test-PythonModuleAvailable {
+        param([string]$PythonCommand, [string]$ModuleName)
 
-    $pythonCommand = Resolve-ToolCommandWithRetry -Name "python" -Attempts 2
-    $pythonArgs = @()
-    if (-not $pythonCommand) {
-        $pythonCommand = Resolve-ToolCommandWithRetry -Name "py" -Attempts 2
-        if ($pythonCommand) {
-            $pythonArgs = @("-3")
+        if (-not $PythonCommand -or -not (Test-Path $PythonCommand)) {
+            return $false
+        }
+
+        try {
+            & $PythonCommand -c "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('$ModuleName') else 1)" 1>$null 2>$null
+            return $LASTEXITCODE -eq 0
+        } catch {
+            return $false
         }
     }
-    if (-not $pythonCommand) {
-        Write-Warn "jiuwen runtime unavailable - Python 3.11+ not found"
+
+    function Test-JiuwenClawPythonVersion {
+        param([string]$PythonCommand, [string[]]$PythonArgs = @())
+
+        if (-not $PythonCommand -or -not (Test-Path $PythonCommand)) {
+            return $false
+        }
+
+        try {
+            & $PythonCommand @PythonArgs -c "import sys; raise SystemExit(0 if (sys.version_info.major == 3 and (3, 11) <= sys.version_info[:2] < (3, 14)) else 1)" 1>$null 2>$null
+            return $LASTEXITCODE -eq 0
+        } catch {
+            return $false
+        }
+    }
+
+    function Test-JiuwenClawRuntimePython {
+        param([string]$PythonCommand)
+
+        return (Test-JiuwenClawPythonVersion -PythonCommand $PythonCommand) -and
+            (Test-PythonModuleAvailable -PythonCommand $PythonCommand -ModuleName "jiuwenclaw") -and
+            (Test-PythonModuleAvailable -PythonCommand $PythonCommand -ModuleName "dotenv")
+    }
+
+    function Resolve-JiuwenClawBootstrapPython {
+        $pythonCommand = Resolve-ToolCommandWithRetry -Name "python" -Attempts 2
+        if ($pythonCommand -and (Test-JiuwenClawPythonVersion -PythonCommand $pythonCommand)) {
+            return [pscustomobject]@{ Command = $pythonCommand; Args = @(); Label = $pythonCommand }
+        }
+
+        $python3Command = Resolve-ToolCommandWithRetry -Name "python3" -Attempts 2
+        if ($python3Command -and (Test-JiuwenClawPythonVersion -PythonCommand $python3Command)) {
+            return [pscustomobject]@{ Command = $python3Command; Args = @(); Label = $python3Command }
+        }
+
+        $pyCommand = Resolve-ToolCommandWithRetry -Name "py" -Attempts 2
+        if ($pyCommand) {
+            foreach ($version in @("-3.13", "-3.12", "-3.11", "-3")) {
+                $candidateArgs = @($version)
+                if (Test-JiuwenClawPythonVersion -PythonCommand $pyCommand -PythonArgs $candidateArgs) {
+                    return [pscustomobject]@{ Command = $pyCommand; Args = $candidateArgs; Label = "$pyCommand $version" }
+                }
+            }
+        }
+
+        return $null
+    }
+
+    $venvPython = Join-Path $appDir ".venv\Scripts\python.exe"
+    $recreateVenv = $false
+    if (Test-Path $venvPython) {
+        if (Test-JiuwenClawRuntimePython -PythonCommand $venvPython) {
+            return $true
+        }
+        if (-not (Test-JiuwenClawPythonVersion -PythonCommand $venvPython)) {
+            $recreateVenv = $true
+            Write-Warn "jiuwen runtime .venv uses unsupported Python - recreating local environment"
+        } else {
+            Write-Warn "jiuwen runtime missing dependencies in .venv - repairing local environment"
+        }
+    }
+
+    $bootstrapPython = $null
+    if ($recreateVenv -or -not (Test-Path $venvPython)) {
+        $bootstrapPython = Resolve-JiuwenClawBootstrapPython
+    }
+    if (($recreateVenv -or -not (Test-Path $venvPython)) -and -not $bootstrapPython) {
+        Write-Warn "jiuwen runtime unavailable - Python 3.11-3.13 not found"
         return $false
     }
 
     Write-Host "  Preparing jiuwen runtime..."
     try {
         Push-Location $appDir
-        & $pythonCommand @pythonArgs -m venv ".venv"
-        if ($LASTEXITCODE -ne 0) {
-            throw "python -m venv failed"
+        if ($bootstrapPython) {
+            Write-Host "  Using jiuwen bootstrap Python: $($bootstrapPython.Label)"
+            $venvArgs = @('-m', 'venv')
+            if ($recreateVenv -and (Test-Path $venvPython)) {
+                $venvArgs += '--clear'
+            }
+            $venvArgs += '.venv'
+            & $bootstrapPython.Command @($bootstrapPython.Args + $venvArgs)
+            if ($LASTEXITCODE -ne 0) {
+                throw "python -m venv failed"
+            }
         }
         & $venvPython -m pip install --upgrade pip setuptools wheel
         if ($LASTEXITCODE -ne 0) {
@@ -582,6 +657,9 @@ function Ensure-WindowsJiuwenClawRuntime {
         & $venvPython -m pip install -e .
         if ($LASTEXITCODE -ne 0) {
             throw "jiuwen dependency install failed"
+        }
+        if (-not (Test-JiuwenClawRuntimePython -PythonCommand $venvPython)) {
+            throw "jiuwen runtime validation failed"
         }
         Write-Ok "jiuwen runtime prepared"
         return $true
