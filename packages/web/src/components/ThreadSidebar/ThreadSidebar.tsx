@@ -468,7 +468,7 @@ export function ThreadSidebar({
                 </svg>
                 对话
               </a>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 hidden">
                 <button
                   type="button"
                   onClick={onBootcampClick ?? createBootcampThread}
@@ -593,7 +593,7 @@ export function ThreadSidebar({
             <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
           )}
 
-          {showDefaultThread && (
+          {false && showDefaultThread && (
             <ThreadItem
               id="default"
               title="大厅"

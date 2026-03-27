@@ -14,8 +14,11 @@ interface ChatContainerHeaderProps {
 }
 
 export function ChatContainerHeader({
-  sidebarOpen,
-  onToggleSidebar,
+  // Sidebar toggle icon hidden by design; keep props for compatibility.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  sidebarOpen: _sidebarOpen,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onToggleSidebar: _onToggleSidebar,
   // Header title/indicator removed by design; keep props for compatibility.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   threadId: _threadId,
@@ -35,24 +38,27 @@ export function ChatContainerHeader({
   const headerBgColor = theme === 'business' && config?.header?.bg ? config.header.bg : undefined;
 
   return (
-    <header className="safe-area-top" style={headerBgColor ? { backgroundColor: headerBgColor } : undefined}>
-      <div className="flex items-center gap-2 px-5 py-2">
+    <header
+      className="safe-area-top relative h-0 overflow-visible"
+      style={headerBgColor ? { backgroundColor: headerBgColor } : undefined}
+    >
+      <div className="absolute right-5 top-2 z-20 flex items-center gap-1">
         <button
-          onClick={onToggleSidebar}
-          className="mr-1 rounded-lg p-1 transition-colors hover:bg-cocreator-light"
-          title={sidebarOpen ? '收起侧栏' : '展开侧栏'}
-          aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+          onClick={onOpenMobileStatus}
+          className="rounded-lg p-1 transition-colors hover:bg-cocreator-light lg:hidden"
+          title="打开状态面板"
+          aria-label="打开状态面板"
         >
           <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
             <path
               fillRule="evenodd"
-              d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
               clipRule="evenodd"
             />
           </svg>
         </button>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <HubButton />
           <button
             onClick={toggleTheme}
@@ -73,21 +79,6 @@ export function ChatContainerHeader({
             )}
           </button>
         </div>
-
-        <button
-          onClick={onOpenMobileStatus}
-          className="ml-1 rounded-lg p-1 transition-colors hover:bg-cocreator-light lg:hidden"
-          title="打开状态面板"
-          aria-label="打开状态面板"
-        >
-          <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
       </div>
     </header>
   );
