@@ -206,6 +206,58 @@ describe('provider profiles routes', () => {
     }
   });
 
+  it('persists ACP provider env keys in views and runtime resolution', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const { resolveRuntimeProviderProfileById } = await import('../dist/config/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes);
+    await app.ready();
+
+    const projectDir = await makeTmpDir('acp-env');
+    setGlobalRoot(projectDir);
+    try {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          kind: 'acp',
+          displayName: 'agent-teams-env',
+          command: 'agent-teams',
+          args: ['gateway', 'acp', 'stdio'],
+          env: {
+            ACP_TRACE_STDIO: '1',
+            AGENT_TEAMS_LOG_LEVEL: 'DEBUG',
+          },
+        }),
+      });
+      assert.equal(createRes.statusCode, 200);
+      const created = createRes.json();
+      assert.deepEqual(created.profile.envKeys, ['ACP_TRACE_STDIO', 'AGENT_TEAMS_LOG_LEVEL']);
+
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        headers: AUTH_HEADERS,
+      });
+      assert.equal(listRes.statusCode, 200);
+      const listed = listRes.json().providers.find((profile) => profile.id === created.profile.id);
+      assert.deepEqual(listed?.envKeys, ['ACP_TRACE_STDIO', 'AGENT_TEAMS_LOG_LEVEL']);
+
+      const runtime = await resolveRuntimeProviderProfileById(projectDir, created.profile.id);
+      assert.deepEqual(runtime?.env, {
+        ACP_TRACE_STDIO: '1',
+        AGENT_TEAMS_LOG_LEVEL: 'DEBUG',
+      });
+    } finally {
+      restoreGlobalRoot();
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
   it('GET /api/provider-profiles hides builtin auth cards when the install preset disables them', async () => {
     const previousAllowedClients = process.env.CAT_CAFE_ALLOWED_CLIENTS;
     const previousVisibleBuiltinAuthClients = process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS;
@@ -285,7 +337,12 @@ describe('provider profiles routes', () => {
       assert.ok(Object.keys(list.bootstrapBindings).includes('google'));
     } finally {
       for (const [key, val] of Object.entries(saved)) {
-        const envKey = key === 'allowed' ? 'CAT_CAFE_ALLOWED_CLIENTS' : key === 'visible' ? 'CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS' : 'CAT_CAFE_BUILTIN_CLIENTS_ENABLED';
+        const envKey =
+          key === 'allowed'
+            ? 'CAT_CAFE_ALLOWED_CLIENTS'
+            : key === 'visible'
+              ? 'CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS'
+              : 'CAT_CAFE_BUILTIN_CLIENTS_ENABLED';
         if (val === undefined) delete process.env[envKey];
         else process.env[envKey] = val;
       }

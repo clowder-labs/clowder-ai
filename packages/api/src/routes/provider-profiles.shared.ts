@@ -39,6 +39,7 @@ export const createBodySchema = z
     command: z.string().optional(),
     args: z.array(z.string()).optional(),
     cwd: z.string().optional(),
+    env: z.record(z.string().trim().min(1), z.string()).optional(),
     modelAccessMode: acpModelAccessModeEnum.optional(),
     defaultModelProfileRef: z.string().trim().min(1).optional(),
     setActive: z.boolean().optional(),
@@ -76,6 +77,7 @@ export const updateBodySchema = z.object({
   command: z.string().optional(),
   args: z.array(z.string()).optional(),
   cwd: z.string().nullable().optional(),
+  env: z.record(z.string().trim().min(1), z.string()).nullable().optional(),
   modelAccessMode: acpModelAccessModeEnum.optional(),
   defaultModelProfileRef: z.string().trim().min(1).nullable().optional(),
 });

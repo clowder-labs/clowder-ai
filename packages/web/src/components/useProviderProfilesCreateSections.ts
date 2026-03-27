@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { parseProviderEnvText } from './hub-provider-env';
 import type { AcpProviderKind } from './hub-provider-profiles.sections';
 import type { AcpModelAccessMode, AcpModelProfileItem, AcpModelProviderType } from './hub-provider-profiles.types';
 
@@ -33,6 +34,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
   const [createAcpCommand, setCreateAcpCommand] = useState('agent-teams');
   const [createAcpArgs, setCreateAcpArgs] = useState(DEFAULT_ACP_ARGS);
   const [createAcpCwd, setCreateAcpCwd] = useState(DEFAULT_ACP_CWD);
+  const [createAcpEnvText, setCreateAcpEnvText] = useState('');
   const [createAcpModelAccessMode, setCreateAcpModelAccessMode] = useState<AcpModelAccessMode>('self_managed');
   const [createAcpModelProfileRef, setCreateAcpModelProfileRef] = useState('');
 
@@ -51,6 +53,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
     setCreateAcpCommand('agent-teams');
     setCreateAcpArgs(DEFAULT_ACP_ARGS);
     setCreateAcpCwd(DEFAULT_ACP_CWD);
+    setCreateAcpEnvText('');
     setCreateAcpModelAccessMode('self_managed');
     setCreateAcpModelProfileRef('');
   }, []);
@@ -95,6 +98,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
                 command: createAcpCommand.trim(),
                 args: splitCommandArgs(createAcpArgs),
                 cwd: createAcpCwd.trim(),
+                ...(parseProviderEnvText(createAcpEnvText) ? { env: parseProviderEnvText(createAcpEnvText) } : {}),
                 modelAccessMode: createAcpModelAccessMode,
                 ...(createAcpModelAccessMode === 'clowder_default_profile' && createAcpModelProfileRef.trim()
                   ? { defaultModelProfileRef: createAcpModelProfileRef.trim() }
@@ -122,6 +126,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
     createAcpArgs,
     createAcpCommand,
     createAcpCwd,
+    createAcpEnvText,
     createAcpModelAccessMode,
     createAcpModelProfileRef,
     createApiKey,
@@ -187,6 +192,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
       command: createAcpCommand,
       args: createAcpArgs,
       cwd: createAcpCwd,
+      envText: createAcpEnvText,
       modelAccessMode: createAcpModelAccessMode,
       defaultModelProfileRef: createAcpModelProfileRef,
       acpModelProfiles: options.acpModelProfiles,
@@ -200,6 +206,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
       onCommandChange: setCreateAcpCommand,
       onArgsChange: setCreateAcpArgs,
       onCwdChange: setCreateAcpCwd,
+      onEnvTextChange: setCreateAcpEnvText,
       onModelAccessModeChange: setCreateAcpModelAccessMode,
       onDefaultModelProfileRefChange: setCreateAcpModelProfileRef,
       onCreate: createProfile,

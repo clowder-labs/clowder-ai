@@ -1,20 +1,20 @@
 ---
 feature_ids: []
-topics: [architecture, acp, provider-profile, configuration]
+topics: [architecture, acp, provider-profile, configuration, env]
 doc_kind: note
 created: 2026-03-27
 ---
 
 # ACP 配置说明
 
-> Cat Cafe / Clowder AI 内如何配置 ACP provider、ACP model profile，以及如何把 cat 绑定到外部 ACP agent。
+> Cat Cafe / Clowder AI 内如何配置 ACP provider、ACP model profile、provider 环境变量，以及如何把 cat 绑定到外部 ACP agent。
 
 ## 概述
 
 Clowder 里的 ACP 接入分成三层：
 
 1. **ACP Provider Profile**
-   定义如何启动外部 ACP agent 进程，例如 `agent-teams gateway acp stdio` 或 `opencode acp`。
+   定义如何启动外部 ACP agent 进程，例如 `agent-teams gateway acp stdio` 或 `opencode acp`，并可选附带一组安全过滤后的环境变量。
 2. **ACP Model Profile**
    仅在 `clowder_default_profile` 模式下使用，由 Clowder 把模型参数和密钥下发给 ACP agent。
 3. **Cat 绑定**
@@ -40,6 +40,8 @@ kind: acp
 command: opencode
 args: acp
 cwd: /path/to/project
+env:
+  OPENCODE_DEBUG: "1"
 modelAccessMode: self_managed
 ```
 
@@ -59,6 +61,9 @@ kind: acp
 command: agent-teams
 args: gateway acp stdio
 cwd: /opt/workspace/agent-teams
+env:
+  ACP_TRACE_STDIO: "1"
+  AGENT_TEAMS_LOG_LEVEL: "DEBUG"
 modelAccessMode: clowder_default_profile
 defaultModelProfileRef: agent-teams
 ```
@@ -85,6 +90,9 @@ uv tool install cool-play-agent-teams
 command: agent-teams
 args: gateway acp stdio
 cwd: /opt/workspace/agent-teams
+env:
+  ACP_TRACE_STDIO: "1"
+  AGENT_TEAMS_LOG_LEVEL: "DEBUG"
 modelAccessMode: clowder_default_profile
 defaultModelProfileRef: agent-teams
 ```
@@ -93,6 +101,7 @@ defaultModelProfileRef: agent-teams
 
 - `command` 直接写 `agent-teams`，不要再依赖 `uv --directory ... run`
 - `cwd` 可以保留成 agent-teams 仓库路径，便于本地诊断和读取仓库态说明文件
+- `env` 适合放 agent-teams 自己识别的运行时开关，例如 `ACP_TRACE_STDIO=1`
 - `defaultModelProfileRef` 要指向一个存在且带密钥的 ACP Model Profile
 
 ### opencode
@@ -140,7 +149,48 @@ modelAccessMode: self_managed
 按需填写：
 
 - `cwd`
+- `env`
 - `defaultModelProfileRef`
+
+`env` 在 Hub 里按“每行 `KEY=value`”填写。保存后，卡片摘要只展示 key，不回显 value。
+
+推荐示例：
+
+```text
+ACP_TRACE_STDIO=1
+AGENT_TEAMS_LOG_LEVEL=DEBUG
+```
+
+支持空值，例如：
+
+```text
+FEATURE_FLAG=
+```
+
+这会被解析成 `FEATURE_FLAG=""`。
+
+### ACP Provider 环境变量规则
+
+ACP provider 子进程不会继承一份“完全原样”的宿主环境，而是走一层过滤和覆盖：
+
+- 先复制宿主进程里允许透传的环境变量
+- 再把 provider profile 里配置的 `env` 覆盖进去
+
+当前会拒绝覆盖的保留 key / 前缀：
+
+- 固定 key：`DATABASE_URL`、`REDIS_URL`、`GITHUB_TOKEN`、`GITHUB_MCP_PAT`
+- 固定前缀：`AWS_`、`CAT_CAFE_`、`DATABASE_`、`GITHUB_`、`POSTGRES_`、`REDIS_`
+
+如果 provider 运行在 `clowder_default_profile` 模式，还会额外拒绝模型凭据相关前缀，避免 ACP provider 通过自定义 env 覆盖 Clowder 下发的模型配置：
+
+- `ANTHROPIC_`
+- `DARE_`
+- `GEMINI_`
+- `GOOGLE_`
+- `OPENAI_`
+- `OPENROUTER_`
+
+推荐把 `env` 只用于 ACP agent 自己的运行时开关、日志级别、调试选项，不要把它当成通用 secrets 注入口。
 
 ### C. 创建或修改 cat
 
@@ -194,6 +244,79 @@ Provider test 通过后，再在对话框里直接发：
 - 正文回复
 - `providerId · acp` 的 metadata badge
 
+### 3. 带环境变量的端到端验证
+
+如果你要确认 ACP provider 的自定义环境变量真的进了 agent 运行时，推荐用 `agent-teams` 做最小验证：
+
+1. 在 Hub 的 `agent-teams` provider 上填写：
+
+```text
+ACP_TRACE_STDIO=1
+AGENT_TEAMS_LOG_LEVEL=DEBUG
+```
+
+2. 保存后确认 provider 卡片摘要出现：
+
+```text
+环境变量: ACP_TRACE_STDIO, AGENT_TEAMS_LOG_LEVEL
+```
+
+3. 再在聊天框发送：
+
+```text
+@agentteams 请只回复 ENV OK
+```
+
+4. 期望结果：
+
+- 前端收到 `ENV OK`
+- 消息气泡 metadata 仍然显示 `agent-teams · acp`
+- 右侧 `Session Chain` 出现新的 ACP session
+
+5. 如需进一步确认 env 已进入 `agent-teams` 子进程，可观察：
+
+- `~/.agent-teams/log/backend.log` 里出现 `gateway.acp.inbound` / `gateway.acp.outbound`
+- 这依赖 `ACP_TRACE_STDIO=1` 和 `AGENT_TEAMS_LOG_LEVEL=DEBUG` 同时生效
+
+可直接执行：
+
+```bash
+rg -n "gateway\\.acp\\.(inbound|outbound)" ~/.agent-teams/log/backend.log
+```
+
+如果你还想确认 `clowder_default_profile` 的模型下发确实到达 `agent-teams`，可以读取它的会话数据库：
+
+```bash
+python - <<'PY'
+import json
+import sqlite3
+from pathlib import Path
+
+path = Path.home() / ".agent-teams" / "agent_teams.db"
+conn = sqlite3.connect(path)
+conn.row_factory = sqlite3.Row
+row = conn.execute(
+    """
+    select gateway_session_id, channel_state_json
+    from gateway_sessions
+    order by rowid desc
+    limit 1
+    """
+).fetchone()
+state = json.loads(row["channel_state_json"] or "{}")
+print("session:", row["gateway_session_id"])
+print(json.dumps(state.get("acp_model_profile_override"), ensure_ascii=False, indent=2, sort_keys=True))
+PY
+```
+
+正常情况下能看到：
+
+- `provider`
+- `model`
+- `baseUrl`
+
+这说明 `session/new` 确实带上了 `modelProfileOverride`，而不是只在 Clowder 侧“看起来已配置”。
+
 ## 排障
 
 ### `command not found`
@@ -221,9 +344,13 @@ Provider test 通过后，再在对话框里直接发：
 
 ## 存储位置
 
-- provider 元信息：`.cat-cafe/provider-profiles.json`
-- provider secrets：`.cat-cafe/provider-profiles.secrets.local.json`
-- ACP model 元信息：`.cat-cafe/acp-model-profiles.json`
-- ACP model secrets：`.cat-cafe/acp-model-profiles.secrets.local.json`
+- 默认存储根目录：`$HOME/.cat-cafe/`
+- 如设置了 `CAT_CAFE_GLOBAL_CONFIG_ROOT`，则改为 `<CAT_CAFE_GLOBAL_CONFIG_ROOT>/.cat-cafe/`
+- provider 元信息：`<storageRoot>/.cat-cafe/provider-profiles.json`
+- provider secrets：`<storageRoot>/.cat-cafe/provider-profiles.secrets.local.json`
+- ACP model 元信息：`<storageRoot>/.cat-cafe/acp-model-profiles.json`
+- ACP model secrets：`<storageRoot>/.cat-cafe/acp-model-profiles.secrets.local.json`
 
-普通配置文件可以进项目态，secrets 文件不要进 Git。
+旧的项目内 `.cat-cafe/provider-profiles.json` 会在读取时自动迁移到全局存储根。
+
+如果你手动导出或备份这些配置文件，meta 文件可以按团队约定管理，secrets 文件不要进 Git。

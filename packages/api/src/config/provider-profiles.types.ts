@@ -28,6 +28,7 @@ export interface ProviderProfileMeta {
   command?: string;
   args?: string[];
   cwd?: string;
+  envKeys?: string[];
   modelAccessMode?: ACPModelAccessMode;
   defaultModelProfileRef?: string;
   createdAt: string;
@@ -67,6 +68,7 @@ export interface CreateProviderProfileInput {
   command?: string;
   args?: string[];
   cwd?: string;
+  env?: Record<string, string>;
   modelAccessMode?: ACPModelAccessMode;
   defaultModelProfileRef?: string;
   setActive?: boolean;
@@ -86,6 +88,7 @@ export interface UpdateProviderProfileInput {
   command?: string;
   args?: string[];
   cwd?: string | null;
+  env?: Record<string, string> | null;
   modelAccessMode?: ACPModelAccessMode;
   defaultModelProfileRef?: string | null;
 }
@@ -102,6 +105,7 @@ export interface RuntimeProviderProfile {
   command?: string;
   args?: string[];
   cwd?: string;
+  env?: Record<string, string>;
   modelAccessMode?: ACPModelAccessMode;
   defaultModelProfileRef?: string;
 }
@@ -122,7 +126,7 @@ export interface ProviderProfilesMetaFile {
 
 export interface ProviderProfilesSecretsFile {
   version: 3;
-  profiles: Record<string, { apiKey?: string }>;
+  profiles: Record<string, { apiKey?: string; env?: Record<string, string> }>;
 }
 
 export interface NormalizedState<T> {

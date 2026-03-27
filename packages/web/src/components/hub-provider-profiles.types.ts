@@ -30,6 +30,7 @@ export interface ProfileItem {
   command?: string;
   args?: string[];
   cwd?: string;
+  envKeys?: string[];
   modelAccessMode?: AcpModelAccessMode;
   defaultModelProfileRef?: string;
   hasApiKey: boolean;

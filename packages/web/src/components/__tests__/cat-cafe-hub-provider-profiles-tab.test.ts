@@ -596,6 +596,79 @@ describe('CatCafeHub provider profiles tab', () => {
     expect(cwdInput?.value).toBe('/opt/workspace/agent-teams');
   });
 
+  it('creates ACP provider requests with custom environment variables', async () => {
+    let createPayload: Record<string, unknown> | null = null;
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith('/api/acp-model-profiles')) {
+        return Promise.resolve(emptyAcpModelProfilesResponse());
+      }
+      if (path === '/api/provider-profiles' && init?.method === 'POST') {
+        createPayload = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return Promise.resolve(
+          jsonResponse({
+            profile: {
+              id: 'agent-teams-env',
+              displayName: 'Agent Teams Env',
+            },
+          }),
+        );
+      }
+      if (path.startsWith('/api/provider-profiles')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: null,
+            bootstrapBindings: {},
+            providers: [],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubProviderProfilesTab));
+    });
+    await flushEffects();
+
+    const expandButton = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('新建 API Key 账号'),
+    )!;
+    await act(async () => {
+      expandButton.click();
+    });
+    await flushEffects();
+
+    const kindSelect = container.querySelector('select') as HTMLSelectElement;
+    await changeField(kindSelect, 'acp', 'change');
+    await flushEffects();
+
+    const displayNameInput = container.querySelector('input[placeholder*="Provider 显示名"]') as HTMLInputElement;
+    const envTextarea = container.querySelector(
+      'textarea[placeholder*="可选环境变量，每行 KEY=value"]',
+    ) as HTMLTextAreaElement;
+
+    await changeField(displayNameInput, 'Agent Teams Env');
+    await changeField(envTextarea, 'ACP_TRACE_STDIO=1\nAGENT_TEAMS_LOG_LEVEL=DEBUG');
+
+    await act(async () => {
+      queryButton(container, '创建').click();
+    });
+    await flushEffects();
+
+    expect(createPayload).toMatchObject({
+      kind: 'acp',
+      displayName: 'Agent Teams Env',
+      command: 'agent-teams',
+      args: ['gateway', 'acp', 'stdio'],
+      cwd: '/opt/workspace/agent-teams',
+      env: {
+        ACP_TRACE_STDIO: '1',
+        AGENT_TEAMS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+  });
+
   it('creates api-key profile from name, url, api key, and supported models only', async () => {
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
       if (path.startsWith('/api/acp-model-profiles')) {
