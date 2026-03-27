@@ -136,6 +136,206 @@ describe('buildACPMetadata', () => {
   });
 });
 
+describe('ACPAgentService permission requests', () => {
+  async function withFakePermissionAgent(testFn) {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-agent-service-permission-'));
+    const logFile = path.join(tempDir, 'events.log');
+    const scriptFile = path.join(tempDir, 'fake-acp-agent-permission.mjs');
+    const script = `
+import { appendFileSync } from 'node:fs';
+
+const logFile = process.env.ACP_TEST_LOG_FILE;
+let buffer = '';
+let pendingPromptId = null;
+const permissionRequestId = 999;
+
+function log(line) {
+  appendFileSync(logFile, \`\${line}\\n\`);
+}
+
+function write(message) {
+  const payload = Buffer.from(JSON.stringify(message), 'utf8');
+  process.stdout.write(\`Content-Length: \${payload.length}\\r\\n\\r\\n\`);
+  process.stdout.write(payload);
+}
+
+function notify(update) {
+  write({
+    jsonrpc: '2.0',
+    method: 'session/update',
+    params: {
+      sessionId: 'sess-test',
+      update,
+    },
+  });
+}
+
+function handleMethod(message) {
+  const params = message.params && typeof message.params === 'object' ? message.params : {};
+  log(\`method:\${message.method}\`);
+  if (message.method === 'initialize') {
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          promptCapabilities: { audio: false, embeddedContext: false, image: false },
+          mcpCapabilities: { http: true, sse: true },
+        },
+      },
+    });
+    return;
+  }
+  if (message.method === 'session/new' || message.method === 'session/load') {
+    write({ jsonrpc: '2.0', id: message.id, result: { sessionId: params.sessionId || 'sess-test' } });
+    return;
+  }
+  if (message.method === 'session/prompt') {
+    pendingPromptId = message.id;
+    notify({
+      sessionUpdate: 'tool_call',
+      title: 'read',
+      rawInput: { filepath: '/tmp/opencode_acp_probe.txt' },
+    });
+    write({
+      jsonrpc: '2.0',
+      id: permissionRequestId,
+      method: 'session/request_permission',
+      params: {
+        sessionId: 'sess-test',
+        toolCall: {
+          title: 'external_directory',
+          rawInput: { filepath: '/tmp/opencode_acp_probe.txt' },
+        },
+        options: [
+          { optionId: 'once', kind: 'allow_once' },
+          { optionId: 'reject', kind: 'reject' },
+        ],
+      },
+    });
+    return;
+  }
+  write({ jsonrpc: '2.0', id: message.id, result: {} });
+}
+
+function handleResponse(message) {
+  if (message.id !== permissionRequestId || !('result' in message)) return;
+  log(\`permission:\${JSON.stringify(message.result)}\`);
+  notify({
+    sessionUpdate: 'tool_call_update',
+    status: 'completed',
+    content: { type: 'text', text: 'permission settled' },
+  });
+  notify({
+    sessionUpdate: 'agent_message_chunk',
+    content: { type: 'text', text: 'permission flow complete' },
+  });
+  write({
+    jsonrpc: '2.0',
+    id: pendingPromptId,
+    result: {
+      stopReason: 'end_turn',
+      runStatus: 'completed',
+      recoverable: false,
+    },
+  });
+}
+
+function handle(message) {
+  if (!message || typeof message !== 'object') return;
+  if (typeof message.method === 'string') {
+    handleMethod(message);
+    return;
+  }
+  handleResponse(message);
+}
+
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const headerEnd = buffer.indexOf('\\r\\n\\r\\n');
+    if (headerEnd === -1) break;
+    const header = buffer.slice(0, headerEnd);
+    const match = header.match(/Content-Length:\\s*(\\d+)/i);
+    if (!match) {
+      buffer = buffer.slice(headerEnd + 4);
+      continue;
+    }
+    const length = Number.parseInt(match[1], 10);
+    const bodyStart = headerEnd + 4;
+    if (buffer.length < bodyStart + length) break;
+    const body = buffer.slice(bodyStart, bodyStart + length);
+    buffer = buffer.slice(bodyStart + length);
+    handle(JSON.parse(body));
+  }
+});
+`;
+    await writeFile(scriptFile, script);
+    try {
+      await testFn({ logFile, scriptFile });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  it('selects allow_once for opencode external_directory permission requests', async () => {
+    await withFakePermissionAgent(async ({ logFile, scriptFile }) => {
+      const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
+      const service = new ACPAgentService({ catId: 'opencodeacp' });
+      const providerProfile = {
+        id: 'opencode-acp',
+        kind: 'acp',
+        protocol: 'acp',
+        authType: 'none',
+        modelAccessMode: 'bring_your_own_key',
+        command: process.execPath,
+        args: [scriptFile],
+        cwd: process.cwd(),
+        env: { ACP_TEST_LOG_FILE: logFile },
+      };
+
+      const textOutputs = [];
+      for await (const msg of service.invoke('read the external file', { providerProfile })) {
+        if (msg.type === 'text') textOutputs.push(msg.content);
+      }
+
+      const log = await readFile(logFile, 'utf8');
+      assert.match(log, /permission:\{"outcome":\{"outcome":"selected","optionId":"once"\}\}/);
+      assert.deepEqual(textOutputs, ['permission flow complete']);
+    });
+  });
+
+  it('falls back to reject for non-opencode ACP permission requests', async () => {
+    await withFakePermissionAgent(async ({ logFile, scriptFile }) => {
+      const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
+      const service = new ACPAgentService({ catId: 'codex' });
+      const providerProfile = {
+        id: 'agent-teams-test',
+        kind: 'acp',
+        protocol: 'acp',
+        authType: 'none',
+        modelAccessMode: 'bring_your_own_key',
+        command: process.execPath,
+        args: [scriptFile],
+        cwd: process.cwd(),
+        env: { ACP_TEST_LOG_FILE: logFile },
+      };
+
+      const seenTypes = [];
+      for await (const msg of service.invoke('read the external file', { providerProfile })) {
+        seenTypes.push(msg.type);
+      }
+
+      const log = await readFile(logFile, 'utf8');
+      assert.match(log, /permission:\{"outcome":\{"outcome":"selected","optionId":"reject"\}\}/);
+      assert.equal(seenTypes.includes('done'), true);
+    });
+  });
+});
+
 describe('ACPAgentService resume dispatch', () => {
   async function withFakeACPAgent(testFn) {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-agent-service-'));

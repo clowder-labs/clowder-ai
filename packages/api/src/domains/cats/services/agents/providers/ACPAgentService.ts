@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
 import { buildACPSubprocessEnv as buildFilteredACPSubprocessEnv } from '../../../../../config/acp-env.js';
@@ -20,6 +20,82 @@ const DEFAULT_ACP_TIMEOUT_MS = 10 * 60 * 1000;
 
 export interface ACPAgentServiceOptions {
   catId?: CatId;
+}
+
+type ACPPermissionOption = {
+  optionId: string;
+  kind?: string;
+};
+
+function normalizeACPCommandName(command: string | undefined): string {
+  if (!command) return '';
+  const normalized = basename(command.replaceAll('\\', '/')).toLowerCase();
+  return normalized.endsWith('.exe') ? normalized.slice(0, -4) : normalized;
+}
+
+function isOpenCodeACPProvider(providerProfile: RuntimeProviderProfile): boolean {
+  return providerProfile.id?.trim().toLowerCase() === 'opencode-acp' || normalizeACPCommandName(providerProfile.command) === 'opencode';
+}
+
+function extractPermissionOptions(value: unknown): ACPPermissionOption[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const optionId = typeof (entry as { optionId?: unknown }).optionId === 'string' ? (entry as { optionId: string }).optionId : '';
+    if (!optionId) return [];
+    const kind = typeof (entry as { kind?: unknown }).kind === 'string' ? (entry as { kind: string }).kind : undefined;
+    return [{ optionId, kind }];
+  });
+}
+
+function selectPermissionOptionId(
+  providerProfile: RuntimeProviderProfile,
+  params: Record<string, unknown>,
+): string | null {
+  const options = extractPermissionOptions(params.options);
+  if (options.length === 0) return null;
+  const toolCall = params.toolCall && typeof params.toolCall === 'object' ? (params.toolCall as Record<string, unknown>) : null;
+  const permissionTitle = typeof toolCall?.title === 'string' ? toolCall.title.trim() : '';
+
+  if (isOpenCodeACPProvider(providerProfile) && permissionTitle === 'external_directory') {
+    const allowOnce = options.find((option) => option.kind === 'allow_once');
+    if (allowOnce) return allowOnce.optionId;
+  }
+
+  const reject = options.find((option) => option.kind === 'reject');
+  return reject?.optionId ?? null;
+}
+
+async function handleACPControlMessage(
+  client: ACPStdioClient,
+  incoming: Record<string, unknown> | null,
+  sessionId: string | undefined,
+  providerProfile: RuntimeProviderProfile,
+): Promise<boolean> {
+  if (!incoming || incoming.method !== 'session/request_permission') return false;
+  const requestId = incoming.id;
+  if (typeof requestId !== 'number' && typeof requestId !== 'string') return true;
+
+  const params = incoming.params && typeof incoming.params === 'object' ? (incoming.params as Record<string, unknown>) : {};
+  const messageSessionId = typeof params.sessionId === 'string' ? params.sessionId.trim() : '';
+  if (sessionId && messageSessionId && messageSessionId !== sessionId) {
+    await client.sendError(requestId, { code: -32000, message: 'ACP permission request session mismatch' });
+    return true;
+  }
+
+  const optionId = selectPermissionOptionId(providerProfile, params);
+  if (!optionId) {
+    await client.sendError(requestId, { code: -32000, message: 'ACP permission request has no supported option' });
+    return true;
+  }
+
+  await client.sendResult(requestId, {
+    outcome: {
+      outcome: 'selected',
+      optionId,
+    },
+  });
+  return true;
 }
 
 function doneMessage(catId: CatId, sessionId: string | undefined, metadataModel = 'acp'): AgentMessage {
@@ -268,13 +344,15 @@ export class ACPAgentService implements AgentService {
           ]);
           if (pendingMessage && pendingMessage.kind === 'message') {
             if (!(await mcpBridge.handleInboundMessage(client, pendingMessage.message, sessionId))) {
-              for (const message of transformIncomingUpdateMessage(
-                pendingMessage.message,
-                sessionId,
-                this.catId,
-                metadataModel,
-              )) {
-                yield message;
+              if (!(await handleACPControlMessage(client, pendingMessage.message, sessionId, providerProfile))) {
+                for (const message of transformIncomingUpdateMessage(
+                  pendingMessage.message,
+                  sessionId,
+                  this.catId,
+                  metadataModel,
+                )) {
+                  yield message;
+                }
               }
             }
           }
@@ -287,6 +365,9 @@ export class ACPAgentService implements AgentService {
         const incoming = outcome.message;
         nextMessagePromise = client.nextMessage().then((message) => ({ kind: 'message' as const, message }));
         if (await mcpBridge.handleInboundMessage(client, incoming, sessionId)) {
+          continue;
+        }
+        if (await handleACPControlMessage(client, incoming, sessionId, providerProfile)) {
           continue;
         }
         for (const message of transformIncomingUpdateMessage(incoming, sessionId, this.catId, metadataModel)) {
