@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { ConfirmOverwriteModal } from './ConfirmOverwriteModal';
 import { UploadSkillModal } from './UploadSkillModal';
 
 interface SearchSkill {
@@ -191,6 +192,16 @@ export function HubSkillsTab() {
     }
   }, []);
 
+  // Conflict state
+  const [showConflict, setShowConflict] = useState(false);
+  const [conflictName, setConflictName] = useState('');
+  const [conflictSource, setConflictSource] = useState('');
+  const [pendingInstall, setPendingInstall] = useState<{
+    owner: string;
+    repo: string;
+    skill: string;
+  } | null>(null);
+
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
@@ -278,20 +289,39 @@ export function HubSkillsTab() {
   }, [searchResults, searchQuery]);
 
   // Install
-  const handleInstall = useCallback(
-    async (owner: string, repo: string, skill: string) => {
+  const doInstall = useCallback(
+    async (owner: string, repo: string, skill: string, force: boolean) => {
       setInstallStatusWithTimer(skill, 'installing');
       try {
         const res = await apiFetch('/api/skills/install', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner, repo, skill }),
+          body: JSON.stringify({ owner, repo, skill, force }),
         });
+        const payload = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          conflict?: { name: string; source: string };
+        };
+
+        if (res.status === 409 && payload.conflict) {
+          // 冲突，显示确认框
+          setConflictName(skill);
+          setConflictSource(payload.conflict.source);
+          setPendingInstall({ owner, repo, skill });
+          setShowConflict(true);
+          // 清除 installing 状态
+          setInstallStatus((prev) => {
+            const next = new Map(prev);
+            next.delete(skill);
+            return next;
+          });
+          return;
+        }
+
         if (res.ok) {
           setInstallStatusWithTimer(skill, 'success');
           showToast(`"${skill}" 安装成功`, 'success');
         } else {
-          const payload = (await res.json().catch(() => ({}))) as { error?: string };
           const msg = payload.error ?? `安装失败 (${res.status})`;
           setInstallStatusWithTimer(skill, msg);
           showToast(msg, 'error');
@@ -303,6 +333,24 @@ export function HubSkillsTab() {
     },
     [setInstallStatusWithTimer, showToast],
   );
+
+  const handleInstall = useCallback(
+    (owner: string, repo: string, skill: string) => {
+      doInstall(owner, repo, skill, false);
+    },
+    [doInstall],
+  );
+
+  const handleOverwriteConfirm = useCallback(() => {
+    if (!pendingInstall) return;
+    setShowConflict(false);
+    doInstall(pendingInstall.owner, pendingInstall.repo, pendingInstall.skill, true);
+  }, [pendingInstall, doInstall]);
+
+  const handleOverwriteCancel = useCallback(() => {
+    setShowConflict(false);
+    setPendingInstall(null);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -368,7 +416,7 @@ export function HubSkillsTab() {
       </section>
 
       {/* Trending — always expanded */}
-      <section className="rounded-lg border border-gray-200 bg-white p-3">
+      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
         <h3 className="text-xs font-semibold text-gray-700 mb-2">热门推荐</h3>
         {trendingLoading && <p className="text-[11px] text-gray-400">加载中...</p>}
         {trendingResults && (
@@ -382,6 +430,15 @@ export function HubSkillsTab() {
           />
         )}
       </section>
+
+      {/* Overwrite confirmation modal */}
+      <ConfirmOverwriteModal
+        open={showConflict}
+        skillName={conflictName}
+        existingSource={conflictSource}
+        onConfirm={handleOverwriteConfirm}
+        onCancel={handleOverwriteCancel}
+      />
     </div>
   );
 }

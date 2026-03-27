@@ -343,19 +343,29 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Identity required' };
     }
 
-    const body = request.body as { owner?: string; repo?: string; skill?: string; localName?: string };
+    const body = request.body as {
+      owner?: string;
+      repo?: string;
+      skill?: string;
+      localName?: string;
+      force?: boolean;
+    };
     if (!body.owner || !body.repo || !body.skill) {
       reply.status(400);
       return { error: 'Missing: owner, repo, skill' };
     }
 
     try {
-      return await installSkill(CAT_CAFE_ROOT, {
-        owner: body.owner,
-        repo: body.repo,
-        skill: body.skill,
-        localName: body.localName,
-      });
+      return await installSkill(
+        CAT_CAFE_ROOT,
+        {
+          owner: body.owner,
+          repo: body.repo,
+          skill: body.skill,
+          localName: body.localName,
+        },
+        { force: body.force },
+      );
     } catch (err) {
       if (err instanceof SkillInstallError) {
         const map: Record<string, number> = {
@@ -413,6 +423,11 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
   // ────────────────────────────────────────────────────────
   // POST /api/skills/upload — 上传本地 skill（JSON 格式）
   // ────────────────────────────────────────────────────────
+  const MAX_UPLOAD_SIZE = 5 * 1024 * 1024; // 单文件 5MB
+  const MAX_FILES = 50; // 文件数量上限
+  const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // 总大小 5MB
+  const PATH_TRAVERSAL_RE = /[/\\]|\.\./;
+
   app.post('/api/skills/upload', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
@@ -423,6 +438,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const body = request.body as {
       name?: string;
       files?: { path: string; content: string }[];
+      force?: boolean;
     };
 
     if (!body.name || !body.files?.length) {
@@ -430,16 +446,56 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { success: false, error: 'Missing name or files' };
     }
 
-    const skillName = body.name.trim();
-    if (!skillName || /[\\/]|(\.\.)/.test(skillName)) {
+    // 文件数量检查
+    if (body.files.length > MAX_FILES) {
       reply.status(422);
-      return { success: false, error: 'Invalid skill name' };
+      return { success: false, error: `Too many files (max ${MAX_FILES})` };
+    }
+
+    const skillName = body.name.trim();
+    const forceOverwrite = body.force === true;
+    if (!skillName || PATH_TRAVERSAL_RE.test(skillName)) {
+      reply.status(422);
+      return { success: false, error: 'Invalid skill name: must not contain path separators or parent references' };
+    }
+    if (!/^[\w][\w.-]*$/.test(skillName)) {
+      reply.status(422);
+      return { success: false, error: 'Invalid skill name: must start with alphanumeric, allow a-z0-9_-.' };
     }
 
     const skillsDir = resolve(CAT_CAFE_SKILLS_SRC);
     const skillDir = join(skillsDir, skillName);
 
     try {
+      // 重名检查
+      if (existsSync(skillDir)) {
+        if (!forceOverwrite) {
+          const registry = await loadInstalledRegistry(CAT_CAFE_ROOT);
+          const existing = registry.skills.find((s) => s.name === skillName);
+          if (existing) {
+            reply.status(409);
+            return {
+              success: false,
+              error: `Skill "${skillName}" already exists (source: ${existing.source}). Please rename or delete the existing skill first.`,
+              conflict: { name: skillName, source: existing.source },
+            };
+          }
+          // 目录存在但不在 registry 中（可能是手动创建的）
+          reply.status(409);
+          return {
+            success: false,
+            error: `Skill "${skillName}" already exists. Please rename or delete the existing skill first.`,
+            conflict: { name: skillName, source: 'unknown' },
+          };
+        }
+        // force=true 时删除旧目录
+        const { rm } = await import('node:fs/promises');
+        await rm(skillDir, { recursive: true, force: true });
+        // 同时移除 registry 记录
+        const { removeInstalledSkill } = await import('../domains/cats/services/skillhub/InstalledSkillRegistry.js');
+        await removeInstalledSkill(CAT_CAFE_ROOT, skillName);
+      }
+
       // Detect common prefix directory (e.g. all files under "my-skill/" folder)
       // If all paths share the same first directory, strip it
       const paths = body.files.map((f) => f.path.replace(/\\/g, '/'));
@@ -451,34 +507,112 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      // Write all files (max 3MB per file)
-      const MAX_UPLOAD_SIZE = 3 * 1024 * 1024;
-      for (const file of body.files) {
-        const relPath = file.path.replace(/\\/g, '/');
-        // Strip common prefix folder
+      // SKILL.md 预检查（前缀剥离后）
+      const hasSkillMd = body.files.some((f) => {
+        const relPath = f.path.replace(/\\/g, '/');
         const stripped = prefix ? relPath.slice(prefix.length) : relPath;
-        if (stripped.includes('..') || stripped.startsWith('/')) continue;
-        const fullPath = resolve(skillDir, stripped);
-        // Jail check: resolved path must be inside skillDir
-        if (!fullPath.startsWith(resolve(skillDir) + sep)) continue;
-        const content = Buffer.from(file.content, 'base64');
-        if (content.length > MAX_UPLOAD_SIZE) {
-          reply.status(422);
-          return { success: false, error: `File ${stripped} exceeds 2MB limit` };
-        }
-        await mkdir(dirname(fullPath), { recursive: true });
-        await writeFile(fullPath, content);
-      }
-
-      // Verify SKILL.md exists
-      if (!existsSync(join(skillDir, 'SKILL.md'))) {
+        return stripped === 'SKILL.md';
+      });
+      if (!hasSkillMd) {
         reply.status(422);
         return { success: false, error: 'Uploaded files must include SKILL.md' };
       }
 
+      // 验证与写入（增强安全性 + 错误收集）
+      const writtenFiles: string[] = [];
+      const skippedFiles: { path: string; reason: string }[] = [];
+      let totalSize = 0;
+
+      for (const file of body.files) {
+        const relPath = file.path.replace(/\\/g, '/').trim();
+
+        // 跳过空路径
+        if (!relPath) {
+          skippedFiles.push({ path: '(empty)', reason: 'empty file path' });
+          continue;
+        }
+
+        // 规范化路径：去除前导斜杠和重复的 /
+        const stripped = prefix ? relPath.slice(prefix.length) : relPath;
+
+        // 路径遍历检查
+        if (stripped.includes('..') || stripped.startsWith('/')) {
+          skippedFiles.push({ path: relPath, reason: 'path traversal detected' });
+          continue;
+        }
+
+        // jail 检查
+        const fullPath = resolve(skillDir, stripped);
+        if (!fullPath.startsWith(resolve(skillDir) + sep)) {
+          skippedFiles.push({ path: relPath, reason: 'path escapes skill directory' });
+          continue;
+        }
+
+        // base64 解码
+        let content: Buffer;
+        try {
+          content = Buffer.from(file.content, 'base64');
+        } catch {
+          skippedFiles.push({ path: relPath, reason: 'invalid base64 content' });
+          continue;
+        }
+
+        // 单文件大小检查
+        if (content.length > MAX_UPLOAD_SIZE) {
+          reply.status(422);
+          return {
+            success: false,
+            error: `File ${stripped} exceeds ${MAX_UPLOAD_SIZE / 1024 / 1024}MB limit`,
+          };
+        }
+
+        // 总大小检查
+        totalSize += content.length;
+        if (totalSize > MAX_TOTAL_SIZE) {
+          reply.status(422);
+          return {
+            success: false,
+            error: `Total upload size exceeds ${MAX_TOTAL_SIZE / 1024 / 1024}MB limit`,
+          };
+        }
+
+        // 写入文件
+        await mkdir(dirname(fullPath), { recursive: true });
+        await writeFile(fullPath, content);
+        writtenFiles.push(relPath);
+      }
+
+      // 如果没有任何文件被写入，返回错误
+      if (writtenFiles.length === 0) {
+        reply.status(422);
+        return {
+          success: false,
+          error: 'No valid files uploaded',
+          skipped: skippedFiles,
+        };
+      }
+
+      // SKILL.md 写入检查（冗余保护）
+      if (!existsSync(join(skillDir, 'SKILL.md'))) {
+        // 回滚：删除已写入的目录
+        const { rm } = await import('node:fs/promises');
+        await rm(skillDir, { recursive: true, force: true });
+        reply.status(422);
+        return { success: false, error: 'Uploaded files must include SKILL.md', skipped: skippedFiles };
+      }
+
       // Create symlinks
-      const { createProviderSymlinks } = await import('../domains/cats/services/skillhub/SymlinkManager.js');
-      const mounts = await createProviderSymlinks(skillName, skillsDir);
+      let mounts: { claude: boolean; codex: boolean; gemini: boolean } | undefined;
+      try {
+        const { createProviderSymlinks } = await import('../domains/cats/services/skillhub/SymlinkManager.js');
+        mounts = await createProviderSymlinks(skillName, skillsDir);
+      } catch (symlinkErr) {
+        // symlink 失败不阻断，记录但继续
+        const { createModuleLogger } = await import('../infrastructure/logger.js');
+        const log = createModuleLogger('skills-upload');
+        log.warn({ err: symlinkErr, skillName }, 'Symlink creation failed during upload');
+        mounts = { claude: false, codex: false, gemini: false };
+      }
 
       // Register in installed-skills.json
       const { addInstalledSkill } = await import('../domains/cats/services/skillhub/InstalledSkillRegistry.js');
@@ -496,12 +630,29 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         success: true,
         name: skillName,
         localPath: `cat-cafe-skills/${skillName}`,
-        files: body.files.map((f) => f.path),
+        files: writtenFiles,
+        skipped: skippedFiles.length > 0 ? skippedFiles : undefined,
         mounts,
       };
     } catch (err) {
+      // 尝试回滚已写入的文件
+      try {
+        if (existsSync(skillDir)) {
+          const { rm } = await import('node:fs/promises');
+          await rm(skillDir, { recursive: true, force: true });
+        }
+      } catch {
+        // 回滚失败，忽略
+      }
+
+      // 返回详细错误信息
+      const errorMessage = err instanceof Error ? err.message : String(err);
       reply.status(500);
-      return { success: false, error: String(err) };
+      return {
+        success: false,
+        error: `Upload failed: ${errorMessage}`,
+        hint: 'Please check file contents and try again',
+      };
     }
   });
 };

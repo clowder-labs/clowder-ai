@@ -14,7 +14,7 @@ import { addInstalledSkill, loadInstalledRegistry, removeInstalledSkill } from '
 import { fetchSkillAllFiles } from './SkillHubService.js';
 import { createProviderSymlinks, removeProviderSymlinks } from './SymlinkManager.js';
 
-const MAX_SKILL_SIZE = 3_000_000; // 3MB
+const MAX_SKILL_SIZE = 5_000_000; // 5MB
 const PATH_TRAVERSAL_RE = /[/\\]|\.\./;
 
 /** SkillHub 安装/卸载错误 */
@@ -32,17 +32,22 @@ export class SkillInstallError extends Error {
  * 安装远程 skill 到本地。
  *
  * 1. 验证 localName 格式
- * 2. 冲突检测（本地同名拒绝，远程覆盖允许）
- * 3. 从 SkillHub 下载 SKILL.md
+ * 2. 冲突检测（本地同名拒绝，远程覆盖允许；force=true 时允许覆盖本地）
+ * 3. 从 SkillHub 下载全部文件
  * 4. 验证 frontmatter + 文件大小
- * 5. 写入 cat-cafe-skills/{localName}/SKILL.md
+ * 5. 写入 cat-cafe-skills/{localName}/
  * 6. 创建 provider symlinks
  * 7. 更新 .cat-cafe/installed-skills.json
  */
-export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequest): Promise<SkillHubInstallResult> {
+export async function installSkill(
+  catCafeRoot: string,
+  req: SkillHubInstallRequest,
+  options?: { force?: boolean },
+): Promise<SkillHubInstallResult> {
   const localName = req.localName ?? req.skill;
   const skillsDir = resolve(catCafeRoot, 'cat-cafe-skills');
   const skillDir = join(skillsDir, localName);
+  const forceOverwrite = options?.force === true;
 
   // 1. 验证 localName（只防路径穿越，不限制字符集）
   if (!localName || PATH_TRAVERSAL_RE.test(localName)) {
@@ -52,11 +57,21 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
   // 2. 冲突检测
   const registry = await loadInstalledRegistry(catCafeRoot);
   const isRemoteInstalled = registry.skills.some((s) => s.name === localName);
-  if (existsSync(skillDir) && !isRemoteInstalled) {
-    throw new SkillInstallError(
-      `Local skill "${localName}" already exists. Cannot overwrite a local skill.`,
-      'CONFLICT',
-    );
+  if (existsSync(skillDir)) {
+    // 已经是远程安装的，允许覆盖
+    if (isRemoteInstalled) {
+      // 继续执行，后面会覆盖
+    } else if (forceOverwrite) {
+      // force=true 时允许覆盖本地 skill
+      await rm(skillDir, { recursive: true, force: true });
+      await removeInstalledSkill(catCafeRoot, localName);
+    } else {
+      // 本地 skill 存在，拒绝覆盖
+      throw new SkillInstallError(
+        `Local skill "${localName}" already exists. Cannot overwrite a local skill.`,
+        'CONFLICT',
+      );
+    }
   }
 
   // 3. 下载并解压全部文件
