@@ -1,7 +1,10 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
 import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../../../config/provider-profiles.js';
+import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import { buildACPModelProfileOverridePayload } from './acp-model-profile-override.js';
 import {
@@ -84,6 +87,14 @@ function buildACPSubprocessEnv(providerProfile: RuntimeProviderProfile): NodeJS.
     if (ACP_ALWAYS_BLOCKED_ENV_KEYS.has(key)) continue;
     if (blockedPrefixes.some((prefix) => key.startsWith(prefix))) continue;
     env[key] = value;
+  }
+  // Windows: prepend bundled Python to PATH so ACP agents (e.g. agent-teams) find the right interpreter
+  if (process.platform === 'win32') {
+    const bundledPythonDir = join(resolveCatCafeHostRoot(process.cwd()), 'tools', 'python');
+    if (existsSync(join(bundledPythonDir, 'python.exe'))) {
+      const scriptsDir = join(bundledPythonDir, 'Scripts');
+      env.PATH = `${bundledPythonDir};${scriptsDir};${process.env.PATH ?? ''}`;
+    }
   }
   return env;
 }
