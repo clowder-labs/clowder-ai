@@ -34,6 +34,80 @@ interface PlatformStatus {
   steps: string[];
 }
 
+function readStepText(step: unknown): string | null {
+  if (typeof step === 'string') {
+    const trimmed = step.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (!step || typeof step !== 'object') return null;
+  const candidate = (step as { text?: unknown; title?: unknown; label?: unknown }).text
+    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).title
+    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).label;
+  if (typeof candidate !== 'string') return null;
+  const trimmed = candidate.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizePlatform(raw: unknown, index: number): PlatformStatus | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as Record<string, unknown>;
+  const idRaw = item.id;
+  const id = typeof idRaw === 'string' && idRaw.trim() ? idRaw.trim() : `platform-${index}`;
+  const nameRaw = item.name;
+  const name = typeof nameRaw === 'string' && nameRaw.trim() ? nameRaw.trim() : id;
+  const nameEnRaw = item.nameEn;
+  const nameEn = typeof nameEnRaw === 'string' && nameEnRaw.trim() ? nameEnRaw.trim() : name;
+  const docsUrlRaw = item.docsUrl;
+  const docsUrl = typeof docsUrlRaw === 'string' ? docsUrlRaw.trim() : '';
+  const configured = Boolean(item.configured);
+
+  const fieldsRaw = Array.isArray(item.fields) ? item.fields : [];
+  const fields = fieldsRaw.flatMap((field) => {
+    if (!field || typeof field !== 'object') return [];
+    const current = field as Record<string, unknown>;
+    const envNameRaw = current.envName;
+    if (typeof envNameRaw !== 'string' || !envNameRaw.trim()) return [];
+    const envName = envNameRaw.trim();
+    const labelRaw = current.label;
+    const label = typeof labelRaw === 'string' && labelRaw.trim() ? labelRaw.trim() : envName;
+    const currentValueRaw = current.currentValue;
+    const currentValue = typeof currentValueRaw === 'string' ? currentValueRaw : null;
+    return [{
+      envName,
+      label,
+      sensitive: Boolean(current.sensitive),
+      currentValue,
+    }];
+  });
+
+  const stepsRaw = Array.isArray(item.steps) ? item.steps : [];
+  const steps = stepsRaw.flatMap((step) => {
+    const normalized = readStepText(step);
+    return normalized ? [normalized] : [];
+  });
+
+  return {
+    id,
+    name,
+    nameEn,
+    configured,
+    fields,
+    docsUrl,
+    steps,
+  };
+}
+
+function parseDocsLink(rawUrl: string): { href: string; hostname: string } | null {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return { href: url.toString(), hostname: url.hostname };
+  } catch {
+    return null;
+  }
+}
+
 export function HubConnectorConfigTab() {
   const [platforms, setPlatforms] = useState<PlatformStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +122,12 @@ export function HubConnectorConfigTab() {
       const res = await apiFetch('/api/connector/status');
       if (!res.ok) return;
       const data = await res.json();
-      setPlatforms(data.platforms ?? []);
+      const nextPlatforms = Array.isArray(data?.platforms)
+        ? data.platforms
+            .map((item: unknown, index: number) => normalizePlatform(item, index))
+            .filter((item: unknown): item is PlatformStatus => item !== null)
+        : [];
+      setPlatforms(nextPlatforms);
     } catch {
       // fall through
     } finally {
@@ -120,6 +199,8 @@ export function HubConnectorConfigTab() {
         const isExpanded = expandedId === platform.id;
         const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
         const guideSteps = platform.steps.slice(0, -1);
+        const docsLink = parseDocsLink(platform.docsUrl);
+        const saveStepNum = Math.max(platform.steps.length, guideSteps.length + 1);
 
         return (
           <div
@@ -179,15 +260,17 @@ export function HubConnectorConfigTab() {
                       <span className="text-[13px] font-medium text-gray-900">{step}</span>
                     </div>
                     {idx === 0 && (
-                      <a
-                        href={platform.docsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 text-xs text-blue-600 bg-sky-50 rounded-lg px-3 py-2 hover:bg-sky-100 transition-colors ml-[26px]"
-                      >
-                        <ExternalLinkIcon />
-                        <span>{new URL(platform.docsUrl).hostname} → 查看官方文档</span>
-                      </a>
+                      docsLink && (
+                        <a
+                          href={docsLink.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-blue-600 bg-sky-50 rounded-lg px-3 py-2 hover:bg-sky-100 transition-colors ml-[26px]"
+                        >
+                          <ExternalLinkIcon />
+                          <span>{docsLink.hostname} → 查看官方文档</span>
+                        </a>
+                      )
                     )}
                   </div>
                 ))}
@@ -234,7 +317,7 @@ export function HubConnectorConfigTab() {
 
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <StepBadge num={platform.steps.length} />
+                    <StepBadge num={saveStepNum} />
                     <span className="text-[13px] font-medium text-gray-900">测试连接并保存</span>
                   </div>
                   {saveResult && (
