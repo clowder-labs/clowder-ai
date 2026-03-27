@@ -19,7 +19,7 @@ export function SkillsPanel() {
             <button
               type="button"
               onClick={() => setActiveTab('installed')}
-              className={`text-[24px] font-bold transition-colors ${
+              className={`text-[20px] font-bold leading-[30px] transition-colors ${
                 activeTab === 'installed' ? 'text-[#1F2329]' : 'text-[#6F7888]'
               }`}
             >
@@ -28,7 +28,7 @@ export function SkillsPanel() {
             <button
               type="button"
               onClick={() => setActiveTab('plaza')}
-              className={`text-[22px] font-semibold transition-colors ${
+              className={`text-[20px] font-bold leading-[30px] transition-colors ${
                 activeTab === 'plaza' ? 'text-[#1F2329]' : 'text-[#6F7888]'
               }`}
             >

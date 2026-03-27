@@ -477,7 +477,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <div className="flex-1 relative overflow-hidden">
           {sidebarMenu !== 'chat' && (
             <div
-              className="h-full overflow-hidden px-6 pt-4 pb-3"
+              className="h-full overflow-hidden px-12 pt-12 pb-12"
               style={{ backgroundColor: theme === 'business' && config ? config.content.bg : '#FFFFFF' }}
             >
               {sidebarMenu === 'models' && <ModelsPanel />}

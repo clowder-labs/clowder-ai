@@ -88,7 +88,7 @@ export function AgentsPanel() {
   return (
     <div className="h-full flex flex-col">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">智能体管理</h1>
+        <h1 className="mb-1 text-[20px] font-bold leading-[30px] text-gray-900">智能体管理</h1>
         <p className="text-sm text-gray-500">管理 AI 成员及其配置</p>
       </div>
 

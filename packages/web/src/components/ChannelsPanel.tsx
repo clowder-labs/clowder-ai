@@ -63,7 +63,7 @@ export function ChannelsPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-[#FFFFFF]">
       <div className="flex items-center justify-between">
-        <h1 className="text-[32px] font-semibold leading-none text-[#1F2329]">{CHANNEL_TITLE}</h1>
+        <h1 className="text-[20px] font-bold leading-[30px] text-[#1F2329]">{CHANNEL_TITLE}</h1>
         <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-[#8E99A8]">{CHANNEL_STATUS}</span>
           <button

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
+import { useProviderProfilesState } from './useProviderProfilesState';
 
 const MODEL_TITLE = '\u6a21\u578b';
 const ADD_MODEL = '\u6dfb\u52a0\u6a21\u578b';
@@ -55,6 +57,11 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ??
     '';
 
+  const inferredDescription =
+    pickStringField(item, ['description', 'desc', '\u63cf\u8ff0']) ??
+    genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
+    DEFAULT_DESC;
+
   const id = String(item.id ?? `${inferredName || 'model'}-${index}`);
   const object = String(item.object ?? 'model');
 
@@ -62,7 +69,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     id,
     object,
     name: inferredName,
-    description: DEFAULT_DESC,
+    description: inferredDescription,
   };
 }
 
@@ -94,9 +101,169 @@ function professionalGroupLabel(groupKey: string): string {
   return `${pretty} 系列`;
 }
 
+type ModelIconType =
+  | 'gpt'
+  | 'claude'
+  | 'gemini'
+  | 'qwen'
+  | 'deepseek'
+  | 'hunyuan'
+  | 'doubao'
+  | 'glm'
+  | 'llama'
+  | 'mistral'
+  | 'kimi'
+  | 'ernie'
+  | 'generic';
+
+function resolveModelIconType(groupKey: string): ModelIconType {
+  const key = groupKey.toLowerCase();
+  if (key.includes('gpt')) return 'gpt';
+  if (key.includes('claude')) return 'claude';
+  if (key.includes('gemini')) return 'gemini';
+  if (key.includes('qwen')) return 'qwen';
+  if (key.includes('deepseek')) return 'deepseek';
+  if (key.includes('hunyuan')) return 'hunyuan';
+  if (key.includes('doubao')) return 'doubao';
+  if (key.includes('chatglm') || key.includes('glm')) return 'glm';
+  if (key.includes('llama')) return 'llama';
+  if (key.includes('mistral')) return 'mistral';
+  if (key.includes('moonshot') || key.includes('kimi')) return 'kimi';
+  if (key.includes('ernie') || key.includes('wenxin')) return 'ernie';
+  return 'generic';
+}
+
+function modelIconVisual(iconType: ModelIconType): { bg: string; fg: string; label: string } {
+  switch (iconType) {
+    case 'gpt':
+      return { bg: '#E7F8EF', fg: '#14804A', label: 'OpenAI' };
+    case 'claude':
+      return { bg: '#FFF2E8', fg: '#C25112', label: 'Anthropic' };
+    case 'gemini':
+      return { bg: '#ECF2FF', fg: '#3256D6', label: 'Google' };
+    case 'qwen':
+      return { bg: '#EEF2FF', fg: '#4E63A6', label: 'Alibaba' };
+    case 'deepseek':
+      return { bg: '#EAF6FF', fg: '#0B6CA8', label: 'DeepSeek' };
+    case 'hunyuan':
+      return { bg: '#F0F9F3', fg: '#1E8A53', label: 'Tencent' };
+    case 'doubao':
+      return { bg: '#FFF5EA', fg: '#C56A1A', label: 'ByteDance' };
+    case 'glm':
+      return { bg: '#F3F0FF', fg: '#6D46C6', label: 'Zhipu' };
+    case 'llama':
+      return { bg: '#FFEFF2', fg: '#CC3E5C', label: 'Meta' };
+    case 'mistral':
+      return { bg: '#F2F7F0', fg: '#4D6B34', label: 'Mistral' };
+    case 'kimi':
+      return { bg: '#EEF7FF', fg: '#1E6FB8', label: 'Moonshot' };
+    case 'ernie':
+      return { bg: '#EEF3FF', fg: '#365BC7', label: 'Baidu' };
+    default:
+      return { bg: '#F2F5FA', fg: '#5F6775', label: 'General' };
+  }
+}
+
+function ModelTypeIcon({ iconType }: { iconType: ModelIconType }) {
+  switch (iconType) {
+    case 'gpt':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="m12 3 6 3.5v7L12 17l-6-3.5v-7L12 3Z" />
+          <path d="m9 9 3-1.8 3 1.8v3.5L12 14 9 12.5V9Z" />
+        </svg>
+      );
+    case 'claude':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M6 20 12 4l6 16" />
+          <path d="M8.5 14h7" />
+        </svg>
+      );
+    case 'gemini':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="m12 3 3 6 6 3-6 3-3 6-3-6-6-3 6-3 3-6Z" />
+        </svg>
+      );
+    case 'qwen':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <circle cx="12" cy="12" r="7" />
+          <path d="m12 5 3 7-3 7-3-7 3-7Z" />
+        </svg>
+      );
+    case 'deepseek':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <circle cx="12" cy="12" r="8" />
+          <path d="m10 14 1.8-6L18 6l-2 6-6 2Z" />
+        </svg>
+      );
+    case 'hunyuan':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M12 4v16M5 12h14" />
+          <circle cx="12" cy="12" r="7" />
+        </svg>
+      );
+    case 'doubao':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <rect x="5" y="5" width="14" height="14" rx="3" />
+          <path d="M9 9h6v6H9z" />
+        </svg>
+      );
+    case 'glm':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <circle cx="12" cy="12" r="2.5" />
+          <circle cx="6.5" cy="9" r="1.5" />
+          <circle cx="17.5" cy="9" r="1.5" />
+          <circle cx="8.5" cy="17" r="1.5" />
+          <circle cx="15.5" cy="17" r="1.5" />
+          <path d="M10 11 8 10M14 11l2-1M10.5 13.5 9 15M13.5 13.5 15 15" />
+        </svg>
+      );
+    case 'llama':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M7 19h10l-1.5-7h-7L7 19Z" />
+          <path d="M9 12V8l3-2 3 2v4" />
+        </svg>
+      );
+    case 'mistral':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="m5 18 4-12 3 8 3-8 4 12" />
+        </svg>
+      );
+    case 'kimi':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="m12 4 2.2 4.8L19 11l-4.8 2.2L12 18l-2.2-4.8L5 11l4.8-2.2L12 4Z" />
+        </svg>
+      );
+    case 'ernie':
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M6 6h12v12H6z" />
+          <path d="M9 9h6M9 12h6M9 15h4" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <rect x="5" y="5" width="14" height="14" rx="3" />
+        </svg>
+      );
+  }
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [cards, setCards] = useState<ModelCardData[]>([]);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,10 +307,11 @@ export function ModelsPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-[#FFFFFF]">
       <div className="flex items-center justify-between">
-        <h1 className="text-[34px] font-semibold leading-none text-[#1F2329]">{MODEL_TITLE}</h1>
+        <h1 className="text-[20px] font-bold leading-[30px] text-[#1F2329]">{MODEL_TITLE}</h1>
         <div className="flex flex-col items-end gap-2.5">
           <button
             type="button"
+            onClick={() => setShowAddModelModal(true)}
             className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
           >
             {ADD_MODEL}
@@ -189,15 +357,28 @@ export function ModelsPanel() {
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => {
+                    const iconType = resolveModelIconType(groupKeyFromModelName(card.name));
+                    const visual = modelIconVisual(iconType);
                     return (
                       <article
                         key={card.id}
                         className="rounded-2xl border border-[#E8ECF3] bg-white px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                       >
                         <div className="flex items-start gap-3">
+                          <span
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                            style={{ backgroundColor: visual.bg, color: visual.fg }}
+                            data-testid={`model-card-icon-${iconType}`}
+                            aria-label={`${visual.label} model icon`}
+                          >
+                            <ModelTypeIcon iconType={iconType} />
+                          </span>
                           <div className="min-w-0">
                             <h4 className="truncate text-[20px] font-semibold text-[#2D3545]">{card.name}</h4>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span className="rounded bg-[#F2F5FA] px-1.5 py-0.5 text-[11px] font-medium text-[#7A8392]">
+                                {visual.label}
+                              </span>
                               <span className="rounded bg-[#F2F5FA] px-1.5 py-0.5 text-[11px] font-medium text-[#7A8392]">
                                 {card.object}
                               </span>
@@ -223,6 +404,36 @@ export function ModelsPanel() {
           </div>
         )}
       </div>
+
+      {showAddModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowAddModelModal(false)}
+          data-testid="models-add-model-modal"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2E3440]">新建模型</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(false)}
+                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                关闭
+              </button>
+            </div>
+            <ModelsCreateApiKeyAccount />
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function ModelsCreateApiKeyAccount() {
+  const { providerCreateSectionProps } = useProviderProfilesState();
+  return <CreateApiKeyProfileSection {...providerCreateSectionProps} defaultExpanded />;
 }

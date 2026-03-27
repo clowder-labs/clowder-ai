@@ -60,6 +60,7 @@ export function CreateApiKeyProfileSection({
   onModelAccessModeChange,
   onDefaultModelProfileRefChange,
   onCreate,
+  defaultExpanded = false,
 }: {
   kind: AcpProviderKind;
   displayName: string;
@@ -86,6 +87,7 @@ export function CreateApiKeyProfileSection({
   onModelAccessModeChange: (value: AcpModelAccessMode) => void;
   onDefaultModelProfileRefChange: (value: string) => void;
   onCreate: () => void;
+  defaultExpanded?: boolean;
 }) {
   const canCreate =
     kind === 'acp'
@@ -93,14 +95,14 @@ export function CreateApiKeyProfileSection({
         command.trim().length > 0 &&
         (modelAccessMode !== 'clowder_default_profile' || defaultModelProfileRef.trim().length > 0)
       : displayName.trim().length > 0 && baseUrl.trim().length > 0 && apiKey.trim().length > 0 && models.length > 0;
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
-    <div className="rounded-2xl border border-[#E6EAF2] bg-[#F8FAFD] p-4">
+    <div className="p-4">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between text-left hidden"
       >
         <h4 className="text-base font-semibold text-[#2E3440]">
           {kind === 'acp' ? '+ 新建 ACP Provider' : '+ 新建 API Key 账号'}
