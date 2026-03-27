@@ -498,7 +498,7 @@ export function AgentsPanel() {
                         {openActionMenuCatId === cat.id ? (
                           <div
                             role="menu"
-                            className="absolute right-0 top-[calc(100%+8px)] z-20 min-w-[116px] rounded-xl border border-[#E6EAF0] bg-white p-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                            className="absolute left-[calc(100%+24px)] top-1/2 z-20 w-20 -translate-y-1/2 rounded-xl border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
                           >
                             <button
                               type="button"
@@ -507,7 +507,7 @@ export function AgentsPanel() {
                                 setOpenActionMenuCatId(null);
                                 openEditMember(cat.id);
                               }}
-                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-[12px] text-[#334155] transition hover:bg-[#F4F7FB]"
+                              className="flex h-8 w-full items-center rounded-lg px-3 text-left text-[12px] text-[#334155] transition hover:bg-[#F4F7FB]"
                             >
                               编辑
                             </button>
@@ -515,7 +515,7 @@ export function AgentsPanel() {
                               type="button"
                               role="menuitem"
                               onClick={() => setOpenActionMenuCatId(null)}
-                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-[12px] text-[#94A3B8] transition hover:bg-[#F4F7FB]"
+                              className="flex h-8 w-full items-center rounded-lg px-3 text-left text-[12px] text-[#94A3B8] transition hover:bg-[#F4F7FB]"
                             >
                               复制
                             </button>
@@ -523,7 +523,7 @@ export function AgentsPanel() {
                               type="button"
                               role="menuitem"
                               onClick={() => void handleDeleteMember(cat.id)}
-                              className="flex w-full items-center rounded-lg px-3 py-2 text-left text-[12px] text-[#DC2626] transition hover:bg-[#FEF2F2]"
+                              className="flex h-8 w-full items-center rounded-lg px-3 text-left text-[12px] text-[#DC2626] transition hover:bg-[#FEF2F2]"
                             >
                               删除
                             </button>
@@ -564,7 +564,7 @@ export function AgentsPanel() {
 
             {fetchError ? <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{fetchError}</p> : null}
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-[#E7EBF1] bg-white">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-white flex flex-col">
               <div className="flex w-full justify-end">
                 <button
                 type="button"
@@ -587,7 +587,7 @@ export function AgentsPanel() {
               </button>
               </div>
               <div ref={templatePreviewLayerRef} data-testid="template-preview-layer" className="relative flex h-full flex-col">
-                <div className="flex min-h-0 flex-1 overflow-hidden px-1 py-1">
+                <div className="flex min-h-0 flex-1 overflow-hidden px-12 py-1">
                     <textarea
                       ref={personaTextareaRef}
                       value={tabDrafts[activeTab]}
@@ -603,7 +603,7 @@ export function AgentsPanel() {
                     />
                 </div>
 
-                <div className="border-t border-[#EEF2F7] px-6 pb-4 pt-3">
+                <div className="shrink-0 px-6 pb-2 pt-3">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div className="text-xs text-[#8D95A3]">灵感模板</div>
                     {templatePageCount > 1 ? (
@@ -646,14 +646,14 @@ export function AgentsPanel() {
                           onMouseLeave={() => handleTemplateHoverEnd(template.id)}
                           onFocus={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
                           onBlur={() => handleTemplateHoverEnd(template.id)}
-                          className={`rounded-lg border px-3 py-2 text-left transition ${
+                          className={`h-[66px] rounded-lg border px-3 py-2 text-left transition ${
                             isHovered
                               ? 'border-[#BFD3EA] bg-[#F4F8FF]'
                               : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-[#FAFCFF]'
                           }`}
                         >
                           <div className="text-[13px] font-semibold text-[#2E3542]">{template.title}</div>
-                          <div className="mt-1 text-[11px] leading-5 text-[#9AA2AF]">{template.description}</div>
+                          <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#9AA2AF]">{template.description}</div>
                         </button>
                       );
                     })}
@@ -665,29 +665,33 @@ export function AgentsPanel() {
                     data-testid="template-hover-preview"
                     onMouseEnter={() => handleTemplateHoverStart(hoveredTemplate.id)}
                     onMouseLeave={() => handleTemplateHoverEnd(hoveredTemplate.id)}
-                    className="absolute z-20 w-[400px] max-h-[300px] overflow-y-auto rounded-2xl border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]"
+                    className="absolute z-20 flex h-[300px] w-[400px] flex-col overflow-hidden rounded-[8px] border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]"
                     style={{
                       left: hoveredTemplatePosition.left,
                       top: hoveredTemplatePosition.top,
                       transform: 'translate(-50%, calc(-100% - 16px))',
                     }}
                   >
-                    <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
-                      {selectedCat?.displayName ?? '九问Office'}
-                    </h3>
-                    <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">人格定义 (Persona)</div>
-                    <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
-                      {hoveredTemplate.persona.map((item) => (
-                        <li key={item}>• {item}</li>
-                      ))}
-                    </ul>
-                    <button
-                      type="button"
-                      onClick={() => handleTemplateApply(hoveredTemplate)}
-                      className="mt-6 rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
-                    >
-                      {hoveredTemplate.applyLabel}
-                    </button>
+                    <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                      <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
+                        {selectedCat?.displayName ?? '九问Office'}
+                      </h3>
+                      <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">人格定义 (Persona)</div>
+                      <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
+                        {hoveredTemplate.persona.map((item) => (
+                          <li key={item}>• {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="flex justify-end pt-4">
+                      <button
+                        type="button"
+                        onClick={() => handleTemplateApply(hoveredTemplate)}
+                        className="rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
+                      >
+                        插入模板
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </div>
