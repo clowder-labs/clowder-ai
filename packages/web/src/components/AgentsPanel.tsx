@@ -5,6 +5,7 @@ import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import type { ConfigData } from './config-viewer-types';
 import { HubCatEditor } from './HubCatEditor';
+import { PromptSelectionModal } from './PromptSelectionModal';
 import { useConfirm } from './useConfirm';
 
 type AgentTabKey = 'persona' | 'collab' | 'memory' | 'preference';
@@ -21,6 +22,10 @@ const INSPIRATION_TEMPLATES = [
     id: 'customer-service',
     title: '专业客服助手',
     description: '遵循服务规范，礼貌应答，流程引导，问题定位与转接明确。',
+    category: '客服支持',
+    source: '灵感模板',
+    creator: '官方预置',
+    createdAt: '2025-09-12 17:22:30',
     persona: [
       '身份：资深客服顾问，擅长复杂问题拆解与安抚沟通。',
       '性格：耐心克制、语气专业、表达清晰。',
@@ -32,6 +37,10 @@ const INSPIRATION_TEMPLATES = [
     id: 'content-creation',
     title: '内容创作助手',
     description: '支持文案策写、标题优化、脚本创作，风格适配，结构清晰。',
+    category: '文案创作',
+    source: '灵感模板',
+    creator: '官方预置',
+    createdAt: '2025-09-12 17:22:30',
     persona: [
       '身份：资深内容创作者，擅长根据主题快速成稿。',
       '性格：创意灵活、语气温和、结构清晰。',
@@ -43,6 +52,10 @@ const INSPIRATION_TEMPLATES = [
     id: 'knowledge-answering',
     title: '知识解答专家',
     description: '以严谨准确为原则，条理输出，解释清楚，给出可执行建议。',
+    category: '知识解答',
+    source: '灵感模板',
+    creator: '官方预置',
+    createdAt: '2025-09-12 17:22:30',
     persona: [
       '身份：知识顾问，擅长多源信息整合与严谨解释。',
       '性格：理性克制、客观中立、注重依据。',
@@ -54,6 +67,10 @@ const INSPIRATION_TEMPLATES = [
     id: 'work-efficiency',
     title: '职场效率助手',
     description: '聚焦沟通协作、汇报提炼、流程推进，帮助提升交付效率。',
+    category: '效率协作',
+    source: '灵感模板',
+    creator: '官方预置',
+    createdAt: '2025-09-12 17:22:30',
     persona: [
       '身份：项目协作教练，擅长流程梳理与任务推进。',
       '性格：简洁务实、节奏明确、结果导向。',
@@ -90,6 +107,7 @@ export function AgentsPanel() {
   const [openActionMenuCatId, setOpenActionMenuCatId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const templatePreviewLayerRef = useRef<HTMLDivElement | null>(null);
   const hoveredTemplateTriggerRef = useRef<HTMLElement | null>(null);
@@ -144,6 +162,19 @@ export function AgentsPanel() {
   const hoveredTemplate = useMemo(
     () => INSPIRATION_TEMPLATES.find((template) => template.id === hoveredTemplateId) ?? null,
     [hoveredTemplateId],
+  );
+  const promptSelectionItems = useMemo(
+    () =>
+      INSPIRATION_TEMPLATES.map((template) => ({
+        id: template.id,
+        title: template.title,
+        category: template.category,
+        source: template.source,
+        creator: template.creator,
+        createdAt: template.createdAt,
+        content: `${template.description}\n\n人格定义：\n${template.persona.map((item, index) => `${index + 1}. ${item}`).join('\n')}`,
+      })),
+    [],
   );
 
   useEffect(() => {
@@ -220,6 +251,15 @@ export function AgentsPanel() {
     setPersonaDraft((current) => (current.trim() ? `${current.trimEnd()}\n\n${templateText}` : templateText));
     personaTextareaRef.current?.focus();
   }, []);
+  const handleTemplateModalConfirm = useCallback(
+    (item: { id: string }) => {
+      const template = INSPIRATION_TEMPLATES.find((entry) => entry.id === item.id);
+      if (!template) return;
+      handleTemplateApply(template);
+      setTemplateModalOpen(false);
+    },
+    [handleTemplateApply],
+  );
 
   const toggleActionMenu = useCallback((catId: string) => {
     setOpenActionMenuCatId((current) => (current === catId ? null : catId));
@@ -427,14 +467,14 @@ export function AgentsPanel() {
               <div className="flex w-full justify-end">
                 <button
                 type="button"
-                onClick={() => (selectedCat ? openEditMember(selectedCat.id) : openAddMember())}
+                onClick={() => setPersonaDraft('')}
                 className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
               >
                 清除
               </button>
                 <button
                 type="button"
-                onClick={() => (selectedCat ? openEditMember(selectedCat.id) : openAddMember())}
+                onClick={() => setTemplateModalOpen(true)}
                 className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
               >
                 灵感模板
@@ -522,6 +562,14 @@ export function AgentsPanel() {
         configCat={editingConfigCat}
         onClose={closeEditor}
         onSaved={handleEditorSaved}
+      />
+      <PromptSelectionModal
+        open={templateModalOpen}
+        items={promptSelectionItems}
+        title="选择灵感模板"
+        initialSelectedId={hoveredTemplateId ?? promptSelectionItems[0]?.id ?? null}
+        onClose={() => setTemplateModalOpen(false)}
+        onConfirm={handleTemplateModalConfirm}
       />
     </div>
   );
