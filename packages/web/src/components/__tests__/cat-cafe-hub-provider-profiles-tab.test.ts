@@ -502,6 +502,50 @@ describe('CatCafeHub provider profiles tab', () => {
     expect(container.textContent).toContain('测试');
   });
 
+  it('prefills ACP provider creation with the recommended agent-teams command', async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path.startsWith('/api/acp-model-profiles')) {
+        return Promise.resolve(emptyAcpModelProfilesResponse());
+      }
+      if (path.startsWith('/api/provider-profiles')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: null,
+            bootstrapBindings: {},
+            providers: [],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubProviderProfilesTab));
+    });
+    await flushEffects();
+
+    const expandButton = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('新建 API Key 账号'),
+    )!;
+    await act(async () => {
+      expandButton.click();
+    });
+    await flushEffects();
+
+    const kindSelect = container.querySelector('select') as HTMLSelectElement;
+    await changeField(kindSelect, 'acp', 'change');
+    await flushEffects();
+
+    const commandInput = container.querySelector('input[placeholder*="命令，如"]') as HTMLInputElement | null;
+    const argsInput = container.querySelector('textarea[placeholder*="gateway acp stdio"]') as HTMLTextAreaElement | null;
+    const cwdInput = container.querySelector('input[placeholder*="可选 cwd"]') as HTMLInputElement | null;
+
+    expect(commandInput?.value).toBe('agent-teams');
+    expect(argsInput?.value).toBe('gateway acp stdio');
+    expect(cwdInput?.value).toBe('/opt/workspace/agent-teams');
+  });
+
   it('creates api-key profile from name, url, api key, and supported models only', async () => {
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
       if (path.startsWith('/api/acp-model-profiles')) {

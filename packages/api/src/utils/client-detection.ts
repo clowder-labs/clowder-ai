@@ -46,8 +46,7 @@ function commandExists(command: string): Promise<boolean> {
 }
 
 async function acpRuntimeAvailable(): Promise<boolean> {
-  const checks = await Promise.all([commandExists('uv'), commandExists('agent-teams')]);
-  return checks.some(Boolean);
+  return commandExists('agent-teams');
 }
 
 function relayClawSidecarAvailable(): boolean {

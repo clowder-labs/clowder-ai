@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import type { AcpProviderKind } from './hub-provider-profiles.sections';
 import type { AcpModelAccessMode, AcpModelProfileItem, AcpModelProviderType } from './hub-provider-profiles.types';
 
-const DEFAULT_ACP_ARGS = '--directory /opt/workspace/agent-teams run agent-teams gateway acp stdio';
+const DEFAULT_ACP_ARGS = 'gateway acp stdio';
 const DEFAULT_ACP_CWD = '/opt/workspace/agent-teams';
 
 function splitCommandArgs(value: string): string[] {
@@ -30,7 +30,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
   const [createBaseUrl, setCreateBaseUrl] = useState('');
   const [createApiKey, setCreateApiKey] = useState('');
   const [createModels, setCreateModels] = useState<string[]>([]);
-  const [createAcpCommand, setCreateAcpCommand] = useState('uv');
+  const [createAcpCommand, setCreateAcpCommand] = useState('agent-teams');
   const [createAcpArgs, setCreateAcpArgs] = useState(DEFAULT_ACP_ARGS);
   const [createAcpCwd, setCreateAcpCwd] = useState(DEFAULT_ACP_CWD);
   const [createAcpModelAccessMode, setCreateAcpModelAccessMode] = useState<AcpModelAccessMode>('self_managed');
@@ -48,7 +48,7 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
     setCreateBaseUrl('');
     setCreateApiKey('');
     setCreateModels([]);
-    setCreateAcpCommand('uv');
+    setCreateAcpCommand('agent-teams');
     setCreateAcpArgs(DEFAULT_ACP_ARGS);
     setCreateAcpCwd(DEFAULT_ACP_CWD);
     setCreateAcpModelAccessMode('self_managed');

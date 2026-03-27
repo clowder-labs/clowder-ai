@@ -15,3 +15,5 @@ See [decisions/](./decisions/) for Architecture Decision Records (ADRs).
 
 ## Architecture
 See [architecture/](./architecture/) for system architecture documentation.
+
+- [ACP 配置说明](./architecture/acp-configuration.md) — ACP provider / model profile / cat 绑定与测试流程

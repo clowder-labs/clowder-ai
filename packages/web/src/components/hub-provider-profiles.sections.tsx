@@ -129,14 +129,14 @@ export function CreateApiKeyProfileSection({
               <input
                 value={command}
                 onChange={(e) => onCommandChange(e.target.value)}
-                placeholder="命令，如 uv"
+                placeholder="命令，如 agent-teams"
                 className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
               />
               <textarea
                 value={args}
                 onChange={(e) => onArgsChange(e.target.value)}
                 rows={3}
-                placeholder="参数按空格分隔，例如 --directory /opt/workspace/agent-teams run agent-teams gateway acp stdio"
+                placeholder="参数按空格分隔，例如 gateway acp stdio"
                 className="w-full rounded border border-[#E8DCCF] bg-white px-3 py-2 text-sm placeholder:text-[#C4B5A8]"
               />
               <input
