@@ -76,6 +76,8 @@ export interface RouteOptions {
   /** F108: Unique invocation ID for WorklistRegistry isolation in concurrent execution.
    *  When provided, worklist is keyed by this ID instead of threadId. */
   parentInvocationId?: string | undefined;
+  /** Explicit interrupted-session resume target for provider integrations that support resume semantics. */
+  resumeCatId?: CatId | undefined;
 }
 
 export interface IncrementalContextResult {

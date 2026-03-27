@@ -62,12 +62,10 @@ export async function collectTrailingUpdates(
   const output = [...drainQueuedUpdates(client, sessionId, catId, metadataModel)];
   const deadline = Date.now() + maxWaitMs;
   while (Date.now() < deadline) {
-    const incoming = await Promise.race([
-      client.nextMessage(),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), idleMs)),
-    ]);
-    if (!incoming) break;
-    output.push(...transformIncomingUpdateMessage(incoming, sessionId, catId, metadataModel));
+    await new Promise<void>((resolve) => setTimeout(resolve, idleMs));
+    const drained = drainQueuedUpdates(client, sessionId, catId, metadataModel);
+    if (drained.length === 0) break;
+    output.push(...drained);
   }
   return output;
 }

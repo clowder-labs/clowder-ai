@@ -741,6 +741,8 @@ export class AgentRouter {
       persistenceContext?: PersistenceContext;
       /** F108: parentInvocationId for WorklistRegistry concurrent isolation */
       parentInvocationId?: string;
+      /** Explicit interrupted-session resume target for provider integrations that support resume semantics. */
+      resumeCatId?: CatId;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -769,6 +771,7 @@ export class AgentRouter {
       ...(options?.cursorBoundaries ? { cursorBoundaries: options.cursorBoundaries } : {}),
       ...(options?.persistenceContext ? { persistenceContext: options.persistenceContext } : {}),
       ...(options?.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
+      ...(options?.resumeCatId ? { resumeCatId: options.resumeCatId } : {}),
     };
 
     if (intent.intent === 'ideate' && targetCats.length > 1) {

@@ -122,6 +122,13 @@ describe('InvocationQueue', () => {
     assert.equal(queue.size('t1', 'u1'), 2);
   });
 
+  it('does NOT merge entries when resumeCatId differs', () => {
+    queue.enqueue(entry({ content: 'resume opus', resumeCatId: 'opus' }));
+    const r2 = queue.enqueue(entry({ content: 'normal follow-up' }));
+    assert.equal(r2.outcome, 'enqueued');
+    assert.equal(queue.size('t1', 'u1'), 2);
+  });
+
   // ── F134: connector messages never merge ──
 
   it('does NOT merge consecutive connector entries (F134 group chat safety)', () => {

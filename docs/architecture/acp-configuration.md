@@ -3,6 +3,7 @@ feature_ids: []
 topics: [architecture, acp, provider-profile, configuration, env]
 doc_kind: note
 created: 2026-03-27
+updated: 2026-03-27
 ---
 
 # ACP 配置说明
@@ -21,6 +22,29 @@ Clowder 里的 ACP 接入分成三层：
    在 cat catalog 里把某只猫的 `client` 设为 `acp`，并绑定到前面创建的 ACP provider。
 
 这三层都配好之后，前端里 `@cat` 才能真正走到 `ACP session/new -> session/prompt`。
+
+## ACP MCP 与中断恢复
+
+当前 ACP host 集成支持两类 session-scoped MCP 注入方式：
+
+- `mcpCapabilities.stdio`: Clowder 继续按 host-provided stdio MCP server 注入
+- `mcpCapabilities.acp`: Clowder 注入 `transport: "acp"` 的 `cat-cafe` server，并在运行期桥接 `mcp/connect`、`mcp/message`、`mcp/disconnect`
+
+对 `agent-teams` 这类显式声明 `mcpCapabilities.acp` 的 ACP agent，推荐把 host MCP 视为首选路径，而不是额外再配一份本地 MCP 配置文件。
+
+中断恢复分两层：
+
+- 普通 follow-up turn: `session/load -> session/prompt`
+- 显式恢复被中断 run: `session/load -> session/resume`
+
+Clowder 通过 `resumeCatId` 显式指定“本次消息是恢复哪只猫的中断会话”。该字段会绕过普通 mention 路由，并保持队列隔离，避免把恢复 turn 和普通 follow-up 合并。
+
+当前内置入口：
+
+- 右侧 `Plan Board` 的“继续任务”按钮会自动携带 `resumeCatId`
+- 编程式调用可直接 `POST /api/messages` 并附带 `resumeCatId`
+
+对 ACP provider 而言，恢复链路的目标语义是“只继续新的尾巴”，不是重新回放整段已展示输出。因此 host 侧会在 `session/load` 完成后丢弃 replay 的历史 update，再把新的 resume 输出继续流给前端。
 
 ## 两种运行模式
 
@@ -243,6 +267,49 @@ Provider test 通过后，再在对话框里直接发：
 
 - 正文回复
 - `providerId · acp` 的 metadata badge
+
+### 2.1 MCP-over-ACP 验证
+
+如果要验证 ACP host 提供的 MCP 真的被 agent 用起来，可以直接发送：
+
+```text
+@agentteams 先调用 load_skill 加载 deepresearch，再调用 cat_cafe_list_threads(limit=3)。最后只回复：
+SKILL=<skill名>
+THREADS=<返回数量>
+```
+
+期望结果：
+
+- 消息气泡显示 `CLI Output · done · 2 tools`
+- 最终文本类似 `SKILL=deepresearch` 与 `THREADS=<n>`
+- `~/.agent-teams/log/backend.log` 里能看到 `mcp/connect`、`tools/list`、`tools/call`
+
+可直接执行：
+
+```bash
+rg -n "mcp/connect|tools/list|tools/call" ~/.agent-teams/log/backend.log
+```
+
+### 2.2 中断恢复验证
+
+如果要验证 ACP interrupted-session resume：
+
+1. 先发送一个会持续流式输出的 prompt
+2. 在前端点 `Stop generation`
+3. 再通过 `Plan Board` 的“继续任务”按钮，或调用：
+
+```bash
+curl -X POST http://127.0.0.1:3004/api/messages \
+  -H 'Content-Type: application/json' \
+  -H 'X-Cat-Cafe-User: default-user' \
+  -d '{"threadId":"<threadId>","content":"继续恢复被中断的输出","resumeCatId":"agentteams"}'
+```
+
+期望结果：
+
+- ACP provider 走 `session/load -> session/resume`
+- 恢复后的首个文本 chunk 从新的断点继续，而不是从先前的 `LINE0001` 或旧前缀重放
+- 最终 thread 中不残留卡住的 `draft-*` 消息
 
 ### 3. 带环境变量的端到端验证
 

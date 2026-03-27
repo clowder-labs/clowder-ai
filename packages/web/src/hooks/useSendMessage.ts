@@ -15,6 +15,10 @@ export interface WhisperOptions {
   whisperTo: string[];
 }
 
+export interface SendMessageOptions {
+  resumeCatId?: string;
+}
+
 /**
  * Hook for sending messages (text + optional images + optional whisper).
  * Handles both JSON and multipart form data modes.
@@ -60,6 +64,7 @@ export function useSendMessage(activeThreadId?: string) {
       overrideThreadId?: string,
       whisper?: WhisperOptions,
       deliveryMode?: DeliveryMode,
+      sendOptions?: SendMessageOptions,
     ) => {
       const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
       const threadId = overrideThreadId ?? activeThread;
@@ -149,6 +154,7 @@ export function useSendMessage(activeThreadId?: string) {
           formData.append('threadId', threadId);
           formData.append('idempotencyKey', clientMessageId);
           if (deliveryMode) formData.append('deliveryMode', deliveryMode);
+          if (sendOptions?.resumeCatId) formData.append('resumeCatId', sendOptions.resumeCatId);
           if (whisper) {
             formData.append('visibility', whisper.visibility);
             for (const catId of whisper.whisperTo) {
@@ -180,6 +186,7 @@ export function useSendMessage(activeThreadId?: string) {
               idempotencyKey: clientMessageId,
               ...(whisper ? { visibility: whisper.visibility, whisperTo: whisper.whisperTo } : {}),
               ...deliveryModePayload,
+              ...(sendOptions?.resumeCatId ? { resumeCatId: sendOptions.resumeCatId } : {}),
             }),
           });
           if (!res.ok) {

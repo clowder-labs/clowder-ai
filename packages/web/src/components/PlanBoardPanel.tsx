@@ -96,7 +96,9 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
             className="text-[10px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
             onClick={async () => {
               if (await confirm({ title: '继续任务', message: '确认继续上次任务？' })) {
-                void handleSend(buildContinueMessage(catId, tp), undefined, threadId);
+                void handleSend(buildContinueMessage(catId, tp), undefined, threadId, undefined, undefined, {
+                  resumeCatId: catId,
+                });
               }
             }}
           >

@@ -401,7 +401,7 @@ export class QueueProcessor {
    */
   private async executeEntry(entry: QueueEntry): Promise<'succeeded' | 'failed' | 'canceled'> {
     const { queue, invocationTracker, invocationRecordStore, router, socketManager, messageStore, log } = this.deps;
-    const { threadId, userId, content, targetCats, intent, messageId } = entry;
+    const { threadId, userId, content, targetCats, intent, messageId, resumeCatId } = entry;
     const primaryCat = targetCats[0] ?? 'unknown';
 
     let controller: AbortController | undefined;
@@ -557,6 +557,7 @@ export class QueueProcessor {
           cursorBoundaries,
           persistenceContext,
           ...(invocationId ? { parentInvocationId: invocationId } : {}),
+          ...(resumeCatId ? { resumeCatId } : {}),
         },
       )) {
         if (hook && msg.catId === primaryCat && msg.type === 'text' && (msg as { content?: string }).content) {

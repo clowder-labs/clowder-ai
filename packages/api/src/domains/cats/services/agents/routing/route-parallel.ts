@@ -265,6 +265,7 @@ export async function* routeParallel(
         ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
         ...(signal ? { signal } : {}),
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
+        ...(options.resumeCatId === catId ? { resumeSession: true } : {}),
         isLastCat: false,
       });
     }),
