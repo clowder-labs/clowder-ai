@@ -183,6 +183,43 @@ describe('transformDareEvent', () => {
     );
   });
 
+  test('maps transport.raw thinking payload → system_info(thinking)', () => {
+    const event = envelope('transport.raw', {
+      id: 'env-1',
+      kind: 'message',
+      payload: {
+        id: 'msg-1',
+        role: 'assistant',
+        message_kind: 'thinking',
+        text: 'I should inspect the relevant files first.',
+        data: { target: 'model' },
+      },
+    });
+    const result = transformDareEvent(event, catId);
+    assert.ok(result);
+    assert.strictEqual(result.type, 'system_info');
+    const payload = JSON.parse(result.content);
+    assert.deepStrictEqual(payload, {
+      type: 'thinking',
+      catId,
+      text: 'I should inspect the relevant files first.',
+    });
+  });
+
+  test('ignores non-thinking transport.raw payloads', () => {
+    const event = envelope('transport.raw', {
+      id: 'env-2',
+      kind: 'message',
+      payload: {
+        id: 'msg-2',
+        role: 'assistant',
+        message_kind: 'chat',
+        text: 'final answer',
+      },
+    });
+    assert.strictEqual(transformDareEvent(event, catId), null);
+  });
+
   test('returns null for non-object input', () => {
     assert.strictEqual(transformDareEvent('string', catId), null);
     assert.strictEqual(transformDareEvent(null, catId), null);

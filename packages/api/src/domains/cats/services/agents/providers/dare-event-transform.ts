@@ -42,6 +42,15 @@ function str(val: unknown, fallback = ''): string {
   return typeof val === 'string' ? val : fallback;
 }
 
+function extractTransportThinking(data: Record<string, unknown>): string | null {
+  const payload =
+    typeof data.payload === 'object' && data.payload !== null ? (data.payload as Record<string, unknown>) : data;
+  if (payload.message_kind !== 'thinking') return null;
+
+  const text = str(payload.text).trim();
+  return text || null;
+}
+
 export function transformDareEvent(event: unknown, catId: CatId | string): AgentMessage | null {
   if (!isDareEnvelope(event)) return null;
 
@@ -125,6 +134,17 @@ export function transformDareEvent(event: unknown, catId: CatId | string): Agent
 
     case 'approval.pending':
       return null;
+
+    case 'transport.raw': {
+      const thinkingText = extractTransportThinking(data);
+      if (!thinkingText) return null;
+      return {
+        type: 'system_info',
+        catId: catId as CatId,
+        content: JSON.stringify({ type: 'thinking', catId, text: thinkingText }),
+        timestamp: ts,
+      };
+    }
 
     default:
       return null;
