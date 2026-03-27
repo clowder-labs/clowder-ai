@@ -534,9 +534,9 @@ function installSharedPythonDeps(bundleDir) {
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
 
-  // Install JiuwenClaw as package (includes all its deps)
+  // Install JiuwenClaw as package (skip deps — sources are on the Python path via ._pth)
   const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', jiuwenClawDir]);
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', '--no-deps', jiuwenClawDir]);
 
   // Install office automation libraries for MCP servers
   const officeDeps = [

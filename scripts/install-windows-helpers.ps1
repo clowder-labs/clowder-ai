@@ -712,6 +712,13 @@ function Ensure-WindowsDareRuntime {
         return $false
     }
 
+    # Shared Python from bundled embeddable runtime (tools\python layout)
+    $sharedPython = Join-Path $ProjectRoot "tools\python\python.exe"
+    if (Test-Path $sharedPython) {
+        Write-Ok "DARE runtime: using shared Python ($sharedPython)"
+        return $true
+    }
+
     $venvPython = Join-Path $appDir ".venv\Scripts\python.exe"
     if (Test-Path $venvPython) {
         return $true
