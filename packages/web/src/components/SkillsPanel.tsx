@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubSkillsTab } from './HubSkillsTab';
 
 const INSTALLED = '\u5df2\u5b89\u88c5';
@@ -7,15 +9,38 @@ const SKILL_PLAZA = '\u6280\u80fd\u5e7f\u573a';
 const IMPORT_SKILL = '\u5bfc\u5165';
 
 export function SkillsPanel() {
+  const [activeTab, setActiveTab] = useState<'installed' | 'plaza'>('plaza');
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-[#FFFFFF]">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-5">
-            <h1 className="text-[24px] font-bold text-[#1F2329]">{INSTALLED}</h1>
-            <span className="text-[22px] font-semibold text-[#6F7888]">{SKILL_PLAZA}</span>
+            <button
+              type="button"
+              onClick={() => setActiveTab('installed')}
+              className={`text-[24px] font-bold transition-colors ${
+                activeTab === 'installed' ? 'text-[#1F2329]' : 'text-[#6F7888]'
+              }`}
+            >
+              {INSTALLED}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('plaza')}
+              className={`text-[22px] font-semibold transition-colors ${
+                activeTab === 'plaza' ? 'text-[#1F2329]' : 'text-[#6F7888]'
+              }`}
+            >
+              {SKILL_PLAZA}
+            </button>
           </div>
-          <div className="h-0.5 w-[58px] bg-[#1F2329]" />
+          <div
+            className="h-0.5 w-[58px] bg-[#1F2329] transition-all"
+            style={{
+              transform: activeTab === 'plaza' ? 'translateX(110px)' : 'translateX(0)',
+            }}
+          />
         </div>
         <button
           type="button"
@@ -27,7 +52,7 @@ export function SkillsPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="rounded-xl border border-[#ECEFF3] bg-white p-4">
-          <HubSkillsTab />
+          {activeTab === 'plaza' ? <HubSkillsTab /> : <HubCapabilityTab />}
         </div>
       </div>
     </div>

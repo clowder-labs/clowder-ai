@@ -31,7 +31,7 @@ interface CredentialResult {
 
 interface ModelInfoResult {
   success: boolean;
-  modelInfo?: any;
+  modelInfo?: Record<string, unknown>;
   message?: string;
 }
 
@@ -51,10 +51,10 @@ const userInfo: UserInfo = {
 };
 
 const IAM_URL = 'https://iam.myhuaweicloud.com';
-export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, options) => {
 
-  // 简单的session存储（生产环境应该使用Redis或数据库）
-  const sessions = new Map<string, UserInfo>();
+// 简单的session存储（生产环境应该使用Redis或数据库）
+export const sessions = new Map<string, UserInfo>();
+export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, options) => {
 
   // 检查登录状态接口
   app.get('/api/islogin', async (request, reply) => {

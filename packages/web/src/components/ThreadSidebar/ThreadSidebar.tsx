@@ -402,23 +402,30 @@ export function ThreadSidebar({
     searchQuery: normalizedQuery,
     currentThreadId,
   });
+  const isChatMenu = !activeMenu;
+  const menuItemBase =
+    'flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors';
+  const chatMenuItemBase =
+    'flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors';
+  const menuItemActive = 'bg-white text-[#111827] shadow-[0_1px_1px_rgba(16,24,40,0.04)]';
+  const menuItemInactive = 'text-[#4B5563] hover:bg-white/70 hover:text-[#111827]';
 
   return (
     <>
       <aside
-        className={`${className ?? 'w-60'} border-r border-cocreator-light bg-white flex flex-col h-full`}
+        className={`${className ?? 'w-[248px]'} border-r border-[#E5E7EB] bg-[#F3F4F6] flex flex-col h-full`}
         style={{
           backgroundColor: theme === 'business' && config ? config.sidebar.bg : undefined,
         }}
       >
-        <div className="p-3 border-b border-cocreator-light flex items-center justify-between">
+        <div className="px-3 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/images/lobster.svg" alt="OfficeClaw" className="w-10 h-10" />
-            <span className="text-xl font-bold text-cafe-black">OfficeClaw</span>
+            <img src="/images/lobster.svg" alt="OfficeClaw" className="w-9 h-9 rounded-lg" />
+            <span className="text-[31px] font-semibold leading-none tracking-tight text-[#111827]">OfficeClaw</span>
           </div>
         </div>
 
-        <div className="px-3 py-2 border-b border-cocreator-light">
+        <div className="hidden px-3 py-2 border-b border-[#E5E7EB]">
           <button
             type="button"
             onClick={() => {
@@ -428,11 +435,11 @@ export function ThreadSidebar({
                 onClose?.();
               }
             }}
-            className="flex w-full items-center gap-2 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-left text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
+            className="flex w-full items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-left text-xs font-medium text-[#4B5563] transition-colors hover:bg-[#F9FAFB] hover:text-[#111827]"
             data-testid="sidebar-mission-control"
           >
             <svg
-              className="h-4 w-4 shrink-0 text-[#9A866F]"
+              className="h-4 w-4 shrink-0 text-[#9CA3AF]"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -449,14 +456,14 @@ export function ThreadSidebar({
           </button>
         </div>
 
-        <div className="px-3 py-2 border-t border-b border-cocreator-light">
-          <div className="flex flex-col gap-4 items-start">
-            <div className="flex w-full items-center justify-between">
+        <div className="px-3 py-2.5 border-b border-[#E5E7EB]">
+          <div className="flex flex-col gap-1.5 items-start">
+            <div className="flex w-full items-center justify-between gap-1.5">
               <a
                 href="/"
-                className="flex items-center gap-1.5 px-2 py-1 text-sm font-semibold text-cafe-black transition-colors hover:text-cocreator-primary"
+                className={`${chatMenuItemBase} ${isChatMenu ? menuItemActive : menuItemInactive}`}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
                 对话
@@ -466,7 +473,7 @@ export function ThreadSidebar({
                   type="button"
                   onClick={onBootcampClick ?? createBootcampThread}
                   disabled={!onBootcampClick && isCreating}
-                  className="text-xs px-2 py-1 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
+                  className="text-xs px-2 py-1 rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
                   title="猫猫训练营"
                   data-testid="sidebar-bootcamp"
                 >
@@ -487,7 +494,7 @@ export function ThreadSidebar({
                   type="button"
                   onClick={() => setShowPicker(true)}
                   disabled={isCreating}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 transition-colors font-medium"
+                  className="text-xs px-2.5 py-1.5 rounded-md bg-[#4F46E5] text-white hover:bg-[#4338CA] disabled:opacity-40 transition-colors font-medium"
                 >
                   {isCreating ? '...' : '+ 新对话'}
                 </button>
@@ -496,9 +503,9 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('models')}
-              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'models' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
+              className={`${menuItemBase} ${activeMenu === 'models' ? menuItemActive : menuItemInactive}`}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
               模型
@@ -506,9 +513,9 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('agents')}
-              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'agents' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
+              className={`${menuItemBase} ${activeMenu === 'agents' ? menuItemActive : menuItemInactive}`}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="3" />
                 <circle cx="19" cy="12" r="2" />
                 <circle cx="5" cy="12" r="2" />
@@ -520,9 +527,9 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('channels')}
-              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'channels' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
+              className={`${menuItemBase} ${activeMenu === 'channels' ? menuItemActive : menuItemInactive}`}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 <path d="M8 9h8M8 13h6" />
               </svg>
@@ -531,9 +538,9 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('skills')}
-              className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2 py-1 ${activeMenu === 'skills' ? 'text-cocreator-primary' : 'text-cafe-black hover:text-cocreator-primary'}`}
+              className={`${menuItemBase} ${activeMenu === 'skills' ? menuItemActive : menuItemInactive}`}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.064 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
               </svg>
               技能
@@ -547,13 +554,26 @@ export function ThreadSidebar({
           </div>
         )}
 
-        <div className="px-3 py-2 border-b border-cocreator-light">
+        <div className="px-3 py-2 border-b border-[#E5E7EB]">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-[#6B7280]">渠道消息</span>
+            <svg
+              className="h-3.5 w-3.5 text-[#9CA3AF]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.5-3.5" />
+            </svg>
+          </div>
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索对话、项目或 ID..."
             autoComplete="off"
-            className="w-full rounded-lg border border-cocreator-light px-2.5 py-1.5 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-cocreator-primary"
+            className="w-full rounded-md border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-xs text-[#374151] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A5B4FC] focus:ring-1 focus:ring-[#A5B4FC]"
           />
           {unreadIds.size > 0 && (
             <button
@@ -721,7 +741,7 @@ export function ThreadSidebar({
         </div>
 
         {/* F095 Phase D: Trash bin section */}
-        <div className="border-t border-cocreator-light">
+        <div className="border-t border-[#E5E7EB]">
           <button
             type="button"
             onClick={handleToggleTrash}
@@ -768,7 +788,7 @@ export function ThreadSidebar({
           )}
         </div>
 
-        <div className="border-t border-cocreator-light"></div>
+        <div className="border-t border-[#E5E7EB]"></div>
 
         <UserProfile />
 
