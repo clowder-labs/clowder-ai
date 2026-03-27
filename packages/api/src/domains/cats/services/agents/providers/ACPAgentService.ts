@@ -22,21 +22,21 @@ const ACP_ALWAYS_BLOCKED_ENV_PREFIXES = ['AWS_', 'CAT_CAFE_', 'DATABASE_', 'GITH
 const ACP_MODEL_CREDENTIAL_ENV_PREFIXES = ['ANTHROPIC_', 'DARE_', 'GEMINI_', 'GOOGLE_', 'OPENAI_', 'OPENROUTER_'];
 const ACP_ALWAYS_BLOCKED_ENV_KEYS = new Set(['DATABASE_URL', 'GITHUB_MCP_PAT', 'GITHUB_TOKEN', 'REDIS_URL']);
 
-function doneMessage(catId: CatId, sessionId: string | undefined): AgentMessage {
+function doneMessage(catId: CatId, sessionId: string | undefined, metadataModel = 'acp'): AgentMessage {
   return {
     type: 'done',
     catId,
-    metadata: sessionId ? buildACPMetadata(sessionId) : undefined,
+    metadata: sessionId ? buildACPMetadata(sessionId, metadataModel) : undefined,
     timestamp: Date.now(),
   };
 }
 
-function errorMessage(catId: CatId, error: string, sessionId?: string): AgentMessage {
+function errorMessage(catId: CatId, error: string, sessionId?: string, metadataModel = 'acp'): AgentMessage {
   return {
     type: 'error',
     catId,
     error,
-    metadata: sessionId ? buildACPMetadata(sessionId) : undefined,
+    metadata: sessionId ? buildACPMetadata(sessionId, metadataModel) : undefined,
     timestamp: Date.now(),
   };
 }
@@ -159,6 +159,7 @@ export class ACPAgentService implements AgentService {
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const providerProfile = options?.providerProfile;
     const acpModelProfile = options?.acpModelProfile;
+    const metadataModel = providerProfile?.id?.trim() || 'acp';
     if (providerProfile?.kind !== 'acp' || providerProfile.authType !== 'none' || !providerProfile.command) {
       yield errorMessage(this.catId, 'ACP provider profile is not configured');
       yield doneMessage(this.catId, undefined);
@@ -207,7 +208,7 @@ export class ACPAgentService implements AgentService {
         type: 'session_init',
         catId: this.catId,
         sessionId,
-        metadata: buildACPMetadata(sessionId),
+        metadata: buildACPMetadata(sessionId, metadataModel),
         timestamp: Date.now(),
       };
 
@@ -244,11 +245,16 @@ export class ACPAgentService implements AgentService {
             new Promise<null>((resolve) => setTimeout(() => resolve(null), 150)),
           ]);
           if (pendingMessage && pendingMessage.kind === 'message') {
-            for (const message of transformIncomingUpdateMessage(pendingMessage.message, sessionId, this.catId)) {
+            for (const message of transformIncomingUpdateMessage(
+              pendingMessage.message,
+              sessionId,
+              this.catId,
+              metadataModel,
+            )) {
               yield message;
             }
           }
-          for (const message of await collectTrailingUpdates(client, sessionId, this.catId)) {
+          for (const message of await collectTrailingUpdates(client, sessionId, this.catId, metadataModel)) {
             yield message;
           }
           done = true;
@@ -256,12 +262,12 @@ export class ACPAgentService implements AgentService {
         }
         const incoming = outcome.message;
         nextMessagePromise = client.nextMessage().then((message) => ({ kind: 'message' as const, message }));
-        for (const message of transformIncomingUpdateMessage(incoming, sessionId, this.catId)) {
+        for (const message of transformIncomingUpdateMessage(incoming, sessionId, this.catId, metadataModel)) {
           yield message;
         }
       }
 
-      yield doneMessage(this.catId, sessionId);
+      yield doneMessage(this.catId, sessionId, metadataModel);
     } catch (error) {
       if (!aborted) {
         const stderr = client.stderrText.trim();
@@ -269,10 +275,11 @@ export class ACPAgentService implements AgentService {
           this.catId,
           stderr || (error instanceof Error ? error.message : String(error)),
           sessionId,
+          metadataModel,
         );
-        yield doneMessage(this.catId, sessionId);
+        yield doneMessage(this.catId, sessionId, metadataModel);
       } else {
-        yield doneMessage(this.catId, sessionId);
+        yield doneMessage(this.catId, sessionId, metadataModel);
       }
     } finally {
       await client.close();

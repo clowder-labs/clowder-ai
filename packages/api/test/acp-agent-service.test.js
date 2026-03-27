@@ -29,3 +29,28 @@ describe('supportsACPStdioMcpFromInitializeResult', () => {
     assert.equal(supportsACPStdioMcpFromInitializeResult({}), true);
   });
 });
+
+describe('buildACPMetadata', () => {
+  it('uses the ACP provider id as the metadata model label', async () => {
+    const { buildACPMetadata } = await import(
+      '../dist/domains/cats/services/agents/providers/acp-session-helpers.js'
+    );
+
+    assert.deepEqual(buildACPMetadata('sess-1', 'opencode-acp'), {
+      provider: 'acp',
+      model: 'opencode-acp',
+      sessionId: 'sess-1',
+    });
+  });
+
+  it('falls back to a generic ACP label when no provider id is supplied', async () => {
+    const { buildACPMetadata } = await import(
+      '../dist/domains/cats/services/agents/providers/acp-session-helpers.js'
+    );
+
+    assert.deepEqual(buildACPMetadata(), {
+      provider: 'acp',
+      model: 'acp',
+    });
+  });
+});
