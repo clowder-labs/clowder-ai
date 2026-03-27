@@ -16,6 +16,7 @@ import type { RedisClient } from '@cat-cafe/shared/utils';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
+import { resolveCatCafeHostRoot } from '../../utils/cat-cafe-root.js';
 import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
@@ -29,6 +30,7 @@ import {
   RedisConnectorPermissionStore,
 } from './ConnectorPermissionStore.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
+import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
 import { ConnectorMediaService } from './media/ConnectorMediaService.js';
@@ -40,9 +42,7 @@ import {
 } from './OutboundDeliveryHook.js';
 import { RedisConnectorThreadBindingStore } from './RedisConnectorThreadBindingStore.js';
 import { StreamingOutboundHook } from './StreamingOutboundHook.js';
-import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { WeixinSessionStore } from './WeixinSessionStore.js';
-import { resolveCatCafeHostRoot } from '../../utils/cat-cafe-root.js';
 
 export interface ConnectorGatewayConfig {
   telegramBotToken?: string | undefined;
@@ -219,7 +219,8 @@ export async function startConnectorGateway(
   }
 
   const bindingStore =
-    deps.bindingStore ?? (deps.redis ? new RedisConnectorThreadBindingStore(deps.redis) : new MemoryConnectorThreadBindingStore());
+    deps.bindingStore ??
+    (deps.redis ? new RedisConnectorThreadBindingStore(deps.redis) : new MemoryConnectorThreadBindingStore());
   const dedup = new InboundMessageDedup();
   log.info({ store: deps.redis ? 'redis' : 'memory' }, '[ConnectorGateway] Binding store initialized');
   const adapters = new Map<string, IOutboundAdapter>();
@@ -600,10 +601,12 @@ export async function startConnectorGateway(
 
   // ── XiaoYi (华为小艺 A2A WebSocket) ──
   if (hasXiaoyi) {
-    const skMasked = config.xiaoyiSk!.length > 6
-      ? config.xiaoyiSk!.slice(0, 3) + '***' + config.xiaoyiSk!.slice(-3)
-      : '***';
-    log.info({ ak: config.xiaoyiAk, sk: skMasked, agentId: config.xiaoyiAgentId }, '[ConnectorGateway] XiaoYi credentials loaded');
+    const skMasked =
+      config.xiaoyiSk!.length > 6 ? config.xiaoyiSk!.slice(0, 3) + '***' + config.xiaoyiSk!.slice(-3) : '***';
+    log.info(
+      { ak: config.xiaoyiAk, sk: skMasked, agentId: config.xiaoyiAgentId },
+      '[ConnectorGateway] XiaoYi credentials loaded',
+    );
     const xiaoyi = new XiaoyiAdapter(log, {
       ak: config.xiaoyiAk!,
       sk: config.xiaoyiSk!,
