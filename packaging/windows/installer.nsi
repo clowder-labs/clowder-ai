@@ -122,10 +122,8 @@ FunctionEnd
   System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$INSTDIR")i'
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
   Pop $0
-  ; Fallback: kill known process names in case Path was inaccessible
-  nsExec::ExecToLog 'taskkill /F /IM OfficeClaw.exe 2>nul'
-  Pop $0
-  nsExec::ExecToLog 'taskkill /F /IM node.exe /FI "MODULES eq $INSTDIR\tools\node\node.exe" 2>nul'
+  ; Fallback: kill desktop launcher by image name in case Path was inaccessible
+  nsExec::ExecToLog 'taskkill /F /IM OfficeClaw.exe'
   Pop $0
   Sleep 1500
 !macroend
@@ -138,17 +136,22 @@ Function un.CloseRunningServices
   !insertmacro _ForceKillInstalledProcesses
 FunctionEnd
 
-; Delete everything in $INSTDIR except user-data dirs, using cmd /c rd for speed.
-; Preserves: .cat-cafe, data, logs, .env, cat-config.json, uninstall.exe
+; Delete all managed dirs/files in $INSTDIR, preserving user-data (.cat-cafe, data, logs, .env, cat-config.json).
+; Uses cmd /c rd /s /q for speed — handles tens of thousands of files near-instantly.
 !macro _CleanupManagedPayload
-  RMDir /r "$INSTDIR\packages"
-  RMDir /r "$INSTDIR\scripts"
-  RMDir /r "$INSTDIR\docs"
-  RMDir /r "$INSTDIR\cat-cafe-skills"
-  RMDir /r "$INSTDIR\installer-seed"
-  RMDir /r "$INSTDIR\vendor"
-  ; tools/python has tens of thousands of files — cmd rd /s /q is much faster than NSIS RMDir /r
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\packages"'
+  Pop $0
   nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\tools"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\vendor"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\scripts"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\docs"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\cat-cafe-skills"'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR\installer-seed"'
   Pop $0
   Delete "$INSTDIR\.clowder-release.json"
   Delete "$INSTDIR\.env.example"
@@ -224,7 +227,7 @@ Section "Install"
     CopyFiles /SILENT "$INSTDIR\installer-seed\cat-config.json" "$INSTDIR\cat-config.json"
 
   ; Add firewall rules so Windows does not prompt user when node.exe listens on a port
-  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js" >nul 2>&1'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js"'
   Pop $0
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="${APP_NAME} Node.js" dir=in action=allow program="$INSTDIR\tools\node\node.exe" enable=yes profile=any'
   Pop $0
@@ -249,7 +252,7 @@ Section "Uninstall"
   DeleteRegKey HKCU "${INSTALL_KEY}"
 
   ; Remove firewall rule
-  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js" >nul 2>&1'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js"'
   Pop $0
 
   ; Ask user whether to remove user data
