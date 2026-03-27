@@ -4,13 +4,20 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ChatContainer } from '@/components/ChatContainer';
 import { apiFetch } from '@/utils/api-client';
+import { setUserId } from '@/utils/userId';
+
+const DEV_AUTH_BYPASS = process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === '1';
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(DEV_AUTH_BYPASS);
+  const [isLoading, setIsLoading] = useState(!DEV_AUTH_BYPASS);
   const router = useRouter();
 
   useEffect(() => {
+    if (DEV_AUTH_BYPASS) {
+      setUserId('dev-user');
+      return;
+    }
     (async () => {
       try {
         const response = await apiFetch('/api/islogin');

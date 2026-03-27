@@ -58,6 +58,11 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
 
   // 检查登录状态接口
   app.get('/api/islogin', async (request, reply) => {
+    // 免登录开发模式
+    if (process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === '1') {
+      return { isLoggedIn: true, userId: 'dev-user' };
+    }
+
     const userId = request.headers['x-cat-cafe-user'] as string;
     if (!userId) {
       return { isLoggedIn: false };

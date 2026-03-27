@@ -16,8 +16,12 @@ export default function LoginPage() {
   const [agreeToTerms, setAgreeToTerms] = useState(false); // 同意条款状态
   const router = useRouter();
 
-  // 检查是否已登录
+  // 免登录模式直接跳转首页
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_DEV_AUTH_BYPASS === '1') {
+      router.replace('/');
+      return;
+    }
     checkLoginStatus();
   }, []);
 
