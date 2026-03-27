@@ -213,12 +213,12 @@ describe('DirectoryBrowser', () => {
 
   // ── Select and cancel ─────────────────────────────────
 
-  it('calls onSelect with current path when "选择此目录" is clicked', async () => {
+  it('calls onSelect with current path when the select button is clicked', async () => {
     mockApiFetch.mockReturnValueOnce(jsonOk(makeBrowseResult(`${HOME}/projects`, [], HOME)));
     const fns = render({ initialPath: `${HOME}/projects` });
     await flush();
 
-    const selectBtn = findButtonByText('选择此目录');
+    const selectBtn = findButtonByText('\u9009\u62e9\u6b64\u76ee\u5f55');
     expect(selectBtn).toBeTruthy();
     act(() => {
       selectBtn!.click();
@@ -227,12 +227,12 @@ describe('DirectoryBrowser', () => {
     expect(fns.onSelect).toHaveBeenCalledWith(`${HOME}/projects`);
   });
 
-  it('calls onCancel when "取消" is clicked', async () => {
+  it('calls onCancel when the cancel button is clicked', async () => {
     mockApiFetch.mockReturnValueOnce(jsonOk(makeBrowseResult(HOME, [], null)));
     const fns = render();
     await flush();
 
-    const cancelBtn = findButtonByText('取消');
+    const cancelBtn = findButtonByText('\u53d6\u6d88');
     expect(cancelBtn).toBeTruthy();
     act(() => {
       cancelBtn!.click();
@@ -256,7 +256,7 @@ describe('DirectoryBrowser', () => {
     render({ initialPath: `${HOME}/projects`, activeProjectPath: activePath });
     await flush();
 
-    expect(container.textContent).toContain('当前项目');
+    expect(container.textContent).toContain('\u5f53\u524d\u9879\u76ee');
   });
 
   // ── Error handling ────────────────────────────────────
@@ -342,7 +342,7 @@ describe('DirectoryBrowser', () => {
     const fns = render({ initialPath: `${HOME}/projects` });
     await flush();
 
-    expect(findButtonByText('选择此目录')).toBeTruthy();
+    expect(findButtonByText('\u9009\u62e9\u6b64\u76ee\u5f55')).toBeTruthy();
     expect(container.textContent).toContain('cat-cafe');
 
     // Navigate to a forbidden path
@@ -362,8 +362,8 @@ describe('DirectoryBrowser', () => {
     // Error banner shown AND listing still visible (non-destructive)
     expect(container.textContent).toContain('Access denied');
     expect(container.textContent).toContain('cat-cafe');
-    // "选择此目录" still works — selects the PREVIOUS valid directory
-    const selectBtn = findButtonByText('选择此目录');
+    // The select button still chooses the previous valid directory
+    const selectBtn = findButtonByText('\u9009\u62e9\u6b64\u76ee\u5f55');
     expect(selectBtn).toBeTruthy();
     expect(selectBtn!.disabled).toBe(false);
     act(() => {
@@ -413,7 +413,7 @@ describe('DirectoryBrowser', () => {
     // Falls back: 2 API calls (initial + homedir)
     expect(mockApiFetch).toHaveBeenCalledTimes(2);
     // Shows visible info banner (not silent)
-    expect(container.textContent).toContain('配置路径不可用');
+    expect(container.textContent).toContain('\u914d\u7f6e\u8def\u5f84\u4e0d\u53ef\u7528');
     // Shows homedir contents
     expect(container.textContent).toContain('projects');
   });

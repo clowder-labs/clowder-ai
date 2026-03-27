@@ -1,10 +1,10 @@
-import React, { act } from 'react';
+﻿import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainerHeader } from '@/components/ChatContainerHeader';
 
 vi.mock('@/hooks/useTheme', () => ({
-  useTheme: () => ({ theme: 'default', config: null, toggleTheme: vi.fn() }),
+  useTheme: () => ({ theme: 'default', toggleTheme: vi.fn() }),
 }));
 
 vi.mock('@/stores/chatStore', () => {
@@ -41,7 +41,7 @@ describe('ChatContainerHeader safe-area', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('keeps safe-area class while using compact controls row', async () => {
+  it('keeps safe-area class while using token-backed icon buttons', async () => {
     await act(async () => {
       root.render(
         React.createElement(ChatContainerHeader, {
@@ -61,8 +61,8 @@ describe('ChatContainerHeader safe-area', () => {
     expect(header).not.toBeNull();
     expect(header?.className).toContain('safe-area-top');
 
-    const innerRow = header?.querySelector('div');
-    expect(innerRow).not.toBeNull();
-    expect(innerRow?.className).toContain('py-2');
+    const iconButtons = Array.from(container.querySelectorAll('button'));
+    expect(iconButtons.length).toBeGreaterThanOrEqual(2);
+    expect(iconButtons.every((button) => button.className.includes('ui-icon-button'))).toBe(true);
   });
 });

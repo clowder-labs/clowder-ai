@@ -20,7 +20,7 @@ vi.mock('@/utils/api-client', () => ({
 
 const TEST_THREAD = {
   id: 'thread_abc123',
-  title: '和砚砚讨论家规',
+  title: '\u6d4b\u8bd5\u5bf9\u8bdd\u6807\u9898',
   projectPath: '/projects/cat-cafe',
   createdBy: 'user1',
   participants: ['user1'],
@@ -122,7 +122,7 @@ describe('Thread delete confirmation (I-1)', () => {
   }
 
   function findDeleteButton(): HTMLButtonElement | undefined {
-    return Array.from(container.querySelectorAll('button')).find((b) => b.getAttribute('title') === '删除对话');
+    return Array.from(container.querySelectorAll('button')).find((b) => b.getAttribute('title') === '\u5220\u9664\u5bf9\u8bdd');
   }
 
   /** F095 defaults all sections collapsed. Click expand-all first. */
@@ -139,6 +139,11 @@ describe('Thread delete confirmation (I-1)', () => {
       root.render(React.createElement(ThreadSidebar));
     });
     await flush();
+    expect(container.textContent).toContain('\u5bf9\u8bdd');
+    expect(container.textContent).toContain('\u6a21\u578b');
+    expect(container.textContent).toContain('\u667a\u80fd\u4f53');
+    expect(container.textContent).toContain('\u6e20\u9053');
+    expect(container.textContent).toContain('\u6280\u80fd');
     expandAll();
 
     const deleteBtn = findDeleteButton();
@@ -149,9 +154,9 @@ describe('Thread delete confirmation (I-1)', () => {
     });
 
     // Dialog should appear with thread title and warning
-    expect(container.textContent).toContain('确认删除对话');
-    expect(container.textContent).toContain('和砚砚讨论家规');
-    expect(container.textContent).toContain('回收站');
+    expect(container.textContent).toContain('\u786e\u8ba4\u5220\u9664\u5bf9\u8bdd');
+    expect(container.textContent).toContain('\u6d4b\u8bd5\u5bf9\u8bdd\u6807\u9898');
+    expect(container.textContent).toContain('\u56de\u6536\u7ad9');
 
     // No DELETE API call yet
     const deleteCalls = mockApiFetch.mock.calls.filter(
@@ -171,16 +176,16 @@ describe('Thread delete confirmation (I-1)', () => {
     act(() => {
       deleteBtn?.click();
     });
-    expect(container.textContent).toContain('确认删除对话');
+    expect(container.textContent).toContain('\u786e\u8ba4\u5220\u9664\u5bf9\u8bdd');
 
     // Click cancel
-    const cancelBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '取消')!;
+    const cancelBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '\u53d6\u6d88')!;
     act(() => {
       cancelBtn.click();
     });
 
     // Dialog should be gone
-    expect(container.textContent).not.toContain('确认删除对话');
+    expect(container.textContent).not.toContain('\u786e\u8ba4\u5220\u9664\u5bf9\u8bdd');
   });
 
   it('calls DELETE API only after clicking confirm', async () => {
@@ -196,7 +201,7 @@ describe('Thread delete confirmation (I-1)', () => {
     });
 
     // Click confirm
-    const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '移入回收站')!;
+    const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '\u79fb\u5165\u56de\u6536\u7ad9')!;
     expect(confirmBtn).toBeTruthy();
 
     await act(async () => {

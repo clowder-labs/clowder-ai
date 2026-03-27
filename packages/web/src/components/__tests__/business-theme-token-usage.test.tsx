@@ -1,7 +1,8 @@
-import React, { act } from 'react';
+﻿import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainer } from '@/components/ChatContainer';
+import { ThreadItem } from '@/components/ThreadSidebar/ThreadItem';
 
 type MockStoreState = {
   messages: unknown[];
@@ -62,9 +63,7 @@ vi.mock('@/stores/chatStore', () => ({
 }));
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
-vi.mock('@/stores/taskStore', () => ({
-  useTaskStore: () => ({ clearTasks: vi.fn() }),
-}));
+vi.mock('@/stores/taskStore', () => ({ useTaskStore: () => ({ clearTasks: vi.fn() }) }));
 vi.mock('@/stores/gameStore', () => ({
   useGameStore: () => ({
     gameView: null,
@@ -88,9 +87,7 @@ vi.mock('@/stores/gameStore', () => ({
     setGodScopeFilter: vi.fn(),
   }),
 }));
-vi.mock('@/hooks/useSocket', () => ({
-  useSocket: () => ({ cancelInvocation: vi.fn(), syncRooms: vi.fn() }),
-}));
+vi.mock('@/hooks/useSocket', () => ({ useSocket: () => ({ cancelInvocation: vi.fn(), syncRooms: vi.fn() }) }));
 vi.mock('@/hooks/useAgentMessages', () => ({
   useAgentMessages: () => ({
     handleAgentMessage: vi.fn(),
@@ -116,20 +113,10 @@ vi.mock('@/hooks/useAuthorization', () => ({
   useAuthorization: () => ({ pending: [], respond: vi.fn(), handleAuthRequest: vi.fn(), handleAuthResponse: vi.fn() }),
 }));
 vi.mock('@/hooks/useSplitPaneKeys', () => ({ useSplitPaneKeys: vi.fn() }));
-vi.mock('@/hooks/useChatSocketCallbacks', () => ({
-  useChatSocketCallbacks: () => ({}),
-}));
-vi.mock('@/hooks/useCatData', () => ({
-  useCatData: () => ({ getCatById: vi.fn() }),
-}));
+vi.mock('@/hooks/useChatSocketCallbacks', () => ({ useChatSocketCallbacks: () => ({}) }));
+vi.mock('@/hooks/useCatData', () => ({ useCatData: () => ({ getCatById: vi.fn() }) }));
 vi.mock('@/hooks/useTheme', () => ({
-  useTheme: () => ({
-    theme: 'default',
-    config: {
-      sidebar: { bg: '#fff' },
-      content: { bg: '#fff' },
-    },
-  }),
+  useTheme: () => ({ theme: 'business', toggleTheme: vi.fn(), setTheme: vi.fn(), isLoaded: true }),
 }));
 vi.mock('@/hooks/usePreviewAutoOpen', () => ({ usePreviewAutoOpen: vi.fn() }));
 vi.mock('@/hooks/useWorkspaceNavigate', () => ({ useWorkspaceNavigate: vi.fn() }));
@@ -139,33 +126,24 @@ vi.mock('@/hooks/useVadInterrupt', () => ({ useVadInterrupt: vi.fn() }));
 vi.mock('@/hooks/usePersistedState', () => ({
   usePersistedState: (_key: string, initialValue: number) => [initialValue, vi.fn(), vi.fn()],
 }));
-vi.mock('@/utils/api-client', () => ({
-  apiFetch: vi.fn(() => new Promise(() => {})),
-}));
+vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn(() => new Promise(() => {})), API_URL: '' }));
 vi.mock('@/utils/userId', () => ({ getUserId: () => 'test-user' }));
-
 vi.mock('@/components/A2ACollapsible', () => ({ A2ACollapsible: () => null }));
 vi.mock('@/components/AgentsPanel', () => ({ AgentsPanel: () => null }));
 vi.mock('@/components/AuthorizationCard', () => ({ AuthorizationCard: () => null }));
 vi.mock('@/components/BootcampListModal', () => ({ BootcampListModal: () => null }));
 vi.mock('@/components/CatCafeHub', () => ({ CatCafeHub: () => null }));
 vi.mock('@/components/ChannelsPanel', () => ({ ChannelsPanel: () => null }));
-vi.mock('@/components/ChatContainerHeader', () => ({
-  ChatContainerHeader: () => React.createElement('div', { 'data-testid': 'chat-header' }),
-}));
+vi.mock('@/components/ChatContainerHeader', () => ({ ChatContainerHeader: () => React.createElement('div', { 'data-testid': 'chat-header' }) }));
 vi.mock('@/components/ChatInput', () => ({ ChatInput: () => null }));
 vi.mock('@/components/ChatMessage', () => ({ ChatMessage: () => null }));
 vi.mock('@/components/game/GameOverlayConnector', () => ({ GameOverlayConnector: () => null }));
 vi.mock('@/components/HubListModal', () => ({ HubListModal: () => null }));
-vi.mock('@/components/MessageActions', () => ({
-  MessageActions: ({ children }: { children: React.ReactNode }) => children,
-}));
-vi.mock('@/components/MessageNavigator', () => ({ MessageNavigator: () => null }));
+vi.mock('@/components/MessageActions', () => ({ MessageActions: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock('@/components/MobileStatusSheet', () => ({ MobileStatusSheet: () => null }));
 vi.mock('@/components/ModelsPanel', () => ({ ModelsPanel: () => null }));
 vi.mock('@/components/ParallelStatusBar', () => ({ ParallelStatusBar: () => null }));
 vi.mock('@/components/QueuePanel', () => ({ QueuePanel: () => null }));
-vi.mock('@/components/RightStatusPanel', () => ({ RightStatusPanel: () => null }));
 vi.mock('@/components/ScrollToBottomButton', () => ({ ScrollToBottomButton: () => null }));
 vi.mock('@/components/SkillsPanel', () => ({ SkillsPanel: () => null }));
 vi.mock('@/components/SplitPaneView', () => ({ SplitPaneView: () => null }));
@@ -174,10 +152,15 @@ vi.mock('@/components/ThreadExecutionBar', () => ({ ThreadExecutionBar: () => nu
 vi.mock('@/components/ThreadSidebar', () => ({ ThreadSidebar: () => null }));
 vi.mock('@/components/VoteConfigModal', () => ({ VoteConfigModal: () => null }));
 vi.mock('@/components/VoteActiveBar', () => ({ VoteActiveBar: () => null }));
-vi.mock('@/components/WorkspacePanel', () => ({ WorkspacePanel: () => null }));
 vi.mock('@/components/workspace/ResizeHandle', () => ({ ResizeHandle: () => null }));
+vi.mock('@/components/CatAvatar', () => ({ CatAvatar: () => null }));
+vi.mock('@/components/icons/HubIcon', () => ({ HubIcon: () => null }));
+vi.mock('@/components/icons/PawIcon', () => ({ PawIcon: () => null }));
+vi.mock('@/components/ThreadCatStatus', () => ({ ThreadCatStatus: () => null }));
+vi.mock('@/components/ThreadSidebar/ThreadCatSettings', () => ({ ThreadCatSettings: () => null }));
+vi.mock('@/components/ThreadSidebar/thread-utils', () => ({ formatRelativeTime: () => 'just now' }));
 
-describe('ChatContainer empty state', () => {
+describe('business theme token usage', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -200,12 +183,12 @@ describe('ChatContainer empty state', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockState = createMockStoreState();
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
-    mockState = createMockStoreState();
   });
 
   afterAll(() => {
@@ -213,21 +196,31 @@ describe('ChatContainer empty state', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('renders the hero empty state and keeps bootcamp entry hidden by default', () => {
-    mockState = createMockStoreState();
-    window.history.replaceState({}, '', '/thread/default?research=multi');
-
+  it('renders ChatContainer under business theme without requiring theme config objects', () => {
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'default' }));
     });
 
-    expect(container.textContent).toContain('OfficeClaw');
-    expect(container.textContent).toContain('\u5236\u5b9a\u76ee\u6807\u81ea\u52a8\u89c4\u5212\u6267\u884c');
-    expect(container.textContent).toContain('\u667a\u80fd\u4f53\u914d\u7f6e');
-    expect(container.textContent).toContain('\u4e00\u952e\u63a5\u5165 IM');
-    expect(container.textContent).toContain('\u591a\u732b\u7814\u7a76\u6a21\u5f0f');
-    expect(container.textContent).toContain('multi_mention');
-    expect(container.querySelector('[data-testid="empty-state-bootcamp"]')).toBeNull();
-    expect(container.querySelector('[data-testid="empty-state-bootcamp-list"]')).toBeNull();
+    expect(container.querySelector('[data-chat-container]')).not.toBeNull();
+  });
+
+  it('uses token-backed active styling for thread items', () => {
+    act(() => {
+      root.render(
+        React.createElement(ThreadItem, {
+          id: 'thread-1',
+          title: 'Quarterly Review',
+          participants: ['office'],
+          lastActiveAt: Date.now(),
+          isActive: true,
+          onSelect: vi.fn(),
+        }),
+      );
+    });
+
+    const item = container.firstElementChild as HTMLElement | null;
+    expect(item).not.toBeNull();
+    expect(item?.className).toContain('ui-thread-item-active');
+    expect(item?.getAttribute('style')).toBeNull();
   });
 });

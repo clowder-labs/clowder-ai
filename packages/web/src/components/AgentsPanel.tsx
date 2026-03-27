@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
@@ -20,8 +20,8 @@ export function AgentsPanel() {
     try {
       const res = await apiFetch('/api/config');
       if (res.ok) {
-        const d = (await res.json()) as { config: ConfigData };
-        setConfig(d.config);
+        const data = (await res.json()) as { config: ConfigData };
+        setConfig(data.config);
       } else {
         setFetchError('配置加载失败');
       }
@@ -31,7 +31,7 @@ export function AgentsPanel() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   const handleToggleAvailability = useCallback(
@@ -82,18 +82,18 @@ export function AgentsPanel() {
     // TODO: Open co-creator editor
   }, []);
 
-  const editingCat = editingCatId ? cats.find((c) => c.id === editingCatId) : null;
+  const editingCat = editingCatId ? cats.find((cat) => cat.id === editingCatId) : null;
   const editingConfigCat = editingCatId && config ? config.cats[editingCatId] : undefined;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="mb-4">
-        <h1 className="mb-1 text-[20px] font-bold leading-[30px] text-gray-900">智能体管理</h1>
-        <p className="text-sm text-gray-500">管理 AI 成员及其配置</p>
+    <div className="ui-page-shell">
+      <div className="ui-page-header">
+        <h1 className="ui-page-title">智能体管理</h1>
+        <p className="ui-page-subtitle">统一管理 OfficeClaw 成员、模型配置与可用状态。</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {fetchError && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-4">{fetchError}</p>}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {fetchError && <p className="ui-status-error mb-4 rounded-[var(--radius-md)] px-3 py-2 text-sm">{fetchError}</p>}
 
         {config ? (
           <div className="space-y-4">
@@ -113,11 +113,11 @@ export function AgentsPanel() {
                 />
               ))}
             </div>
-            <p className="text-[13px] text-[#B59A88]">点击任意卡片进入成员配置 →</p>
-            {cats.length === 0 && <p className="text-sm text-gray-400">未找到成员配置数据</p>}
+            <p className="text-[13px] text-[var(--text-muted)]">点击任意卡片进入成员配置。</p>
+            {cats.length === 0 && <p className="text-sm text-[var(--text-muted)]">未找到成员配置数据。</p>}
           </div>
         ) : !fetchError ? (
-          <p className="text-sm text-gray-400">加载中...</p>
+          <p className="text-sm text-[var(--text-muted)]">加载中...</p>
         ) : null}
       </div>
 
