@@ -83,6 +83,54 @@ const INSPIRATION_TEMPLATES = [
 const TEMPLATE_PREVIEW_WIDTH = 400;
 const TEMPLATE_PREVIEW_SIDE_PADDING = 24;
 
+function buildCollabDraft(cat: {
+  teamStrengths?: string;
+  strengths?: string[];
+  caution?: string | null;
+  sessionChain?: boolean;
+} | null): string {
+  if (!cat) return '';
+
+  const lines: string[] = [];
+  if (cat.teamStrengths?.trim()) lines.push(`团队协作优势：${cat.teamStrengths.trim()}`);
+  if (cat.strengths?.length) lines.push(`能力标签：${cat.strengths.join('、')}`);
+  if (typeof cat.sessionChain === 'boolean') lines.push(`Session Chain：${cat.sessionChain ? '开启' : '关闭'}`);
+  if (cat.caution?.trim()) lines.push(`协作提醒：${cat.caution.trim()}`);
+  return lines.join('\n');
+}
+
+function buildTabDrafts(
+  cat: {
+    personality?: string;
+    teamStrengths?: string;
+    strengths?: string[];
+    caution?: string | null;
+    sessionChain?: boolean;
+  } | null,
+): Record<AgentTabKey, string> {
+  return {
+    persona: cat?.personality ?? '',
+    collab: buildCollabDraft(cat),
+    memory: '',
+    preference: '',
+  };
+}
+
+function tabPlaceholder(activeTab: AgentTabKey): string {
+  switch (activeTab) {
+    case 'persona':
+      return '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成';
+    case 'collab':
+      return '请输入协作配置内容，例如分工方式、交接规则、协作边界等';
+    case 'memory':
+      return '请输入记忆配置内容，例如记忆策略、保留规则、摘要方式等';
+    case 'preference':
+      return '请输入用户偏好内容，例如输出风格、禁忌项、默认习惯等';
+    default:
+      return '';
+  }
+}
+
 function formatBudgetLabel(value?: number): string {
   if (!value || Number.isNaN(value)) return '-- KB';
   const kb = Math.max(1, Math.round(value / 1024));
@@ -100,7 +148,7 @@ export function AgentsPanel() {
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
-  const [personaDraft, setPersonaDraft] = useState('');
+  const [tabDrafts, setTabDrafts] = useState<Record<AgentTabKey, string>>(buildTabDrafts(null));
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const [hoveredTemplatePosition, setHoveredTemplatePosition] = useState<{ left: number; top: number } | null>(null);
@@ -178,7 +226,7 @@ export function AgentsPanel() {
   );
 
   useEffect(() => {
-    setPersonaDraft(selectedCat?.personality ?? '');
+    setTabDrafts(buildTabDrafts(selectedCat));
   }, [selectedCat]);
 
   useEffect(() => {
@@ -248,9 +296,15 @@ export function AgentsPanel() {
 
   const handleTemplateApply = useCallback((template: (typeof INSPIRATION_TEMPLATES)[number]) => {
     const templateText = template.persona.join('\n');
-    setPersonaDraft((current) => (current.trim() ? `${current.trimEnd()}\n\n${templateText}` : templateText));
+    setTabDrafts((current) => {
+      const activeDraft = current[activeTab];
+      return {
+        ...current,
+        [activeTab]: activeDraft.trim() ? `${activeDraft.trimEnd()}\n\n${templateText}` : templateText,
+      };
+    });
     personaTextareaRef.current?.focus();
-  }, []);
+  }, [activeTab]);
   const handleTemplateModalConfirm = useCallback(
     (item: { id: string }) => {
       const template = INSPIRATION_TEMPLATES.find((entry) => entry.id === item.id);
@@ -467,7 +521,12 @@ export function AgentsPanel() {
               <div className="flex w-full justify-end">
                 <button
                 type="button"
-                onClick={() => setPersonaDraft('')}
+                onClick={() =>
+                  setTabDrafts((current) => ({
+                    ...current,
+                    [activeTab]: '',
+                  }))
+                }
                 className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
               >
                 清除
@@ -484,10 +543,16 @@ export function AgentsPanel() {
                 <div className="flex min-h-0 flex-1 overflow-hidden px-1 py-1">
                     <textarea
                       ref={personaTextareaRef}
-                      value={personaDraft}
-                      onChange={(event) => setPersonaDraft(event.target.value)}
-                      placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
+                      value={tabDrafts[activeTab]}
+                      onChange={(event) =>
+                        setTabDrafts((current) => ({
+                          ...current,
+                          [activeTab]: event.target.value,
+                        }))
+                      }
+                      placeholder={tabPlaceholder(activeTab)}
                       className="w-full min-h-0 flex-1 resize-none rounded-2xl  text-[12px] leading-7 text-[#334155] outline-none transition placeholder:text-[#A0A8B6]"
+                      data-testid="agent-tab-textarea"
                     />
                 </div>
 
