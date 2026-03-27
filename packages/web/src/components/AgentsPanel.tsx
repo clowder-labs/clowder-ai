@@ -17,6 +17,8 @@ const AGENT_TABS: Array<{ id: AgentTabKey; label: string }> = [
   { id: 'preference', label: '用户偏好' },
 ];
 
+const TEMPLATE_PAGE_SIZE = 4;
+
 const INSPIRATION_TEMPLATES = [
   {
     id: 'customer-service',
@@ -75,6 +77,36 @@ const INSPIRATION_TEMPLATES = [
       '身份：项目协作教练，擅长流程梳理与任务推进。',
       '性格：简洁务实、节奏明确、结果导向。',
       '行为：优先给行动清单，再补充沟通模板与复盘建议。',
+    ],
+    applyLabel: '接入模板',
+  },
+  {
+    id: 'project-management',
+    title: '项目管理助手',
+    description: '帮助拆解目标、制定里程碑、推动协作与风险跟踪。',
+    category: '项目协同',
+    source: '灵感模板',
+    creator: '官方预置',
+    createdAt: '2025-09-12 17:22:30',
+    persona: [
+      '身份：项目经理与交付协调者，擅长推进计划落地。',
+      '性格：稳健清晰、节奏明确、关注依赖关系。',
+      '行为：先明确目标与边界，再拆解任务、识别风险并推动闭环。',
+    ],
+    applyLabel: '接入模板',
+  },
+  {
+    id: 'data-analysis',
+    title: '数据分析助手',
+    description: '聚焦指标拆解、数据解读、洞察归纳与结论表达。',
+    category: '数据分析',
+    source: '灵感模板',
+    creator: '官方预置',
+    createdAt: '2025-09-12 17:22:30',
+    persona: [
+      '身份：数据分析师，擅长从指标与样本中提炼业务洞察。',
+      '性格：严谨客观、表达简洁、重视证据。',
+      '行为：先确认分析目标，再整理数据、解释异常并输出结论建议。',
     ],
     applyLabel: '接入模板',
   },
@@ -156,6 +188,7 @@ export function AgentsPanel() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [templatePage, setTemplatePage] = useState(0);
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const templatePreviewLayerRef = useRef<HTMLDivElement | null>(null);
   const hoveredTemplateTriggerRef = useRef<HTMLElement | null>(null);
@@ -223,6 +256,15 @@ export function AgentsPanel() {
         content: `${template.description}\n\n人格定义：\n${template.persona.map((item, index) => `${index + 1}. ${item}`).join('\n')}`,
       })),
     [],
+  );
+  const templatePageCount = Math.max(1, Math.ceil(INSPIRATION_TEMPLATES.length / TEMPLATE_PAGE_SIZE));
+  const visibleTemplates = useMemo(
+    () =>
+      INSPIRATION_TEMPLATES.slice(
+        templatePage * TEMPLATE_PAGE_SIZE,
+        templatePage * TEMPLATE_PAGE_SIZE + TEMPLATE_PAGE_SIZE,
+      ),
+    [templatePage],
   );
 
   useEffect(() => {
@@ -314,6 +356,12 @@ export function AgentsPanel() {
     },
     [handleTemplateApply],
   );
+  const handleTemplatePageChange = useCallback((nextPage: number) => {
+    setHoveredTemplateId(null);
+    setHoveredTemplatePosition(null);
+    hoveredTemplateTriggerRef.current = null;
+    setTemplatePage(nextPage);
+  }, []);
 
   const toggleActionMenu = useCallback((catId: string) => {
     setOpenActionMenuCatId((current) => (current === catId ? null : catId));
@@ -556,9 +604,38 @@ export function AgentsPanel() {
                 </div>
 
                 <div className="border-t border-[#EEF2F7] px-6 pb-4 pt-3">
-                  <div className="mb-2 text-xs text-[#8D95A3]">灵感模板</div>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-xs text-[#8D95A3]">灵感模板</div>
+                    {templatePageCount > 1 ? (
+                      <div className="flex items-center gap-2 text-[#A9B0BD]">
+                        <button
+                          type="button"
+                          onClick={() => handleTemplatePageChange(templatePage - 1)}
+                          disabled={templatePage === 0}
+                          className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
+                          data-testid="templates-prev-page"
+                          aria-label="上一页模板"
+                        >
+                          ‹
+                        </button>
+                        <span className="text-[11px] text-[#A9B0BD]">
+                          {templatePage + 1}/{templatePageCount}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleTemplatePageChange(templatePage + 1)}
+                          disabled={templatePage >= templatePageCount - 1}
+                          className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
+                          data-testid="templates-next-page"
+                          aria-label="下一页模板"
+                        >
+                          ›
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-                    {INSPIRATION_TEMPLATES.map((template) => {
+                    {visibleTemplates.map((template) => {
                       const isHovered = hoveredTemplateId === template.id;
                       return (
                         <button
@@ -581,7 +658,6 @@ export function AgentsPanel() {
                       );
                     })}
                   </div>
-                  <div className="mt-1 text-right text-[#A9B0BD]">‹ ›</div>
                 </div>
 
                 {hoveredTemplate && hoveredTemplatePosition ? (
