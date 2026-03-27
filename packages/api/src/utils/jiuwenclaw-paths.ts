@@ -39,14 +39,8 @@ export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: str
   const resolvedAppDir = resolveJiuwenClawAppDir(appDir);
   const localCandidates =
     process.platform === 'win32'
-      ? [
-          join(resolvedAppDir, '.venv', 'Scripts', 'python.exe'),
-          join(resolvedAppDir, '.venv', 'bin', 'python'),
-        ]
-      : [
-          join(resolvedAppDir, '.venv', 'bin', 'python'),
-          join(resolvedAppDir, '.venv', 'Scripts', 'python.exe'),
-        ];
+      ? [join(resolvedAppDir, '.venv', 'Scripts', 'python.exe'), join(resolvedAppDir, '.venv', 'bin', 'python')]
+      : [join(resolvedAppDir, '.venv', 'bin', 'python'), join(resolvedAppDir, '.venv', 'Scripts', 'python.exe')];
   for (const candidate of localCandidates) {
     if (existsSync(candidate)) return candidate;
   }
