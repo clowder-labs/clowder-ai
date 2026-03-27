@@ -128,6 +128,7 @@ import {
   invocationsRoutes,
   leaderboardEventsRoutes,
   leaderboardRoutes,
+  massModelsRoutes,
   memoryPublishRoutes,
   memoryRoutes,
   messageActionsRoutes,
@@ -955,6 +956,7 @@ async function main(): Promise<void> {
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(authRoutes);
+  await app.register(massModelsRoutes);
   await app.register(capabilitiesRoutes);
   await app.register(workspaceRoutes, {
     socketEmit: (event, data, room) => {
