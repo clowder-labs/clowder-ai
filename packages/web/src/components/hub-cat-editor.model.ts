@@ -62,9 +62,9 @@ export const CLIENT_OPTIONS: Array<{ value: ClientValue; label: string }> = [
   { value: 'anthropic', label: 'Claude' },
   { value: 'openai', label: 'Codex' },
   { value: 'google', label: 'Gemini' },
-  { value: 'dare', label: 'Dare' },
+  { value: 'dare', label: 'Office Agent' },
   { value: 'opencode', label: 'OpenCode' },
-  { value: 'relayclaw', label: 'jiuwen' },
+  { value: 'relayclaw', label: 'Assistant Agent' },
   { value: 'acp', label: 'ACP' },
   { value: 'antigravity', label: 'Antigravity' },
 ];

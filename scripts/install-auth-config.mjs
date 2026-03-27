@@ -2,6 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 
 const BUILTIN_ACCOUNT_SPECS = [
@@ -371,8 +372,18 @@ function normalizeSecretsFile(raw) {
   return createDefaultSecrets();
 }
 
-function ensureStorage(projectDir) {
-  const profileDir = path.join(projectDir, '.cat-cafe');
+/**
+ * Resolve the global storage root for provider-profiles.
+ * Runtime reads from ~/.cat-cafe/ (or CAT_CAFE_GLOBAL_CONFIG_ROOT), so the
+ * installer must write to the same location.
+ */
+function resolveGlobalCatCafeDir() {
+  const root = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT || homedir();
+  return path.join(root, '.cat-cafe');
+}
+
+function ensureStorage(_projectDir) {
+  const profileDir = resolveGlobalCatCafeDir();
   mkdirSync(profileDir, { recursive: true });
   return {
     profileFile: path.join(profileDir, 'provider-profiles.json'),
@@ -394,7 +405,9 @@ function writeState(profileFile, secretsFile, profiles, secrets) {
 }
 
 function writeCatalog(projectDir, catalog) {
-  const catalogFile = ensureStorage(projectDir).profileFile.replace('provider-profiles.json', 'cat-catalog.json');
+  const catalogDir = path.join(projectDir, '.cat-cafe');
+  mkdirSync(catalogDir, { recursive: true });
+  const catalogFile = path.join(catalogDir, 'cat-catalog.json');
   writeFileSync(catalogFile, `${JSON.stringify(catalog, null, 2)}\n`);
 }
 
@@ -489,7 +502,7 @@ function buildModelartsBreed(template, breedId, options) {
         id: variantId,
         catId: options.catId,
         provider: options.provider,
-        defaultModel: options.defaultModel ?? 'glm-5',
+        defaultModel: options.defaultModel ?? options._sharedDefaultModel ?? 'glm-5',
         mcpSupport: true,
         cli: defaultCliForProvider(options.provider),
         accountRef: 'modelarts-shared',
@@ -535,10 +548,77 @@ function applyModelartsPreset(projectDir, apiKey) {
     reviewPolicy: template.reviewPolicy,
     roster,
     breeds: preset.members.map((member) =>
-      buildModelartsBreed(template, member.breedId, member),
+      buildModelartsBreed(template, member.breedId, {
+        ...member,
+        _sharedDefaultModel: account.models[0],
+      }),
     ),
   };
   writeCatalog(projectDir, catalog);
+
+  // Create ACP provider profiles for agent-teams members (write directly to
+  // avoid normalizeProfilesFile stripping ACP-specific fields like command)
+  for (const member of preset.members) {
+    if (member.provider !== 'acp') continue;
+    const acpProfileId = member.providerProfileId || `acp-${member.catId}`;
+    const acpCommand = path.join(projectDir, 'tools', 'python', 'Scripts', 'agent-teams.exe');
+    const acpModelProfileId = `${acpProfileId}-model`;
+    const now = new Date().toISOString();
+
+    // 1. Create ACP provider profile with clowder_default_profile mode
+    const { profileFile: pf } = ensureStorage(projectDir);
+    const raw = readJson(pf, null) || { version: 3, providers: [], bootstrapBindings: {} };
+    raw.providers = (raw.providers || []).filter((p) => p.id !== acpProfileId);
+    raw.providers.push({
+      id: acpProfileId,
+      displayName: member.displayName || acpProfileId,
+      kind: 'acp',
+      authType: 'none',
+      builtin: false,
+      protocol: 'acp',
+      command: acpCommand,
+      args: ['gateway', 'acp', 'stdio'],
+      modelAccessMode: 'clowder_default_profile',
+      defaultModelProfileRef: acpModelProfileId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    writeFileSync(pf, `${JSON.stringify(raw, null, 2)}\n`);
+
+    // 2. Create ACP model profile pointing to modelarts-shared credentials
+    const globalDir = resolveGlobalCatCafeDir();
+    const acpModelMetaFile = path.join(globalDir, 'acp-model-profiles.json');
+    const acpModelSecretsFile = path.join(globalDir, 'acp-model-profiles.secrets.local.json');
+    const acpModelMeta = readJson(acpModelMetaFile, null) || { version: 1, profiles: [] };
+    const acpModelSecrets = readJson(acpModelSecretsFile, null) || { version: 1, profiles: {} };
+    acpModelMeta.profiles = (acpModelMeta.profiles || []).filter((p) => p.id !== acpModelProfileId);
+    acpModelMeta.profiles.push({
+      id: acpModelProfileId,
+      displayName: `${member.displayName || acpProfileId} Model`,
+      provider: 'openai_compatible',
+      model: account.models[0] || 'glm-5',
+      baseUrl: account.baseUrl,
+      createdAt: now,
+      updatedAt: now,
+    });
+    acpModelSecrets.profiles = acpModelSecrets.profiles || {};
+    acpModelSecrets.profiles[acpModelProfileId] = { apiKey: sharedApiKey };
+    writeFileSync(acpModelMetaFile, `${JSON.stringify(acpModelMeta, null, 2)}\n`);
+    writeFileSync(acpModelSecretsFile, `${JSON.stringify(acpModelSecrets, null, 2)}\n`);
+    chmodSync(acpModelSecretsFile, 0o600);
+  }
+
+  // Disable builtin OAuth clients and only show preset members in the console
+  const envFile = path.join(projectDir, '.env');
+  if (existsSync(envFile)) {
+    const clientLabels = preset.members
+      .map((m) => `${m.provider}:${m.displayName || m.catId}`)
+      .join(',');
+    applyEnvChanges(envFile, [
+      'CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false',
+      `CAT_CAFE_CLIENT_LABELS=${clientLabels}`,
+    ], []);
+  }
 }
 
 function setClientOauthBinding(projectDir, client) {
@@ -548,14 +628,14 @@ function setClientOauthBinding(projectDir, client) {
 }
 
 function removeInstallerApiKeyAccount(projectDir, client, profileId) {
-  const profileDir = path.join(projectDir, '.cat-cafe');
-  if (!existsSync(profileDir)) return;
+  const globalDir = resolveGlobalCatCafeDir();
+  if (!existsSync(globalDir)) return;
 
-  const profileFile = path.join(profileDir, 'provider-profiles.json');
-  const secretsFile = path.join(profileDir, 'provider-profiles.secrets.local.json');
+  const profileFile = path.join(globalDir, 'provider-profiles.json');
+  const secretsFile = path.join(globalDir, 'provider-profiles.secrets.local.json');
   if (!existsSync(profileFile) && !existsSync(secretsFile)) return;
 
-  const catalogFile = path.join(profileDir, 'cat-catalog.json');
+  const catalogFile = path.join(projectDir, '.cat-cafe', 'cat-catalog.json');
   if (existsSync(catalogFile)) {
     const catalog = readJson(catalogFile, null);
     const boundCats = (catalog?.breeds ?? [])

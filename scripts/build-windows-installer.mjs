@@ -534,9 +534,9 @@ function installSharedPythonDeps(bundleDir) {
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
 
-  // Install JiuwenClaw as package (includes all its deps)
+  // Install JiuwenClaw as package (--no-deps: heavy optional deps installed separately)
   const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', jiuwenClawDir]);
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', '--no-deps', jiuwenClawDir]);
 
   // Install office automation libraries for MCP servers
   const officeDeps = [
@@ -1279,10 +1279,26 @@ function createPayloadTar(bundleDir, tarPath) {
   }
 }
 
+function findMakensis() {
+  const envPath = process.env.MAKENSIS_PATH;
+  if (envPath && commandExists(envPath)) return envPath;
+  if (commandExists('makensis')) return 'makensis';
+  if (process.platform === 'win32') {
+    const candidates = [
+      join(process.env.ProgramFiles ?? '', 'NSIS', 'makensis.exe'),
+      join(process.env['ProgramFiles(x86)'] ?? '', 'NSIS', 'makensis.exe'),
+    ];
+    for (const candidate of candidates) {
+      if (candidate && existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
 function invokeMakensis(installerScript, outputExe, payloadTar, version) {
-  const makensisCommand = process.env.MAKENSIS_PATH ?? 'makensis';
-  if (!commandExists(makensisCommand)) {
-    throw new Error('makensis not found on PATH. Install NSIS or run with --bundle-only.');
+  const makensisCommand = findMakensis();
+  if (!makensisCommand) {
+    throw new Error('makensis not found on PATH or in Program Files. Install NSIS or run with --bundle-only.');
   }
   const definePrefix = process.platform === 'win32' ? '/D' : '-D';
   run(makensisCommand, [
@@ -1298,6 +1314,12 @@ async function main() {
   const bundleDir = join(options.outputDir, 'bundle');
   const installerScript = join(repoRoot, 'packaging', 'windows', 'installer.nsi');
   const outputExe = buildInstallerOutputPath(options.outputDir, packageJson.version);
+
+  if (!options.bundleOnly && !findMakensis()) {
+    throw new Error(
+      'makensis not found. Install NSIS (https://nsis.sourceforge.io) or set MAKENSIS_PATH, or use --bundle-only.',
+    );
+  }
 
   logStep('Preparing output directories');
   ensureDir(options.outputDir);
