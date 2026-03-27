@@ -9,7 +9,7 @@ const SKILL_PLAZA = '\u6280\u80fd\u5e7f\u573a';
 const IMPORT_SKILL = '\u5bfc\u5165';
 
 export function SkillsPanel() {
-  const [activeTab, setActiveTab] = useState<'installed' | 'plaza'>('plaza');
+  const [activeTab, setActiveTab] = useState<'installed' | 'plaza'>('installed');
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-[#FFFFFF]">

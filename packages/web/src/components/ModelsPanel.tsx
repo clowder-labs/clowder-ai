@@ -55,11 +55,6 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ??
     '';
 
-  const inferredDescription =
-    pickStringField(item, ['description', 'desc', '\u63cf\u8ff0']) ??
-    genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
-    DEFAULT_DESC;
-
   const id = String(item.id ?? `${inferredName || 'model'}-${index}`);
   const object = String(item.object ?? 'model');
 
@@ -67,7 +62,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     id,
     object,
     name: inferredName,
-    description: inferredDescription,
+    description: DEFAULT_DESC,
   };
 }
 
@@ -155,7 +150,7 @@ export function ModelsPanel() {
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#8A93A2] transition-colors hover:text-[#5D6674]"
+            className="hidden inline-flex items-center gap-1.5 text-xs font-medium text-[#8A93A2] transition-colors hover:text-[#5D6674]"
           >
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
