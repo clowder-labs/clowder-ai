@@ -651,20 +651,24 @@ describe('DareAgentService', () => {
   // NOTE: This test only works when vendor/dare-cli is NOT present.
   // When vendor/dare-cli exists, resolveDefaultDarePath() always finds it,
   // and `darePath: undefined` in options falls through via ?? to the default.
-  test('returns explicit error when darePath is missing in runtime mode', { skip: existsSync(join(resolveVendorDarePath(), 'client', '__main__.py')) }, async () => {
-    const oldDarePath = process.env.DARE_PATH;
-    delete process.env.DARE_PATH;
-    try {
-      const service = new DareAgentService({ catId: 'dare', darePath: undefined });
-      const messages = await collect(service.invoke('Test missing path'));
-      const errorMsg = messages.find((m) => m.type === 'error');
-      assert.ok(errorMsg, 'expected error message');
-      assert.match(errorMsg.error, /DARE CLI path is not configured/);
-    } finally {
-      if (oldDarePath !== undefined) process.env.DARE_PATH = oldDarePath;
-      else delete process.env.DARE_PATH;
-    }
-  });
+  test(
+    'returns explicit error when darePath is missing in runtime mode',
+    { skip: existsSync(join(resolveVendorDarePath(), 'client', '__main__.py')) },
+    async () => {
+      const oldDarePath = process.env.DARE_PATH;
+      delete process.env.DARE_PATH;
+      try {
+        const service = new DareAgentService({ catId: 'dare', darePath: undefined });
+        const messages = await collect(service.invoke('Test missing path'));
+        const errorMsg = messages.find((m) => m.type === 'error');
+        assert.ok(errorMsg, 'expected error message');
+        assert.match(errorMsg.error, /DARE CLI path is not configured/);
+      } finally {
+        if (oldDarePath !== undefined) process.env.DARE_PATH = oldDarePath;
+        else delete process.env.DARE_PATH;
+      }
+    },
+  );
 
   // Regression: CAT_DARE_MODEL env → getCatModel() fallback → --model CLI arg
   // Without this fallback, huawei-modelarts adapter fails with "model is required"
@@ -712,7 +716,7 @@ describe('DareAgentService', () => {
         catId: 'dare',
         spawnFn,
         darePath: '/opt/dare',
-        model: '   ',  // whitespace-only — must not be treated as explicit model
+        model: '   ', // whitespace-only — must not be treated as explicit model
       });
       const promise = collect(service.invoke('Test whitespace model'));
       emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -888,6 +892,36 @@ describe('DareAgentService', () => {
     const mcpIdx = args.indexOf('--mcp-path');
     assert.ok(mcpIdx >= 0, `expected --mcp-path in args: ${args}`);
     assert.strictEqual(args[mcpIdx + 1], '/opt/mcp/dist/custom-entry.js');
+  });
+
+  test('injects bundled Python Scripts into dare child PATH', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'test/model',
+      darePath: '/opt/dare',
+    });
+    const originalPlatform = process.platform;
+    const originalPath = process.env.PATH;
+
+    try {
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      process.env.PATH = 'C:\\Windows\\System32';
+
+      const promise = collect(service.invoke('Test', { callbackEnv: { PATH: 'C:\\DareCustom' } }));
+      emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+      await promise;
+
+      const opts = spawnFn.mock.calls[0].arguments[2];
+      assert.match(opts.env.PATH, /tools\\python\\Scripts/i);
+      assert.match(opts.env.PATH, /C:\\DareCustom/i);
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+    }
   });
 });
 

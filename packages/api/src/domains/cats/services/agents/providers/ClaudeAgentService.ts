@@ -22,6 +22,7 @@ import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
@@ -282,7 +283,7 @@ export class ClaudeAgentService implements AgentService {
       }
 
       let sawResultError = false;
-      const envOverrides = buildClaudeEnvOverrides(options?.callbackEnv);
+      const envOverrides = withBundledPythonPath(buildClaudeEnvOverrides(options?.callbackEnv));
 
       // Debug: log full invocation details (env values redacted by pino redact paths)
       const safeEnvSummary: Record<string, string> = {};

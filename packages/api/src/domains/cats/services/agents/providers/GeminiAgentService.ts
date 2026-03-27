@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
@@ -122,7 +123,7 @@ export class GeminiAgentService implements AgentService {
         command: geminiCommand,
         args,
         ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
-        ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
+        ...(options?.callbackEnv ? { env: withBundledPythonPath(options.callbackEnv) } : {}),
         ...(options?.signal ? { signal: options.signal } : {}),
         ...(options?.invocationId ? { invocationId: options.invocationId } : {}),
         ...(options?.cliSessionId ? { cliSessionId: options.cliSessionId } : {}),
@@ -276,7 +277,7 @@ export class GeminiAgentService implements AgentService {
       const child = this.antigravitySpawnFn('antigravity', ['chat', '--mode', 'agent', prompt], {
         detached: true,
         stdio: 'ignore',
-        env: { ...process.env, ...options.callbackEnv },
+        env: { ...process.env, ...withBundledPythonPath(options.callbackEnv ?? {}) },
       });
       // Capture async spawn errors (ENOENT etc.) that fire on next tick.
       child.on('error', (err: Error) => {
