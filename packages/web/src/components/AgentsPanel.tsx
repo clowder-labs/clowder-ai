@@ -389,7 +389,6 @@ export function AgentsPanel() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-5">
         <h1 className="mb-1 text-[28px] font-bold leading-[36px] text-[#1F2329]">智能体管理</h1>
-        <p className="text-sm text-[#8B93A1]">管理 AI 智能体与角色配置</p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#E6EAF0] bg-white">
