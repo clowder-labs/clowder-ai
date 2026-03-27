@@ -1337,6 +1337,7 @@ async function main(): Promise<void> {
       defaultCatId: 'opus' as CatId,
       redis: redisClient ?? undefined,
       log: app.log,
+      frontendBaseUrl,
     });
     if (connectorGatewayHandle) {
       invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);

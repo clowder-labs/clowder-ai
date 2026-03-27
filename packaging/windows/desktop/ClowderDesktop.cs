@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,6 +21,21 @@ internal static class Program
     [DllImport("shcore.dll", SetLastError = true)]
     private static extern int SetProcessDpiAwareness(int awareness);
 
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    private const int SW_RESTORE = 9;
+    private const int SW_SHOW = 5;
+
     private static void EnableHighDpi()
     {
         try
@@ -34,6 +50,26 @@ internal static class Program
         }
     }
 
+    private static void ActivateExistingInstance()
+    {
+        var hWnd = FindWindow(null, "OfficeClaw");
+        if (hWnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        if (IsIconic(hWnd))
+        {
+            ShowWindow(hWnd, SW_RESTORE);
+        }
+        else
+        {
+            ShowWindow(hWnd, SW_SHOW);
+        }
+
+        SetForegroundWindow(hWnd);
+    }
+
     [STAThread]
     private static void Main()
     {
@@ -44,12 +80,7 @@ internal static class Program
         {
             if (!createdNew)
             {
-                MessageBox.Show(
-                    "OfficeClaw is already running.",
-                    "OfficeClaw",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information
-                );
+                ActivateExistingInstance();
                 return;
             }
 
@@ -185,6 +216,11 @@ internal sealed class LauncherForm : Form
     {
         try
         {
+            var icoPath = Path.Combine(_projectRoot, "assets", "app.ico");
+            if (File.Exists(icoPath))
+            {
+                return new Icon(icoPath);
+            }
             return Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
         }
         catch
@@ -196,8 +232,9 @@ internal sealed class LauncherForm : Form
     private NotifyIcon CreateNotifyIcon()
     {
         var contextMenu = new ContextMenuStrip();
-        contextMenu.Items.Add("Open OfficeClaw", null, (_, __) => RestoreFromTray());
-        contextMenu.Items.Add("Exit", null, (_, __) => RequestExit());
+        contextMenu.ShowImageMargin = false;
+        contextMenu.Items.Add("打开 OfficeClaw", null, (_, __) => RestoreFromTray());
+        contextMenu.Items.Add("退出", null, (_, __) => RequestExit());
 
         var notifyIcon = new NotifyIcon
         {
@@ -240,7 +277,7 @@ internal sealed class LauncherForm : Form
             _notifyIcon.ShowBalloonTip(
                 2500,
                 "OfficeClaw",
-                "OfficeClaw is still running here. Use the tray icon menu to exit.",
+                "OfficeClaw 仍在后台运行，右键托盘图标可退出。",
                 ToolTipIcon.Info
             );
             _trayHintShown = true;
@@ -409,6 +446,8 @@ internal sealed class LauncherForm : Form
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
 
         _serviceHostProcess = new Process
@@ -616,7 +655,8 @@ internal sealed class LauncherForm : Form
         {
             File.AppendAllText(
                 _logFilePath,
-                DateTime.Now.ToString("u") + " " + message + Environment.NewLine
+                DateTime.Now.ToString("u") + " " + message + Environment.NewLine,
+                Encoding.UTF8
             );
         }
     }

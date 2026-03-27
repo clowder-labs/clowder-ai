@@ -12,10 +12,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
+import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
-import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
 import {
   resolveBuiltinClientForProvider,
   validateRuntimeProviderBinding,
@@ -734,6 +734,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Dare has its own env vars regardless of protocol-based injection above
     if (provider === 'dare' && resolvedAccount?.authType === 'api_key') {
+      if (resolvedAccount.protocol) callbackEnv.CAT_CAFE_DARE_ADAPTER = resolvedAccount.protocol;
       if (resolvedAccount.apiKey) callbackEnv.DARE_API_KEY = resolvedAccount.apiKey;
       if (resolvedAccount.baseUrl) callbackEnv.DARE_ENDPOINT = resolvedAccount.baseUrl;
     }
