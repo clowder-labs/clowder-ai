@@ -693,12 +693,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             status: 'running',
           });
 
-          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
-            threadId: resolvedThreadId,
-            mode: intent.intent,
-            targetCats,
-            invocationId: createResult.invocationId,
-          });
+          // #768: intent_mode deferred to first CLI event (avoid "replying" when CLI never starts)
+          let intentModeBroadcast = false;
 
           // ADR-008 S3: collect cursor boundaries; ack only after succeeded
           const cursorBoundaries = new Map<string, string>();
@@ -754,6 +750,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               ...(resumeCatId ? { resumeCatId } : {}),
             },
           )) {
+            // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+            if (!intentModeBroadcast) {
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
+                threadId: resolvedThreadId,
+                mode: intent.intent,
+                targetCats,
+                invocationId: createResult.invocationId,
+              });
+              intentModeBroadcast = true;
+            }
             // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
             if (controller?.signal.aborted) break;
             if (msg.type === 'text' && msg.content) {
@@ -1031,12 +1037,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         }, HEARTBEAT_INTERVAL_MS);
 
         try {
-          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
-            threadId: resolvedThreadId,
-            mode: intent.intent,
-            targetCats,
-            // Legacy path: no invocationId (no InvocationRecord). Frontend falls back gracefully.
-          });
+          // #768: intent_mode deferred to first CLI event (legacy path)
+          let intentModeBroadcast = false;
 
           for await (const msg of router.route(
             userId,
@@ -1046,6 +1048,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             uploadDir,
             controller?.signal,
           )) {
+            // #768: Broadcast intent_mode on first CLI event (legacy path)
+            if (!intentModeBroadcast) {
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
+                threadId: resolvedThreadId,
+                mode: intent.intent,
+                targetCats,
+                // Legacy path: no invocationId (no InvocationRecord). Frontend falls back gracefully.
+              });
+              intentModeBroadcast = true;
+            }
             opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
           }
         } catch (err) {
