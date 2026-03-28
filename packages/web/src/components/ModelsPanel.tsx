@@ -244,47 +244,36 @@ export function ModelsPanel() {
     <div className="ui-page-shell">
       <div className="ui-page-header">
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openHub('provider-profiles')}
-            className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-          >
-            ACP / 账号配置
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAddModelModal(true)}
-            className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
-          >
-            {ADD_MODEL}
-          </button>
-        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-4 pb-2">
-          <section>
-            <div className="relative">
+          <section className='flex justify-between gap-2'>
+            <div className="relative flex-1 mr-2">
               <input
                 type="search"
                 aria-label="搜索模型"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={SEARCH_PLACEHOLDER}
-                className="ui-field w-full px-3 py-1.5 pr-10 text-xs"
+                className="ui-field w-full px-3 py-1.5 text-xs"
               />
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]"
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openHub('provider-profiles')}
+                className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
               >
-                <circle cx="9" cy="9" r="5.25" />
-                <path d="m13 13 3.5 3.5" />
-              </svg>
+                ACP / 账号配置
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(true)}
+                className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+              >
+                {ADD_MODEL}
+              </button>
             </div>
           </section>
 
