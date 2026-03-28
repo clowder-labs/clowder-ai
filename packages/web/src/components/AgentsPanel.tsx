@@ -8,16 +8,22 @@ import type { ConfigData } from './config-viewer-types';
 import { PromptSelectionModal } from './PromptSelectionModal';
 import { useConfirm } from './useConfirm';
 
-type AgentTabKey = 'persona' | 'collab' | 'memory' | 'preference';
+type AgentTabKey = 'persona' | 'collab';
+
+type CollabDraftFields = {
+  teamStrengths: string;
+  strengths: string[];
+  caution: string | null;
+  sessionChain: boolean;
+};
 
 const AGENT_TABS: Array<{ id: AgentTabKey; label: string }> = [
   { id: 'persona', label: '灵魂配置' },
   { id: 'collab', label: '协作配置' },
-  { id: 'memory', label: '记忆配置' },
-  { id: 'preference', label: '用户偏好' },
 ];
 
 const TEMPLATE_PAGE_SIZE = 4;
+const AUTOSAVE_DELAY_MS = 700;
 
 type InspirationTemplate = {
   id: string;
@@ -183,8 +189,61 @@ function buildTabDrafts(
   return {
     persona: cat?.personality ?? '',
     collab: buildCollabDraft(cat),
-    memory: '',
-    preference: '',
+  };
+}
+
+function parseStrengthTags(raw: string): string[] {
+  return raw
+    .split(/[、,\n]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function parseCollabDraft(draft: string): CollabDraftFields {
+  const next: CollabDraftFields = {
+    teamStrengths: '',
+    strengths: [],
+    caution: null,
+    sessionChain: true,
+  };
+
+  for (const rawLine of draft.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith('团队协作优势：')) {
+      next.teamStrengths = line.slice('团队协作优势：'.length).trim();
+      continue;
+    }
+    if (line.startsWith('能力标签：')) {
+      next.strengths = parseStrengthTags(line.slice('能力标签：'.length));
+      continue;
+    }
+    if (line.startsWith('Session Chain：')) {
+      const value = line.slice('Session Chain：'.length).trim();
+      if (value === '开启') next.sessionChain = true;
+      if (value === '关闭') next.sessionChain = false;
+      continue;
+    }
+    if (line.startsWith('协作提醒：')) {
+      const value = line.slice('协作提醒：'.length).trim();
+      next.caution = value || null;
+    }
+  }
+
+  return next;
+}
+
+function buildAutosavePayload(tab: AgentTabKey, draft: string): Record<string, unknown> {
+  if (tab === 'persona') {
+    return { personality: draft };
+  }
+
+  const parsed = parseCollabDraft(draft);
+  return {
+    teamStrengths: parsed.teamStrengths,
+    strengths: parsed.strengths,
+    sessionChain: parsed.sessionChain,
+    caution: parsed.caution,
   };
 }
 
@@ -194,10 +253,6 @@ function tabPlaceholder(activeTab: AgentTabKey): string {
       return '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成';
     case 'collab':
       return '请输入协作配置内容，例如分工方式、交接规则、协作边界等';
-    case 'memory':
-      return '请输入记忆配置内容，例如记忆策略、保留规则、摘要方式等';
-    case 'preference':
-      return '请输入用户偏好内容，例如输出风格、禁忌项、默认习惯等';
     default:
       return '';
   }
@@ -230,10 +285,18 @@ export function AgentsPanel() {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templatePage, setTemplatePage] = useState(0);
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const templatePreviewLayerRef = useRef<HTMLDivElement | null>(null);
   const hoveredTemplateTriggerRef = useRef<HTMLElement | null>(null);
   const personaTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const selectedCatIdRef = useRef<string | null>(null);
+  const activeTabRef = useRef<AgentTabKey>('persona');
+  const tabDraftsRef = useRef<Record<AgentTabKey, string>>(buildTabDrafts(null));
+  const lastSavedDraftsRef = useRef<Record<string, Record<AgentTabKey, string>>>({});
+  const saveQueueRef = useRef<{ catId: string; tab: AgentTabKey; draft: string } | null>(null);
+  const saveLoopPromiseRef = useRef<Promise<void> | null>(null);
+  const previousSelectedCatIdRef = useRef<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -321,8 +384,16 @@ export function AgentsPanel() {
   const showTemplateUI = isPersonaTab && !hasDraftContent;
 
   useEffect(() => {
-    setTabDrafts(buildTabDrafts(selectedCat));
-  }, [selectedCat]);
+    selectedCatIdRef.current = selectedCat?.id ?? null;
+  }, [selectedCat?.id]);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    tabDraftsRef.current = tabDrafts;
+  }, [tabDrafts]);
 
   useEffect(() => {
     if (cats.length === 0) {
@@ -335,12 +406,113 @@ export function AgentsPanel() {
   }, [cats, selectedCatId]);
 
   useEffect(() => {
+    if (!selectedCat?.id) return;
+    if (previousSelectedCatIdRef.current === selectedCat.id) return;
+    const nextDrafts = buildTabDrafts(selectedCat);
+    previousSelectedCatIdRef.current = selectedCat.id;
+    lastSavedDraftsRef.current[selectedCat.id] = nextDrafts;
+    setTabDrafts(nextDrafts);
+  }, [selectedCat?.id, selectedCat]);
+
+  const queueAutosave = useCallback(
+    async (catId: string, tab: AgentTabKey, draft: string) => {
+      saveQueueRef.current = { catId, tab, draft };
+      if (saveLoopPromiseRef.current) {
+        await saveLoopPromiseRef.current;
+        return;
+      }
+
+      saveLoopPromiseRef.current = (async () => {
+        while (saveQueueRef.current) {
+          const nextSave = saveQueueRef.current;
+          saveQueueRef.current = null;
+          try {
+            const res = await apiFetch(`/api/cats/${nextSave.catId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(buildAutosavePayload(nextSave.tab, nextSave.draft)),
+            });
+            if (!res.ok) {
+              const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+              setFetchError((payload.error as string) ?? `保存失败 (${res.status})`);
+              continue;
+            }
+
+            setFetchError(null);
+            const savedDrafts = lastSavedDraftsRef.current[nextSave.catId] ?? buildTabDrafts(null);
+            lastSavedDraftsRef.current[nextSave.catId] = {
+              ...savedDrafts,
+              [nextSave.tab]: nextSave.draft,
+            };
+            await refresh();
+          } catch {
+            setFetchError('保存失败');
+          }
+        }
+      })().finally(() => {
+        saveLoopPromiseRef.current = null;
+      });
+
+      await saveLoopPromiseRef.current;
+    },
+    [refresh],
+  );
+
+  const flushAutosave = useCallback(async () => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    const catId = selectedCatIdRef.current;
+    const tab = activeTabRef.current;
+    if (!catId) return;
+
+    const draft = tabDraftsRef.current[tab] ?? '';
+    const savedDraft = lastSavedDraftsRef.current[catId]?.[tab] ?? '';
+    if (draft === savedDraft) return;
+    await queueAutosave(catId, tab, draft);
+  }, [queueAutosave]);
+
+  useEffect(() => {
     return () => {
       if (hoverClearTimerRef.current) {
         clearTimeout(hoverClearTimerRef.current);
       }
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+      const catId = selectedCatIdRef.current;
+      const tab = activeTabRef.current;
+      if (!catId) return;
+      const draft = tabDraftsRef.current[tab] ?? '';
+      const savedDraft = lastSavedDraftsRef.current[catId]?.[tab] ?? '';
+      if (draft !== savedDraft) {
+        void queueAutosave(catId, tab, draft);
+      }
     };
-  }, []);
+  }, [queueAutosave]);
+
+  useEffect(() => {
+    const catId = selectedCat?.id;
+    if (!catId) return;
+    const savedDraft = lastSavedDraftsRef.current[catId]?.[activeTab] ?? '';
+    if (activeDraft === savedDraft) return;
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+    autosaveTimerRef.current = setTimeout(() => {
+      autosaveTimerRef.current = null;
+      void queueAutosave(catId, activeTab, activeDraft);
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, [activeDraft, activeTab, queueAutosave, selectedCat?.id]);
 
   const positionTemplatePreview = useCallback((triggerElement: HTMLElement | null) => {
     const previewLayer = templatePreviewLayerRef.current;
@@ -540,7 +712,15 @@ export function AgentsPanel() {
                       >
                         <span>{avatarLooksLikeUrl ? catInitial(cat.displayName) : avatar || catInitial(cat.displayName)}</span>
                       </div>
-                      <button type="button" onClick={() => setSelectedCatId(cat.id)} className="min-w-0 flex-1 text-left">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void flushAutosave().finally(() => {
+                            setSelectedCatId(cat.id);
+                          });
+                        }}
+                        className="min-w-0 flex-1 text-left"
+                      >
                         <div className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{cat.displayName}</div>
                         <div className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
                           {modelText} · {budgetText}
@@ -606,13 +786,17 @@ export function AgentsPanel() {
             </div>
           </aside>
 
-          <section className="flex min-w-0 flex-1 flex-col bg-[var(--surface-panel)] p-3">
+          <section className="flex min-w-0 flex-1 flex-col border border-[#e5e7eb] bg-[var(--surface-panel)] p-3">
             <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-[var(--border-soft)] pb-2">
               {AGENT_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    void flushAutosave().finally(() => {
+                      setActiveTab(tab.id);
+                    });
+                  }}
                   data-testid={`agent-tab-${tab.id}`}
                   className={`ui-chip rounded-[var(--radius-sm)] px-3 py-1.5 text-xs transition ${
                     activeTab === tab.id
