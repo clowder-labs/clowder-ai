@@ -2,6 +2,7 @@
  * Authentication Routes — 用户登录认证
  */
 
+import Conf from 'conf';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 
 export interface AuthRoutesOptions {
@@ -13,7 +14,7 @@ interface UserInfo {
   token: string;
   expiresAt: string;
   credential: Record<string, string>;
-  modelInfo: Record<string, unknown>;
+  modelInfo: Record<string, any>;
 }
 
 interface TokenResult {
@@ -21,6 +22,7 @@ interface TokenResult {
   token?: string;
   expiresAt?: string;
   message?: string;
+  domainId?: string;
 }
 
 interface CredentialResult {
@@ -33,6 +35,7 @@ interface ModelInfoResult {
   success: boolean;
   modelInfo?: Record<string, unknown>;
   message?: string;
+  needCode?: boolean;
 }
 
 interface LoginBody {
@@ -40,6 +43,13 @@ interface LoginBody {
   userName?: string;
   password: string;
   userType: 'huawei' | 'iam';
+  promotionCode?: string;
+}
+
+interface PromotionCodeBody {
+  code?: string;
+  promotionCode?: string;
+  inviteCode?: string;
 }
 
 const userInfo: UserInfo = {
@@ -51,9 +61,40 @@ const userInfo: UserInfo = {
 };
 
 const IAM_URL = 'https://iam.myhuaweicloud.com';
+const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
+
+const secureConfig = new Conf({
+  projectName: 'secure-config',
+  encryptionKey: 'clowder-ai-secure-key',
+  encryptionAlgorithm: 'aes-256-gcm',
+});
 
 // 简单的session存储（生产环境应该使用Redis或数据库）
 export const sessions = new Map<string, UserInfo>();
+const promotionPassedClients = new Set<string>();
+
+function getClientKey(request: { headers: Record<string, unknown>; ip: string }): string {
+  const forwardedFor = request.headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+    return forwardedFor.split(',')[0]?.trim() || request.ip;
+  }
+  return request.ip;
+}
+
+function readPromotionCode(body: PromotionCodeBody | undefined): string {
+  if (!body) return '';
+  const raw = body.code ?? body.promotionCode ?? body.inviteCode;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function getPromotionCodeWhitelist(): string[] {
+  const raw = process.env.CAT_CAFE_PROMOTION_CODES ?? process.env.CAT_CAFE_PROMOTION_CODE ?? DEFAULT_PROMOTION_CODE;
+  return raw
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, options) => {
 
   const skipAuth = process.env.CAT_CAFE_SKIP_AUTH === '1' || process.env.CAT_CAFE_SKIP_AUTH === 'true';
@@ -61,21 +102,21 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
   // 检查登录状态接口
   app.get('/api/islogin', async (request, reply) => {
     if (skipAuth) {
-      return { isLoggedIn: true, userId: 'debug-user' };
+      return { islogin: true, hascode: true, userId: 'debug-user' };
     }
-
+    const hascode = secureConfig.get('lastPromotionCode') ? true : false;
     const userId = request.headers['x-cat-cafe-user'] as string;
     if (!userId) {
-      return { isLoggedIn: false };
+      return { islogin: false, hascode };
     }
 
-    // 检查session是否有效
-    const session = sessions.get(userId);
-    if (!session || new Date(session.expiresAt).getTime() < new Date().getTime()) {
-      return { isLoggedIn: false };
+    const expiresAt = secureConfig.get(userId) as string | undefined;
+    console.log(`Checking login for userId: ${userId}, expiresAt: ${expiresAt}`);
+    if (!expiresAt || new Date(expiresAt).getTime() < new Date().getTime()) {
+      return { islogin: false, hascode };
     }
 
-    return { isLoggedIn: true, userId: session.userId };
+    return { islogin: true, hascode, userId };
   });
 
   /**
@@ -85,36 +126,42 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
    * 3. 创建session并返回用户信息
    */
   app.post('/api/login', async (request, reply) => {
-    const { domainName, userName, password, userType } = request.body as LoginBody;
+    const { domainName, userName, password, userType, promotionCode } = request.body as LoginBody;
     const name = userType === 'huawei' ? domainName : userName;
     if (!domainName || !password || !name) {
       return { success: false, message: '用户名或密码错误' };
     }
 
-    const tokenResult = await getTokens(app, domainName, name, password);
+    const tokenResult = await getTokens(domainName, name, password);
 
     if (!tokenResult?.success) {
-      return { success: false, message: tokenResult?.message || '认证失败' };
+      return { success: false, message: tokenResult?.message || '登录失败' };
     }
 
-    const credentialResult = await getSecuritytokens(app, tokenResult.token);
-    if (!credentialResult?.success) {
-      return { success: false, message: credentialResult?.message || '认证失败' };
+    // const credentialResult = await getSecuritytokens(tokenResult.token);
+    // if (!credentialResult?.success) {
+    //   return { success: false, message: credentialResult?.message || '登录失败' };
+    // }
+
+    const id = tokenResult.domainId || domainName;
+    let modelInfo = secureConfig.get(id);
+    if (!modelInfo) {
+      const modelInfoResult = await subscriptionClaw(tokenResult.token, promotionCode);
+      if (!modelInfoResult?.success) {
+        return { success: false, needCode: modelInfoResult?.needCode, message: modelInfoResult?.message || '登录失败' };
+      }
+      modelInfo = modelInfoResult.modelInfo;
+      secureConfig.set(id, modelInfo);
     }
 
-    const modelInfoResult = await subscriptionClaw(tokenResult.token);
-    if (!modelInfoResult?.success) {
-      return { success: false, message: modelInfoResult?.message || '\u5f00\u901a\u5931\u8d25' };
-    }
     userInfo.userId = `${domainName}:${name ?? ''}`;
-    userInfo.token = tokenResult.token ?? '';
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
-    userInfo.credential = credentialResult.credential ?? {};
-    userInfo.modelInfo = modelInfoResult.modelInfo ?? {};
+    userInfo.modelInfo = modelInfo ?? {};
+    secureConfig.set(userInfo.userId, userInfo.expiresAt);
+    sessions.set(userInfo.userId, { ...userInfo });
 
     // 创建session（简单实现，生产环境应该生成JWT token）
     const sessionId = `session-${Date.now()}-${Math.random()}`;
-    sessions.set(userInfo.userId, userInfo);
     // 设置header返回给前端
     reply.header('X-Cat-Cafe-User', userInfo.userId);
     reply.header('X-Session-Id', sessionId);
@@ -128,18 +175,21 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opt
 
     if (userId) {
       // 删除 session
-      sessions.delete(userId);
+      sessions.delete(userInfo.userId);
+      secureConfig.delete(userId);
+      console.log(`Logged out user: ${userId}`);
+      return { success: true, message: '退出登录成功' };
     }
 
-    return { success: true, message: '退出登录成功' };
+    return { success: false, message: '退出登录成功' };
   });
 };
 
 // 获取IAM用户Token
-async function getTokens(app: FastifyInstance, domainName = '', userName = '', password = ''): Promise<TokenResult> {
+async function getTokens(domainName = '', userName = '', password = ''): Promise<TokenResult> {
   // 调用华为云认证接口
   try {
-    const authResponse = await fetch(`${IAM_URL}/v3/auth/tokens`,{
+    const authResponse = await fetch(`${IAM_URL}/v3/auth/tokens`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json;charset=utf8',
@@ -168,10 +218,13 @@ async function getTokens(app: FastifyInstance, domainName = '', userName = '', p
     });
 
     if (!authResponse.ok) {
-      throw new Error(`认证失败，状态码: ${authResponse.statusText}`);
+      const { error_code, error_message } = await getErrorMessage(authResponse);
+      throw new Error(`认证失败，错误码: ${error_code}, 错误信息: ${error_message}`);
     }
     const data: any = await authResponse.json();
-    return { success: true, token: authResponse.headers.get('x-subject-token') as string, expiresAt: data.expires_at };
+    const domainId = data.token?.user?.domain?.id || domainName;
+    const expiresAt = data.token?.expires_at || new Date().toISOString();
+    return { success: true, token: authResponse.headers.get('x-subject-token') as string, expiresAt, domainId };
   } catch (error) {
     console.error('获取IAM Token失败:', error);
     return { success: false, message: '登录失败' };
@@ -179,8 +232,7 @@ async function getTokens(app: FastifyInstance, domainName = '', userName = '', p
 }
 
 //获取用户的临时访问密钥
-async function getSecuritytokens(app: FastifyInstance, token = ''): Promise<CredentialResult> {
-  // 调用华为云认证接口
+async function getSecuritytokens(token = ''): Promise<CredentialResult> {
   try {
     const authResponse = await fetch(`${IAM_URL}/v3.0/OS-CREDENTIAL/securitytokens`, {
       method: 'POST',
@@ -198,7 +250,8 @@ async function getSecuritytokens(app: FastifyInstance, token = ''): Promise<Cred
     });
 
     if (!authResponse.ok) {
-      throw new Error(`获取IAM临时访问密钥失败，状态码: ${authResponse.status}`);
+      const { error_code, error_message } = await getErrorMessage(authResponse);
+      throw new Error(`获取IAM临时访问密钥失败，错误码: ${error_code}, 错误信息: ${error_message}`);
     }
     const data: any = await authResponse.json();
     return { success: true, credential: data.credential };
@@ -209,9 +262,9 @@ async function getSecuritytokens(app: FastifyInstance, token = ''): Promise<Cred
 }
 
 //开通客户端claw
-async function subscriptionClaw(token = ''): Promise<ModelInfoResult> {
-  // 调用华为云认证接口
+async function subscriptionClaw(token = '', promotionCode?: string): Promise<ModelInfoResult> {
   try {
+    console.log('开通客户端 Code:', secureConfig.get('lastPromotionCode'));
     const subResponse = await fetch(`https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-subscription`, {
       method: 'POST',
       headers: {
@@ -219,17 +272,31 @@ async function subscriptionClaw(token = ''): Promise<ModelInfoResult> {
         'X-Auth-Token': token,
       },
       body: JSON.stringify({
-        promotion_code: "huawei_dev_blue"
+        promotion_code: promotionCode || secureConfig.get('lastPromotionCode') || DEFAULT_PROMOTION_CODE
       })
     });
-
+    
     if (!subResponse.ok) {
-      throw new Error(`开通客户端claw失败，状态码: ${subResponse.status}`);
+      const { error_code, error_message } = await getErrorMessage(subResponse);
+      const needCode = ['AgentArts.11000008', 'AgentArts.11000009'].includes(error_code);
+      needCode && secureConfig.delete('lastPromotionCode');
+      console.error(`开通客户端失败，错误码: ${error_code}, 错误信息: ${error_message}`);
+      return { success: false, message: needCode ? `邀请码无效，请重新输入` : `开通失败`, needCode };
     }
+    
     const data: any = await subResponse.json();
+    promotionCode && secureConfig.set('lastPromotionCode', promotionCode);
     return { success: true, modelInfo: data.model_info };
   } catch (error) {
     console.error('开通客户端claw失败:', error);
-    return { success: false, message: '登录失败' };
+    return { success: false, message: '开通失败' };
   }
+}
+
+async function getErrorMessage(response: Response): Promise<{error_code: string, error_message: string}> {
+  const data: any = await response.json();
+  if (data && typeof data === 'object') {
+    return { error_code: data.error_code, error_message: data.error_message || data.error_msg };
+  }
+  return { error_code: response.status.toString(), error_message: response.statusText };
 }

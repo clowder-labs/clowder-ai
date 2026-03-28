@@ -15,7 +15,7 @@ export default function Home() {
       try {
         const response = await apiFetch('/api/islogin');
         const data = await response.json();
-        if (data.isLoggedIn) {
+        if (data.islogin) {
           setIsLoggedIn(true);
         } else {
           router.replace('/login');
