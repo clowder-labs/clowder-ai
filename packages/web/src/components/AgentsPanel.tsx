@@ -5,7 +5,6 @@ import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import type { ConfigData } from './config-viewer-types';
-import { HubCatEditor } from './HubCatEditor';
 import { PromptSelectionModal } from './PromptSelectionModal';
 import { useConfirm } from './useConfirm';
 
@@ -34,6 +33,10 @@ const INSPIRATION_TEMPLATES = [
       '性格：耐心克制、语气专业、表达清晰。',
       '行为：先确认诉求，再给步骤方案，必要时主动引导升级处理。',
     ],
+    behavior: [
+      '精准识别用户诉求与情绪波动，先安抚再给处理路径。',
+      '优先提供标准流程与升级建议，避免模糊表述。',
+    ],
     applyLabel: '接入模板',
   },
   {
@@ -48,6 +51,10 @@ const INSPIRATION_TEMPLATES = [
       '身份：资深内容创作者，擅长根据主题快速成稿。',
       '性格：创意灵活、语气温和、结构清晰。',
       '行为：聚焦目标、突出重点，给出可执行建议。',
+    ],
+    behavior: [
+      '先明确目标受众、平台与语气，再组织内容结构。',
+      '输出可直接使用的文案方案，并附带优化建议。',
     ],
     applyLabel: '接入模板',
   },
@@ -64,6 +71,10 @@ const INSPIRATION_TEMPLATES = [
       '性格：理性克制、客观中立、注重依据。',
       '行为：先定义问题边界，再逐层解释并给出结论与风险提示。',
     ],
+    behavior: [
+      '先确认问题边界与上下文，再给出条理化解释。',
+      '需要时补充风险、适用范围与可执行建议。',
+    ],
     applyLabel: '接入模板',
   },
   {
@@ -78,6 +89,10 @@ const INSPIRATION_TEMPLATES = [
       '身份：项目协作教练，擅长流程梳理与任务推进。',
       '性格：简洁务实、节奏明确、结果导向。',
       '行为：优先给行动清单，再补充沟通模板与复盘建议。',
+    ],
+    behavior: [
+      '优先沉淀行动项、责任人和时间节点。',
+      '补充可复用的汇报、纪要和复盘模板。',
     ],
     applyLabel: '接入模板',
   },
@@ -94,6 +109,10 @@ const INSPIRATION_TEMPLATES = [
       '性格：稳健清晰、节奏明确、关注依赖关系。',
       '行为：先明确目标与边界，再拆解任务、识别风险并推动闭环。',
     ],
+    behavior: [
+      '拆解目标、建立里程碑并持续跟踪风险。',
+      '围绕依赖关系和优先级推动项目闭环。',
+    ],
     applyLabel: '接入模板',
   },
   {
@@ -108,6 +127,10 @@ const INSPIRATION_TEMPLATES = [
       '身份：数据分析师，擅长从指标与样本中提炼业务洞察。',
       '性格：严谨客观、表达简洁、重视证据。',
       '行为：先确认分析目标，再整理数据、解释异常并输出结论建议。',
+    ],
+    behavior: [
+      '先确认指标口径与样本范围，再给出分析过程。',
+      '输出结论时同步说明依据、异常点和建议动作。',
     ],
     applyLabel: '接入模板',
   },
@@ -235,8 +258,6 @@ export function AgentsPanel() {
   }, [fetchData, refresh]);
 
   const editingCat = editingCatId ? cats.find((c) => c.id === editingCatId) : null;
-  const editingConfigCat = editingCatId && config ? config.cats[editingCatId] : undefined;
-
   const selectedCat = useMemo(
     () => (selectedCatId ? cats.find((cat) => cat.id === selectedCatId) ?? null : cats[0] ?? null),
     [cats, selectedCatId],
@@ -254,6 +275,17 @@ export function AgentsPanel() {
         source: template.source,
         creator: template.creator,
         createdAt: template.createdAt,
+        summary: template.description,
+        sections: [
+          {
+            title: '人格定义 (Persona)',
+            lines: template.persona,
+          },
+          {
+            title: '行为准则 (Behavior)',
+            lines: template.behavior,
+          },
+        ],
         content: `${template.description}\n\n人格定义：\n${template.persona.map((item, index) => `${index + 1}. ${item}`).join('\n')}`,
       })),
     [],
@@ -465,7 +497,7 @@ export function AgentsPanel() {
                 return (
                   <div
                     key={cat.id}
-                    className={`w-full rounded-xl border px-3 py-2 transition ${
+                    className={`relative w-full overflow-visible rounded-xl border px-3 py-2 transition ${
                       isSelected
                         ? 'border-[#8CB9FF] bg-[#F7FBFF] shadow-[0_0_0_1px_rgba(122,174,255,0.18)]'
                         : 'border-[#ECEFF3] bg-[#FAFBFC] hover:border-[#DCE5EF] hover:bg-[#FFFFFF]'
@@ -484,7 +516,7 @@ export function AgentsPanel() {
                           {modelText} · {budgetText}
                         </div>
                       </button>
-                      <div ref={openActionMenuCatId === cat.id ? actionMenuRef : null} className="relative shrink-0">
+                      <div ref={openActionMenuCatId === cat.id ? actionMenuRef : null} className="shrink-0">
                         <button
                           type="button"
                           onClick={() => toggleActionMenu(cat.id)}
@@ -499,7 +531,7 @@ export function AgentsPanel() {
                         {openActionMenuCatId === cat.id ? (
                           <div
                             role="menu"
-                            className="absolute left-[calc(100%+24px)] top-1/2 z-20 w-20 -translate-y-1/2 rounded-xl border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                            className="absolute bottom-2 right-2 z-30 w-20 translate-y-[calc(100%+8px)] rounded-xl border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
                           >
                             <button
                               type="button"
@@ -701,21 +733,25 @@ export function AgentsPanel() {
         </div>
       </div>
 
-      {editingCatId ? (
-        <HubCatEditor
-          open={editorOpen}
-          cat={editingCat ?? undefined}
-          configCat={editingConfigCat}
-          onClose={closeEditor}
-          onSaved={handleEditorSaved}
-        />
-      ) : (
-        <CreateAgentModalDraft open={editorOpen} onClose={closeEditor} onSaved={handleEditorSaved} />
-      )}
+      <CreateAgentModalDraft
+        open={editorOpen}
+        cat={editingCat ?? undefined}
+        name={editingCat?.name ?? editingCat?.displayName}
+        description={editingCat?.roleDescription}
+        selectedModelId={
+          editingCat?.accountRef && editingCat.defaultModel ? `${editingCat.accountRef}::${editingCat.defaultModel}` : null
+        }
+        title={editingCatId ? '编辑智能体' : '创建智能体'}
+        onClose={closeEditor}
+        onSaved={handleEditorSaved}
+      />
       <PromptSelectionModal
         open={templateModalOpen}
         items={promptSelectionItems}
-        title="选择灵感模板"
+        title="灵魂模板"
+        searchPlaceholder="输入关键字搜索"
+        cancelLabel="取消"
+        confirmLabel="插入"
         initialSelectedId={hoveredTemplateId ?? promptSelectionItems[0]?.id ?? null}
         onClose={() => setTemplateModalOpen(false)}
         onConfirm={handleTemplateModalConfirm}

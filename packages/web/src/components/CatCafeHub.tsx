@@ -16,7 +16,6 @@ import {
 } from './cat-cafe-hub.navigation';
 import { CatOverviewTab, type ConfigData, SystemTab } from './config-viewer-tabs';
 import { HubCapabilityTab } from './HubCapabilityTab';
-import { HubCatEditor } from './HubCatEditor';
 import { HubClaudeRescueSection } from './HubClaudeRescueSection';
 import { HubCoCreatorEditor } from './HubCoCreatorEditor';
 import { HubCommandsTab } from './HubCommandsTab';
@@ -27,6 +26,7 @@ import { HubLeaderboardTab } from './HubLeaderboardTab';
 import { HubProviderProfilesTab } from './HubProviderProfilesTab';
 import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
 import { HubSkillsTab } from './HubSkillsTab';
+import type { HubCatEditorDraft } from './hub-cat-editor.model';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 
@@ -63,7 +63,7 @@ export function CatCafeHub() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [coCreatorEditorOpen, setCoCreatorEditorOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<(typeof cats)[number] | null>(null);
-  const [createDraft, setCreateDraft] = useState<Parameters<typeof HubCatEditor>[0]['draft']>(null);
+  const [createDraft, setCreateDraft] = useState<HubCatEditorDraft | null>(null);
   const [togglingCatId, setTogglingCatId] = useState<string | null>(null);
 
   // P1 fix: Render-time state sync (React 18 "adjusting state on props change" pattern).
@@ -277,27 +277,23 @@ export function CatCafeHub() {
             {tab === 'skills' && <HubSkillsTab />}
           </div>
         </div>
-        {editingCat ? (
-          <HubCatEditor
-            open={editorOpen}
-            cat={editingCat}
-            configCat={config?.cats[editingCat.id]}
-            onClose={closeEditor}
-            onSaved={handleEditorSaved}
-          />
-        ) : (
-          <CreateAgentModalDraft
-            open={editorOpen}
-            draft={createDraft}
-            selectedModelId={
-              createDraft?.accountRef && createDraft.defaultModel
+        <CreateAgentModalDraft
+          open={editorOpen}
+          cat={editingCat}
+          name={editingCat?.name ?? editingCat?.displayName}
+          description={editingCat?.roleDescription}
+          draft={createDraft}
+          selectedModelId={
+            editingCat?.accountRef && editingCat.defaultModel
+              ? `${editingCat.accountRef}::${editingCat.defaultModel}`
+              : createDraft?.accountRef && createDraft.defaultModel
                 ? `${createDraft.accountRef}::${createDraft.defaultModel}`
                 : null
-            }
-            onClose={closeEditor}
-            onSaved={handleEditorSaved}
-          />
-        )}
+          }
+          title={editingCat ? '编辑智能体' : '创建智能体'}
+          onClose={closeEditor}
+          onSaved={handleEditorSaved}
+        />
         <HubCoCreatorEditor
           open={coCreatorEditorOpen}
           coCreator={config?.coCreator}

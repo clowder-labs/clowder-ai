@@ -1,14 +1,31 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import type { CatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
+import { uploadAvatarAsset } from './hub-cat-editor.client';
+import { initialState, type ClientValue, type HubCatEditorDraft, type HubCatEditorFormState } from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
-import type { ClientValue, HubCatEditorDraft, HubCatEditorFormState } from './hub-cat-editor.model';
+import {
+  DRAFT_MODEL_OPTIONS,
+  ModelSelectDropdownDraft,
+  ModelSelectTriggerIcon,
+  ModelSelectValueDraft,
+  type DraftModelOption,
+} from './ModelSelectDropdownDraft';
 import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
-import { DRAFT_MODEL_OPTIONS, ModelSelectDropdownDraft, type DraftModelOption } from './ModelSelectDropdownDraft';
+
+interface MassModelResponseItem {
+  id?: string | number;
+  object?: string;
+  name?: string;
+  description?: string;
+  [key: string]: unknown;
+}
 
 interface CreateAgentModalDraftProps {
   open: boolean;
+  cat?: CatData | null;
   name?: string;
   description?: string;
   selectedModelId?: string | null;
@@ -27,6 +44,46 @@ interface CreateModelOption extends DraftModelOption {
   providerName?: string;
 }
 
+function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
+  for (const key of candidates) {
+    const value = item[key];
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  }
+  return undefined;
+}
+
+function normalizeMassModelName(item: MassModelResponseItem): string {
+  const nameFromKnownFields = pickStringField(item, ['name', 'modelName', 'model_name', 'displayName', 'display_name', '名称']);
+  if (nameFromKnownFields) return nameFromKnownFields;
+
+  const genericStringEntries = Object.entries(item).filter(
+    ([key, value]) => typeof value === 'string' && key !== 'id' && key !== 'object',
+  ) as Array<[string, string]>;
+  return genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ?? '';
+}
+
+function chooseProfileForModel(
+  modelName: string,
+  profiles: ProfileItem[],
+  preferredProfileIds: string[],
+  activeProfileId: string | null,
+): ProfileItem | null {
+  const matches = profiles.filter((profile) => (profile.models ?? []).includes(modelName));
+  if (matches.length === 0) return null;
+
+  for (const profileId of preferredProfileIds) {
+    const matched = matches.find((profile) => profile.id === profileId);
+    if (matched) return matched;
+  }
+
+  if (activeProfileId) {
+    const activeMatch = matches.find((profile) => profile.id === activeProfileId);
+    if (activeMatch) return activeMatch;
+  }
+
+  return matches[0] ?? null;
+}
+
 function CloseIcon() {
   return (
     <svg className="h-6 w-6 text-[#8D97A6]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -36,20 +93,16 @@ function CloseIcon() {
   );
 }
 
-function UploadIcon() {
+function SparklesIcon() {
   return (
-    <svg className="h-[18px] w-[18px] text-[#8D97A6]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 16V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M8.5 10.5L12 7L15.5 10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M6 17.5V18C6 18.55 6.45 19 7 19H17C17.55 19 18 18.55 18 18V17.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#8D97A6]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg className="h-[18px] w-[18px] text-[#B26BFF]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3L13.6 7.4L18 9L13.6 10.6L12 15L10.4 10.6L6 9L10.4 7.4L12 3Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path d="M18.5 4.5L19 6L20.5 6.5L19 7L18.5 8.5L18 7L16.5 6.5L18 6L18.5 4.5Z" fill="currentColor" />
     </svg>
   );
 }
@@ -87,9 +140,53 @@ function resolveProfileClient(profile: ProfileItem): ClientValue | null {
   }
 }
 
+function inferClientFromModelName(modelName: string): ClientValue {
+  const normalized = modelName.toLowerCase();
+  if (normalized.includes('claude')) return 'anthropic';
+  if (normalized.includes('gpt')) return 'openai';
+  if (normalized.includes('gemini')) return 'google';
+  if (normalized.includes('qwen') || normalized.includes('deepseek') || normalized.includes('glm') || normalized.includes('kimi')) {
+    return 'dare';
+  }
+  return 'dare';
+}
+
+function avatarSeed(name: string): string {
+  const normalized = name.trim() || 'BOT';
+  let hash = 0;
+  for (const char of normalized) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 360;
+  }
+  return `hsl(${hash} 72% 62%)`;
+}
+
+function buildGeneratedAvatarDataUrl(name: string): string {
+  const label = (name.trim().slice(0, 1) || '智').toUpperCase();
+  const color = avatarSeed(name);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${color}" />
+          <stop offset="100%" stop-color="#8AA4FF" />
+        </linearGradient>
+      </defs>
+      <rect width="96" height="96" rx="48" fill="url(#g)" />
+      <circle cx="48" cy="48" r="38" fill="rgba(255,255,255,0.18)" />
+      <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="700" fill="#FFFFFF">${label}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function resolveInitialAvatar(cat: CatData | null): string {
+  return cat?.avatar?.trim() ?? '';
+}
+
 export function buildDefaultCreateForm(
   name: string,
   description: string,
+  avatar: string,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const safeName = name.trim();
@@ -99,7 +196,7 @@ export function buildDefaultCreateForm(
     name: safeName,
     displayName: safeName,
     nickname: '',
-    avatar: '',
+    avatar,
     colorPrimary: '#9B7EBD',
     colorSecondary: '#E8DFF5',
     mentionPatterns: catId ? `@${catId}` : '',
@@ -125,78 +222,167 @@ export function buildDefaultCreateForm(
   };
 }
 
+function buildEditForm(
+  cat: CatData,
+  name: string,
+  description: string,
+  avatar: string,
+  selectedModel: CreateModelOption | null,
+): HubCatEditorFormState {
+  const base = initialState(cat, null);
+  const safeName = name.trim() || cat.name || cat.displayName;
+  return {
+    ...base,
+    name: safeName,
+    displayName: safeName,
+    avatar,
+    roleDescription: description.trim() || base.roleDescription,
+    client: selectedModel?.client ?? base.client,
+    accountRef: selectedModel?.profileId ?? base.accountRef,
+    defaultModel: selectedModel?.model ?? base.defaultModel,
+    ocProviderName:
+      selectedModel?.client === 'opencode' && selectedModel.authType === 'api_key'
+        ? selectedModel.providerName ?? ''
+        : '',
+  };
+}
+
+function resolveInitialModelId(cat: CatData | null, draft: HubCatEditorDraft | null, selectedModelId: string | null): string | null {
+  if (selectedModelId) {
+    const [maybeProfileId, maybeModel] = selectedModelId.split('::');
+    return maybeModel ?? maybeProfileId ?? null;
+  }
+  if (cat?.defaultModel) return cat.defaultModel;
+  if (draft?.defaultModel) return draft.defaultModel;
+  return null;
+}
+
 export function CreateAgentModalDraft({
   open,
+  cat = null,
   name = 'BOT',
   description = '',
   selectedModelId = null,
-  models = DRAFT_MODEL_OPTIONS,
+  models: _models = DRAFT_MODEL_OPTIONS,
   draft = null,
-  title = '创建智能体',
+  title,
   onClose,
   onSaved,
 }: CreateAgentModalDraftProps) {
   const [draftName, setDraftName] = useState(name);
   const [draftDescription, setDraftDescription] = useState(description);
+  const [draftAvatar, setDraftAvatar] = useState('');
   const [draftModelId, setDraftModelId] = useState<string | null>(selectedModelId);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [openAbove, setOpenAbove] = useState(false);
   const [availableModels, setAvailableModels] = useState<CreateModelOption[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const modelMenuRef = useRef<HTMLDivElement | null>(null);
+  const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setDraftName(name);
-    setDraftDescription(description);
-    setDraftModelId(
-      selectedModelId ?? (draft?.accountRef && draft?.defaultModel ? `${draft.accountRef}::${draft.defaultModel}` : null),
-    );
+    setDraftName(name || cat?.name || cat?.displayName || 'BOT');
+    setDraftDescription(description || cat?.roleDescription || '');
+    setDraftAvatar(resolveInitialAvatar(cat));
+    setDraftModelId(resolveInitialModelId(cat, draft, selectedModelId));
     setModelMenuOpen(false);
+    setOpenAbove(false);
     setError(null);
-  }, [description, draft, name, open, selectedModelId]);
+  }, [cat, description, draft, name, open, selectedModelId]);
+
+  useLayoutEffect(() => {
+    if (!modelMenuOpen || !modelTriggerRef.current) return;
+
+    const rect = modelTriggerRef.current.getBoundingClientRect();
+    const estimatedMenuHeight = Math.min(Math.max(availableModels.length, 1) * 30 + 56, 360);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    setOpenAbove(spaceBelow < estimatedMenuHeight + 16 && spaceAbove > spaceBelow);
+  }, [availableModels.length, modelMenuOpen]);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (modelMenuRef.current?.contains(target) || modelTriggerRef.current?.contains(target)) return;
+      setModelMenuOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setModelMenuOpen(false);
+      modelTriggerRef.current?.focus();
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [modelMenuOpen]);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoadingModels(true);
 
-    apiFetch('/api/provider-profiles')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`模型配置加载失败 (${res.status})`);
-        return (await res.json()) as ProviderProfilesResponse;
-      })
-      .then((body) => {
+    Promise.all([apiFetch('/api/mass-models'), apiFetch('/api/provider-profiles')])
+      .then(async ([massModelsRes, profilesRes]) => {
+        if (!massModelsRes.ok) throw new Error(`模型列表加载失败 (${massModelsRes.status})`);
+        if (!profilesRes.ok) throw new Error(`模型配置加载失败 (${profilesRes.status})`);
+
+        const massModelsBody = (await massModelsRes.json()) as { list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
+        const profilesBody = (await profilesRes.json()) as ProviderProfilesResponse;
         if (cancelled) return;
-        const nextModels = body.providers.flatMap((profile) => {
-          const client = resolveProfileClient(profile);
-          if (!client) return [];
-          const modelNames = profile.models?.filter((value) => value.trim().length > 0) ?? [];
-          return modelNames.map<CreateModelOption>((modelName) => ({
-            id: `${profile.id}::${modelName}`,
+
+        const source = Array.isArray(massModelsBody.list)
+          ? massModelsBody.list
+          : Array.isArray(massModelsBody.models)
+            ? massModelsBody.models
+            : [];
+        const preferredProfileIds = [cat?.accountRef, draft?.accountRef].filter((value): value is string => Boolean(value));
+        const uniqueModelNames = [
+          ...new Set(
+            [
+              ...source.map(normalizeMassModelName),
+              cat?.defaultModel ?? '',
+              draft?.defaultModel ?? '',
+            ].filter((value) => value.length > 0),
+          ),
+        ];
+
+        const nextModels = uniqueModelNames.map<CreateModelOption>((modelName) => {
+          const profile = chooseProfileForModel(modelName, profilesBody.providers, preferredProfileIds, profilesBody.activeProfileId);
+          const resolvedClient = profile ? resolveProfileClient(profile) : null;
+
+          return {
+            id: modelName,
             name: modelName,
-            profileId: profile.id,
-            client,
+            profileId: profile?.id ?? '',
+            client: resolvedClient ?? inferClientFromModelName(modelName),
             model: modelName,
-            authType: profile.authType,
-            providerName: profile.provider,
-            statusText: profile.hasApiKey || profile.authType !== 'api_key' ? '已开通' : '未配置',
-          }));
+            authType: profile?.authType,
+            providerName: profile?.provider,
+            providerGroup: profile?.displayName || profile?.name || profile?.provider || undefined,
+            statusText: profile ? (profile.hasApiKey || profile.authType !== 'api_key' ? '已开通' : '未配置') : undefined,
+            rightLabel: modelName.toLowerCase().includes('deepseek-v3.2') ? '工具' : undefined,
+          };
         });
+
         setAvailableModels(nextModels);
         setDraftModelId((current) => current ?? nextModels[0]?.id ?? null);
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
-        const fallbackModels = models.map<CreateModelOption>((item) => ({
-          ...item,
-          client: 'dare',
-          model: item.name,
-          profileId: '',
-          statusText: item.statusText ?? '已开通',
-        }));
-        setAvailableModels(fallbackModels);
-        setDraftModelId((current) => current ?? fallbackModels[0]?.id ?? null);
+        setAvailableModels([]);
+        setError(err instanceof Error ? err.message : '模型列表加载失败');
       })
       .finally(() => {
         if (!cancelled) setLoadingModels(false);
@@ -205,14 +391,34 @@ export function CreateAgentModalDraft({
     return () => {
       cancelled = true;
     };
-  }, [models, open]);
+  }, [open, cat?.accountRef, cat?.defaultModel, draft?.accountRef, draft?.defaultModel]);
 
   const selectedModel = useMemo(
     () => availableModels.find((item) => item.id === draftModelId) ?? availableModels[0] ?? null,
     [availableModels, draftModelId],
   );
 
+  const modalTitle = title ?? (cat ? '编辑智能体' : '创建智能体');
+  const primaryButtonText = saving ? (cat ? '保存中...' : '创建中...') : cat ? '保存' : '确定';
+  const displayAvatar = draftAvatar || buildGeneratedAvatarDataUrl(draftName);
+
   if (!open) return null;
+
+  const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setError(null);
+    try {
+      setDraftAvatar(await uploadAvatarAsset(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '头像上传失败');
+    } finally {
+      setUploadingAvatar(false);
+      event.target.value = '';
+    }
+  };
 
   const handleSave = async () => {
     const trimmedName = draftName.trim();
@@ -220,6 +426,7 @@ export function CreateAgentModalDraft({
       setError('请输入名称');
       return;
     }
+
     if (!selectedModel) {
       setError('请选择模型');
       return;
@@ -228,21 +435,26 @@ export function CreateAgentModalDraft({
     setSaving(true);
     setError(null);
     try {
-      const payload = buildCatPayload(buildDefaultCreateForm(trimmedName, draftDescription, selectedModel));
-      const response = await apiFetch('/api/cats', {
-        method: 'POST',
+      const formState = cat
+        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel)
+        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedModel);
+      const payload = buildCatPayload(formState, cat);
+      const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
+        method: cat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        setError((body.error as string) ?? `创建失败 (${response.status})`);
+        setError((body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`);
         return;
       }
+
       await onSaved?.();
       onClose?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '创建失败');
+      setError(err instanceof Error ? err.message : cat ? '保存失败' : '创建失败');
     } finally {
       setSaving(false);
     }
@@ -252,7 +464,7 @@ export function CreateAgentModalDraft({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
       <div className="relative flex w-[860px] flex-col overflow-visible rounded-2xl bg-white shadow-[0_18px_42px_rgba(0,0,0,0.14)]">
         <div className="flex h-[72px] items-center justify-between border-b border-[#E9EDF3] px-6">
-          <h2 className="text-[28px] font-bold text-[#20242B]">{title}</h2>
+          <h2 className="text-[28px] font-bold text-[#20242B]">{modalTitle}</h2>
           <button type="button" onClick={onClose} className="rounded-full p-2 transition hover:bg-[#F5F7FA]">
             <CloseIcon />
           </button>
@@ -276,7 +488,7 @@ export function CreateAgentModalDraft({
                 aria-label="Description"
                 value={draftDescription}
                 onChange={(event) => setDraftDescription(event.target.value)}
-                placeholder="请输入"
+                placeholder="请输入描述"
                 maxLength={1000}
                 className="h-[72px] w-full resize-none border-0 bg-transparent text-sm text-[#2D3643] outline-none placeholder:text-[#A4ADBA]"
               />
@@ -287,33 +499,57 @@ export function CreateAgentModalDraft({
           <div className="space-y-2.5">
             <div className="text-sm font-semibold text-[#2D3643]">图标</div>
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#75B8FF] text-[28px] text-white">🤖</div>
               <button
                 type="button"
+                aria-label="Upload avatar"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[#D8DEE8]"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
+              </button>
+              <input
+                ref={fileInputRef}
+                aria-label="Avatar file input"
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/jpg"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                aria-label="Auto generate avatar"
+                onClick={() => setDraftAvatar(buildGeneratedAvatarDataUrl(draftName))}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-[#D8DEE8] bg-white transition hover:bg-[#F8FAFC]"
               >
-                <UploadIcon />
+                <SparklesIcon />
               </button>
             </div>
-            <div className="text-xs text-[#8F98A7]">支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内</div>
+            <div className="text-xs text-[#8F98A7]">
+              {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+            </div>
           </div>
 
           <div className="relative space-y-2.5">
             <div className="text-sm font-semibold text-[#2D3643]">模型</div>
             <button
+              ref={modelTriggerRef}
               type="button"
               aria-label="Model"
+              aria-haspopup="listbox"
+              aria-expanded={modelMenuOpen}
               onClick={() => setModelMenuOpen((current) => !current)}
-              className="flex h-12 w-full items-center justify-between rounded-[10px] border border-[#D8DEE8] bg-white px-[14px] text-left"
+              className="flex h-8 w-full items-center justify-between rounded-[4px] border border-[#D7DEE8] bg-white px-[10px] text-left"
             >
-              <span className="text-[15px] text-[#2D3643]">
-                {loadingModels ? '加载模型中...' : (selectedModel?.name ?? '请选择模型')}
-              </span>
-              <ChevronDownIcon />
+              <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
+              <ModelSelectTriggerIcon />
             </button>
 
             {modelMenuOpen ? (
-              <div className="absolute left-0 top-[calc(100%+8px)] z-20">
+              <div
+                ref={modelMenuRef}
+                className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]'}`}
+              >
                 <ModelSelectDropdownDraft
                   items={availableModels}
                   selectedId={draftModelId}
@@ -344,7 +580,7 @@ export function CreateAgentModalDraft({
               disabled={saving}
               className="h-[42px] min-w-[112px] rounded-full bg-[#1E2430] px-6 text-base font-semibold text-white transition hover:bg-[#151A22] disabled:opacity-50"
             >
-              {saving ? '创建中...' : '确定'}
+              {primaryButtonText}
             </button>
           </div>
         </div>
