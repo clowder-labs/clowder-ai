@@ -134,17 +134,22 @@ Function VerifyInstallDirLeave
   ${EndIf}
 FunctionEnd
 
-; Force-kill every process whose executable lives under $INSTDIR.
+; Force-kill every process related to $INSTDIR (launcher, node API, Redis).
 ; Uses env var to pass the path safely (avoids quoting issues with spaces/parens).
 !macro _ForceKillInstalledProcesses
-  ; Kill by matching executable path under $INSTDIR
-  System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$INSTDIR")i'
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
-  Pop $0
-  ; Fallback: kill desktop launcher by image name in case Path was inaccessible
+  ; 1. Kill desktop launcher by name — fastest and most reliable
   nsExec::ExecToLog 'taskkill /F /IM OfficeClaw.exe'
   Pop $0
-  Sleep 1500
+  ; 2. Kill Redis server (image name — may not be under $INSTDIR on PATH)
+  nsExec::ExecToLog 'taskkill /F /IM redis-server.exe'
+  Pop $0
+  ; 3. Kill all node.exe processes whose executable path starts with $INSTDIR
+  ;    (covers start-entry, API server, Next.js — anything spawned from tools\node)
+  System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$INSTDIR")i'
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+  Pop $0
+  ; 4. Wait long enough for SQLite WAL/shm to be released before any file ops
+  Sleep 3000
 !macroend
 
 Function CloseRunningServices
@@ -282,7 +287,7 @@ Section "Uninstall"
   Pop $0
 
   ; Ask user whether to remove user data
-  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除用户数据（配置、数据库、日志）？$\r$\n$\r$\n选择「否」将保留 data、logs、.cat-cafe、.env 和 cat-config.json。" IDYES +3
+  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n将删除：$\r$\n  · 安装目录下的配置、数据库、日志（.cat-cafe、data、logs、.env）$\r$\n  · 全局配置目录（$PROFILE\.cat-cafe）$\r$\n$\r$\n选择「否」将保留以上数据，但可能影响下次安装的配置初始化。" IDYES +3
     StrCpy $RemoveUserData "0"
     Goto +2
     StrCpy $RemoveUserData "1"
@@ -290,7 +295,11 @@ Section "Uninstall"
   ; Remove entire install dir via cmd rd for speed
   Delete "$INSTDIR\uninstall.exe"
   ${If} $RemoveUserData == "1"
+    ; Remove install dir (includes .cat-cafe, data, logs, SQLite files)
     nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR"'
+    Pop $0
+    ; Remove global user profiles (~/.cat-cafe) — provider keys, model profiles, project roots
+    nsExec::ExecToLog 'cmd /c rd /s /q "$PROFILE\.cat-cafe"'
     Pop $0
   ${Else}
     Call un.CleanupManagedPayload
