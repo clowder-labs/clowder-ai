@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)][string]$SourceFile,
     [Parameter(Mandatory = $true)][string]$OutputDir,
     [Parameter(Mandatory = $true)][string]$CacheDir,
@@ -117,6 +117,9 @@ $compileArgs += $localSourceFile
 if ($LASTEXITCODE -ne 0) {
     throw "Launcher compilation failed with exit code $LASTEXITCODE"
 }
+
+# Ensure current user can write to build dir (AV scanners may lock temp files after compile)
+& icacls $buildDir /grant "${env:USERNAME}:(OI)(CI)F" /T /Q 2>$null | Out-Null
 
 @"
 <?xml version="1.0" encoding="utf-8"?>

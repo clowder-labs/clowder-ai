@@ -7,9 +7,10 @@ export type VisibleClientId =
   | 'dare'
   | 'opencode'
   | 'antigravity'
-  | 'relayclaw';
+  | 'relayclaw'
+  | 'acp';
 
-const ALL_CLIENT_IDS: VisibleClientId[] = ['anthropic', 'openai', 'google', 'dare', 'opencode', 'antigravity', 'relayclaw'];
+const ALL_CLIENT_IDS: VisibleClientId[] = ['anthropic', 'openai', 'google', 'dare', 'opencode', 'antigravity', 'relayclaw', 'acp'];
 const ALL_BUILTIN_AUTH_CLIENTS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'dare', 'opencode'];
 
 function isBuiltinClientsEnabled(): boolean {

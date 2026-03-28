@@ -56,6 +56,8 @@
     "sync:skills": "bash scripts/sync-skills.sh",
     "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
     "proxy:anthropic": "node ./scripts/anthropic-proxy.mjs",
+    "package:windows:python-wheelhouse": "node ./scripts/prepare-python-wheelhouse.mjs --config ./packaging/windows/python-runtime-wheelhouse.json",
+    "package:windows:python-wheelhouse:win": "node ./scripts/prepare-windows-runtime-wheelhouse.mjs",
     "package:windows": "node ./scripts/build-windows-installer.mjs",
     "package:windows:bundle": "node ./scripts/build-windows-installer.mjs --bundle-only",
     "logs:health": "bash ./scripts/logs-health.sh",

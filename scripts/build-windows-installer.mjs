@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import {
+  copyFileSync,
   cpSync,
   createWriteStream,
   existsSync,
@@ -213,6 +214,9 @@ function parseArgs(argv) {
   const options = {
     bundleOnly: false,
     skipBuild: false,
+    skipPython: false,
+    launcherOnly: false,
+    nsisOnly: false,
     outputDir: resolve(repoRoot, 'dist', 'windows'),
     cacheDir: null,
     nodeVersion: normalizeNodeVersion(process.env.CLOWDER_WINDOWS_NODE_VERSION ?? process.versions.node),
@@ -235,6 +239,27 @@ function parseArgs(argv) {
       '--skip-build',
       () => {
         options.skipBuild = true;
+        return 0;
+      },
+    ],
+    [
+      '--skip-python',
+      () => {
+        options.skipPython = true;
+        return 0;
+      },
+    ],
+    [
+      '--launcher-only',
+      () => {
+        options.launcherOnly = true;
+        return 0;
+      },
+    ],
+    [
+      '--nsis-only',
+      () => {
+        options.nsisOnly = true;
         return 0;
       },
     ],
@@ -312,6 +337,9 @@ function printUsage() {
 Options:
   --bundle-only         Build the offline bundle without invoking makensis
   --skip-build          Reuse existing dist/.next artifacts
+  --skip-python         Skip Python embed download + pip install (reuse existing tools/python in bundle)
+  --launcher-only       Rebuild only the C# desktop launcher into existing bundle, then stop
+  --nsis-only           Skip bundle, only repackage existing bundle into exe
   --output-dir <path>   Override dist/windows output root
   --cache-dir <path>    Override download cache directory
   --node-version <ver>  Override bundled Windows Node version
@@ -591,7 +619,8 @@ function stageVendorPythonSources(bundleDir) {
       } else {
         if (excludeFiles.has(entry.name)) continue;
         if (entry.name.endsWith('.pyc') || entry.name.endsWith('.pyo')) continue;
-        cpSync(srcPath, destPath, { force: true });
+        // Use copyFileSync instead of cpSync — cpSync fails on non-ASCII filenames on Windows
+        copyFileSync(srcPath, destPath);
       }
     }
   }
@@ -1325,16 +1354,64 @@ async function main() {
   const installerScript = join(repoRoot, 'packaging', 'windows', 'installer.nsi');
   const outputExe = buildInstallerOutputPath(options.outputDir, packageJson.version);
 
+  ensureDir(options.outputDir);
+  ensureDir(options.cacheDir);
+
+  // --nsis-only: repackage existing bundle into exe without rebuilding
+  if (options.nsisOnly) {
+    if (!existsSync(bundleDir)) {
+      throw new Error(`Bundle not found at ${bundleDir}. Run without --nsis-only first.`);
+    }
+    if (!findMakensis()) {
+      throw new Error('makensis not found. Install NSIS (https://nsis.sourceforge.io) or set MAKENSIS_PATH.');
+    }
+    logStep('Creating payload archive');
+    const payloadTar = join(options.outputDir, 'payload.tar.gz');
+    createPayloadTar(bundleDir, payloadTar);
+    logStep('Compiling NSIS installer');
+    invokeMakensis(installerScript, outputExe, payloadTar, packageJson.version);
+    logStep(`Installer ready at ${outputExe}`);
+    return;
+  }
+
+  // --launcher-only: rebuild C# launcher into existing bundle
+  if (options.launcherOnly) {
+    if (!existsSync(bundleDir)) {
+      throw new Error(`Bundle not found at ${bundleDir}. Run without --launcher-only first.`);
+    }
+    logStep('Building WebView2 desktop launcher');
+    buildWindowsDesktopLauncher(bundleDir, options);
+    logStep('Staging desktop assets');
+    const assetsTarget = join(bundleDir, 'assets');
+    ensureDir(assetsTarget);
+    const desktopSplashSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg');
+    if (existsSync(desktopSplashSource)) {
+      cpSync(desktopSplashSource, join(assetsTarget, 'splash.jpg'), { force: true });
+    }
+    const appIconSource = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
+    if (existsSync(appIconSource)) {
+      cpSync(appIconSource, join(assetsTarget, 'app.ico'), { force: true });
+    }
+    logStep(`Launcher rebuilt in ${bundleDir}`);
+    return;
+  }
+
   if (!options.bundleOnly && !findMakensis()) {
     throw new Error(
       'makensis not found. Install NSIS (https://nsis.sourceforge.io) or set MAKENSIS_PATH, or use --bundle-only.',
     );
   }
 
-  logStep('Preparing output directories');
-  ensureDir(options.outputDir);
-  ensureDir(options.cacheDir);
-  resetDir(bundleDir);
+  // --skip-python: reuse existing tools/python; don't wipe bundle dir
+  if (!options.skipPython) {
+    logStep('Preparing output directories');
+    resetDir(bundleDir);
+  } else {
+    logStep('Preparing output directories (keeping existing Python)');
+    if (!existsSync(bundleDir)) {
+      throw new Error(`Bundle not found at ${bundleDir}. Run without --skip-python first to build the full bundle.`);
+    }
+  }
 
   ensureBuildArtifacts(options);
 
@@ -1345,11 +1422,19 @@ async function main() {
   logStep('Staging vendor Python sources');
   stageVendorPythonSources(bundleDir);
 
-  logStep('Bundling Python embeddable runtime');
-  const pythonEmbed = await stageWindowsPython(bundleDir, options);
+  let pythonEmbed;
+  if (!options.skipPython) {
+    logStep('Bundling Python embeddable runtime');
+    pythonEmbed = await stageWindowsPython(bundleDir, options);
 
-  logStep('Installing shared Python dependencies');
-  installSharedPythonDeps(bundleDir);
+    logStep('Installing shared Python dependencies');
+    installSharedPythonDeps(bundleDir);
+  } else {
+    logStep('Skipping Python embed + pip install (--skip-python)');
+    const releaseMetaPath = join(bundleDir, '.clowder-release.json');
+    const existingMeta = existsSync(releaseMetaPath) ? JSON.parse(readFileSync(releaseMetaPath, 'utf8')) : {};
+    pythonEmbed = existingMeta.pythonEmbed ?? { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
+  }
 
   logStep('Preparing runtime package payload');
   await stageWorkspacePackages(bundleDir);

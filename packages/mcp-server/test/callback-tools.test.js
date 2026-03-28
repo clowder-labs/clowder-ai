@@ -318,6 +318,48 @@ describe('MCP Callback Tools', () => {
     assert.ok(capturedUrl.includes('status=blocked'));
   });
 
+  test('handleListSkills forwards query and limit filters', async () => {
+    const { handleListSkills } = await import('../dist/tools/callback-tools.js');
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ skills: [], total: 0 }),
+      };
+    };
+
+    const result = await handleListSkills({
+      query: 'tdd',
+      limit: 5,
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/skills/list'));
+    assert.ok(capturedUrl.includes('query=tdd'));
+    assert.ok(capturedUrl.includes('limit=5'));
+  });
+
+  test('handleLoadSkill forwards exact skill name', async () => {
+    const { handleLoadSkill } = await import('../dist/tools/callback-tools.js');
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ name: 'tdd' }),
+      };
+    };
+
+    const result = await handleLoadSkill({ name: 'tdd' });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/skills/load'));
+    assert.ok(capturedUrl.includes('name=tdd'));
+  });
+
   test('handleFeatIndex forwards limit/featId/query filters', async () => {
     const { handleFeatIndex } = await import('../dist/tools/callback-tools.js');
 

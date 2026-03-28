@@ -23,6 +23,7 @@ import { createCatId } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
+import { isClientAllowed } from '../utils/client-visibility.js';
 import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
 
 const log = createModuleLogger('cat-config');
@@ -632,25 +633,15 @@ export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfi
 let _defaultCatId: CatId | null = null;
 
 /**
- * Get the default cat ID (= breeds[0].defaultVariantId's resolved catId).
+ * Get the default cat ID for unaddressed messages.
  * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
  *
- * F32-b R4: Explicit derivation from defaultVariantId — NOT registry order dependent.
+ * Defaults to jiuwenclaw (小九) — the office assistant handles general queries.
  */
 export function getDefaultCatId(): CatId {
   if (_defaultCatId) return _defaultCatId;
-
-  const config = getCachedConfig();
-  const firstBreed = config?.breeds[0];
-  if (firstBreed) {
-    const defaultVariant = firstBreed.variants.find((v) => v.id === firstBreed.defaultVariantId);
-    // variant has independent catId → use it; otherwise inherit breed's
-    _defaultCatId = createCatId(defaultVariant?.catId ?? firstBreed.catId);
-    return _defaultCatId;
-  }
-
-  // Ultimate fallback (should not trigger — config always has at least 1 breed)
-  return createCatId('office');
+  _defaultCatId = createCatId('jiuwenclaw');
+  return _defaultCatId;
 }
 
 // ── Variant CLI effort accessor ──────────────────────────────────────
@@ -763,14 +754,38 @@ export function getReviewPolicy(config?: CatCafeConfig): ReviewPolicy {
 }
 
 /**
- * Check if a cat is available (has quota).
+ * Resolve a cat's provider from config breeds.
+ * Returns undefined if catId is not found in config.
+ */
+function getCatProvider(catId: string, config?: CatCafeConfig): string | undefined {
+  const cfg = config ?? getCachedConfig();
+  if (!cfg) return undefined;
+
+  // Reuse the existing variant index for O(1) lookup
+  if (!_catIdToVariant || _catIdToVariantSource !== cfg) {
+    _catIdToVariant = buildCatIdToVariantIndex(cfg);
+    _catIdToVariantSource = cfg;
+  }
+
+  return _catIdToVariant.get(catId)?.provider;
+}
+
+/**
+ * Check if a cat is available (has quota AND its provider is visible).
  * F032: 铲屎官 40 美刀教训 — 没猫粮的猫不要找！
+ * Client-visibility: hidden providers must not be routable via @mention.
  */
 export function isCatAvailable(catId: string, config?: CatCafeConfig): boolean {
   const roster = getRoster(config);
   const entry = roster[catId];
   // If not in roster, assume available (backward compat)
-  return entry?.available !== false;
+  if (entry?.available === false) return false;
+
+  // Check client-visibility: cat's provider must be in allowed list
+  const provider = getCatProvider(catId, config);
+  if (provider && !isClientAllowed(provider)) return false;
+
+  return true;
 }
 
 /**

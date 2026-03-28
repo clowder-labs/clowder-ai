@@ -2384,6 +2384,52 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(promptsSeen[0].includes('test'), 'F-BLOAT: original prompt should still be present');
   });
 
+  it('ACP: prepends runtime skill hint close to the task prompt', async () => {
+    const promptsSeen = [];
+    const service = {
+      async *invoke(prompt, _options) {
+        promptsSeen.push(prompt);
+        yield { type: 'text', catId: 'agentteams', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'agentteams', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => undefined,
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'agentteams',
+        service,
+        prompt: 'please make an implementation plan',
+        systemPrompt: 'You are an ACP cat',
+        userId: 'u1',
+        threadId: 'thread-acp-skill-hint',
+        isLastCat: true,
+      }),
+    );
+
+    assert.ok(promptsSeen[0].includes('ACP skill rule:'), 'ACP prompt should include runtime skill hint');
+    assert.ok(
+      promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
+      'ACP hint should steer list-first behavior',
+    );
+    assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
+    assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
+    assert.ok(
+      promptsSeen[0].includes('before cat_cafe_search_evidence, repo grep, or read'),
+      'ACP hint should prioritize skills ahead of other retrieval tools',
+    );
+    assert.ok(
+      promptsSeen[0].includes('please make an implementation plan'),
+      'ACP prompt should preserve the original user task',
+    );
+  });
+
   it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {
     const promptsSeen = [];
     const service = {
@@ -2941,6 +2987,102 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
+  it('F127: injects custom openai-compatible runtime config for relayclaw cats bound via ~/.cat-cafe/model.json', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'f127-custom-model-config-relayclaw-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+    await writeFile(
+      join(root, '.cat-cafe', 'model.json'),
+      `${JSON.stringify(
+        {
+          'my-openai-proxy': {
+            protocol: 'openai',
+            displayName: 'My OpenAI Proxy',
+            baseUrl: 'https://proxy.example.com/v1',
+            apiKey: 'sk-custom-proxy',
+            headers: {
+              'X-App-Id': 'cat-cafe',
+              'X-Workspace': 'sandbox',
+            },
+            models: [{ id: 'gpt-4o-mini' }, { id: 'deepseek-chat' }],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      'utf-8',
+    );
+    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+
+    try {
+      const registrySnapshot = catRegistry.getAllConfigs();
+      const originalConfig = catRegistry.tryGet('jiuwenclaw')?.config;
+      assert.ok(originalConfig, 'jiuwenclaw config should exist in registry');
+      const boundCatId = 'relayclaw-custom-model-config-test';
+      catRegistry.register(boundCatId, {
+        ...originalConfig,
+        id: boundCatId,
+        mentionPatterns: [`@${boundCatId}`],
+        provider: 'relayclaw',
+        providerProfileId: 'my-openai-proxy',
+        defaultModel: 'gpt-4o-mini',
+      });
+
+      const optionsSeen = [];
+      const service = {
+        async *invoke(_prompt, options) {
+          optionsSeen.push(options ?? {});
+          yield { type: 'done', catId: 'relayclaw', timestamp: Date.now() };
+        },
+      };
+
+      const deps = makeDeps();
+      const previousCwd = process.cwd();
+      try {
+        process.chdir(apiDir);
+        const messages = await collect(
+          invokeSingleCat(deps, {
+            catId: boundCatId,
+            service,
+            prompt: 'test',
+            userId: 'user-f127-custom-model-config',
+            threadId: 'thread-f127-custom-model-config',
+            isLastCat: true,
+          }),
+        );
+        assert.ok(messages.some((m) => m.type === 'done'));
+      } finally {
+        process.chdir(previousCwd);
+        catRegistry.reset();
+        for (const [id, config] of Object.entries(registrySnapshot)) {
+          catRegistry.register(id, config);
+        }
+      }
+
+      const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+      assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'openai');
+      assert.equal(callbackEnv.CODEX_AUTH_MODE, 'api_key');
+      assert.equal(callbackEnv.OPENAI_API_KEY, 'sk-custom-proxy');
+      assert.equal(callbackEnv.OPENROUTER_API_KEY, 'sk-custom-proxy');
+      assert.equal(callbackEnv.OPENAI_BASE_URL, 'https://proxy.example.com/v1');
+      assert.equal(callbackEnv.OPENAI_API_BASE, 'https://proxy.example.com/v1');
+      assert.equal(
+        callbackEnv.OPENAI_DEFAULT_HEADERS,
+        JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
+      );
+      assert.equal(
+        callbackEnv.default_headers,
+        JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
+      );
+    } finally {
+      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it('F127 P1: explicit builtin codex bindings force oauth callback env', async () => {
     const root = await mkdtemp(join(tmpdir(), 'f127-openai-builtin-oauth-'));
     const apiDir = join(root, 'packages', 'api');

@@ -128,6 +128,18 @@ describe('SystemPromptBuilder', () => {
     assert.ok(prompt.includes('cat_cafe_get_thread_context'));
   });
 
+  test('contains runtime skill trigger guidance when mcpAvailable is true', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+    });
+    assert.ok(prompt.includes('计划/TDD/对比/worktree：先 list+load，再 search/grep/read'));
+    assert.ok(prompt.includes('空结果试短词或skill名'));
+  });
+
   test('omits MCP tools when mcpAvailable is false', async () => {
     const build = await getBuilder();
     const prompt = build({
@@ -549,6 +561,12 @@ describe('SystemPromptBuilder', () => {
     const identity = buildStaticIdentity('opus', { mcpAvailable: true });
     assert.ok(identity.includes('cat_cafe_post_message'), 'Should contain MCP tools when mcpAvailable');
     assert.ok(identity.includes('cat_cafe_get_thread_context'), 'Should contain thread context tool');
+    assert.ok(identity.includes('cat_cafe_list_skills'), 'Should contain skill catalog tool');
+    assert.ok(identity.includes('cat_cafe_load_skill'), 'Should contain skill load tool');
+    assert.ok(
+      identity.includes('计划/TDD/对比/worktree：先 list+load，再 search/grep/read'),
+      'Should teach runtime MCP skill trigger semantics',
+    );
   });
 
   test('buildStaticIdentity omits MCP tools when mcpAvailable is false', async () => {

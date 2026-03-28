@@ -35,6 +35,7 @@ import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
+import { registerCallbackSkillRoutes } from './callback-skill-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
@@ -1219,6 +1220,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     markerQueue: opts.markerQueue,
     reflectionService: opts.reflectionService,
   });
+
+  await registerCallbackSkillRoutes(app, { registry });
 
   // F126: Limb node callback routes
   if (opts.limbRegistry) {

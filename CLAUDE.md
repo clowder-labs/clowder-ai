@@ -57,6 +57,35 @@ node scripts/build-windows-installer.mjs --bundle-only
 # 产物在 dist/windows/bundle/
 ```
 
+#### 分阶段构建（加速迭代）
+
+首次需完整构建，之后可按需只跑某个阶段：
+
+```bash
+# 完整构建（首次）
+node scripts/build-windows-installer.mjs --bundle-only
+
+# 只改了 JS/TS 代码，Python 没变 → 跳过 pip install（省 5-10 分钟）
+node scripts/build-windows-installer.mjs --bundle-only --skip-build --skip-python
+
+# 只改了 C# launcher → 只重编 launcher 到已有 bundle
+node scripts/build-windows-installer.mjs --launcher-only
+
+# bundle 已就绪 → 只打 NSIS exe
+node scripts/build-windows-installer.mjs --nsis-only
+
+# 完整出 exe（bundle + nsis）
+node scripts/build-windows-installer.mjs
+```
+
+| 参数 | 作用 | 耗时 |
+|------|------|------|
+| `--bundle-only` | 构建 bundle 但不打 NSIS exe | ~10 min |
+| `--skip-build` | 跳过 `pnpm build`，复用已有 dist/.next | 省 ~2 min |
+| `--skip-python` | 跳过 Python embed 下载 + pip install，复用已有 tools/python | 省 ~5 min |
+| `--launcher-only` | 只重编 C# 桌面启动器到已有 bundle | ~30 sec |
+| `--nsis-only` | 只将已有 bundle 打包成 exe | ~1 min |
+
 ### 3. 部署到安装目录（替代 exe 安装）
 
 ```bash

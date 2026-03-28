@@ -199,26 +199,19 @@ const MCP_TOOLS_SECTION = `
 MCP 工具用于异步汇报等场景（token 有效期有限）：
 
 **记忆工具（先搜后问）：**
-- cat_cafe_search_evidence: **首选入口** — 搜索项目知识库（决策/讨论/教训/phase history）
-- cat_cafe_reflect: 反思性问题 — 从项目知识中合成洞察
+- cat_cafe_search_evidence: 首选入口，搜项目知识库
+- cat_cafe_reflect: 从项目知识中合成洞察
 
 **记忆 drill-down 工具（search_evidence 命中后深入）：**
-- cat_cafe_list_session_chain: 列出 thread 的 session 链
-- cat_cafe_read_session_digest: 读 session 摘要（sealed 后可用）
-- cat_cafe_read_session_events: 读 session 事件（支持 raw/chat/handoff 视图）
-- cat_cafe_read_invocation_detail: 读某次 invocation 的所有事件
+- cat_cafe_list_session_chain / cat_cafe_read_session_digest / cat_cafe_read_session_events / cat_cafe_read_invocation_detail：session drill-down
 
 **协作工具：**
-- cat_cafe_post_message: 异步消息
-- cat_cafe_register_pr_tracking: 注册 PR tracking（review 路由）
-- cat_cafe_get_pending_mentions: 获取 @提及
-- cat_cafe_get_thread_context: 获取对话上下文
-- cat_cafe_list_threads: 列出 thread 摘要
-- cat_cafe_update_task: 更新任务状态
-- cat_cafe_create_rich_block: 创建 rich block
-- cat_cafe_generate_document: 生成文档并投递到 IM（MD→DOCX/PDF）— 用户说"生成报告/导出文档/发PDF"时用这个，不要手动 pandoc + create_rich_block（那不会投递到飞书）
-- cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）
-- cat_cafe_multi_mention: 并行拉1-3只猫讨论同一问题（先搜后问：必须带searchEvidenceRefs或overrideReason）
+- cat_cafe_post_message / cat_cafe_register_pr_tracking / cat_cafe_get_pending_mentions / cat_cafe_get_thread_context / cat_cafe_list_threads / cat_cafe_update_task：异步协作
+- cat_cafe_create_rich_block / cat_cafe_get_rich_block_rules：富消息
+- cat_cafe_generate_document：生成报告/导出文档/发 PDF 时用；不要手动 pandoc + create_rich_block
+- cat_cafe_multi_mention：并行拉 1-3 只猫（先搜后问，需 searchEvidenceRefs 或 overrideReason）
+
+**共享 Skills：**cat_cafe_list_skills/cat_cafe_load_skill。计划/TDD/对比/worktree：先 list+load，再 search/grep/read；plan→writing-plans，失败测试→tdd，对比→collaborative-thinking；空结果试短词或skill名
 
 ${RICH_BLOCK_SHORT}
 When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
