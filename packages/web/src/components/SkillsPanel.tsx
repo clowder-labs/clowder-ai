@@ -31,8 +31,8 @@ export function SkillsPanel() {
             </button>
           </div>
           <div
-            className="ui-tab-indicator w-[58px]"
-            style={{ transform: activeTab === 'plaza' ? 'translateX(110px)' : 'translateX(0)' }}
+            className="ui-tab-indicator w-[42px]"
+            style={{ transform: activeTab === 'plaza' ? 'translateX(70px)' : 'translateX(0)' }}
           />
         </div>
       </div>

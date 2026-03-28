@@ -39,9 +39,8 @@ const NETWORK_RETRY_LABEL = '网络错误，请重试';
 const SEARCH_PLACEHOLDER = '输入关键词搜索技能';
 const SEARCH_ARIA_LABEL = '搜索 SkillHub 技能';
 const IMPORT_LABEL = '导入';
-const HOT_LABEL = '热门推荐';
 const LOADING_LABEL = '加载中...';
-const SEARCH_COUNT_LABEL = '共';
+const SILL_SQUARE_LABEL = '技能广场';
 const PAGE_LABEL_PREFIX = '第 ';
 const PAGE_LABEL_SUFFIX = ' 页';
 const LOAD_MORE_PREFIX = '加载更多（';
@@ -151,9 +150,6 @@ function SkillList({
 
   return (
     <div className="space-y-4">
-      <p className="text-[11px] text-[var(--text-muted)]">
-        {SEARCH_COUNT_LABEL} {results.total} 条{showPagination ? `，${PAGE_LABEL_PREFIX}${results.page}${PAGE_LABEL_SUFFIX}` : ''}
-      </p>
       <div className={styles.skillGrid}>
         {results.skills.map((skill) => (
           <article key={skill.id} className={styles.card}>
@@ -347,6 +343,9 @@ export function HubSkillsTab() {
     [setInstallStatusWithTimer, showToast],
   );
 
+  const displayResults = searchResults ?? trendingResults;
+  const displayPagination = searchResults !== null;
+
   return (
     <div className="space-y-[var(--space-9)]">
       {toast && (
@@ -369,49 +368,44 @@ export function HubSkillsTab() {
       />
 
       <section className="space-y-[var(--space-6)]">
-        <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center">
-          <input
-            type="text"
-            aria-label={SEARCH_ARIA_LABEL}
-            value={searchQuery}
-            onChange={(event) => handleSearchInput(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && void executeSearch(searchQuery)}
-            placeholder={SEARCH_PLACEHOLDER}
-            className="ui-field min-h-[var(--control-height-touch)] flex-1 px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
-          />
-          <button
-            type="button"
-            onClick={() => setShowUpload(true)}
-            className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
-          >
-            {IMPORT_LABEL}
-          </button>
+        <div className="space-y-4">
+          <p className="text-[20px] font-semibold">
+            {SILL_SQUARE_LABEL}
+            {displayResults ? ` (${displayResults.total})` : ''}
+            {displayResults && displayPagination ? `，${PAGE_LABEL_PREFIX}${displayResults.page}${PAGE_LABEL_SUFFIX}` : ''}
+          </p>
+          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center">
+            <input
+              type="text"
+              aria-label={SEARCH_ARIA_LABEL}
+              value={searchQuery}
+              onChange={(event) => handleSearchInput(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && void executeSearch(searchQuery)}
+              placeholder={SEARCH_PLACEHOLDER}
+              className="ui-field min-h-[var(--control-height-touch)] flex-1 px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
+            />
+            <button
+              type="button"
+              onClick={() => setShowUpload(true)}
+              className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
+            >
+              {IMPORT_LABEL}
+            </button>
+          </div>
+          {searchError && <p className="text-[11px] text-[var(--state-error-text)]">{searchError}</p>}
+          {displayResults ? (
+            <SkillList
+              results={displayResults}
+              installStatus={installStatus}
+              onInstall={handleInstall}
+              onLoadMore={displayPagination ? handleLoadMore : () => {}}
+              loadingMore={displayPagination ? loadingMore : false}
+              showPagination={displayPagination}
+            />
+          ) : trendingLoading ? (
+            <p className="text-[11px] text-[var(--text-muted)]">{LOADING_LABEL}</p>
+          ) : null}
         </div>
-        {searchError && <p className="text-[11px] text-[var(--state-error-text)]">{searchError}</p>}
-        {searchResults && (
-          <SkillList
-            results={searchResults}
-            installStatus={installStatus}
-            onInstall={handleInstall}
-            onLoadMore={handleLoadMore}
-            loadingMore={loadingMore}
-          />
-        )}
-      </section>
-
-      <section>
-        <h3 className="mb-[var(--space-6)] text-sm font-semibold text-[var(--text-primary)]">{HOT_LABEL}</h3>
-        {trendingLoading && <p className="text-[11px] text-[var(--text-muted)]">{LOADING_LABEL}</p>}
-        {trendingResults && (
-          <SkillList
-            results={trendingResults}
-            installStatus={installStatus}
-            onInstall={handleInstall}
-            onLoadMore={() => {}}
-            loadingMore={false}
-            showPagination={false}
-          />
-        )}
       </section>
     </div>
   );
