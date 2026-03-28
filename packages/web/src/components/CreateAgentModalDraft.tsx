@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent
 import type { CatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
+import { builtinAccountIdForClient } from './hub-cat-editor.model';
 import { initialState, type ClientValue, type HubCatEditorDraft, type HubCatEditorFormState } from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
 import {
@@ -43,8 +44,14 @@ interface CreateModelOption extends DraftModelOption {
   providerName?: string;
 }
 
+interface MassModelDescriptor {
+  name: string;
+  protocol?: string;
+}
+
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
+const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
   for (const key of candidates) {
@@ -151,6 +158,13 @@ function inferClientFromModelName(modelName: string): ClientValue {
     return 'dare';
   }
   return 'dare';
+}
+
+function defaultProfileIdForModel(client: ClientValue, descriptor?: MassModelDescriptor): string {
+  if (descriptor?.protocol === 'huawei_maas' && client === 'dare') {
+    return HUAWEI_MAAS_MODEL_SOURCE_ID;
+  }
+  return builtinAccountIdForClient(client) ?? '';
 }
 
 function avatarSeed(name: string): string {
@@ -350,25 +364,31 @@ export function CreateAgentModalDraft({
             ? massModelsBody.models
             : [];
         const preferredProfileIds = [cat?.accountRef, draft?.accountRef].filter((value): value is string => Boolean(value));
-        const uniqueModelNames = [
-          ...new Set(
-            [
-              ...source.map(normalizeMassModelName),
-              cat?.defaultModel ?? '',
-              draft?.defaultModel ?? '',
-            ].filter((value) => value.length > 0),
-          ),
-        ];
+        const modelDescriptors = new Map<string, MassModelDescriptor>();
+        for (const item of source) {
+          const modelName = normalizeMassModelName(item);
+          if (!modelName || modelDescriptors.has(modelName)) continue;
+          modelDescriptors.set(modelName, {
+            name: modelName,
+            protocol: typeof item.protocol === 'string' ? item.protocol : undefined,
+          });
+        }
+        for (const modelName of [cat?.defaultModel ?? '', draft?.defaultModel ?? '']) {
+          if (!modelName || modelDescriptors.has(modelName)) continue;
+          modelDescriptors.set(modelName, { name: modelName });
+        }
+        const uniqueModelNames = [...modelDescriptors.keys()];
 
         const nextModels = uniqueModelNames.map<CreateModelOption>((modelName) => {
           const profile = chooseProfileForModel(modelName, profilesBody.providers, preferredProfileIds, profilesBody.activeProfileId);
           const resolvedClient = profile ? resolveProfileClient(profile) : null;
+          const client = resolvedClient ?? inferClientFromModelName(modelName);
 
           return {
             id: modelName,
             name: modelName,
-            profileId: profile?.id ?? '',
-            client: resolvedClient ?? inferClientFromModelName(modelName),
+            profileId: profile?.id ?? defaultProfileIdForModel(client, modelDescriptors.get(modelName)),
+            client,
             model: modelName,
             authType: profile?.authType,
             providerName: profile?.provider,
