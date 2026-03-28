@@ -450,6 +450,46 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'cli',
     sensitive: false,
   },
+  {
+    name: 'CAT_CAFE_API_URL',
+    defaultValue: 'http://localhost:3002',
+    description: 'API 服务地址（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_INVOCATION_ID',
+    defaultValue: '(运行时注入)',
+    description: '当前 invocation ID（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_CAT_ID',
+    defaultValue: '(运行时注入)',
+    description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT',
+    defaultValue: '(未设置)',
+    description: '设为 1 跳过 shared state preflight 检查（CI / 调试用）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_PREFLIGHT_TIMEOUT_MS',
+    defaultValue: '30000',
+    description: 'Pre-flight 操作（Redis/store 读取）的超时毫秒数，超时后降级到无 session 模式',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
 
   // --- proxy ---
   {
@@ -855,7 +895,8 @@ export function isConnectorSensitiveEditable(def: EnvDefinition): boolean {
 
 export function isEditableEnvVarName(name: string): boolean {
   return ENV_VARS.some(
-    (def) => def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
+    (def) =>
+      def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
   );
 }
 
