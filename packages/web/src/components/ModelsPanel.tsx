@@ -1,9 +1,13 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
+import { useChatStore } from '@/stores/chatStore';
+import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
+import { useProviderProfilesState } from './useProviderProfilesState';
 
+const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
 const SEARCH_PLACEHOLDER = '搜索模型、厂商或描述关键词';
 const LOADING_TEXT = '加载中...';
@@ -50,7 +54,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     'model_name',
     'displayName',
     'display_name',
-    '名称',
+    '\u540d\u79f0',
   ]);
 
   const genericStringEntries = Object.entries(item).filter(
@@ -63,7 +67,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     '';
 
   const inferredDescription =
-    pickStringField(item, ['description', 'desc', '描述']) ??
+    pickStringField(item, ['description', 'desc', '\u63cf\u8ff0']) ??
     genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
     DEFAULT_DESC;
 
@@ -194,6 +198,8 @@ export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const openHub = useChatStore((s) => s.openHub);
 
   useEffect(() => {
     let cancelled = false;
@@ -238,6 +244,22 @@ export function ModelsPanel() {
     <div className="ui-page-shell">
       <div className="ui-page-header">
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openHub('provider-profiles')}
+            className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            ACP / 账号配置
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModelModal(true)}
+            className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+          >
+            {ADD_MODEL}
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -334,6 +356,37 @@ export function ModelsPanel() {
             ))}
         </div>
       </div>
+
+      {showAddModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowAddModelModal(false)}
+          data-testid="models-add-model-modal"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(false)}
+                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                关闭
+              </button>
+            </div>
+            <ModelsCreateApiKeyAccount />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+function ModelsCreateApiKeyAccount() {
+  const { providerCreateSectionProps } = useProviderProfilesState();
+  return <CreateApiKeyProfileSection {...providerCreateSectionProps} defaultExpanded />;
+}
+

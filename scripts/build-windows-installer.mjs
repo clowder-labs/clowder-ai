@@ -40,6 +40,7 @@ export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   '.env.example',
   'LICENSE',
   'cat-template.json',
+  'pnpm-workspace.yaml',
 ];
 
 const EXCLUDED_TOP_LEVEL_SEGMENTS = new Set(['.git', 'node_modules']);
@@ -61,7 +62,9 @@ const EXCLUDED_PREFIXES = [
   'packages/web/.next/',
 ];
 const RUNTIME_SCRIPT_FILES = [
+  'install-auth-config.mjs',
   'install-windows-helpers.ps1',
+  'start-entry.mjs',
   'start-windows.ps1',
   'start.bat',
   'stop-windows.ps1',
@@ -467,7 +470,7 @@ function createIcoFromPng(pngPath, icoPath) {
 }
 
 function copyTopLevelProject(bundleDir) {
-  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json'];
+  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json', 'pnpm-workspace.yaml'];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
     if (!existsSync(source)) {
@@ -534,9 +537,16 @@ function installSharedPythonDeps(bundleDir) {
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
 
-  // Install JiuwenClaw as package (includes all its deps)
+  // Install JiuwenClaw core runtime deps explicitly, then the package itself with --no-deps
+  // (avoids pulling heavy optional deps like telegram-bot, discord.py, dingtalk etc.)
+  const jiuwenCoreDeps = [
+    'psutil>=7.0', 'loguru>=0.7', 'ruamel.yaml>=0.18', 'python-dotenv>=1.0',
+    'websockets>=12.0', 'aiosqlite>=0.22', 'croniter>=2.0', 'mutagen>=1.47',
+    'greenlet>=3.0', 'openjiuwen==0.1.7',
+  ];
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...jiuwenCoreDeps]);
   const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', jiuwenClawDir]);
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', '--no-deps', jiuwenClawDir]);
 
   // Install office automation libraries for MCP servers
   const officeDeps = [
@@ -1279,10 +1289,26 @@ function createPayloadTar(bundleDir, tarPath) {
   }
 }
 
+function findMakensis() {
+  const envPath = process.env.MAKENSIS_PATH;
+  if (envPath && commandExists(envPath)) return envPath;
+  if (commandExists('makensis')) return 'makensis';
+  if (process.platform === 'win32') {
+    const candidates = [
+      join(process.env.ProgramFiles ?? '', 'NSIS', 'makensis.exe'),
+      join(process.env['ProgramFiles(x86)'] ?? '', 'NSIS', 'makensis.exe'),
+    ];
+    for (const candidate of candidates) {
+      if (candidate && existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
 function invokeMakensis(installerScript, outputExe, payloadTar, version) {
-  const makensisCommand = process.env.MAKENSIS_PATH ?? 'makensis';
-  if (!commandExists(makensisCommand)) {
-    throw new Error('makensis not found on PATH. Install NSIS or run with --bundle-only.');
+  const makensisCommand = findMakensis();
+  if (!makensisCommand) {
+    throw new Error('makensis not found on PATH or in Program Files. Install NSIS or run with --bundle-only.');
   }
   const definePrefix = process.platform === 'win32' ? '/D' : '-D';
   run(makensisCommand, [
@@ -1298,6 +1324,12 @@ async function main() {
   const bundleDir = join(options.outputDir, 'bundle');
   const installerScript = join(repoRoot, 'packaging', 'windows', 'installer.nsi');
   const outputExe = buildInstallerOutputPath(options.outputDir, packageJson.version);
+
+  if (!options.bundleOnly && !findMakensis()) {
+    throw new Error(
+      'makensis not found. Install NSIS (https://nsis.sourceforge.io) or set MAKENSIS_PATH, or use --bundle-only.',
+    );
+  }
 
   logStep('Preparing output directories');
   ensureDir(options.outputDir);

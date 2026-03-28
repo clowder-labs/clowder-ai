@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { buildACPSubprocessEnv as buildFilteredACPSubprocessEnv } from '../../../../../config/acp-env.js';
 import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../../../config/provider-profiles.js';
@@ -16,6 +17,7 @@ import {
 import { ACPStdioClient } from './acp-transport.js';
 import { ACPMcpBridge, buildAcpMcpServers, resolveACPMcpTransportFromInitializeResult } from './acp-mcp-bridge.js';
 
+const acpLog = createModuleLogger('acp');
 const DEFAULT_ACP_TIMEOUT_MS = 10 * 60 * 1000;
 
 export interface ACPAgentServiceOptions {
@@ -251,7 +253,7 @@ export class ACPAgentService implements AgentService {
     const client = new ACPStdioClient({
       command: providerProfile.command,
       args: providerProfile.args,
-      cwd: providerProfile.cwd,
+      cwd: options?.workingDirectory || providerProfile.cwd,
       env: buildACPSubprocessEnv(providerProfile),
     });
     let sessionId = options?.sessionId;
@@ -273,6 +275,7 @@ export class ACPAgentService implements AgentService {
         initializeResult,
         options,
       );
+      acpLog.info({ initializeResult, sessionParams }, 'ACP session params');
       const sessionMcpServers = Array.isArray(sessionParams.mcpServers)
         ? (sessionParams.mcpServers as Array<Record<string, unknown>>)
         : [];

@@ -215,9 +215,13 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
 
   useEffect(() => {
     if (form.client === 'antigravity' || modelOptions.length === 0) return;
-    if (form.defaultModel.trim().length > 0) return;
+    const trimmed = form.defaultModel.trim();
+    // Auto-correct when the current model is empty OR not in the available options
+    if (trimmed.length > 0 && modelOptions.includes(trimmed)) return;
     setForm((prev) => {
-      if (prev.client === 'antigravity' || prev.defaultModel.trim().length > 0) return prev;
+      if (prev.client === 'antigravity') return prev;
+      const prevTrimmed = prev.defaultModel.trim();
+      if (prevTrimmed.length > 0 && modelOptions.includes(prevTrimmed)) return prev;
       return { ...prev, defaultModel: modelOptions[0] ?? '' };
     });
   }, [form.client, form.defaultModel, modelOptions]);
