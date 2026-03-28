@@ -9,6 +9,10 @@ triggers:
   - "开始开发"
   - "新 worktree"
   - "开 worktree"
+  - "git worktree"
+  - "并行分支开发"
+  - "多改动隔离"
+  - "分支隔离"
 renamed-from: using-git-worktrees
 ---
 

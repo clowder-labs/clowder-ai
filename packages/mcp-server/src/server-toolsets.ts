@@ -82,6 +82,9 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   cat_cafe_feat_index: 'Lookup feature entries by featId or query.',
   cat_cafe_cross_post_message: 'Post a message to a different thread by threadId.',
   cat_cafe_list_tasks: 'List tasks with optional threadId/catId/status filters.',
+  cat_cafe_list_skills:
+    'List Cat Cafe shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
+  cat_cafe_load_skill: 'Load one Cat Cafe shared skill by exact name.',
   cat_cafe_update_task: 'Update status of a task you own (doing/blocked/done).',
   cat_cafe_create_rich_block: 'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
   cat_cafe_generate_document: 'Generate PDF/DOCX/MD from Markdown and deliver to IM.',

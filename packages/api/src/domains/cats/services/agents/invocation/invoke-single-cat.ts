@@ -847,9 +847,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const forceReinjection = _needsReinjection.delete(compressionKey);
     const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
 
+    // ACP/open agents read the task prompt more reliably than long static identity.
+    // Keep the skill-selection reminder close to the task so they query runtime skills
+    // before diving into repository search for planning/TDD/collab/worktree requests.
+    const acpRuntimeSkillHint =
+      provider === 'acp'
+        ? 'ACP skill rule: planning/TDD/compare-options/decision/worktree tasks use cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read. If a close match appears, call cat_cafe_load_skill immediately before other tools. Map: implementation plan -> writing-plans; failed tests/minimal implementation/refactor -> tdd; compare/recommend/decision -> collaborative-thinking; branch isolation -> worktree. If empty, retry once with a likely exact skill name.'
+        : '';
+
     // Prepend staticIdentity to prompt when injection is needed
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
-    const promptWithMission = missionPrefix ? `${missionPrefix}\n\n${prompt}` : prompt;
+    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter((part) => typeof part === 'string' && part.trim());
+    const promptWithMission = promptParts.join('\n\n');
     const effectivePrompt =
       injectSystemPrompt && params.systemPrompt
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
