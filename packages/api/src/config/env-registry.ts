@@ -848,6 +848,18 @@ export function isEditableEnvVar(def: EnvDefinition): boolean {
   return def.runtimeEditable !== false && !def.sensitive;
 }
 
+/** Connector-category sensitive fields: editable via UI but require restart. */
+export function isConnectorSensitiveEditable(def: EnvDefinition): boolean {
+  return def.category === 'connector' && def.sensitive && def.runtimeEditable !== false;
+}
+
 export function isEditableEnvVarName(name: string): boolean {
-  return ENV_VARS.some((def) => def.name === name && isHubVisibleEnvVar(def) && isEditableEnvVar(def));
+  return ENV_VARS.some(
+    (def) => def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
+  );
+}
+
+/** Returns true when the env var requires a service restart to take effect. */
+export function requiresRestartEnvVar(name: string): boolean {
+  return ENV_VARS.some((def) => def.name === name && isConnectorSensitiveEditable(def));
 }
