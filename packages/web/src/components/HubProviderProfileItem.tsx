@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { parseProviderEnvText } from './hub-provider-env';
 import type { ApiProtocol } from './hub-provider-profiles.sections';
 import type { AcpModelAccessMode, AcpModelProfileItem, ProfileItem } from './hub-provider-profiles.types';
 import { TagEditor } from './hub-tag-editor';
@@ -20,6 +21,7 @@ export interface ProfileEditPayload {
   command?: string;
   args?: string[];
   cwd?: string | null;
+  env?: Record<string, string> | null;
   modelAccessMode?: AcpModelAccessMode;
   defaultModelProfileRef?: string | null;
 }
@@ -66,6 +68,7 @@ export function HubProviderProfileItem({
   const [editCommand, setEditCommand] = useState(profile.command ?? '');
   const [editArgs, setEditArgs] = useState((profile.args ?? []).join(' '));
   const [editCwd, setEditCwd] = useState(profile.cwd ?? '');
+  const [editEnvText, setEditEnvText] = useState('');
   const [editModelAccessMode, setEditModelAccessMode] = useState<AcpModelAccessMode>(
     profile.modelAccessMode ?? 'self_managed',
   );
@@ -80,6 +83,7 @@ export function HubProviderProfileItem({
     setEditCommand(profile.command ?? '');
     setEditArgs((profile.args ?? []).join(' '));
     setEditCwd(profile.cwd ?? '');
+    setEditEnvText('');
     setEditModelAccessMode(profile.modelAccessMode ?? 'self_managed');
     setEditDefaultModelProfileRef(profile.defaultModelProfileRef ?? '');
     setEditing(true);
@@ -97,6 +101,7 @@ export function HubProviderProfileItem({
 
   const saveEdit = useCallback(async () => {
     if (profile.kind === 'acp') {
+      const parsedEnv = parseProviderEnvText(editEnvText);
       await onSave({
         displayName: editDisplayName.trim(),
         command: editCommand.trim(),
@@ -105,6 +110,7 @@ export function HubProviderProfileItem({
           .map((value) => value.trim())
           .filter(Boolean),
         cwd: editCwd.trim() || null,
+        ...(parsedEnv ? { env: parsedEnv } : {}),
         modelAccessMode: editModelAccessMode,
         defaultModelProfileRef:
           editModelAccessMode === 'clowder_default_profile' ? editDefaultModelProfileRef.trim() || null : null,
@@ -129,6 +135,7 @@ export function HubProviderProfileItem({
     editBaseUrl,
     editCommand,
     editCwd,
+    editEnvText,
     editDefaultModelProfileRef,
     editDisplayName,
     editModelAccessMode,
@@ -170,6 +177,13 @@ export function HubProviderProfileItem({
                 value={editCwd}
                 onChange={(e) => setEditCwd(e.target.value)}
                 placeholder="可选 cwd"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+              />
+              <textarea
+                value={editEnvText}
+                onChange={(e) => setEditEnvText(e.target.value)}
+                rows={3}
+                placeholder="每行 KEY=value；留空保持现有值"
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <select

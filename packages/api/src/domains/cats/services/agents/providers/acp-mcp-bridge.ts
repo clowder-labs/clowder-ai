@@ -22,12 +22,12 @@ export function resolveACPMcpTransportFromInitializeResult(
     result && typeof result === 'object' && result.agentCapabilities && typeof result.agentCapabilities === 'object'
       ? (result.agentCapabilities as { mcpCapabilities?: unknown })
       : null;
-  if (!agentCapabilities || agentCapabilities.mcpCapabilities === undefined) return null;
+  if (!agentCapabilities || agentCapabilities.mcpCapabilities === undefined) return 'stdio';
   const capabilities =
     agentCapabilities.mcpCapabilities && typeof agentCapabilities.mcpCapabilities === 'object'
       ? (agentCapabilities.mcpCapabilities as Record<string, unknown>)
       : null;
-  if (!capabilities) return null;
+  if (!capabilities) return 'stdio';
   if (capabilities.acp === true) return 'acp';
   if (capabilities.stdio === true) return 'stdio';
   return null;
