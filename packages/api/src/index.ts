@@ -133,6 +133,7 @@ import {
   memoryRoutes,
   messageActionsRoutes,
   messagesRoutes,
+  modelConfigProfilesRoutes,
   projectsRoutes,
   providerProfilesRoutes,
   pushRoutes,
@@ -952,6 +953,7 @@ async function main(): Promise<void> {
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
   await app.register(featureDocDetailRoutes);
+  await app.register(modelConfigProfilesRoutes);
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });

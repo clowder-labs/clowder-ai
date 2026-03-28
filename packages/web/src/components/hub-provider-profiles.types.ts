@@ -15,6 +15,7 @@ export interface BootstrapBinding {
 export interface ProfileItem {
   id: string;
   provider?: string;
+  source?: 'provider_profiles' | 'model_config';
   displayName: string;
   name: string;
   authType: ProfileAuthType;
@@ -22,7 +23,7 @@ export interface ProfileItem {
   builtin: boolean;
   mode: ProfileMode;
   client?: BuiltinAccountClient;
-  protocol?: string;
+  protocol?: 'anthropic' | 'openai' | 'google' | 'huawei_maas' | 'acp' | string;
   baseUrl?: string;
   models?: string[];
   modelOverride?: string | null;

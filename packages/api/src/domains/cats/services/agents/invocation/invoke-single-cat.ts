@@ -17,6 +17,10 @@ import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import {
+  findProjectModelConfigBinding,
+  HUAWEI_MAAS_MODEL_SOURCE_ID,
+} from '../../../../../config/model-config-profiles.js';
+import {
   resolveBuiltinClientForProvider,
   validateRuntimeProviderBinding,
 } from '../../../../../config/provider-binding-compat.js';
@@ -25,6 +29,7 @@ import {
   resolveRuntimeProviderProfileForClient,
 } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
+import { resolveHuaweiMaaSRuntimeConfig } from '../../../../../integrations/huawei-maas.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
@@ -603,15 +608,34 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const provider = catConfig?.provider;
     const builtinClient = provider ? resolveBuiltinClientForProvider(provider) : null;
     const defaultModel = catConfig?.defaultModel?.trim() || undefined;
-    const projectRoot = workingDirectory ? findMonorepoRoot(workingDirectory) : resolveActiveProjectRoot(process.cwd());
-    const boundAccountRef = resolveBoundAccountRefForCat(projectRoot, catId, catConfig);
+    const configProjectRoot = resolveActiveProjectRoot(process.cwd());
+    const boundAccountRef = resolveBoundAccountRefForCat(configProjectRoot, catId, catConfig);
+    const modelConfigBinding = boundAccountRef
+      ? await findProjectModelConfigBinding(configProjectRoot, boundAccountRef)
+      : null;
+    if (modelConfigBinding) {
+      const isHuaweiMaaSBinding =
+        modelConfigBinding.id === HUAWEI_MAAS_MODEL_SOURCE_ID && modelConfigBinding.protocol === 'huawei_maas';
+      if (!isHuaweiMaaSBinding) {
+        throw new Error(`unsupported model config source "${modelConfigBinding.id}"`);
+      }
+      if (provider !== 'dare' && provider !== 'relayclaw') {
+        throw new Error(`client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`);
+      }
+      if (defaultModel && modelConfigBinding.models.length && !modelConfigBinding.models.includes(defaultModel)) {
+        throw new Error(`model "${defaultModel}" is not available on provider "${modelConfigBinding.id}"`);
+      }
+    }
     const resolveRuntimeAccount = async () => {
+      if (boundAccountRef && modelConfigBinding) {
+        return null;
+      }
       if (provider === 'acp') {
         if (!boundAccountRef) return null;
-        return resolveRuntimeProviderProfileById(projectRoot, boundAccountRef);
+        return resolveRuntimeProviderProfileById(configProjectRoot, boundAccountRef);
       }
       if (!builtinClient) return null;
-      const runtime = await resolveRuntimeProviderProfileForClient(projectRoot, builtinClient, boundAccountRef);
+      const runtime = await resolveRuntimeProviderProfileForClient(configProjectRoot, builtinClient, boundAccountRef);
       if (boundAccountRef && !runtime) {
         throw new Error(`bound account "${boundAccountRef}" not found`);
       }
@@ -641,7 +665,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       if (isExplicitBindingCompatibilityError(err)) {
         throw err;
       }
-      if (boundAccountRef) {
+      if (boundAccountRef && !modelConfigBinding) {
         throw new Error(`failed to resolve bound account "${boundAccountRef}"`);
       }
     }
@@ -656,11 +680,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       dare: 'openai',
     };
     const effectiveProtocol =
-      resolvedAccount?.authType === 'api_key' && resolvedAccount.protocol
+      resolvedAccount?.kind !== 'builtin' && resolvedAccount?.protocol
         ? resolvedAccount.protocol
-        : provider
-          ? (defaultProtocolForProvider[provider] ?? null)
-          : null;
+        : modelConfigBinding?.protocol ??
+          (provider ? (defaultProtocolForProvider[provider] ?? null) : null);
 
     // Pass protocol hint to CLI via callbackEnv (used by OpenCode/Claude for model prefix)
     if (effectiveProtocol) {
@@ -682,7 +705,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             const proxyAlive = await tcpProbe('127.0.0.1', proxyPortNum);
             if (proxyAlive) {
               const slug = deriveProxySlug(resolvedAccount.id);
-              registerProxyUpstream(projectRoot, slug, resolvedAccount.baseUrl);
+              registerProxyUpstream(configProjectRoot, slug, resolvedAccount.baseUrl);
               callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPortStr}/${slug}`;
             } else {
               log.warn(
@@ -716,6 +739,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       } else if (boundAccountRef) {
         callbackEnv.CODEX_AUTH_MODE = 'oauth';
       }
+    } else if (effectiveProtocol === 'huawei_maas') {
+      const runtimeConfig = resolveHuaweiMaaSRuntimeConfig(userId);
+      const headersJson = JSON.stringify(runtimeConfig.defaultHeaders);
+      callbackEnv.CAT_CAFE_HUAWEI_MAAS_ENABLED = '1';
+      callbackEnv.CAT_CAFE_HUAWEI_MAAS_BASE_URL = runtimeConfig.baseUrl;
+      callbackEnv.CAT_CAFE_HUAWEI_MAAS_HEADERS_JSON = headersJson;
+      callbackEnv.CODEX_AUTH_MODE = 'api_key';
+      callbackEnv.OPENAI_API_KEY = runtimeConfig.apiKey;
+      callbackEnv.OPENAI_BASE_URL = runtimeConfig.baseUrl;
+      callbackEnv.OPENAI_API_BASE = runtimeConfig.baseUrl;
+      callbackEnv.OPENAI_DEFAULT_HEADERS = headersJson;
+      callbackEnv.default_headers = headersJson;
     } else if (effectiveProtocol === 'google') {
       if (resolvedAccount?.authType === 'api_key' && resolvedAccount.apiKey) {
         // Gemini CLI: native Google SDK, uses GEMINI_API_KEY
@@ -733,10 +768,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     // Dare has its own env vars regardless of protocol-based injection above
-    if (provider === 'dare' && resolvedAccount?.authType === 'api_key') {
-      if (resolvedAccount.protocol) callbackEnv.CAT_CAFE_DARE_ADAPTER = resolvedAccount.protocol;
-      if (resolvedAccount.apiKey) callbackEnv.DARE_API_KEY = resolvedAccount.apiKey;
-      if (resolvedAccount.baseUrl) callbackEnv.DARE_ENDPOINT = resolvedAccount.baseUrl;
+    if (provider === 'dare') {
+      if (effectiveProtocol === 'huawei_maas') {
+        callbackEnv.CAT_CAFE_DARE_ADAPTER = 'openai';
+        if (callbackEnv.OPENAI_API_KEY) callbackEnv.DARE_API_KEY = callbackEnv.OPENAI_API_KEY;
+        if (callbackEnv.OPENAI_BASE_URL) callbackEnv.DARE_ENDPOINT = callbackEnv.OPENAI_BASE_URL;
+      } else if (resolvedAccount?.authType === 'api_key') {
+        if (resolvedAccount.protocol) callbackEnv.CAT_CAFE_DARE_ADAPTER = resolvedAccount.protocol;
+        if (resolvedAccount.apiKey) callbackEnv.DARE_API_KEY = resolvedAccount.apiKey;
+        if (resolvedAccount.baseUrl) callbackEnv.DARE_ENDPOINT = resolvedAccount.baseUrl;
+      }
     }
 
     // F189: OpenCode unified custom provider config injection.
@@ -760,7 +801,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const rawModels = resolvedAccount.models ?? [defaultModel];
         const prefix = `${ocProviderName}/`;
         const bareModels = rawModels.map((m: string) => (m.startsWith(prefix) ? m.slice(prefix.length) : m));
-        const configPath = writeOpenCodeRuntimeConfig(projectRoot, catId as string, {
+        const configPath = writeOpenCodeRuntimeConfig(configProjectRoot, catId as string, {
           providerName: ocProviderName,
           models: bareModels,
           defaultModel: assembledModel,
@@ -783,7 +824,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         if (!modelProfileRef) {
           throw new Error(`ACP provider "${resolvedAccount.id}" requires a default model profile`);
         }
-        resolvedAcpModelProfile = await resolveRuntimeAcpModelProfileById(projectRoot, modelProfileRef);
+        resolvedAcpModelProfile = await resolveRuntimeAcpModelProfileById(configProjectRoot, modelProfileRef);
         if (!resolvedAcpModelProfile) {
           throw new Error(`ACP model profile "${modelProfileRef}" not found or missing apiKey`);
         }

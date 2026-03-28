@@ -30,6 +30,7 @@ export { memoryRoutes } from './memory.js';
 export { memoryPublishRoutes } from './memory-publish.js';
 export { messageActionsRoutes } from './message-actions.js';
 export { messagesRoutes } from './messages.js';
+export { modelConfigProfilesRoutes } from './model-config-profiles.js';
 export { projectsRoutes } from './projects.js';
 export { providerProfilesRoutes } from './provider-profiles.js';
 export { pushRoutes } from './push.js';

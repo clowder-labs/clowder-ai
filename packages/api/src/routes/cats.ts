@@ -12,6 +12,7 @@ import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-b
 import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/cat-catalog-store.js';
 import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { resolveProjectTemplatePath } from '../config/project-template-path.js';
+import { findProjectModelConfigBinding, HUAWEI_MAAS_MODEL_SOURCE_ID } from '../config/model-config-profiles.js';
 import {
   resolveBuiltinClientForProvider,
   validateModelFormatForProvider,
@@ -235,6 +236,25 @@ async function validateAccountBindingOrThrow(
     throw new Error(`client "${client}" requires a provider binding`);
   }
   if (!trimmedAccountRef) return;
+  const modelConfigBinding = await findProjectModelConfigBinding(projectRoot, trimmedAccountRef);
+  if (modelConfigBinding) {
+    const isHuaweiMaaSBinding =
+      modelConfigBinding.id === HUAWEI_MAAS_MODEL_SOURCE_ID && modelConfigBinding.protocol === 'huawei_maas';
+    if (!isHuaweiMaaSBinding) {
+      throw new Error(`model config source "${trimmedAccountRef}" is not supported yet`);
+    }
+    if (client !== 'dare' && client !== 'relayclaw') {
+      throw new Error(`client "${client}" does not support model config source "${trimmedAccountRef}"`);
+    }
+    if (
+      defaultModel?.trim() &&
+      modelConfigBinding.models.length &&
+      !modelConfigBinding.models.includes(defaultModel.trim())
+    ) {
+      throw new Error(`model "${defaultModel.trim()}" is not available on provider "${trimmedAccountRef}"`);
+    }
+    return;
+  }
   const runtimeProfile = await resolveRuntimeProviderProfileById(projectRoot, trimmedAccountRef);
   if (!runtimeProfile) {
     throw new Error(`provider "${trimmedAccountRef}" not found`);

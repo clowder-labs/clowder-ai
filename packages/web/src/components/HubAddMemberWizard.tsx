@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import {
   ChoiceButton,
@@ -20,6 +21,18 @@ import {
 } from './hub-cat-editor.model';
 import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
 
+interface ModelConfigProfilesResponse {
+  projectPath: string;
+  exists: boolean;
+  providers: ProfileItem[];
+}
+
+function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
+  if (!projectPath || projectPath === 'default') return path;
+  const query = new URLSearchParams({ projectPath });
+  return `${path}?${query.toString()}`;
+}
+
 interface HubAddMemberWizardProps {
   open: boolean;
   onClose: () => void;
@@ -28,7 +41,12 @@ interface HubAddMemberWizardProps {
 
 export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWizardProps) {
   const { clients: detectedClients, loading: loadingClients } = useAvailableClients();
+  const currentProjectPath = useChatStore((state) => state.currentProjectPath);
   const clientIds = useMemo(() => new Set(detectedClients.map((c) => c.id)), [detectedClients]);
+  const clientLabels = useMemo(
+    () => new Map(detectedClients.map((client) => [client.id, client.label])),
+    [detectedClients],
+  );
   const clientRow1 = useMemo(
     () => CLIENT_ROW_1.filter((id) => clientIds.has(id)),
     [clientIds],
@@ -83,6 +101,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
   }, [antigravityDefaults.models, client, defaultModel, selectedProfile]);
 
   function profileSubtitle(profile: ProfileItem) {
+    if (profile.source === 'model_config') return '用户模型配置';
     if (profile.builtin) return '内置';
     return 'API Key';
   }
@@ -100,13 +119,35 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     if (!open) return;
     let cancelled = false;
     setLoadingProfiles(true);
-    apiFetch('/api/provider-profiles')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`账号配置加载失败 (${res.status})`);
-        return (await res.json()) as ProviderProfilesResponse;
+    const modelConfigUrl = '/api/model-config-profiles';
+    const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
+    Promise.resolve()
+      .then(async () => {
+        try {
+          return await apiFetch(modelConfigUrl);
+        } catch {
+          return null;
+        }
       })
-      .then((body) => {
-        if (!cancelled) setProfiles(body.providers);
+      .then(async (res) => {
+        if (!res) return null;
+        if (!res.ok) {
+          if (res.status === 404) return null;
+          throw new Error(`模型配置加载失败 (${res.status})`);
+        }
+        const body = (await res.json()) as ModelConfigProfilesResponse;
+        if (body.exists) return body.providers;
+        return null;
+      })
+      .then(async (modelConfigProfiles) => {
+        if (modelConfigProfiles) return modelConfigProfiles;
+        const res = await apiFetch(providerProfilesUrl);
+        if (!res.ok) throw new Error(`账号配置加载失败 (${res.status})`);
+        const body = (await res.json()) as ProviderProfilesResponse;
+        return body.providers;
+      })
+      .then((nextProfiles) => {
+        if (!cancelled) setProfiles(nextProfiles);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '账号配置加载失败');
@@ -117,7 +158,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [currentProjectPath, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -233,7 +274,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
                     {row.map((value) => (
                       <PillChoiceButton
                         key={value}
-                        label={clientLabel(value)}
+                        label={clientLabels.get(value) ?? clientLabel(value)}
                         selected={client === value}
                         onClick={() => handleClientSelect(value)}
                       />

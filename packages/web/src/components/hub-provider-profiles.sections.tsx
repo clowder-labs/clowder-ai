@@ -94,7 +94,10 @@ export function CreateApiKeyProfileSection({
       ? displayName.trim().length > 0 &&
         command.trim().length > 0 &&
         (modelAccessMode !== 'clowder_default_profile' || defaultModelProfileRef.trim().length > 0)
-      : displayName.trim().length > 0 && baseUrl.trim().length > 0 && apiKey.trim().length > 0 && models.length > 0;
+      : displayName.trim().length > 0 &&
+        baseUrl.trim().length > 0 &&
+        apiKey.trim().length > 0 &&
+        models.length > 0;
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (

@@ -137,6 +137,7 @@ class OpenAIModelAdapter(IModelAdapter):
 
         model = self._model or "gpt-4o-mini"
         kwargs: dict[str, Any] = {"model": model}
+        default_headers = _load_default_headers_from_env()
 
         if self._api_key:
             kwargs["api_key"] = self._api_key
@@ -148,6 +149,8 @@ class OpenAIModelAdapter(IModelAdapter):
             kwargs["base_url"] = self._endpoint
             # Some OpenAI-compatible gateways only support streamed chat completions.
             kwargs.setdefault("streaming", True)
+        if default_headers:
+            kwargs["default_headers"] = default_headers
 
         kwargs.update(self._extra)
 
@@ -249,6 +252,9 @@ class OpenAIModelAdapter(IModelAdapter):
             "api_key": self._api_key or "dummy-key",
             "base_url": self._endpoint,
         }
+        default_headers = _load_default_headers_from_env()
+        if default_headers:
+            client_kwargs["default_headers"] = default_headers
         _, async_client = self._build_http_clients()
         if async_client is not None:
             client_kwargs["http_client"] = async_client
@@ -464,6 +470,7 @@ class OpenAIModelAdapter(IModelAdapter):
                 "model": model_name or self._model,
                 "base_url": str(base_url) if base_url else None,
                 "has_api_key": bool(self._api_key),
+                "has_default_headers": bool(_load_default_headers_from_env()),
                 "extra": bool(self._extra),
             },
         )
@@ -487,6 +494,23 @@ class OpenAIModelAdapter(IModelAdapter):
 
 
 __all__ = ["OpenAIModelAdapter"]
+
+
+def _load_default_headers_from_env() -> dict[str, str] | None:
+    raw = os.getenv("OPENAI_DEFAULT_HEADERS") or os.getenv("default_headers")
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    headers: dict[str, str] = {}
+    for key, value in parsed.items():
+        if isinstance(key, str) and isinstance(value, str):
+            headers[key] = value
+    return headers or None
 
 
 def _coerce_text(value: Any) -> str | None:
