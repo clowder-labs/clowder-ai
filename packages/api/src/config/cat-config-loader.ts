@@ -23,6 +23,7 @@ import { createCatId } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
+import { isClientAllowed } from '../utils/client-visibility.js';
 import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from './cat-catalog-store.js';
 
 const log = createModuleLogger('cat-config');
@@ -753,14 +754,38 @@ export function getReviewPolicy(config?: CatCafeConfig): ReviewPolicy {
 }
 
 /**
- * Check if a cat is available (has quota).
+ * Resolve a cat's provider from config breeds.
+ * Returns undefined if catId is not found in config.
+ */
+function getCatProvider(catId: string, config?: CatCafeConfig): string | undefined {
+  const cfg = config ?? getCachedConfig();
+  if (!cfg) return undefined;
+
+  // Reuse the existing variant index for O(1) lookup
+  if (!_catIdToVariant || _catIdToVariantSource !== cfg) {
+    _catIdToVariant = buildCatIdToVariantIndex(cfg);
+    _catIdToVariantSource = cfg;
+  }
+
+  return _catIdToVariant.get(catId)?.provider;
+}
+
+/**
+ * Check if a cat is available (has quota AND its provider is visible).
  * F032: 铲屎官 40 美刀教训 — 没猫粮的猫不要找！
+ * Client-visibility: hidden providers must not be routable via @mention.
  */
 export function isCatAvailable(catId: string, config?: CatCafeConfig): boolean {
   const roster = getRoster(config);
   const entry = roster[catId];
   // If not in roster, assume available (backward compat)
-  return entry?.available !== false;
+  if (entry?.available === false) return false;
+
+  // Check client-visibility: cat's provider must be in allowed list
+  const provider = getCatProvider(catId, config);
+  if (provider && !isClientAllowed(provider)) return false;
+
+  return true;
 }
 
 /**
