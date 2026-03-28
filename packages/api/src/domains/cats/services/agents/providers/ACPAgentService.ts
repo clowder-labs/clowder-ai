@@ -183,11 +183,14 @@ export async function runACPProviderProbe(input: {
     return { ok: false, error: 'ACP provider profile is incomplete' };
   }
 
+  const probeEnv = buildACPSubprocessEnv(providerProfile);
+  const probeWorkingDir = input.workingDirectory || providerProfile.cwd;
+  if (probeWorkingDir) probeEnv.AGENT_TEAMS_PROJECT_ROOT = probeWorkingDir;
   const client = new ACPStdioClient({
     command: providerProfile.command,
     args: providerProfile.args,
-    cwd: providerProfile.cwd,
-    env: buildACPSubprocessEnv(providerProfile),
+    cwd: probeWorkingDir,
+    env: probeEnv,
   });
   const mcpBridge = new ACPMcpBridge();
   try {
@@ -250,11 +253,14 @@ export class ACPAgentService implements AgentService {
       return;
     }
 
+    const acpEnv = buildACPSubprocessEnv(providerProfile);
+    const resolvedWorkingDir = options?.workingDirectory || providerProfile.cwd;
+    if (resolvedWorkingDir) acpEnv.AGENT_TEAMS_PROJECT_ROOT = resolvedWorkingDir;
     const client = new ACPStdioClient({
       command: providerProfile.command,
       args: providerProfile.args,
-      cwd: options?.workingDirectory || providerProfile.cwd,
-      env: buildACPSubprocessEnv(providerProfile),
+      cwd: resolvedWorkingDir,
+      env: acpEnv,
     });
     let sessionId = options?.sessionId;
     const loadedExistingSession = Boolean(sessionId);
