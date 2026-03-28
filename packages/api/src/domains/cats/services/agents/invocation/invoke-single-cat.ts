@@ -995,8 +995,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(sessionId ? { cliSessionId: sessionId } : {}),
       ...(params.resumeSession ? { resumeSession: true } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
-      // #774: stallAutoKill — auto-kill on idle-silent stall (~5min) instead of waiting 30min
-      livenessProbe: { stallAutoKill: true },
+      // #774: stallAutoKill — auto-kill on idle-silent stall instead of waiting 30min
+      // Non-streaming providers (openai reasoning models) legitimately go idle-silent
+      // during long API calls (CPU flat while waiting on network I/O), so they need
+      // a longer threshold than the default 300s.
+      livenessProbe: {
+        stallAutoKill: true,
+        ...(provider && provider !== 'anthropic' ? { stallWarningMs: 600_000 } : {}),
+      },
       ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),
       ...(resolvedProviderProfileForService ? { providerProfile: resolvedProviderProfileForService } : {}),
       ...(resolvedAcpModelProfile ? { acpModelProfile: resolvedAcpModelProfile } : {}),
