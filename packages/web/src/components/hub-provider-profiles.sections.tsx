@@ -113,7 +113,7 @@ export function CreateApiKeyProfileSection({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between text-left hidden"
+        className="flex w-full items-center justify-between text-left"
       >
         <h4 className="text-base font-semibold text-[#2E3440]">
           {kind === 'acp' ? '+ 新建 ACP Provider' : '+ 新建 API Key 账号'}
