@@ -119,10 +119,6 @@ export function ChatInput({
     });
   }, []);
 
-  const handleToggleVoiceRecording = useCallback(() => {
-    window.dispatchEvent(new Event('toggle-voice-recording'));
-  }, []);
-
   const handleQuickAction = useCallback((text: (typeof QUICK_ACTIONS)[number]) => {
     setInput(text);
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -537,7 +533,7 @@ export function ChatInput({
     <div className="relative safe-area-bottom bg-transparent">
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
-        <div className="px-4 pt-2 flex items-center gap-2">
+        <div className="px-4 pt-2 flex items-center gap-2 mx-auto w-[80%]">
           <span className="inline-block w-2 h-2 rounded-full bg-[#9B7EBD] animate-pulse" />
           <span className="text-xs text-[#9B7EBD] font-medium">猫猫正在回复中...</span>
           <span className="text-xs text-gray-400">继续输入，消息会排队</span>
@@ -727,35 +723,21 @@ export function ChatInput({
                 >
                   <AttachIcon className="h-5 w-5" />
                 </button>
-                <button
-                  onClick={handleToggleVoiceRecording}
+                <ChatInputActionButton
+                  onTranscript={handleTranscript}
+                  onSend={handleSend}
+                  onStop={onStop}
+                  onQueueSend={handleQueueSend}
+                  onForceSend={handleForceSend}
                   disabled={disabled}
-                  className="rounded-lg p-[6px] text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                  aria-label="Start voice input (⌥V)"
-                  title="语音输入 (⌥V)"
-                >
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 2a3 3 0 00-3 3v5a3 3 0 106 0V5a3 3 0 00-3-3z" />
-                    <path d="M5 9a1 1 0 112 0 3 3 0 006 0 1 1 0 112 0 5 5 0 01-4 4.9V16h2a1 1 0 110 2H7a1 1 0 010-2h2v-2.1A5 5 0 015 9z" />
-                  </svg>
-                </button>
+                  sendDisabled={sendTemporarilyDisabled}
+                  hasActiveInvocation={hasActiveInvocation}
+                  hasText={!!input.trim()}
+                />
               </div>
             </div>
           </div>
         </div>
-
-        <ChatInputActionButton
-          onTranscript={handleTranscript}
-          onSend={handleSend}
-          onStop={onStop}
-          onQueueSend={handleQueueSend}
-          onForceSend={handleForceSend}
-          disabled={disabled}
-          sendDisabled={sendTemporarilyDisabled}
-          hideIdleMic
-          hasActiveInvocation={hasActiveInvocation}
-          hasText={!!input.trim()}
-        />
         </div>
       </div>
 

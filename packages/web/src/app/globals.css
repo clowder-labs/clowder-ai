@@ -187,7 +187,6 @@ body {
 @layer components {
   .ui-page-shell {
     @apply flex h-full min-h-0 flex-col;
-    background-color: var(--surface-panel);
     color: var(--text-primary);
   }
 
@@ -360,8 +359,7 @@ body {
   }
 
   .ui-tab-trigger {
-    font-size: var(--font-size-xl);
-    line-height: 30px;
+    font-size: var(--font-size-md);
     font-weight: var(--font-weight-bold);
     color: var(--text-muted);
     transition: color 200ms ease;
