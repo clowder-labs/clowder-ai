@@ -207,12 +207,6 @@ body {
     color: var(--text-secondary);
   }
 
-  .ui-divider {
-    height: 1px;
-    width: 100%;
-    background: var(--border-soft);
-  }
-
   .ui-panel {
     border: var(--border-width-default) solid var(--border-default);
     border-radius: var(--radius-lg);

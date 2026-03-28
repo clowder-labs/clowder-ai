@@ -7,12 +7,14 @@ import { useChatStore } from '@/stores/chatStore';
 import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
 import { useProviderProfilesState } from './useProviderProfilesState';
 
-const MODEL_TITLE = '\u6a21\u578b';
-const ADD_MODEL = '\u6dfb\u52a0\u6a21\u578b';
-const LOADING_TEXT = '\u52a0\u8f7d\u4e2d...';
-const EMPTY_TEXT = '\u6682\u65e0\u6a21\u578b\u4fe1\u606f';
-const DEFAULT_DESC =
-  '\u4e13\u6ce8\u4e8e\u77e5\u8bc6\u95ee\u7b54\u3001\u5185\u5bb9\u521b\u4f5c\u7b49\u901a\u7528\u4efb\u52a1\uff0c\u53ef\u5b9e\u73b0\u9ad8\u6027\u80fd\u4e0e\u4f4e\u6210\u672c\u7684\u5e73\u8861\uff0c\u9002\u7528\u4e8e\u667a\u80fd\u5ba2\u670d\u3001\u4e2a\u6027\u5316\u63a8\u8350\u7b49\u573a\u666f\u3002';
+const ADD_MODEL = '添加模型';
+const MODEL_TITLE = '模型';
+const SEARCH_PLACEHOLDER = '搜索模型、厂商或描述关键词';
+const LOADING_TEXT = '加载中...';
+const EMPTY_TEXT = '暂无模型信息';
+const NO_RESULTS_TEXT = '未找到匹配模型';
+const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
+const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -27,6 +29,12 @@ interface ModelCardData {
   object: string;
   name: string;
   description: string;
+}
+
+interface ModelCardGroup {
+  key: string;
+  label: string;
+  items: ModelCardData[];
 }
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
@@ -165,8 +173,30 @@ function modelIconVisual(iconType: ModelIconType): { label: string; imageSrc: st
   }
 }
 
+function buildModelSearchText(card: ModelCardData): string {
+  const groupKey = groupKeyFromModelName(card.name);
+  const groupLabel = professionalGroupLabel(groupKey);
+  const vendorLabel = modelIconVisual(resolveModelIconType(groupKey)).label;
+
+  return [card.name, card.description, card.id, card.object, groupKey, groupLabel, vendorLabel].join(' ').toLowerCase();
+}
+
+function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
+  return cards.reduce<ModelCardGroup[]>((acc, item) => {
+    const key = groupKeyFromModelName(item.name);
+    const existing = acc.find((group) => group.key === key);
+    if (existing) {
+      existing.items.push(item);
+      return acc;
+    }
+    acc.push({ key, label: professionalGroupLabel(key), items: [item] });
+    return acc;
+  }, []);
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
   const openHub = useChatStore((s) => s.openHub);
@@ -197,21 +227,21 @@ export function ModelsPanel() {
     };
   }, []);
 
-  const groupedCards = useMemo(() => {
-    return cards.reduce<Array<{ key: string; label: string; items: ModelCardData[] }>>((acc, item) => {
-      const key = groupKeyFromModelName(item.name);
-      const existing = acc.find((group) => group.key === key);
-      if (existing) {
-        existing.items.push(item);
-        return acc;
-      }
-      acc.push({ key, label: professionalGroupLabel(key), items: [item] });
-      return acc;
-    }, []);
-  }, [cards]);
+  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+
+  const filteredCards = useMemo(() => {
+    if (!normalizedQuery) return cards;
+    return cards.filter((card) => buildModelSearchText(card).includes(normalizedQuery));
+  }, [cards, normalizedQuery]);
+
+  const groupedCards = useMemo(() => groupCards(filteredCards), [filteredCards]);
+  const hasSearchQuery = normalizedQuery.length > 0;
+  const showEmptyData = !loading && cards.length === 0;
+  const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
+  const showGroups = !loading && groupedCards.length > 0;
 
   return (
-    <div className="ui-page-shell gap-4">
+    <div className="ui-page-shell">
       <div className="ui-page-header">
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
         <div className="flex items-center gap-2">
@@ -232,18 +262,45 @@ export function ModelsPanel() {
         </div>
       </div>
 
-      <div className="ui-divider" />
-
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
+        <div className="space-y-4 pb-2">
+          <section>
+            <div className="relative">
+              <input
+                type="search"
+                aria-label="搜索模型"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={SEARCH_PLACEHOLDER}
+                className="ui-field w-full px-3 py-1.5 pr-10 text-xs"
+              />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]"
+              >
+                <circle cx="9" cy="9" r="5.25" />
+                <path d="m13 13 3.5 3.5" />
+              </svg>
+            </div>
+          </section>
 
-        {!loading && groupedCards.length === 0 && (
-          <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>
-        )}
+          {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
 
-        {!loading && groupedCards.length > 0 && (
-          <div className="space-y-4 pb-2">
-            {groupedCards.map((group) => (
+          {showEmptyData && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>}
+
+          {showNoResults && (
+            <div className="py-10 text-center">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">{NO_RESULTS_TEXT}</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_HINT}</p>
+            </div>
+          )}
+
+          {showGroups &&
+            groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
                 <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-secondary)]">
                   <svg
@@ -297,8 +354,7 @@ export function ModelsPanel() {
                 </div>
               </section>
             ))}
-          </div>
-        )}
+        </div>
       </div>
 
       {showAddModelModal && (

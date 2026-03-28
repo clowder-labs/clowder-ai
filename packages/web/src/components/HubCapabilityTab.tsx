@@ -34,7 +34,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   const [loading, setLoading] = useState(true);
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
   const [toggling, setToggling] = useState<string | null>(null);
-  const [showAddModelModal, setShowAddModelModal] = useState(false);
 
   const { providerCreateSectionProps } = useProviderProfilesState();
   const confirm = useConfirm();
@@ -207,9 +206,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
             onChange={(value) => setFilterSource(value as FilterSource)}
           />
         </div>
-        <button type="button" onClick={() => setShowAddModelModal(true)} className="ui-button-primary">
-          + 添加模型
-        </button>
       </div>
 
       {skillHealth && <SkillHealthBanner health={skillHealth} items={items} />}
@@ -285,20 +281,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           </span>
         </div>
       </div>
-
-      {showAddModelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4" onClick={() => setShowAddModelModal(false)}>
-          <div className="ui-card max-h-[90vh] w-full max-w-xl overflow-y-auto p-5" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-[var(--text-primary)]">新建 API Key 账号</h3>
-              <button type="button" onClick={() => setShowAddModelModal(false)} className="ui-button-secondary">
-                关闭
-              </button>
-            </div>
-            <CreateApiKeyProfileSection {...providerCreateSectionProps} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

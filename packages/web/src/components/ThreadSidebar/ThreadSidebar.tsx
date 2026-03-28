@@ -547,7 +547,7 @@ export function ThreadSidebar({
 
         <div className="ui-sidebar-section px-3 py-2">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[var(--font-size-xs)] font-semibold text-[var(--text-secondary)]">渠道消息</span>
+            <span className="text-[var(--font-size-xs)] font-semibold text-[var(--text-secondary)]">会话消息</span>
             <svg
               className="h-3.5 w-3.5 text-[var(--text-muted)]"
               viewBox="0 0 24 24"
