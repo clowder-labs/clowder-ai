@@ -40,6 +40,22 @@ function buildDeps(overrides = {}) {
       broadcastToRoom: mock.fn(),
       emitToUser: mock.fn(),
     },
+    sessionStore: {
+      setSessionId: mock.fn(async () => {}),
+      getSessionId: mock.fn(async () => null),
+      deleteSession: mock.fn(async () => {}),
+    },
+    sessionChainStore: {
+      getActive: mock.fn(async () => null),
+    },
+    sessionSealer: {
+      requestSeal: mock.fn(async () => ({ accepted: false, status: 'sealed' })),
+      finalize: mock.fn(async () => {}),
+    },
+    taskProgressStore: {
+      getSnapshot: mock.fn(async () => null),
+      setSnapshot: mock.fn(async () => {}),
+    },
     ...overrides,
   };
 }
@@ -577,5 +593,46 @@ describe('Queue Management API', () => {
     assert.equal(res.statusCode, 404);
     const body = JSON.parse(res.body);
     assert.equal(body.code, 'CAT_NOT_ACTIVE');
+  });
+
+  it('POST /cancel/:catId abandons interrupted recoverable ACP session when no invocation is active', async () => {
+    deps.invocationTracker.has = mock.fn(() => false);
+    deps.taskProgressStore.getSnapshot = mock.fn(async () => ({
+      threadId: 't1',
+      catId: 'codex',
+      tasks: [],
+      status: 'interrupted',
+      updatedAt: Date.now(),
+      interruptReason: 'recoverable_pause',
+    }));
+    deps.sessionChainStore.getActive = mock.fn(async () => ({
+      id: 'sess-chain-1',
+      status: 'active',
+    }));
+    deps.sessionSealer.requestSeal = mock.fn(async () => ({
+      accepted: true,
+      status: 'sealing',
+      sessionId: 'sess-chain-1',
+    }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/t1/cancel/codex',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.ok, true);
+    assert.equal(body.mode, 'drop_interrupted_session');
+    assert.equal(deps.sessionStore.deleteSession.mock.calls.length, 1);
+    assert.equal(deps.sessionSealer.requestSeal.mock.calls.length, 1);
+    assert.equal(deps.sessionSealer.finalize.mock.calls.length, 1);
+    assert.equal(deps.taskProgressStore.setSnapshot.mock.calls.length, 1);
+    const systemInfoCalls = deps.socketManager.broadcastAgentMessage.mock.calls.filter(
+      (c) => c.arguments[0].type === 'system_info',
+    );
+    assert.equal(systemInfoCalls.length, 1);
+    assert.equal(systemInfoCalls[0].arguments[0].content, '⏹ 已放弃上次中断运行，下次调用将新建会话');
   });
 });

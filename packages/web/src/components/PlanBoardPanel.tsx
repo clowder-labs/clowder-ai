@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { useSendMessage } from '@/hooks/useSendMessage';
+import { useChatStore } from '@/stores/chatStore';
 import type { CatInvocationInfo } from '@/stores/chatStore';
+import { apiFetch } from '@/utils/api-client';
 import { buildContinueMessage } from '@/utils/taskProgressContinue';
 import { useConfirm } from './useConfirm';
 
@@ -65,6 +67,8 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
   const { tasks } = tp;
   const completed = tasks.filter((t) => t.status === 'completed').length;
   const status = tp.snapshotStatus;
+  const isRecoverablePause = status === 'interrupted' && tp.interruptReason === 'recoverable_pause';
+  const setCatInvocation = useChatStore((s) => s.setCatInvocation);
 
   const statusLabel =
     status === 'completed' ? '已完成' : status === 'interrupted' ? '已中断' : status === 'running' ? '运行中' : null;
@@ -92,18 +96,46 @@ function PlanCard({ catId, threadId, inv }: { catId: string; threadId: string; i
           {statusLabel && <span className={`text-[9px] px-1 py-0.5 rounded ${statusTone}`}>{statusLabel}</span>}
         </div>
         {status === 'interrupted' && (
-          <button
-            className="text-[10px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
-            onClick={async () => {
-              if (await confirm({ title: '继续任务', message: '确认继续上次任务？' })) {
-                void handleSend(buildContinueMessage(catId, tp), undefined, threadId, undefined, undefined, {
-                  resumeCatId: catId,
-                });
-              }
-            }}
-          >
-            继续
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              className="text-[10px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+              onClick={async () => {
+                if (await confirm({ title: '继续任务', message: '确认继续上次任务？' })) {
+                  void handleSend(buildContinueMessage(catId, tp), undefined, threadId, undefined, undefined, {
+                    resumeCatId: catId,
+                  });
+                }
+              }}
+            >
+              继续
+            </button>
+            {isRecoverablePause && (
+              <button
+                className="text-[10px] px-2 py-0.5 rounded-full border border-rose-200 text-rose-600 hover:border-rose-300 hover:bg-rose-50 transition-colors"
+                onClick={async () => {
+                  if (!(await confirm({ title: '放弃任务', message: '确认放弃这次中断运行，并在下次调用时新建会话？' }))) {
+                    return;
+                  }
+                  const res = await apiFetch(
+                    `/api/threads/${encodeURIComponent(threadId)}/cancel/${encodeURIComponent(catId)}`,
+                    { method: 'POST' },
+                  );
+                  if (!res.ok) return;
+                  setCatInvocation(catId, {
+                    taskProgress: {
+                      tasks: tp.tasks,
+                      lastUpdate: Date.now(),
+                      snapshotStatus: 'interrupted',
+                      interruptReason: 'canceled',
+                      ...(tp.lastInvocationId ? { lastInvocationId: tp.lastInvocationId } : {}),
+                    },
+                  });
+                }}
+              >
+                放弃
+              </button>
+            )}
+          </div>
         )}
       </div>
       <div className="space-y-0.5 ml-3.5">

@@ -15,6 +15,8 @@ import { ACPStdioClient } from './acp-transport.js';
 
 const acpLog = createModuleLogger('acp');
 const DEFAULT_ACP_TIMEOUT_MS = 10 * 60 * 1000;
+const ACP_RECOVERABLE_PAUSE_REASON = 'recoverable_pause';
+const ACP_RECOVERABLE_PAUSE_ERROR = 'Session has a recoverable paused run; use session/resume or session/cancel';
 
 export interface ACPAgentServiceOptions {
   catId?: CatId;
@@ -119,6 +121,39 @@ function errorMessage(catId: CatId, error: string, sessionId?: string, metadataM
     metadata: sessionId ? buildACPMetadata(sessionId, metadataModel) : undefined,
     timestamp: Date.now(),
   };
+}
+
+function recoverablePauseMessage(
+  catId: CatId,
+  sessionId: string | undefined,
+  metadataModel = 'acp',
+  message = '上次运行已暂停，可继续执行或放弃当前会话。',
+): AgentMessage {
+  return {
+    type: 'system_info',
+    catId,
+    content: JSON.stringify({
+      type: 'recoverable_pause',
+      catId,
+      sessionId,
+      interruptReason: ACP_RECOVERABLE_PAUSE_REASON,
+      message,
+    }),
+    metadata: sessionId ? buildACPMetadata(sessionId, metadataModel) : undefined,
+    timestamp: Date.now(),
+  };
+}
+
+function isRecoverablePauseResult(result: unknown): boolean {
+  if (!result || typeof result !== 'object') return false;
+  const runStatus = typeof (result as { runStatus?: unknown }).runStatus === 'string'
+    ? (result as { runStatus: string }).runStatus
+    : '';
+  return runStatus === 'paused' && (result as { recoverable?: unknown }).recoverable === true;
+}
+
+function isRecoverablePauseErrorMessage(message: string): boolean {
+  return message.trim() === ACP_RECOVERABLE_PAUSE_ERROR;
 }
 
 export function supportsACPStdioMcpFromInitializeResult(result: Record<string, unknown> | undefined): boolean {
@@ -371,6 +406,9 @@ export class ACPAgentService implements AgentService {
           for (const message of await collectTrailingUpdates(client, sessionId, this.catId, metadataModel)) {
             yield message;
           }
+          if (isRecoverablePauseResult(outcome.result)) {
+            yield recoverablePauseMessage(this.catId, sessionId, metadataModel);
+          }
           done = true;
           continue;
         }
@@ -391,12 +429,12 @@ export class ACPAgentService implements AgentService {
     } catch (error) {
       if (!aborted) {
         const stderr = client.stderrText.trim();
-        yield errorMessage(
-          this.catId,
-          stderr || (error instanceof Error ? error.message : String(error)),
-          sessionId,
-          metadataModel,
-        );
+        const resolvedError = stderr || (error instanceof Error ? error.message : String(error));
+        if (isRecoverablePauseErrorMessage(resolvedError)) {
+          yield recoverablePauseMessage(this.catId, sessionId, metadataModel);
+        } else {
+          yield errorMessage(this.catId, resolvedError, sessionId, metadataModel);
+        }
         yield doneMessage(this.catId, sessionId, metadataModel);
       } else {
         yield doneMessage(this.catId, sessionId, metadataModel);

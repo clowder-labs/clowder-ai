@@ -10,11 +10,16 @@
  * POST   /api/threads/:threadId/cancel/:catId       → F122B AC-B9: Per-cat cancel
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import { createCatId, type CatId } from '@cat-cafe/shared';
+import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
+import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
+import type { ISessionSealer } from '../domains/cats/services/session/SessionSealer.js';
+import { SessionManager } from '../domains/cats/services/session/SessionManager.js';
+import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
@@ -40,6 +45,10 @@ export interface QueueRoutesOptions {
   queueProcessor: QueueProcessor;
   invocationTracker: InvocationTrackerLike;
   socketManager: SocketManager;
+  sessionStore?: SessionStore;
+  sessionChainStore?: ISessionChainStore;
+  sessionSealer?: ISessionSealer;
+  taskProgressStore?: TaskProgressStore;
   /** F117: MessageStore for marking queued messages as canceled on withdraw/clear */
   messageStore?: IMessageStore;
 }
@@ -87,7 +96,19 @@ async function guardThreadOwnership(
 }
 
 export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, opts) => {
-  const { threadStore, invocationQueue, queueProcessor, invocationTracker, socketManager, messageStore } = opts;
+  const {
+    threadStore,
+    invocationQueue,
+    queueProcessor,
+    invocationTracker,
+    socketManager,
+    messageStore,
+    sessionStore,
+    sessionChainStore,
+    sessionSealer,
+    taskProgressStore,
+  } = opts;
+  const sessionManager = new SessionManager(sessionStore);
 
   // GET /api/threads/:threadId/queue
   app.get<{ Params: { threadId: string } }>('/api/threads/:threadId/queue', async (request, reply) => {
@@ -330,8 +351,46 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
       if (!guard) return;
 
       if (!invocationTracker.has(threadId, catId)) {
-        reply.status(404);
-        return { error: '该猫当前未在执行', code: 'CAT_NOT_ACTIVE' };
+        const taskSnapshot = taskProgressStore ? await taskProgressStore.getSnapshot(threadId, catId as CatId) : null;
+        if (taskSnapshot?.status !== 'interrupted' || taskSnapshot.interruptReason !== 'recoverable_pause') {
+          reply.status(404);
+          return { error: '该猫当前未在执行', code: 'CAT_NOT_ACTIVE' };
+        }
+
+        await sessionManager.delete(guard.userId, catId as CatId, threadId).catch(() => {});
+        if (sessionChainStore && sessionSealer) {
+          try {
+            const activeSession = await sessionChainStore.getActive(catId as CatId, threadId);
+            if (activeSession) {
+              const sealResult = await sessionSealer.requestSeal({
+                sessionId: activeSession.id,
+                reason: 'interrupted_run_abandoned',
+              });
+              if (sealResult.accepted) {
+                await sessionSealer.finalize({ sessionId: activeSession.id });
+              }
+            }
+          } catch {
+            // Best-effort: dropping the bound ACP session is enough to force session/new next turn.
+          }
+        }
+        if (taskProgressStore) {
+          await taskProgressStore.setSnapshot({
+            ...taskSnapshot,
+            updatedAt: Date.now(),
+            interruptReason: 'canceled',
+          });
+        }
+        socketManager.broadcastAgentMessage(
+          {
+            type: 'system_info',
+            catId: createCatId(catId),
+            content: '⏹ 已放弃上次中断运行，下次调用将新建会话',
+            timestamp: Date.now(),
+          },
+          threadId,
+        );
+        return { ok: true, cancelled: true, mode: 'drop_interrupted_session' };
       }
 
       const cancelResult = invocationTracker.cancel(threadId, catId, guard.userId, 'user_stop');

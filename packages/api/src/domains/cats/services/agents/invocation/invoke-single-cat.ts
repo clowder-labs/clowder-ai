@@ -344,7 +344,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   let hadStreamError = false;
   let lastTasks: TaskProgressItem[] | null = null;
   let terminalTaskProgressStatus: TaskProgressStatus | null = null;
-  let terminalInterruptReason: 'error' | 'aborted' | null = null;
+  let terminalInterruptReason: string | null = null;
   let finalizedTaskProgressStatus: TaskProgressStatus | null = null;
 
   const attachInvocationIdToTaskProgress = (message: AgentMessage): AgentMessage => {
@@ -1319,6 +1319,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           hadError = true;
           terminalTaskProgressStatus = 'interrupted';
           terminalInterruptReason = 'error';
+        }
+        if (out.type === 'system_info' && out.content) {
+          try {
+            const parsed = JSON.parse(out.content) as { type?: string; interruptReason?: unknown };
+            if (parsed.type === 'recoverable_pause') {
+              terminalTaskProgressStatus = 'interrupted';
+              terminalInterruptReason =
+                typeof parsed.interruptReason === 'string' ? parsed.interruptReason : 'recoverable_pause';
+            }
+          } catch {
+            /* ignore malformed system_info payloads */
+          }
         }
         await maybePersistTaskProgress(out);
         if (out.type === 'done' && terminalTaskProgressStatus === null) {
