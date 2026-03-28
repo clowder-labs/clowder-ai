@@ -187,7 +187,6 @@ body {
 @layer components {
   .ui-page-shell {
     @apply flex h-full min-h-0 flex-col;
-    background-color: var(--surface-panel);
     color: var(--text-primary);
   }
 
