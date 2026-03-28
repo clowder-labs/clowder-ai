@@ -7,7 +7,6 @@ import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { initialState, type ClientValue, type HubCatEditorDraft, type HubCatEditorFormState } from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
 import {
-  DRAFT_MODEL_OPTIONS,
   ModelSelectDropdownDraft,
   ModelSelectTriggerIcon,
   ModelSelectValueDraft,
@@ -43,6 +42,9 @@ interface CreateModelOption extends DraftModelOption {
   authType?: string;
   providerName?: string;
 }
+
+const MODEL_MENU_MAX_HEIGHT = 335;
+const MODEL_MENU_OFFSET = 8;
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
   for (const key of candidates) {
@@ -86,7 +88,7 @@ function chooseProfileForModel(
 
 function CloseIcon() {
   return (
-    <svg className="h-6 w-6 text-[#8D97A6]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-6 w-6 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
@@ -95,7 +97,7 @@ function CloseIcon() {
 
 function SparklesIcon() {
   return (
-    <svg className="h-[18px] w-[18px] text-[#B26BFF]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-[18px] w-[18px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
         d="M12 3L13.6 7.4L18 9L13.6 10.6L12 15L10.4 10.6L6 9L10.4 7.4L12 3Z"
         stroke="currentColor"
@@ -263,7 +265,7 @@ export function CreateAgentModalDraft({
   name = 'BOT',
   description = '',
   selectedModelId = null,
-  models: _models = DRAFT_MODEL_OPTIONS,
+  models: _models,
   draft = null,
   title,
   onClose,
@@ -299,10 +301,10 @@ export function CreateAgentModalDraft({
     if (!modelMenuOpen || !modelTriggerRef.current) return;
 
     const rect = modelTriggerRef.current.getBoundingClientRect();
-    const estimatedMenuHeight = Math.min(Math.max(availableModels.length, 1) * 30 + 56, 360);
+    const estimatedMenuHeight =
+      modelMenuRef.current?.offsetHeight ?? Math.min(Math.max(availableModels.length, 1) * 34 + 52, MODEL_MENU_MAX_HEIGHT);
     const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    setOpenAbove(spaceBelow < estimatedMenuHeight + 16 && spaceAbove > spaceBelow);
+    setOpenAbove(spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET);
   }, [availableModels.length, modelMenuOpen]);
 
   useEffect(() => {
@@ -462,48 +464,51 @@ export function CreateAgentModalDraft({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
-      <div className="relative flex w-[860px] flex-col overflow-visible rounded-2xl bg-white shadow-[0_18px_42px_rgba(0,0,0,0.14)]">
-        <div className="flex h-[72px] items-center justify-between border-b border-[#E9EDF3] px-6">
-          <h2 className="text-[28px] font-bold text-[#20242B]">{modalTitle}</h2>
-          <button type="button" onClick={onClose} className="rounded-full p-2 transition hover:bg-[#F5F7FA]">
+      <div
+        className="ui-panel relative flex w-[860px] flex-col overflow-visible rounded-[var(--radius-2xl)] bg-[var(--surface-panel)] shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        data-testid="create-agent-modal"
+      >
+        <div className="flex h-[72px] items-center justify-between border-b border-[var(--border-soft)] px-6">
+          <h2 className="text-[28px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
+          <button type="button" onClick={onClose} className="ui-icon-button h-10 w-10 rounded-full">
             <CloseIcon />
           </button>
         </div>
 
         <div className="flex flex-col gap-[18px] px-6 pb-[22px] pt-5">
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[#2D3643]">名称</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">名称</div>
             <input
               aria-label="Name"
               value={draftName}
               onChange={(event) => setDraftName(event.target.value)}
-              className="h-[52px] w-full rounded-[10px] border border-[#D8DEE8] px-4 text-base text-[#2D3643] outline-none"
+              className="ui-field h-[52px] w-full px-4 text-base"
             />
           </div>
 
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[#2D3643]">描述（可选）</div>
-            <div className="rounded-[10px] border border-[#D8DEE8] bg-white px-4 py-3">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">描述（可选）</div>
+            <div className="ui-field bg-[var(--surface-panel)] px-4 py-3">
               <textarea
                 aria-label="Description"
                 value={draftDescription}
                 onChange={(event) => setDraftDescription(event.target.value)}
                 placeholder="请输入描述"
                 maxLength={1000}
-                className="h-[72px] w-full resize-none border-0 bg-transparent text-sm text-[#2D3643] outline-none placeholder:text-[#A4ADBA]"
+                className="h-[72px] w-full resize-none border-0 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
               />
-              <div className="text-right text-xs text-[#A4ADBA]">{draftDescription.length}/1000</div>
+              <div className="text-right text-xs text-[var(--text-muted)]">{draftDescription.length}/1000</div>
             </div>
           </div>
 
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[#2D3643]">图标</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">图标</div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 aria-label="Upload avatar"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[#D8DEE8]"
+                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
@@ -520,18 +525,18 @@ export function CreateAgentModalDraft({
                 type="button"
                 aria-label="Auto generate avatar"
                 onClick={() => setDraftAvatar(buildGeneratedAvatarDataUrl(draftName))}
-                className="flex h-[34px] w-[34px] items-center justify-center rounded-lg border border-[#D8DEE8] bg-white transition hover:bg-[#F8FAFC]"
+                className="ui-button-secondary h-[34px] w-[34px] rounded-[var(--radius-sm)] p-0"
               >
                 <SparklesIcon />
               </button>
             </div>
-            <div className="text-xs text-[#8F98A7]">
+            <div className="text-xs text-[var(--text-muted)]">
               {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
             </div>
           </div>
 
           <div className="relative space-y-2.5">
-            <div className="text-sm font-semibold text-[#2D3643]">模型</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">模型</div>
             <button
               ref={modelTriggerRef}
               type="button"
@@ -539,7 +544,7 @@ export function CreateAgentModalDraft({
               aria-haspopup="listbox"
               aria-expanded={modelMenuOpen}
               onClick={() => setModelMenuOpen((current) => !current)}
-              className="flex h-8 w-full items-center justify-between rounded-[4px] border border-[#D7DEE8] bg-white px-[10px] text-left"
+              className="ui-field flex h-8 w-full items-center justify-between rounded-[var(--radius-xs)] bg-[var(--surface-panel)] px-[10px] text-left"
             >
               <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
               <ModelSelectTriggerIcon />
@@ -548,7 +553,7 @@ export function CreateAgentModalDraft({
             {modelMenuOpen ? (
               <div
                 ref={modelMenuRef}
-                className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]'}`}
+                className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-32px)] mb-2' : 'top-full mt-2'}`}
               >
                 <ModelSelectDropdownDraft
                   items={availableModels}
@@ -562,14 +567,14 @@ export function CreateAgentModalDraft({
             ) : null}
           </div>
 
-          {error ? <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div> : null}
+          {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</div> : null}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               aria-label="Cancel"
               onClick={onClose}
-              className="h-[42px] min-w-[112px] rounded-full border border-[#C9D1DC] bg-white px-6 text-base font-medium text-[#2D3643] transition hover:bg-[#F8FAFC]"
+              className="ui-button-secondary h-[42px] min-w-[112px] px-6 text-base"
             >
               取消
             </button>
@@ -578,7 +583,7 @@ export function CreateAgentModalDraft({
               aria-label="Create"
               onClick={handleSave}
               disabled={saving}
-              className="h-[42px] min-w-[112px] rounded-full bg-[#1E2430] px-6 text-base font-semibold text-white transition hover:bg-[#151A22] disabled:opacity-50"
+              className="ui-button-primary h-[42px] min-w-[112px] px-6 text-base font-semibold disabled:opacity-50"
             >
               {primaryButtonText}
             </button>

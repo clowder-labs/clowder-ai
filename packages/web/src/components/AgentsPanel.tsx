@@ -19,135 +19,134 @@ const AGENT_TABS: Array<{ id: AgentTabKey; label: string }> = [
 
 const TEMPLATE_PAGE_SIZE = 4;
 
-const INSPIRATION_TEMPLATES = [
+type InspirationTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  soulTemplate: {
+    persona: string[];
+    behavior: string[];
+  };
+};
+
+const TEMPLATE_MODAL_CATEGORY = '灵魂模板';
+const TEMPLATE_MODAL_SOURCE = '灵魂模板';
+const TEMPLATE_MODAL_CREATOR = '官方预置';
+const TEMPLATE_MODAL_CREATED_AT = '2025-09-12 17:22:30';
+
+const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
   {
     id: 'customer-service',
-    title: '专业客服助手',
+    name: '专业客服助手',
     description: '遵循服务规范，礼貌应答，流程引导，问题定位与转接明确。',
-    category: '客服支持',
-    source: '灵感模板',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    persona: [
-      '身份：资深客服顾问，擅长复杂问题拆解与安抚沟通。',
-      '性格：耐心克制、语气专业、表达清晰。',
-      '行为：先确认诉求，再给步骤方案，必要时主动引导升级处理。',
-    ],
-    behavior: [
-      '精准识别用户诉求与情绪波动，先安抚再给处理路径。',
-      '优先提供标准流程与升级建议，避免模糊表述。',
-    ],
-    applyLabel: '接入模板',
+    soulTemplate: {
+      persona: [
+        '身份：资深客服顾问，擅长复杂问题拆解与安抚沟通。',
+        '性格：耐心克制、语气专业、表达清晰。',
+        '行为：先确认诉求，再给步骤方案，必要时主动引导升级处理。',
+      ],
+      behavior: [
+        '精准识别用户诉求与情绪波动，先安抚再给处理路径。',
+        '优先提供标准流程与升级建议，避免模糊表述。',
+      ],
+    },
   },
   {
     id: 'content-creation',
-    title: '内容创作助手',
+    name: '内容创作助手',
     description: '支持文案策写、标题优化、脚本创作，风格适配，结构清晰。',
-    category: '文案创作',
-    source: '灵感模板',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    persona: [
-      '身份：资深内容创作者，擅长根据主题快速成稿。',
-      '性格：创意灵活、语气温和、结构清晰。',
-      '行为：聚焦目标、突出重点，给出可执行建议。',
-    ],
-    behavior: [
-      '先明确目标受众、平台与语气，再组织内容结构。',
-      '输出可直接使用的文案方案，并附带优化建议。',
-    ],
-    applyLabel: '接入模板',
+    soulTemplate: {
+      persona: [
+        '身份：资深内容创作者，擅长根据主题快速成稿。',
+        '性格：创意灵活、语气温和、结构清晰。',
+        '行为：聚焦目标、突出重点，给出可执行建议。',
+      ],
+      behavior: [
+        '先明确目标受众、平台与语气，再组织内容结构。',
+        '输出可直接使用的文案方案，并附带优化建议。',
+      ],
+    },
   },
   {
     id: 'knowledge-answering',
-    title: '知识解答专家',
+    name: '知识解答专家',
     description: '以严谨准确为原则，条理输出，解释清楚，给出可执行建议。',
-    category: '知识解答',
-    source: '灵感模板',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    persona: [
-      '身份：知识顾问，擅长多源信息整合与严谨解释。',
-      '性格：理性克制、客观中立、注重依据。',
-      '行为：先定义问题边界，再逐层解释并给出结论与风险提示。',
-    ],
-    behavior: [
-      '先确认问题边界与上下文，再给出条理化解释。',
-      '需要时补充风险、适用范围与可执行建议。',
-    ],
-    applyLabel: '接入模板',
+    soulTemplate: {
+      persona: [
+        '身份：知识顾问，擅长多源信息整合与严谨解释。',
+        '性格：理性克制、客观中立、注重依据。',
+        '行为：先定义问题边界，再逐层解释并给出结论与风险提示。',
+      ],
+      behavior: [
+        '先确认问题边界与上下文，再给出条理化解释。',
+        '需要时补充风险、适用范围与可执行建议。',
+      ],
+    },
   },
   {
     id: 'work-efficiency',
-    title: '职场效率助手',
+    name: '职场效率助手',
     description: '聚焦沟通协作、汇报提炼、流程推进，帮助提升交付效率。',
-    category: '效率协作',
-    source: '灵感模板',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    persona: [
-      '身份：项目协作教练，擅长流程梳理与任务推进。',
-      '性格：简洁务实、节奏明确、结果导向。',
-      '行为：优先给行动清单，再补充沟通模板与复盘建议。',
-    ],
-    behavior: [
-      '优先沉淀行动项、责任人和时间节点。',
-      '补充可复用的汇报、纪要和复盘模板。',
-    ],
-    applyLabel: '接入模板',
+    soulTemplate: {
+      persona: [
+        '身份：项目协作教练，擅长流程梳理与任务推进。',
+        '性格：简洁务实、节奏明确、结果导向。',
+        '行为：优先给行动清单，再补充沟通模板与复盘建议。',
+      ],
+      behavior: [
+        '优先沉淀行动项、责任人和时间节点。',
+        '补充可复用的汇报、纪要和复盘模板。',
+      ],
+    },
   },
   {
     id: 'project-management',
-    title: '项目管理助手',
+    name: '项目管理助手',
     description: '帮助拆解目标、制定里程碑、推动协作与风险跟踪。',
-    category: '项目协同',
-    source: '灵感模板',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    persona: [
-      '身份：项目经理与交付协调者，擅长推进计划落地。',
-      '性格：稳健清晰、节奏明确、关注依赖关系。',
-      '行为：先明确目标与边界，再拆解任务、识别风险并推动闭环。',
-    ],
-    behavior: [
-      '拆解目标、建立里程碑并持续跟踪风险。',
-      '围绕依赖关系和优先级推动项目闭环。',
-    ],
-    applyLabel: '接入模板',
+    soulTemplate: {
+      persona: [
+        '身份：项目经理与交付协调者，擅长推进计划落地。',
+        '性格：稳健清晰、节奏明确、关注依赖关系。',
+        '行为：先明确目标与边界，再拆解任务、识别风险并推动闭环。',
+      ],
+      behavior: [
+        '拆解目标、建立里程碑并持续跟踪风险。',
+        '围绕依赖关系和优先级推动项目闭环。',
+      ],
+    },
   },
   {
     id: 'data-analysis',
-    title: '数据分析助手',
+    name: '数据分析助手',
     description: '聚焦指标拆解、数据解读、洞察归纳与结论表达。',
-    category: '数据分析',
-    source: '灵感模板',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    persona: [
-      '身份：数据分析师，擅长从指标与样本中提炼业务洞察。',
-      '性格：严谨客观、表达简洁、重视证据。',
-      '行为：先确认分析目标，再整理数据、解释异常并输出结论建议。',
-    ],
-    behavior: [
-      '先确认指标口径与样本范围，再给出分析过程。',
-      '输出结论时同步说明依据、异常点和建议动作。',
-    ],
-    applyLabel: '接入模板',
+    soulTemplate: {
+      persona: [
+        '身份：数据分析师，擅长从指标与样本中提炼业务洞察。',
+        '性格：严谨客观、表达简洁、重视证据。',
+        '行为：先确认分析目标，再整理数据、解释异常并输出结论建议。',
+      ],
+      behavior: [
+        '先确认指标口径与样本范围，再给出分析过程。',
+        '输出结论时同步说明依据、异常点和建议动作。',
+      ],
+    },
   },
 ];
 
 const TEMPLATE_PREVIEW_WIDTH = 400;
 const TEMPLATE_PREVIEW_SIDE_PADDING = 24;
+const ACTION_MENU_ITEM_CLASS =
+  'flex h-8 w-full items-center rounded-[var(--radius-sm)] px-3 text-left text-[12px] transition hover:bg-[var(--surface-card-muted)]';
 
-function buildTemplateInsertText(template: (typeof INSPIRATION_TEMPLATES)[number]): string {
+function buildTemplateInsertText(template: InspirationTemplate): string {
   const sections = [
     {
       title: '人格定义 (Persona)',
-      lines: template.persona,
+      lines: template.soulTemplate.persona,
     },
     {
       title: '行为准则 (Behavior)',
-      lines: template.behavior,
+      lines: template.soulTemplate.behavior,
     },
   ].filter((section) => section.lines.length > 0);
 
@@ -287,20 +286,20 @@ export function AgentsPanel() {
     () =>
       INSPIRATION_TEMPLATES.map((template) => ({
         id: template.id,
-        title: template.title,
-        category: template.category,
-        source: template.source,
-        creator: template.creator,
-        createdAt: template.createdAt,
+        title: template.name,
+        category: TEMPLATE_MODAL_CATEGORY,
+        source: TEMPLATE_MODAL_SOURCE,
+        creator: TEMPLATE_MODAL_CREATOR,
+        createdAt: TEMPLATE_MODAL_CREATED_AT,
         summary: template.description,
         sections: [
           {
             title: '人格定义 (Persona)',
-            lines: template.persona,
+            lines: template.soulTemplate.persona,
           },
           {
             title: '行为准则 (Behavior)',
-            lines: template.behavior,
+            lines: template.soulTemplate.behavior,
           },
         ],
         content: buildTemplateInsertText(template),
@@ -390,7 +389,7 @@ export function AgentsPanel() {
     }, 100);
   }, []);
 
-  const handleTemplateApply = useCallback((template: (typeof INSPIRATION_TEMPLATES)[number]) => {
+  const handleTemplateApply = useCallback((template: InspirationTemplate) => {
     const templateText = buildTemplateInsertText(template);
     setTabDrafts((current) => {
       const activeDraft = current[activeTab];
@@ -496,25 +495,26 @@ export function AgentsPanel() {
   }, [showTemplateUI]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-5">
-        <h1 className="mb-1 text-[28px] font-bold leading-[36px] text-[#1F2329]">智能体管理</h1>
+    <div className="ui-page-shell gap-4">
+      <div className="ui-page-header">
+        <h1 className="ui-page-title">智能体管理</h1>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[#E6EAF0] bg-white">
+      <div className="ui-panel min-h-0 flex-1 overflow-hidden" data-testid="agents-panel-surface">
         <div className="flex h-full min-h-0">
-          <aside className="flex h-full w-[276px] shrink-0 flex-col border-r border-[#ECEFF3] bg-[#FFFFFF] p-3">
+          <aside className="bg-white flex h-full w-[276px] shrink-0 flex-col p-3">
             <div className="mb-3 flex items-center justify-between px-1">
-              <span className="text-[13px] font-semibold text-[#2E3440]">智能体</span>
+              <span className="text-[13px] font-semibold text-[var(--text-primary)]">智能体</span>
               <button
                 type="button"
-                className="rounded-md px-2 py-1 text-sm text-[#6A7280] transition hover:bg-[#EEF2F7]"
+                data-testid="agent-add-button"
+                className="ui-icon-button h-8 w-8 rounded-[var(--radius-sm)] text-sm"
                 onClick={openAddMember}
               >
                 +
               </button>
             </div>
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto  overflow-y-hidden pr-1">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {cats.map((cat) => {
                 const isSelected = selectedCat?.id === cat.id;
                 const configCat = config?.cats[cat.id];
@@ -526,10 +526,11 @@ export function AgentsPanel() {
                 return (
                   <div
                     key={cat.id}
-                    className={`relative w-full overflow-visible rounded-xl border px-3 py-2 transition ${
+                    data-testid={`agent-card-${cat.id}`}
+                    className={`relative w-full overflow-visible rounded-[var(--radius-lg)] border px-3 py-2 transition ${
                       isSelected
-                        ? 'border-[#8CB9FF] bg-[#F7FBFF] shadow-[0_0_0_1px_rgba(122,174,255,0.18)]'
-                        : 'border-[#ECEFF3] bg-[#FAFBFC] hover:border-[#DCE5EF] hover:bg-[#FFFFFF]'
+                        ? 'border-transparent bg-[var(--surface-selected)]'
+                        : 'border-[var(--border-default)] bg-[var(--surface-card-muted)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card)]'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -540,8 +541,8 @@ export function AgentsPanel() {
                         <span>{avatarLooksLikeUrl ? catInitial(cat.displayName) : avatar || catInitial(cat.displayName)}</span>
                       </div>
                       <button type="button" onClick={() => setSelectedCatId(cat.id)} className="min-w-0 flex-1 text-left">
-                        <div className="truncate text-[13px] font-semibold text-[#2A303C]">{cat.displayName}</div>
-                        <div className="mt-1 truncate text-[11px] text-[#9AA2B0]">
+                        <div className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{cat.displayName}</div>
+                        <div className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
                           {modelText} · {budgetText}
                         </div>
                       </button>
@@ -552,7 +553,7 @@ export function AgentsPanel() {
                           aria-label={`操作 ${cat.displayName}`}
                           aria-haspopup="menu"
                           aria-expanded={openActionMenuCatId === cat.id}
-                          className="rounded-md px-1.5 py-1 text-[#ADB4C1] transition hover:bg-[#EEF2F7] hover:text-[#6A7280]"
+                          className="ui-icon-button h-8 w-8 rounded-[var(--radius-sm)]"
                         >
                           ⋮
                         </button>
@@ -561,7 +562,7 @@ export function AgentsPanel() {
                           <div
                             role="menu"
                             data-testid={`agent-action-menu-${cat.id}`}
-                            className="absolute right-0 top-full z-30 mt-2 w-20 rounded-xl border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                            className="absolute right-0 top-full z-30 mt-2 w-24 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-2 shadow-lg"
                           >
                             <button
                               type="button"
@@ -570,7 +571,7 @@ export function AgentsPanel() {
                                 setOpenActionMenuCatId(null);
                                 openEditMember(cat.id);
                               }}
-                              className="flex h-8 w-full items-center rounded-lg px-3 text-left text-[12px] text-[#334155] transition hover:bg-[#F4F7FB]"
+                              className={`${ACTION_MENU_ITEM_CLASS} text-[var(--text-primary)]`}
                             >
                               编辑
                             </button>
@@ -578,7 +579,7 @@ export function AgentsPanel() {
                               type="button"
                               role="menuitem"
                               onClick={() => setOpenActionMenuCatId(null)}
-                              className="flex h-8 w-full items-center rounded-lg px-3 text-left text-[12px] text-[#94A3B8] transition hover:bg-[#F4F7FB]"
+                              className={`${ACTION_MENU_ITEM_CLASS} text-[var(--text-muted)]`}
                             >
                               复制
                             </button>
@@ -586,7 +587,7 @@ export function AgentsPanel() {
                               type="button"
                               role="menuitem"
                               onClick={() => void handleDeleteMember(cat.id)}
-                              className="flex h-8 w-full items-center rounded-lg px-3 text-left text-[12px] text-[#DC2626] transition hover:bg-[#FEF2F2]"
+                              className={`${ACTION_MENU_ITEM_CLASS} text-[var(--state-error-text)] hover:bg-[var(--state-error-surface)]`}
                             >
                               删除
                             </button>
@@ -598,25 +599,25 @@ export function AgentsPanel() {
                 );
               })}
               {cats.length === 0 && (
-                <div className="rounded-xl border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
+                <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border-strong)] px-3 py-4 text-[12px] text-[var(--text-muted)]">
                   暂无智能体数据
                 </div>
               )}
             </div>
           </aside>
 
-          <section className="flex min-w-0 flex-1 flex-col bg-white p-3">
-            <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-[#EEF2F7] pb-2">
+          <section className="flex min-w-0 flex-1 flex-col bg-[var(--surface-panel)] p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2 border-b border-[var(--border-soft)] pb-2">
               {AGENT_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   data-testid={`agent-tab-${tab.id}`}
-                  className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                  className={`ui-chip rounded-[var(--radius-sm)] px-3 py-1.5 text-xs transition ${
                     activeTab === tab.id
-                      ? 'bg-[#F3F6FA] font-semibold text-[#445066]'
-                      : 'text-[#6F7785] hover:bg-[#F8FAFC]'
+                      ? 'ui-chip-active font-semibold'
+                      : 'hover:bg-[var(--surface-card-muted)]'
                   }`}
                 >
                   {tab.label}
@@ -626,9 +627,9 @@ export function AgentsPanel() {
  
             </div>
 
-            {fetchError ? <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{fetchError}</p> : null}
+            {fetchError ? <p className="ui-status-error mb-2 rounded-[var(--radius-md)] px-3 py-2 text-sm">{fetchError}</p> : null}
 
-            <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-white flex flex-col">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-[var(--radius-lg)] bg-[var(--surface-panel)] flex flex-col">
               <div className="flex w-full justify-end gap-2">
                 <button
                   type="button"
@@ -639,7 +640,7 @@ export function AgentsPanel() {
                       [activeTab]: '',
                     }))
                   }
-                  className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
+                  className="ui-button-secondary rounded-[var(--radius-sm)] px-3 py-1.5 text-xs shadow-none"
                 >
                   清除
                 </button>
@@ -648,14 +649,15 @@ export function AgentsPanel() {
                     type="button"
                     data-testid="agent-template-button"
                     onClick={() => setTemplateModalOpen(true)}
-                    className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
+                    className="ui-button-secondary rounded-[var(--radius-sm)] px-3 py-1.5 text-xs shadow-none"
                   >
-                    灵感模板
+                    灵魂模板
                   </button>
                 ) : null}
               </div>
               <div ref={templatePreviewLayerRef} data-testid="template-preview-layer" className="relative flex h-full flex-col">
                 <div className="flex min-h-0 flex-1 overflow-hidden px-12 py-1">
+                  <div className="border-none ui-input-shell flex w-full flex-1 rounded-[var(--radius-xl)] px-4 py-3">
                     <textarea
                       ref={personaTextareaRef}
                       value={activeDraft}
@@ -666,35 +668,36 @@ export function AgentsPanel() {
                         }))
                       }
                       placeholder={tabPlaceholder(activeTab)}
-                      className="w-full min-h-0 flex-1 resize-none text-[12px] leading-7 text-[#334155] outline-none transition placeholder:text-[#A0A8B6]"
+                      className="w-full min-h-0 flex-1 resize-none bg-transparent text-[12px] leading-7 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)]"
                       data-testid="agent-tab-textarea"
                     />
+                  </div>
                 </div>
 
                 {showTemplateUI ? (
                   <div className="shrink-0 px-6 pb-2 pt-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <div data-testid="agent-template-section-title" className="text-xs text-[#8D95A3]">灵感模板</div>
+                      <div data-testid="agent-template-section-title" className="text-xs text-[var(--text-muted)]">灵魂模板</div>
                       {templatePageCount > 1 ? (
-                        <div className="flex items-center gap-2 text-[#A9B0BD]">
+                        <div className="flex items-center gap-2 text-[var(--text-muted)]">
                           <button
                             type="button"
                             onClick={() => handleTemplatePageChange(templatePage - 1)}
                             disabled={templatePage === 0}
-                            className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="ui-icon-button h-8 w-8 text-sm enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                             data-testid="templates-prev-page"
                             aria-label="上一页模板"
                           >
                             ‹
                           </button>
-                          <span className="text-[11px] text-[#A9B0BD]">
+                          <span className="text-[11px] text-[var(--text-muted)]">
                             {templatePage + 1}/{templatePageCount}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleTemplatePageChange(templatePage + 1)}
                             disabled={templatePage >= templatePageCount - 1}
-                            className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="ui-icon-button h-8 w-8 text-sm enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                             data-testid="templates-next-page"
                             aria-label="下一页模板"
                           >
@@ -715,14 +718,14 @@ export function AgentsPanel() {
                             onMouseLeave={() => handleTemplateHoverEnd(template.id)}
                             onFocus={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
                             onBlur={() => handleTemplateHoverEnd(template.id)}
-                            className={`h-[98px] rounded-lg border px-3 py-2 text-left transition ${
+                            className={`h-[98px] rounded-[var(--radius-md)] border px-3 py-2 text-left transition ${
                               isHovered
-                                ? 'border-[#BFD3EA] bg-[#F4F8FF]'
-                                : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-[#FAFCFF]'
+                                ? 'border-[var(--border-accent)] bg-[var(--surface-selected)]'
+                                : 'border-[var(--border-default)] bg-[var(--surface-panel)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card-muted)]'
                             }`}
                           >
-                            <div className="text-[13px] font-semibold text-[#2E3542]">{template.title}</div>
-                            <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#9AA2AF]">{template.description}</div>
+                            <div className="text-[13px] font-semibold text-[var(--text-primary)]">{template.name}</div>
+                            <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--text-muted)]">{template.description}</div>
                           </button>
                         );
                       })}
@@ -742,14 +745,14 @@ export function AgentsPanel() {
                       transform: 'translate(-50%, calc(-100% - 16px))',
                     }}
                   >
-                    <div className="relative flex h-[300px] flex-col overflow-hidden rounded-[8px] border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]">
+                    <div className="relative flex h-[300px] flex-col overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-panel)] px-7 py-6 shadow-lg">
                       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                        <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
+                        <h3 className="text-[14px] font-semibold leading-tight text-[var(--text-primary)]">
                           {selectedCat?.displayName ?? '九问Office'}
                         </h3>
-                        <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">人格定义 (Persona)</div>
-                        <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
-                          {hoveredTemplate.persona.map((item) => (
+                        <div className="mt-6 text-[14px] font-semibold leading-none text-[var(--text-secondary)]">人格定义 (Persona)</div>
+                        <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[var(--text-secondary)]">
+                          {hoveredTemplate.soulTemplate.persona.map((item) => (
                             <li key={item}>• {item}</li>
                           ))}
                         </ul>
@@ -758,7 +761,7 @@ export function AgentsPanel() {
                         <button
                           type="button"
                           onClick={() => handleTemplateApply(hoveredTemplate)}
-                          className="rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
+                          className="ui-button-primary px-6 py-2.5 text-[12px]"
                         >
                           插入模板
                         </button>
@@ -767,7 +770,7 @@ export function AgentsPanel() {
                     <div
                       aria-hidden="true"
                       data-testid="template-hover-preview-tail"
-                      className="pointer-events-none absolute left-1/2 top-[calc(100%-8px)] h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-[#DEE5EF] bg-white"
+                      className="pointer-events-none absolute left-1/2 top-[calc(100%-8px)] h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-[var(--border-default)] bg-[var(--surface-panel)]"
                     />
                   </div>
                 ) : null}
