@@ -563,7 +563,6 @@ describe('HubCatEditor', () => {
     expect(payload.accountRef).toBe('my-openai-proxy');
     expect(payload.defaultModel).toBe('glm-5');
   });
-
   it('blocks creating opencode+api_key member without ocProviderName', async () => {
     const onSaved = vi.fn(() => Promise.resolve());
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {

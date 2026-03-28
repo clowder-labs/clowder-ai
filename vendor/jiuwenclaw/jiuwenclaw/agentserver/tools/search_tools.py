@@ -13,6 +13,8 @@ from typing import Any
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
 import requests
+
+from .ssl_config import get_requests_verify
 from openjiuwen.core.foundation.tool import tool
 
 _USER_AGENT = (
@@ -25,6 +27,7 @@ _REQUEST_HEADERS = {"User-Agent": _USER_AGENT}
 
 def _http_request(method: str, url: str, **kwargs) -> requests.Response:
     """Try normal request first; retry without env proxies on ProxyError."""
+    kwargs.setdefault("verify", get_requests_verify())
     method_up = method.upper()
     try:
         if method_up == "GET":

@@ -377,7 +377,6 @@ describe('HubAddMemberWizard', () => {
     expect(container.textContent).toContain('My OpenAI Proxy');
     expect(container.textContent).toContain('用户模型配置');
   });
-
   it('does not fall back to provider-profiles when model-config fallback is disabled', async () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/cats') {

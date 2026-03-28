@@ -2384,6 +2384,52 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(promptsSeen[0].includes('test'), 'F-BLOAT: original prompt should still be present');
   });
 
+  it('ACP: prepends runtime skill hint close to the task prompt', async () => {
+    const promptsSeen = [];
+    const service = {
+      async *invoke(prompt, _options) {
+        promptsSeen.push(prompt);
+        yield { type: 'text', catId: 'agentteams', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'agentteams', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => undefined,
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(
+      invokeSingleCat(deps, {
+        catId: 'agentteams',
+        service,
+        prompt: 'please make an implementation plan',
+        systemPrompt: 'You are an ACP cat',
+        userId: 'u1',
+        threadId: 'thread-acp-skill-hint',
+        isLastCat: true,
+      }),
+    );
+
+    assert.ok(promptsSeen[0].includes('ACP skill rule:'), 'ACP prompt should include runtime skill hint');
+    assert.ok(
+      promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
+      'ACP hint should steer list-first behavior',
+    );
+    assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
+    assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
+    assert.ok(
+      promptsSeen[0].includes('before cat_cafe_search_evidence, repo grep, or read'),
+      'ACP hint should prioritize skills ahead of other retrieval tools',
+    );
+    assert.ok(
+      promptsSeen[0].includes('please make an implementation plan'),
+      'ACP prompt should preserve the original user task',
+    );
+  });
+
   it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {
     const promptsSeen = [];
     const service = {
@@ -3037,7 +3083,6 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       await rm(root, { recursive: true, force: true });
     }
   });
-
   it('F127 P1: explicit builtin codex bindings force oauth callback env', async () => {
     const root = await mkdtemp(join(tmpdir(), 'f127-openai-builtin-oauth-'));
     const apiDir = join(root, 'packages', 'api');

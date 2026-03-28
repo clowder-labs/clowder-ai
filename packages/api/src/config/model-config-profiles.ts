@@ -44,7 +44,6 @@ function normalizeHeaderMap(value: unknown): Record<string, string> | undefined 
   if (entries.length === 0) return undefined;
   return Object.fromEntries(entries);
 }
-
 function inferProtocol(profileId: string): ProviderProfileProtocol | undefined {
   if (profileId.trim().toLowerCase() === HUAWEI_MAAS_MODEL_SOURCE_ID) return 'huawei_maas';
   return undefined;
