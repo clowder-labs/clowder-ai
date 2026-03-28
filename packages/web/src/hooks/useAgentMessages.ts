@@ -29,7 +29,10 @@ interface AgentMsg {
   /** F67: Whether this message @mentions the co-creator */
   mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    stream?: { invocationId?: string };
+  };
   /** F121: Reply-to message ID */
   replyTo?: string;
   /** F121: Server-hydrated reply preview */
@@ -431,9 +434,9 @@ export function useAgentMessages() {
 
         if (msg.origin === 'callback') {
           const invocationId = msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId);
-          const replacementTarget = invocationId
-            ? findCallbackReplacementTarget(msg.catId, invocationId)
-            : findInvocationlessStreamPlaceholder(msg.catId);
+          const replacementTarget =
+            (invocationId ? findCallbackReplacementTarget(msg.catId, invocationId) : null) ??
+            findInvocationlessStreamPlaceholder(msg.catId);
 
           if (replacementTarget) {
             const finalId = msg.messageId ?? replacementTarget.id;
@@ -445,7 +448,14 @@ export function useAgentMessages() {
               origin: 'callback',
               isStreaming: false,
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(msg.extra?.crossPost || msg.extra?.stream
+                ? {
+                    extra: {
+                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+                      ...(msg.extra?.stream ? { stream: msg.extra.stream } : {}),
+                    },
+                  }
+                : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
@@ -467,7 +477,14 @@ export function useAgentMessages() {
               content: msg.content,
               origin: 'callback',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(msg.extra?.crossPost || msg.extra?.stream
+                ? {
+                    extra: {
+                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+                      ...(msg.extra?.stream ? { stream: msg.extra.stream } : {}),
+                    },
+                  }
+                : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),

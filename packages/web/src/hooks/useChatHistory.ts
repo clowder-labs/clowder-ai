@@ -542,6 +542,11 @@ export function useChatHistory(threadId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, setQueue, setQueuePaused, updateThreadCatStatus]);
 
+  const runCatchUpHydration = useCallback(async () => {
+    await fetchHistory(undefined, { replace: true });
+    await Promise.all([fetchTaskProgress(), fetchQueue()]);
+  }, [fetchHistory, fetchQueue, fetchTaskProgress]);
+
   // Load history + tasks when threadId changes (handles initial mount and navigation)
   useEffect(() => {
     // Abort any in-flight requests from previous thread
@@ -626,10 +631,10 @@ export function useChatHistory(threadId: string) {
     if (catchUpThreadId !== threadId) return; // P1: only act for matching thread
     // Small delay: backend may still be persisting the final message
     const timer = setTimeout(() => {
-      void fetchHistory(undefined, { replace: true });
+      void runCatchUpHydration();
     }, 600);
     return () => clearTimeout(timer);
-  }, [catchUpVersion, catchUpThreadId, threadId, fetchHistory]);
+  }, [catchUpVersion, catchUpThreadId, threadId, runCatchUpHydration]);
 
   // Snapshot scroll height before history load
   useEffect(() => {

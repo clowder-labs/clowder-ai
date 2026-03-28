@@ -119,11 +119,14 @@ describe('Callback Routes', () => {
     assert.equal(broadcasted.length, 1);
     assert.equal(broadcasted[0].catId, 'opus');
     assert.equal(broadcasted[0].content, 'Hello from cat!');
+    assert.equal(broadcasted[0].invocationId, invocationId);
+    assert.deepEqual(broadcasted[0].extra?.stream, { invocationId });
 
     // Should store in MessageStore
     const recent = messageStore.getRecent(10);
     assert.equal(recent.length, 1);
     assert.equal(recent[0].content, 'Hello from cat!');
+    assert.deepEqual(recent[0].extra?.stream, { invocationId });
   });
 
   test('POST post-message calls outboundHook.deliver when wired', async () => {
@@ -1680,7 +1683,8 @@ describe('Callback Routes', () => {
     const recent = messageStore.getRecent(10);
     assert.equal(recent.length, 1);
     assert.equal(recent[0].content, 'Plain message, no blocks');
-    assert.equal(recent[0].extra, undefined);
+    assert.equal(recent[0].extra?.rich, undefined);
+    assert.deepEqual(recent[0].extra?.stream, { invocationId });
   });
 
   // ---- #85 T7: Route A create-rich-block normalizes type→kind ----

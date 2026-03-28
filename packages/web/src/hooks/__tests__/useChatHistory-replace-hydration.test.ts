@@ -560,4 +560,95 @@ describe('useChatHistory replace hydration', () => {
       { type: 'image', url: blobUrl },
     ]);
   });
+
+  it('catch-up hydration refetches queue and task progress after replacing history', async () => {
+    vi.useFakeTimers();
+    try {
+      const cachedAssistantTs = Date.now() - 1000;
+      const calls: string[] = [];
+
+      apiFetchMock.mockImplementation(async (input) => {
+        const url = String(input);
+        calls.push(url);
+
+        if (url.startsWith('/api/messages?')) {
+          return {
+            ok: true,
+            json: async () => ({
+              messages: [{ id: 'b1', catId: 'opus', content: 'server replay', timestamp: cachedAssistantTs }],
+              hasMore: false,
+            }),
+          } as Response;
+        }
+
+        if (url === '/api/tasks?threadId=thread-b') {
+          return { ok: true, json: async () => ({ tasks: [] }) } as Response;
+        }
+
+        if (url === '/api/threads/thread-b/task-progress') {
+          return { ok: true, json: async () => ({ taskProgress: {} }) } as Response;
+        }
+
+        if (url === '/api/threads/thread-b/queue') {
+          return { ok: true, json: async () => ({ queue: [], paused: false, activeInvocations: [] }) } as Response;
+        }
+
+        throw new Error(`Unexpected apiFetch call: ${url}`);
+      });
+
+      mountReplaceHydrationThread({
+        messages: [
+          {
+            id: 'b1',
+            type: 'assistant',
+            catId: 'opus',
+            content: 'cached assistant',
+            timestamp: cachedAssistantTs,
+          },
+        ],
+        isLoading: false,
+        isLoadingHistory: false,
+        hasMore: true,
+        hasActiveInvocation: false,
+        activeInvocations: {},
+        intentMode: null,
+        targetCats: [],
+        catStatuses: {},
+        catInvocations: {},
+        currentGame: null,
+        unreadCount: 0,
+        hasUserMention: false,
+        lastActivity: cachedAssistantTs,
+        queue: [],
+        queuePaused: false,
+        queuePauseReason: undefined,
+        queueFull: false,
+        queueFullSource: undefined,
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+
+      expect(calls.filter((url) => url === '/api/tasks?threadId=thread-b')).toHaveLength(1);
+      expect(calls.filter((url) => url === '/api/threads/thread-b/task-progress')).toHaveLength(1);
+      expect(calls.filter((url) => url === '/api/threads/thread-b/queue')).toHaveLength(1);
+      expect(calls.filter((url) => url.startsWith('/api/messages?'))).toHaveLength(0);
+
+      act(() => {
+        useChatStore.getState().requestStreamCatchUp('thread-b');
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(600);
+      });
+
+      expect(calls.filter((url) => url.startsWith('/api/messages?'))).toHaveLength(1);
+      expect(calls.filter((url) => url === '/api/threads/thread-b/task-progress')).toHaveLength(2);
+      expect(calls.filter((url) => url === '/api/threads/thread-b/queue')).toHaveLength(2);
+      expect(calls.filter((url) => url === '/api/tasks?threadId=thread-b')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

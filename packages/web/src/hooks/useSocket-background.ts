@@ -330,7 +330,14 @@ export function handleBackgroundAgentMessage(
           origin: 'callback',
           isStreaming: false,
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+          ...(msg.extra?.crossPost || msg.extra?.stream
+            ? {
+                extra: {
+                  ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+                  ...(msg.extra?.stream ? { stream: msg.extra.stream } : {}),
+                },
+              }
+            : {}),
           ...(msg.mentionsUser ? { mentionsUser: true } : {}),
           ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
           ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
@@ -353,7 +360,14 @@ export function handleBackgroundAgentMessage(
           catId: msg.catId,
           content: msg.content,
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+          ...(msg.extra?.crossPost || msg.extra?.stream
+            ? {
+                extra: {
+                  ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+                  ...(msg.extra?.stream ? { stream: msg.extra.stream } : {}),
+                },
+              }
+            : {}),
           ...(msg.mentionsUser ? { mentionsUser: true } : {}),
           ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
           ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),

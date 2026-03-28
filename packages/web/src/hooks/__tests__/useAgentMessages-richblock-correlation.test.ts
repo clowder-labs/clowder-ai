@@ -283,6 +283,75 @@ describe('useAgentMessages rich_block correlation (Bug A)', () => {
     ]);
   });
 
+  it('writes stream invocation metadata onto a standalone callback bubble', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'final answer',
+        origin: 'callback',
+        messageId: 'msg-callback-standalone',
+        invocationId: 'inv-standalone',
+        extra: { stream: { invocationId: 'inv-standalone' } },
+      });
+    });
+
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'msg-callback-standalone',
+        origin: 'callback',
+        extra: { stream: { invocationId: 'inv-standalone' } },
+      }),
+    );
+  });
+
+  it('patches callback stream identity onto an invocationless placeholder when callback arrives late', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    storeState.messages.push({
+      id: 'msg-stream-invocationless',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'thinking...',
+      isStreaming: true,
+      origin: 'stream',
+      timestamp: Date.now() - 1000,
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'final answer',
+        origin: 'callback',
+        messageId: 'msg-callback-late',
+        invocationId: 'inv-late',
+        extra: { stream: { invocationId: 'inv-late' } },
+      });
+    });
+
+    expect(mockPatchMessage).toHaveBeenCalledWith(
+      'msg-callback-late',
+      expect.objectContaining({
+        origin: 'callback',
+        extra: { stream: { invocationId: 'inv-late' } },
+      }),
+    );
+    expect(storeState.messages).toEqual([
+      expect.objectContaining({
+        id: 'msg-callback-late',
+        origin: 'callback',
+        extra: { stream: { invocationId: 'inv-late' } },
+      }),
+    ]);
+  });
+
   it('drops late stream chunks after callback replacement instead of recreating a bubble', () => {
     act(() => {
       root.render(React.createElement(Harness));

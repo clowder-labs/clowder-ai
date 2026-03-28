@@ -399,12 +399,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const mergedTargets = new Set<CatId>([...contentTargets, ...validExplicitTargets]);
     const mentions: CatId[] = [...mergedTargets];
     const mentionsUser = detectUserMention(storedContent);
+    const streamExtra = { stream: { invocationId } };
     const crossPostExtra = isCrossThread
       ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
       : {};
     const richExtra = richBlocks.length > 0 ? { rich: { v: 1 as const, blocks: richBlocks } } : {};
     const targetCatsExtra = validExplicitTargets.length ? { targetCats: validExplicitTargets } : {};
-    const extraParts = { ...richExtra, ...crossPostExtra, ...targetCatsExtra };
+    const extraParts = { ...streamExtra, ...richExtra, ...crossPostExtra, ...targetCatsExtra };
     const extra = Object.keys(extraParts).length > 0 ? extraParts : undefined;
 
     // F121: Validate replyTo — must exist in the same thread
@@ -473,17 +474,19 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         content: storedContent,
         origin: 'callback',
         messageId: storedMsg.id,
+        invocationId,
         // F52+F098-C1: Include crossPost + targetCats in real-time broadcast
         ...(isCrossThread || validExplicitTargets.length
           ? {
               extra: {
+                stream: { invocationId },
                 ...(isCrossThread
                   ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
                   : {}),
                 ...(validExplicitTargets.length ? { targetCats: validExplicitTargets } : {}),
               },
             }
-          : {}),
+          : { extra: { stream: { invocationId } } }),
         ...(mentionsUser ? { mentionsUser } : {}),
         ...(validatedReplyTo ? { replyTo: validatedReplyTo } : {}),
         ...(replyPreview ? { replyPreview } : {}),

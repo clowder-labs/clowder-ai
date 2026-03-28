@@ -35,6 +35,11 @@ interface AgentMessage {
   metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    targetCats?: string[];
+    stream?: { invocationId?: string };
+  };
   /** F121: ID of the message this message is replying to */
   replyTo?: string;
   /** F121: Hydrated preview of the replied-to message */
@@ -67,6 +72,8 @@ interface SocketIoEngineLike {
 }
 
 type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
+
+type ThreadStateSnapshot = ReturnType<ReturnType<typeof useChatStore.getState>['getThreadState']>;
 
 export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
@@ -114,6 +121,24 @@ export interface SocketCallbacks {
   }) => void;
 }
 
+function shouldRequestStreamCatchUpOnReconnect(threadState: ThreadStateSnapshot): boolean {
+  if (threadState.hasActiveInvocation) return true;
+  if (Object.keys(threadState.activeInvocations ?? {}).length > 0) return true;
+
+  const stillLooksRunning =
+    (threadState.targetCats?.length ?? 0) > 0 ||
+    Object.values(threadState.catStatuses ?? {}).some((status) => status === 'pending' || status === 'streaming');
+
+  if (!stillLooksRunning) return false;
+
+  return threadState.messages.some((message) => {
+    if (message.type !== 'assistant') return false;
+    if (message.isStreaming) return true;
+    if (message.id.startsWith('draft-')) return true;
+    return message.origin === 'stream' && typeof message.extra?.stream?.invocationId === 'string';
+  });
+}
+
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
@@ -123,6 +148,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const bgSeqRef = useRef(0);
   const userIdRef = useRef(getUserId());
   const threadIdRef = useRef(threadId);
+  const hasConnectedRef = useRef(false);
   threadIdRef.current = threadId;
 
   // Use ref to avoid socket disconnect/reconnect on every callbacks change.
@@ -188,6 +214,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     };
 
     socket.on('connect', () => {
+      const isReconnect = hasConnectedRef.current;
+      hasConnectedRef.current = true;
       console.log('[ws] Connected', {
         socketId: socket.id,
         transport: getTransportName(),
@@ -231,6 +259,14 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       // F101: Recover game state on reconnect
       if (tid) {
         reconnectGame(tid).catch(() => {});
+      }
+
+      if (isReconnect && tid) {
+        const store = useChatStore.getState();
+        const threadState = store.getThreadState(tid);
+        if (shouldRequestStreamCatchUpOnReconnect(threadState)) {
+          store.requestStreamCatchUp(tid);
+        }
       }
     });
 

@@ -131,8 +131,12 @@ export interface AgentMessage {
   origin?: 'stream' | 'callback';
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
-  /** F52: Cross-thread origin metadata (set for cross-thread callback messages) */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string }; targetCats?: string[] };
+  /** F52/F129: Origin and stream correlation metadata for callback/history reconciliation. */
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    targetCats?: string[];
+    stream?: { invocationId: string };
+  };
   /** F121: ID of the message this message is replying to */
   replyTo?: string;
   /** F121: Hydrated preview of the replied-to message */

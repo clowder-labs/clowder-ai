@@ -41,6 +41,7 @@ function simulateBackgroundMessage(msg: {
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string };
   origin?: 'stream' | 'callback';
+  extra?: { stream?: { invocationId?: string } };
   invocationId?: string;
   timestamp: number;
 }) {
@@ -255,6 +256,29 @@ describe('background thread socket handling', () => {
       expect(ts.messages).toHaveLength(1);
       expect(ts.messages[0]?.id).toBe('msg-callback-1');
       expect(ts.messages[0]?.origin).toBe('callback');
+    });
+
+    it('callback-origin text preserves stream invocation metadata on a standalone background bubble', () => {
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'callback note',
+        origin: 'callback',
+        messageId: 'msg-callback-stream-1',
+        invocationId: 'inv-bg-callback-1',
+        extra: { stream: { invocationId: 'inv-bg-callback-1' } },
+        timestamp: Date.now(),
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toEqual([
+        expect.objectContaining({
+          id: 'msg-callback-stream-1',
+          origin: 'callback',
+          extra: { stream: { invocationId: 'inv-bg-callback-1' } },
+        }),
+      ]);
     });
 
     it('callback-origin text replaces overlapping background stream bubble from the same invocation', () => {

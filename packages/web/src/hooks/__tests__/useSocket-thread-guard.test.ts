@@ -51,21 +51,44 @@ const mockSetThreadIntentMode = vi.fn();
 const mockSetThreadTargetCats = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
-const mockGetThreadState = vi.fn(() => ({
-  messages: [],
-  isLoading: false,
-  isLoadingHistory: false,
-  hasMore: true,
-  hasActiveInvocation: false,
-  intentMode: null,
-  targetCats: [],
-  catStatuses: {},
-  catInvocations: {},
-  currentGame: null,
+const mockRequestStreamCatchUp = vi.fn();
 
-  unreadCount: 0,
-  lastActivity: 0,
-}));
+type MockThreadState = {
+  messages: Array<Record<string, unknown>>;
+  isLoading: boolean;
+  isLoadingHistory: boolean;
+  hasMore: boolean;
+  hasActiveInvocation: boolean;
+  activeInvocations: Record<string, { catId: string; mode: string }>;
+  intentMode: 'execute' | 'ideate' | null;
+  targetCats: string[];
+  catStatuses: Record<string, string>;
+  catInvocations: Record<string, Record<string, unknown>>;
+  currentGame: null;
+  unreadCount: number;
+  lastActivity: number;
+};
+
+function createMockThreadState(overrides: Partial<MockThreadState> = {}): MockThreadState {
+  return {
+    messages: [],
+    isLoading: false,
+    isLoadingHistory: false,
+    hasMore: true,
+    hasActiveInvocation: false,
+    activeInvocations: {},
+    intentMode: null,
+    targetCats: [],
+    catStatuses: {},
+    catInvocations: {},
+    currentGame: null,
+    unreadCount: 0,
+    lastActivity: 0,
+    ...overrides,
+  };
+}
+
+const mockGetThreadState = vi.fn<() => MockThreadState>(() => createMockThreadState());
 let mockStoreCurrentThreadId = 'thread-B';
 
 vi.mock('@/stores/chatStore', () => {
@@ -88,6 +111,7 @@ vi.mock('@/stores/chatStore', () => {
       setThreadTargetCats: mockSetThreadTargetCats,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
       clearThreadActiveInvocation: mockClearThreadActiveInvocation,
+      requestStreamCatchUp: mockRequestStreamCatchUp,
       getThreadState: mockGetThreadState,
     }),
   };
@@ -179,7 +203,9 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetThreadTargetCats.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();
+    mockRequestStreamCatchUp.mockClear();
     mockGetThreadState.mockClear();
+    mockGetThreadState.mockImplementation(() => createMockThreadState());
     // Clear all socket listeners from previous tests
     mockSocket.removeAllListeners();
   });
@@ -613,6 +639,110 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     const joinedRooms = emitMock.mock.calls.filter(([event]) => event === 'join_room').map(([, room]) => room);
 
     expect(new Set(joinedRooms)).toEqual(new Set(['thread:thread-A', 'thread:thread-B']));
+  });
+
+  it('does not request catch-up on initial connect', () => {
+    mockStoreCurrentThreadId = 'thread-B';
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    mockGetThreadState.mockReturnValue(
+      createMockThreadState({
+        messages: [
+          {
+            id: 'draft-inv-1',
+            type: 'assistant',
+            catId: 'opus',
+            content: 'partial draft',
+            origin: 'stream',
+            extra: { stream: { invocationId: 'inv-1' } },
+            timestamp: Date.now(),
+          },
+        ],
+        isLoading: true,
+        hasActiveInvocation: true,
+        activeInvocations: { 'inv-1': { catId: 'opus', mode: 'execute' } },
+        intentMode: 'execute',
+        targetCats: ['opus'],
+        catStatuses: { opus: 'streaming' },
+        lastActivity: Date.now(),
+      }),
+    );
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('connect', undefined);
+    });
+
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+  });
+
+  it('requests catch-up on reconnect when active thread still looks mid-invocation', () => {
+    mockStoreCurrentThreadId = 'thread-B';
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    mockGetThreadState.mockReturnValue(
+      createMockThreadState({
+        messages: [
+          {
+            id: 'draft-inv-1',
+            type: 'assistant',
+            catId: 'opus',
+            content: 'partial draft',
+            origin: 'stream',
+            extra: { stream: { invocationId: 'inv-1' } },
+            timestamp: Date.now(),
+          },
+        ],
+        isLoading: true,
+        intentMode: 'execute',
+        targetCats: ['opus'],
+        catStatuses: { opus: 'streaming' },
+        lastActivity: Date.now(),
+      }),
+    );
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('connect', undefined);
+    });
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
+
+    act(() => {
+      simulateServerEvent('disconnect', 'transport close');
+    });
+    act(() => {
+      simulateServerEvent('connect', undefined);
+    });
+
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledWith('thread-B');
+    expect(mockRequestStreamCatchUp).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not request catch-up on reconnect for an idle thread', () => {
+    mockStoreCurrentThreadId = 'thread-B';
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('connect', undefined);
+    });
+    act(() => {
+      simulateServerEvent('disconnect', 'transport close');
+    });
+    act(() => {
+      simulateServerEvent('connect', undefined);
+    });
+
+    expect(mockRequestStreamCatchUp).not.toHaveBeenCalled();
   });
 
   it('thread_summary from OTHER thread is silently dropped (cross-thread leakage guard)', () => {
