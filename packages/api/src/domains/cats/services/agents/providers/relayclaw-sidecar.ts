@@ -242,7 +242,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       throw new Error('jiuwen sidecar startup aborted');
     }
 
-    const timeoutAt = Date.now() + (this.config.startupTimeoutMs ?? 45_000);
+    const timeoutAt = Date.now() + (this.config.startupTimeoutMs ?? 180_000);
     while (Date.now() < timeoutAt) {
       if (signal?.aborted) {
         this.stop();
@@ -295,7 +295,7 @@ export async function isRelayClawRuntimeReady(
   if (isSidecarReady(recentLogs)) {
     return true;
   }
-  if (runtime.useExecutable && (await tcpProbeFn('127.0.0.1', webPort, 400))) {
+  if (await tcpProbeFn('127.0.0.1', webPort, 400)) {
     return true;
   }
   return false;
