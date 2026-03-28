@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "pythonTarget": {
+    "platform": "win_amd64",
+    "pythonVersion": "3.13",
+    "implementation": "cp",
+    "abi": "cp313"
+  },
+  "groups": [
+    {
+      "id": "shared-runtime",
+      "description": "Shared Python runtime dependencies for the Windows bundle",
+      "packages": [
+        "setuptools",
+        "wheel",
+        "anthropic",
+        "langchain-openai",
+        "langchain-core",
+        "httpx>=0.27.0",
+        "starlette>=0.37.0",
+        "uvicorn>=0.30.0",
+        "chromadb>=0.4.0",
+        "psutil>=7.0",
+        "loguru>=0.7",
+        "ruamel.yaml>=0.18",
+        "python-dotenv>=1.0",
+        "websockets>=12.0",
+        "aiosqlite>=0.22",
+        "croniter>=2.0",
+        "mutagen>=1.47",
+        "greenlet>=3.0",
+        "openjiuwen==0.1.7",
+        "python-pptx",
+        "openpyxl",
+        "python-docx",
+        "xlsxwriter",
+        "pypdf",
+        "reportlab",
+        "markitdown",
+        "cool-play-agent-teams"
+      ],
+      "localProjects": [
+        {
+          "path": "vendor/jiuwenclaw",
+          "wheelArgs": ["--no-deps"]
+        }
+      ]
+    }
+  ]
+}

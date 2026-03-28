@@ -62,9 +62,9 @@ export const CLIENT_OPTIONS: Array<{ value: ClientValue; label: string }> = [
   { value: 'anthropic', label: 'Claude' },
   { value: 'openai', label: 'Codex' },
   { value: 'google', label: 'Gemini' },
-  { value: 'dare', label: 'Dare' },
+  { value: 'dare', label: 'Office Agent' },
   { value: 'opencode', label: 'OpenCode' },
-  { value: 'relayclaw', label: 'jiuwen' },
+  { value: 'relayclaw', label: 'Assistant Agent' },
   { value: 'acp', label: 'ACP' },
   { value: 'antigravity', label: 'Antigravity' },
 ];
@@ -100,6 +100,7 @@ export const CODEX_AUTH_MODE_OPTIONS: Array<{ value: CodexAuthMode; label: strin
 ];
 
 export const DEFAULT_ANTIGRAVITY_COMMAND_ARGS = '. --remote-debugging-port=9000';
+const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
 
 export function splitMentionPatterns(raw: string): string[] {
   return raw
@@ -182,6 +183,10 @@ function isBuiltinClient(client: ClientValue): client is BuiltinAccountClient {
   );
 }
 
+function isModelConfigProfile(profile: ProfileItem): boolean {
+  return profile.source === 'model_config';
+}
+
 function legacyProfileClient(profile: ProfileItem): BuiltinAccountClient | undefined {
   if (profile.client) return profile.client;
   if (profile.oauthLikeClient === 'dare' || profile.oauthLikeClient === 'opencode') return profile.oauthLikeClient;
@@ -220,6 +225,14 @@ export function builtinAccountIdForClient(client: ClientValue): string | null {
 }
 
 export function filterAccounts(client: ClientValue, profiles: ProfileItem[]): ProfileItem[] {
+  const modelConfigProfiles = profiles.filter(isModelConfigProfile);
+  if (modelConfigProfiles.length > 0) {
+    if (client !== 'dare' && client !== 'relayclaw') return [];
+    return modelConfigProfiles.filter((profile) => {
+      if (profile.id === HUAWEI_MAAS_MODEL_SOURCE_ID && profile.protocol === 'huawei_maas') return true;
+      return profile.protocol === 'openai';
+    });
+  }
   if (client === 'acp') {
     return profiles.filter((profile) => profile.kind === 'acp');
   }

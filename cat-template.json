@@ -89,6 +89,13 @@
       "lead": false,
       "available": false,
       "evaluation": "通用 office 助理，适合文档整理、信息汇总、日程和事务协助；绑定 OpenAI-compatible API key 后可启用"
+    },
+    "agentteams": {
+      "family": "agentteams",
+      "roles": ["coding", "multi-agent", "complex-task"],
+      "lead": false,
+      "available": true,
+      "evaluation": "多智能体协作引擎，擅长复杂任务拆解与多步骤编排；绑定 ACP provider profile 后可启用"
     }
   },
   "reviewPolicy": {
@@ -669,6 +676,47 @@
             "maxPromptTokens": 180000,
             "maxContextTokens": 160000,
             "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
+          }
+        }
+      ]
+    },
+    {
+      "id": "agentteams",
+      "catId": "agentteams",
+      "name": "协作引擎",
+      "displayName": "协作引擎",
+      "nickname": "小协",
+      "avatar": "/avatars/agentteams.png",
+      "color": {
+        "primary": "#4CAF50",
+        "secondary": "#E8F5E9"
+      },
+      "mentionPatterns": ["@agentteams", "@协作引擎", "@小协", "@agent-teams"],
+      "roleDescription": "多智能体协作引擎，擅长复杂任务拆解、多步骤编排和工具链调度",
+      "teamStrengths": "复杂任务分解、多步骤编排、工具链调度",
+      "caution": null,
+      "capabilities": {
+        "sessionChain": true
+      },
+      "defaultVariantId": "agentteams-default",
+      "variants": [
+        {
+          "id": "agentteams-default",
+          "provider": "acp",
+          "defaultModel": "agent-teams",
+          "mcpSupport": true,
+          "cli": {
+            "command": "agent-teams",
+            "args": ["gateway", "acp", "stdio"],
+            "outputFormat": "json"
+          },
+          "personality": "冷静高效的任务指挥官，擅长将复杂问题拆解为可执行步骤并协调多方资源完成",
+          "strengths": ["multi-agent", "task-decomposition", "tool-orchestration", "coding"],
+          "contextBudget": {
+            "maxPromptTokens": 120000,
+            "maxContextTokens": 100000,
+            "maxMessages": 100,
             "maxContentLengthPerMsg": 10000
           }
         }

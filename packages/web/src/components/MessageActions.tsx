@@ -133,7 +133,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
   const close = useCallback(() => setDialog({ type: 'none' }), []);
 
   return (
-    <div className="group relative">
+    <div className="group relative w-[80%] mx-auto">
       {children}
 
       {canAct && (

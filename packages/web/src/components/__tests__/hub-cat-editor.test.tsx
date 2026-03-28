@@ -2,6 +2,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CatData } from '@/hooks/useCatData';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({
@@ -92,6 +93,7 @@ describe('HubCatEditor', () => {
     root = createRoot(container);
     mockApiFetch.mockReset();
     mockConfirm.mockResolvedValue(true);
+    useChatStore.getState().setCurrentProject('default');
   });
 
   afterEach(() => {
@@ -410,6 +412,157 @@ describe('HubCatEditor', () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
+  it('uses ~/.cat-cafe/model.json profiles instead of provider-profiles when available', async () => {
+    const onSaved = vi.fn(() => Promise.resolve());
+    useChatStore.getState().setCurrentProject('/tmp/project');
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'huawei-maas',
+                provider: 'huawei-maas',
+                source: 'model_config',
+                displayName: 'Huawei MaaS',
+                name: 'Huawei MaaS',
+                authType: 'none',
+                kind: 'api_key',
+                builtin: false,
+                mode: 'none',
+                protocol: 'huawei_maas',
+                models: ['deepseek-v3.1-terminus', 'deepseek-r1'],
+                hasApiKey: false,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'runtime-maas' } }, 201));
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCatEditor, { open: true, onClose: vi.fn(), onSaved }));
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '华为猫');
+    await changeField(queryField(container, 'input[aria-label="Description"]'), '走 MaaS');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@huawei-maas-cat');
+    await changeField(queryField(container, 'select[aria-label="Client"]'), 'dare', 'change');
+    await flushEffects();
+    await flushEffects();
+
+    const accountSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]');
+    const accountLabels = Array.from(accountSelect.options).map((option) => option.textContent ?? '');
+    expect(accountLabels).toContain('Huawei MaaS');
+    expect(accountLabels.some((label) => label.includes('API Key'))).toBe(false);
+    await changeField(accountSelect, 'huawei-maas', 'change');
+    await flushEffects();
+
+    const modelSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]');
+    const modelOptions = Array.from(modelSelect.options).map((option) => option.value);
+    expect(modelOptions).toContain('deepseek-v3.1-terminus');
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    expect(postCall).toBeTruthy();
+    expect(mockApiFetch.mock.calls.some(([path]) => String(path).startsWith('/api/provider-profiles'))).toBe(false);
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.accountRef).toBe('huawei-maas');
+    expect(payload.defaultModel).toBe('deepseek-v3.1-terminus');
+  });
+
+  it('uses custom openai-compatible model.json sources for dare and displayName in auth options', async () => {
+    const onSaved = vi.fn(() => Promise.resolve());
+    useChatStore.getState().setCurrentProject('/tmp/project');
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'my-openai-proxy',
+                provider: 'my-openai-proxy',
+                source: 'model_config',
+                displayName: 'My OpenAI Proxy',
+                name: 'My OpenAI Proxy',
+                authType: 'api_key',
+                kind: 'api_key',
+                builtin: false,
+                mode: 'api_key',
+                protocol: 'openai',
+                models: ['glm-5', 'gpt-4o-mini'],
+                hasApiKey: true,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'runtime-custom-openai' } }, 201));
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCatEditor, { open: true, onClose: vi.fn(), onSaved }));
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '代理猫');
+    await changeField(queryField(container, 'input[aria-label="Description"]'), '走自定义 OpenAI');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@proxy-cat');
+    await changeField(queryField(container, 'select[aria-label="Client"]'), 'dare', 'change');
+    await flushEffects();
+    await flushEffects();
+
+    const accountSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]');
+    const accountLabels = Array.from(accountSelect.options).map((option) => option.textContent ?? '');
+    expect(accountLabels).toContain('My OpenAI Proxy');
+    expect(accountLabels.some((label) => label.includes('API Key'))).toBe(false);
+    await changeField(accountSelect, 'my-openai-proxy', 'change');
+    await flushEffects();
+
+    const modelSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]');
+    const modelOptions = Array.from(modelSelect.options).map((option) => option.value);
+    expect(modelOptions).toContain('glm-5');
+    expect(modelOptions).toContain('gpt-4o-mini');
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.accountRef).toBe('my-openai-proxy');
+    expect(payload.defaultModel).toBe('glm-5');
+  });
   it('blocks creating opencode+api_key member without ocProviderName', async () => {
     const onSaved = vi.fn(() => Promise.resolve());
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
@@ -529,6 +682,16 @@ describe('HubCatEditor', () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/available-clients') {
         return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
+      }
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: false,
+            fallbackToProviderProfiles: true,
+            providers: [],
+          }),
+        );
       }
       return Promise.resolve(jsonResponse(profilesPayload));
     });
@@ -737,6 +900,66 @@ describe('HubCatEditor', () => {
     expect(filterProfiles('relayclaw', profiles).map((profile) => profile.id)).toEqual(['codex-sponsor']);
   });
 
+  it('returns only supported model_config sources for dare and relayclaw', () => {
+    const profiles: ProfileItem[] = [
+      {
+        id: 'huawei-maas',
+        provider: 'huawei-maas',
+        displayName: 'Huawei MaaS',
+        name: 'Huawei MaaS',
+        authType: 'none',
+        protocol: 'huawei_maas',
+        kind: 'api_key',
+        builtin: false,
+        mode: 'none',
+        source: 'model_config',
+        models: ['glm-5'],
+        hasApiKey: false,
+        createdAt: '2026-03-28T00:00:00.000Z',
+        updatedAt: '2026-03-28T00:00:00.000Z',
+      },
+      {
+        id: 'my-openai-proxy',
+        provider: 'my-openai-proxy',
+        displayName: 'My OpenAI Proxy',
+        name: 'My OpenAI Proxy',
+        authType: 'api_key',
+        protocol: 'openai',
+        kind: 'api_key',
+        builtin: false,
+        mode: 'api_key',
+        source: 'model_config',
+        models: ['gpt-4o-mini'],
+        hasApiKey: true,
+        createdAt: '2026-03-28T00:00:00.000Z',
+        updatedAt: '2026-03-28T00:00:00.000Z',
+      },
+      {
+        id: 'unsupported-custom',
+        provider: 'unsupported-custom',
+        displayName: 'Unsupported Custom',
+        name: 'Unsupported Custom',
+        authType: 'api_key',
+        protocol: 'anthropic',
+        kind: 'api_key',
+        builtin: false,
+        mode: 'api_key',
+        source: 'model_config',
+        models: ['claude-sonnet-4-5'],
+        hasApiKey: true,
+        createdAt: '2026-03-28T00:00:00.000Z',
+        updatedAt: '2026-03-28T00:00:00.000Z',
+      },
+    ];
+
+    expect(filterProfiles('dare', profiles).map((profile) => profile.id)).toEqual(['huawei-maas', 'my-openai-proxy']);
+    expect(filterProfiles('relayclaw', profiles).map((profile) => profile.id)).toEqual([
+      'huawei-maas',
+      'my-openai-proxy',
+    ]);
+    expect(filterProfiles('openai', profiles)).toEqual([]);
+  });
+
   it('preserves existing model when it is not listed in provider defaults', async () => {
     const existingCat = {
       id: 'runtime-codex',
@@ -904,6 +1127,84 @@ describe('HubCatEditor', () => {
     expect(patchCall).toBeTruthy();
     const payload = JSON.parse(String(patchCall?.[1]?.body));
     expect(payload.defaultModel).toBe('gpt-5.4-mini');
+  });
+
+  it('rehydrates Huawei MaaS binding from config snapshot when runtime cat data is stale', async () => {
+    const existingCat = {
+      id: 'runtime-dare',
+      name: 'runtime-dare',
+      displayName: 'Dare',
+      provider: 'openai',
+      defaultModel: 'gpt-5.4',
+      color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
+      mentionPatterns: ['@runtime-dare'],
+      avatar: '/avatars/dare.png',
+      roleDescription: 'delegate',
+      source: 'runtime',
+    } as CatData;
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'huawei-maas',
+                provider: 'huawei-maas',
+                displayName: 'Huawei MaaS',
+                name: 'Huawei MaaS',
+                authType: 'none',
+                protocol: 'huawei_maas',
+                builtin: false,
+                mode: 'none',
+                kind: 'api_key',
+                source: 'model_config',
+                models: ['glm-5'],
+                hasApiKey: false,
+                createdAt: '2026-03-18T00:00:00.000Z',
+                updatedAt: '2026-03-18T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/config/session-strategy') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/config' && !init?.method) {
+        return Promise.resolve(jsonResponse({ config: { cli: {}, codexExecution: {} } }));
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(HubCatEditor, {
+          open: true,
+          cat: existingCat,
+          configCat: {
+            displayName: 'Dare',
+            provider: 'dare',
+            model: 'glm-5',
+            mcpSupport: true,
+            accountRef: 'huawei-maas',
+            providerProfileId: 'huawei-maas',
+          },
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    expect(queryField<HTMLSelectElement>(container, 'select[aria-label="Client"]').value).toBe('dare');
+    expect(queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]').value).toBe('huawei-maas');
+    expect(queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]').value).toBe('glm-5');
   });
 
   it('keeps unbound cats unbound when opening the editor', async () => {

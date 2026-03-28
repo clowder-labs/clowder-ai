@@ -7,7 +7,11 @@ description: >
   Output: 分步实施计划（含 TDD 步骤和检查点）。
 triggers:
   - "写计划"
+  - "写实施计划"
   - "implementation plan"
+  - "planning"
+  - "task decomposition"
+  - "phase breakdown"
   - "拆分步骤"
 ---
 

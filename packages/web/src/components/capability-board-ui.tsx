@@ -463,7 +463,7 @@ function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
     { key: 'claude', label: 'Claude' },
     { key: 'codex', label: 'Codex' },
     { key: 'gemini', label: 'Gemini' },
-    { key: 'relayclaw', label: 'jiuwenClaw' },
+    { key: 'relayclaw', label: 'Assistant Agent' },
   ];
   const providers = [
     ...knownProviders.filter(({ key }) => key in mounts),

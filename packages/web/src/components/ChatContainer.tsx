@@ -459,7 +459,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             viewMode={viewMode}
             onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
             onOpenMobileStatus={() => setMobileStatusOpen(true)}
-            defaultCatId={targetCats[0] || 'office'}
+            defaultCatId={targetCats[0] || 'jiuwenclaw'}
           />
         )}
 

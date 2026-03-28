@@ -95,8 +95,9 @@ internal sealed class LauncherForm : Form
 {
     private readonly object _logLock = new object();
     private readonly NotifyIcon _notifyIcon;
-    private readonly Label _statusLabel;
+    private readonly Panel _statusPanel;
     private readonly PictureBox _splashBox;
+    private readonly System.Windows.Forms.Timer _spinnerTimer;
     private readonly string _projectRoot;
     private readonly string _logFilePath;
     private readonly string _runtimeStatePath;
@@ -105,6 +106,8 @@ internal sealed class LauncherForm : Form
     private bool _exitRequested;
     private bool _trayHintShown;
     private string _frontendUrl;
+    private string _statusText = "Preparing OfficeClaw...";
+    private int _spinnerAngle;
     private WebView2 _webView;
 
     public LauncherForm()
@@ -126,9 +129,10 @@ internal sealed class LauncherForm : Form
         _splashBox = new PictureBox
         {
             Dock = DockStyle.Fill,
-            SizeMode = PictureBoxSizeMode.Zoom,
+            SizeMode = PictureBoxSizeMode.Normal,
             BackColor = Color.Black,
         };
+        _splashBox.Paint += OnSplashPaint;
 
         var splashImagePath = Path.Combine(_projectRoot, "assets", "splash.jpg");
         if (File.Exists(splashImagePath))
@@ -137,20 +141,28 @@ internal sealed class LauncherForm : Form
             catch { /* fall back to plain background */ }
         }
 
-        _statusLabel = new Label
+        _statusPanel = new DoubleBufferedPanel
         {
-            Dock = DockStyle.Bottom,
-            Height = 80,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font("Segoe UI", 14f, FontStyle.Regular),
-            ForeColor = Color.White,
+            Height = 60,
             BackColor = Color.Transparent,
-            Text = "Preparing OfficeClaw...",
-            AutoEllipsis = true,
         };
+        _statusPanel.Paint += OnStatusPanelPaint;
 
-        _splashBox.Controls.Add(_statusLabel);
+        _spinnerTimer = new System.Windows.Forms.Timer { Interval = 40 };
+        _spinnerTimer.Tick += (_, __) =>
+        {
+            _spinnerAngle = (_spinnerAngle + 10) % 360;
+            if (_statusPanel != null && !_statusPanel.IsDisposed)
+            {
+                _statusPanel.Invalidate();
+            }
+        };
+        _spinnerTimer.Start();
+
+        _splashBox.Controls.Add(_statusPanel);
+        _splashBox.Resize += (_, __) => RepositionStatusLabel();
         Controls.Add(_splashBox);
+        RepositionStatusLabel();
         Shown += async (_, __) => await InitializeAsync();
         FormClosing += OnFormClosing;
         FormClosed += (_, __) => DisposeNotifyIcon();
@@ -548,6 +560,8 @@ internal sealed class LauncherForm : Form
             },
         };
 
+        _spinnerTimer.Stop();
+        _spinnerTimer.Dispose();
         Controls.Clear();
         if (_splashBox.Image != null)
         {
@@ -645,7 +659,8 @@ internal sealed class LauncherForm : Form
             return;
         }
 
-        _statusLabel.Text = message;
+        _statusText = message;
+        _statusPanel.Invalidate();
         AppendLog(message);
     }
 
@@ -659,5 +674,95 @@ internal sealed class LauncherForm : Form
                 Encoding.UTF8
             );
         }
+    }
+
+    private void RepositionStatusLabel()
+    {
+        if (_splashBox == null || _splashBox.IsDisposed)
+        {
+            return;
+        }
+
+        var parent = _splashBox.ClientSize;
+        _statusPanel.Width = parent.Width;
+        _statusPanel.Left = 0;
+        _statusPanel.Top = parent.Height - _statusPanel.Height - 40;
+    }
+
+    private void OnSplashPaint(object sender, PaintEventArgs eventArgs)
+    {
+        var box = (PictureBox)sender;
+        if (box.Image == null)
+        {
+            return;
+        }
+
+        var img = box.Image;
+        var canvas = box.ClientSize;
+
+        // "Cover" mode: scale to fill, crop the excess
+        float scale = Math.Max(
+            (float)canvas.Width / img.Width,
+            (float)canvas.Height / img.Height
+        );
+
+        int scaledW = (int)(img.Width * scale);
+        int scaledH = (int)(img.Height * scale);
+        int x = (canvas.Width - scaledW) / 2;
+        int y = (canvas.Height - scaledH) / 2;
+
+        eventArgs.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        eventArgs.Graphics.DrawImage(img, x, y, scaledW, scaledH);
+    }
+
+    private void OnStatusPanelPaint(object sender, PaintEventArgs eventArgs)
+    {
+        var panel = (Panel)sender;
+        var g = eventArgs.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        var font = new Font("Segoe UI", 14f, FontStyle.Regular);
+        var textSize = g.MeasureString(_statusText, font);
+
+        int spinnerSize = 24;
+        int gap = 10;
+        float totalWidth = spinnerSize + gap + textSize.Width;
+        float startX = (panel.Width - totalWidth) / 2f;
+        float centerY = (panel.Height - spinnerSize) / 2f;
+
+        // Match splash image text color: dark gray for text, orange for spinner
+        var spinnerColor = Color.FromArgb(255, 128, 0);   // orange, matching "OfficeClaw" title
+        var textColor = Color.FromArgb(51, 51, 51);       // #333, matching body text
+
+        // Draw spinner arc
+        using (var pen = new Pen(spinnerColor, 2.5f))
+        {
+            pen.StartCap = LineCap.Round;
+            pen.EndCap = LineCap.Round;
+            g.DrawArc(pen, startX, centerY, spinnerSize, spinnerSize, _spinnerAngle, 270);
+        }
+
+        // Draw text
+        float textX = startX + spinnerSize + gap;
+        float textY = (panel.Height - textSize.Height) / 2f;
+        using (var brush = new SolidBrush(textColor))
+        {
+            g.DrawString(_statusText, font, brush, textX, textY);
+        }
+
+        font.Dispose();
+    }
+}
+
+internal sealed class DoubleBufferedPanel : Panel
+{
+    public DoubleBufferedPanel()
+    {
+        SetStyle(
+            ControlStyles.UserPaint |
+            ControlStyles.AllPaintingInWmPaint |
+            ControlStyles.OptimizedDoubleBuffer,
+            true
+        );
     }
 }

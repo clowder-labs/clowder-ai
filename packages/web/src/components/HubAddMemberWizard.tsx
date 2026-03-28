@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import {
   ChoiceButton,
@@ -20,6 +21,19 @@ import {
 } from './hub-cat-editor.model';
 import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
 
+interface ModelConfigProfilesResponse {
+  projectPath: string;
+  fallbackToProviderProfiles?: boolean;
+  exists: boolean;
+  providers: ProfileItem[];
+}
+
+function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
+  if (!projectPath || projectPath === 'default') return path;
+  const query = new URLSearchParams({ projectPath });
+  return `${path}?${query.toString()}`;
+}
+
 interface HubAddMemberWizardProps {
   open: boolean;
   onClose: () => void;
@@ -28,7 +42,12 @@ interface HubAddMemberWizardProps {
 
 export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWizardProps) {
   const { clients: detectedClients, loading: loadingClients } = useAvailableClients();
+  const currentProjectPath = useChatStore((state) => state.currentProjectPath);
   const clientIds = useMemo(() => new Set(detectedClients.map((c) => c.id)), [detectedClients]);
+  const clientLabels = useMemo(
+    () => new Map(detectedClients.map((client) => [client.id, client.label])),
+    [detectedClients],
+  );
   const clientRow1 = useMemo(
     () => CLIENT_ROW_1.filter((id) => clientIds.has(id)),
     [clientIds],
@@ -83,6 +102,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
   }, [antigravityDefaults.models, client, defaultModel, selectedProfile]);
 
   function profileSubtitle(profile: ProfileItem) {
+    if (profile.source === 'model_config') return '用户模型配置';
     if (profile.builtin) return '内置';
     return 'API Key';
   }
@@ -100,13 +120,33 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     if (!open) return;
     let cancelled = false;
     setLoadingProfiles(true);
-    apiFetch('/api/provider-profiles')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`账号配置加载失败 (${res.status})`);
-        return (await res.json()) as ProviderProfilesResponse;
+    const modelConfigUrl = '/api/model-config-profiles';
+    const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
+    Promise.resolve()
+      .then(async () => {
+        let modelConfigRes: Response;
+        try {
+          modelConfigRes = await apiFetch(modelConfigUrl);
+        } catch {
+          const providerProfilesRes = await apiFetch(providerProfilesUrl);
+          if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+          const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+          return providerProfilesBody.providers;
+        }
+        if (!modelConfigRes.ok) {
+          if (modelConfigRes.status === 404) return [] as ProfileItem[];
+          throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
+        }
+        const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
+        if (body.exists) return body.providers;
+        if (!body.fallbackToProviderProfiles) return [] as ProfileItem[];
+        const providerProfilesRes = await apiFetch(providerProfilesUrl);
+        if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+        const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+        return providerProfilesBody.providers;
       })
-      .then((body) => {
-        if (!cancelled) setProfiles(body.providers);
+      .then((nextProfiles) => {
+        if (!cancelled) setProfiles(nextProfiles);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '账号配置加载失败');
@@ -117,7 +157,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [currentProjectPath, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -233,7 +273,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
                     {row.map((value) => (
                       <PillChoiceButton
                         key={value}
-                        label={clientLabel(value)}
+                        label={clientLabels.get(value) ?? clientLabel(value)}
                         selected={client === value}
                         onClick={() => handleClientSelect(value)}
                       />

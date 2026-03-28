@@ -1,6 +1,7 @@
 import React, { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({
@@ -96,6 +97,7 @@ describe('HubAddMemberWizard', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    useChatStore.getState().setCurrentProject('default');
     mockApiFetch.mockReset();
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/cats') {
@@ -258,6 +260,163 @@ describe('HubAddMemberWizard', () => {
     expect(container.textContent).not.toContain('Codex (OAuth)');
     expect(container.textContent).not.toContain('Claude (OAuth)');
     expect(container.textContent).not.toContain('Claude Sponsor');
+  });
+
+  it('shows Huawei MaaS for jiuwen when ~/.cat-cafe/model.json exists', async () => {
+    useChatStore.getState().setCurrentProject('/tmp/project');
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/cats') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'huawei-maas',
+                provider: 'huawei-maas',
+                source: 'model_config',
+                displayName: 'Huawei MaaS',
+                name: 'Huawei MaaS',
+                authType: 'none',
+                protocol: 'huawei_maas',
+                builtin: false,
+                kind: 'api_key',
+                mode: 'none',
+                models: ['deepseek-v3.1-terminus'],
+                hasApiKey: false,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [
+              { id: 'anthropic', label: 'Claude', command: 'claude', available: true },
+              { id: 'openai', label: 'Codex', command: 'codex', available: true },
+              { id: 'google', label: 'Gemini', command: 'gemini', available: true },
+              { id: 'dare', label: 'Dare', command: 'dare', available: true },
+              { id: 'opencode', label: 'OpenCode', command: 'opencode', available: true },
+              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+              { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: true },
+            ],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubAddMemberWizard, { open: true, onClose: vi.fn(), onComplete: vi.fn() }));
+    });
+    await flushEffects();
+
+    await click(queryButton(container, 'jiuwen'));
+    expect(container.textContent).toContain('Huawei MaaS');
+    expect(container.textContent).toContain('用户模型配置');
+    expect(container.textContent).not.toContain('Codex Sponsor');
+  });
+
+  it('shows custom openai-compatible model.json sources for jiuwen using displayName', async () => {
+    useChatStore.getState().setCurrentProject('/tmp/project');
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/cats') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'my-openai-proxy',
+                provider: 'my-openai-proxy',
+                source: 'model_config',
+                displayName: 'My OpenAI Proxy',
+                name: 'My OpenAI Proxy',
+                authType: 'api_key',
+                protocol: 'openai',
+                builtin: false,
+                kind: 'api_key',
+                mode: 'api_key',
+                models: ['gpt-4o-mini'],
+                hasApiKey: true,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [
+              { id: 'dare', label: 'Dare', command: 'dare', available: true },
+              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+            ],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubAddMemberWizard, { open: true, onClose: vi.fn(), onComplete: vi.fn() }));
+    });
+    await flushEffects();
+
+    await click(queryButton(container, 'jiuwen'));
+    expect(container.textContent).toContain('My OpenAI Proxy');
+    expect(container.textContent).toContain('用户模型配置');
+  });
+  it('does not fall back to provider-profiles when model-config fallback is disabled', async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/cats') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: false,
+            fallbackToProviderProfiles: false,
+            providers: [],
+          }),
+        );
+      }
+      if (path === '/api/provider-profiles') {
+        throw new Error('provider-profiles should not be requested when fallback is disabled');
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [
+              { id: 'dare', label: 'Dare', command: 'dare', available: true },
+              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+            ],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubAddMemberWizard, { open: true, onClose: vi.fn(), onComplete: vi.fn() }));
+    });
+    await flushEffects();
+
+    await click(queryButton(container, 'jiuwen'));
+    expect(container.textContent).not.toContain('Codex Sponsor');
+    expect(container.textContent).not.toContain('Huawei MaaS');
+    expect(mockApiFetch.mock.calls.some(([path]) => path === '/api/provider-profiles')).toBe(false);
   });
 
   it('keeps known clients visible even when their local CLI is unavailable', async () => {

@@ -132,6 +132,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const homeDir = this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
     const apiBase = callbackEnv.API_BASE || callbackEnv.OPENAI_BASE_URL || callbackEnv.OPENAI_API_BASE || '';
+    const defaultHeaders = callbackEnv.default_headers || callbackEnv.OPENAI_DEFAULT_HEADERS || '';
     const provider = apiBase.includes('openrouter.ai') ? 'OpenRouter' : 'OpenAI';
     const modelName = this.config.modelName?.trim() || 'gpt-5.4';
     const projectDir = options?.workingDirectory?.trim() || '';
@@ -154,6 +155,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         WEB_HOST: '127.0.0.1',
         API_KEY: apiKey,
         API_BASE: apiBase,
+        ...(defaultHeaders ? { default_headers: defaultHeaders } : {}),
         MODEL_NAME: modelName,
         MODEL_PROVIDER: provider,
         JIUWENCLAW_AGENT_ROOT: join(homeDir, 'agent'),
@@ -179,6 +181,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         homeDir,
         appSignature: buildRelayClawAppSignature(appDir),
         apiBase,
+        defaultHeaders,
         modelName,
         provider,
         projectDir,
@@ -242,7 +245,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       throw new Error('jiuwen sidecar startup aborted');
     }
 
-    const timeoutAt = Date.now() + (this.config.startupTimeoutMs ?? 45_000);
+    const timeoutAt = Date.now() + (this.config.startupTimeoutMs ?? 180_000);
     while (Date.now() < timeoutAt) {
       if (signal?.aborted) {
         this.stop();
@@ -295,7 +298,7 @@ export async function isRelayClawRuntimeReady(
   if (isSidecarReady(recentLogs)) {
     return true;
   }
-  if (runtime.useExecutable && (await tcpProbeFn('127.0.0.1', webPort, 400))) {
+  if (await tcpProbeFn('127.0.0.1', webPort, 400)) {
     return true;
   }
   return false;

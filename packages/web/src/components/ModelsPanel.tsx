@@ -1,13 +1,20 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
+import { useChatStore } from '@/stores/chatStore';
+import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
+import { useProviderProfilesState } from './useProviderProfilesState';
 import { groupKeyFromModelName, modelIconVisual, resolveModelIconType } from './model-icon';
 
+const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
+const SEARCH_PLACEHOLDER = '搜索模型、厂商或描述关键词';
 const LOADING_TEXT = '加载中...';
 const EMPTY_TEXT = '暂无模型信息';
+const NO_RESULTS_TEXT = '未找到匹配模型';
+const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
 const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 
 interface MassModelResponseItem {
@@ -23,6 +30,12 @@ interface ModelCardData {
   object: string;
   name: string;
   description: string;
+}
+
+interface ModelCardGroup {
+  key: string;
+  label: string;
+  items: ModelCardData[];
 }
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
@@ -42,7 +55,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     'model_name',
     'displayName',
     'display_name',
-    '名称',
+    '\u540d\u79f0',
   ]);
 
   const genericStringEntries = Object.entries(item).filter(
@@ -55,7 +68,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     '';
 
   const inferredDescription =
-    pickStringField(item, ['description', 'desc', '描述']) ??
+    pickStringField(item, ['description', 'desc', '\u63cf\u8ff0']) ??
     genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
     DEFAULT_DESC;
 
@@ -93,16 +106,40 @@ function professionalGroupLabel(groupKey: string): string {
   return `${pretty} 系列`;
 }
 
+function buildModelSearchText(card: ModelCardData): string {
+  const groupKey = groupKeyFromModelName(card.name);
+  const groupLabel = professionalGroupLabel(groupKey);
+  const vendorLabel = modelIconVisual(resolveModelIconType(groupKey)).label;
+
+  return [card.name, card.description, card.id, card.object, groupKey, groupLabel, vendorLabel].join(' ').toLowerCase();
+}
+
+function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
+  return cards.reduce<ModelCardGroup[]>((acc, item) => {
+    const key = groupKeyFromModelName(item.name);
+    const existing = acc.find((group) => group.key === key);
+    if (existing) {
+      existing.items.push(item);
+      return acc;
+    }
+    acc.push({ key, label: professionalGroupLabel(key), items: [item] });
+    return acc;
+  }, []);
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const openHub = useChatStore((s) => s.openHub);
 
   useEffect(() => {
     let cancelled = false;
     const fetchModels = async () => {
       setLoading(true);
       try {
-        const res = await apiFetch('/api/mass-models');
+        const res = await apiFetch('/api/maas-models');
         if (!res.ok) {
           if (!cancelled) setCards([]);
           return;
@@ -123,37 +160,69 @@ export function ModelsPanel() {
     };
   }, []);
 
-  const groupedCards = useMemo(() => {
-    return cards.reduce<Array<{ key: string; label: string; items: ModelCardData[] }>>((acc, item) => {
-      const key = groupKeyFromModelName(item.name);
-      const existing = acc.find((group) => group.key === key);
-      if (existing) {
-        existing.items.push(item);
-        return acc;
-      }
-      acc.push({ key, label: professionalGroupLabel(key), items: [item] });
-      return acc;
-    }, []);
-  }, [cards]);
+  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+
+  const filteredCards = useMemo(() => {
+    if (!normalizedQuery) return cards;
+    return cards.filter((card) => buildModelSearchText(card).includes(normalizedQuery));
+  }, [cards, normalizedQuery]);
+
+  const groupedCards = useMemo(() => groupCards(filteredCards), [filteredCards]);
+  const hasSearchQuery = normalizedQuery.length > 0;
+  const showEmptyData = !loading && cards.length === 0;
+  const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
+  const showGroups = !loading && groupedCards.length > 0;
 
   return (
-    <div className="ui-page-shell gap-4">
+    <div className="ui-page-shell">
       <div className="ui-page-header">
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
       </div>
 
-      <div className="ui-divider" />
-
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
+        <div className="space-y-4 pb-2">
+          <section className='flex justify-between gap-2'>
+            <div className="relative flex-1 mr-2">
+              <input
+                type="search"
+                aria-label="搜索模型"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={SEARCH_PLACEHOLDER}
+                className="ui-field w-full px-3 py-1.5 text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openHub('provider-profiles')}
+                className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                ACP / 账号配置
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(true)}
+                className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+              >
+                {ADD_MODEL}
+              </button>
+            </div>
+          </section>
 
-        {!loading && groupedCards.length === 0 && (
-          <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>
-        )}
+          {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
 
-        {!loading && groupedCards.length > 0 && (
-          <div className="space-y-4 pb-2">
-            {groupedCards.map((group) => (
+          {showEmptyData && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>}
+
+          {showNoResults && (
+            <div className="py-10 text-center">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">{NO_RESULTS_TEXT}</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_HINT}</p>
+            </div>
+          )}
+
+          {showGroups &&
+            groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
                 <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-secondary)]">
                   <svg
@@ -207,9 +276,38 @@ export function ModelsPanel() {
                 </div>
               </section>
             ))}
-          </div>
-        )}
+        </div>
       </div>
+
+      {showAddModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowAddModelModal(false)}
+          data-testid="models-add-model-modal"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(false)}
+                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                关闭
+              </button>
+            </div>
+            <ModelsCreateApiKeyAccount />
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function ModelsCreateApiKeyAccount() {
+  const { providerCreateSectionProps } = useProviderProfilesState();
+  return <CreateApiKeyProfileSection {...providerCreateSectionProps} defaultExpanded />;
 }

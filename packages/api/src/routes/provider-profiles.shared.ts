@@ -52,7 +52,7 @@ export const createBodySchema = z
         message: 'displayName or name is required',
       });
     }
-    if ((value.kind === 'acp' || value.protocol === 'acp' || value.authType === 'none') && !value.command?.trim()) {
+    if ((value.kind === 'acp' || value.protocol === 'acp') && !value.command?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['command'],

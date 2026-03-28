@@ -58,7 +58,7 @@ export function ThreadSidebar({
   // F070: governance health by project path
   const [govHealth, setGovHealth] = useState<Record<string, string>>({});
 
-  // Shared seq maps created once and shared between pin/favorite toggle instances
+  // Shared seq maps — created once, cross-referenced between pin/fav toggle instances
   const pinSeqMap = useRef(new Map<string, number>());
   const favSeqMap = useRef(new Map<string, number>());
 
@@ -237,7 +237,7 @@ export function ThreadSidebar({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: '猫猫训练营',
+          title: '🎓 猫猫训练营',
           bootcampState: {
             v: 1,
             phase: 'phase-0-select-cat',
@@ -459,7 +459,7 @@ export function ThreadSidebar({
                 </svg>
                 对话
               </a>
-              <div className="hidden items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={onBootcampClick ?? createBootcampThread}
@@ -547,7 +547,7 @@ export function ThreadSidebar({
 
         <div className="ui-sidebar-section px-3 py-2">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[var(--font-size-xs)] font-semibold text-[var(--text-secondary)]">渠道消息</span>
+            <span className="text-[var(--font-size-xs)] font-semibold text-[var(--text-secondary)]">会话消息</span>
             <svg
               className="h-3.5 w-3.5 text-[var(--text-muted)]"
               viewBox="0 0 24 24"
@@ -574,7 +574,7 @@ export function ThreadSidebar({
               className="mt-1.5 text-[var(--font-size-xs)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-accent)] disabled:opacity-40"
               data-testid="mark-all-read-btn"
             >
-              {isMarkingAllRead ? '处理中...' : '全部已读'}
+              {isMarkingAllRead ? '清理中...' : '全部已读'}
             </button>
           )}
         </div>
@@ -801,9 +801,9 @@ export function ThreadSidebar({
           onClick={() => setDeleteTarget(null)}
         >
           <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-2 text-base font-bold text-gray-900">确认删除对话</h3>
-            <p className="mb-1 text-sm text-gray-600">即将删除“{deleteTarget.title ?? '未命名对话'}”。</p>
-            <p className="mb-4 text-xs text-gray-500">对话将移动到回收站，30 天后自动清理。你也可以随时从回收站恢复。</p>
+            <h3 className="text-base font-bold text-gray-900 mb-2">确认删除对话</h3>
+            <p className="text-sm text-gray-600 mb-1">即将删除「{deleteTarget.title ?? '未命名对话'}」</p>
+            <p className="text-xs text-gray-500 mb-4">对话将移入回收站，30 天后自动清理。你可以随时从回收站恢复。</p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}

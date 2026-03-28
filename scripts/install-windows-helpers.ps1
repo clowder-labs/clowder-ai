@@ -639,64 +639,17 @@ function Ensure-WindowsJiuwenClawRuntime {
         return $null
     }
 
+    # Runtime startup: no pip install allowed. Dependencies must be installed at build/install time.
     $venvPython = Join-Path $appDir ".venv\Scripts\python.exe"
-    $recreateVenv = $false
     if (Test-Path $venvPython) {
         if (Test-JiuwenClawRuntimePython -PythonCommand $venvPython) {
             return $true
         }
-        if (-not (Test-JiuwenClawPythonVersion -PythonCommand $venvPython)) {
-            $recreateVenv = $true
-            Write-Warn "jiuwen runtime .venv uses unsupported Python - recreating local environment"
-        } else {
-            Write-Warn "jiuwen runtime missing dependencies in .venv - repairing local environment"
-        }
-    }
-
-    $bootstrapPython = $null
-    if ($recreateVenv -or -not (Test-Path $venvPython)) {
-        $bootstrapPython = Resolve-JiuwenClawBootstrapPython
-    }
-    if (($recreateVenv -or -not (Test-Path $venvPython)) -and -not $bootstrapPython) {
-        Write-Warn "jiuwen runtime unavailable - Python 3.11-3.13 not found"
+        Write-Warn "jiuwen runtime .venv exists but dependency check failed - skipping (install deps at build time)"
         return $false
     }
-
-    Write-Host "  Preparing jiuwen runtime..."
-    try {
-        Push-Location $appDir
-        if ($bootstrapPython) {
-            Write-Host "  Using jiuwen bootstrap Python: $($bootstrapPython.Label)"
-            $venvArgs = @('-m', 'venv')
-            if ($recreateVenv -and (Test-Path $venvPython)) {
-                $venvArgs += '--clear'
-            }
-            $venvArgs += '.venv'
-            & $bootstrapPython.Command @($bootstrapPython.Args + $venvArgs)
-            if ($LASTEXITCODE -ne 0) {
-                throw "python -m venv failed"
-            }
-        }
-        & $venvPython -m pip install --upgrade pip setuptools wheel
-        if ($LASTEXITCODE -ne 0) {
-            throw "pip bootstrap failed"
-        }
-        & $venvPython -m pip install -e .
-        if ($LASTEXITCODE -ne 0) {
-            throw "jiuwen dependency install failed"
-        }
-        if (-not (Test-JiuwenClawRuntimePython -PythonCommand $venvPython)) {
-            throw "jiuwen runtime validation failed"
-        }
-        Write-Ok "jiuwen runtime prepared"
-        return $true
-    } catch {
-        Write-Warn "jiuwen runtime setup failed - sidecar will stay unavailable"
-        Write-InstallerExceptionDetails -Context "jiuwen runtime" -ErrorRecord $_
-        return $false
-    } finally {
-        Pop-Location
-    }
+    Write-Warn "jiuwen runtime .venv not found - run build to set up dependencies"
+    return $false
 }
 
 function Ensure-WindowsDareRuntime {
@@ -710,6 +663,13 @@ function Ensure-WindowsDareRuntime {
     $appEntry = Join-Path $appDir "client\__main__.py"
     if (-not (Test-Path $appEntry)) {
         return $false
+    }
+
+    # Shared Python from bundled embeddable runtime (tools\python layout)
+    $sharedPython = Join-Path $ProjectRoot "tools\python\python.exe"
+    if (Test-Path $sharedPython) {
+        Write-Ok "DARE runtime: using shared Python ($sharedPython)"
+        return $true
     }
 
     $venvPython = Join-Path $appDir ".venv\Scripts\python.exe"

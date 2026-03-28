@@ -77,11 +77,20 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const cats: ConfigSnapshot['cats'] = {};
   const allConfigs = catRegistry.getAllIds().length > 0 ? catRegistry.getAllConfigs() : CAT_CONFIGS;
   for (const [id, config] of Object.entries(allConfigs)) {
+    const trimmedAccountRef = typeof config.accountRef === 'string' ? config.accountRef.trim() : '';
+    const legacyProviderProfileId = (config as { providerProfileId?: unknown }).providerProfileId;
+    const trimmedProviderProfileId =
+      typeof legacyProviderProfileId === 'string' ? legacyProviderProfileId.trim() : '';
+    const boundAccountRef = trimmedAccountRef || trimmedProviderProfileId;
     cats[id] = {
       displayName: config.displayName,
       provider: config.provider,
       model: getCatModel(id),
       mcpSupport: config.mcpSupport,
+      ...(boundAccountRef ? { accountRef: boundAccountRef } : {}),
+      ...(trimmedProviderProfileId || boundAccountRef
+        ? { providerProfileId: trimmedProviderProfileId || boundAccountRef }
+        : {}),
     };
   }
 

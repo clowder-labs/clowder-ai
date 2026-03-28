@@ -191,6 +191,26 @@ export const listTasksInputSchema = {
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional().describe('Optional task status filter'),
 };
 
+export const listSkillsInputSchema = {
+  query: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Optional substring filter over skill name, description, category, and triggers.'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Maximum number of skills to return. Omit to return all matches.'),
+};
+
+export const loadSkillInputSchema = {
+  name: z.string().min(1).max(200).describe('Exact skill name to load, e.g. "tdd" or "workspace-navigator".'),
+};
+
 export async function handlePostMessage(input: {
   content: string;
   threadId?: string | undefined;
@@ -339,6 +359,22 @@ export async function handleListTasks(input: {
     ...(input.threadId ? { threadId: input.threadId } : {}),
     ...(input.catId ? { catId: input.catId } : {}),
     ...(input.status ? { status: input.status } : {}),
+  });
+}
+
+export async function handleListSkills(input: {
+  query?: string | undefined;
+  limit?: number | undefined;
+}): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/skills/list', {
+    ...(input.query ? { query: input.query } : {}),
+    ...(input.limit ? { limit: String(input.limit) } : {}),
+  });
+}
+
+export async function handleLoadSkill(input: { name: string }): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/skills/load', {
+    name: input.name,
   });
 }
 
@@ -788,6 +824,26 @@ export const callbackTools = [
       'TIP: Filter by status="blocked" to find tasks that need attention.',
     inputSchema: listTasksInputSchema,
     handler: handleListTasks,
+  },
+  {
+    name: 'cat_cafe_list_skills',
+    description:
+      'List Cat Cafe shared skills that are currently installed for runtime use. ' +
+      'Use when you need to discover which skills exist, search by intent, or answer "what skills are available?". ' +
+      'For planning/TDD/compare-options/worktree tasks, use this before search_evidence/grep/read and load a close match immediately. ' +
+      'Shared ACP/open-agent skills are discovered here at runtime — do not assume a local skill directory exists. ' +
+      'If an intent query is empty, retry once with a shorter intent phrase or a likely exact skill name.',
+    inputSchema: listSkillsInputSchema,
+    handler: handleListSkills,
+  },
+  {
+    name: 'cat_cafe_load_skill',
+    description:
+      'Load one Cat Cafe shared skill by exact name. ' +
+      'Returns the full SKILL.md plus the skill directory and related file paths. ' +
+      'Call this before using a skill; ACP/open agents should not assume the skill is preinstalled locally.',
+    inputSchema: loadSkillInputSchema,
+    handler: handleLoadSkill,
   },
   {
     name: 'cat_cafe_update_task',

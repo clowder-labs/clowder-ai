@@ -22,10 +22,10 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   { id: 'anthropic', label: 'Claude', command: 'claude' },
   { id: 'openai', label: 'Codex', command: 'codex' },
   { id: 'google', label: 'Gemini', command: 'gemini' },
-  { id: 'dare', label: 'Dare', command: 'dare' },
+  { id: 'dare', label: 'Office Agent', command: 'dare' },
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
-  { id: 'relayclaw', label: 'jiuwen', command: resolveVendoredJiuwenClawExecutable() },
+  { id: 'relayclaw', label: 'Assistant Agent', command: resolveVendoredJiuwenClawExecutable() },
   { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio' },
 ];
 

@@ -12,6 +12,7 @@ import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-b
 import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/cat-catalog-store.js';
 import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
 import { resolveProjectTemplatePath } from '../config/project-template-path.js';
+import { findProjectModelConfigBinding, HUAWEI_MAAS_MODEL_SOURCE_ID } from '../config/model-config-profiles.js';
 import {
   resolveBuiltinClientForProvider,
   validateModelFormatForProvider,
@@ -24,7 +25,7 @@ import {
 import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-// client-visibility imports removed: client validation is console-only, no backend blocking
+import { getAllowedClientIds } from '../utils/client-visibility.js';
 
 const colorSchema = z.object({
   primary: z.string().min(1),
@@ -235,6 +236,26 @@ async function validateAccountBindingOrThrow(
     throw new Error(`client "${client}" requires a provider binding`);
   }
   if (!trimmedAccountRef) return;
+  const modelConfigBinding = await findProjectModelConfigBinding(projectRoot, trimmedAccountRef);
+  if (modelConfigBinding) {
+    const isHuaweiMaaSBinding =
+      modelConfigBinding.id === HUAWEI_MAAS_MODEL_SOURCE_ID && modelConfigBinding.protocol === 'huawei_maas';
+    const isCustomOpenAiBinding = modelConfigBinding.protocol === 'openai';
+    if (!isHuaweiMaaSBinding && !isCustomOpenAiBinding) {
+      throw new Error(`model config source "${trimmedAccountRef}" is not supported yet`);
+    }
+    if (client !== 'dare' && client !== 'relayclaw') {
+      throw new Error(`client "${client}" does not support model config source "${trimmedAccountRef}"`);
+    }
+    if (
+      defaultModel?.trim() &&
+      modelConfigBinding.models.length &&
+      !modelConfigBinding.models.includes(defaultModel.trim())
+    ) {
+      throw new Error(`model "${defaultModel.trim()}" is not available on provider "${trimmedAccountRef}"`);
+    }
+    return;
+  }
   const runtimeProfile = await resolveRuntimeProviderProfileById(projectRoot, trimmedAccountRef);
   if (!runtimeProfile) {
     throw new Error(`provider "${trimmedAccountRef}" not found`);
@@ -339,16 +360,17 @@ interface CatsRoutesOptions {
 }
 
 export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opts) => {
-  // GET /api/cats - 获取所有猫猫配置
+  // GET /api/cats - 获取所有猫猫配置（按 client-visibility 过滤）
   app.get('/api/cats', async () => {
     const projectRoot = resolveProjectRoot();
     const resolveMetadata = buildCatResponseMetadataResolver(projectRoot);
     const resolveEffectiveAccountRef = buildEffectiveAccountRefResolver(projectRoot);
+    const allowedClients = new Set<string>(getAllowedClientIds());
+    const allCats = Object.values(getResolvedCats(projectRoot));
+    const visibleCats = allCats.filter((cat) => allowedClients.has(cat.provider));
     return {
       cats: await Promise.all(
-        Object.values(getResolvedCats(projectRoot)).map((cat) =>
-          toCatResponse(cat, resolveMetadata(cat.id), resolveEffectiveAccountRef),
-        ),
+        visibleCats.map((cat) => toCatResponse(cat, resolveMetadata(cat.id), resolveEffectiveAccountRef)),
       ),
     };
   });
@@ -443,6 +465,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           mcpSupport:
             body.mcpSupport ??
             (body.client === 'anthropic' ||
+              body.client === 'acp' ||
               body.client === 'openai' ||
               body.client === 'google' ||
               body.client === 'opencode'),

@@ -651,21 +651,6 @@ export function ChatInput({
       )}
 
       <div className="p-4 pt-2">
-        <div className="mb-2 flex flex-wrap justify-center gap-2">
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action}
-              type="button"
-              onClick={() => handleQuickAction(action)}
-              disabled={disabled}
-              className="rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ borderColor: 'rgba(219,219,219,0.8)' }}
-            >
-              {action}
-            </button>
-          ))}
-        </div>
-
         <div className="flex gap-2 items-end">
         {/* Mobile: + toggle button */}
         <button
@@ -687,56 +672,74 @@ export function ChatInput({
         </button>
 
         <div className="flex-1">
-          <div className="relative mx-auto w-[80%]">
-            <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={
-              whisperMode ? '悄悄话...' : hasActiveInvocation ? '继续输入，消息会排队...' : '输入消息... (@ 召唤猫猫)'
-            }
-            className={`block h-[100px] w-full resize-none rounded-xl border p-3 pr-24 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
-              whisperMode
-                ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
-                : 'border-cocreator-light bg-white focus:ring-cocreator-primary'
-            }`}
-            style={{ borderColor: 'rgba(219,219,219,0.8)' }}
-            rows={1}
-            disabled={disabled}
-          />
-          {ghostSuggestion && !pathCompletion.isOpen && (
-            <div
-              data-testid="ghost-suggestion"
-              className="pointer-events-none absolute inset-0 h-[100px] w-full overflow-hidden whitespace-pre-wrap break-words rounded-xl p-3 pr-12 text-sm"
-              aria-hidden="true"
-            >
-              <span className="invisible">{input}</span>
-              <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
+          <div className="mx-auto w-[80%]">
+            <div className="mb-2 flex flex-wrap gap-2">
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  onClick={() => handleQuickAction(action)}
+                  disabled={disabled}
+                  className="rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                >
+                  {action}
+                </button>
+              ))}
             </div>
-          )}
-            <div className="absolute bottom-2 right-2 hidden items-center gap-1 md:flex">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-                className="rounded-lg p-[6px] text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                aria-label="Attach images"
-              >
-                <AttachIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={handleToggleVoiceRecording}
+
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder={
+                  whisperMode ? '悄悄话...' : hasActiveInvocation ? '继续输入，消息会排队...' : '输入消息... (@ 召唤猫猫)'
+                }
+                className={`block h-[100px] w-full resize-none rounded-xl border p-3 pr-24 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
+                  whisperMode
+                    ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
+                    : 'border-cocreator-light bg-white focus:ring-cocreator-primary'
+                }`}
+                style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                rows={1}
                 disabled={disabled}
-                className="rounded-lg p-[6px] text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                aria-label="Start voice input (⌥V)"
-                title="语音输入 (⌥V)"
               >
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 2a3 3 0 00-3 3v5a3 3 0 106 0V5a3 3 0 00-3-3z" />
-                  <path d="M5 9a1 1 0 112 0 3 3 0 006 0 1 1 0 112 0 5 5 0 01-4 4.9V16h2a1 1 0 110 2H7a1 1 0 010-2h2v-2.1A5 5 0 015 9z" />
-                </svg>
-              </button>
+              </textarea>
+              {ghostSuggestion && !pathCompletion.isOpen && (
+                <div
+                  data-testid="ghost-suggestion"
+                  className="pointer-events-none absolute inset-0 h-[100px] w-full overflow-hidden whitespace-pre-wrap break-words rounded-xl p-3 pr-12 text-sm"
+                  aria-hidden="true"
+                >
+                  <span className="invisible">{input}</span>
+                  <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
+                </div>
+              )}
+              <div className="absolute bottom-2 right-2 hidden items-center gap-1 md:flex">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
+                  className="rounded-lg p-[6px] text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                  aria-label="Attach images"
+                >
+                  <AttachIcon className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleToggleVoiceRecording}
+                  disabled={disabled}
+                  className="rounded-lg p-[6px] text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                  aria-label="Start voice input (⌥V)"
+                  title="语音输入 (⌥V)"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 2a3 3 0 00-3 3v5a3 3 0 106 0V5a3 3 0 00-3-3z" />
+                    <path d="M5 9a1 1 0 112 0 3 3 0 006 0 1 1 0 112 0 5 5 0 01-4 4.9V16h2a1 1 0 110 2H7a1 1 0 010-2h2v-2.1A5 5 0 015 9z" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
