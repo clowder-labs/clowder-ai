@@ -82,6 +82,12 @@ class OpenAIModelAdapter(IModelAdapter):
         options: GenerateOptions | None = None,
     ) -> ModelResponse:
         """Generate a response from the OpenAI-compatible model."""
+        if self._endpoint:
+            try:
+                return await self._generate_openai_compatible_response(model_input, options)
+            except Exception:
+                pass
+
         client = self._ensure_client()
         client = self._apply_options(client, options)
         
@@ -100,18 +106,23 @@ class OpenAIModelAdapter(IModelAdapter):
             client = client.bind_tools(openai_tools)
         
         self._log_client_config(client)
-        response = await client.ainvoke(self._to_langchain_messages(model_input.messages))
-        
-        tool_calls = self._extract_tool_calls(response)
-        usage = self._extract_usage(response)
-        thinking_content = self._extract_thinking_content(response)
-        
-        return ModelResponse(
-            content=response.content or "",
-            tool_calls=tool_calls,
-            usage=usage,
-            thinking_content=thinking_content,
-        )
+        messages = self._to_langchain_messages(model_input.messages)
+
+        try:
+            return await self._generate_streaming_response(client, messages)
+        except Exception:
+            response = await client.ainvoke(messages)
+
+            tool_calls = self._extract_tool_calls(response)
+            usage = self._extract_usage(response)
+            thinking_content = self._extract_thinking_content(response)
+
+            return ModelResponse(
+                content=_coerce_text(response.content) or "",
+                tool_calls=tool_calls,
+                usage=usage,
+                thinking_content=thinking_content,
+            )
 
     def _ensure_client(self) -> Any:
         """Ensure the LangChain client is initialized."""
@@ -223,6 +234,117 @@ class OpenAIModelAdapter(IModelAdapter):
         if not bind_kwargs:
             return client
         return client.bind(**bind_kwargs)
+
+    async def _generate_openai_compatible_response(
+        self,
+        model_input: ModelInput,
+        options: GenerateOptions | None = None,
+    ) -> ModelResponse:
+        try:
+            from openai import AsyncOpenAI
+        except ImportError as exc:
+            raise RuntimeError("openai SDK is required for OpenAI-compatible streaming mode") from exc
+
+        client_kwargs: dict[str, Any] = {
+            "api_key": self._api_key or "dummy-key",
+            "base_url": self._endpoint,
+        }
+        _, async_client = self._build_http_clients()
+        if async_client is not None:
+            client_kwargs["http_client"] = async_client
+        direct_client = AsyncOpenAI(**client_kwargs)
+
+        api_params: dict[str, Any] = {
+            "model": self.model,
+            "messages": _serialize_openai_sdk_messages(model_input.messages),
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if model_input.tools:
+            api_params["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.input_schema,
+                    },
+                }
+                for tool in model_input.tools
+            ]
+        if self._extra:
+            api_params.update(self._extra)
+        if options is not None:
+            if options.max_tokens is not None:
+                api_params["max_tokens"] = options.max_tokens
+            if options.temperature is not None:
+                api_params["temperature"] = options.temperature
+            if options.top_p is not None:
+                api_params["top_p"] = options.top_p
+            if options.stop is not None:
+                api_params["stop"] = options.stop
+
+        stream = await direct_client.chat.completions.create(**api_params)
+
+        content_parts: list[str] = []
+        thinking_parts: list[str] = []
+        tool_call_chunks: dict[int, dict[str, Any]] = {}
+        usage: dict[str, Any] | None = None
+
+        async with stream as response:
+            async for chunk in response:
+                usage = _merge_usage(usage, _extract_openai_sdk_usage(getattr(chunk, "usage", None)))
+
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                choice = choices[0]
+                delta = getattr(choice, "delta", None)
+                if delta is None:
+                    continue
+
+                content_text = _coerce_text(getattr(delta, "content", None))
+                if content_text:
+                    content_parts.append(content_text)
+
+                thinking_text = _extract_delta_thinking_text(delta)
+                if thinking_text:
+                    thinking_parts.append(thinking_text)
+
+                _accumulate_openai_sdk_tool_calls(tool_call_chunks, getattr(delta, "tool_calls", None))
+
+        return ModelResponse(
+            content="".join(content_parts),
+            tool_calls=_finalize_langchain_tool_calls(tool_call_chunks),
+            usage=usage,
+            thinking_content=_join_stream_text_parts(thinking_parts),
+        )
+
+    async def _generate_streaming_response(self, client: Any, messages: list[Any]) -> ModelResponse:
+        content_parts: list[str] = []
+        thinking_parts: list[str] = []
+        tool_call_chunks: dict[int, dict[str, Any]] = {}
+        usage: dict[str, Any] | None = None
+
+        async for chunk in client.astream(messages):
+            usage = _merge_usage(usage, _extract_chunk_usage(chunk))
+
+            content_text = _coerce_text(getattr(chunk, "content", None))
+            if content_text:
+                content_parts.append(content_text)
+
+            thinking_text = self._extract_thinking_content(chunk) or _extract_reasoning_from_content_blocks(chunk)
+            if thinking_text:
+                thinking_parts.append(thinking_text)
+
+            _accumulate_langchain_tool_call_chunks(tool_call_chunks, getattr(chunk, "tool_call_chunks", None))
+
+        return ModelResponse(
+            content="".join(content_parts),
+            tool_calls=_finalize_langchain_tool_calls(tool_call_chunks),
+            usage=usage,
+            thinking_content=_join_stream_text_parts(thinking_parts),
+        )
 
     def _extract_tool_calls(self, response: Any) -> list[dict[str, Any]]:
         """Extract and normalize tool calls from the response."""
@@ -387,3 +509,224 @@ def _coerce_text(value: Any) -> str | None:
         if parts:
             return "\n".join(parts)
     return None
+
+
+def _extract_delta_thinking_text(delta: Any) -> str | None:
+    return (
+        _coerce_text(getattr(delta, "reasoning_content", None))
+        or _coerce_text(getattr(delta, "reasoning", None))
+        or _coerce_text(getattr(delta, "thinking", None))
+    )
+
+
+def _extract_chunk_usage(chunk: Any) -> dict[str, Any] | None:
+    usage_metadata = getattr(chunk, "usage_metadata", None)
+    if usage_metadata is None:
+        return None
+    return {
+        "prompt_tokens": getattr(usage_metadata, "input_tokens", 0) or 0,
+        "completion_tokens": getattr(usage_metadata, "output_tokens", 0) or 0,
+        "total_tokens": getattr(usage_metadata, "total_tokens", 0) or 0,
+    }
+
+
+def _extract_openai_sdk_usage(usage: Any) -> dict[str, Any] | None:
+    if usage is None:
+        return None
+    normalized = {
+        "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+        "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+        "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+    }
+    reasoning_tokens = getattr(usage, "reasoning_tokens", None)
+    if reasoning_tokens is not None:
+        normalized["reasoning_tokens"] = reasoning_tokens
+    return normalized
+
+
+def _join_stream_text_parts(parts: list[str]) -> str | None:
+    if not parts:
+        return None
+    return "".join(parts)
+
+
+def _merge_usage(existing: dict[str, Any] | None, incoming: dict[str, Any] | None) -> dict[str, Any] | None:
+    if incoming is None:
+        return existing
+    if existing is None:
+        return dict(incoming)
+    merged = dict(existing)
+    for key, value in incoming.items():
+        if value:
+            merged[key] = value
+    return merged
+
+
+def _extract_reasoning_from_content_blocks(chunk: Any) -> str | None:
+    content_blocks = getattr(chunk, "content_blocks", None)
+    if not isinstance(content_blocks, list):
+        return None
+    parts: list[str] = []
+    for block in content_blocks:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") != "reasoning":
+            continue
+        text = _coerce_text(block.get("reasoning")) or _coerce_text(block.get("text")) or _coerce_text(block)
+        if text:
+            parts.append(text)
+    if parts:
+        return "\n".join(parts)
+    return None
+
+
+def _accumulate_langchain_tool_call_chunks(target: dict[int, dict[str, Any]], raw_chunks: Any) -> None:
+    if not isinstance(raw_chunks, list):
+        return
+    for position, call in enumerate(raw_chunks):
+        if not isinstance(call, dict):
+            continue
+        index = call.get("index", position)
+        if not isinstance(index, int):
+            index = position
+        current = target.setdefault(index, {"id": None, "name": "", "arguments_parts": []})
+        call_id = call.get("id")
+        if isinstance(call_id, str) and call_id.strip():
+            current["id"] = call_id
+        name = call.get("name")
+        if isinstance(name, str) and name.strip():
+            current["name"] = name
+        arguments = call.get("args")
+        if isinstance(arguments, str) and arguments:
+            current["arguments_parts"].append(arguments)
+
+
+def _accumulate_openai_sdk_tool_calls(target: dict[int, dict[str, Any]], raw_chunks: Any) -> None:
+    if not raw_chunks:
+        return
+    for position, call in enumerate(raw_chunks):
+        index = getattr(call, "index", position)
+        if not isinstance(index, int):
+            index = position
+        current = target.setdefault(index, {"id": None, "name": "", "arguments_parts": []})
+        call_id = getattr(call, "id", None)
+        if isinstance(call_id, str) and call_id.strip():
+            current["id"] = call_id
+        function = getattr(call, "function", None)
+        if function is None:
+            continue
+        name = getattr(function, "name", None)
+        if isinstance(name, str) and name.strip():
+            current["name"] = name
+        arguments = getattr(function, "arguments", None)
+        if isinstance(arguments, str) and arguments:
+            current["arguments_parts"].append(arguments)
+
+
+def _serialize_openai_sdk_messages(messages: list[Any]) -> list[dict[str, Any]]:
+    serialized: list[dict[str, Any]] = []
+    for msg in messages:
+        role = str(getattr(msg, "role", "user"))
+        payload: dict[str, Any] = {
+            "role": role,
+            "content": _serialize_openai_sdk_content(msg),
+        }
+        if role == "assistant":
+            tool_calls = _normalize_tool_calls_for_openai_sdk(_extract_message_tool_calls_for_sdk(msg))
+            if tool_calls:
+                payload["tool_calls"] = tool_calls
+        tool_call_id = _extract_message_tool_call_id_for_sdk(msg)
+        name = getattr(msg, "name", None)
+        if role == "tool" and tool_call_id:
+            payload["tool_call_id"] = tool_call_id
+        elif name:
+            payload["name"] = name
+        serialized.append(payload)
+    return serialized
+
+
+def _serialize_openai_sdk_content(message: Any) -> Any:
+    text = getattr(message, "text", None)
+    text = text if isinstance(text, str) else ""
+    attachments = list(getattr(message, "attachments", []) or [])
+    if not attachments:
+        return text
+    content: list[dict[str, Any]] = []
+    if text:
+        content.append({"type": "text", "text": text})
+    for attachment in attachments:
+        if str(getattr(attachment, "kind", "")).strip().lower() != "image":
+            raise ValueError("unsupported attachment kind for OpenAI serialization")
+        content.append({"type": "image_url", "image_url": {"url": attachment.uri}})
+    return content
+
+
+def _extract_message_tool_calls_for_sdk(message: Any) -> Any:
+    data = getattr(message, "data", None)
+    if isinstance(data, dict) and isinstance(data.get("tool_calls"), list):
+        return data["tool_calls"]
+    return []
+
+
+def _extract_message_tool_call_id_for_sdk(message: Any) -> str | None:
+    data = getattr(message, "data", None)
+    if isinstance(data, dict):
+        tool_call_id = data.get("tool_call_id")
+        if isinstance(tool_call_id, str) and tool_call_id.strip():
+            return tool_call_id
+    name = getattr(message, "name", None)
+    if isinstance(name, str) and name.strip():
+        return name
+    return None
+
+
+def _normalize_tool_calls_for_openai_sdk(tool_calls: Any) -> list[dict[str, Any]]:
+    if not isinstance(tool_calls, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for call in tool_calls:
+        if not isinstance(call, dict):
+            continue
+        name = call.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        raw_args = call.get("arguments", call.get("args", {}))
+        if isinstance(raw_args, str):
+            args_json = raw_args
+        else:
+            safe_args = raw_args if isinstance(raw_args, dict) else {}
+            args_json = json.dumps(safe_args, ensure_ascii=False)
+        normalized_call: dict[str, Any] = {
+            "type": "function",
+            "function": {
+                "name": name,
+                "arguments": args_json,
+            },
+        }
+        call_id = call.get("id") or call.get("tool_call_id")
+        if isinstance(call_id, str) and call_id.strip():
+            normalized_call["id"] = call_id
+        normalized.append(normalized_call)
+    return normalized
+
+
+def _finalize_langchain_tool_calls(tool_call_chunks: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for index in sorted(tool_call_chunks):
+        chunk = tool_call_chunks[index]
+        name = chunk.get("name")
+        if not isinstance(name, str) or not name.strip():
+            continue
+        arguments_raw = "".join(chunk.get("arguments_parts", []))
+        try:
+            arguments = json.loads(arguments_raw) if arguments_raw else {}
+        except json.JSONDecodeError:
+            arguments = {"raw": arguments_raw}
+        normalized.append(
+            {
+                "id": chunk.get("id"),
+                "name": name,
+                "arguments": arguments,
+            }
+        )
+    return normalized

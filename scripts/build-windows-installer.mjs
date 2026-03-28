@@ -1238,16 +1238,12 @@ function ensureBuildArtifacts(options) {
 function buildWindowsDesktopLauncher(bundleDir, options) {
   const launcherScript = join(repoRoot, 'scripts', 'build-windows-webview2-launcher.ps1');
   const launcherSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'ClowderDesktop.cs');
-  const launcherIconSource = join(repoRoot, 'packages', 'web', 'public', 'icons', 'icon-192x192.png');
-  const launcherIconPath = join(options.cacheDir, 'ClowderAI.ico');
+  const launcherIconPath = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
   if (!existsSync(launcherScript) || !existsSync(launcherSource)) {
     throw new Error('Missing WebView2 launcher build assets');
   }
   if (!commandExists('powershell.exe')) {
     throw new Error('powershell.exe is required to build the Windows WebView2 launcher');
-  }
-  if (existsSync(launcherIconSource)) {
-    createIcoFromPng(launcherIconSource, launcherIconPath);
   }
 
   run('powershell.exe', [
@@ -1339,11 +1335,15 @@ async function main() {
   buildWindowsDesktopLauncher(bundleDir, options);
 
   logStep('Staging desktop assets');
+  const assetsTarget = join(bundleDir, 'assets');
+  ensureDir(assetsTarget);
   const desktopSplashSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg');
   if (existsSync(desktopSplashSource)) {
-    const assetsTarget = join(bundleDir, 'assets');
-    ensureDir(assetsTarget);
     cpSync(desktopSplashSource, join(assetsTarget, 'splash.jpg'), { force: true });
+  }
+  const appIconSource = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
+  if (existsSync(appIconSource)) {
+    cpSync(appIconSource, join(assetsTarget, 'app.ico'), { force: true });
   }
 
   logStep('Finalizing runtime bundle');

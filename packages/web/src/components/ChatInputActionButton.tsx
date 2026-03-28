@@ -17,6 +17,7 @@ interface ChatInputActionButtonProps {
   onStop?: () => void;
   disabled?: boolean;
   sendDisabled?: boolean;
+  hideIdleMic?: boolean;
   /** Whether the thread has an active invocation (broader than disabled/isLoading) */
   hasActiveInvocation?: boolean;
   hasText: boolean;
@@ -50,6 +51,7 @@ export function ChatInputActionButton({
   onStop,
   disabled,
   sendDisabled,
+  hideIdleMic,
   hasActiveInvocation,
   hasText,
 }: ChatInputActionButtonProps) {
@@ -63,7 +65,7 @@ export function ChatInputActionButton({
   // Global keyboard shortcut: Option+V (Alt+V) toggles voice recording
   const { state: voiceState, startRecording, stopRecording } = voice;
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const handleKeydown = (e: KeyboardEvent) => {
       if (e.altKey && e.code === 'KeyV') {
         e.preventDefault();
         if (voiceState === 'recording') {
@@ -73,8 +75,19 @@ export function ChatInputActionButton({
         }
       }
     };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    const handleToggleVoice = () => {
+      if (voiceState === 'recording') {
+        stopRecording();
+      } else if (voiceState === 'idle' && !disabled) {
+        startRecording();
+      }
+    };
+    document.addEventListener('keydown', handleKeydown);
+    window.addEventListener('toggle-voice-recording', handleToggleVoice);
+    return () => {
+      document.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('toggle-voice-recording', handleToggleVoice);
+    };
   }, [voiceState, startRecording, stopRecording, disabled]);
 
   // F39: Whether we're in queue mode (cat running + user has typed)
@@ -186,7 +199,7 @@ export function ChatInputActionButton({
         >
           <SendIcon className="w-5 h-5" />
         </button>
-      ) : (
+      ) : hideIdleMic ? null : (
         <button
           onClick={voice.startRecording}
           disabled={disabled}

@@ -9,16 +9,13 @@ SetCompress off
 ; --------------- Visual assets ---------------
 ; Place these files under packaging\windows\assets\:
 ;   app.ico              — 256x256 multi-res icon
-;   welcome.bmp          — 164x314 px, 24-bit BMP (welcome & finish left panel)
-;   header.bmp           — 150x57  px, 24-bit BMP (directory & instfiles header)
 !define ASSETS_DIR "${__FILEDIR__}\assets"
 
 !define MUI_ICON   "${ASSETS_DIR}\app.ico"
 !define MUI_UNICON "${ASSETS_DIR}\app.ico"
 
-!define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP       "${ASSETS_DIR}\header.bmp"
-!define MUI_HEADERIMAGE_RIGHT
+; Font size setting (use default system font for compatibility)
+SetFont "MS Shell Dlg" 10
 
 ; --------------- Abort warning ---------------
 !define MUI_ABORTWARNING
@@ -61,13 +58,8 @@ Page custom WelcomePageCreate
 ; --------------- Install page ---------------
 !insertmacro MUI_PAGE_INSTFILES
 
-; --------------- Finish page ---------------
-!define MUI_FINISHPAGE_TITLE "安装完成"
-!define MUI_FINISHPAGE_TEXT "${APP_NAME} 已成功安装到您的计算机。$\r$\n$\r$\n点击「完成」退出安装向导。"
-!define MUI_FINISHPAGE_RUN "$INSTDIR\OfficeClaw.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "立即启动 ${APP_NAME}"
-!define MUI_FINISHPAGE_NOREBOOTSUPPORT
-!insertmacro MUI_PAGE_FINISH
+; --------------- Finish page (custom nsDialogs, no left bitmap) ---------------
+Page custom FinishPageCreate FinishPageLeave
 
 ; --------------- Uninstaller pages ---------------
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -77,6 +69,8 @@ Page custom WelcomePageCreate
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
 Var WelcomeDialog
+Var FinishDialog
+Var FinishLaunchCheckbox
 
 Function WelcomePageCreate
   !insertmacro MUI_HEADER_TEXT "欢迎安装 ${APP_NAME}" "本向导将引导您完成 ${APP_NAME} v${APP_VERSION} 的安装"
@@ -90,6 +84,31 @@ Function WelcomePageCreate
   Pop $0
 
   nsDialogs::Show
+FunctionEnd
+
+Function FinishPageCreate
+  !insertmacro MUI_HEADER_TEXT "安装完成" "${APP_NAME} 已成功安装"
+  nsDialogs::Create 1018
+  Pop $FinishDialog
+  ${If} $FinishDialog == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 60% "${APP_NAME} 已成功安装到您的计算机。$\r$\n$\r$\n点击「完成」退出安装向导。"
+  Pop $0
+
+  ${NSD_CreateCheckbox} 0 65% 100% 12u "立即启动 ${APP_NAME}"
+  Pop $FinishLaunchCheckbox
+  ${NSD_Check} $FinishLaunchCheckbox
+
+  nsDialogs::Show
+FunctionEnd
+
+Function FinishPageLeave
+  ${NSD_GetState} $FinishLaunchCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    Exec "$INSTDIR\OfficeClaw.exe"
+  ${EndIf}
 FunctionEnd
 
 Function .onInit
@@ -185,10 +204,10 @@ FunctionEnd
 
 Function WriteShellShortcuts
   CreateDirectory "${STARTMENU_DIR}"
-  CreateShortCut "${STARTMENU_DIR}\Start ${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\OfficeClaw.exe"
-  CreateShortCut "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"' "$INSTDIR\scripts\stop-windows.ps1"
+  CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+  CreateShortCut "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"' "$INSTDIR\assets\app.ico"
   CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
-  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\OfficeClaw.exe"
+  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
 FunctionEnd
 
 Function WriteUninstallRegistry
@@ -197,6 +216,7 @@ Function WriteUninstallRegistry
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Clowder Labs"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\assets\app.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
   WriteRegStr HKCU "${UNINSTALL_KEY}" "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
@@ -242,7 +262,7 @@ Var RemoveUserData
 Section "Uninstall"
   Call un.CloseRunningServices
 
-  Delete "${STARTMENU_DIR}\Start ${APP_NAME}.lnk"
+  Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
   Delete "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk"
   Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
   RMDir "${STARTMENU_DIR}"

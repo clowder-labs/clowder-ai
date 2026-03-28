@@ -51,6 +51,16 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
       <img src="/images/connectors/dingtalk.png" alt="DingTalk" className="w-[18px] h-[18px]" />
     ),
   },
+  xiaoyi: {
+    iconBg: '#FEE8EB',
+    iconColor: '#CF0A2C',
+    icon: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
+        <rect width="10" height="16" x="7" y="4" rx="2" />
+        <path d="M12 18h.01" />
+      </svg>
+    ),
+  },
 };
 
 export const DEFAULT_VISUAL: PlatformVisual = {

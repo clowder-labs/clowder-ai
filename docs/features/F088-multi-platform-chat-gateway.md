@@ -1,6 +1,6 @@
 ---
 feature_ids: [F088]
-related_features: [F050, F077, F044, F132, F134]
+related_features: [F050, F077, F044, F132, F134, F139]
 topics: [gateway, connector, feishu, telegram, slack, discord, chat-platform]
 doc_kind: spec
 created: 2026-03-09

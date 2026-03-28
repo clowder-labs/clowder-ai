@@ -120,6 +120,15 @@ export class ConnectorRouter {
 
   constructor(private readonly opts: ConnectorRouterOptions) {}
 
+  /**
+   * Resolve the effective owner userId at call time.
+   * Checks process.env.DEFAULT_OWNER_USER_ID first (may be set dynamically
+   * when the first Web user connects), then falls back to the static default.
+   */
+  private resolveOwnerUserId(): string {
+    return process.env.DEFAULT_OWNER_USER_ID || this.resolveOwnerUserId();
+  }
+
   /** Build @-mention patterns from catRegistry for parseMentions. */
   private getMentionPatterns(): Map<string, string[]> {
     const patterns = new Map<string, string[]>();
@@ -203,7 +212,7 @@ export class ConnectorRouter {
       const cmdResult = await this.opts.commandLayer.handle(
         connectorId,
         externalChatId,
-        this.opts.defaultUserId,
+        this.resolveOwnerUserId(),
         text,
         sender?.id,
       );
@@ -240,7 +249,7 @@ export class ConnectorRouter {
           const { targetCatId } = parseMentions(fwdText, mentionPatterns, this.opts.defaultCatId);
           const fwdStored = await messageStore.append({
             threadId: fwdThreadId,
-            userId: this.opts.defaultUserId,
+            userId: this.resolveOwnerUserId(),
             catId: null,
             content: fwdText,
             source: fwdSource,
@@ -253,7 +262,7 @@ export class ConnectorRouter {
             connectorId,
             content: fwdText,
           });
-          invokeTrigger.trigger(fwdThreadId, targetCatId, this.opts.defaultUserId, fwdText, fwdStored.id);
+          invokeTrigger.trigger(fwdThreadId, targetCatId, this.resolveOwnerUserId(), fwdText, fwdStored.id);
           log.info({ connectorId, threadId: fwdThreadId }, '[ConnectorRouter] /thread message forwarded');
           return { kind: 'routed', threadId: fwdThreadId, messageId: fwdStored.id };
         }
@@ -282,8 +291,8 @@ export class ConnectorRouter {
         chatType === 'group'
           ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}`
           : `${def?.displayName ?? connectorId} DM`;
-      const thread = await threadStore.create(this.opts.defaultUserId, title);
-      binding = await bindingStore.bind(connectorId, externalChatId, thread.id, this.opts.defaultUserId);
+      const thread = await threadStore.create(this.resolveOwnerUserId(), title);
+      binding = await bindingStore.bind(connectorId, externalChatId, thread.id, this.resolveOwnerUserId());
       log.info(
         { connectorId, externalChatId, threadId: thread.id },
         '[ConnectorRouter] New thread created for external chat',
@@ -306,7 +315,7 @@ export class ConnectorRouter {
 
     const stored = await messageStore.append({
       threadId: binding.threadId,
-      userId: this.opts.defaultUserId,
+      userId: this.resolveOwnerUserId(),
       catId: null,
       content: resolvedText,
       source,
@@ -326,7 +335,7 @@ export class ConnectorRouter {
     invokeTrigger.trigger(
       binding.threadId,
       targetCatId,
-      this.opts.defaultUserId,
+      this.resolveOwnerUserId(),
       resolvedText,
       stored.id,
       contentBlocks,
@@ -433,7 +442,7 @@ export class ConnectorRouter {
     const def = getConnectorDefinition(connectorId);
     const label = def?.displayName ?? connectorId;
     const hubTitle = chatLabel ? `${chatLabel} IM Hub` : `${label} IM Hub`;
-    const hubThread = await threadStore.create(this.opts.defaultUserId, hubTitle);
+    const hubThread = await threadStore.create(this.resolveOwnerUserId(), hubTitle);
     await threadStore.updateConnectorHubState(hubThread.id, {
       v: 1,
       connectorId,
@@ -459,7 +468,7 @@ export class ConnectorRouter {
     // Store inbound command
     const cmdMsg = await messageStore.append({
       threadId,
-      userId: this.opts.defaultUserId,
+      userId: this.resolveOwnerUserId(),
       catId: null,
       content: commandText,
       source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? 'message' },
@@ -470,7 +479,7 @@ export class ConnectorRouter {
     // Store outbound system response
     const resMsg = await messageStore.append({
       threadId,
-      userId: this.opts.defaultUserId,
+      userId: this.resolveOwnerUserId(),
       catId: null,
       content: responseText,
       source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },

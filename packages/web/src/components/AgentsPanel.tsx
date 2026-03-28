@@ -200,8 +200,8 @@ export function AgentsPanel() {
     try {
       const res = await apiFetch('/api/config');
       if (res.ok) {
-        const d = (await res.json()) as { config: ConfigData };
-        setConfig(d.config);
+        const data = (await res.json()) as { config: ConfigData };
+        setConfig(data.config);
       } else {
         setFetchError('配置加载失败');
       }
@@ -211,7 +211,7 @@ export function AgentsPanel() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   const openAddMember = useCallback(() => {
@@ -232,6 +232,10 @@ export function AgentsPanel() {
   const handleEditorSaved = useCallback(async () => {
     await Promise.all([fetchData(), refresh()]);
   }, [fetchData, refresh]);
+
+  const openCoCreatorEditor = useCallback(() => {
+    // TODO: Open co-creator editor
+  }, []);
 
   const editingCat = editingCatId ? cats.find((c) => c.id === editingCatId) : null;
   const editingConfigCat = editingCatId && config ? config.cats[editingCatId] : undefined;

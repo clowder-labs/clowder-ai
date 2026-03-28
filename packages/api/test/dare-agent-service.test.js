@@ -7,6 +7,9 @@ import { PassThrough } from 'node:stream';
 import { describe, mock, test } from 'node:test';
 import {
   DareAgentService,
+  resolveDefaultDarePath,
+  resolvePreferredDarePath,
+  resolveSystemPythonCommand,
   resolveVendorDarePath,
   resolveVendoredDareExecutable,
   resolveVenvPython,
@@ -103,6 +106,25 @@ const TASK_FAILED = {
   event: 'task.failed',
   data: { task: 'do thing', error: 'Approval timed out' },
 };
+const THINKING_TRANSPORT = {
+  schema_version: 'client-headless-event-envelope.v1',
+  ts: 1709500002.5,
+  session_id: 'dare-sess-1',
+  run_id: 'run-1',
+  seq: 3.5,
+  event: 'transport.raw',
+  data: {
+    id: 'env-thinking-1',
+    kind: 'message',
+    payload: {
+      id: 'msg-thinking-1',
+      role: 'assistant',
+      message_kind: 'thinking',
+      text: 'I am reasoning about the requested change.',
+      data: { target: 'model' },
+    },
+  },
+};
 
 describe('DareAgentService', () => {
   test('yields session_init, text, done from headless events', async () => {
@@ -134,6 +156,23 @@ describe('DareAgentService', () => {
     const types = messages.map((m) => m.type);
     assert.ok(types.includes('tool_use'));
     assert.ok(types.includes('tool_result'));
+  });
+
+  test('yields system_info(thinking) for transport thinking payloads', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
+    const promise = collect(service.invoke('Think first'));
+    emitDareEvents(proc, [SESSION_STARTED, THINKING_TRANSPORT, TASK_COMPLETED]);
+    const messages = await promise;
+
+    const thinkingMsg = messages.find((m) => m.type === 'system_info');
+    assert.ok(thinkingMsg, 'expected system_info message');
+    assert.deepStrictEqual(JSON.parse(thinkingMsg.content), {
+      type: 'thinking',
+      catId: 'dare',
+      text: 'I am reasoning about the requested change.',
+    });
   });
 
   test('passes --headless and --full-auto in CLI args', async () => {
@@ -470,6 +509,38 @@ describe('DareAgentService', () => {
     }
   });
 
+  test('callbackEnv adapter override controls --adapter and key env mapping', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({
+      catId: 'dare',
+      spawnFn,
+      model: 'glm-5',
+      adapter: 'openrouter',
+    });
+
+    const promise = collect(
+      service.invoke('Test adapter override', {
+        callbackEnv: {
+          CAT_CAFE_DARE_ADAPTER: 'huawei-modelarts',
+          DARE_API_KEY: 'sk-modelarts',
+        },
+      }),
+    );
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const adapterIdx = args.indexOf('--adapter');
+    assert.ok(adapterIdx >= 0, `expected --adapter in args: ${args}`);
+    assert.strictEqual(args[adapterIdx + 1], 'huawei-modelarts');
+
+    const opts = spawnFn.mock.calls[0].arguments[2];
+    assert.strictEqual(opts.env.HUAWEI_MODELARTS_API_KEY, 'sk-modelarts');
+    assert.ok(!('OPENROUTER_API_KEY' in opts.env), 'old adapter env should not be injected');
+    assert.ok(!('DARE_API_KEY' in opts.env), 'generic key should not leak to child env');
+  });
+
   test('always yields exactly one final done', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
@@ -631,21 +702,22 @@ describe('DareAgentService', () => {
     assert.strictEqual(command, join(tmpDare, '.venv', 'bin', 'python'));
   });
 
-  test('falls back to bare python when no .venv exists (F135)', async () => {
-    const proc = createMockProcess();
-    const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({
-      catId: 'dare',
-      spawnFn,
-      darePath: '/opt/dare',
-      model: 'test/model',
-    });
-    const promise = collect(service.invoke('Test'));
-    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
-    await promise;
+  test('falls back to python3 when no .venv exists but python3 is on PATH (F135)', () => {
+    const tempRoot = join(tmpdir(), `dare-test-python3-${Date.now()}`);
+    const binDir = join(tempRoot, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    const python3Bin = join(binDir, process.platform === 'win32' ? 'python3.cmd' : 'python3');
+    writeFileSync(python3Bin, process.platform === 'win32' ? '@echo off\r\n' : '#!/bin/sh\n');
 
-    const command = spawnFn.mock.calls[0].arguments[0];
-    assert.strictEqual(command, 'python');
+    const oldPath = process.env.PATH;
+    process.env.PATH = binDir;
+    try {
+      assert.strictEqual(resolveSystemPythonCommand(), 'python3');
+      assert.strictEqual(resolveVenvPython(tempRoot), 'python3');
+    } finally {
+      if (oldPath !== undefined) process.env.PATH = oldPath;
+      else delete process.env.PATH;
+    }
   });
 
   // NOTE: This test only works when vendor/dare-cli is NOT present.
@@ -738,6 +810,29 @@ describe('DareAgentService', () => {
     const errorMsg = messages.find((m) => m.type === 'error');
     assert.ok(errorMsg, 'expected error message');
     assert.match(errorMsg.error, /DARE_PATH invalid/);
+  });
+
+  test('prefers vendored dare over env DARE_PATH when no explicit darePath is provided', async () => {
+    const vendorPath = resolveVendorDarePath();
+    if (!existsSync(join(vendorPath, 'client', '__main__.py'))) return;
+
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const oldDarePath = process.env.DARE_PATH;
+    process.env.DARE_PATH = '/definitely/not/a/dare/repo';
+
+    try {
+      const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
+      const promise = collect(service.invoke('Prefer vendored dare'));
+      emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+      await promise;
+
+      const opts = spawnFn.mock.calls[0].arguments[2];
+      assert.strictEqual(opts.cwd, vendorPath);
+    } finally {
+      if (oldDarePath !== undefined) process.env.DARE_PATH = oldDarePath;
+      else delete process.env.DARE_PATH;
+    }
   });
 
   // DARE_CONTEXT_WINDOW_TOKENS injection via buildEnv
@@ -961,6 +1056,33 @@ describe('resolveVendorDarePath (F135)', () => {
   });
 });
 
+describe('resolvePreferredDarePath', () => {
+  test('prefers explicit darePath over vendored and env paths', () => {
+    const oldDarePath = process.env.DARE_PATH;
+    process.env.DARE_PATH = '/env/dare';
+    try {
+      assert.strictEqual(resolvePreferredDarePath('/explicit/dare'), '/explicit/dare');
+    } finally {
+      if (oldDarePath !== undefined) process.env.DARE_PATH = oldDarePath;
+      else delete process.env.DARE_PATH;
+    }
+  });
+
+  test('prefers default vendored dare over env DARE_PATH', () => {
+    const defaultPath = resolveDefaultDarePath();
+    if (!defaultPath) return;
+
+    const oldDarePath = process.env.DARE_PATH;
+    process.env.DARE_PATH = '/env/dare';
+    try {
+      assert.strictEqual(resolvePreferredDarePath(), defaultPath);
+    } finally {
+      if (oldDarePath !== undefined) process.env.DARE_PATH = oldDarePath;
+      else delete process.env.DARE_PATH;
+    }
+  });
+});
+
 describe('resolveVendoredDareExecutable', () => {
   test('returns absolute path ending with vendor/dare.exe', () => {
     const result = resolveVendoredDareExecutable();
@@ -995,9 +1117,9 @@ describe('resolveVenvPython (F135)', () => {
     assert.ok(existsSync(resolved));
   });
 
-  test('returns bare python when .venv does not exist', () => {
+  test('returns resolved system python command when .venv does not exist', () => {
     const tempRoot = join(tmpdir(), `dare-test-no-venv-${Date.now()}`);
     const resolved = resolveVenvPython(tempRoot);
-    assert.strictEqual(resolved, 'python');
+    assert.strictEqual(resolved, resolveSystemPythonCommand());
   });
 });

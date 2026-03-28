@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dare_framework.model.adapters import openai_adapter as openai_adapter_module
-from dare_framework.model.adapters.openai_adapter import OpenAIModelAdapter
+from dare_framework.model.adapters.openai_adapter import OpenAIModelAdapter, _join_stream_text_parts
 
 
 class DummyChatOpenAI:
@@ -39,3 +39,8 @@ def test_build_client_enables_streaming_for_custom_endpoint(monkeypatch) -> None
     assert DummyChatOpenAI.last_kwargs is not None
     assert DummyChatOpenAI.last_kwargs["streaming"] is True
     assert DummyChatOpenAI.last_kwargs["base_url"] == "https://endpoint.example/v1"
+
+
+def test_join_stream_text_parts_preserves_continuous_reasoning_text() -> None:
+    assert _join_stream_text_parts(["先", "分析", "一下"]) == "先分析一下"
+    assert _join_stream_text_parts([]) is None

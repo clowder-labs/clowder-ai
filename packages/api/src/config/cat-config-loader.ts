@@ -650,7 +650,7 @@ export function getDefaultCatId(): CatId {
   }
 
   // Ultimate fallback (should not trigger — config always has at least 1 breed)
-  return createCatId('opus');
+  return createCatId('office');
 }
 
 // ── Variant CLI effort accessor ──────────────────────────────────────

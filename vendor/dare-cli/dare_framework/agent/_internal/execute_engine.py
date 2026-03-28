@@ -14,6 +14,14 @@ from dare_framework.context import Message
 from dare_framework.hook.types import HookDecision, HookPhase
 from dare_framework.model import ModelInput
 from dare_framework.plan.types import ToolLoopRequest
+from dare_framework.transport.types import (
+    EnvelopeKind,
+    MessageKind,
+    MessagePayload,
+    MessageRole,
+    TransportEnvelope,
+    new_envelope_id,
+)
 
 
 class ExecuteEngineAgent(Protocol):
@@ -147,6 +155,7 @@ async def run_execute_loop(
         model_start = time.perf_counter()
         response = await agent._model.generate(model_input)
         model_latency_ms = (time.perf_counter() - model_start) * 1000.0
+        thinking_content = (getattr(response, "thinking_content", None) or "").strip()
 
         if response.usage:
             agent._record_token_usage(response.usage)
@@ -163,6 +172,20 @@ async def run_execute_loop(
             "iteration": iteration + 1,
             "has_tool_calls": bool(response.tool_calls),
         })
+        if thinking_content and transport is not None:
+            await transport.send(
+                TransportEnvelope(
+                    id=new_envelope_id(),
+                    kind=EnvelopeKind.MESSAGE,
+                    payload=MessagePayload(
+                        id=new_envelope_id(),
+                        role=MessageRole.ASSISTANT,
+                        message_kind=MessageKind.THINKING,
+                        text=thinking_content,
+                        data={"target": "model"},
+                    ),
+                )
+            )
         await agent._emit_hook(HookPhase.AFTER_MODEL, {
             "iteration": iteration + 1,
             "model_name": getattr(agent._model, "name", None),

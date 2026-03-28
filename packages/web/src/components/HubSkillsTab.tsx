@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
@@ -42,7 +42,7 @@ function InstallButton({
       <button
         type="button"
         disabled
-        className="px-2 py-1 text-[10px] font-medium rounded bg-gray-100 text-gray-400 cursor-not-allowed"
+        className="rounded-[var(--radius-xs)] border border-[var(--border-default)] bg-[var(--surface-card-muted)] px-2 py-1 text-[10px] font-medium text-[var(--text-muted)]"
       >
         安装中...
       </button>
@@ -53,7 +53,7 @@ function InstallButton({
       <button
         type="button"
         disabled
-        className="px-2 py-1 text-[10px] font-medium rounded bg-green-100 text-green-600 cursor-default"
+        className="ui-status-success rounded-[var(--radius-xs)] px-2 py-1 text-[10px] font-medium"
       >
         安装成功
       </button>
@@ -65,11 +65,11 @@ function InstallButton({
         <button
           type="button"
           onClick={() => onInstall(owner, repo, slug)}
-          className="px-2 py-1 text-[10px] font-medium rounded bg-red-50 text-red-500 hover:bg-red-100"
+          className="ui-status-error rounded-[var(--radius-xs)] px-2 py-1 text-[10px] font-medium"
         >
           安装失败
         </button>
-        <span className="text-[9px] text-red-400 max-w-[180px] text-right leading-tight">{status}</span>
+        <span className="max-w-[180px] text-right text-[9px] leading-tight text-[var(--state-error-text)]">{status}</span>
       </div>
     );
   }
@@ -77,7 +77,7 @@ function InstallButton({
     <button
       type="button"
       onClick={() => onInstall(owner, repo, slug)}
-      className="px-2 py-1 text-[10px] font-medium rounded bg-blue-50 text-blue-600 hover:bg-blue-100"
+      className="rounded-[var(--radius-xs)] border border-[var(--border-accent)] bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-medium text-[var(--text-accent)] transition-colors hover:bg-[var(--accent-soft-strong)]"
     >
       安装
     </button>
@@ -100,35 +100,32 @@ function SkillList({
   showPagination?: boolean;
 }) {
   if (results.skills.length === 0) {
-    return <p className="text-xs text-gray-400 py-2">未找到匹配的 skill</p>;
+    return <p className="py-2 text-xs text-[var(--text-muted)]">未找到匹配的 skill</p>;
   }
 
   return (
     <div>
-      <p className="text-[10px] text-gray-400 mb-2">
-        共 {results.total} 条{showPagination && `，第 ${results.page} 页`}
+      <p className="mb-2 text-[10px] text-[var(--text-muted)]">
+        共 {results.total} 条{showPagination ? `，第 ${results.page} 页` : ''}
       </p>
       <div className="grid grid-cols-2 gap-2">
         {results.skills.map((skill) => (
-          <div
-            key={skill.id}
-            className="flex items-center justify-between rounded border border-gray-100 bg-white px-3 py-2"
-          >
+          <div key={skill.id} className="ui-card flex items-center justify-between px-3 py-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <code className="font-mono text-blue-600 text-[11px] font-semibold">{skill.name}</code>
-                {skill.stars !== undefined && <span className="text-[10px] text-gray-400">{skill.stars}</span>}
+                <code className="font-mono text-[11px] font-semibold text-[var(--text-accent)]">{skill.name}</code>
+                {skill.stars !== undefined && <span className="text-[10px] text-[var(--text-muted)]">{skill.stars}</span>}
                 {skill.isInstalled && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-600">
+                  <span className="ui-status-success rounded-[var(--radius-xs)] px-1.5 py-0.5 text-[10px] font-medium">
                     已安装
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-gray-500 truncate mt-0.5">{skill.description}</p>
+              <p className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{skill.description}</p>
             </div>
             <div className="ml-3 shrink-0">
               {skill.isInstalled ? (
-                <span className="text-[10px] text-gray-400">-</span>
+                <span className="text-[10px] text-[var(--text-muted)]">-</span>
               ) : (
                 <InstallButton
                   slug={skill.slug}
@@ -147,7 +144,7 @@ function SkillList({
           type="button"
           onClick={onLoadMore}
           disabled={loadingMore}
-          className="mt-3 w-full py-1.5 text-[11px] font-medium rounded border border-gray-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+          className="ui-button-secondary mt-3 w-full disabled:opacity-50"
         >
           {loadingMore ? '加载中...' : `加载更多（第 ${results.page + 1} 页）`}
         </button>
@@ -157,23 +154,19 @@ function SkillList({
 }
 
 export function HubSkillsTab() {
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-
-  // Trending state
   const [trendingResults, setTrendingResults] = useState<SearchResult | null>(null);
   const [trendingLoading, setTrendingLoading] = useState(false);
-
-  // Upload modal state
   const [showUpload, setShowUpload] = useState(false);
-
-  // Install status
   const [installStatus, setInstallStatus] = useState<Map<string, InstallStatus>>(new Map());
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const setInstallStatusWithTimer = useCallback((slug: string, status: InstallStatus) => {
     setInstallStatus((prev) => new Map(prev).set(slug, status));
     const existing = statusTimers.current.get(slug);
@@ -191,17 +184,11 @@ export function HubSkillsTab() {
     }
   }, []);
 
-  // Toast
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // Debounce
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Cleanup timers
   useEffect(() => {
     const timers = statusTimers.current;
     return () => {
@@ -209,7 +196,6 @@ export function HubSkillsTab() {
     };
   }, []);
 
-  // Load trending on mount
   useEffect(() => {
     setTrendingLoading(true);
     apiFetch('/api/skills/trending')
@@ -219,7 +205,6 @@ export function HubSkillsTab() {
       .finally(() => setTrendingLoading(false));
   }, []);
 
-  // Execute search immediately
   const executeSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults(null);
@@ -242,7 +227,6 @@ export function HubSkillsTab() {
     }
   }, []);
 
-  // Search with debounce (input handler)
   const handleSearchInput = useCallback(
     (value: string) => {
       setSearchQuery(value);
@@ -257,7 +241,6 @@ export function HubSkillsTab() {
     [executeSearch],
   );
 
-  // Load more (pagination)
   const handleLoadMore = useCallback(async () => {
     if (!searchResults || !searchQuery.trim()) return;
     const nextPage = searchResults.page + 1;
@@ -277,7 +260,6 @@ export function HubSkillsTab() {
     }
   }, [searchResults, searchQuery]);
 
-  // Install
   const handleInstall = useCallback(
     async (owner: string, repo: string, skill: string) => {
       setInstallStatusWithTimer(skill, 'installing');
@@ -289,7 +271,7 @@ export function HubSkillsTab() {
         });
         if (res.ok) {
           setInstallStatusWithTimer(skill, 'success');
-          showToast(`"${skill}" 安装成功`, 'success');
+          showToast(`“${skill}” 安装成功`, 'success');
         } else {
           const payload = (await res.json().catch(() => ({}))) as { error?: string };
           const msg = payload.error ?? `安装失败 (${res.status})`;
@@ -306,20 +288,16 @@ export function HubSkillsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Toast */}
       {toast && (
         <div
-          className={`rounded-lg px-3 py-2 text-xs font-medium ${
-            toast.type === 'success'
-              ? 'bg-green-50 text-green-700 border border-green-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
+          className={`rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium ${
+            toast.type === 'success' ? 'ui-status-success' : 'ui-status-error'
           }`}
         >
           {toast.message}
         </div>
       )}
 
-      {/* Upload modal */}
       <UploadSkillModal
         open={showUpload}
         onClose={() => setShowUpload(false)}
@@ -328,34 +306,29 @@ export function HubSkillsTab() {
         }}
       />
 
-      {/* Search */}
-      <section className="rounded-lg border border-gray-200 bg-white p-3 space-y-3">
+      <section className="ui-card space-y-3 p-3">
         <div className="flex items-center gap-2">
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => handleSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && executeSearch(searchQuery)}
+            onChange={(event) => handleSearchInput(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && void executeSearch(searchQuery)}
             placeholder="搜索 SkillHub skill..."
-            className="flex-1 text-xs px-3 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300"
+            className="ui-field flex-1 px-3 py-1.5 text-xs"
           />
           <button
             type="button"
-            onClick={() => executeSearch(searchQuery)}
+            onClick={() => void executeSearch(searchQuery)}
             disabled={searchLoading || !searchQuery.trim()}
-            className="px-3 py-1.5 text-xs font-medium rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            className="ui-button-primary shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {searchLoading ? '搜索中...' : '搜索'}
           </button>
-          <button
-            type="button"
-            onClick={() => setShowUpload(true)}
-            className="px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
-          >
+          <button type="button" onClick={() => setShowUpload(true)} className="ui-button-secondary shrink-0">
             + 上传
           </button>
         </div>
-        {searchError && <p className="text-[11px] text-red-500">{searchError}</p>}
+        {searchError && <p className="text-[11px] text-[var(--state-error-text)]">{searchError}</p>}
         {searchResults && (
           <SkillList
             results={searchResults}
@@ -367,10 +340,9 @@ export function HubSkillsTab() {
         )}
       </section>
 
-      {/* Trending — always expanded */}
-      <section className="rounded-lg border border-gray-200 bg-white p-3">
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">热门推荐</h3>
-        {trendingLoading && <p className="text-[11px] text-gray-400">加载中...</p>}
+      <section className="ui-card p-3">
+        <h3 className="mb-2 text-xs font-semibold text-[var(--text-primary)]">热门推荐</h3>
+        {trendingLoading && <p className="text-[11px] text-[var(--text-muted)]">加载中...</p>}
         {trendingResults && (
           <SkillList
             results={trendingResults}

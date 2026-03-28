@@ -25,6 +25,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# -- Encoding (ensure UTF-8 output for CJK text) ------------
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 # -- Helpers -------------------------------------------------
 function Write-Step  { param([string]$msg) Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Write-Ok    { param([string]$msg) Write-Host "  [OK] $msg" -ForegroundColor Green }
@@ -508,6 +512,9 @@ $runtimeEnvOverrides = @{
     Write-Host "  Starting API Server (port $ApiPort)..."
     $apiJob = Start-Job -Name "api" -ScriptBlock {
         param($root, $envFile, $runtimeEnvOverrides, $apiEntry, $nodeCommand, $debugFlag)
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+        $OutputEncoding = [System.Text.Encoding]::UTF8
         Set-Location (Join-Path $root "packages/api")
         # Load .env into job process (Start-Job inherits parent env,
         # but re-load to be safe if process env was not fully propagated)
@@ -548,6 +555,9 @@ $runtimeEnvOverrides = @{
         Write-Host "  Starting Frontend (port $WebPort, dev)..."
         $webJob = Start-Job -Name "web" -ScriptBlock {
             param($root, $port, $nextCli, $nodeCommand)
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+            $OutputEncoding = [System.Text.Encoding]::UTF8
             $env:PORT = $port
             $env:NEXT_IGNORE_INCORRECT_LOCKFILE = "1"
             & $nodeCommand $nextCli dev (Join-Path $root "packages/web") -p $port 2>&1
@@ -557,6 +567,9 @@ $runtimeEnvOverrides = @{
         Write-Host "  Starting Frontend (port $WebPort, standalone)..."
         $webJob = Start-Job -Name "web" -ScriptBlock {
             param($webServerEntry, $port, $nodeCommand)
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+            $OutputEncoding = [System.Text.Encoding]::UTF8
             $env:PORT = $port
             $env:HOSTNAME = "0.0.0.0"
             & $nodeCommand $webServerEntry 2>&1
@@ -566,6 +579,9 @@ $runtimeEnvOverrides = @{
         Write-Host "  Starting Frontend (port $WebPort, production)..."
         $webJob = Start-Job -Name "web" -ScriptBlock {
             param($root, $port, $nextCli, $nodeCommand)
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+            $OutputEncoding = [System.Text.Encoding]::UTF8
             $env:PORT = $port
             & $nodeCommand $nextCli start (Join-Path $root "packages/web") -p $port -H 0.0.0.0 2>&1
         } -ArgumentList $ProjectRoot, $WebPort, $nextCli, $nodeCommand

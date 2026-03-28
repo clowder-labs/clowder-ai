@@ -110,24 +110,24 @@ describe('ThreadSidebar mobile auto-close', () => {
       return jsonOk({});
     });
 
-    // Click "+ 新对话" button to open picker
-    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('新对话'))!;
+    // Open the new-thread picker
+    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u65b0\u5bf9\u8bdd'))!;
     expect(newBtn).toBeTruthy();
     act(() => {
       newBtn.click();
     });
 
-    // Click "大厅 (无项目)" in the picker — this selects it (F068-R7 two-step flow)
+    // Select the lobby entry (F068-R7 two-step flow)
     await flush();
-    const lobbyBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('大厅'))!;
+    const lobbyBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u5927\u5385'))!;
     expect(lobbyBtn).toBeTruthy();
     act(() => {
       lobbyBtn.click();
     });
 
-    // Click "创建对话" confirm button to trigger createInProject
+    // Confirm creation to trigger createInProject
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('创建对话'),
+      b.textContent?.includes('\u521b\u5efa\u5bf9\u8bdd'),
     )!;
     expect(confirmBtn).toBeTruthy();
     act(() => {
@@ -157,21 +157,21 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
 
     // Open picker
-    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('新对话'))!;
+    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u65b0\u5bf9\u8bdd'))!;
     act(() => {
       newBtn.click();
     });
     await flush();
 
     // Select lobby
-    const lobbyBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('大厅'))!;
+    const lobbyBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u5927\u5385'))!;
     act(() => {
       lobbyBtn.click();
     });
 
     // Confirm creation (F068-R7 two-step flow)
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('创建对话'),
+      b.textContent?.includes('\u521b\u5efa\u5bf9\u8bdd'),
     )!;
     act(() => {
       confirmBtn.click();

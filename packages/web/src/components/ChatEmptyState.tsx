@@ -23,10 +23,10 @@ const heroCards: EmptyStateCard[] = [
     imageAlt: '智能体配置',
   },
   {
-    title: '一键接入IM',
+    title: '一键接入 IM',
     description: '一键接入飞书、钉钉、小艺、WeLink 渠道，无缝推进办公流程。',
     imageSrc: '/images/chat-empty-im.svg',
-    imageAlt: '一键接入IM',
+    imageAlt: '一键接入 IM',
   },
 ];
 

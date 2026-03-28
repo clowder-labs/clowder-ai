@@ -6,8 +6,8 @@
  * - a bundled standalone executable such as `vendor/dare.exe`
  */
 
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { accessSync, existsSync, constants as fsConstants, lstatSync, readFileSync } from 'node:fs';
+import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
@@ -70,6 +70,7 @@ interface DareLaunchSpec {
 
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
 const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
+const DARE_ADAPTER_OVERRIDE_ENV = 'CAT_CAFE_DARE_ADAPTER';
 
 const ADAPTER_KEY_ENV: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
@@ -143,7 +144,45 @@ function isExistingFile(path: string): boolean {
   }
 }
 
-export function resolveVenvPython(darePath: string): string {
+function commandExistsOnPath(command: string, envPath = process.env.PATH): boolean {
+  if (!envPath) return false;
+
+  const pathEntries = envPath.split(delimiter).filter(Boolean);
+  if (pathEntries.length === 0) return false;
+
+  if (process.platform === 'win32') {
+    const pathExt = process.env.PATHEXT?.split(';').filter(Boolean) ?? ['.EXE', '.CMD', '.BAT', '.COM'];
+    const commandHasExt = /\.[^\\/]+$/.test(command);
+    const candidates = commandHasExt ? [command] : [command, ...pathExt.map((ext) => `${command}${ext.toLowerCase()}`)];
+    for (const entry of pathEntries) {
+      for (const candidate of candidates) {
+        if (isExistingFile(join(entry, candidate))) return true;
+      }
+    }
+    return false;
+  }
+
+  for (const entry of pathEntries) {
+    const candidate = join(entry, command);
+    try {
+      accessSync(candidate, fsConstants.X_OK);
+      if (isExistingFile(candidate)) return true;
+    } catch {
+      // Try next PATH entry.
+    }
+  }
+  return false;
+}
+
+export function resolveSystemPythonCommand(envPath = process.env.PATH): string {
+  const candidates = process.platform === 'win32' ? ['py', 'python', 'python3'] : ['python3', 'python'];
+  for (const candidate of candidates) {
+    if (commandExistsOnPath(candidate, envPath)) return candidate;
+  }
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
+export function resolveVenvPython(darePath: string, envPath = process.env.PATH): string {
   const candidates =
     process.platform === 'win32'
       ? [join(darePath, '.venv', 'Scripts', 'python.exe'), join(darePath, '.venv', 'bin', 'python')]
@@ -154,12 +193,12 @@ export function resolveVenvPython(darePath: string): string {
   // Shared Python from Windows installer layout (embeddable + deps in Lib/site-packages)
   const sharedPython = join(resolveCatCafeHostRoot(process.cwd()), 'tools', 'python', 'python.exe');
   if (existsSync(sharedPython)) return sharedPython;
-  return 'python';
+  return resolveSystemPythonCommand(envPath);
 }
 
 function buildModuleLaunchSpec(darePath?: string): DareLaunchSpec {
   return {
-    command: darePath ? resolveVenvPython(darePath) : 'python',
+    command: darePath ? resolveVenvPython(darePath) : resolveSystemPythonCommand(),
     argsPrefix: ['-m', 'client'],
     ...(darePath ? { cwd: darePath } : {}),
     runtimeMode: 'module',
@@ -182,7 +221,7 @@ function resolveConfiguredDareLaunchSpec(darePath: string | undefined): DareLaun
   return null;
 }
 
-function resolveDefaultDarePath(): string | undefined {
+export function resolveDefaultDarePath(): string | undefined {
   const vendoredExecutable = resolveVendoredDareExecutable();
   if (isExistingFile(vendoredExecutable)) return vendoredExecutable;
 
@@ -195,10 +234,24 @@ function resolveDefaultDarePath(): string | undefined {
   return undefined;
 }
 
-export function dareBundleAvailable(darePath = process.env.DARE_PATH ?? resolveDefaultDarePath()): boolean {
+export function resolvePreferredDarePath(explicitDarePath?: string): string | undefined {
+  if (explicitDarePath?.trim()) return explicitDarePath.trim();
+
+  const defaultDarePath = resolveDefaultDarePath();
+  if (defaultDarePath) return defaultDarePath;
+
+  const envDarePath = process.env.DARE_PATH?.trim();
+  return envDarePath || undefined;
+}
+
+export function dareBundleAvailable(darePath = resolvePreferredDarePath()): boolean {
   const resolvedPath = darePath?.trim();
   if (!resolvedPath) return false;
-  return existsSync(join(resolvedPath, 'client', '__main__.py')) && resolveVenvPython(resolvedPath) !== 'python';
+  if (isExistingFile(resolvedPath)) return true;
+  if (!existsSync(join(resolvedPath, 'client', '__main__.py'))) return false;
+
+  const pythonCommand = resolveVenvPython(resolvedPath);
+  return isExistingFile(pythonCommand) || commandExistsOnPath(pythonCommand);
 }
 
 function formatInvalidDarePath(darePath: string): string {
@@ -221,7 +274,7 @@ export class DareAgentService implements AgentService {
     this.model = options?.model?.trim() || process.env.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || undefined;
     this.endpoint = options?.endpoint ?? process.env[DARE_ENDPOINT_ENV];
     this.apiKey = options?.apiKey ?? process.env[DARE_API_KEY_ENV];
-    this.darePath = options?.darePath ?? process.env.DARE_PATH ?? resolveDefaultDarePath();
+    this.darePath = resolvePreferredDarePath(options?.darePath);
 
     const configuredMcp = options?.mcpServerPath ?? process.env.CAT_CAFE_MCP_SERVER_PATH;
     if (configuredMcp && configuredMcp.trim().length > 0) {
@@ -236,6 +289,7 @@ export class DareAgentService implements AgentService {
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const workspaceConfig = readWorkspaceDareConfig(options?.workingDirectory);
     const effectiveModel = options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
+    const effectiveAdapter = this.resolveAdapter(options?.callbackEnv);
 
     let cliModel = effectiveModel;
     if (!cliModel) {
@@ -277,9 +331,10 @@ export class DareAgentService implements AgentService {
     }
 
     const launchSpec = configuredLaunchSpec ?? buildModuleLaunchSpec(this.darePath);
-    const endpoint = this.resolveEndpoint(options?.callbackEnv);
+    const endpoint = this.resolveEndpoint(options?.callbackEnv, effectiveAdapter);
     const args = this.buildArgs(prompt, {
       argsPrefix: launchSpec.argsPrefix,
+      adapter: effectiveAdapter,
       workspace: options?.workingDirectory,
       sessionId: options?.sessionId,
       endpoint,
@@ -288,7 +343,7 @@ export class DareAgentService implements AgentService {
       systemPrompt: options?.systemPrompt,
       mcpServerPath: options?.callbackEnv ? this.mcpServerPath : undefined,
     });
-    const childEnv = this.buildEnv(options?.callbackEnv, cliModel);
+    const childEnv = this.buildEnv(options?.callbackEnv, cliModel, effectiveAdapter);
     const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
     let sessionInitEmitted = false;
 
@@ -384,6 +439,7 @@ export class DareAgentService implements AgentService {
     prompt: string,
     opts?: {
       argsPrefix?: readonly string[];
+      adapter?: string;
       workspace?: string;
       sessionId?: string;
       endpoint?: string;
@@ -394,8 +450,8 @@ export class DareAgentService implements AgentService {
     },
   ): string[] {
     const args = [...(opts?.argsPrefix ?? ['-m', 'client'])];
-    if (this.adapter) {
-      args.push('--adapter', this.adapter);
+    if (opts?.adapter) {
+      args.push('--adapter', opts.adapter);
     }
     if (opts?.model) {
       args.push('--model', opts.model);
@@ -428,9 +484,13 @@ export class DareAgentService implements AgentService {
     return args;
   }
 
-  private buildEnv(callbackEnv?: Record<string, string>, model?: string): Record<string, string | null> {
+  private buildEnv(
+    callbackEnv?: Record<string, string>,
+    model?: string,
+    adapter?: string,
+  ): Record<string, string | null> {
     const env: Record<string, string | null> = { ...callbackEnv };
-    const apiKeyEnvName = this.adapter ? ADAPTER_KEY_ENV[this.adapter] : undefined;
+    const apiKeyEnvName = adapter ? ADAPTER_KEY_ENV[adapter] : undefined;
     const apiKey =
       callbackEnv?.[DARE_API_KEY_ENV] ??
       (apiKeyEnvName ? callbackEnv?.[apiKeyEnvName] : undefined) ??
@@ -470,12 +530,16 @@ export class DareAgentService implements AgentService {
     return env;
   }
 
-  private getAdapterEndpointEnvName(): string | undefined {
-    return this.adapter ? ADAPTER_ENDPOINT_ENV[this.adapter] : undefined;
+  private resolveAdapter(callbackEnv?: Record<string, string>): string | undefined {
+    return callbackEnv?.[DARE_ADAPTER_OVERRIDE_ENV]?.trim() || this.adapter;
   }
 
-  private resolveEndpoint(callbackEnv?: Record<string, string>): string | undefined {
-    const adapterEndpointEnv = this.getAdapterEndpointEnvName();
+  private getAdapterEndpointEnvName(adapter?: string): string | undefined {
+    return adapter ? ADAPTER_ENDPOINT_ENV[adapter] : undefined;
+  }
+
+  private resolveEndpoint(callbackEnv?: Record<string, string>, adapter?: string): string | undefined {
+    const adapterEndpointEnv = this.getAdapterEndpointEnvName(adapter);
     return (
       callbackEnv?.[DARE_ENDPOINT_ENV] ??
       (adapterEndpointEnv ? callbackEnv?.[adapterEndpointEnv] : undefined) ??

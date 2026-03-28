@@ -44,6 +44,7 @@ interface ChatInputProps {
 }
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
+const QUICK_ACTIONS = ['文档处理', '视频生成', '深度研究', '幻灯片', '数据分析', '数据可视化', '金融服务'] as const;
 
 export function ChatInput({
   threadId,
@@ -116,6 +117,15 @@ export function ChatInput({
       const separator = prev && !prev.endsWith(' ') ? ' ' : '';
       return prev + separator + text;
     });
+  }, []);
+
+  const handleToggleVoiceRecording = useCallback(() => {
+    window.dispatchEvent(new Event('toggle-voice-recording'));
+  }, []);
+
+  const handleQuickAction = useCallback((text: (typeof QUICK_ACTIONS)[number]) => {
+    setInput(text);
+    setTimeout(() => textareaRef.current?.focus(), 0);
   }, []);
 
   const filteredCatOptions = useMemo(() => {
@@ -640,7 +650,23 @@ export function ChatInput({
         />
       )}
 
-      <div className="flex gap-2 items-end p-4 pt-2">
+      <div className="p-4 pt-2">
+        <div className="mb-2 flex flex-wrap justify-center gap-2">
+          {QUICK_ACTIONS.map((action) => (
+            <button
+              key={action}
+              type="button"
+              onClick={() => handleQuickAction(action)}
+              disabled={disabled}
+              className="rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+            >
+              {action}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 items-end">
         {/* Mobile: + toggle button */}
         <button
           onClick={() => setMobileToolbar((v) => !v)}
@@ -660,39 +686,6 @@ export function ChatInput({
           </svg>
         </button>
 
-        <button
-          onClick={handleWhisperToggle}
-          disabled={disabled || sendTemporarilyDisabled}
-          className={`hidden md:block p-3 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-            whisperMode
-              ? 'text-amber-500 bg-amber-50 ring-1 ring-amber-300'
-              : 'text-gray-400 hover:text-amber-500 hover:bg-white'
-          }`}
-          aria-label="Whisper mode"
-          title="悄悄话模式"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-            <path
-              fillRule="evenodd"
-              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
-
-        <button
-          ref={gameBtnRef}
-          onClick={handleGameClick}
-          disabled={disabled || sendTemporarilyDisabled}
-          className="hidden md:block p-3 rounded-xl text-gray-400 hover:text-indigo-500 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          aria-label="Game mode"
-          title="游戏模式"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
-          </svg>
-        </button>
-
         <div className="flex-1">
           <div className="relative mx-auto w-[80%]">
             <textarea
@@ -704,11 +697,12 @@ export function ChatInput({
             placeholder={
               whisperMode ? '悄悄话...' : hasActiveInvocation ? '继续输入，消息会排队...' : '输入消息... (@ 召唤猫猫)'
             }
-            className={`block h-[100px] w-full resize-none rounded-xl border p-3 pr-12 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
+            className={`block h-[100px] w-full resize-none rounded-xl border p-3 pr-24 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
               whisperMode
                 ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
                 : 'border-cocreator-light bg-white focus:ring-cocreator-primary'
             }`}
+            style={{ borderColor: 'rgba(219,219,219,0.8)' }}
             rows={1}
             disabled={disabled}
           />
@@ -722,14 +716,28 @@ export function ChatInput({
               <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
             </div>
           )}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-              className="absolute bottom-2 right-2 hidden rounded-lg p-2 text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30 md:block"
-              aria-label="Attach images"
-            >
-              <AttachIcon className="h-5 w-5" />
-            </button>
+            <div className="absolute bottom-2 right-2 hidden items-center gap-1 md:flex">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
+                className="rounded-lg p-[6px] text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                aria-label="Attach images"
+              >
+                <AttachIcon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={handleToggleVoiceRecording}
+                disabled={disabled}
+                className="rounded-lg p-[6px] text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                aria-label="Start voice input (⌥V)"
+                title="语音输入 (⌥V)"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 2a3 3 0 00-3 3v5a3 3 0 106 0V5a3 3 0 00-3-3z" />
+                  <path d="M5 9a1 1 0 112 0 3 3 0 006 0 1 1 0 112 0 5 5 0 01-4 4.9V16h2a1 1 0 110 2H7a1 1 0 010-2h2v-2.1A5 5 0 015 9z" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -741,9 +749,11 @@ export function ChatInput({
           onForceSend={handleForceSend}
           disabled={disabled}
           sendDisabled={sendTemporarilyDisabled}
+          hideIdleMic
           hasActiveInvocation={hasActiveInvocation}
           hasText={!!input.trim()}
         />
+        </div>
       </div>
 
       {showHistorySearch && (
