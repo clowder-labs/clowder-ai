@@ -142,11 +142,23 @@ describe('business theme secondary surfaces', () => {
     });
     await flushEffects();
 
-    const searchSection = container.querySelector('section');
-    expect(searchSection?.className).toContain('ui-card');
     expect(container.querySelector('input')?.className).toContain('ui-field');
+    const plazaHeading = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('技能广场'),
+    );
+    const searchInput = container.querySelector('input[aria-label="搜索 SkillHub 技能"]');
+    const firstSkillCard = container.querySelector('article');
+    expect(
+      Boolean(
+        plazaHeading &&
+          searchInput &&
+          firstSkillCard &&
+          (plazaHeading.compareDocumentPosition(searchInput) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 &&
+          (searchInput.compareDocumentPosition(firstSkillCard) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      ),
+    ).toBe(true);
     const buttons = Array.from(container.querySelectorAll('button'));
-    expect(buttons.some((button) => button.className.includes('ui-button-primary'))).toBe(true);
+    expect(buttons.some((button) => button.textContent?.includes('安装'))).toBe(true);
     expect(buttons.some((button) => button.className.includes('ui-button-secondary'))).toBe(true);
   });
 
