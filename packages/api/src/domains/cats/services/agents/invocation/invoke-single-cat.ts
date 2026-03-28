@@ -296,33 +296,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   // need to exercise routing/invocation behavior without having local git state turn
   // every invocation into a governance block, so test runners can opt out explicitly.
   if (process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1') {
-    // L2 behavior splits by issue type:
-    //   unpushedFiles → FAIL-CLOSED (stop invocation). These are committed but not
-    //     pushed — L1 can't catch them (already committed), L3 can't see them (not
-    //     pushed). L2 is the only layer that can enforce. The cat must push first.
-    //   uncommittedFiles → WARN-ONLY. Cat can still be invoked to help commit+push.
+    // L2 behavior is warn-only during interactive invocation. Hard safety still lives
+    // in L1/L3 (`pre-commit` + CI / merge gate); blocking regular chat invocations on
+    // local git state made multi-cat routing unusable whenever shared-state lagged.
     try {
       const { checkSharedStatePreflight } = await import('../../../../../config/shared-state-preflight.js');
       const projectRoot = findMonorepoRoot(process.cwd());
       const ssCheck = checkSharedStatePreflight(projectRoot);
       if (!ssCheck.ok) {
-        // Fail-closed: unpushed shared-state commits must be pushed before any cat runs
         if (ssCheck.unpushedFiles?.length) {
           const msg =
             `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
-            'Run `git push` before invoking any cat (shared-rules §14).';
-          log.warn({ catId, unpushedFiles: ssCheck.unpushedFiles }, 'Shared-state preflight BLOCKED');
+            'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+          log.warn({ catId, unpushedFiles: ssCheck.unpushedFiles }, 'Shared-state preflight: unpushed files');
           yield {
             type: 'system_info' as const,
             catId,
-            content: `🚫 ${msg}`,
+            content: `⚠️ ${msg}`,
             timestamp: Date.now(),
           };
-          yield { type: 'done', catId, isFinal: params.isLastCat, timestamp: Date.now() };
-          didComplete = true; // F118 AC-C5: Normal early exit (governance block), not force-return
-          return;
         }
-        // Warn-only: uncommitted changes — cat can help fix this
         if (ssCheck.uncommittedFiles?.length) {
           const msg = `uncommitted shared-state files: ${ssCheck.uncommittedFiles.join(', ')}`;
           log.warn({ catId, uncommittedFiles: ssCheck.uncommittedFiles }, 'Shared-state preflight: uncommitted files');
