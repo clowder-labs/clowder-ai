@@ -56,8 +56,14 @@ const IAM_URL = 'https://iam.myhuaweicloud.com';
 export const sessions = new Map<string, UserInfo>();
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, options) => {
 
+  const skipAuth = process.env.CAT_CAFE_SKIP_AUTH === '1' || process.env.CAT_CAFE_SKIP_AUTH === 'true';
+
   // 检查登录状态接口
   app.get('/api/islogin', async (request, reply) => {
+    if (skipAuth) {
+      return { isLoggedIn: true, userId: 'debug-user' };
+    }
+
     const userId = request.headers['x-cat-cafe-user'] as string;
     if (!userId) {
       return { isLoggedIn: false };

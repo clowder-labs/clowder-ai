@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
@@ -136,7 +136,7 @@ export function HubConnectorConfigTab() {
   }, []);
 
   useEffect(() => {
-    void fetchStatus();
+    fetchStatus();
   }, [fetchStatus]);
 
   const handleExpand = (platformId: string) => {
@@ -152,12 +152,13 @@ export function HubConnectorConfigTab() {
   };
 
   const handleSave = async (platform: PlatformStatus) => {
+    // Sensitive fields must be set in .env manually — only non-sensitive can be patched
     const updates = platform.fields
-      .filter((field) => !field.sensitive && fieldValues[field.envName] !== undefined)
-      .map((field) => ({ name: field.envName, value: fieldValues[field.envName] }));
+      .filter((f) => !f.sensitive && fieldValues[f.envName] !== undefined)
+      .map((f) => ({ name: f.envName, value: fieldValues[f.envName] }));
 
     if (updates.length === 0) {
-      setSaveResult({ type: 'error', message: '请至少填写一个非敏感配置项，敏感字段仍需手动写入 .env。' });
+      setSaveResult({ type: 'error', message: '请填写至少一个非敏感配置项（敏感字段需手动编辑 .env）' });
       return;
     }
 
@@ -171,10 +172,10 @@ export function HubConnectorConfigTab() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setSaveResult({ type: 'error', message: (data as { error?: string }).error ?? '保存失败' });
+        setSaveResult({ type: 'error', message: data.error ?? '保存失败' });
         return;
       }
-      setSaveResult({ type: 'success', message: '配置已保存。重启 API 服务后连接器配置才会生效。' });
+      setSaveResult({ type: 'success', message: '配置已保存。需重启 API 服务使连接器生效。' });
       setFieldValues({});
       await fetchStatus();
     } catch {
@@ -196,7 +197,7 @@ export function HubConnectorConfigTab() {
     <div className="space-y-3">
       {platforms.map((platform) => {
         const isExpanded = expandedId === platform.id;
-        const visual = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
+        const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
         const guideSteps = platform.steps.slice(0, -1);
         const docsLink = parseDocsLink(platform.docsUrl);
         const saveStepNum = Math.max(platform.steps.length, guideSteps.length + 1);
@@ -212,9 +213,9 @@ export function HubConnectorConfigTab() {
             >
               <span
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
-                style={{ backgroundColor: visual.iconBg, color: visual.iconColor }}
+                style={{ backgroundColor: v.iconBg, color: v.iconColor }}
               >
-                {visual.icon}
+                {v.icon}
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-[15px] font-semibold text-[var(--text-primary)]">
@@ -234,13 +235,13 @@ export function HubConnectorConfigTab() {
 
             {isExpanded && platform.id === 'weixin' && (
               <div className="space-y-3.5 border-t border-[var(--border-soft)] px-4 py-4">
-                {platform.steps.map((step, index) => (
-                  <div key={index} className="space-y-1.5">
+                {platform.steps.map((step, idx) => (
+                  <div key={idx} className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
-                      <StepBadge num={index + 1} />
+                      <StepBadge num={idx + 1} />
                       <span className="text-[13px] font-medium text-[var(--text-primary)]">{step}</span>
                     </div>
-                    {index === 0 && (
+                    {idx === 0 && (
                       <div className="ml-[26px]">
                         <WeixinQrPanel configured={platform.configured} />
                       </div>
@@ -252,22 +253,24 @@ export function HubConnectorConfigTab() {
 
             {isExpanded && platform.id !== 'weixin' && (
               <div className="space-y-3.5 border-t border-[var(--border-soft)] px-4 py-4">
-                {guideSteps.map((step, index) => (
-                  <div key={index} className="space-y-1.5">
+                {guideSteps.map((step, idx) => (
+                  <div key={idx} className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
-                      <StepBadge num={index + 1} />
+                      <StepBadge num={idx + 1} />
                       <span className="text-[13px] font-medium text-[var(--text-primary)]">{step}</span>
                     </div>
-                    {index === 0 && docsLink && (
-                      <a
-                        href={docsLink.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
-                      >
-                        <ExternalLinkIcon />
-                        <span>{docsLink.hostname} · 查看官方文档</span>
-                      </a>
+                    {idx === 0 && (
+                      docsLink && (
+                        <a
+                          href={docsLink.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
+                        >
+                          <ExternalLinkIcon />
+                          <span>{docsLink.hostname} → 查看官方文档</span>
+                        </a>
+                      )
                     )}
                   </div>
                 ))}
@@ -299,13 +302,8 @@ export function HubConnectorConfigTab() {
                             type="text"
                             placeholder={field.currentValue ?? '未设置'}
                             value={fieldValues[field.envName] ?? ''}
-                            onChange={(event) =>
-                              setFieldValues((prev) => ({
-                                ...prev,
-                                [field.envName]: event.target.value,
-                              }))
-                            }
-                            className="ui-field h-9 w-full px-3 text-[13px]"
+                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                            className=ui-field h-9 w-full px-3 text-[13px]"
                             data-testid={`field-${field.envName}`}
                           />
                         )}
@@ -333,15 +331,15 @@ export function HubConnectorConfigTab() {
                     <button
                       type="button"
                       className="ui-button-secondary inline-flex items-center gap-1.5"
-                      onClick={() => setSaveResult({ type: 'success', message: '连接测试能力即将上线' })}
+                      onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
                     >
                       <WifiIcon />
                       测试连接
                     </button>
-                    {platform.fields.some((field) => !field.sensitive) ? (
+                    {platform.fields.some((f) => !f.sensitive) ? (
                       <button
                         type="button"
-                        onClick={() => void handleSave(platform)}
+                        onClick={() => handleSave(platform)}
                         disabled={saving}
                         className="ui-button-primary disabled:opacity-50"
                         data-testid={`save-${platform.id}`}
@@ -351,12 +349,12 @@ export function HubConnectorConfigTab() {
                     ) : (
                       <div className="ui-status-warning flex-1 rounded-[var(--radius-md)] px-3 py-2 text-xs">
                         <p className="flex items-center gap-1 font-medium">
-                          <LockIcon /> 所有字段均为敏感凭证，请手动配置
+                          <LockIcon /> 所有凭证为敏感字段，请手动配置：
                         </p>
                         <code className="mt-1 block rounded-[var(--radius-xs)] border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)] select-all">
-                          {platform.fields.map((field) => `${field.envName}=your_value`).join('\n')}
+                          {platform.fields.map((f) => `${f.envName}=your_value`).join('\n')}
                         </code>
-                        <p className="mt-1 text-[11px]">写入 .env 后重启 API 服务生效</p>
+                        <p className="mt-1 text-[11px]">写入 .env 文件后重启 API 服务生效</p>
                       </div>
                     )}
                   </div>
