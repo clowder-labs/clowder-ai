@@ -50,6 +50,7 @@ export function CreateApiKeyProfileSection({
   modelAccessMode,
   defaultModelProfileRef,
   acpModelProfiles,
+  protocolOptions = PROTOCOL_OPTIONS,
   busy,
   onKindChange,
   onDisplayNameChange,
@@ -79,6 +80,7 @@ export function CreateApiKeyProfileSection({
   modelAccessMode: AcpModelAccessMode;
   defaultModelProfileRef: string;
   acpModelProfiles: AcpModelProfileItem[];
+  protocolOptions?: Array<{ value: ApiProtocol; label: string }>;
   busy: boolean;
   onKindChange: (kind: AcpProviderKind) => void;
   onDisplayNameChange: (value: string) => void;
@@ -196,7 +198,7 @@ export function CreateApiKeyProfileSection({
                 onChange={(e) => onProtocolChange(e.target.value as ApiProtocol)}
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
               >
-                {PROTOCOL_OPTIONS.map((opt) => (
+                {protocolOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
