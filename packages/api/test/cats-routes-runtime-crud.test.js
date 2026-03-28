@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, beforeEach, describe, it } from 'node:test';
@@ -831,6 +831,83 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
     assert.equal(rejectRes.statusCode, 400);
     assert.match(JSON.parse(rejectRes.body).error, /client "jiuwen" requires an API key provider profile/i);
+  });
+
+  it('POST /api/cats allows dare and relayclaw to bind custom sources from ~/.cat-cafe/model.json', async () => {
+    const projectRoot = createProjectRoot();
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.cat-cafe', 'model.json'),
+      `${JSON.stringify(
+        {
+          'my-openai-proxy': {
+            protocol: 'openai',
+            displayName: 'My OpenAI Proxy',
+            baseUrl: 'https://proxy.example.com/v1',
+            apiKey: 'sk-proxy',
+            headers: { 'X-App-Id': 'cat-cafe' },
+            models: [{ id: 'glm-5' }, { id: 'gpt-4o-mini' }],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const dareRes = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        catId: 'runtime-dare-proxy',
+        name: '办公室猫',
+        displayName: '办公室猫',
+        avatar: '/avatars/runtime.png',
+        color: { primary: '#0f172a', secondary: '#e2e8f0' },
+        mentionPatterns: ['@runtime-dare-proxy'],
+        roleDescription: '执行',
+        client: 'dare',
+        providerProfileId: 'my-openai-proxy',
+        defaultModel: 'glm-5',
+      }),
+    });
+
+    assert.equal(dareRes.statusCode, 201);
+    assert.equal(JSON.parse(dareRes.body).cat.accountRef, 'my-openai-proxy');
+
+    const relayclawRes = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        catId: 'runtime-relayclaw-proxy',
+        name: '助理猫',
+        displayName: '助理猫',
+        avatar: '/avatars/runtime.png',
+        color: { primary: '#0f172a', secondary: '#e2e8f0' },
+        mentionPatterns: ['@runtime-relayclaw-proxy'],
+        roleDescription: '执行',
+        client: 'relayclaw',
+        providerProfileId: 'my-openai-proxy',
+        defaultModel: 'gpt-4o-mini',
+      }),
+    });
+
+    assert.equal(relayclawRes.statusCode, 201);
+    assert.equal(JSON.parse(relayclawRes.body).cat.accountRef, 'my-openai-proxy');
   });
 
   it('PATCH /api/cats/:id rejects models that are not available on the bound provider profile', async () => {

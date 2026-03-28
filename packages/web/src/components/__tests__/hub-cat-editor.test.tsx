@@ -488,6 +488,82 @@ describe('HubCatEditor', () => {
     expect(payload.defaultModel).toBe('deepseek-v3.1-terminus');
   });
 
+  it('uses custom openai-compatible model.json sources for dare and displayName in auth options', async () => {
+    const onSaved = vi.fn(() => Promise.resolve());
+    useChatStore.getState().setCurrentProject('/tmp/project');
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'my-openai-proxy',
+                provider: 'my-openai-proxy',
+                source: 'model_config',
+                displayName: 'My OpenAI Proxy',
+                name: 'My OpenAI Proxy',
+                authType: 'api_key',
+                kind: 'api_key',
+                builtin: false,
+                mode: 'api_key',
+                protocol: 'openai',
+                models: ['glm-5', 'gpt-4o-mini'],
+                hasApiKey: true,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'runtime-custom-openai' } }, 201));
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCatEditor, { open: true, onClose: vi.fn(), onSaved }));
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '代理猫');
+    await changeField(queryField(container, 'input[aria-label="Description"]'), '走自定义 OpenAI');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@proxy-cat');
+    await changeField(queryField(container, 'select[aria-label="Client"]'), 'dare', 'change');
+    await flushEffects();
+    await flushEffects();
+
+    const accountSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]');
+    const accountLabels = Array.from(accountSelect.options).map((option) => option.textContent ?? '');
+    expect(accountLabels).toContain('My OpenAI Proxy');
+    expect(accountLabels.some((label) => label.includes('API Key'))).toBe(false);
+    await changeField(accountSelect, 'my-openai-proxy', 'change');
+    await flushEffects();
+
+    const modelSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]');
+    const modelOptions = Array.from(modelSelect.options).map((option) => option.value);
+    expect(modelOptions).toContain('glm-5');
+    expect(modelOptions).toContain('gpt-4o-mini');
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.accountRef).toBe('my-openai-proxy');
+    expect(payload.defaultModel).toBe('glm-5');
+  });
+
   it('blocks creating opencode+api_key member without ocProviderName', async () => {
     const onSaved = vi.fn(() => Promise.resolve());
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
@@ -823,6 +899,66 @@ describe('HubCatEditor', () => {
       'codex-sponsor',
     ]);
     expect(filterProfiles('relayclaw', profiles).map((profile) => profile.id)).toEqual(['codex-sponsor']);
+  });
+
+  it('returns only supported model_config sources for dare and relayclaw', () => {
+    const profiles: ProfileItem[] = [
+      {
+        id: 'huawei-maas',
+        provider: 'huawei-maas',
+        displayName: 'Huawei MaaS',
+        name: 'Huawei MaaS',
+        authType: 'none',
+        protocol: 'huawei_maas',
+        kind: 'api_key',
+        builtin: false,
+        mode: 'none',
+        source: 'model_config',
+        models: ['glm-5'],
+        hasApiKey: false,
+        createdAt: '2026-03-28T00:00:00.000Z',
+        updatedAt: '2026-03-28T00:00:00.000Z',
+      },
+      {
+        id: 'my-openai-proxy',
+        provider: 'my-openai-proxy',
+        displayName: 'My OpenAI Proxy',
+        name: 'My OpenAI Proxy',
+        authType: 'api_key',
+        protocol: 'openai',
+        kind: 'api_key',
+        builtin: false,
+        mode: 'api_key',
+        source: 'model_config',
+        models: ['gpt-4o-mini'],
+        hasApiKey: true,
+        createdAt: '2026-03-28T00:00:00.000Z',
+        updatedAt: '2026-03-28T00:00:00.000Z',
+      },
+      {
+        id: 'unsupported-custom',
+        provider: 'unsupported-custom',
+        displayName: 'Unsupported Custom',
+        name: 'Unsupported Custom',
+        authType: 'api_key',
+        protocol: 'anthropic',
+        kind: 'api_key',
+        builtin: false,
+        mode: 'api_key',
+        source: 'model_config',
+        models: ['claude-sonnet-4-5'],
+        hasApiKey: true,
+        createdAt: '2026-03-28T00:00:00.000Z',
+        updatedAt: '2026-03-28T00:00:00.000Z',
+      },
+    ];
+
+    expect(filterProfiles('dare', profiles).map((profile) => profile.id)).toEqual(['huawei-maas', 'my-openai-proxy']);
+    expect(filterProfiles('relayclaw', profiles).map((profile) => profile.id)).toEqual([
+      'huawei-maas',
+      'my-openai-proxy',
+    ]);
+    expect(filterProfiles('openai', profiles)).toEqual([]);
   });
 
   it('preserves existing model when it is not listed in provider defaults', async () => {

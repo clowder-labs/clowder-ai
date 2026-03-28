@@ -228,9 +228,10 @@ export function filterAccounts(client: ClientValue, profiles: ProfileItem[]): Pr
   const modelConfigProfiles = profiles.filter(isModelConfigProfile);
   if (modelConfigProfiles.length > 0) {
     if (client !== 'dare' && client !== 'relayclaw') return [];
-    return modelConfigProfiles.filter(
-      (profile) => profile.id === HUAWEI_MAAS_MODEL_SOURCE_ID && profile.protocol === 'huawei_maas',
-    );
+    return modelConfigProfiles.filter((profile) => {
+      if (profile.id === HUAWEI_MAAS_MODEL_SOURCE_ID && profile.protocol === 'huawei_maas') return true;
+      return profile.protocol === 'openai';
+    });
   }
   if (client === 'acp') {
     return profiles.filter((profile) => profile.kind === 'acp');

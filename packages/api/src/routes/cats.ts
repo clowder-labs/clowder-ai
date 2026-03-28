@@ -240,7 +240,8 @@ async function validateAccountBindingOrThrow(
   if (modelConfigBinding) {
     const isHuaweiMaaSBinding =
       modelConfigBinding.id === HUAWEI_MAAS_MODEL_SOURCE_ID && modelConfigBinding.protocol === 'huawei_maas';
-    if (!isHuaweiMaaSBinding) {
+    const isCustomOpenAiBinding = modelConfigBinding.protocol === 'openai';
+    if (!isHuaweiMaaSBinding && !isCustomOpenAiBinding) {
       throw new Error(`model config source "${trimmedAccountRef}" is not supported yet`);
     }
     if (client !== 'dare' && client !== 'relayclaw') {
