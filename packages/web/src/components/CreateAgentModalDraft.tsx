@@ -464,7 +464,7 @@ export function CreateAgentModalDraft({
       const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
         method: cat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({...payload, client: 'relayclaw', "accountRef": "huawei-maas", "provider": "relayclaw"}),
       });
 
       if (!response.ok) {
