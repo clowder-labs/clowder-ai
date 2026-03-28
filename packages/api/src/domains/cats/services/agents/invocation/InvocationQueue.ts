@@ -10,8 +10,8 @@
  * 系统级出队（invocation 完成后）通过 *AcrossUsers 方法跨用户 FIFO。
  */
 
-import type { CatId } from '@cat-cafe/shared';
 import { randomUUID } from 'node:crypto';
+import type { CatId } from '@cat-cafe/shared';
 
 export interface QueueEntry {
   id: string;
@@ -25,6 +25,8 @@ export interface QueueEntry {
   intent: string;
   status: 'queued' | 'processing';
   createdAt: number;
+  /** Set when entry transitions to 'processing'. Used for stale-processing TTL. */
+  processingStartedAt?: number;
   /** F122B: auto-execute without waiting for steer/manual trigger */
   autoExecute: boolean;
   /** F122B: which cat initiated this entry (for A2A/multi_mention display) */
@@ -277,6 +279,7 @@ export class InvocationQueue {
     const first = q.find((e) => e.status === 'queued');
     if (!first) return null;
     first.status = 'processing';
+    first.processingStartedAt = Date.now();
     return { ...first };
   }
 
@@ -343,6 +346,7 @@ export class InvocationQueue {
     }
     if (!oldest) return null;
     oldest.entry.status = 'processing';
+    oldest.entry.processingStartedAt = Date.now();
     return { ...oldest.entry };
   }
 
@@ -413,18 +417,48 @@ export class InvocationQueue {
     return false;
   }
 
-  /** Cross-path dedup: checks both queued AND processing agent entries.
-   *  Used by route-serial to prevent text-scan @mention when callback already dispatched. */
+  /**
+   * Cross-path dedup: checks processing + fresh queued agent entries.
+   * Used by route-serial to prevent text-scan @mention when callback already dispatched.
+   *
+   * 'processing' entries block only if fresh (< STALE_PROCESSING_THRESHOLD_MS).
+   * Zombie processing entries (invocation hung without cleanup) are ignored to
+   * prevent permanent A2A routing deadlock.
+   *
+   * 'queued' entries only block if created within STALE_QUEUED_THRESHOLD_MS — fresh entries
+   * are legitimate pending dispatches that tryAutoExecute will pick up.
+   * Stale queued entries (older than threshold) are ignored — they may never execute
+   * (tryAutoExecute can fail to start them if the slot stays busy), and blocking
+   * on them causes permanent A2A deadlock.
+   */
+  static readonly STALE_QUEUED_THRESHOLD_MS = 60_000;
+  static readonly STALE_PROCESSING_THRESHOLD_MS = 600_000; // 10 minutes
   hasActiveOrQueuedAgentForCat(threadId: string, catId: string): boolean {
+    const now = Date.now();
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
-        if (
-          e.source === 'agent' &&
-          (e.status === 'queued' || e.status === 'processing') &&
-          e.targetCats.includes(catId)
-        )
-          return true;
+        if (e.source !== 'agent' || !e.targetCats.includes(catId)) continue;
+
+        if (e.status === 'processing') {
+          // Use processingStartedAt (when the entry actually began processing),
+          // NOT createdAt (when it was enqueued). An entry may sit queued for a
+          // long time before being picked up — using createdAt would falsely
+          // expire it the moment it starts processing. (P1 fix per codex review)
+          const processingAge = now - (e.processingStartedAt ?? e.createdAt);
+          if (processingAge < InvocationQueue.STALE_PROCESSING_THRESHOLD_MS) {
+            return true;
+          }
+          // Stale processing — zombie defense: ignore and continue
+          continue;
+        }
+
+        if (e.status === 'queued') {
+          const queuedAge = now - e.createdAt;
+          if (queuedAge < InvocationQueue.STALE_QUEUED_THRESHOLD_MS) {
+            return true;
+          }
+        }
       }
     }
     return false;
@@ -437,6 +471,7 @@ export class InvocationQueue {
       const entry = q.find((e) => e.id === entryId && e.status === 'queued');
       if (entry) {
         entry.status = 'processing';
+        entry.processingStartedAt = Date.now();
         return true;
       }
     }
