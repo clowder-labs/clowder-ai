@@ -156,7 +156,6 @@ function SkillList({
 export function HubSkillsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [trendingResults, setTrendingResults] = useState<SearchResult | null>(null);
@@ -211,7 +210,6 @@ export function HubSkillsTab() {
       setSearchError(null);
       return;
     }
-    setSearchLoading(true);
     setSearchError(null);
     try {
       const res = await apiFetch(`/api/skills/search?q=${encodeURIComponent(query.trim())}&page=1&limit=20`);
@@ -222,8 +220,6 @@ export function HubSkillsTab() {
       setSearchResults((await res.json()) as SearchResult);
     } catch {
       setSearchError('网络错误');
-    } finally {
-      setSearchLoading(false);
     }
   }, []);
 
@@ -306,7 +302,7 @@ export function HubSkillsTab() {
         }}
       />
 
-      <section className="ui-card space-y-3 p-3">
+      <section>
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -316,14 +312,6 @@ export function HubSkillsTab() {
             placeholder="搜索 SkillHub skill..."
             className="ui-field flex-1 px-3 py-1.5 text-xs"
           />
-          <button
-            type="button"
-            onClick={() => void executeSearch(searchQuery)}
-            disabled={searchLoading || !searchQuery.trim()}
-            className="ui-button-primary shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {searchLoading ? '搜索中...' : '搜索'}
-          </button>
           <button type="button" onClick={() => setShowUpload(true)} className="ui-button-secondary shrink-0">
             导入
           </button>

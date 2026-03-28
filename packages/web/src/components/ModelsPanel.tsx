@@ -242,7 +242,7 @@ export function ModelsPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-4 pb-2">
-          <section className="ui-card p-3">
+          <section>
             <div className="relative">
               <input
                 type="search"
