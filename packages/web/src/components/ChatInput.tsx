@@ -535,7 +535,7 @@ export function ChatInput({
       {hasActiveInvocation && (
         <div className="px-4 pt-2 flex items-center gap-2 mx-auto w-[80%]">
           <span className="inline-block w-2 h-2 rounded-full bg-[#9B7EBD] animate-pulse" />
-          <span className="text-xs text-[#9B7EBD] font-medium">猫猫正在回复中...</span>
+          <span className="text-xs text-[#9B7EBD] font-medium">正在回复中...</span>
           <span className="text-xs text-gray-400">继续输入，消息会排队</span>
         </div>
       )}
