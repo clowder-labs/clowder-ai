@@ -139,6 +139,23 @@ const INSPIRATION_TEMPLATES = [
 const TEMPLATE_PREVIEW_WIDTH = 400;
 const TEMPLATE_PREVIEW_SIDE_PADDING = 24;
 
+function buildTemplateInsertText(template: (typeof INSPIRATION_TEMPLATES)[number]): string {
+  const sections = [
+    {
+      title: '人格定义 (Persona)',
+      lines: template.persona,
+    },
+    {
+      title: '行为准则 (Behavior)',
+      lines: template.behavior,
+    },
+  ].filter((section) => section.lines.length > 0);
+
+  return sections
+    .map((section) => `${section.title}：\n${section.lines.map((line, index) => `${index + 1}. ${line}`).join('\n')}`)
+    .join('\n\n');
+}
+
 function buildCollabDraft(cat: {
   teamStrengths?: string;
   strengths?: string[];
@@ -286,7 +303,7 @@ export function AgentsPanel() {
             lines: template.behavior,
           },
         ],
-        content: `${template.description}\n\n人格定义：\n${template.persona.map((item, index) => `${index + 1}. ${item}`).join('\n')}`,
+        content: buildTemplateInsertText(template),
       })),
     [],
   );
@@ -374,7 +391,7 @@ export function AgentsPanel() {
   }, []);
 
   const handleTemplateApply = useCallback((template: (typeof INSPIRATION_TEMPLATES)[number]) => {
-    const templateText = template.persona.join('\n');
+    const templateText = buildTemplateInsertText(template);
     setTabDrafts((current) => {
       const activeDraft = current[activeTab];
       return {
