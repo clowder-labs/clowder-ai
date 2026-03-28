@@ -13,7 +13,7 @@ import Fastify from 'fastify';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
-import { bootstrapDefaultCatCatalog, getConfigSessionStrategy, toAllCatConfigs } from './config/cat-config-loader.js';
+import { bootstrapDefaultCatCatalog, getConfigSessionStrategy, getDefaultCatId, toAllCatConfigs } from './config/cat-config-loader.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { resolveAnthropicRuntimeProfile, resolveRuntimeProviderProfileForClient } from './config/provider-profiles.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
@@ -1336,7 +1336,7 @@ async function main(): Promise<void> {
       invokeTrigger,
       socketManager,
       defaultUserId: 'default-user',
-      defaultCatId: 'opus' as CatId,
+      defaultCatId: getDefaultCatId(),
       redis: redisClient ?? undefined,
       log: app.log,
       frontendBaseUrl,
