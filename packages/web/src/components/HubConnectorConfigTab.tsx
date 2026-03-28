@@ -152,13 +152,12 @@ export function HubConnectorConfigTab() {
   };
 
   const handleSave = async (platform: PlatformStatus) => {
-    // Sensitive fields must be set in .env manually — only non-sensitive can be patched
     const updates = platform.fields
-      .filter((f) => !f.sensitive && fieldValues[f.envName] !== undefined)
+      .filter((f) => fieldValues[f.envName] !== undefined && fieldValues[f.envName] !== '')
       .map((f) => ({ name: f.envName, value: fieldValues[f.envName] }));
 
     if (updates.length === 0) {
-      setSaveResult({ type: 'error', message: '请填写至少一个非敏感配置项（敏感字段需手动编辑 .env）' });
+      setSaveResult({ type: 'error', message: '请填写至少一个配置项' });
       return;
     }
 
@@ -175,7 +174,15 @@ export function HubConnectorConfigTab() {
         setSaveResult({ type: 'error', message: data.error ?? '保存失败' });
         return;
       }
-      setSaveResult({ type: 'success', message: '配置已保存。需重启 API 服务使连接器生效。' });
+      const data = await res.json().catch(() => ({}));
+      const hasSensitive = updates.some((u) => platform.fields.find((f) => f.envName === u.name)?.sensitive);
+      const restartHint = data.requiresRestart || hasSensitive;
+      setSaveResult({
+        type: 'success',
+        message: restartHint
+          ? '配置已保存。包含敏感字段，需重启 API 服务使连接器生效。'
+          : '配置已保存。需重启 API 服务使连接器生效。',
+      });
       setFieldValues({});
       await fetchStatus();
     } catch {
@@ -291,22 +298,16 @@ export function HubConnectorConfigTab() {
                             </span>
                           )}
                         </label>
-                        {field.sensitive ? (
-                          <div className="ui-field flex h-9 w-full items-center px-3 text-[13px] text-[var(--text-muted)]">
-                            {field.currentValue ?? '••••••••••••••••'}
-                            <span className="ml-auto whitespace-nowrap text-[10px] text-[var(--state-warning-text)]">编辑 .env</span>
-                          </div>
-                        ) : (
-                          <input
-                            id={`config-${field.envName}`}
-                            type="text"
-                            placeholder={field.currentValue ?? '未设置'}
-                            value={fieldValues[field.envName] ?? ''}
-                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                            className="ui-field h-9 w-full px-3 text-[13px]"
-                            data-testid={`field-${field.envName}`}
-                          />
-                        )}
+                        <input
+                          id={`config-${field.envName}`}
+                          type={field.sensitive ? 'password' : 'text'}
+                          placeholder={field.sensitive ? (field.currentValue ? '已设置（输入新值覆盖）' : '未设置') : (field.currentValue ?? '未设置')}
+                          value={fieldValues[field.envName] ?? ''}
+                          onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                          autoComplete={field.sensitive ? 'off' : undefined}
+                          className="ui-field h-9 w-full px-3 text-[13px]"
+                          data-testid={`field-${field.envName}`}
+                        />
                       </div>
                     ))}
                   </div>
@@ -336,27 +337,15 @@ export function HubConnectorConfigTab() {
                       <WifiIcon />
                       测试连接
                     </button>
-                    {platform.fields.some((f) => !f.sensitive) ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSave(platform)}
-                        disabled={saving}
-                        className="ui-button-primary disabled:opacity-50"
-                        data-testid={`save-${platform.id}`}
-                      >
-                        {saving ? '保存中...' : '保存配置'}
-                      </button>
-                    ) : (
-                      <div className="ui-status-warning flex-1 rounded-[var(--radius-md)] px-3 py-2 text-xs">
-                        <p className="flex items-center gap-1 font-medium">
-                          <LockIcon /> 所有凭证为敏感字段，请手动配置：
-                        </p>
-                        <code className="mt-1 block rounded-[var(--radius-xs)] border border-[var(--border-default)] bg-[var(--surface-panel)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)] select-all">
-                          {platform.fields.map((f) => `${f.envName}=your_value`).join('\n')}
-                        </code>
-                        <p className="mt-1 text-[11px]">写入 .env 文件后重启 API 服务生效</p>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleSave(platform)}
+                      disabled={saving}
+                      className="ui-button-primary disabled:opacity-50"
+                      data-testid={`save-${platform.id}`}
+                    >
+                      {saving ? '保存中...' : '保存配置'}
+                    </button>
                   </div>
                 </div>
               </div>
