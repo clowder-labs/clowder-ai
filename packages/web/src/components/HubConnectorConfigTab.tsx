@@ -303,7 +303,7 @@ export function HubConnectorConfigTab() {
                             placeholder={field.currentValue ?? '未设置'}
                             value={fieldValues[field.envName] ?? ''}
                             onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                            className=ui-field h-9 w-full px-3 text-[13px]"
+                            className="ui-field h-9 w-full px-3 text-[13px]"
                             data-testid={`field-${field.envName}`}
                           />
                         )}
