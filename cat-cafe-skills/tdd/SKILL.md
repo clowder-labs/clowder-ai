@@ -7,9 +7,13 @@ description: >
   Output: 失败测试 → 最小实现 → 重构，全程有测试保护。
 triggers:
   - "写代码"
+  - "写测试"
   - "test first"
   - "TDD"
+  - "测试驱动"
+  - "red green refactor"
   - "红绿重构"
+  - "失败场景"
 ---
 
 # TDD（测试驱动开发）

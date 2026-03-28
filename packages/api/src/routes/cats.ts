@@ -464,6 +464,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           mcpSupport:
             body.mcpSupport ??
             (body.client === 'anthropic' ||
+              body.client === 'acp' ||
               body.client === 'openai' ||
               body.client === 'google' ||
               body.client === 'opencode'),
