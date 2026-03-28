@@ -1,4 +1,4 @@
-import type { CatData } from '@/hooks/useCatData';
+﻿import type { CatData } from '@/hooks/useCatData';
 import type { CatConfig, CoCreatorConfig } from './config-viewer-types';
 
 function safeAvatarSrc(value: string | null | undefined): string | null {
@@ -44,13 +44,7 @@ function accountSummary(cat: CatData) {
   const accountRef = cat.accountRef?.trim() ?? cat.providerProfileId?.trim() ?? '';
   if (!accountRef) return humanizeProvider(cat.provider);
   const cleaned = cleanAccountRef(accountRef);
-  if (
-    cleaned === 'claude' ||
-    cleaned === 'codex' ||
-    cleaned === 'gemini' ||
-    cleaned === 'dare' ||
-    cleaned === 'opencode'
-  ) {
+  if (cleaned === 'claude' || cleaned === 'codex' || cleaned === 'gemini' || cleaned === 'dare' || cleaned === 'opencode') {
     return '内置 OAuth 账号';
   }
   return `API Key · ${cleaned}`;
@@ -69,13 +63,13 @@ function getStatusBadge(cat: CatData) {
     return {
       enabled: false,
       label: '未启用',
-      className: 'bg-slate-100 text-slate-600',
+      className: 'border border-[var(--border-default)] bg-[var(--surface-card-muted)] text-[var(--text-secondary)]',
     };
   }
   return {
     enabled: true,
     label: '已启用',
-    className: 'bg-[#E8F5E9] text-[#4CAF50]',
+    className: 'ui-status-success',
   };
 }
 
@@ -87,7 +81,6 @@ function formatMentionPreview(patterns: string[], max = 3) {
 
 export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoCreatorConfig; onEdit?: () => void }) {
   const primary = coCreator.color?.primary ?? '#D4A76A';
-  const secondary = coCreator.color?.secondary ?? '#FFF8F0';
   const avatarSrc = safeAvatarSrc(coCreator.avatar);
 
   return (
@@ -102,8 +95,7 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
           onEdit();
         }
       }}
-      className="rounded-[20px] px-[18px] py-[18px] shadow-sm"
-      style={{ backgroundColor: secondary, border: `2px solid ${primary}` }}
+      className="ui-card-muted px-[18px] py-[18px]"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -118,10 +110,10 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
               'ME'
             )}
           </div>
-          <h3 className="text-base font-bold text-[#2D2118]">{coCreator.name}</h3>
+          <h3 className="text-base font-bold text-[var(--text-primary)]">{coCreator.name}</h3>
         </div>
-        <span className="rounded-full bg-[#FFF3E0] px-2.5 py-1 text-[11px] font-semibold text-[#E65100] flex items-center gap-1">
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <span className="ui-status-warning flex items-center gap-1 rounded-[var(--radius-pill)] px-2.5 py-1 text-[11px] font-semibold">
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -131,12 +123,10 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
           Owner
         </span>
       </div>
-      <p className="mt-2.5 text-[13px] text-[#8A776B]">
-        别名: {coCreator.aliases.join(' · ') || '无'} · 只能编辑，不能新增或删除
+      <p className="mt-2.5 text-[13px] text-[var(--text-secondary)]">
+        别名: {coCreator.aliases.join(' · ') || '无'} · 仅可编辑，不可新增或删除
       </p>
-      <p className="mt-2 text-[13px]" style={{ color: primary }}>
-        {formatMentionPreview(coCreator.mentionPatterns, 2)}
-      </p>
+      <p className="mt-2 text-[13px] text-[var(--text-accent)]">{formatMentionPreview(coCreator.mentionPatterns, 2)}</p>
     </section>
   );
 }
@@ -144,13 +134,8 @@ export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoC
 export function HubOverviewToolbar({ onAddMember }: { onAddMember?: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <p className="text-[13px] text-[#8F8075]">全部 · 订阅 · API Key · 未启用</p>
-      <button
-        type="button"
-        onClick={onAddMember}
-        className="rounded-full px-4 py-2 text-sm font-bold text-white"
-        style={{ backgroundColor: '#D49266' }}
-      >
+      <p className="text-[13px] text-[var(--text-secondary)]">全部 · 订阅 · API Key · 未启用</p>
+      <button type="button" onClick={onAddMember} className="ui-button-primary">
         + 添加成员
       </button>
     </div>
@@ -187,17 +172,14 @@ export function HubMemberOverviewCard({
           onEdit(cat);
         }
       }}
-      className="rounded-[20px] px-[18px] py-[18px] shadow-sm transition hover:shadow-md"
-      style={{ backgroundColor: '#FFFDFC', border: `1px solid ${cat.source === 'runtime' ? '#D9C7EA' : '#F1E7DF'}` }}
+      className="ui-card px-[18px] py-[18px] transition-colors hover:border-[var(--border-accent)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[17px] font-bold text-[#2D2118]">{title}</h3>
+            <h3 className="text-[17px] font-bold text-[var(--text-primary)]">{title}</h3>
             {cat.source === 'runtime' ? (
-              <span className="rounded-full bg-[#F3E8FF] px-2 py-0.5 text-[11px] font-semibold text-[#9D7BC7]">
-                动态创建
-              </span>
+              <span className="ui-badge-muted text-[var(--text-accent)]">动态创建</span>
             ) : null}
           </div>
         </div>
@@ -209,15 +191,15 @@ export function HubMemberOverviewCard({
           }}
           disabled={!onToggleAvailability || togglingAvailability}
           aria-pressed={status.enabled}
-          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${status.className} disabled:cursor-default`}
+          className={`rounded-[var(--radius-pill)] px-2.5 py-1 text-[11px] font-semibold transition ${status.className} disabled:cursor-default`}
         >
           {togglingAvailability ? '切换中...' : status.label}
         </button>
       </div>
 
-      <p className="mt-2.5 text-[13px] text-[#8A776B]">{getMetaSummary(cat, configCat, clientLabels)}</p>
+      <p className="mt-2.5 text-[13px] text-[var(--text-secondary)]">{getMetaSummary(cat, configCat, clientLabels)}</p>
 
-      <p className="mt-2 text-[13px] text-[#9D7BC7]">{formatMentionPreview(cat.mentionPatterns)}</p>
+      <p className="mt-2 text-[13px] text-[var(--text-accent)]">{formatMentionPreview(cat.mentionPatterns)}</p>
     </section>
   );
 }

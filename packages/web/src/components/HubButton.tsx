@@ -1,4 +1,4 @@
-import { useChatStore } from '@/stores/chatStore';
+﻿import { useChatStore } from '@/stores/chatStore';
 
 /** F099 P1-2: Always-visible Hub entry in the top bar (gear icon). */
 export function HubButton() {
@@ -6,13 +6,14 @@ export function HubButton() {
 
   return (
     <button
+      type="button"
       onClick={() => openHub()}
-      className="p-1 rounded-lg hover:bg-cocreator-light transition-colors"
+      className="ui-icon-button"
       aria-label="OfficeClaw Hub"
       title="OfficeClaw Hub"
     >
       <svg
-        className="w-5 h-5 text-gray-500"
+        className="h-5 w-5"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"

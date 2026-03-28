@@ -61,6 +61,7 @@ export function UserProfile({ className }: UserProfileProps) {
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ userId }),
       });
 
       if (response.ok) {

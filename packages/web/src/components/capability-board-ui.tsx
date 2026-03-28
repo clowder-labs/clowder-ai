@@ -1,16 +1,6 @@
-/**
- * Capability Center UI — F041 统一能力中心组件
- *
- * 卡片式手风琴布局，Pencil MCP 定制 icon
- * - 折叠态：名字 + 描述 + 状态灯 + 全局开关
- * - 展开态：MCP → tools, Skill → triggers, 底部 per-cat 开关（按猫族折叠）
- */
-
-'use client';
+﻿'use client';
 
 import { type ReactNode, useState } from 'react';
-
-// ────────── Types ──────────
 
 export interface CapabilityBoardItem {
   id: string;
@@ -53,8 +43,6 @@ export type ToggleHandler = (
   scope?: 'global' | 'cat',
   catId?: string,
 ) => void;
-
-// ────────── SVG Icons (Pencil MCP design: plug / book-open / puzzle) ──────────
 
 export function McpIcon({ className }: { className?: string }) {
   return (
@@ -108,8 +96,6 @@ export function ExtensionIcon({ className }: { className?: string }) {
   );
 }
 
-// ────────── Section ──────────
-
 export function CapabilitySection({
   icon,
   title,
@@ -132,13 +118,14 @@ export function CapabilitySection({
   hideSkillMountStatus?: boolean;
 }) {
   if (items.length === 0) return null;
+
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-3 mb-3 pl-1">
+      <div className="mb-3 flex items-center gap-3 pl-1">
         {icon}
         <div>
-          <h3 className="text-[15px] font-bold text-slate-800 tracking-wide">{title}</h3>
-          <p className="text-xs font-medium text-slate-400 mt-0.5">
+          <h3 className="text-[15px] font-bold tracking-wide text-[var(--text-primary)]">{title}</h3>
+          <p className="mt-0.5 text-xs font-medium text-[var(--text-muted)]">
             {subtitle} · {items.length}
           </p>
         </div>
@@ -159,8 +146,6 @@ export function CapabilitySection({
     </div>
   );
 }
-
-// ────────── Accordion Card ──────────
 
 function CapabilityCard({
   item,
@@ -187,29 +172,25 @@ function CapabilityCard({
 
   return (
     <div
-      className={`group rounded-xl border transition-all duration-300 overflow-hidden ${
-        expanded
-          ? 'border-indigo-300 shadow-md ring-1 ring-indigo-100 bg-white/60 backdrop-blur-sm'
-          : 'border-slate-200/60 hover:border-indigo-200 hover:shadow shadow-sm bg-white/40'
-      }`}
+      className={`ui-card group overflow-hidden transition-colors ${expanded ? 'border-[var(--border-accent)]' : 'hover:border-[var(--border-accent)]'}`}
+      data-testid={`capability-card-${item.type}-${item.id}`}
     >
-      {/* Header */}
       <div className={`flex items-center gap-3 px-4 transition-all duration-300 ${expanded ? 'py-3' : 'py-2.5'}`}>
         <button
           type="button"
-          onClick={() => hasDetails && setExpanded((v) => !v)}
-          className={`flex-1 min-w-0 flex items-center gap-3 text-left ${hasDetails ? 'cursor-pointer group' : 'cursor-default'}`}
+          onClick={() => hasDetails && setExpanded((value) => !value)}
+          className={`flex min-w-0 flex-1 items-center gap-3 text-left ${hasDetails ? 'cursor-pointer group' : 'cursor-default'}`}
         >
-          {hasDetails && (
+          {hasDetails ? (
             <div
-              className={`shrink-0 flex items-center justify-center w-6 h-6 rounded-full transition-colors ${
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors ${
                 expanded
-                  ? 'bg-indigo-100 text-indigo-600'
-                  : 'bg-slate-100 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500'
+                  ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]'
+                  : 'bg-[var(--surface-card-muted)] text-[var(--text-muted)] group-hover:bg-[var(--accent-soft)] group-hover:text-[var(--text-accent)]'
               }`}
             >
               <svg
-                className={`w-3.5 h-3.5 transition-transform duration-300 ${expanded ? 'rotate-90' : ''}`}
+                className={`h-3.5 w-3.5 transition-transform duration-300 ${expanded ? 'rotate-90' : ''}`}
                 viewBox="0 0 20 20"
                 fill="currentColor"
               >
@@ -220,40 +201,34 @@ function CapabilityCard({
                 />
               </svg>
             </div>
+          ) : (
+            <span className="w-6 shrink-0" />
           )}
-          {!hasDetails && <span className="w-6 shrink-0" />}
 
-          <div className="flex-1 min-w-0 py-0.5">
+          <div className="min-w-0 flex-1 py-0.5">
             <div className="flex items-center gap-2">
-              <span
-                className={`text-sm font-semibold truncate transition-colors ${
-                  expanded ? 'text-indigo-900' : 'text-slate-700'
-                }`}
-              >
-                {item.id}
-              </span>
+              <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.id}</span>
               <TypeBadge type={item.type} />
               {item.connectionStatus && <StatusDot status={item.connectionStatus} />}
             </div>
             {item.description && (
-              <p className="text-xs text-slate-500 mt-1 truncate max-w-[90%] font-medium">{item.description}</p>
+              <p className="mt-1 max-w-[90%] truncate text-xs font-medium text-[var(--text-secondary)]">{item.description}</p>
             )}
           </div>
         </button>
 
-        {/* Global toggle */}
-        <div className="shrink-0 pl-2 flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 pl-2">
           {item.source === 'external' && onUninstall && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 onUninstall(item.id);
               }}
               title="卸载此 Skill"
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600"
+              className="rounded-[var(--radius-xs)] p-1 text-[var(--state-error-text)] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--state-error-surface)]"
             >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                 <path
                   fillRule="evenodd"
                   d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -262,83 +237,64 @@ function CapabilityCard({
               </svg>
             </button>
           )}
-          <ToggleSwitch
-            enabled={item.enabled}
-            disabled={isToggling}
-            onChange={(v) => onToggle(item.id, item.type, v)}
-          />
+          <ToggleSwitch enabled={item.enabled} disabled={isToggling} onChange={(value) => onToggle(item.id, item.type, value)} />
         </div>
       </div>
 
-      {/* Expanded details */}
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-        }`}
-      >
+      <div className={`grid transition-all duration-300 ease-in-out ${expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
           {expanded && (
-            <div className="border-t border-indigo-100/50 px-5 py-3.5 bg-gradient-to-br from-indigo-50/50 to-white/50 text-xs text-slate-600 space-y-3">
-              {/* Full description */}
+            <div className="space-y-3 border-t border-[var(--border-soft)] bg-[var(--surface-card-muted)] px-5 py-3.5 text-xs text-[var(--text-secondary)]">
               {item.description && (
                 <div>
-                  <span className="font-medium text-slate-500">描述:</span>
-                  <p className="mt-1 text-slate-600 leading-relaxed break-words">{item.description}</p>
+                  <span className="font-medium text-[var(--text-secondary)]">描述:</span>
+                  <p className="mt-1 break-words leading-relaxed text-[var(--text-secondary)]">{item.description}</p>
                 </div>
               )}
 
-              {/* MCP tools */}
               {item.type === 'mcp' && item.tools && item.tools.length > 0 && (
                 <div>
-                  <span className="font-medium text-gray-500">Tools ({item.tools.length}):</span>
-                  <ul className="mt-1 space-y-0.5 ml-3">
+                  <span className="font-medium text-[var(--text-secondary)]">Tools ({item.tools.length}):</span>
+                  <ul className="ml-3 mt-1 space-y-0.5">
                     {item.tools.map((tool) => (
                       <li key={tool.name} className="flex gap-2">
-                        <code className="text-purple-600">{tool.name}</code>
-                        {tool.description && (
-                          <span className="text-gray-400 leading-relaxed break-words">{tool.description}</span>
-                        )}
+                        <code className="text-[var(--text-accent)]">{tool.name}</code>
+                        {tool.description && <span className="break-words leading-relaxed text-[var(--text-muted)]">{tool.description}</span>}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
               {item.type === 'mcp' && (!item.tools || item.tools.length === 0) && (
-                <p className="text-slate-400 italic py-1">
+                <p className="py-1 italic text-[var(--text-muted)]">
                   {item.connectionStatus === 'disconnected'
-                    ? '探活失败或服务不可达，请检查 MCP 配置'
+                    ? '探活失败或服务不可达，请检查 MCP 配置。'
                     : item.connectionStatus === 'connected'
-                      ? '已连接，但该 MCP 服务没有返回 tools'
-                      : '当前未探活（或未对任一猫启用）'}
+                      ? '已连接，但该 MCP 服务没有返回 tools。'
+                      : '当前未探活，或尚未对任意猫启用。'}
                 </p>
               )}
 
-              {/* Skill triggers */}
               {item.type === 'skill' && item.triggers && item.triggers.length > 0 && (
                 <div>
-                  <span className="font-medium text-slate-500 mb-2 block">触发词:</span>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {item.triggers.map((t) => (
-                      <span
-                        key={t}
-                        className="px-2 py-1 bg-white border border-indigo-100/50 text-indigo-600 rounded-md text-[11px] font-medium shadow-sm"
-                      >
-                        &quot;{t}&quot;
+                  <span className="mb-2 block font-medium text-[var(--text-secondary)]">触发词:</span>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {item.triggers.map((trigger) => (
+                      <span key={trigger} className="ui-badge-muted border-[var(--border-accent)] text-[var(--text-accent)]">
+                        &quot;{trigger}&quot;
                       </span>
                     ))}
                   </div>
                 </div>
               )}
               {item.type === 'skill' && (!item.triggers || item.triggers.length === 0) && (
-                <p className="text-slate-400 italic py-1">无特定触发词，由上下文自动匹配</p>
+                <p className="py-1 italic text-[var(--text-muted)]">无特定触发词，由上下文自动匹配。</p>
               )}
 
-              {/* Skill mount status */}
               {!hideSkillMountStatus && item.type === 'skill' && item.source === 'cat-cafe' && item.mounts && (
                 <MountStatusBadges mounts={item.mounts} />
               )}
 
-              {/* Per-cat toggles (grouped by family) */}
               {catFamilies.length > 0 && (
                 <CatFamilyToggles item={item} catFamilies={catFamilies} toggling={toggling} onToggle={onToggle} />
               )}
@@ -349,8 +305,6 @@ function CapabilityCard({
     </div>
   );
 }
-
-// ────────── Per-cat toggles grouped by family ──────────
 
 function CatFamilyToggles({
   item,
@@ -366,27 +320,26 @@ function CatFamilyToggles({
   const [openFamily, setOpenFamily] = useState<string | null>(null);
 
   return (
-    <div className="pt-2 border-t border-indigo-100/30">
-      <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">启用状态（按猫）</span>
+    <div className="border-t border-[var(--border-soft)] pt-2">
+      <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">启用状态（按猫）</span>
       <div className="mt-1.5 space-y-1">
         {catFamilies.map((family) => {
           const isOpen = openFamily === family.id;
-          const relevantCatIds = family.catIds.filter((c) => c in item.cats);
-          // For skills: hide families that have no relevant cats to avoid noisy grids.
+          const relevantCatIds = family.catIds.filter((catId) => catId in item.cats);
           if (item.type === 'skill' && relevantCatIds.length === 0) return null;
-          const enabledCount = relevantCatIds.filter((c) => item.cats[c]).length;
+          const enabledCount = relevantCatIds.filter((catId) => item.cats[catId]).length;
           return (
-            <div key={family.id} className="rounded-lg border border-slate-100 bg-white/50">
+            <div key={family.id} className="rounded-[var(--radius-sm)] border border-[var(--border-soft)] bg-[var(--surface-panel)]">
               <button
                 type="button"
                 onClick={() => setOpenFamily(isOpen ? null : family.id)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-left"
+                className="flex w-full items-center justify-between px-3 py-1.5 text-left"
               >
-                <span className="text-[12px] font-medium text-slate-600">{family.name}</span>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[12px] font-medium text-[var(--text-secondary)]">{family.name}</span>
+                <span className="text-[11px] text-[var(--text-muted)]">
                   {enabledCount}/{relevantCatIds.length}
                   <svg
-                    className={`inline-block w-3 h-3 ml-1 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    className={`ml-1 inline-block h-3 w-3 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                     viewBox="0 0 20 20"
                     fill="currentColor"
                   >
@@ -399,16 +352,14 @@ function CatFamilyToggles({
                 </span>
               </button>
               {isOpen && (
-                <div className="px-3 pb-2 space-y-1">
+                <div className="space-y-1 px-3 pb-2">
                   {family.catIds.map((catId) => {
-                    // Sparse cats: if a skill is not relevant for a cat (provider mismatch),
-                    // the backend omits the key entirely. Render a dash instead of a toggle.
                     if (!(catId in item.cats)) {
                       return (
                         <div key={catId} className="flex items-center justify-between py-0.5">
-                          <span className="text-[11px] text-slate-500 font-mono">{catId}</span>
-                          <span className="text-[12px] text-slate-300 select-none" title="该 Skill 对此猫不适用">
-                            –
+                          <span className="font-mono text-[11px] text-[var(--text-secondary)]">{catId}</span>
+                          <span className="select-none text-[12px] text-[var(--text-subtle)]" title="该 Skill 对此猫不适用">
+                            -
                           </span>
                         </div>
                       );
@@ -417,12 +368,12 @@ function CatFamilyToggles({
                     const isCatToggling = toggling === `${item.type}:${item.id}:${catId}`;
                     return (
                       <div key={catId} className="flex items-center justify-between py-0.5">
-                        <span className="text-[11px] text-slate-500 font-mono">{catId}</span>
+                        <span className="font-mono text-[11px] text-[var(--text-secondary)]">{catId}</span>
                         <ToggleSwitch
                           enabled={catEnabled}
                           disabled={isCatToggling}
                           size="sm"
-                          onChange={(v) => onToggle(item.id, item.type, v, 'cat', catId)}
+                          onChange={(value) => onToggle(item.id, item.type, value, 'cat', catId)}
                         />
                       </div>
                     );
@@ -437,15 +388,13 @@ function CatFamilyToggles({
   );
 }
 
-// ────────── Sub-components ──────────
-
 function TypeBadge({ type }: { type: 'mcp' | 'skill' }) {
   return (
     <span
-      className={`inline-flex items-center justify-center text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+      className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
         type === 'mcp'
-          ? 'bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 border border-purple-200/50'
-          : 'bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 border border-blue-200/50'
+          ? 'border border-[var(--border-accent)] bg-[var(--accent-soft)] text-[var(--text-accent)]'
+          : 'border border-[var(--border-default)] bg-[var(--surface-card-muted)] text-[var(--text-secondary)]'
       }`}
     >
       {type === 'mcp' ? 'MCP' : 'Skill'}
@@ -454,9 +403,14 @@ function TypeBadge({ type }: { type: 'mcp' | 'skill' }) {
 }
 
 export function StatusDot({ status }: { status: 'connected' | 'disconnected' | 'unknown' }) {
-  const color = status === 'connected' ? 'bg-green-400' : status === 'disconnected' ? 'bg-red-400' : 'bg-gray-300';
+  const color =
+    status === 'connected'
+      ? 'bg-[var(--state-success-text)]'
+      : status === 'disconnected'
+        ? 'bg-[var(--state-error-text)]'
+        : 'bg-[var(--text-muted)]';
   const label = status === 'connected' ? '已连接' : status === 'disconnected' ? '掉线' : '未知';
-  return <span className={`inline-block w-2 h-2 rounded-full ${color}`} title={label} />;
+  return <span className={`inline-block h-2 w-2 rounded-full ${color}`} title={label} />;
 }
 
 function ToggleSwitch({
@@ -468,28 +422,28 @@ function ToggleSwitch({
   enabled: boolean;
   disabled?: boolean;
   size?: 'sm' | 'md';
-  onChange: (v: boolean) => void;
+  onChange: (value: boolean) => void;
 }) {
   const isSm = size === 'sm';
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.stopPropagation();
+      onClick={(event) => {
+        event.stopPropagation();
         onChange(!enabled);
       }}
       disabled={disabled}
-      className={`rounded-full relative transition-[background-color,opacity] duration-300 ease-in-out shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 box-content border-[3px] border-transparent ${
-        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-90'
-      } ${enabled ? 'bg-indigo-500' : 'bg-slate-200'} ${isSm ? 'w-7 h-3.5' : 'w-10 h-5'}`}
+      className={`relative box-content shrink-0 rounded-full border-[3px] border-transparent transition-[background-color,opacity] duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-accent)] focus-visible:ring-offset-2 ${
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:opacity-90'
+      } ${enabled ? 'bg-[var(--accent-primary)]' : 'bg-[var(--border-strong)]'} ${isSm ? 'h-3.5 w-7' : 'h-5 w-10'}`}
     >
       <span
-        className={`absolute top-0 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-300 ease-in-out flex items-center justify-center ${isSm ? 'w-3.5 h-3.5' : 'w-5 h-5'} ${
-          enabled ? (isSm ? 'translate-x-[14px]' : 'translate-x-[20px]') : 'translate-x-0'
-        }`}
+        className={`absolute top-0 flex items-center justify-center rounded-full bg-white ring-1 ring-black/5 transition-transform duration-300 ease-in-out ${
+          isSm ? 'h-3.5 w-3.5' : 'h-5 w-5'
+        } ${enabled ? (isSm ? 'translate-x-[14px]' : 'translate-x-[20px]') : 'translate-x-0'}`}
       >
         {enabled && !isSm && (
-          <svg className="w-2.5 h-2.5 text-indigo-500 drop-shadow-sm" viewBox="0 0 12 12" fill="none">
+          <svg className="h-2.5 w-2.5 text-[var(--text-accent)]" viewBox="0 0 12 12" fill="none">
             <path
               stroke="currentColor"
               strokeWidth="2"
@@ -504,7 +458,6 @@ function ToggleSwitch({
   );
 }
 
-/** Mount status badges for a cat-cafe skill (claude/codex/gemini) */
 function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
   const knownProviders = [
     { key: 'claude', label: 'Claude' },
@@ -518,21 +471,20 @@ function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
       .filter((key) => !knownProviders.some((provider) => provider.key === key))
       .map((key) => ({ key, label: key })),
   ];
+
   return (
     <div>
-      <span className="font-medium text-slate-500 mb-1.5 block">挂载状态:</span>
+      <span className="mb-1.5 block font-medium text-[var(--text-secondary)]">挂载状态:</span>
       <div className="flex flex-wrap gap-1.5">
         {providers.map(({ key, label }) => {
           const ok = mounts[key] ?? false;
           return (
             <span
               key={key}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
-                ok ? 'bg-emerald-50 text-emerald-700 border-emerald-200/50' : 'bg-red-50 text-red-600 border-red-200/50'
-              }`}
+              className={`inline-flex items-center gap-1 rounded-[var(--radius-xs)] border px-2 py-0.5 text-[11px] font-medium ${ok ? 'ui-status-success' : 'ui-status-error'}`}
             >
               {ok ? (
-                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
                   <path
                     stroke="currentColor"
                     strokeWidth="1.5"
@@ -542,7 +494,7 @@ function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
                   />
                 </svg>
               ) : (
-                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
                   <path stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" d="M3.5 3.5l5 5M8.5 3.5l-5 5" />
                 </svg>
               )}
@@ -555,53 +507,42 @@ function MountStatusBadges({ mounts }: { mounts: Record<string, boolean> }) {
   );
 }
 
-/** Skill health summary banner (allMounted + registrationConsistent) */
 export function SkillHealthBanner({ health, items }: { health: SkillHealthSummary; items?: CapabilityBoardItem[] }) {
   const allGood = health.allMounted && health.registrationConsistent;
-
-  // Find skills with mount failures for detail display
   const mountFailures = (items ?? [])
-    .filter((i) => i.type === 'skill' && i.source === 'cat-cafe' && i.mounts)
-    .filter((i) => !Object.values(i.mounts!).every(Boolean))
-    .map((i) => ({
-      id: i.id,
-      failed: Object.entries(i.mounts!)
+    .filter((item) => item.type === 'skill' && item.source === 'cat-cafe' && item.mounts)
+    .filter((item) => !Object.values(item.mounts!).every(Boolean))
+    .map((item) => ({
+      id: item.id,
+      failed: Object.entries(item.mounts!)
         .filter(([, ok]) => !ok)
         .map(([provider]) => provider),
     }));
 
   return (
-    <div
-      className={`flex items-start gap-2.5 rounded-lg px-3.5 py-2.5 text-xs border ${
-        allGood
-          ? 'bg-emerald-50/60 border-emerald-200/40 text-emerald-700'
-          : 'bg-amber-50/60 border-amber-200/40 text-amber-700'
-      }`}
-    >
-      <span className="text-base leading-none mt-0.5">{allGood ? '✓' : '!'}</span>
+    <div className={`flex items-start gap-2.5 rounded-[var(--radius-md)] border px-3.5 py-2.5 text-xs ${allGood ? 'ui-status-success' : 'ui-status-warning'}`}>
+      <span className="mt-0.5 text-base leading-none">{allGood ? '✓' : '!'}</span>
       <div className="space-y-1">
         <div className="flex items-center gap-3">
-          <span className={health.allMounted ? 'text-emerald-600' : 'text-amber-600'}>
-            {health.allMounted ? '全部正确挂载' : '部分挂载异常'}
+          <span className={health.allMounted ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'}>
+            {health.allMounted ? '全部挂载正常' : '部分挂载异常'}
           </span>
-          <span className="text-slate-300">·</span>
-          <span className={health.registrationConsistent ? 'text-emerald-600' : 'text-amber-600'}>
+          <span className="text-[var(--text-subtle)]">·</span>
+          <span className={health.registrationConsistent ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'}>
             {health.registrationConsistent ? '注册一致' : '注册不一致'}
           </span>
         </div>
         {mountFailures.length > 0 && (
-          <div className="space-y-0.5 text-amber-600/80">
-            {mountFailures.map((f) => (
-              <p key={f.id}>
-                <code className="text-[10px] bg-amber-100/50 px-1 rounded">{f.id}</code> — {f.failed.join(', ')} 未挂载
+          <div className="space-y-0.5 text-[var(--state-warning-text)]">
+            {mountFailures.map((failure) => (
+              <p key={failure.id}>
+                <code className="rounded-[var(--radius-xs)] bg-[var(--state-warning-surface)] px-1 text-[10px]">{failure.id}</code> — {failure.failed.join(', ')} 未挂载
               </p>
             ))}
           </div>
         )}
-        {health.unregistered.length > 0 && (
-          <p className="text-amber-600/80">未注册: {health.unregistered.join(', ')}</p>
-        )}
-        {health.phantom.length > 0 && <p className="text-amber-600/80">幽灵项: {health.phantom.join(', ')}</p>}
+        {health.unregistered.length > 0 && <p className="text-[var(--state-warning-text)]">未注册: {health.unregistered.join(', ')}</p>}
+        {health.phantom.length > 0 && <p className="text-[var(--state-warning-text)]">幽灵项: {health.phantom.join(', ')}</p>}
       </div>
     </div>
   );
@@ -616,51 +557,51 @@ export function FilterChips({
   label: string;
   value: string;
   options: { value: string; label: string }[];
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
 }) {
   return (
     <div className="flex items-center gap-1">
-      <span className="text-xs text-gray-500">{label}:</span>
-      {options.map((opt) => (
+      <span className="text-xs text-[var(--text-secondary)]">{label}:</span>
+      {options.map((option) => (
         <button
-          key={opt.value}
+          key={option.value}
           type="button"
-          onClick={() => onChange(opt.value)}
-          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-            value === opt.value
-              ? 'bg-blue-50 border-blue-300 text-blue-700'
-              : 'border-gray-200 text-gray-500 hover:border-gray-300'
+          onClick={() => onChange(option.value)}
+          className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+            value === option.value
+              ? 'border-[var(--border-accent)] bg-[var(--accent-soft)] text-[var(--text-accent)]'
+              : 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-accent)]'
           }`}
         >
-          {opt.label}
+          {option.label}
         </button>
       ))}
     </div>
   );
 }
 
-// ────────── Section Icon Wrappers (Pencil MCP design) ──────────
-
 export function SectionIconMcp() {
   return (
-    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100/50 shadow-sm">
-      <McpIcon className="w-4 h-4 text-indigo-500" />
+    <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--surface-card-muted)]">
+      <McpIcon className="h-4 w-4 text-[var(--text-accent)]" />
     </div>
   );
 }
 
 export function SectionIconSkill() {
   return (
-    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-100/50 border border-amber-100/50 shadow-sm">
-      <SkillIcon className="w-4 h-4 text-amber-600" />
+    <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--surface-card-muted)]">
+      <SkillIcon className="h-4 w-4 text-[var(--text-accent)]" />
     </div>
   );
 }
 
 export function SectionIconExtension() {
   return (
-    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-50 to-green-100/50 border border-emerald-100/50 shadow-sm">
-      <ExtensionIcon className="w-4 h-4 text-emerald-600" />
+    <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--surface-card-muted)]">
+      <ExtensionIcon className="h-4 w-4 text-[var(--text-accent)]" />
     </div>
   );
 }
+
+

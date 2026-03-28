@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTheme } from '@/hooks/useTheme';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { BootcampIcon } from '../icons/BootcampIcon';
@@ -34,7 +33,6 @@ export function ThreadSidebar({
   onMenuClick,
   activeMenu,
 }: ThreadSidebarProps) {
-  const { theme, config } = useTheme();
   const router = useRouter();
   const {
     threads,
@@ -403,29 +401,22 @@ export function ThreadSidebar({
     currentThreadId,
   });
   const isChatMenu = !activeMenu;
-  const menuItemBase =
-    'flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors';
-  const chatMenuItemBase =
-    'flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors';
-  const menuItemActive = 'bg-white text-[#111827] shadow-[0_1px_1px_rgba(16,24,40,0.04)]';
-  const menuItemInactive = 'text-[#4B5563] hover:bg-white/70 hover:text-[#111827]';
+  const menuItemBase = 'ui-menu-item flex w-full items-center gap-1.5 px-2.5 transition-colors';
+  const chatMenuItemBase = 'ui-menu-item flex min-w-0 flex-1 items-center gap-1.5 px-2.5 transition-colors';
+  const menuItemActive = 'ui-menu-item-active';
+  const menuItemInactive = 'ui-menu-item-inactive';
 
   return (
     <>
-      <aside
-        className={`${className ?? 'w-[248px]'} border-r border-[#E5E7EB] bg-[#F3F4F6] flex flex-col h-full`}
-        style={{
-          backgroundColor: theme === 'business' && config ? config.sidebar.bg : undefined,
-        }}
-      >
-        <div className="px-3 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
+      <aside className={`${className ?? 'w-[248px]'} ui-sidebar-shell flex h-full flex-col`}>
+        <div className="ui-sidebar-section flex items-center justify-between px-3 py-4">
           <div className="flex items-center gap-2">
             <img src="/images/lobster.svg" alt="OfficeClaw" className="w-9 h-9 rounded-lg" />
-            <span className="text-[31px] font-semibold leading-none tracking-tight text-[#111827]">OfficeClaw</span>
+            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">OfficeClaw</span>
           </div>
         </div>
 
-        <div className="hidden px-3 py-2 border-b border-[#E5E7EB]">
+        <div className="ui-sidebar-section hidden px-3 py-2">
           <button
             type="button"
             onClick={() => {
@@ -456,7 +447,7 @@ export function ThreadSidebar({
           </button>
         </div>
 
-        <div className="px-3 py-2.5 border-b border-[#E5E7EB]">
+        <div className="ui-sidebar-section px-3 py-2.5">
           <div className="flex flex-col gap-1.5 items-start">
             <div className="flex w-full items-center justify-between gap-1.5">
               <a
@@ -473,28 +464,28 @@ export function ThreadSidebar({
                   type="button"
                   onClick={onBootcampClick ?? createBootcampThread}
                   disabled={!onBootcampClick && isCreating}
-                  className="text-xs px-2 py-1 rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40 transition-colors"
+                  className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-40"
                   title="猫猫训练营"
                   data-testid="sidebar-bootcamp"
                 >
-                  <BootcampIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
-              </button>
+                  <BootcampIcon className="-mt-0.5 inline-block h-3.5 w-3.5" />
+                </button>
                 {false && onHubClick && (
                   <button
                     type="button"
                     onClick={onHubClick}
-                    className="text-xs px-2 py-1 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                    className="rounded-lg border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-700 transition-colors hover:bg-blue-100"
                     title="IM Hub"
                     data-testid="sidebar-hub"
                   >
-                    <HubIcon className="w-3.5 h-3.5 inline-block -mt-0.5" />
+                    <HubIcon className="-mt-0.5 inline-block h-3.5 w-3.5" />
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setShowPicker(true)}
                   disabled={isCreating}
-                  className="text-xs px-2.5 py-1.5 rounded-md bg-[#4F46E5] text-white hover:bg-[#4338CA] disabled:opacity-40 transition-colors font-medium"
+                  className="rounded-md bg-[#4F46E5] px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#4338CA] disabled:opacity-40"
                 >
                   {isCreating ? '...' : '+ 新对话'}
                 </button>
@@ -554,11 +545,11 @@ export function ThreadSidebar({
           </div>
         )}
 
-        <div className="px-3 py-2 border-b border-[#E5E7EB]">
+        <div className="ui-sidebar-section px-3 py-2">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-[#6B7280]">渠道消息</span>
+            <span className="text-[var(--font-size-xs)] font-semibold text-[var(--text-secondary)]">会话消息</span>
             <svg
-              className="h-3.5 w-3.5 text-[#9CA3AF]"
+              className="h-3.5 w-3.5 text-[var(--text-muted)]"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -573,14 +564,14 @@ export function ThreadSidebar({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索对话、项目或 ID..."
             autoComplete="off"
-            className="w-full rounded-md border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-xs text-[#374151] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#A5B4FC] focus:ring-1 focus:ring-[#A5B4FC]"
+            className="ui-field w-full px-2.5 py-1.5 text-[13px] placeholder:text-[var(--text-muted)]"
           />
           {unreadIds.size > 0 && (
             <button
               type="button"
               onClick={handleMarkAllRead}
               disabled={isMarkingAllRead}
-              className="mt-1.5 text-[10px] text-gray-400 hover:text-cocreator-primary disabled:opacity-40 transition-colors"
+              className="mt-1.5 text-[var(--font-size-xs)] text-[var(--text-muted)] transition-colors hover:text-[var(--text-accent)] disabled:opacity-40"
               data-testid="mark-all-read-btn"
             >
               {isMarkingAllRead ? '清理中...' : '全部已读'}
@@ -741,7 +732,7 @@ export function ThreadSidebar({
         </div>
 
         {/* F095 Phase D: Trash bin section */}
-        <div className="border-t border-[#E5E7EB]">
+        <div className="border-t border-[var(--border-default)]">
           <button
             type="button"
             onClick={handleToggleTrash}
@@ -788,7 +779,7 @@ export function ThreadSidebar({
           )}
         </div>
 
-        <div className="border-t border-[#E5E7EB]"></div>
+        <div className="border-t border-[var(--border-default)]"></div>
 
         <UserProfile />
 
@@ -809,20 +800,20 @@ export function ThreadSidebar({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={() => setDeleteTarget(null)}
         >
-          <div className="bg-white rounded-xl shadow-2xl p-5 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-gray-900 mb-2">确认删除对话</h3>
             <p className="text-sm text-gray-600 mb-1">即将删除「{deleteTarget.title ?? '未命名对话'}」</p>
             <p className="text-xs text-gray-500 mb-4">对话将移入回收站，30 天后自动清理。你可以随时从回收站恢复。</p>
-            <div className="flex gap-2 justify-end">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm transition-colors hover:bg-gray-50"
               >
                 取消
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-3 py-1.5 text-sm rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+                className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm text-white transition-colors hover:bg-orange-600"
               >
                 移入回收站
               </button>

@@ -193,11 +193,11 @@ export function HubConnectorConfigTab() {
   };
 
   if (isLoading) {
-    return <p className="text-center text-gray-400 py-8 text-sm">加载中...</p>;
+    return <p className="py-8 text-center text-sm text-[var(--text-muted)]">加载中...</p>;
   }
 
   if (platforms.length === 0) {
-    return <p className="text-center text-gray-400 py-8 text-sm">无法加载平台配置信息</p>;
+    return <p className="py-8 text-center text-sm text-[var(--text-muted)]">无法加载平台配置信息</p>;
   }
 
   return (
@@ -210,43 +210,43 @@ export function HubConnectorConfigTab() {
         const saveStepNum = Math.max(platform.steps.length, guideSteps.length + 1);
 
         return (
-          <div
-            key={platform.id}
-            className="border border-gray-200 rounded-2xl overflow-hidden"
-            data-testid={`platform-card-${platform.id}`}
-          >
+          <div key={platform.id} className="ui-card overflow-hidden" data-testid={`platform-card-${platform.id}`}>
             <button
               type="button"
               onClick={() => handleExpand(platform.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 transition-colors ${isExpanded ? 'bg-sky-50' : 'hover:bg-gray-50'}`}
+              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors ${
+                isExpanded ? 'bg-[var(--surface-card-muted)]' : 'hover:bg-[var(--surface-card-muted)]'
+              }`}
             >
               <span
-                className="flex items-center justify-center w-9 h-9 rounded-[10px] shrink-0"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
                 style={{ backgroundColor: v.iconBg, color: v.iconColor }}
               >
                 {v.icon}
               </span>
-              <span className="flex-1 text-left min-w-0">
-                <span className="block text-[15px] font-semibold text-gray-900">
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[15px] font-semibold text-[var(--text-primary)]">
                   {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
                 </span>
                 <span
-                  className={`flex items-center gap-1 text-xs ${platform.configured ? 'text-green-600' : 'text-gray-400'}`}
+                  className={`flex items-center gap-1 text-xs ${
+                    platform.configured ? 'text-[var(--state-success-text)]' : 'text-[var(--text-muted)]'
+                  }`}
                 >
                   {platform.configured ? <StatusDotConnected /> : <StatusDotIdle />}
                   {platform.configured ? '已配置' : '未配置'}
                 </span>
               </span>
-              <span className="text-gray-400 shrink-0">{isExpanded ? <ChevronDown /> : <ChevronRight />}</span>
+              <span className="shrink-0 text-[var(--text-muted)]">{isExpanded ? <ChevronDown /> : <ChevronRight />}</span>
             </button>
 
             {isExpanded && platform.id === 'weixin' && (
-              <div className="border-t border-gray-100 px-4 py-4 space-y-3.5">
+              <div className="space-y-3.5 border-t border-[var(--border-soft)] px-4 py-4">
                 {platform.steps.map((step, idx) => (
                   <div key={idx} className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <StepBadge num={idx + 1} />
-                      <span className="text-[13px] font-medium text-gray-900">{step}</span>
+                      <span className="text-[13px] font-medium text-[var(--text-primary)]">{step}</span>
                     </div>
                     {idx === 0 && (
                       <div className="ml-[26px]">
@@ -259,12 +259,12 @@ export function HubConnectorConfigTab() {
             )}
 
             {isExpanded && platform.id !== 'weixin' && (
-              <div className="border-t border-gray-100 px-4 py-4 space-y-3.5">
+              <div className="space-y-3.5 border-t border-[var(--border-soft)] px-4 py-4">
                 {guideSteps.map((step, idx) => (
                   <div key={idx} className="space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <StepBadge num={idx + 1} />
-                      <span className="text-[13px] font-medium text-gray-900">{step}</span>
+                      <span className="text-[13px] font-medium text-[var(--text-primary)]">{step}</span>
                     </div>
                     {idx === 0 && (
                       docsLink && (
@@ -272,7 +272,7 @@ export function HubConnectorConfigTab() {
                           href={docsLink.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-blue-600 bg-sky-50 rounded-lg px-3 py-2 hover:bg-sky-100 transition-colors ml-[26px]"
+                          className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
                         >
                           <ExternalLinkIcon />
                           <span>{docsLink.hostname} → 查看官方文档</span>
@@ -285,18 +285,15 @@ export function HubConnectorConfigTab() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
                     <StepBadge num={guideSteps.length + 1} />
-                    <span className="text-[13px] font-medium text-gray-900">填写应用凭证</span>
+                    <span className="text-[13px] font-medium text-[var(--text-primary)]">填写应用凭证</span>
                   </div>
                   <div className="ml-[26px] space-y-2.5">
                     {platform.fields.map((field) => (
                       <div key={field.envName}>
-                        <label
-                          htmlFor={`config-${field.envName}`}
-                          className="block text-xs font-medium text-gray-500 mb-1"
-                        >
+                        <label htmlFor={`config-${field.envName}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
                           {field.label}
                           {field.sensitive && (
-                            <span className="text-amber-500 ml-1 inline-flex align-middle">
+                            <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
                               <LockIcon />
                             </span>
                           )}
@@ -308,7 +305,7 @@ export function HubConnectorConfigTab() {
                           value={fieldValues[field.envName] ?? ''}
                           onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
                           autoComplete={field.sensitive ? 'off' : undefined}
-                          className="w-full h-9 px-3 text-[13px] bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-colors"
+                          className="ui-field h-9 w-full px-3 text-[13px]"
                           data-testid={`field-${field.envName}`}
                         />
                       </div>
@@ -319,24 +316,22 @@ export function HubConnectorConfigTab() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
                     <StepBadge num={saveStepNum} />
-                    <span className="text-[13px] font-medium text-gray-900">测试连接并保存</span>
+                    <span className="text-[13px] font-medium text-[var(--text-primary)]">测试连接并保存</span>
                   </div>
                   {saveResult && (
                     <div
-                      className={`text-xs px-3 py-2 rounded-lg ml-[26px] ${
-                        saveResult.type === 'success'
-                          ? 'bg-green-50 text-green-700 border border-green-200'
-                          : 'bg-red-50 text-red-700 border border-red-200'
+                      className={`ml-[26px] rounded-[var(--radius-md)] px-3 py-2 text-xs ${
+                        saveResult.type === 'success' ? 'ui-status-success' : 'ui-status-error'
                       }`}
                       data-testid="save-result"
                     >
                       {saveResult.message}
                     </div>
                   )}
-                  <div className="flex items-center gap-2 ml-[26px]">
+                  <div className="ml-[26px] flex items-center gap-2">
                     <button
                       type="button"
-                      className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="ui-button-secondary inline-flex items-center gap-1.5"
                       onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
                     >
                       <WifiIcon />
@@ -346,7 +341,7 @@ export function HubConnectorConfigTab() {
                       type="button"
                       onClick={() => handleSave(platform)}
                       disabled={saving}
-                      className="px-4 py-2 text-[13px] font-semibold text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
+                      className="ui-button-primary disabled:opacity-50"
                       data-testid={`save-${platform.id}`}
                     >
                       {saving ? '保存中...' : '保存配置'}
@@ -359,9 +354,9 @@ export function HubConnectorConfigTab() {
         );
       })}
 
-      <div className="flex items-center gap-2 bg-amber-50 border border-yellow-300 rounded-[10px] px-3.5 py-2.5">
+      <div className="ui-status-warning flex items-center gap-2 rounded-[var(--radius-sm)] px-3.5 py-2.5 text-xs font-medium">
         <TriangleAlertIcon />
-        <span className="text-xs font-medium text-amber-800">修改配置后需重启 API 生效</span>
+        <span>修改配置后需重启 API 生效</span>
       </div>
     </div>
   );

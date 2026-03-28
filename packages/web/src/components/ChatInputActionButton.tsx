@@ -92,6 +92,7 @@ export function ChatInputActionButton({
 
   // F39: Whether we're in queue mode (cat running + user has typed)
   const isQueueMode = Boolean(hasActiveInvocation && hasText && !disabled);
+  const showIdleMic = !hideIdleMic && voice.state === 'idle';
 
   return (
     <>
@@ -112,6 +113,18 @@ export function ChatInputActionButton({
         <div className="absolute top-0 left-4 -mt-6 px-3 py-1 bg-red-100 text-red-600 text-xs rounded-lg">
           {voice.error}
         </div>
+      )}
+
+      {!hasText && showIdleMic && (
+        <button
+          onClick={voice.startRecording}
+          disabled={disabled}
+          className="p-3 rounded-xl text-gray-400 hover:text-cocreator-primary hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label="Start voice input (⌥V)"
+          title="语音输入 (⌥V)"
+        >
+          <MicIcon className="w-5 h-5" />
+        </button>
       )}
 
       {/* Stop button: visible alongside queue send during active invocation (not when disabled — primary stop covers it) */}
@@ -193,23 +206,13 @@ export function ChatInputActionButton({
         <button
           onClick={onSend}
           disabled={isSendDisabled}
-          className="p-3 rounded-xl bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-[6px] rounded-xl bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           title="发送消息"
           aria-label="Send message"
         >
           <SendIcon className="w-5 h-5" />
         </button>
-      ) : hideIdleMic ? null : (
-        <button
-          onClick={voice.startRecording}
-          disabled={disabled}
-          className="p-3 rounded-xl text-gray-400 hover:text-cocreator-primary hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          aria-label="Start voice input (⌥V)"
-          title="语音输入 (⌥V)"
-        >
-          <MicIcon className="w-5 h-5" />
-        </button>
-      )}
+      ) : null}
     </>
   );
 }

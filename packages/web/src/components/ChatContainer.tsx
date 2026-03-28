@@ -14,7 +14,6 @@ import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
-import { useTheme } from '@/hooks/useTheme';
 import { useVadInterrupt } from '@/hooks/useVadInterrupt';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
@@ -94,11 +93,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // Export mode: ?export=true triggers print-friendly layout (no scroll containers)
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const isExport = searchParams?.get('export') === 'true';
-  // AC-6: research=multi hint from Signal study "多猫研究" button
+  // AC-6: research=multi hint from the Signal study button
   const isResearchMode = searchParams?.get('research') === 'multi';
   const { clearTasks } = useTaskStore();
   const { getCatById } = useCatData();
-  const { theme, config } = useTheme();
   const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
   usePreviewAutoOpen(workspaceWorktreeId);
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
@@ -203,7 +201,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         const responseData = await res.json();
         // Build @mention notification message and send as user message to trigger cats
         const mentions = config.voters.map((v) => `@${v}`).join(' ');
-        const optionList = config.options.map((o) => `• ${o}`).join('\n');
+        const optionList = config.options.map((o) => `- ${o}`).join('\n');
         const questionText = String(responseData.question ?? '');
         const notifyMsg = `${mentions}\n投票请求：${questionText}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
         handleSend(notifyMsg);
@@ -426,7 +424,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     );
   }
   return (
-    <div ref={containerRef} className="flex h-screen h-dvh bg-white">
+    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh">
       {sidebarOpen && (
         <>
           {/* Backdrop, mobile only */}
@@ -435,13 +433,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div
-            className="fixed inset-y-0 left-0 z-30 md:static md:z-auto flex-shrink-0"
-            style={{
-              width: sidebarWidth,
-              backgroundColor: theme === 'business' ? config.sidebar.bg : undefined,
-            }}
-          >
+          <div className="fixed inset-y-0 left-0 z-30 flex-shrink-0 md:static md:z-auto" style={{ width: sidebarWidth }}>
             <ThreadSidebar
               onClose={() => setSidebarOpen(false)}
               className="w-full"
@@ -476,10 +468,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         <div className="flex-1 relative overflow-hidden">
           {sidebarMenu !== 'chat' && (
-            <div
-              className="h-full overflow-hidden px-12 pt-12 pb-12"
-              style={{ backgroundColor: theme === 'business' && config ? config.content.bg : '#FFFFFF' }}
-            >
+            <div className="ui-shell-surface h-full overflow-hidden px-12 pb-12 pt-12">
               {sidebarMenu === 'models' && <ModelsPanel />}
               {sidebarMenu === 'agents' && <AgentsPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
@@ -490,16 +479,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <main
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="h-full overflow-y-auto p-4"
-              style={{
-                backgroundColor:
-                  threadId === 'default' ? '#FFFFFF' : theme === 'business' && config ? config.content.bg : undefined,
-              }}
+              className="ui-shell-surface h-full overflow-y-auto p-4"
               data-chat-container
             >
               {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
               {!hasMore && messages.length > 0 && (
-                <div className="text-center py-3 text-xs text-gray-300">没有更多消息了</div>
+                <div className="text-center py-3 text-xs text-gray-300">没有更多消息...</div>
               )}
               {messages.length === 0 && !isLoadingHistory ? (
                 <ChatEmptyState
@@ -552,7 +537,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         {sidebarMenu === 'chat' && isResearchMode && (
           <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            多猫研究模式 — 文章上下文已注入。请输入研究问题，猫猫会自动调用 multi_mention 邀请其他猫参与分析。
+            多猫研究模式 - 文章上下文已注入。请输入研究问题，猫猫会自动调用 multi_mention 邀请其他猫参与分析。
           </div>
         )}
         {sidebarMenu === 'chat' && (

@@ -1,0 +1,153 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { groupKeyFromModelName, modelIconVisual, resolveModelIconType } from './model-icon';
+
+export interface DraftModelOption {
+  id: string;
+  name: string;
+  providerGroup?: string;
+  experienceText?: string;
+  statusText?: string;
+  rightLabel?: string;
+}
+
+interface ModelSelectDropdownDraftProps {
+  items: DraftModelOption[];
+  selectedId?: string | null;
+  searchPlaceholder?: string;
+  groupLabel?: string;
+  onSelect?: (item: DraftModelOption) => void;
+}
+
+interface ModelSelectValueDraftProps {
+  item?: DraftModelOption | null;
+  placeholder?: string;
+  loading?: boolean;
+}
+
+function SearchIcon() {
+  return (
+    <svg className="h-3 w-3 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg className="h-4 w-4 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ModelIcon({ item }: { item: DraftModelOption }) {
+  const visual = modelIconVisual(resolveModelIconType(groupKeyFromModelName(item.name)));
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={visual.imageSrc}
+      alt={visual.label}
+      data-testid={`model-logo-${item.name}`}
+      className="h-[18px] w-[18px] shrink-0 object-contain"
+    />
+  );
+}
+
+export function ModelSelectValueDraft({
+  item,
+  placeholder = '请选择模型',
+  loading = false,
+}: ModelSelectValueDraftProps) {
+  return (
+    <span className={`truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
+      {loading ? '加载模型中...' : item?.name ?? placeholder}
+    </span>
+  );
+}
+
+export function ModelSelectTriggerIcon() {
+  return <ChevronDownIcon />;
+}
+
+export function ModelSelectDropdownDraft({
+  items,
+  selectedId = null,
+  searchPlaceholder = '请输入关键字搜索',
+  groupLabel = '华为云 MaaS',
+  onSelect,
+}: ModelSelectDropdownDraftProps) {
+  const [query, setQuery] = useState('');
+
+  const filteredItems = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return items;
+
+    return items.filter((item) => {
+      const haystack = [item.name, item.providerGroup, item.experienceText, item.statusText, item.rightLabel]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalized);
+    });
+  }, [items, query]);
+
+  return (
+    <div
+      className="ui-panel flex max-h-[335px] w-[476px] flex-col overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface-panel)] shadow-[0_10px_24px_rgba(0,0,0,0.09)]"
+      data-testid="model-select-dropdown"
+    >
+      <div className="flex flex-col gap-1.5 px-[10px] pb-0 pt-[10px]">
+        <label className="ui-field flex h-7 items-center gap-1.5 rounded-[var(--radius-pill)] bg-[var(--surface-panel)] px-[10px]">
+          <SearchIcon />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={searchPlaceholder}
+            className="w-full border-0 bg-transparent text-[10px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          />
+        </label>
+        <div className="text-[10px] font-medium text-[var(--text-muted)]">{groupLabel}</div>
+      </div>
+
+      <div role="listbox" className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2 pt-1">
+        {filteredItems.map((item) => {
+          const isSelected = item.id === selectedId;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              data-testid={`model-row-${item.id}`}
+              onClick={() => onSelect?.(item)}
+              className={`flex h-[34px] items-center rounded-[var(--radius-xs)] border px-2 text-left transition ${
+                isSelected
+                  ? 'border-[var(--border-accent)] bg-[var(--surface-selected)]'
+                  : 'border-transparent bg-[var(--surface-panel)] hover:bg-[var(--surface-card-muted)]'
+              }`}
+            >
+              <div className="flex min-w-0 items-center gap-2.5">
+                <ModelIcon item={item} />
+                <span
+                  className={`truncate text-[14px] leading-[20px] text-[var(--text-primary)] ${
+                    isSelected ? 'font-medium text-[var(--text-accent)]' : 'font-normal'
+                  }`}
+                >
+                  {item.name}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+
+        {filteredItems.length === 0 ? (
+          <div className="px-3 py-6 text-center text-sm text-[var(--text-muted)]">没有匹配的模型</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}

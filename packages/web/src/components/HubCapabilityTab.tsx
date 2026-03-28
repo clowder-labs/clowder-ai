@@ -1,11 +1,4 @@
-'use client';
-
-/**
- * HubCapabilityTab — F041 统一能力中心
- *
- * 卡片式手风琴布局，MCP + Skills 合并。
- * 全局开关 + 展开后 per-cat 开关（按猫族折叠）。
- */
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
@@ -41,17 +34,13 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   const [loading, setLoading] = useState(true);
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
   const [toggling, setToggling] = useState<string | null>(null);
-  const [showAddModelModal, setShowAddModelModal] = useState(false);
 
   const { providerCreateSectionProps } = useProviderProfilesState();
-
   const confirm = useConfirm();
-
-  // Multi-project state
   const [projectPath, setProjectPath] = useState<string | null>(null);
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string>('');
 
-  const threads = useChatStore((s) => s.threads);
+  const threads = useChatStore((state) => state.threads);
   const knownProjects = useMemo(() => getProjectPaths(threads), [threads]);
 
   const fetchCapabilities = useCallback(async (forProject?: string) => {
@@ -79,14 +68,13 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   }, []);
 
   useEffect(() => {
-    fetchCapabilities();
+    void fetchCapabilities();
   }, [fetchCapabilities]);
 
-  // Re-fetch when tab becomes visible (e.g. after installing a SkillHub skill)
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        fetchCapabilities(projectPath ?? undefined);
+        void fetchCapabilities(projectPath ?? undefined);
       }
     };
     document.addEventListener('visibilitychange', onVisible);
@@ -97,7 +85,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     (path: string | null) => {
       setProjectPath(path);
       setLoading(true);
-      fetchCapabilities(path ?? undefined);
+      void fetchCapabilities(path ?? undefined);
     },
     [fetchCapabilities],
   );
@@ -140,7 +128,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     async (skillId: string) => {
       const ok = await confirm({
         title: '卸载 Skill',
-        message: `确定要卸载 "${skillId}" 吗？此操作不可恢复。`,
+        message: `确定要卸载 “${skillId}” 吗？此操作不可恢复。`,
         confirmLabel: '卸载',
         cancelLabel: '取消',
         variant: 'danger',
@@ -162,47 +150,43 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     [confirm, fetchCapabilities, projectPath],
   );
 
-  // Filter + group
   const filtered = useMemo(() => {
     if (filterSource === 'all') return items;
-    return items.filter((i) => i.source === filterSource);
+    return items.filter((item) => item.source === filterSource);
   }, [items, filterSource]);
 
-  const mcpItems = useMemo(() => filtered.filter((i) => i.type === 'mcp'), [filtered]);
+  const mcpItems = useMemo(() => filtered.filter((item) => item.type === 'mcp'), [filtered]);
   const externalSkills = useMemo(
-    () => filtered.filter((i) => i.type === 'skill' && i.source === 'external'),
+    () => filtered.filter((item) => item.type === 'skill' && item.source === 'external'),
     [filtered],
   );
-
-  // Group Clowder AI Skills by category (from BOOTSTRAP.md)
   const catCafeSkillGroups = useMemo(() => {
-    const catCafe = filtered.filter((i) => i.type === 'skill' && i.source === 'cat-cafe');
+    const catCafe = filtered.filter((item) => item.type === 'skill' && item.source === 'cat-cafe');
     const groups: { category: string; items: CapabilityBoardItem[] }[] = [];
     const categoryMap = new Map<string, CapabilityBoardItem[]>();
     const categoryOrder: string[] = [];
     for (const item of catCafe) {
-      const cat = item.category ?? '未分类';
-      let arr = categoryMap.get(cat);
-      if (!arr) {
-        arr = [];
-        categoryMap.set(cat, arr);
-        categoryOrder.push(cat);
+      const category = item.category ?? '未分类';
+      let list = categoryMap.get(category);
+      if (!list) {
+        list = [];
+        categoryMap.set(category, list);
+        categoryOrder.push(category);
       }
-      arr.push(item);
+      list.push(item);
     }
-    for (const cat of categoryOrder) {
-      groups.push({ category: cat, items: categoryMap.get(cat)! });
+    for (const category of categoryOrder) {
+      groups.push({ category, items: categoryMap.get(category)! });
     }
     return groups;
   }, [filtered]);
 
-  if (loading) return <p className="text-sm text-gray-400">加载中...</p>;
+  if (loading) return <p className="text-sm text-[var(--text-muted)]">加载中...</p>;
 
   return (
     <div className="space-y-4">
-      {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
-      {/* Header: project + filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <ProjectSelector
@@ -219,22 +203,13 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
               { value: 'cat-cafe', label: 'OfficeClaw' },
               { value: 'external', label: '外部' },
             ]}
-            onChange={(v) => setFilterSource(v as FilterSource)}
+            onChange={(value) => setFilterSource(value as FilterSource)}
           />
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAddModelModal(true)}
-          className="rounded-lg bg-[#111418] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#2A3038]"
-        >
-          + 添加模型
-        </button>
       </div>
 
-      {/* Skill health banner */}
       {skillHealth && <SkillHealthBanner health={skillHealth} items={items} />}
 
-      {/* MCP Section */}
       <CapabilitySection
         icon={<SectionIconMcp />}
         title="MCP"
@@ -245,7 +220,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
         onToggle={handleToggle}
       />
 
-      {/* Clowder AI Skills by Category */}
       {catCafeSkillGroups.map((group) => (
         <CapabilitySection
           key={group.category}
@@ -260,10 +234,9 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
         />
       ))}
 
-      {/* External Skills Section */}
       <CapabilitySection
         icon={<SectionIconExtension />}
-        title="Skill扩展"
+        title="Skill 扩展"
         subtitle="外部扩展 Skills"
         items={externalSkills}
         catFamilies={catFamilies}
@@ -274,9 +247,9 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
 
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-card-muted)]">
             <svg
-              className="w-8 h-8 text-slate-300"
+              className="h-8 w-8 text-[var(--text-subtle)]"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -287,60 +260,30 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
               <path d="m21 21-4.35-4.35" />
             </svg>
           </div>
-          <h3 className="text-sm font-semibold text-slate-600">没有找到匹配的能力</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-[220px]">试着切换来源筛选，或检查 MCP/Skills 配置</p>
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">没有找到匹配的能力</h3>
+          <p className="mt-1 max-w-[220px] text-xs text-[var(--text-muted)]">试着切换来源筛选，或检查 MCP / Skills 配置。</p>
         </div>
       )}
 
-      {/* Summary */}
-      <div className="pt-4 border-t border-slate-100/60 mt-4">
-        <div className="flex items-center justify-between text-xs text-slate-400">
+      <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
+        <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
           <span>共 {items.length} 项</span>
           <span className="flex gap-3">
             <span className="flex items-center gap-1.5">
-              <StatusDot status="connected" /> {items.filter((i) => i.connectionStatus === 'connected').length} 活跃
+              <StatusDot status="connected" /> {items.filter((item) => item.connectionStatus === 'connected').length} 活跃
             </span>
             <span>
-              MCP:{' '}
-              <strong className="text-slate-500 font-medium">{items.filter((i) => i.type === 'mcp').length}</strong>
+              MCP: <strong className="font-medium text-[var(--text-secondary)]">{items.filter((item) => item.type === 'mcp').length}</strong>
             </span>
             <span>
-              Skill:{' '}
-              <strong className="text-slate-500 font-medium">{items.filter((i) => i.type === 'skill').length}</strong>
+              Skill: <strong className="font-medium text-[var(--text-secondary)]">{items.filter((item) => item.type === 'skill').length}</strong>
             </span>
           </span>
         </div>
       </div>
-
-      {/* 添加模型弹框 */}
-      {showAddModelModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
-          onClick={() => setShowAddModelModal(false)}
-        >
-          <div
-            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-[#2E3440]">新建 API Key 账号</h3>
-              <button
-                type="button"
-                onClick={() => setShowAddModelModal(false)}
-                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-              >
-                关闭
-              </button>
-            </div>
-            <CreateApiKeyProfileSection {...providerCreateSectionProps} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-
-// ────────── Project Selector ──────────
 
 function ProjectSelector({
   resolvedPath,
@@ -356,33 +299,33 @@ function ProjectSelector({
   const allPaths = useMemo(() => {
     const set = new Set<string>();
     set.add(resolvedPath);
-    for (const p of knownProjects) set.add(p);
+    for (const path of knownProjects) set.add(path);
     return Array.from(set);
   }, [resolvedPath, knownProjects]);
 
   if (allPaths.length <= 1) {
     return (
-      <div className="text-xs text-gray-400 flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
         <span>项目:</span>
-        <span className="text-gray-600 font-medium">{projectDisplayName(resolvedPath)}</span>
+        <span className="font-medium text-[var(--text-secondary)]">{projectDisplayName(resolvedPath)}</span>
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <label htmlFor="project-select" className="text-gray-400 whitespace-nowrap">
+      <label htmlFor="project-select" className="whitespace-nowrap text-[var(--text-muted)]">
         项目:
       </label>
       <select
         id="project-select"
         value={currentSelection ?? ''}
-        onChange={(e) => onSwitch(e.target.value || null)}
-        className="flex-1 min-w-0 px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 text-xs truncate"
+        onChange={(event) => onSwitch(event.target.value || null)}
+        className="ui-field min-w-0 flex-1 px-2 py-1 text-xs"
       >
         <option value="">{projectDisplayName(resolvedPath)}</option>
         {allPaths
-          .filter((p) => p !== resolvedPath || currentSelection !== null)
+          .filter((path) => path !== resolvedPath || currentSelection !== null)
           .map((path) => (
             <option key={path} value={path}>
               {projectDisplayName(path)}

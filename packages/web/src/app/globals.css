@@ -1,8 +1,8 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* === Cat Cafe Design System Variables (from 暹罗猫) === */
+/* === Cat Cafe Design System Variables === */
 :root {
   /* Base Colors */
   --color-base-white: #fdf8f3;
@@ -26,24 +26,142 @@
   --color-gemini-dark: #3a6fa5;
   --color-gemini-bg: #eaf4fb;
 
-  /* DARE / 狸花猫 (Dragon Li) - Amber */
+  /* DARE / Dragon Li - Amber */
   --color-dare-primary: #d4a76a;
   --color-dare-light: #e8c99b;
   --color-dare-dark: #8b6f47;
   --color-dare-bg: #fbf5ec;
 
-  /* Co-Creator (铲屎官) - Coffee/Latte */
+  /* Co-Creator - Coffee/Latte */
   --color-cocreator-primary: #e29578;
   --color-cocreator-light: #ffddd2;
   --color-cocreator-dark: #815b5b;
   --color-cocreator-bg: #fff5f2;
 
-  /* UI Tokens */
-  --bg-app: var(--color-base-white);
+  /* Foundation typography */
+  --font-family-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-hero: 28px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+
+  /* Foundation spacing */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 14px;
+  --space-7: 16px;
+  --space-8: 18px;
+  --space-9: 20px;
+  --space-10: 22px;
+
+  /* Foundation radii */
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-pill: 999px;
+
+  /* Foundation borders */
+  --border-width-default: 1px;
+  --border-width-strong: 2px;
+
+  /* Foundation control heights */
+  --control-height-xs: 30px;
+  --control-height-sm: 32px;
+  --control-height-md: 34px;
+  --control-height-touch: 44px;
+  --control-height-lg: 52px;
+  --control-height-xl: 66px;
+  --control-height-input: 96px;
+}
+
+[data-ui-theme="default"] {
+  --surface-app: var(--color-base-white);
+  --surface-sidebar: #fff5f2;
+  --surface-panel: #ffffff;
+  --surface-card: #ffffff;
+  --surface-card-muted: #fbf5ec;
+  --surface-selected: #ffddd2;
+  --surface-inverse: var(--color-base-black);
+
   --text-primary: var(--color-base-black);
   --text-secondary: #666666;
-  --border-radius-base: 16px;
-  --spacing-unit: 8px;
+  --text-muted: #8f8075;
+  --text-subtle: #b59a88;
+  --text-inverse: #ffffff;
+  --text-accent: var(--color-cocreator-primary);
+
+  --border-default: #f1e7df;
+  --border-soft: #ffddd2;
+  --border-strong: #e8dccf;
+  --border-accent: rgba(226, 149, 120, 0.4);
+
+  --accent-primary: var(--color-cocreator-primary);
+  --accent-soft: rgba(255, 221, 210, 0.45);
+  --accent-soft-strong: #ffddd2;
+
+  --state-success-surface: #e8f5e9;
+  --state-success-text: #4caf50;
+  --state-warning-surface: #fff3e0;
+  --state-warning-text: #e65100;
+  --state-info-surface: rgba(255, 221, 210, 0.32);
+  --state-info-text: var(--color-cocreator-dark);
+  --shadow-card-soft: 0 10px 30px -24px rgba(30, 30, 36, 0.18);
+  --shadow-card-hover: 0 18px 44px -30px rgba(30, 30, 36, 0.28);
+
+  --bg-app: var(--surface-app);
+  --border-radius-base: var(--radius-lg);
+  --spacing-unit: var(--space-3);
+}
+
+[data-ui-theme="business"] {
+  --surface-app: #ffffff;
+  --surface-sidebar: #f6f7f9;
+  --surface-panel: #ffffff;
+  --surface-card: #ffffff;
+  --surface-card-muted: #f4f5f7;
+  --surface-selected: #f7fbff;
+  --surface-inverse: #111111;
+
+  --text-primary: #1f1f1f;
+  --text-secondary: #666666;
+  --text-muted: #a1a1a1;
+  --text-subtle: #d0d0d0;
+  --text-inverse: #ffffff;
+  --text-accent: #5b6cff;
+
+  --border-default: #eceef2;
+  --border-soft: #e8ebf1;
+  --border-strong: #e5e8ee;
+  --border-accent: #7fb2ff;
+
+  --accent-primary: #5b6cff;
+  --accent-soft: #eef0ff;
+  --accent-soft-strong: #ddeeff;
+
+  --state-success-surface: #eef9d9;
+  --state-success-text: #6a8f22;
+  --state-warning-surface: #fff2d8;
+  --state-warning-text: #d08a00;
+  --state-info-surface: #eef0ff;
+  --state-info-text: #5b6cff;
+  --shadow-card-soft: 0 10px 30px -24px rgba(17, 17, 17, 0.12);
+  --shadow-card-hover: 0 18px 44px -30px rgba(17, 17, 17, 0.18);
+
+  --bg-app: var(--surface-app);
+  --border-radius-base: var(--radius-lg);
+  --spacing-unit: var(--space-3);
 }
 
 [data-theme="dark"] {
@@ -56,10 +174,288 @@
   --color-dare-bg: rgba(212, 167, 106, 0.15);
 }
 
+html {
+  background: var(--surface-app);
+}
+
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-family-sans);
   color: var(--text-primary);
-  background: var(--bg-app);
+  background: var(--surface-app);
+}
+
+@layer components {
+  .ui-page-shell {
+    @apply flex h-full min-h-0 flex-col;
+    color: var(--text-primary);
+  }
+
+  .ui-page-header {
+    @apply mb-4 flex flex-col gap-1;
+  }
+
+  .ui-page-header-inline {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .ui-page-title {
+    font-size: var(--font-size-xl);
+    line-height: 30px;
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+  }
+
+  .ui-page-subtitle {
+    font-size: var(--font-size-md);
+    line-height: 22px;
+    color: var(--text-secondary);
+  }
+
+  .ui-panel {
+    border: var(--border-width-default) solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--surface-panel);
+  }
+
+  .ui-card {
+    border: var(--border-width-default) solid var(--border-default);
+    border-radius: var(--radius-xl);
+    background: var(--surface-card);
+  }
+
+  .ui-card-muted {
+    border: var(--border-width-default) solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--surface-card-muted);
+  }
+
+  .ui-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    border: var(--border-width-default) solid var(--border-soft);
+    border-radius: var(--radius-pill);
+    background: var(--surface-panel);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1;
+    padding: 6px 12px;
+  }
+
+  .ui-chip-active {
+    border-color: var(--border-accent);
+    background: var(--accent-soft);
+    color: var(--text-accent);
+  }
+
+  .ui-button-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--control-height-xs);
+    border-radius: var(--radius-pill);
+    background: var(--surface-inverse);
+    color: var(--text-inverse);
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+    padding: 8px 18px;
+    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  }
+
+  .ui-button-primary:hover {
+    filter: brightness(0.96);
+  }
+
+  .ui-button-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--control-height-xs);
+    border: var(--border-width-default) solid var(--border-default);
+    border-radius: var(--radius-pill);
+    background: var(--surface-panel);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+    padding: 8px 18px;
+    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  }
+
+  .ui-button-secondary:hover {
+    background: var(--surface-card-muted);
+    color: var(--text-primary);
+  }
+
+  .ui-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--control-height-sm);
+    min-width: var(--control-height-sm);
+    height: var(--control-height-sm);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-muted);
+    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  }
+
+  .ui-icon-button:hover {
+    background: var(--accent-soft);
+    color: var(--text-accent);
+  }
+
+  .ui-input-shell {
+    border: var(--border-width-default) solid var(--border-soft);
+    border-radius: var(--radius-2xl);
+    background: var(--surface-panel);
+  }
+
+  .ui-field {
+    min-height: var(--control-height-sm);
+    border: var(--border-width-default) solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 13px;
+    transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  }
+
+  .ui-field::placeholder {
+    color: var(--text-muted);
+  }
+
+  .ui-field:focus {
+    outline: none;
+    border-color: var(--border-accent);
+    background: var(--surface-panel);
+  }
+
+  .ui-status-success {
+    background: var(--state-success-surface);
+    color: var(--state-success-text);
+  }
+
+  .ui-status-warning {
+    background: var(--state-warning-surface);
+    color: var(--state-warning-text);
+  }
+
+  .ui-status-error {
+    background: var(--state-error-surface);
+    color: var(--state-error-text);
+  }
+
+  .ui-badge-muted {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    border-radius: var(--radius-xs);
+    background: var(--surface-card-muted);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1;
+    padding: 4px 8px;
+  }
+
+  .ui-tab-trigger {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-muted);
+    transition: color 200ms ease;
+  }
+
+  .ui-tab-trigger-active {
+    color: var(--text-primary);
+  }
+
+  .ui-tab-indicator {
+    height: 2px;
+    border-radius: var(--radius-pill);
+    background: var(--text-primary);
+    transition: transform 200ms ease;
+  }
+
+  .ui-shell-surface {
+    background: var(--surface-app);
+    color: var(--text-primary);
+  }
+
+  .ui-sidebar-shell {
+    border-right: var(--border-width-default) solid var(--border-default);
+    background: var(--surface-sidebar);
+    color: var(--text-primary);
+  }
+
+  .ui-sidebar-section {
+    border-bottom: var(--border-width-default) solid var(--border-default);
+  }
+
+  .ui-menu-item {
+    min-height: var(--control-height-sm);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+  }
+
+  .ui-menu-item-active {
+    border: var(--border-width-default) solid var(--border-default);
+    background: var(--surface-panel);
+    color: var(--text-primary);
+  }
+
+  .ui-menu-item-inactive {
+    color: var(--text-secondary);
+  }
+
+  .ui-menu-item-inactive:hover {
+    background: color-mix(in srgb, var(--surface-panel) 72%, transparent);
+    color: var(--text-primary);
+  }
+
+  .ui-thread-item {
+    min-height: var(--control-height-lg);
+    border-bottom: var(--border-width-default) solid var(--border-soft);
+    padding-top: var(--space-5);
+    padding-bottom: var(--space-5);
+    background: transparent;
+  }
+
+  .ui-thread-item-active {
+    background: var(--surface-selected);
+  }
+
+  .ui-thread-item-inactive:hover {
+    background: var(--surface-card-muted);
+  }
+
+  .ui-thread-title {
+    font-size: var(--font-size-md);
+    line-height: 20px;
+    color: var(--text-secondary);
+  }
+
+  .ui-thread-item-active .ui-thread-title {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .ui-thread-meta {
+    font-size: var(--font-size-xs);
+    line-height: 16px;
+    color: var(--text-muted);
+  }
+
+  .ui-thread-action {
+    border-radius: var(--radius-xs);
+    color: var(--text-muted);
+    transition: background-color 200ms ease, color 200ms ease, opacity 200ms ease;
+  }
+
+  .ui-thread-action:hover {
+    background: var(--accent-soft);
+    color: var(--text-accent);
+  }
 }
 
 /* === Mobile PWA: safe-area insets for notched devices === */
@@ -117,14 +513,14 @@ body {
   }
 }
 
-/* === F101 AC-D5: Werewolf Cute Theme (狼人猫猫风) === */
+/* === F101 AC-D5: Werewolf Cute Theme (鐙间汉鐚尗椋? === */
 /* Token-only layer: components consume these vars, no hardcoded colors */
 [data-theme="werewolf-cute"] {
   /* Backgrounds */
-  --ww-bg-base: #0b1020; /* Moon Indigo — shell background */
-  --ww-bg-card: #2a2340; /* Grape Mist — card/panel surfaces */
-  --ww-bg-surface: #1a1835; /* Deep Grape — chat bubbles, input fields */
-  --ww-bg-topbar: #0d1428; /* Darker Indigo — top bar */
+  --ww-bg-base: #0b1020; /* Moon Indigo 鈥?shell background */
+  --ww-bg-card: #2a2340; /* Grape Mist 鈥?card/panel surfaces */
+  --ww-bg-surface: #1a1835; /* Deep Grape 鈥?chat bubbles, input fields */
+  --ww-bg-topbar: #0d1428; /* Darker Indigo 鈥?top bar */
 
   /* Text */
   --ww-text-main: #e2e8f0; /* Soft white */
@@ -132,10 +528,10 @@ body {
   --ww-text-dim: #64748b; /* Dim slate */
 
   /* Accents */
-  --ww-accent-danger: #d45a6a; /* Claw Red — kill/vote/key actions */
-  --ww-accent-cute: #f2b7a8; /* Cat Peach — hover/avatar border/secondary */
-  --ww-accent-success: #8bd7c8; /* Moon Mint — guard/success */
-  --ww-accent-info: #e6c36a; /* Lantern Gold — divine/tips */
+  --ww-accent-danger: #d45a6a; /* Claw Red 鈥?kill/vote/key actions */
+  --ww-accent-cute: #f2b7a8; /* Cat Peach 鈥?hover/avatar border/secondary */
+  --ww-accent-success: #8bd7c8; /* Moon Mint 鈥?guard/success */
+  --ww-accent-info: #e6c36a; /* Lantern Gold 鈥?divine/tips */
 
   /* State indicators */
   --ww-state-alive: var(--ww-accent-cute);
@@ -155,11 +551,11 @@ body {
   --ww-faction-village: var(--ww-accent-success);
 
   /* Translucent variants (explicit, no /opacity modifier) */
-  --ww-danger-soft: rgba(212, 90, 106, 0.1); /* Claw Red 10% — wolf row bg */
-  --ww-info-soft: rgba(230, 195, 106, 0.3); /* Lantern Gold 30% — MVP border */
-  --ww-subtle-soft: rgba(242, 183, 168, 0.08); /* Cat Peach 8% — table dividers */
-  --ww-cute-soft: rgba(242, 183, 168, 0.1); /* Cat Peach 10% — selected preset */
-  --ww-base-overlay: rgba(11, 16, 32, 0.9); /* Moon Indigo 90% — modal backdrop */
+  --ww-danger-soft: rgba(212, 90, 106, 0.1); /* Claw Red 10% 鈥?wolf row bg */
+  --ww-info-soft: rgba(230, 195, 106, 0.3); /* Lantern Gold 30% 鈥?MVP border */
+  --ww-subtle-soft: rgba(242, 183, 168, 0.08); /* Cat Peach 8% 鈥?table dividers */
+  --ww-cute-soft: rgba(242, 183, 168, 0.1); /* Cat Peach 10% 鈥?selected preset */
+  --ww-base-overlay: rgba(11, 16, 32, 0.9); /* Moon Indigo 90% 鈥?modal backdrop */
 
   /* Borders & shadows */
   --ww-border-subtle: rgba(242, 183, 168, 0.15); /* Cat Peach 15% */
@@ -203,3 +599,6 @@ body {
   background: rgba(255, 255, 255, 0.08);
   color: #e2e8f0;
 }
+
+
+

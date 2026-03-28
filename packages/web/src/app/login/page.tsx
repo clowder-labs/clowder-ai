@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { setUserId } from '@/utils/userId';
 
@@ -10,30 +10,33 @@ export default function LoginPage() {
   const [userType, setUserType] = useState<'huawei' | 'iam'>('huawei'); // 默认华为云用户
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
+  const [promotionCode, setPromotionCode] = useState('');
+  const [hasCode, setHasCode] = useState(true);
   const [domainName, setDomainName] = useState(''); // 域名
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [agreeToTerms, setAgreeToTerms] = useState(false); // 同意条款状态
+  const promotionCodeRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   // 检查是否已登录
   useEffect(() => {
-    checkLoginStatus();
-  }, []);
+    const checkLoginStatus = async () => {
+      try {
+        const response = await apiFetch('/api/islogin');
+        const data = await response.json();
+        setHasCode(Boolean(data?.hascode));
 
-  const checkLoginStatus = async () => {
-    try {
-      const response = await apiFetch('/api/islogin');
-      const data = await response.json();
-
-      if (data.isLoggedIn) {
-        // 已登录，跳转到首页
-        router.replace('/');
+        if (data.islogin) {
+          // 已登录，跳转到首页
+          router.replace('/');
+        }
+      } catch (err) {
+        console.error('检查登录状态失败:', err);
       }
-    } catch (err) {
-      console.error('检查登录状态失败:', err);
-    }
-  };
+    };
+    void checkLoginStatus();
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +44,7 @@ export default function LoginPage() {
     setError('');
 
     try {
+
       const loginData =
         userType === 'iam' ? { userName, password, domainName, userType } : { password, domainName, userType };
 
@@ -49,7 +53,7 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(loginData),
+        body: JSON.stringify({ ...loginData, promotionCode }),
       });
 
       const data = await response.json();
@@ -59,6 +63,10 @@ export default function LoginPage() {
         setUserId(data.userId);
         // 登录成功，跳转到首页
         router.replace('/');
+      } else if (data.needCode === true) {
+        setHasCode(false);
+        setError(data.message || '请输入邀请码后再登录');
+        setTimeout(() => promotionCodeRef.current?.focus(), 0);
       } else {
         setError(data.message || '登录失败');
       }
@@ -179,6 +187,22 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
+
+                {!hasCode && (
+                  <div>
+                    <input
+                      ref={promotionCodeRef}
+                      id="promotionCode"
+                      name="promotionCode"
+                      type="text"
+                      required
+                      className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="请输入邀请码"
+                      value={promotionCode}
+                      onChange={(e) => setPromotionCode(e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
 
               {error && <div className="text-red-600 text-sm text-center bg-red-50 p-2 rounded-md">{error}</div>}
