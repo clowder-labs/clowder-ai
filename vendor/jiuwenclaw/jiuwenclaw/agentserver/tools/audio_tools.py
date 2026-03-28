@@ -294,7 +294,7 @@ async def audio_metadata(audio_path_or_url: str) -> str:
             "signature_version": "1",
         }
 
-        r = requests.post(ACR_BASE_URL, files=files_payload, data=form_data, timeout=HTTP_TIMEOUT)
+        r = requests.post(ACR_BASE_URL, files=files_payload, data=form_data, timeout=HTTP_TIMEOUT, verify=get_requests_verify())
         r.encoding = "utf-8"
         parsed = json.loads(r.text)
 

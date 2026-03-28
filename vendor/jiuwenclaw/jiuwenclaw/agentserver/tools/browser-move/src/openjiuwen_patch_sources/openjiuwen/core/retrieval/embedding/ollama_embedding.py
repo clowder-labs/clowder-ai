@@ -7,10 +7,15 @@ Implementation of Ollama embedding model.
 """
 
 import asyncio
+import os
 from itertools import chain
 from typing import List, Optional
 
 import requests
+
+
+def _ssl_verify() -> bool:
+    return os.environ.get("JIUWENCLAW_SSL_VERIFY", "true").strip().lower() not in ("0", "false", "no", "off")
 
 from openjiuwen.core.common.exception.codes import StatusCode
 from openjiuwen.core.common.exception.errors import build_error
@@ -80,7 +85,7 @@ class OllamaEmbedding(Embedding):
         """Verify that Ollama is running and the model is available."""
         try:
             # Check if Ollama is running
-            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5, verify=_ssl_verify())
             response.raise_for_status()
 
             # Check if the model is available
@@ -244,6 +249,7 @@ class OllamaEmbedding(Embedding):
                     json=payload,
                     headers=self._headers,
                     timeout=self.timeout,
+                    verify=_ssl_verify(),
                 )
                 response.raise_for_status()
                 result = response.json()
