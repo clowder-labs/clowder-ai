@@ -230,6 +230,7 @@ export function ModelsPanel() {
             {ADD_MODEL}
           </button>
         </div>
+      </div>
 
       <div className="ui-divider" />
 
