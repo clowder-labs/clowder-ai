@@ -69,6 +69,7 @@ import type { ResumeFailureKind } from './invoke-helpers.js';
 import {
   classifyResumeFailure,
   extractTaskProgress,
+  isCliTimeoutError,
   isMissingClaudeSessionError,
   isPromptTokenLimitExceededError,
   isTransientCliExitCode1,
@@ -1528,9 +1529,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       let suppressedMissingSessionError: AgentMessage | undefined;
       let suppressedPromptLimitError: AgentMessage | undefined;
       let suppressedTransientCliError: AgentMessage | undefined;
+      let suppressedTimeoutError: AgentMessage | undefined;
       let shouldRetryWithoutSession = false;
       let shouldRetryOnTransientCliExit = false;
       let attemptHasContentOutput = false;
+      // Substantive = real model output (text/tool), excludes system_info/session_init/error/done.
+      // Used for timeout-retry: system_info (e.g. timeout_diagnostics) must NOT block retry.
+      let attemptHasSubstantiveOutput = false;
 
       // F089: Use abortableNext instead of `for await` so the invocation timeout
       // can break out even when the service generator is stuck on an unresolvable await.
@@ -1586,10 +1591,31 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           suppressedTransientCliError = msg;
           continue;
         }
+        // #774 self-heal: CLI timeout during session resume with no substantive output
+        // → likely stale/unreachable session. Suppress and retry without session.
+        // Uses attemptHasSubstantiveOutput (not attemptHasContentOutput) because
+        // timeout_diagnostics (system_info) must NOT block the retry path.
+        if (
+          allowSessionRetry &&
+          options.sessionId &&
+          !attemptHasSubstantiveOutput &&
+          msg.type === 'error' &&
+          isCliTimeoutError(msg.error)
+        ) {
+          suppressedTimeoutError = msg;
+          continue;
+        }
 
-        if (suppressedMissingSessionError || suppressedPromptLimitError || suppressedTransientCliError) {
+        if (
+          suppressedMissingSessionError ||
+          suppressedPromptLimitError ||
+          suppressedTransientCliError ||
+          suppressedTimeoutError
+        ) {
           if (msg.type === 'done') {
-            shouldRetryWithoutSession = Boolean(suppressedMissingSessionError || suppressedPromptLimitError);
+            shouldRetryWithoutSession = Boolean(
+              suppressedMissingSessionError || suppressedPromptLimitError || suppressedTimeoutError,
+            );
             shouldRetryOnTransientCliExit = Boolean(suppressedTransientCliError);
             break;
           }
@@ -1612,6 +1638,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             }
             suppressedTransientCliError = undefined;
           }
+          if (suppressedTimeoutError) {
+            for await (const out of streamProcessedOutputs(suppressedTimeoutError)) {
+              yield out;
+            }
+            suppressedTimeoutError = undefined;
+          }
         }
 
         for await (const out of streamProcessedOutputs(msg)) {
@@ -1619,6 +1651,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         }
         if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
           attemptHasContentOutput = true;
+          // Substantive = real model output, excludes system_info (e.g. timeout_diagnostics).
+          if (msg.type !== 'system_info') {
+            attemptHasSubstantiveOutput = true;
+          }
           // F118 AC-C6: Reset consecutive restore failure counter on successful content
           if (deps.sessionChainStore && !didResetRestoreFailures) {
             didResetRestoreFailures = true; // only reset once per invocation

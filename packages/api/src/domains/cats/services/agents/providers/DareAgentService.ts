@@ -651,7 +651,7 @@ export class DareAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `DARE CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `DARE CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };

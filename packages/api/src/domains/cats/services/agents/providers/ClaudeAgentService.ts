@@ -354,7 +354,7 @@ export class ClaudeAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `布偶猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `布偶猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
