@@ -593,9 +593,9 @@ function installSharedPythonDeps(bundleDir) {
 
   // Prune site-packages to reduce size
   const sitePackages = join(bundleDir, 'tools', 'python', 'Lib', 'site-packages');
-  removeNamedDirectoriesRecursive(sitePackages, ['__pycache__', 'tests', 'test', '__tests__']);
+  removeNamedDirectoriesRecursive(sitePackages, ['tests', 'test', '__tests__']);
   walkFiles(sitePackages, (fullPath, entry) => {
-    if (entry.name.endsWith('.pyc') || entry.name.endsWith('.pyo')) {
+    if (entry.name.endsWith('.pyo')) {
       rmSync(fullPath, { force: true });
     }
   });
@@ -603,7 +603,7 @@ function installSharedPythonDeps(bundleDir) {
 
 function stageVendorPythonSources(bundleDir) {
   const excludeDirs = new Set([
-    'dist', '.venv', '.build-venv', '__pycache__', 'tests', 'test',
+    'dist', '.venv', '.build-venv', 'tests', 'test',
     '.git', 'node_modules', 'build', '.mypy_cache', '.pytest_cache',
   ]);
   const excludeFiles = new Set(['uv.lock']);
@@ -618,7 +618,7 @@ function stageVendorPythonSources(bundleDir) {
         copySourceTree(srcPath, destPath);
       } else {
         if (excludeFiles.has(entry.name)) continue;
-        if (entry.name.endsWith('.pyc') || entry.name.endsWith('.pyo')) continue;
+        if (entry.name.endsWith('.pyo')) continue;
         // Use copyFileSync instead of cpSync — cpSync fails on non-ASCII filenames on Windows
         copyFileSync(srcPath, destPath);
       }
