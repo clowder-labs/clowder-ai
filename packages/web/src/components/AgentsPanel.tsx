@@ -299,6 +299,10 @@ export function AgentsPanel() {
       ),
     [templatePage],
   );
+  const activeDraft = tabDrafts[activeTab] ?? '';
+  const isPersonaTab = activeTab === 'persona';
+  const hasDraftContent = activeDraft.trim().length > 0;
+  const showTemplateUI = isPersonaTab && !hasDraftContent;
 
   useEffect(() => {
     setTabDrafts(buildTabDrafts(selectedCat));
@@ -466,6 +470,14 @@ export function AgentsPanel() {
     };
   }, [hoveredTemplateId, positionTemplatePreview]);
 
+  useEffect(() => {
+    if (showTemplateUI) return;
+    setTemplateModalOpen(false);
+    setHoveredTemplateId(null);
+    setHoveredTemplatePosition(null);
+    hoveredTemplateTriggerRef.current = null;
+  }, [showTemplateUI]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-5">
@@ -485,7 +497,7 @@ export function AgentsPanel() {
                 +
               </button>
             </div>
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto  overflow-y-hidden pr-1">
               {cats.map((cat) => {
                 const isSelected = selectedCat?.id === cat.id;
                 const configCat = config?.cats[cat.id];
@@ -516,7 +528,7 @@ export function AgentsPanel() {
                           {modelText} · {budgetText}
                         </div>
                       </button>
-                      <div ref={openActionMenuCatId === cat.id ? actionMenuRef : null} className="shrink-0">
+                      <div ref={openActionMenuCatId === cat.id ? actionMenuRef : null} className="relative shrink-0">
                         <button
                           type="button"
                           onClick={() => toggleActionMenu(cat.id)}
@@ -531,7 +543,8 @@ export function AgentsPanel() {
                         {openActionMenuCatId === cat.id ? (
                           <div
                             role="menu"
-                            className="absolute bottom-2 right-2 z-30 w-20 translate-y-[calc(100%+8px)] rounded-xl border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                            data-testid={`agent-action-menu-${cat.id}`}
+                            className="absolute right-0 top-full z-30 mt-2 w-20 rounded-xl border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
                           >
                             <button
                               type="button"
@@ -582,6 +595,7 @@ export function AgentsPanel() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
+                  data-testid={`agent-tab-${tab.id}`}
                   className={`rounded-lg px-3 py-1.5 text-xs transition ${
                     activeTab === tab.id
                       ? 'bg-[#F3F6FA] font-semibold text-[#445066]'
@@ -598,32 +612,36 @@ export function AgentsPanel() {
             {fetchError ? <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{fetchError}</p> : null}
 
             <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-white flex flex-col">
-              <div className="flex w-full justify-end">
+              <div className="flex w-full justify-end gap-2">
                 <button
-                type="button"
-                onClick={() =>
-                  setTabDrafts((current) => ({
-                    ...current,
-                    [activeTab]: '',
-                  }))
-                }
-                className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
-              >
-                清除
-              </button>
-                <button
-                type="button"
-                onClick={() => setTemplateModalOpen(true)}
-                className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
-              >
-                灵感模板
-              </button>
+                  type="button"
+                  data-testid="agent-clear-button"
+                  onClick={() =>
+                    setTabDrafts((current) => ({
+                      ...current,
+                      [activeTab]: '',
+                    }))
+                  }
+                  className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
+                >
+                  清除
+                </button>
+                {showTemplateUI ? (
+                  <button
+                    type="button"
+                    data-testid="agent-template-button"
+                    onClick={() => setTemplateModalOpen(true)}
+                    className="rounded-lg border border-[#E6EAF0] bg-white px-3 py-1.5 text-xs text-[#5F6673] shadow-sm transition hover:bg-[#F8FAFC]"
+                  >
+                    灵感模板
+                  </button>
+                ) : null}
               </div>
               <div ref={templatePreviewLayerRef} data-testid="template-preview-layer" className="relative flex h-full flex-col">
                 <div className="flex min-h-0 flex-1 overflow-hidden px-12 py-1">
                     <textarea
                       ref={personaTextareaRef}
-                      value={tabDrafts[activeTab]}
+                      value={activeDraft}
                       onChange={(event) =>
                         setTabDrafts((current) => ({
                           ...current,
@@ -631,100 +649,109 @@ export function AgentsPanel() {
                         }))
                       }
                       placeholder={tabPlaceholder(activeTab)}
-                      className="w-full min-h-0 flex-1 resize-none rounded-2xl  text-[12px] leading-7 text-[#334155] outline-none transition placeholder:text-[#A0A8B6]"
+                      className="w-full min-h-0 flex-1 resize-none text-[12px] leading-7 text-[#334155] outline-none transition placeholder:text-[#A0A8B6]"
                       data-testid="agent-tab-textarea"
                     />
                 </div>
 
-                <div className="shrink-0 px-6 pb-2 pt-3">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="text-xs text-[#8D95A3]">灵感模板</div>
-                    {templatePageCount > 1 ? (
-                      <div className="flex items-center gap-2 text-[#A9B0BD]">
-                        <button
-                          type="button"
-                          onClick={() => handleTemplatePageChange(templatePage - 1)}
-                          disabled={templatePage === 0}
-                          className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
-                          data-testid="templates-prev-page"
-                          aria-label="上一页模板"
-                        >
-                          ‹
-                        </button>
-                        <span className="text-[11px] text-[#A9B0BD]">
-                          {templatePage + 1}/{templatePageCount}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleTemplatePageChange(templatePage + 1)}
-                          disabled={templatePage >= templatePageCount - 1}
-                          className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
-                          data-testid="templates-next-page"
-                          aria-label="下一页模板"
-                        >
-                          ›
-                        </button>
-                      </div>
-                    ) : null}
+                {showTemplateUI ? (
+                  <div className="shrink-0 px-6 pb-2 pt-3">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div data-testid="agent-template-section-title" className="text-xs text-[#8D95A3]">灵感模板</div>
+                      {templatePageCount > 1 ? (
+                        <div className="flex items-center gap-2 text-[#A9B0BD]">
+                          <button
+                            type="button"
+                            onClick={() => handleTemplatePageChange(templatePage - 1)}
+                            disabled={templatePage === 0}
+                            className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
+                            data-testid="templates-prev-page"
+                            aria-label="上一页模板"
+                          >
+                            ‹
+                          </button>
+                          <span className="text-[11px] text-[#A9B0BD]">
+                            {templatePage + 1}/{templatePageCount}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleTemplatePageChange(templatePage + 1)}
+                            disabled={templatePage >= templatePageCount - 1}
+                            className="rounded-md px-2 py-1 text-sm transition enabled:hover:bg-[#F4F7FB] disabled:cursor-not-allowed disabled:opacity-40"
+                            data-testid="templates-next-page"
+                            aria-label="下一页模板"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+                      {visibleTemplates.map((template) => {
+                        const isHovered = hoveredTemplateId === template.id;
+                        return (
+                          <button
+                            key={template.id}
+                            type="button"
+                            data-testid={`template-trigger-${template.id}`}
+                            onMouseEnter={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
+                            onMouseLeave={() => handleTemplateHoverEnd(template.id)}
+                            onFocus={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
+                            onBlur={() => handleTemplateHoverEnd(template.id)}
+                            className={`h-[98px] rounded-lg border px-3 py-2 text-left transition ${
+                              isHovered
+                                ? 'border-[#BFD3EA] bg-[#F4F8FF]'
+                                : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-[#FAFCFF]'
+                            }`}
+                          >
+                            <div className="text-[13px] font-semibold text-[#2E3542]">{template.title}</div>
+                            <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#9AA2AF]">{template.description}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-                    {visibleTemplates.map((template) => {
-                      const isHovered = hoveredTemplateId === template.id;
-                      return (
-                        <button
-                          key={template.id}
-                          type="button"
-                          data-testid={`template-trigger-${template.id}`}
-                          onMouseEnter={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
-                          onMouseLeave={() => handleTemplateHoverEnd(template.id)}
-                          onFocus={(event) => handleTemplateHoverStart(template.id, event.currentTarget)}
-                          onBlur={() => handleTemplateHoverEnd(template.id)}
-                          className={`h-[66px] rounded-lg border px-3 py-2 text-left transition ${
-                            isHovered
-                              ? 'border-[#BFD3EA] bg-[#F4F8FF]'
-                              : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-[#FAFCFF]'
-                          }`}
-                        >
-                          <div className="text-[13px] font-semibold text-[#2E3542]">{template.title}</div>
-                          <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#9AA2AF]">{template.description}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                ) : null}
 
-                {hoveredTemplate && hoveredTemplatePosition ? (
+                {showTemplateUI && hoveredTemplate && hoveredTemplatePosition ? (
                   <div
                     data-testid="template-hover-preview"
                     onMouseEnter={() => handleTemplateHoverStart(hoveredTemplate.id)}
                     onMouseLeave={() => handleTemplateHoverEnd(hoveredTemplate.id)}
-                    className="absolute z-20 flex h-[300px] w-[400px] flex-col overflow-hidden rounded-[8px] border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]"
+                    className="absolute z-20 w-[400px]"
                     style={{
                       left: hoveredTemplatePosition.left,
                       top: hoveredTemplatePosition.top,
                       transform: 'translate(-50%, calc(-100% - 16px))',
                     }}
                   >
-                    <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-                      <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
-                        {selectedCat?.displayName ?? '九问Office'}
-                      </h3>
-                      <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">人格定义 (Persona)</div>
-                      <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
-                        {hoveredTemplate.persona.map((item) => (
-                          <li key={item}>• {item}</li>
-                        ))}
-                      </ul>
+                    <div className="relative flex h-[300px] flex-col overflow-hidden rounded-[8px] border border-[#DEE5EF] bg-white px-7 py-6 shadow-[0_8px_24px_rgba(25,32,45,0.08)]">
+                      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                        <h3 className="text-[14px] font-semibold leading-tight text-[#1E2A3E]">
+                          {selectedCat?.displayName ?? '九问Office'}
+                        </h3>
+                        <div className="mt-6 text-[14px] font-semibold leading-none text-[#5A6880]">人格定义 (Persona)</div>
+                        <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[#5C6C84]">
+                          {hoveredTemplate.persona.map((item) => (
+                            <li key={item}>• {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="flex justify-end pt-4">
+                        <button
+                          type="button"
+                          onClick={() => handleTemplateApply(hoveredTemplate)}
+                          className="rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
+                        >
+                          插入模板
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex justify-end pt-4">
-                      <button
-                        type="button"
-                        onClick={() => handleTemplateApply(hoveredTemplate)}
-                        className="rounded-full bg-[#1F2633] px-6 py-2.5 text-[12px] font-medium text-white transition hover:bg-[#171D28]"
-                      >
-                        插入模板
-                      </button>
-                    </div>
+                    <div
+                      aria-hidden="true"
+                      data-testid="template-hover-preview-tail"
+                      className="pointer-events-none absolute left-1/2 top-[calc(100%-8px)] h-4 w-4 -translate-x-1/2 rotate-45 border-b border-r border-[#DEE5EF] bg-white"
+                    />
                   </div>
                 ) : null}
               </div>
@@ -746,7 +773,7 @@ export function AgentsPanel() {
         onSaved={handleEditorSaved}
       />
       <PromptSelectionModal
-        open={templateModalOpen}
+        open={showTemplateUI && templateModalOpen}
         items={promptSelectionItems}
         title="灵魂模板"
         searchPlaceholder="输入关键字搜索"
