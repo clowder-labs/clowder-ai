@@ -100,10 +100,10 @@ export function validateRuntimeProviderBinding(
 
   if (provider === 'relayclaw') {
     if (profile.authType !== 'api_key') {
-      return 'client "relayclaw" requires an API key provider profile';
+      return 'client "relayclaw" ("jiuwen") requires an API key provider profile';
     }
     if (profile.protocol && profile.protocol !== 'openai') {
-      return 'client "relayclaw" currently only supports openai-compatible API key profiles';
+      return 'client "relayclaw" ("jiuwen") currently only supports openai-compatible API key profiles';
     }
   }
 

@@ -44,6 +44,10 @@ function summaryText(profile: ProfileItem): string | null {
   return `${host} · ${profile.hasApiKey ? '已配置' : '未配置'}`;
 }
 
+function isEditableHttpProfile(profile: ProfileItem): boolean {
+  return profile.kind !== 'acp' && !profile.builtin;
+}
+
 export function HubProviderProfileItem({
   profile,
   busy,
@@ -108,7 +112,12 @@ export function HubProviderProfileItem({
     } else {
       await onSave({
         displayName: editDisplayName.trim(),
-        ...(profile.authType === 'api_key' ? { protocol: editProtocol, baseUrl: editBaseUrl.trim() } : {}),
+        ...(isEditableHttpProfile(profile)
+          ? {
+              protocol: editProtocol,
+              baseUrl: editBaseUrl.trim(),
+            }
+          : {}),
         ...(editApiKey.trim() ? { apiKey: editApiKey.trim() } : {}),
         models: editModels,
       });
@@ -189,8 +198,17 @@ export function HubProviderProfileItem({
                 </select>
               ) : null}
             </>
-          ) : profile.authType === 'api_key' ? (
+          ) : isEditableHttpProfile(profile) ? (
             <>
+              <select
+                value={editProtocol}
+                onChange={(e) => setEditProtocol(e.target.value as ApiProtocol)}
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
+              >
+                <option value="anthropic">Anthropic</option>
+                <option value="openai">OpenAI</option>
+                <option value="google">Google</option>
+              </select>
               <input
                 value={editBaseUrl}
                 onChange={(e) => setEditBaseUrl(e.target.value)}

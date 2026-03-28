@@ -374,8 +374,7 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
   // In practice, any custom profile with a command is an ACP profile.
   const hasAcpSpecificFields =
     Boolean(normalizedCommand) || normalizedModelAccessMode !== undefined || Boolean(normalizedDefaultModelProfileRef);
-  const isLegacyAcpProfile =
-    normalizedProtocol === 'acp' || profile.authType === 'none' || hasAcpSpecificFields;
+  const isLegacyAcpProfile = normalizedProtocol === 'acp' || hasAcpSpecificFields;
   const isAcpProfile = profile.kind === 'acp' || isLegacyAcpProfile;
 
   if (isAcpProfile) {
@@ -410,7 +409,7 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
     kind: 'api_key',
     authType: 'api_key',
     builtin: false,
-    ...(normalizeProtocol(profile.protocol) ? { protocol: normalizeProtocol(profile.protocol) } : {}),
+    ...(normalizedProtocol ? { protocol: normalizedProtocol } : {}),
     ...(normalizeBaseUrl(profile.baseUrl) ? { baseUrl: normalizeBaseUrl(profile.baseUrl) } : {}),
     ...(normalizeModels(profile.models) !== undefined ? { models: normalizeModels(profile.models) } : {}),
     createdAt: profile.createdAt,
@@ -1113,7 +1112,7 @@ export async function createProviderProfile(
   return withProviderStoreLock(projectRoot, async (storageRoot) => {
     const { meta, secrets, metaPath, secretsPath } = await readRawAtStorageRoot(storageRoot);
     const displayName = requireDisplayName(input);
-    const kind = input.kind ?? (input.protocol === 'acp' || input.authType === 'none' ? 'acp' : 'api_key');
+    const kind = input.kind ?? (input.protocol === 'acp' ? 'acp' : 'api_key');
     const now = new Date().toISOString();
     let profile: ProviderProfileMeta;
 
@@ -1151,6 +1150,7 @@ export async function createProviderProfile(
         secrets.profiles[profile.id] = { ...(secrets.profiles[profile.id] ?? {}), env };
       }
     } else {
+      const protocol = normalizeProtocol(input.protocol);
       const authType = input.authType ?? modeToAuthType(input.mode);
       if (authType !== 'api_key') {
         throw new Error('only api_key accounts can be created');
@@ -1165,16 +1165,18 @@ export async function createProviderProfile(
         id: createUniqueAccountId(meta.providers, displayName),
         displayName,
         kind: 'api_key',
-        authType: 'api_key',
+        authType,
         builtin: false,
-        ...(normalizeProtocol(input.protocol) ? { protocol: normalizeProtocol(input.protocol) } : {}),
+        ...(protocol ? { protocol } : {}),
         ...(normalizeBaseUrl(input.baseUrl) ? { baseUrl: normalizeBaseUrl(input.baseUrl) } : {}),
         ...(normalizeModels(input.models) !== undefined ? { models: normalizeModels(input.models) } : {}),
         createdAt: now,
         updatedAt: now,
       };
 
-      secrets.profiles[profile.id] = { apiKey };
+      if (apiKey) {
+        secrets.profiles[profile.id] = { apiKey };
+      }
       if (input.setActive) {
         const client = resolveClientFromSelector(input.provider ?? input.protocol, profile);
         if (!client) {
@@ -1301,6 +1303,7 @@ export async function updateProviderProfile(
     if (typeof input.name === 'string' || typeof input.displayName === 'string') {
       profile.displayName = requireDisplayName(input);
     }
+    const nextProtocol = input.protocol !== undefined ? normalizeProtocol(input.protocol) : profile.protocol;
     const nextAuthType = input.authType ?? (input.mode ? modeToAuthType(input.mode) : profile.authType);
     if (nextAuthType !== 'api_key') {
       throw new Error('api key accounts cannot be converted to oauth');
@@ -1314,8 +1317,7 @@ export async function updateProviderProfile(
       else delete profile.baseUrl;
     }
     if (input.protocol !== undefined) {
-      const normalizedProtocol = normalizeProtocol(input.protocol);
-      if (normalizedProtocol) profile.protocol = normalizedProtocol;
+      if (nextProtocol) profile.protocol = nextProtocol;
       else delete profile.protocol;
     }
     if (input.models !== undefined) {
@@ -1323,6 +1325,7 @@ export async function updateProviderProfile(
     }
     if (typeof input.apiKey === 'string' && input.apiKey.trim()) {
       secrets.profiles[profile.id] = { apiKey: input.apiKey.trim() };
+      profile.authType = 'api_key';
     }
     profile.updatedAt = new Date().toISOString();
     await writeRaw(metaPath, secretsPath, meta, secrets);

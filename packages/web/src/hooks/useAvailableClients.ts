@@ -48,9 +48,14 @@ export function useAvailableClients(): AvailableClientsState {
       })
       .then((body) => {
         if (!cancelled) {
+          const derivedClientLabels = Object.fromEntries(
+            body.clients
+              .filter((client) => client.label.trim().length > 0)
+              .map((client) => [client.id, client.label]),
+          );
           setState({
-            clients: body.clients.filter((c) => c.available),
-            clientLabels: body.clientLabels ?? {},
+            clients: body.clients,
+            clientLabels: { ...derivedClientLabels, ...(body.clientLabels ?? {}) },
             uiHints: body.uiHints ?? { hiddenHubTabs: [], hiddenEnvCategories: [], hideSkillMountStatus: false, hideAgentGuides: false },
             loading: false,
             error: null,

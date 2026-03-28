@@ -14,6 +14,8 @@ export interface CatConfig {
   provider: string;
   model: string;
   mcpSupport: boolean;
+  accountRef?: string;
+  providerProfileId?: string;
 }
 
 export interface ContextBudget {

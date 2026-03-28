@@ -55,6 +55,8 @@ export interface ConfigSnapshot {
       provider: string;
       model: string;
       mcpSupport: boolean;
+      accountRef?: string;
+      providerProfileId?: string;
     }
   >;
   a2a: {

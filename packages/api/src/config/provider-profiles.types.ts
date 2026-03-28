@@ -1,4 +1,4 @@
-export type ProviderProfileProtocol = 'anthropic' | 'openai' | 'google' | 'acp';
+export type ProviderProfileProtocol = 'anthropic' | 'openai' | 'google' | 'huawei_maas' | 'acp';
 export type ProviderProfileProvider = string;
 export type ProviderProfileMode = 'subscription' | 'api_key' | 'none';
 export type ProviderProfileAuthType = 'oauth' | 'api_key' | 'none';

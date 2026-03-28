@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
 import type { CatData } from '@/hooks/useCatData';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import type { ConfigData } from './config-viewer-types';
 import { buildEditorLoadingNote, uploadAvatarAsset } from './hub-cat-editor.client';
@@ -44,14 +45,30 @@ function resolveEditorCat(cat?: CatData | null, configCat?: ConfigData['cats'][s
   return {
     ...cat,
     displayName: configCat.displayName || cat.displayName,
+    accountRef: configCat.accountRef || configCat.providerProfileId || cat.accountRef || cat.providerProfileId,
+    providerProfileId: configCat.providerProfileId || configCat.accountRef || cat.providerProfileId || cat.accountRef,
     provider: configCat.provider || cat.provider,
     defaultModel: configCat.model || cat.defaultModel,
   };
 }
 
+interface ModelConfigProfilesResponse {
+  projectPath: string;
+  fallbackToProviderProfiles?: boolean;
+  exists: boolean;
+  providers: ProfileItem[];
+}
+
+function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
+  if (!projectPath || projectPath === 'default') return path;
+  const query = new URLSearchParams({ projectPath });
+  return `${path}?${query.toString()}`;
+}
+
 export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: HubCatEditorProps) {
   const confirm = useConfirm();
   const { clients: detectedClients, clientLabels } = useAvailableClients();
+  const currentProjectPath = useChatStore((state) => state.currentProjectPath);
   const availableClientIds = useMemo(() => new Set(detectedClients.map((c) => c.id)), [detectedClients]);
   const resolvedCat = useMemo(() => resolveEditorCat(cat, configCat), [cat, configCat]);
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
@@ -100,13 +117,37 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
     if (!open) return;
     let cancelled = false;
     setLoadingProfiles(true);
-    apiFetch('/api/provider-profiles')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`账号配置加载失败 (${res.status})`);
-        return (await res.json()) as ProviderProfilesResponse;
+    const modelConfigUrl = '/api/model-config-profiles';
+    const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
+    Promise.resolve()
+      .then(async () => {
+        let modelConfigRes: Response;
+        try {
+          modelConfigRes = await apiFetch(modelConfigUrl);
+        } catch {
+          const providerProfilesRes = await apiFetch(providerProfilesUrl);
+          if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+          const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+          return providerProfilesBody.providers;
+        }
+        if (!modelConfigRes.ok) {
+          if (modelConfigRes.status === 404) return [] as ProfileItem[];
+          throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
+        }
+        const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
+        if (body.exists) {
+          return body.providers;
+        }
+        if (!body.fallbackToProviderProfiles) {
+          return [] as ProfileItem[];
+        }
+        const providerProfilesRes = await apiFetch(providerProfilesUrl);
+        if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+        const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+        return providerProfilesBody.providers;
       })
-      .then((body) => {
-        if (!cancelled) setProfiles(body.providers);
+      .then((nextProfiles) => {
+        if (!cancelled) setProfiles(nextProfiles);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '账号配置加载失败');
@@ -117,7 +158,7 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [currentProjectPath, open]);
 
   useEffect(() => {
     if (!open || !resolvedCat) {
