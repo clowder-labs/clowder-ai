@@ -23,6 +23,7 @@ import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profi
 
 interface ModelConfigProfilesResponse {
   projectPath: string;
+  fallbackToProviderProfiles?: boolean;
   exists: boolean;
   providers: ProfileItem[];
 }
@@ -123,28 +124,26 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
     Promise.resolve()
       .then(async () => {
+        let modelConfigRes: Response;
         try {
-          return await apiFetch(modelConfigUrl);
+          modelConfigRes = await apiFetch(modelConfigUrl);
         } catch {
-          return null;
+          const providerProfilesRes = await apiFetch(providerProfilesUrl);
+          if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+          const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+          return providerProfilesBody.providers;
         }
-      })
-      .then(async (res) => {
-        if (!res) return null;
-        if (!res.ok) {
-          if (res.status === 404) return null;
-          throw new Error(`模型配置加载失败 (${res.status})`);
+        if (!modelConfigRes.ok) {
+          if (modelConfigRes.status === 404) return [] as ProfileItem[];
+          throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
         }
-        const body = (await res.json()) as ModelConfigProfilesResponse;
+        const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
         if (body.exists) return body.providers;
-        return null;
-      })
-      .then(async (modelConfigProfiles) => {
-        if (modelConfigProfiles) return modelConfigProfiles;
-        const res = await apiFetch(providerProfilesUrl);
-        if (!res.ok) throw new Error(`账号配置加载失败 (${res.status})`);
-        const body = (await res.json()) as ProviderProfilesResponse;
-        return body.providers;
+        if (!body.fallbackToProviderProfiles) return [] as ProfileItem[];
+        const providerProfilesRes = await apiFetch(providerProfilesUrl);
+        if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+        const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+        return providerProfilesBody.providers;
       })
       .then((nextProfiles) => {
         if (!cancelled) setProfiles(nextProfiles);

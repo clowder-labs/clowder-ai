@@ -9,6 +9,7 @@ export interface ModelConfigBinding {
   protocol?: ProviderProfileProtocol;
 }
 export const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
+export const MODEL_CONFIG_FALLBACK_ENV = 'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -38,6 +39,11 @@ function displayNameForBinding(binding: ModelConfigBinding): string {
 
 export function resolveProjectModelConfigPath(projectRoot: string): string {
   return join(resolveProviderProfilesRootSync(projectRoot), '.cat-cafe', 'model.json');
+}
+
+export function isModelConfigProviderFallbackEnabled(): boolean {
+  const raw = process.env[MODEL_CONFIG_FALLBACK_ENV]?.trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
 
 export async function readProjectModelConfigBindings(projectRoot: string): Promise<ModelConfigBinding[] | null> {

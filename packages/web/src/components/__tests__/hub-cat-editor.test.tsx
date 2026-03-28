@@ -608,6 +608,16 @@ describe('HubCatEditor', () => {
       if (path === '/api/available-clients') {
         return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
       }
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: false,
+            fallbackToProviderProfiles: true,
+            providers: [],
+          }),
+        );
+      }
       return Promise.resolve(jsonResponse(profilesPayload));
     });
 

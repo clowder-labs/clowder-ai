@@ -6,7 +6,11 @@ import type { FastifyPluginAsync } from 'fastify';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { readAcpModelProfiles } from '../config/acp-model-profiles.js';
-import { HUAWEI_MAAS_MODEL_SOURCE_ID, resolveProjectModelConfigPath } from '../config/model-config-profiles.js';
+import {
+  HUAWEI_MAAS_MODEL_SOURCE_ID,
+  isModelConfigProviderFallbackEnabled,
+  resolveProjectModelConfigPath,
+} from '../config/model-config-profiles.js';
 import { readProviderProfiles } from '../config/provider-profiles.js';
 import { resolveHuaweiMaaSRuntimeConfig } from '../integrations/huawei-maas.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -135,10 +139,10 @@ async function aggregateConfiguredModels(projectRoot: string): Promise<MassModel
   };
 }
 
-export const massModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions> = async (app, opts) => {
+export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions> = async (app, opts) => {
   const fetchImpl = opts.fetchImpl ?? fetch;
 
-  app.get('/api/mass-models', async (request, reply) => {
+  const handleListModels = async (request: any, reply: any) => {
     const parsed = projectQuerySchema.safeParse(request.query);
     if (!parsed.success) {
       reply.status(400);
@@ -206,8 +210,18 @@ export const massModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
       }
     }
 
-    return await aggregateConfiguredModels(projectRoot);
-  });
+    if (isModelConfigProviderFallbackEnabled()) {
+      return await aggregateConfiguredModels(projectRoot);
+    }
+
+    return {
+      projectPath: projectRoot,
+      models: [],
+    } satisfies MassModelsResponse;
+  };
+
+  app.get('/api/maas-models', handleListModels);
+  app.get('/api/mass-models', handleListModels);
 
   app.post('/api/maas-send', async (_request, reply) => {
     reply.status(410);

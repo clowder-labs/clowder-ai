@@ -323,6 +323,48 @@ describe('HubAddMemberWizard', () => {
     expect(container.textContent).not.toContain('Codex Sponsor');
   });
 
+  it('does not fall back to provider-profiles when model-config fallback is disabled', async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/cats') {
+        return Promise.resolve(jsonResponse({ cats: [] }));
+      }
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: false,
+            fallbackToProviderProfiles: false,
+            providers: [],
+          }),
+        );
+      }
+      if (path === '/api/provider-profiles') {
+        throw new Error('provider-profiles should not be requested when fallback is disabled');
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [
+              { id: 'dare', label: 'Dare', command: 'dare', available: true },
+              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+            ],
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubAddMemberWizard, { open: true, onClose: vi.fn(), onComplete: vi.fn() }));
+    });
+    await flushEffects();
+
+    await click(queryButton(container, 'jiuwen'));
+    expect(container.textContent).not.toContain('Codex Sponsor');
+    expect(container.textContent).not.toContain('Huawei MaaS');
+    expect(mockApiFetch.mock.calls.some(([path]) => path === '/api/provider-profiles')).toBe(false);
+  });
+
   it('keeps known clients visible even when their local CLI is unavailable', async () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/cats') {

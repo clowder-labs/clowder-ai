@@ -176,7 +176,7 @@ export function ModelsPanel() {
     const fetchModels = async () => {
       setLoading(true);
       try {
-        const res = await apiFetch('/api/mass-models');
+        const res = await apiFetch('/api/maas-models');
         if (!res.ok) {
           if (!cancelled) setCards([]);
           return;
@@ -340,4 +340,3 @@ function ModelsCreateApiKeyAccount() {
   const { providerCreateSectionProps } = useProviderProfilesState();
   return <CreateApiKeyProfileSection {...providerCreateSectionProps} defaultExpanded />;
 }
-
