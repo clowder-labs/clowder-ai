@@ -35,8 +35,8 @@ import {
   resolveRuntimeProviderProfileForClient,
 } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
-import { resolveHuaweiMaaSRuntimeConfig } from '../../../../../integrations/huawei-maas.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { resolveHuaweiMaaSRuntimeConfig } from '../../../../../integrations/huawei-maas.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
 import {
   buildEmbeddedAgentTeamsModelProfile,
@@ -45,8 +45,8 @@ import {
   embeddedAgentTeamsRuntimeAvailable,
   resolveEmbeddedAgentTeamsExecutable,
 } from '../../../../../utils/agent-teams-bundle.js';
-import { resolveEmbeddedAgentTeamsBinding } from '../../../../../utils/embedded-runtime-bindings.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
+import { resolveEmbeddedAgentTeamsBinding } from '../../../../../utils/embedded-runtime-bindings.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
@@ -244,11 +244,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const invocationTimeoutMs =
     (cliTimeoutMs > 0 ? cliTimeoutMs : DEFAULT_CLI_TIMEOUT_MS) * INVOCATION_TIMEOUT_MULTIPLIER;
   const invocationAc = new AbortController();
-  const invocationTimer = setTimeout(() => {
-    log.error({ invocationId, catId, threadId, timeoutMs: invocationTimeoutMs }, 'Invocation hard timeout fired');
-    invocationAc.abort(new Error('invocation_timeout'));
-  }, invocationTimeoutMs);
-  invocationTimer.unref();
+  let invocationTimer: ReturnType<typeof setTimeout> | null = null;
+  const resetInvocationTimeout = (): void => {
+    if (invocationTimer) clearTimeout(invocationTimer);
+    invocationTimer = setTimeout(() => {
+      log.error({ invocationId, catId, threadId, timeoutMs: invocationTimeoutMs }, 'Invocation hard timeout fired');
+      invocationAc.abort(new Error('invocation_timeout'));
+    }, invocationTimeoutMs);
+    invocationTimer.unref();
+  };
+  resetInvocationTimeout();
 
   // Merge caller signal (user cancel) with invocation timeout — neither loses semantics.
   const signal: AbortSignal | undefined = callerSignal
@@ -632,7 +637,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ? await findProjectModelConfigBinding(configProjectRoot, rawBoundAccountRef)
         : null;
     const boundAccountRef = embeddedAcpRuntime
-      ? embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id
+      ? (embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id)
       : rawBoundAccountRef;
     const modelConfigBinding = embeddedAcpRuntime
       ? embeddedModelConfigBinding
@@ -647,7 +652,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         throw new Error(`unsupported model config source "${modelConfigBinding.id}"`);
       }
       if (!embeddedAcpRuntime && provider !== 'dare' && provider !== 'relayclaw') {
-        throw new Error(`client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`);
+        throw new Error(
+          `client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`,
+        );
       }
       if (defaultModel && modelConfigBinding.models.length && !modelConfigBinding.models.includes(defaultModel)) {
         throw new Error(`model "${defaultModel}" is not available on provider "${modelConfigBinding.id}"`);
@@ -723,8 +730,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const effectiveProtocol =
       resolvedAccount?.kind !== 'builtin' && resolvedAccount?.protocol
         ? resolvedAccount.protocol
-        : modelConfigBinding?.protocol ??
-          (provider ? (defaultProtocolForProvider[provider] ?? null) : null);
+        : (modelConfigBinding?.protocol ?? (provider ? (defaultProtocolForProvider[provider] ?? null) : null));
 
     // Pass protocol hint to CLI via callbackEnv (used by OpenCode/Claude for model prefix)
     if (effectiveProtocol) {
@@ -938,16 +944,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Prepend staticIdentity to prompt when injection is needed
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
-    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter((part) => typeof part === 'string' && part.trim());
+    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter(
+      (part) => typeof part === 'string' && part.trim(),
+    );
     const promptWithMission = promptParts.join('\n\n');
-    const relayClawQueryPrompt =
-      provider === 'relayclaw' ? (params.userPrompt?.trim() || promptWithMission) : undefined;
+    const relayClawQueryPrompt = provider === 'relayclaw' ? params.userPrompt?.trim() || promptWithMission : undefined;
     const relayClawSystemPrompt =
       provider === 'relayclaw'
-        ? [
-            injectSystemPrompt && params.systemPrompt ? params.systemPrompt : '',
-            promptWithMission,
-          ]
+        ? [injectSystemPrompt && params.systemPrompt ? params.systemPrompt : '', promptWithMission]
             .filter((part) => typeof part === 'string' && part.trim())
             .join('\n\n---\n\n') || undefined
         : undefined;
@@ -955,8 +959,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       provider === 'relayclaw'
         ? (relayClawQueryPrompt ?? promptWithMission)
         : injectSystemPrompt && params.systemPrompt
-        ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
-        : promptWithMission;
+          ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
+          : promptWithMission;
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
@@ -1462,6 +1466,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const iterResult = await abortableNext(serviceIter, signal);
         if (iterResult.done) break;
         const msg = iterResult.value;
+        resetInvocationTimeout();
         if (msg.type === 'error') {
           log.error(
             {
@@ -1701,7 +1706,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {
     // F089: Clear invocation hard timeout
-    clearTimeout(invocationTimer);
+    if (invocationTimer) clearTimeout(invocationTimer);
 
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();
