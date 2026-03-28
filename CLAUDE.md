@@ -65,7 +65,7 @@ BUNDLE_DIR="D:/02.code/clowder-ai/dist/windows/bundle"
 
 # 同步 managed paths
 for item in packages scripts cat-cafe-skills tools installer-seed vendor \
-  .clowder-release.json .env.example LICENSE cat-template.json modelarts-preset.json; do
+  .clowder-release.json .env.example LICENSE cat-template.json modelarts-preset.json pnpm-workspace.yaml; do
   [ -e "$BUNDLE_DIR/$item" ] && rm -rf "$INSTALL_DIR/$item" && cp -a "$BUNDLE_DIR/$item" "$INSTALL_DIR/$item"
 done
 

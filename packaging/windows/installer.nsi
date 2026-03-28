@@ -192,6 +192,7 @@ FunctionEnd
   Delete "$INSTDIR\tsconfig.base.json"
   Delete "$INSTDIR\.npmrc"
   Delete "$INSTDIR\cat-template.json"
+  Delete "$INSTDIR\pnpm-workspace.yaml"
 !macroend
 
 Function CleanupManagedPayload
@@ -245,6 +246,11 @@ Section "Install"
     CopyFiles /SILENT "$INSTDIR\.env.example" "$INSTDIR\.env"
   IfFileExists "$INSTDIR\cat-config.json" +2 0
     CopyFiles /SILENT "$INSTDIR\installer-seed\cat-config.json" "$INSTDIR\cat-config.json"
+
+  ; Run post-install configuration (generate provider-profiles, cat-catalog, etc.)
+  DetailPrint "正在初始化配置..."
+  nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'
+  Pop $0
 
   ; Add firewall rules so Windows does not prompt user when node.exe listens on a port
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js"'

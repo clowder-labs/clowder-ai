@@ -1,13 +1,18 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
+import { useChatStore } from '@/stores/chatStore';
+import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
+import { useProviderProfilesState } from './useProviderProfilesState';
 
-const MODEL_TITLE = '模型';
-const LOADING_TEXT = '加载中...';
-const EMPTY_TEXT = '暂无模型信息';
-const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
+const MODEL_TITLE = '\u6a21\u578b';
+const ADD_MODEL = '\u6dfb\u52a0\u6a21\u578b';
+const LOADING_TEXT = '\u52a0\u8f7d\u4e2d...';
+const EMPTY_TEXT = '\u6682\u65e0\u6a21\u578b\u4fe1\u606f';
+const DEFAULT_DESC =
+  '\u4e13\u6ce8\u4e8e\u77e5\u8bc6\u95ee\u7b54\u3001\u5185\u5bb9\u521b\u4f5c\u7b49\u901a\u7528\u4efb\u52a1\uff0c\u53ef\u5b9e\u73b0\u9ad8\u6027\u80fd\u4e0e\u4f4e\u6210\u672c\u7684\u5e73\u8861\uff0c\u9002\u7528\u4e8e\u667a\u80fd\u5ba2\u670d\u3001\u4e2a\u6027\u5316\u63a8\u8350\u7b49\u573a\u666f\u3002';
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -41,7 +46,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     'model_name',
     'displayName',
     'display_name',
-    '名称',
+    '\u540d\u79f0',
   ]);
 
   const genericStringEntries = Object.entries(item).filter(
@@ -54,7 +59,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     '';
 
   const inferredDescription =
-    pickStringField(item, ['description', 'desc', '描述']) ??
+    pickStringField(item, ['description', 'desc', '\u63cf\u8ff0']) ??
     genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
     DEFAULT_DESC;
 
@@ -163,6 +168,8 @@ function modelIconVisual(iconType: ModelIconType): { label: string; imageSrc: st
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [cards, setCards] = useState<ModelCardData[]>([]);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const openHub = useChatStore((s) => s.openHub);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,7 +214,22 @@ export function ModelsPanel() {
     <div className="ui-page-shell gap-4">
       <div className="ui-page-header">
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
-      </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openHub('provider-profiles')}
+            className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            ACP / 账号配置
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModelModal(true)}
+            className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+          >
+            {ADD_MODEL}
+          </button>
+        </div>
 
       <div className="ui-divider" />
 
@@ -277,6 +299,37 @@ export function ModelsPanel() {
           </div>
         )}
       </div>
+
+      {showAddModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowAddModelModal(false)}
+          data-testid="models-add-model-modal"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(false)}
+                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                关闭
+              </button>
+            </div>
+            <ModelsCreateApiKeyAccount />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+function ModelsCreateApiKeyAccount() {
+  const { providerCreateSectionProps } = useProviderProfilesState();
+  return <CreateApiKeyProfileSection {...providerCreateSectionProps} defaultExpanded />;
+}
+
