@@ -2,20 +2,16 @@ import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
-import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { buildACPSubprocessEnv as buildFilteredACPSubprocessEnv } from '../../../../../config/acp-env.js';
 import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../../../config/provider-profiles.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
-import { buildACPModelProfileOverridePayload } from './acp-model-profile-override.js';
-import {
-  buildACPMetadata,
-  collectTrailingUpdates,
-  transformIncomingUpdateMessage,
-} from './acp-session-helpers.js';
-import { ACPStdioClient } from './acp-transport.js';
 import { ACPMcpBridge, buildAcpMcpServers, resolveACPMcpTransportFromInitializeResult } from './acp-mcp-bridge.js';
+import { buildACPModelProfileOverridePayload } from './acp-model-profile-override.js';
+import { buildACPMetadata, collectTrailingUpdates, transformIncomingUpdateMessage } from './acp-session-helpers.js';
+import { ACPStdioClient } from './acp-transport.js';
 
 const acpLog = createModuleLogger('acp');
 const DEFAULT_ACP_TIMEOUT_MS = 10 * 60 * 1000;
@@ -36,14 +32,18 @@ function normalizeACPCommandName(command: string | undefined): string {
 }
 
 function isOpenCodeACPProvider(providerProfile: RuntimeProviderProfile): boolean {
-  return providerProfile.id?.trim().toLowerCase() === 'opencode-acp' || normalizeACPCommandName(providerProfile.command) === 'opencode';
+  return (
+    providerProfile.id?.trim().toLowerCase() === 'opencode-acp' ||
+    normalizeACPCommandName(providerProfile.command) === 'opencode'
+  );
 }
 
 function extractPermissionOptions(value: unknown): ACPPermissionOption[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== 'object') return [];
-    const optionId = typeof (entry as { optionId?: unknown }).optionId === 'string' ? (entry as { optionId: string }).optionId : '';
+    const optionId =
+      typeof (entry as { optionId?: unknown }).optionId === 'string' ? (entry as { optionId: string }).optionId : '';
     if (!optionId) return [];
     const kind = typeof (entry as { kind?: unknown }).kind === 'string' ? (entry as { kind: string }).kind : undefined;
     return [{ optionId, kind }];
@@ -56,7 +56,8 @@ function selectPermissionOptionId(
 ): string | null {
   const options = extractPermissionOptions(params.options);
   if (options.length === 0) return null;
-  const toolCall = params.toolCall && typeof params.toolCall === 'object' ? (params.toolCall as Record<string, unknown>) : null;
+  const toolCall =
+    params.toolCall && typeof params.toolCall === 'object' ? (params.toolCall as Record<string, unknown>) : null;
   const permissionTitle = typeof toolCall?.title === 'string' ? toolCall.title.trim() : '';
 
   if (isOpenCodeACPProvider(providerProfile) && permissionTitle === 'external_directory') {
@@ -78,7 +79,8 @@ async function handleACPControlMessage(
   const requestId = incoming.id;
   if (typeof requestId !== 'number' && typeof requestId !== 'string') return true;
 
-  const params = incoming.params && typeof incoming.params === 'object' ? (incoming.params as Record<string, unknown>) : {};
+  const params =
+    incoming.params && typeof incoming.params === 'object' ? (incoming.params as Record<string, unknown>) : {};
   const messageSessionId = typeof params.sessionId === 'string' ? params.sessionId.trim() : '';
   if (sessionId && messageSessionId && messageSessionId !== sessionId) {
     await client.sendError(requestId, { code: -32000, message: 'ACP permission request session mismatch' });
@@ -185,7 +187,6 @@ export async function runACPProviderProbe(input: {
 
   const probeEnv = buildACPSubprocessEnv(providerProfile);
   const probeWorkingDir = input.workingDirectory || providerProfile.cwd;
-  if (probeWorkingDir) probeEnv.AGENT_TEAMS_PROJECT_ROOT = probeWorkingDir;
   const client = new ACPStdioClient({
     command: providerProfile.command,
     args: providerProfile.args,
@@ -196,7 +197,12 @@ export async function runACPProviderProbe(input: {
   try {
     await client.start();
     const initializeResult = await client.call('initialize', { protocolVersion: 1 });
-    const sessionParams = buildSessionParams(providerProfile, input.workingDirectory, input.acpModelProfile, initializeResult);
+    const sessionParams = buildSessionParams(
+      providerProfile,
+      input.workingDirectory,
+      input.acpModelProfile,
+      initializeResult,
+    );
     const created = await client.call('session/new', sessionParams);
     const sessionId = typeof created.sessionId === 'string' ? created.sessionId : undefined;
     if (!sessionId) {
@@ -255,7 +261,6 @@ export class ACPAgentService implements AgentService {
 
     const acpEnv = buildACPSubprocessEnv(providerProfile);
     const resolvedWorkingDir = options?.workingDirectory || providerProfile.cwd;
-    if (resolvedWorkingDir) acpEnv.AGENT_TEAMS_PROJECT_ROOT = resolvedWorkingDir;
     const client = new ACPStdioClient({
       command: providerProfile.command,
       args: providerProfile.args,
@@ -322,12 +327,10 @@ export class ACPAgentService implements AgentService {
       };
 
       const executionCall = buildACPExecutionCall(sessionId, prompt, options);
-      const promptPromise = client
-        .call(executionCall.method, executionCall.params)
-        .then(
-          (result) => ({ kind: 'prompt_result' as const, result }),
-          (error) => ({ kind: 'prompt_error' as const, error }),
-        );
+      const promptPromise = client.call(executionCall.method, executionCall.params).then(
+        (result) => ({ kind: 'prompt_result' as const, result }),
+        (error) => ({ kind: 'prompt_error' as const, error }),
+      );
       const abortPromise = new Promise<{ kind: 'abort' }>((resolve) => {
         combinedSignal.addEventListener('abort', () => resolve({ kind: 'abort' }), { once: true });
       });

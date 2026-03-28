@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
 describe('buildACPSubprocessEnv', () => {
   it('merges custom ACP env overrides while blocking reserved keys', async () => {
-    const {
-      buildACPSubprocessEnv,
-    } = await import('../dist/config/acp-env.js');
+    const { buildACPSubprocessEnv } = await import('../dist/config/acp-env.js');
 
     const previousPath = process.env.PATH;
     const previousOpenAi = process.env.OPENAI_API_KEY;
@@ -113,9 +111,7 @@ describe('resolveACPMcpTransportFromInitializeResult', () => {
 
 describe('buildACPMetadata', () => {
   it('uses the ACP provider id as the metadata model label', async () => {
-    const { buildACPMetadata } = await import(
-      '../dist/domains/cats/services/agents/providers/acp-session-helpers.js'
-    );
+    const { buildACPMetadata } = await import('../dist/domains/cats/services/agents/providers/acp-session-helpers.js');
 
     assert.deepEqual(buildACPMetadata('sess-1', 'opencode-acp'), {
       provider: 'acp',
@@ -125,9 +121,7 @@ describe('buildACPMetadata', () => {
   });
 
   it('falls back to a generic ACP label when no provider id is supplied', async () => {
-    const { buildACPMetadata } = await import(
-      '../dist/domains/cats/services/agents/providers/acp-session-helpers.js'
-    );
+    const { buildACPMetadata } = await import('../dist/domains/cats/services/agents/providers/acp-session-helpers.js');
 
     assert.deepEqual(buildACPMetadata(), {
       provider: 'acp',
@@ -452,8 +446,14 @@ process.stdin.on('data', (chunk) => {
         .map((line) => JSON.parse(line));
 
       assert.deepEqual(methods, ['initialize', 'session/load', 'session/resume']);
-      assert.equal(messages.some((msg) => msg.type === 'session_init'), true);
-      assert.equal(messages.some((msg) => msg.type === 'done'), true);
+      assert.equal(
+        messages.some((msg) => msg.type === 'session_init'),
+        true,
+      );
+      assert.equal(
+        messages.some((msg) => msg.type === 'done'),
+        true,
+      );
     });
   });
 
@@ -615,6 +615,185 @@ process.stdin.on('data', (chunk) => {
   });
 });
 
+describe('ACP cwd routing', () => {
+  async function withFakeAcpCwdAgent(testFn) {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-agent-service-cwd-'));
+    const logFile = path.join(tempDir, 'cwd-log.jsonl');
+    const scriptFile = path.join(tempDir, 'fake-acp-agent-cwd.mjs');
+    await writeFile(
+      scriptFile,
+      `
+import { appendFileSync } from 'node:fs';
+
+const logFile = process.env.ACP_TEST_LOG_FILE;
+let buffer = '';
+
+function log(payload) {
+  appendFileSync(logFile, \`\${JSON.stringify(payload)}\\n\`);
+}
+
+function write(message) {
+  const payload = Buffer.from(JSON.stringify(message), 'utf8');
+  process.stdout.write(\`Content-Length: \${payload.length}\\r\\n\\r\\n\`);
+  process.stdout.write(payload);
+}
+
+function handle(message) {
+  if (!message || typeof message !== 'object' || typeof message.method !== 'string') return;
+  const params = message.params && typeof message.params === 'object' ? message.params : {};
+  if (message.method === 'initialize') {
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          promptCapabilities: { audio: false, embeddedContext: false, image: false },
+          mcpCapabilities: { http: true, sse: true },
+        },
+      },
+    });
+    return;
+  }
+  if (message.method === 'session/new' || message.method === 'session/load') {
+    log({
+      method: message.method,
+      cwd: typeof params.cwd === 'string' ? params.cwd : null,
+      envProjectRoot: process.env.AGENT_TEAMS_PROJECT_ROOT ?? null,
+    });
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { sessionId: params.sessionId || 'sess-test' },
+    });
+    return;
+  }
+  if (message.method === 'session/prompt') {
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        stopReason: 'end_turn',
+        runStatus: 'completed',
+        recoverable: false,
+      },
+    });
+    return;
+  }
+  write({ jsonrpc: '2.0', id: message.id, result: {} });
+}
+
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const headerEnd = buffer.indexOf('\\r\\n\\r\\n');
+    if (headerEnd === -1) break;
+    const header = buffer.slice(0, headerEnd);
+    const match = header.match(/Content-Length:\\s*(\\d+)/i);
+    if (!match) {
+      buffer = buffer.slice(headerEnd + 4);
+      continue;
+    }
+    const length = Number.parseInt(match[1], 10);
+    const bodyStart = headerEnd + 4;
+    if (buffer.length < bodyStart + length) break;
+    const body = buffer.slice(bodyStart, bodyStart + length);
+    buffer = buffer.slice(bodyStart + length);
+    handle(JSON.parse(body));
+  }
+});
+`,
+    );
+    await writeFile(logFile, '');
+    try {
+      await testFn({ logFile, scriptFile, tempDir });
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  it('invoke passes cwd through ACP params without AGENT_TEAMS_PROJECT_ROOT', async () => {
+    await withFakeAcpCwdAgent(async ({ logFile, scriptFile, tempDir }) => {
+      const workingDirectory = path.join(tempDir, 'invoke-workspace');
+      await mkdir(workingDirectory);
+      const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
+      const service = new ACPAgentService({ catId: 'codex' });
+      const providerProfile = {
+        id: 'agent-teams-test',
+        kind: 'acp',
+        protocol: 'acp',
+        authType: 'none',
+        modelAccessMode: 'bring_your_own_key',
+        command: process.execPath,
+        args: [scriptFile],
+        cwd: process.cwd(),
+        env: { ACP_TEST_LOG_FILE: logFile },
+      };
+
+      for await (const _msg of service.invoke('fresh prompt', {
+        providerProfile,
+        sessionId: 'sess-test',
+        workingDirectory,
+      })) {
+        // exhaust stream
+      }
+
+      const entries = (await readFile(logFile, 'utf8'))
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      assert.deepEqual(entries, [
+        {
+          method: 'session/load',
+          cwd: workingDirectory,
+          envProjectRoot: null,
+        },
+      ]);
+    });
+  });
+
+  it('runACPProviderProbe uses cwd param without AGENT_TEAMS_PROJECT_ROOT', async () => {
+    await withFakeAcpCwdAgent(async ({ logFile, scriptFile, tempDir }) => {
+      const workingDirectory = path.join(tempDir, 'probe-workspace');
+      await mkdir(workingDirectory);
+      const { runACPProviderProbe } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
+      const providerProfile = {
+        id: 'agent-teams-test',
+        kind: 'acp',
+        protocol: 'acp',
+        authType: 'none',
+        modelAccessMode: 'bring_your_own_key',
+        command: process.execPath,
+        args: [scriptFile],
+        cwd: process.cwd(),
+        env: { ACP_TEST_LOG_FILE: logFile },
+      };
+
+      const result = await runACPProviderProbe({
+        providerProfile,
+        workingDirectory,
+      });
+
+      assert.deepEqual(result, { ok: true });
+      const entries = (await readFile(logFile, 'utf8'))
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+      assert.deepEqual(entries, [
+        {
+          method: 'session/new',
+          cwd: workingDirectory,
+          envProjectRoot: null,
+        },
+      ]);
+    });
+  });
+});
+
 describe('buildACPModelProfileOverridePayload', () => {
   it('omits provider when a legacy ACP model profile leaves it unset', async () => {
     const { buildACPModelProfileOverridePayload } = await import(
@@ -640,4 +819,3 @@ describe('buildACPModelProfileOverridePayload', () => {
     );
   });
 });
-
