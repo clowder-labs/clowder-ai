@@ -217,8 +217,12 @@ export async function* spawnCli(
         for (const warning of probe.drainWarnings()) {
           yield warning;
           // #774: Mark for deferred kill — don't kill here (recovery NDJSON may be pending)
+          // Guard: only stall-kill after first NDJSON event. Before that, the CLI is
+          // still in cold-start (loading, API handshake, reasoning warm-up) — not stalled.
+          // Cold-start is protected by the regular CLI_TIMEOUT_MS instead.
           if (
             options.livenessProbe?.stallAutoKill &&
+            firstEventAt !== null &&
             warning.level === 'suspected_stall' &&
             warning.state === 'idle-silent'
           ) {
