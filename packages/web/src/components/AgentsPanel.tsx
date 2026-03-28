@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
+import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import type { ConfigData } from './config-viewer-types';
 import { HubCatEditor } from './HubCatEditor';
 import { PromptSelectionModal } from './PromptSelectionModal';
@@ -232,10 +233,6 @@ export function AgentsPanel() {
   const handleEditorSaved = useCallback(async () => {
     await Promise.all([fetchData(), refresh()]);
   }, [fetchData, refresh]);
-
-  const openCoCreatorEditor = useCallback(() => {
-    // TODO: Open co-creator editor
-  }, []);
 
   const editingCat = editingCatId ? cats.find((c) => c.id === editingCatId) : null;
   const editingConfigCat = editingCatId && config ? config.cats[editingCatId] : undefined;
@@ -704,13 +701,17 @@ export function AgentsPanel() {
         </div>
       </div>
 
-      <HubCatEditor
-        open={editorOpen}
-        cat={editingCat ?? undefined}
-        configCat={editingConfigCat}
-        onClose={closeEditor}
-        onSaved={handleEditorSaved}
-      />
+      {editingCatId ? (
+        <HubCatEditor
+          open={editorOpen}
+          cat={editingCat ?? undefined}
+          configCat={editingConfigCat}
+          onClose={closeEditor}
+          onSaved={handleEditorSaved}
+        />
+      ) : (
+        <CreateAgentModalDraft open={editorOpen} onClose={closeEditor} onSaved={handleEditorSaved} />
+      )}
       <PromptSelectionModal
         open={templateModalOpen}
         items={promptSelectionItems}

@@ -20,6 +20,7 @@ import { HubCatEditor } from './HubCatEditor';
 import { HubClaudeRescueSection } from './HubClaudeRescueSection';
 import { HubCoCreatorEditor } from './HubCoCreatorEditor';
 import { HubCommandsTab } from './HubCommandsTab';
+import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import { HubEnvFilesTab } from './HubEnvFilesTab';
 import { HubGovernanceTab } from './HubGovernanceTab';
 import { HubLeaderboardTab } from './HubLeaderboardTab';
@@ -276,14 +277,27 @@ export function CatCafeHub() {
             {tab === 'skills' && <HubSkillsTab />}
           </div>
         </div>
-        <HubCatEditor
-          open={editorOpen}
-          cat={editingCat}
-          configCat={editingCat ? config?.cats[editingCat.id] : undefined}
-          draft={createDraft}
-          onClose={closeEditor}
-          onSaved={handleEditorSaved}
-        />
+        {editingCat ? (
+          <HubCatEditor
+            open={editorOpen}
+            cat={editingCat}
+            configCat={config?.cats[editingCat.id]}
+            onClose={closeEditor}
+            onSaved={handleEditorSaved}
+          />
+        ) : (
+          <CreateAgentModalDraft
+            open={editorOpen}
+            draft={createDraft}
+            selectedModelId={
+              createDraft?.accountRef && createDraft.defaultModel
+                ? `${createDraft.accountRef}::${createDraft.defaultModel}`
+                : null
+            }
+            onClose={closeEditor}
+            onSaved={handleEditorSaved}
+          />
+        )}
         <HubCoCreatorEditor
           open={coCreatorEditorOpen}
           coCreator={config?.coCreator}
