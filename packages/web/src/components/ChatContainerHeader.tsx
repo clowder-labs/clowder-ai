@@ -1,4 +1,4 @@
-import { useTheme } from '@/hooks/useTheme';
+﻿import { useTheme } from '@/hooks/useTheme';
 import { HubButton } from './HubButton';
 
 interface ChatContainerHeaderProps {
@@ -33,23 +33,19 @@ export function ChatContainerHeader({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   defaultCatId: _defaultCatId,
 }: ChatContainerHeaderProps) {
-  const { theme, config, toggleTheme } = useTheme();
-
-  const headerBgColor = theme === 'business' && config?.header?.bg ? config.header.bg : undefined;
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <header
-      className="safe-area-top relative h-0 overflow-visible"
-      style={headerBgColor ? { backgroundColor: headerBgColor } : undefined}
-    >
+    <header className="safe-area-top relative h-0 overflow-visible">
       <div className="absolute right-5 top-2 z-20 flex items-center gap-1">
         <button
+          type="button"
           onClick={onOpenMobileStatus}
-          className="rounded-lg p-1 transition-colors hover:bg-cocreator-light lg:hidden"
-          title="打开状态面板"
-          aria-label="打开状态面板"
+          className="ui-icon-button lg:hidden"
+          title="状态面板"
+          aria-label="状态面板"
         >
-          <svg className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path
               fillRule="evenodd"
               d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
@@ -61,18 +57,19 @@ export function ChatContainerHeader({
         <div className="flex items-center gap-1">
           <HubButton />
           <button
+            type="button"
             onClick={toggleTheme}
-            className="rounded-lg p-1 transition-colors hover:bg-cocreator-light"
+            className="ui-icon-button"
             title={theme === 'default' ? '切换到商务主题' : '切换到默认主题'}
             aria-label={theme === 'default' ? 'Switch to business theme' : 'Switch to default theme'}
           >
             {theme === 'default' ? (
-              <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <path d="M9 11h6M9 15h6M9 7h6" />
               </svg>
             ) : (
-              <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
                 <path d="M2 17h20" />
               </svg>

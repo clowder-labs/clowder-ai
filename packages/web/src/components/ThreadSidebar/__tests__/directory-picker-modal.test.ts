@@ -80,7 +80,7 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     expect(container.textContent).toContain('project');
-    expect(container.textContent).toContain('推荐');
+    expect(container.textContent).toContain('\u63a8\u8350');
     expect(container.textContent).toContain(CWD_PATH);
     expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/cwd');
     expect(fns.onSelect).not.toHaveBeenCalled();
@@ -90,13 +90,13 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     render({ existingProjects: [CWD_PATH] });
     await flush();
-    expect(container.textContent).not.toContain('推荐');
+    expect(container.textContent).not.toContain('\u63a8\u8350');
   });
 
   // ── F068-R7: Helper to click confirm button after selecting ──
   function clickConfirm() {
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('创建对话'),
+      b.textContent?.includes('\u521b\u5efa\u5bf9\u8bdd'),
     );
     expect(confirmBtn).toBeTruthy();
     act(() => {
@@ -110,7 +110,7 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     const fns = render();
     await flush();
-    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('推荐'));
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u63a8\u8350'));
     expect(cwdBtn).toBeTruthy();
     act(() => {
       cwdBtn?.click();
@@ -141,7 +141,7 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     const fns = render();
     await flush();
-    const lobbyBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('大厅'));
+    const lobbyBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u5927\u5385'))!;
     expect(lobbyBtn).toBeTruthy();
     act(() => {
       lobbyBtn?.click();
@@ -156,7 +156,7 @@ describe('DirectoryPickerModal', () => {
     render();
     await flush();
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('创建对话'),
+      b.textContent?.includes('\u521b\u5efa\u5bf9\u8bdd'),
     ) as HTMLButtonElement;
     expect(confirmBtn).toBeTruthy();
     expect(confirmBtn.disabled).toBe(true);
@@ -164,12 +164,12 @@ describe('DirectoryPickerModal', () => {
 
   // ── F113: Browse directory button (replaces F068 osascript picker) ──
 
-  it('shows "浏览文件夹" button', async () => {
+  it('shows the browse button', async () => {
     setupCwdSuccess();
     render();
     await flush();
     const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('浏览文件夹'),
+      b.textContent?.includes('\u6d4f\u89c8\u6587\u4ef6\u5939'),
     );
     expect(browseBtn).toBeTruthy();
   });
@@ -179,21 +179,21 @@ describe('DirectoryPickerModal', () => {
     render();
     await flush();
     const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('浏览文件夹'),
+      b.textContent?.includes('\u6d4f\u89c8\u6587\u4ef6\u5939'),
     )!;
     // Click to open browser panel
     await act(async () => {
       browseBtn.click();
       await new Promise((r) => setTimeout(r, 0));
     });
-    // Button text changes to "收起浏览" when browser is open
-    expect(browseBtn.textContent).toContain('收起浏览');
+    // Button text changes when the browser is open
+    expect(browseBtn.textContent).toContain('\u6536\u8d77\u6d4f\u89c8');
     // Click again to close
     await act(async () => {
       browseBtn.click();
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(browseBtn.textContent).toContain('浏览文件夹');
+    expect(browseBtn.textContent).toContain('\u6d4f\u89c8\u6587\u4ef6\u5939');
   });
 
   it('does not call onSelect just from toggling browser open', async () => {
@@ -201,7 +201,7 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     const browseBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('浏览文件夹'),
+      b.textContent?.includes('\u6d4f\u89c8\u6587\u4ef6\u5939'),
     )!;
     await act(async () => {
       browseBtn.click();
@@ -217,7 +217,7 @@ describe('DirectoryPickerModal', () => {
     render();
     await flush();
     const inputs = Array.from(container.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
-    const pathInput = inputs.find((i) => i.placeholder.includes('路径'));
+    const pathInput = inputs.find((i) => i.placeholder.includes('\u8def\u5f84'));
     expect(pathInput).toBeTruthy();
   });
 
@@ -233,7 +233,7 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) =>
-      (i as HTMLInputElement).placeholder.includes('路径'),
+      (i as HTMLInputElement).placeholder.includes('\u8def\u5f84'),
     ) as HTMLInputElement;
     act(() => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
@@ -241,7 +241,7 @@ describe('DirectoryPickerModal', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await flush();
-    const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
+    const goBtn = container.querySelector('button[aria-label="\u8df3\u8f6c\u5230\u8def\u5f84"]') as HTMLButtonElement;
     expect(goBtn).toBeTruthy();
     await act(async () => {
       goBtn.click();
@@ -262,7 +262,7 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) =>
-      (i as HTMLInputElement).placeholder.includes('路径'),
+      (i as HTMLInputElement).placeholder.includes('\u8def\u5f84'),
     ) as HTMLInputElement;
     act(() => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
@@ -270,7 +270,7 @@ describe('DirectoryPickerModal', () => {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await flush();
-    const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
+    const goBtn = container.querySelector('button[aria-label="\u8df3\u8f6c\u5230\u8def\u5f84"]') as HTMLButtonElement;
     await act(async () => {
       goBtn.click();
       await new Promise((r) => setTimeout(r, 0));
@@ -281,11 +281,11 @@ describe('DirectoryPickerModal', () => {
 
   // ── F068: No more browse section ──────────────────────────
 
-  it('does NOT show "浏览其他目录" toggle (removed in F068)', async () => {
+  it('does NOT show the removed browse-other-directories toggle (removed in F068)', async () => {
     setupCwdSuccess();
     render();
     await flush();
-    expect(container.textContent).not.toContain('浏览其他目录');
+    expect(container.textContent).not.toContain('\u6d4f\u89c8\u5176\u4ed6\u76ee\u5f55');
   });
 
   // ── Cat selection with preferredCats ──────────────────────
@@ -295,18 +295,18 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     // Expand cat selector first (collapsed by default)
-    const expandBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('选猫猫'));
+    const expandBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u9009\u732b\u732b'));
     expect(expandBtn).toBeTruthy();
     act(() => {
       expandBtn?.click();
     });
     await flush();
-    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('布偶猫'));
+    const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u5e03\u5076\u732b'));
     expect(catChip).toBeTruthy();
     act(() => {
       catChip?.click();
     });
-    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('推荐'));
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u63a8\u8350'));
     act(() => {
       cwdBtn?.click();
     });
@@ -323,7 +323,7 @@ describe('DirectoryPickerModal', () => {
     render();
     await flush();
     const titleInput = Array.from(container.querySelectorAll('input')).find((i) =>
-      (i as HTMLInputElement).placeholder.includes('对话标题'),
+      (i as HTMLInputElement).placeholder.includes('\u5bf9\u8bdd\u6807\u9898'),
     ) as HTMLInputElement;
     expect(titleInput).toBeTruthy();
     expect(titleInput.maxLength).toBe(200);
@@ -333,7 +333,7 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     render();
     await flush();
-    expect(container.textContent).toContain('创建后置顶');
+    expect(container.textContent).toContain('\u521b\u5efa\u540e\u7f6e\u9876');
     const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
     expect(checkbox).toBeTruthy();
   });
@@ -345,20 +345,20 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     const titleInput = Array.from(container.querySelectorAll('input')).find((i) =>
-      (i as HTMLInputElement).placeholder.includes('对话标题'),
+      (i as HTMLInputElement).placeholder.includes('\u5bf9\u8bdd\u6807\u9898'),
     ) as HTMLInputElement;
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
-      setter.call(titleInput, '我的新对话');
+      setter.call(titleInput, '\u6211\u7684\u65b0\u5bf9\u8bdd');
       titleInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await flush();
-    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('推荐'));
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u63a8\u8350'));
     act(() => {
       cwdBtn?.click();
     });
     clickConfirm();
-    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ title: '我的新对话' }));
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ title: '\u6211\u7684\u65b0\u5bf9\u8bdd' }));
   });
 
   it('passes pinned=true in onSelect when pin checkbox is checked and confirmed', async () => {
@@ -370,7 +370,7 @@ describe('DirectoryPickerModal', () => {
       checkbox.click();
     });
     await flush();
-    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('推荐'));
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u63a8\u8350'));
     act(() => {
       cwdBtn?.click();
     });
@@ -384,8 +384,8 @@ describe('DirectoryPickerModal', () => {
       if (path === '/api/backlog/items')
         return jsonOk({
           items: [
-            { id: 'bl-001', title: 'F095 侧栏导航', status: 'in-progress' },
-            { id: 'bl-002', title: 'F042 提示词审计', status: 'open' },
+            { id: 'bl-001', title: 'F095 \u4fa7\u680f\u5bfc\u822a', status: 'in-progress' },
+            { id: 'bl-002', title: 'F042 \u63d0\u793a\u8bcd\u5ba1\u8ba1', status: 'open' },
           ],
         });
       return jsonFail();
@@ -399,7 +399,7 @@ describe('DirectoryPickerModal', () => {
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
     await flush();
-    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('推荐'));
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u63a8\u8350'));
     act(() => {
       cwdBtn?.click();
     });

@@ -1,14 +1,13 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
 
-const MODEL_TITLE = '\u6a21\u578b';
-const LOADING_TEXT = '\u52a0\u8f7d\u4e2d...';
-const EMPTY_TEXT = '\u6682\u65e0\u6a21\u578b\u4fe1\u606f';
-const DEFAULT_DESC =
-  '\u4e13\u6ce8\u4e8e\u77e5\u8bc6\u95ee\u7b54\u3001\u5185\u5bb9\u521b\u4f5c\u7b49\u901a\u7528\u4efb\u52a1\uff0c\u53ef\u5b9e\u73b0\u9ad8\u6027\u80fd\u4e0e\u4f4e\u6210\u672c\u7684\u5e73\u8861\uff0c\u9002\u7528\u4e8e\u667a\u80fd\u5ba2\u670d\u3001\u4e2a\u6027\u5316\u63a8\u8350\u7b49\u573a\u666f\u3002';
+const MODEL_TITLE = '模型';
+const LOADING_TEXT = '加载中...';
+const EMPTY_TEXT = '暂无模型信息';
+const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -42,7 +41,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     'model_name',
     'displayName',
     'display_name',
-    '\u540d\u79f0',
+    '名称',
   ]);
 
   const genericStringEntries = Object.entries(item).filter(
@@ -55,7 +54,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     '';
 
   const inferredDescription =
-    pickStringField(item, ['description', 'desc', '\u63cf\u8ff0']) ??
+    pickStringField(item, ['description', 'desc', '描述']) ??
     genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
     DEFAULT_DESC;
 
@@ -205,25 +204,27 @@ export function ModelsPanel() {
   }, [cards]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 bg-[#FFFFFF]">
-      <h1 className="text-[20px] font-bold leading-[30px] text-[#1F2329]">{MODEL_TITLE}</h1>
+    <div className="ui-page-shell gap-4">
+      <div className="ui-page-header">
+        <h1 className="ui-page-title">{MODEL_TITLE}</h1>
+      </div>
 
-      <div className="h-px w-full bg-[#EEF2F6]" />
+      <div className="ui-divider" />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading && <p className="py-10 text-center text-sm text-[#8A93A2]">{LOADING_TEXT}</p>}
+        {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
 
         {!loading && groupedCards.length === 0 && (
-          <p className="py-10 text-center text-sm text-[#8A93A2]">{EMPTY_TEXT}</p>
+          <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>
         )}
 
         {!loading && groupedCards.length > 0 && (
           <div className="space-y-4 pb-2">
             {groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3 className="flex items-center gap-1.5 text-sm font-semibold text-[#3B4452]">
+                <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-secondary)]">
                   <svg
-                    className="h-3.5 w-3.5 text-[#8C96A5]"
+                    className="h-3.5 w-3.5 text-[var(--text-muted)]"
                     viewBox="0 0 20 20"
                     fill="none"
                     stroke="currentColor"
@@ -239,38 +240,31 @@ export function ModelsPanel() {
                     const iconType = resolveModelIconType(groupKeyFromModelName(card.name));
                     const visual = modelIconVisual(iconType);
                     return (
-                      <article
-                        key={card.id}
-                        className="rounded-2xl border border-[#E8ECF3] bg-white px-4 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-                      >
+                      <article key={card.id} className="ui-card px-4 py-4">
                         <div className="flex items-start gap-3">
                           <Image
                             src={visual.imageSrc}
                             alt={`${visual.label} model icon`}
                             width={48}
                             height={48}
-                            className="h-12 w-12 shrink-0 rounded-xl border border-[#E8ECF3] object-cover p-1.5"
+                            className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--surface-card-muted)] object-cover p-1.5"
                             data-testid={`model-card-icon-${iconType}`}
                           />
                           <div className="min-w-0">
-                            <h4 className="truncate text-[20px] font-semibold text-[#2D3545]">{card.name}</h4>
+                            <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
+                              {card.name}
+                            </h4>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              <span className="rounded bg-[#F2F5FA] px-1.5 py-0.5 text-[11px] font-medium text-[#7A8392]">
-                                {visual.label}
-                              </span>
-                              <span className="rounded bg-[#F2F5FA] px-1.5 py-0.5 text-[11px] font-medium text-[#7A8392]">
-                                {card.object}
-                              </span>
-                              <span className="rounded bg-[#F2F5FA] px-1.5 py-0.5 text-[11px] font-medium text-[#7A8392]">
-                                {card.id}
-                              </span>
+                              <span className="ui-badge-muted">{visual.label}</span>
+                              <span className="ui-badge-muted">{card.object}</span>
+                              <span className="ui-badge-muted">{card.id}</span>
                             </div>
                           </div>
                         </div>
 
-                        <p className="mt-3 text-[13px] leading-6 text-[#7C8697]">{card.description}</p>
+                        <p className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)]">{card.description}</p>
 
-                        <div className="mt-3 flex items-center justify-between text-xs text-[#9AA3B1]">
+                        <div className="ui-thread-meta mt-3 flex items-center justify-between">
                           <span>{card.object}</span>
                           <span>ID: {card.id}</span>
                         </div>
@@ -283,8 +277,6 @@ export function ModelsPanel() {
           </div>
         )}
       </div>
-
     </div>
   );
 }
-

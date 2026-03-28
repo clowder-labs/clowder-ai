@@ -1,0 +1,172 @@
+﻿import React, { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CatData } from '@/hooks/useCatData';
+import { HubConnectorConfigTab } from '@/components/HubConnectorConfigTab';
+import { HubCoCreatorOverviewCard, HubMemberOverviewCard, HubOverviewToolbar } from '@/components/HubMemberOverviewCard';
+import { HubSkillsTab } from '@/components/HubSkillsTab';
+import { apiFetch } from '@/utils/api-client';
+
+vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
+vi.mock('@/components/UploadSkillModal', () => ({ UploadSkillModal: () => null }));
+vi.mock('@/components/WeixinQrPanel', () => ({ WeixinQrPanel: () => React.createElement('div', { 'data-testid': 'weixin-qr' }) }));
+
+const mockApiFetch = vi.mocked(apiFetch);
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
+
+async function flushEffects() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
+const sampleCat = {
+  id: 'office',
+  displayName: 'Office',
+  breedDisplayName: 'Office',
+  nickname: 'Ops',
+  provider: 'openai',
+  defaultModel: 'gpt-5',
+  mentionPatterns: ['@office', '@ops'],
+  source: 'config',
+  roster: { available: true },
+} as unknown as CatData;
+
+describe('business theme secondary surfaces', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/trending') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-1',
+                slug: 'skill-1',
+                name: 'skill-1',
+                description: 'search helper',
+                tags: [],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'slack',
+                name: 'Slack',
+                nameEn: 'Slack',
+                configured: false,
+                docsUrl: 'https://example.com/docs',
+                steps: ['Open app settings', 'Save credentials'],
+                fields: [{ envName: 'SLACK_TOKEN', label: 'Token', sensitive: false, currentValue: null }],
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    mockApiFetch.mockReset();
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  it('renders member surfaces with shared card and button tokens', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement('div', null,
+          React.createElement(HubOverviewToolbar, { onAddMember: vi.fn() }),
+          React.createElement(HubCoCreatorOverviewCard, {
+            coCreator: {
+              name: 'ME',
+              aliases: ['me'],
+              mentionPatterns: ['@me'],
+              color: { primary: '#D4A76A', secondary: '#FFF8F0' },
+              avatar: undefined,
+            },
+            onEdit: vi.fn(),
+          }),
+          React.createElement(HubMemberOverviewCard, {
+            cat: sampleCat,
+            onEdit: vi.fn(),
+            onToggleAvailability: vi.fn(),
+          }),
+        ),
+      );
+    });
+
+    const button = Array.from(container.querySelectorAll('button')).find((candidate) => candidate.textContent?.includes('添加成员'));
+    expect(button?.className).toContain('ui-button-primary');
+    const sections = Array.from(container.querySelectorAll('section'));
+    expect(sections.some((section) => section.className.includes('ui-card-muted'))).toBe(true);
+    expect(sections.some((section) => section.className.includes('ui-card'))).toBe(true);
+  });
+
+  it('renders HubSkillsTab with tokenized cards, fields, and actions', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const searchSection = container.querySelector('section');
+    expect(searchSection?.className).toContain('ui-card');
+    expect(container.querySelector('input')?.className).toContain('ui-field');
+    const buttons = Array.from(container.querySelectorAll('button'));
+    expect(buttons.some((button) => button.className.includes('ui-button-primary'))).toBe(true);
+    expect(buttons.some((button) => button.className.includes('ui-button-secondary'))).toBe(true);
+  });
+
+  it('renders HubConnectorConfigTab with tokenized cards and form controls', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    const card = container.querySelector('[data-testid="platform-card-slack"]');
+    expect(card?.className).toContain('ui-card');
+
+    const expandButton = card?.querySelector('button');
+    await act(async () => {
+      expandButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(container.querySelector('input')?.className).toContain('ui-field');
+    const buttons = Array.from(container.querySelectorAll('button'));
+    expect(buttons.some((button) => button.className.includes('ui-button-primary'))).toBe(true);
+    expect(buttons.some((button) => button.className.includes('ui-button-secondary'))).toBe(true);
+  });
+});
