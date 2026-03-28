@@ -19,6 +19,7 @@ import {
   validateRuntimeProviderBinding,
 } from '../config/provider-binding-compat.js';
 import {
+  readProviderProfiles,
   resolveRuntimeProviderProfileById,
   resolveRuntimeProviderProfileForClient,
 } from '../config/provider-profiles.js';
@@ -199,12 +200,44 @@ function resolveAccountRef(body: {
   return undefined;
 }
 
+function normalizeBindingKey(value: string | undefined | null): string {
+  return value?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '') ?? '';
+}
+
+async function resolveImplicitAcpAccountRef(projectRoot: string, catId?: string | null): Promise<string | undefined> {
+  const profiles = (await readProviderProfiles(projectRoot)).providers.filter((profile) => profile.kind === 'acp');
+  if (profiles.length === 0) return undefined;
+
+  const normalizedCatId = normalizeBindingKey(catId);
+  if (normalizedCatId) {
+    const matched = profiles.find((profile) => {
+      return (
+        normalizeBindingKey(profile.id) === normalizedCatId || normalizeBindingKey(profile.displayName) === normalizedCatId
+      );
+    });
+    if (matched) return matched.id;
+  }
+
+  if (profiles.length === 1) return profiles[0]?.id;
+  return undefined;
+}
+
 function buildEffectiveAccountRefResolver(projectRoot: string) {
   const inheritedBindingCache = new Map<string, Promise<string | undefined>>();
+  const implicitAcpBindingCache = new Map<string, Promise<string | undefined>>();
 
   return async (cat: CatConfig & { contextBudget?: ContextBudget }): Promise<string | undefined> => {
     const explicitAccountRef = resolveBoundAccountRefForCat(projectRoot, cat.id, cat);
     if (explicitAccountRef !== undefined) return explicitAccountRef;
+    if (cat.provider === 'acp') {
+      let implicitAcpProfilePromise = implicitAcpBindingCache.get(cat.id);
+      if (!implicitAcpProfilePromise) {
+        implicitAcpProfilePromise = resolveImplicitAcpAccountRef(projectRoot, cat.id);
+        implicitAcpBindingCache.set(cat.id, implicitAcpProfilePromise);
+      }
+      const implicitAcpProfileId = await implicitAcpProfilePromise;
+      if (implicitAcpProfileId) return implicitAcpProfileId;
+    }
     if (!isSeedCat(projectRoot, cat.id)) return cat.accountRef;
 
     const builtinClient = resolveBuiltinClientForProvider(cat.provider);
@@ -406,7 +439,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
       }
     }
 
-    const accountRef = resolveAccountRef(body);
+    const accountRef = resolveAccountRef(body) ?? (body.client === 'acp' ? await resolveImplicitAcpAccountRef(projectRoot, body.catId) : undefined);
     try {
       const ocProviderNameForValidation = 'ocProviderName' in body ? body.ocProviderName : undefined;
       await validateAccountBindingOrThrow(
@@ -529,7 +562,9 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     const nextAccountRef = resolveAccountRef(body);
     const currentEffectiveAccountRef = await resolveEffectiveAccountRef(currentCat);
     const effectiveAccountRef =
-      nextAccountRef !== undefined ? (nextAccountRef ?? undefined) : currentEffectiveAccountRef;
+      nextAccountRef !== undefined
+        ? (nextAccountRef ?? undefined)
+        : currentEffectiveAccountRef ?? (effectiveClient === 'acp' ? await resolveImplicitAcpAccountRef(projectRoot, currentCat.id) : undefined);
     const effectiveDefaultModel = body.defaultModel !== undefined ? body.defaultModel : currentCat.defaultModel;
     const providerConfigTouched =
       body.client !== undefined ||

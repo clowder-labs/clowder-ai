@@ -23,10 +23,11 @@ import {
   toCodexRuntimeSettings,
   toStrategyForm,
 } from './hub-cat-editor.model';
+import { loadSelectableProfiles } from './hub-profile-options-loader';
 import { AccountSection, IdentitySection, RoutingSection } from './hub-cat-editor.sections';
 import { AdvancedRuntimeSection } from './hub-cat-editor-advanced';
 import { PersistenceBanner } from './hub-cat-editor-fields';
-import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
+import type { ProfileItem } from './hub-provider-profiles.types';
 import type { CatStrategyEntry } from './hub-strategy-types';
 import { useConfirm } from './useConfirm';
 
@@ -50,19 +51,6 @@ function resolveEditorCat(cat?: CatData | null, configCat?: ConfigData['cats'][s
     provider: configCat.provider || cat.provider,
     defaultModel: configCat.model || cat.defaultModel,
   };
-}
-
-interface ModelConfigProfilesResponse {
-  projectPath: string;
-  fallbackToProviderProfiles?: boolean;
-  exists: boolean;
-  providers: ProfileItem[];
-}
-
-function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
-  if (!projectPath || projectPath === 'default') return path;
-  const query = new URLSearchParams({ projectPath });
-  return `${path}?${query.toString()}`;
 }
 
 export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: HubCatEditorProps) {
@@ -117,35 +105,8 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
     if (!open) return;
     let cancelled = false;
     setLoadingProfiles(true);
-    const modelConfigUrl = '/api/model-config-profiles';
-    const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
     Promise.resolve()
-      .then(async () => {
-        let modelConfigRes: Response;
-        try {
-          modelConfigRes = await apiFetch(modelConfigUrl);
-        } catch {
-          const providerProfilesRes = await apiFetch(providerProfilesUrl);
-          if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-          const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-          return providerProfilesBody.providers;
-        }
-        if (!modelConfigRes.ok) {
-          if (modelConfigRes.status === 404) return [] as ProfileItem[];
-          throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
-        }
-        const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
-        if (body.exists) {
-          return body.providers;
-        }
-        if (!body.fallbackToProviderProfiles) {
-          return [] as ProfileItem[];
-        }
-        const providerProfilesRes = await apiFetch(providerProfilesUrl);
-        if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-        const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-        return providerProfilesBody.providers;
-      })
+      .then(() => loadSelectableProfiles(currentProjectPath))
       .then((nextProfiles) => {
         if (!cancelled) setProfiles(nextProfiles);
       })
@@ -257,12 +218,11 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
   useEffect(() => {
     if (form.client === 'antigravity' || modelOptions.length === 0) return;
     const trimmed = form.defaultModel.trim();
-    // Auto-correct when the current model is empty OR not in the available options
-    if (trimmed.length > 0 && modelOptions.includes(trimmed)) return;
+    if (trimmed.length > 0) return;
     setForm((prev) => {
       if (prev.client === 'antigravity') return prev;
       const prevTrimmed = prev.defaultModel.trim();
-      if (prevTrimmed.length > 0 && modelOptions.includes(prevTrimmed)) return prev;
+      if (prevTrimmed.length > 0) return prev;
       return { ...prev, defaultModel: modelOptions[0] ?? '' };
     });
   }, [form.client, form.defaultModel, modelOptions]);
