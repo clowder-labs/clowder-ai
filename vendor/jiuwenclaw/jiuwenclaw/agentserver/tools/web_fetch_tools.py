@@ -12,6 +12,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 import requests
 from openjiuwen.core.foundation.tool import tool
 
+from .ssl_config import get_requests_verify
+
 _USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -85,6 +87,7 @@ def _decode_response_text(response: requests.Response) -> str:
 
 def _http_get(url: str, **kwargs) -> requests.Response:
     """Try normal requests first; retry without env proxies on ProxyError."""
+    kwargs.setdefault("verify", get_requests_verify())
     try:
         return requests.get(url, **kwargs)
     except requests.exceptions.ProxyError:

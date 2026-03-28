@@ -14,6 +14,8 @@ import wave
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .ssl_config import get_requests_verify
+
 from fastmcp import FastMCP
 from mutagen import File as MutagenFile
 from openai import OpenAI
@@ -102,7 +104,7 @@ def _load_audio_as_base64(file_path: str) -> tuple[str, str]:
 
 def _download_audio_to_tempfile(url: str) -> str:
     hdrs = {"User-Agent": DEFAULT_USER_AGENT}
-    resp = requests.get(url, headers=hdrs, timeout=HTTP_TIMEOUT, stream=True)
+    resp = requests.get(url, headers=hdrs, timeout=HTTP_TIMEOUT, stream=True, verify=get_requests_verify())
     resp.raise_for_status()
     ct = resp.headers.get("content-type", "")
     ext = _resolve_audio_extension(url, ct)
