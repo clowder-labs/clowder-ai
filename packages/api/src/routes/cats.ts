@@ -24,7 +24,7 @@ import {
 import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-// client-visibility imports removed: client validation is console-only, no backend blocking
+import { getAllowedClientIds } from '../utils/client-visibility.js';
 
 const colorSchema = z.object({
   primary: z.string().min(1),
@@ -339,16 +339,17 @@ interface CatsRoutesOptions {
 }
 
 export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opts) => {
-  // GET /api/cats - 获取所有猫猫配置
+  // GET /api/cats - 获取所有猫猫配置（按 client-visibility 过滤）
   app.get('/api/cats', async () => {
     const projectRoot = resolveProjectRoot();
     const resolveMetadata = buildCatResponseMetadataResolver(projectRoot);
     const resolveEffectiveAccountRef = buildEffectiveAccountRefResolver(projectRoot);
+    const allowedClients = new Set<string>(getAllowedClientIds());
+    const allCats = Object.values(getResolvedCats(projectRoot));
+    const visibleCats = allCats.filter((cat) => allowedClients.has(cat.provider));
     return {
       cats: await Promise.all(
-        Object.values(getResolvedCats(projectRoot)).map((cat) =>
-          toCatResponse(cat, resolveMetadata(cat.id), resolveEffectiveAccountRef),
-        ),
+        visibleCats.map((cat) => toCatResponse(cat, resolveMetadata(cat.id), resolveEffectiveAccountRef)),
       ),
     };
   });

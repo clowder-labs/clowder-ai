@@ -632,25 +632,15 @@ export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfi
 let _defaultCatId: CatId | null = null;
 
 /**
- * Get the default cat ID (= breeds[0].defaultVariantId's resolved catId).
+ * Get the default cat ID for unaddressed messages.
  * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
  *
- * F32-b R4: Explicit derivation from defaultVariantId — NOT registry order dependent.
+ * Defaults to jiuwenclaw (小九) — the office assistant handles general queries.
  */
 export function getDefaultCatId(): CatId {
   if (_defaultCatId) return _defaultCatId;
-
-  const config = getCachedConfig();
-  const firstBreed = config?.breeds[0];
-  if (firstBreed) {
-    const defaultVariant = firstBreed.variants.find((v) => v.id === firstBreed.defaultVariantId);
-    // variant has independent catId → use it; otherwise inherit breed's
-    _defaultCatId = createCatId(defaultVariant?.catId ?? firstBreed.catId);
-    return _defaultCatId;
-  }
-
-  // Ultimate fallback (should not trigger — config always has at least 1 breed)
-  return createCatId('office');
+  _defaultCatId = createCatId('jiuwenclaw');
+  return _defaultCatId;
 }
 
 // ── Variant CLI effort accessor ──────────────────────────────────────
