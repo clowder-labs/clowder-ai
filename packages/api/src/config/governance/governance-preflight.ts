@@ -44,7 +44,9 @@ export async function checkGovernancePreflight(
   catCafeRoot: string,
   catProvider?: string,
 ): Promise<PreflightResult> {
+  console.error(`[governance-preflight] projectPath=${projectPath} catCafeRoot=${catCafeRoot} provider=${catProvider}`);
   if (isSameProject(projectPath, catCafeRoot)) {
+    console.error('[governance-preflight] same project → ready');
     return { ready: true };
   }
 
@@ -52,6 +54,7 @@ export async function checkGovernancePreflight(
   const entry = await registry.get(projectPath);
 
   if (!entry) {
+    console.error(`[governance-preflight] NO registry entry for ${projectPath}`);
     return {
       ready: false,
       needsBootstrap: true,
@@ -59,6 +62,7 @@ export async function checkGovernancePreflight(
       bootstrapCommand: `POST /api/governance/confirm { "projectPath": "${projectPath}" }`,
     };
   }
+  console.error(`[governance-preflight] registry entry found, confirmed=${entry.confirmedByUser}`);
 
   if (!entry.confirmedByUser) {
     return {

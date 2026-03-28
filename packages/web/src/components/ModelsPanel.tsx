@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
+import { useChatStore } from '@/stores/chatStore';
+import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
+import { useProviderProfilesState } from './useProviderProfilesState';
 
 const MODEL_TITLE = '\u6a21\u578b';
+const ADD_MODEL = '\u6dfb\u52a0\u6a21\u578b';
 const LOADING_TEXT = '\u52a0\u8f7d\u4e2d...';
 const EMPTY_TEXT = '\u6682\u65e0\u6a21\u578b\u4fe1\u606f';
 const DEFAULT_DESC =
@@ -164,6 +168,8 @@ function modelIconVisual(iconType: ModelIconType): { label: string; imageSrc: st
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [cards, setCards] = useState<ModelCardData[]>([]);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const openHub = useChatStore((s) => s.openHub);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,7 +212,25 @@ export function ModelsPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 bg-[#FFFFFF]">
-      <h1 className="text-[20px] font-bold leading-[30px] text-[#1F2329]">{MODEL_TITLE}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-[20px] font-bold leading-[30px] text-[#1F2329]">{MODEL_TITLE}</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openHub('provider-profiles')}
+            className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            ACP / 账号配置
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModelModal(true)}
+            className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+          >
+            {ADD_MODEL}
+          </button>
+        </div>
+      </div>
 
       <div className="h-px w-full bg-[#EEF2F6]" />
 
@@ -284,7 +308,36 @@ export function ModelsPanel() {
         )}
       </div>
 
+      {showAddModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowAddModelModal(false)}
+          data-testid="models-add-model-modal"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(false)}
+                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                关闭
+              </button>
+            </div>
+            <ModelsCreateApiKeyAccount />
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function ModelsCreateApiKeyAccount() {
+  const { providerCreateSectionProps } = useProviderProfilesState();
+  return <CreateApiKeyProfileSection {...providerCreateSectionProps} defaultExpanded />;
 }
 

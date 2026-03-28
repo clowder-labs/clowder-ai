@@ -253,7 +253,7 @@ export class ACPAgentService implements AgentService {
     const client = new ACPStdioClient({
       command: providerProfile.command,
       args: providerProfile.args,
-      cwd: providerProfile.cwd,
+      cwd: options?.workingDirectory || providerProfile.cwd,
       env: buildACPSubprocessEnv(providerProfile),
     });
     let sessionId = options?.sessionId;

@@ -468,7 +468,7 @@ export function ThreadSidebar({
                 </svg>
                 对话
               </a>
-              <div className="flex items-center gap-1.5 hidden">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={onBootcampClick ?? createBootcampThread}
