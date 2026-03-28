@@ -290,6 +290,39 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
     await app.close();
   });
 
+  it('GET /api/cats infers seed ACP accountRef from a matching ACP provider profile', async () => {
+    const projectRoot = createTemplateOnlyProject(loadRepoTemplate());
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+
+    const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
+    const acpProfile = await createProviderProfile(projectRoot, {
+      displayName: 'agent-teams',
+      kind: 'acp',
+      protocol: 'acp',
+      command: 'agent-teams',
+      args: ['gateway', 'acp', 'stdio'],
+    });
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const res = await app.inject({ method: 'GET', url: '/api/cats' });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    const agentTeams = body.cats.find((cat) => cat.id === 'agentteams');
+    assert.ok(agentTeams, 'agentteams should be listed');
+    assert.equal(agentTeams.source, 'seed');
+    assert.equal(agentTeams.accountRef, acpProfile.id);
+
+    await app.close();
+  });
+
   it('GET /api/cats/:id/status resolves runtime-only Antigravity cats', async () => {
     const projectRoot = createRuntimeCatalogProject(
       makeCatalog('runtime-antigravity', '运行时桥接猫', 'antigravity', 'gemini-bridge'),

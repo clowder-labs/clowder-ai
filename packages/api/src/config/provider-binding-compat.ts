@@ -122,7 +122,7 @@ export function validateRuntimeProviderBinding(
   // The invocation chain uses account.protocol for env var injection.
 
   const trimmedModel = defaultModel?.trim().replace(/\x1B\[[^m]*m|\[\d+m\]/g, '');
-  if (trimmedModel && profile.kind === 'builtin' && profile.models?.length && !profile.models.includes(trimmedModel)) {
+  if (trimmedModel && profile.models?.length && !profile.models.includes(trimmedModel)) {
     return `model "${trimmedModel}" is not available on provider "${profile.id}"`;
   }
 

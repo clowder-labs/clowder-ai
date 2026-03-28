@@ -274,6 +274,45 @@ describe('HubCatEditor', () => {
     expect(filterProfiles('acp', profiles).map((profile) => profile.id)).toEqual(['agent-teams-local']);
   });
 
+  it('filterProfiles keeps ACP providers available even when model-config profiles exist', () => {
+    const profiles: ProfileItem[] = [
+      {
+        id: 'huawei-maas',
+        provider: 'huawei-maas',
+        source: 'model_config',
+        displayName: 'Huawei MaaS',
+        name: 'Huawei MaaS',
+        authType: 'none',
+        kind: 'api_key',
+        builtin: false,
+        mode: 'none',
+        protocol: 'huawei_maas',
+        models: ['deepseek-v3.1-terminus'],
+        hasApiKey: false,
+        createdAt: '2026-03-18T00:00:00.000Z',
+        updatedAt: '2026-03-18T00:00:00.000Z',
+      },
+      {
+        id: 'agent-teams-local',
+        provider: 'agent-teams-local',
+        displayName: 'Agent Teams Local',
+        name: 'Agent Teams Local',
+        authType: 'none',
+        kind: 'acp',
+        builtin: false,
+        mode: 'none',
+        protocol: 'acp',
+        command: 'uv',
+        args: ['run'],
+        hasApiKey: false,
+        createdAt: '2026-03-18T00:00:00.000Z',
+        updatedAt: '2026-03-18T00:00:00.000Z',
+      },
+    ];
+
+    expect(filterProfiles('acp', profiles).map((profile) => profile.id)).toEqual(['agent-teams-local']);
+  });
+
   it('keeps Claude and Codex in the Client dropdown even when detection marks them unavailable', async () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/provider-profiles') {
@@ -482,7 +521,6 @@ describe('HubCatEditor', () => {
 
     const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
     expect(postCall).toBeTruthy();
-    expect(mockApiFetch.mock.calls.some(([path]) => String(path).startsWith('/api/provider-profiles'))).toBe(false);
     const payload = JSON.parse(String(postCall?.[1]?.body));
     expect(payload.accountRef).toBe('huawei-maas');
     expect(payload.defaultModel).toBe('deepseek-v3.1-terminus');
@@ -562,6 +600,105 @@ describe('HubCatEditor', () => {
     const payload = JSON.parse(String(postCall?.[1]?.body));
     expect(payload.accountRef).toBe('my-openai-proxy');
     expect(payload.defaultModel).toBe('glm-5');
+  });
+
+  it('merges ACP provider profiles with model-config sources so ACP bindings remain selectable', async () => {
+    const onSaved = vi.fn(() => Promise.resolve());
+    useChatStore.getState().setCurrentProject('/tmp/project');
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'huawei-maas',
+                provider: 'huawei-maas',
+                source: 'model_config',
+                displayName: 'Huawei MaaS',
+                name: 'Huawei MaaS',
+                authType: 'none',
+                kind: 'api_key',
+                builtin: false,
+                mode: 'none',
+                protocol: 'huawei_maas',
+                models: ['deepseek-v3.1-terminus'],
+                hasApiKey: false,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/provider-profiles?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: null,
+            providers: [
+              {
+                id: 'agent-teams',
+                provider: 'agent-teams',
+                displayName: '协作引擎',
+                name: '协作引擎',
+                authType: 'none',
+                kind: 'acp',
+                builtin: false,
+                mode: 'none',
+                protocol: 'acp',
+                command: 'agent-teams',
+                args: ['gateway', 'acp', 'stdio'],
+                hasApiKey: false,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'runtime-agent-teams' } }, 201));
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCatEditor, { open: true, onClose: vi.fn(), onSaved }));
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '协作引擎');
+    await changeField(queryField(container, 'input[aria-label="Description"]'), '多智能体协作');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@agentteams');
+    await changeField(queryField(container, 'select[aria-label="Client"]'), 'acp', 'change');
+    await flushEffects();
+    await flushEffects();
+
+    const accountSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]');
+    const accountLabels = Array.from(accountSelect.options).map((option) => option.textContent ?? '');
+    expect(accountLabels).toContain('协作引擎（ACP）');
+
+    await changeField(accountSelect, 'agent-teams', 'change');
+    await flushEffects();
+    await changeField(queryField(container, 'input[aria-label="Model"]'), 'agent-teams');
+
+    const saveButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '保存');
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.client).toBe('acp');
+    expect(payload.accountRef).toBe('agent-teams');
+    expect(payload.defaultModel).toBe('agent-teams');
   });
   it('blocks creating opencode+api_key member without ocProviderName', async () => {
     const onSaved = vi.fn(() => Promise.resolve());

@@ -226,26 +226,26 @@ export function builtinAccountIdForClient(client: ClientValue): string | null {
 
 export function filterAccounts(client: ClientValue, profiles: ProfileItem[]): ProfileItem[] {
   const modelConfigProfiles = profiles.filter(isModelConfigProfile);
-  if (modelConfigProfiles.length > 0) {
-    if (client !== 'dare' && client !== 'relayclaw') return [];
+  const nonModelConfigProfiles = profiles.filter((profile) => !isModelConfigProfile(profile));
+  if (modelConfigProfiles.length > 0 && (client === 'dare' || client === 'relayclaw')) {
     return modelConfigProfiles.filter((profile) => {
       if (profile.id === HUAWEI_MAAS_MODEL_SOURCE_ID && profile.protocol === 'huawei_maas') return true;
       return profile.protocol === 'openai';
     });
   }
   if (client === 'acp') {
-    return profiles.filter((profile) => profile.kind === 'acp');
+    return nonModelConfigProfiles.filter((profile) => profile.kind === 'acp');
   }
   if (client === 'relayclaw') {
-    return profiles.filter((profile) => profile.authType === 'api_key' && profile.protocol === 'openai');
+    return nonModelConfigProfiles.filter((profile) => profile.authType === 'api_key' && profile.protocol === 'openai');
   }
   if (!isBuiltinClient(client)) return [];
-  const builtinProfiles = profiles.filter(
+  const builtinProfiles = nonModelConfigProfiles.filter(
     (profile) => profile.authType !== 'api_key' && legacyProfileClient(profile) === client,
   );
   // Gemini CLI only supports builtin Google auth — no API key profiles.
   if (client === 'google') return builtinProfiles;
-  const apiKeyProfiles = profiles.filter((profile) => profile.authType === 'api_key');
+  const apiKeyProfiles = nonModelConfigProfiles.filter((profile) => profile.authType === 'api_key');
   return [...builtinProfiles, ...apiKeyProfiles.filter((profile) => !builtinProfiles.includes(profile))];
 }
 

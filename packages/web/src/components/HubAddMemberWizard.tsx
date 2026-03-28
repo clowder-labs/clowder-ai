@@ -19,20 +19,8 @@ import {
   filterAccounts,
   type HubCatEditorDraft,
 } from './hub-cat-editor.model';
-import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
-
-interface ModelConfigProfilesResponse {
-  projectPath: string;
-  fallbackToProviderProfiles?: boolean;
-  exists: boolean;
-  providers: ProfileItem[];
-}
-
-function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
-  if (!projectPath || projectPath === 'default') return path;
-  const query = new URLSearchParams({ projectPath });
-  return `${path}?${query.toString()}`;
-}
+import { loadSelectableProfiles } from './hub-profile-options-loader';
+import type { ProfileItem } from './hub-provider-profiles.types';
 
 interface HubAddMemberWizardProps {
   open: boolean;
@@ -104,6 +92,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
   function profileSubtitle(profile: ProfileItem) {
     if (profile.source === 'model_config') return '用户模型配置';
     if (profile.builtin) return '内置';
+    if (profile.kind === 'acp') return 'ACP';
     return 'API Key';
   }
 
@@ -120,31 +109,8 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     if (!open) return;
     let cancelled = false;
     setLoadingProfiles(true);
-    const modelConfigUrl = '/api/model-config-profiles';
-    const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
     Promise.resolve()
-      .then(async () => {
-        let modelConfigRes: Response;
-        try {
-          modelConfigRes = await apiFetch(modelConfigUrl);
-        } catch {
-          const providerProfilesRes = await apiFetch(providerProfilesUrl);
-          if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-          const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-          return providerProfilesBody.providers;
-        }
-        if (!modelConfigRes.ok) {
-          if (modelConfigRes.status === 404) return [] as ProfileItem[];
-          throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
-        }
-        const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
-        if (body.exists) return body.providers;
-        if (!body.fallbackToProviderProfiles) return [] as ProfileItem[];
-        const providerProfilesRes = await apiFetch(providerProfilesUrl);
-        if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-        const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-        return providerProfilesBody.providers;
-      })
+      .then(() => loadSelectableProfiles(currentProjectPath))
       .then((nextProfiles) => {
         if (!cancelled) setProfiles(nextProfiles);
       })

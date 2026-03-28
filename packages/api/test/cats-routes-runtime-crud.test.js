@@ -830,7 +830,10 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     });
 
     assert.equal(rejectRes.statusCode, 400);
-    assert.match(JSON.parse(rejectRes.body).error, /client "jiuwen" requires an API key provider profile/i);
+    assert.match(
+      JSON.parse(rejectRes.body).error,
+      /client "relayclaw" \("jiuwen"\) requires an API key provider profile/i,
+    );
   });
 
   it('POST /api/cats allows dare and relayclaw to bind custom sources from ~/.cat-cafe/model.json', async () => {
@@ -1008,6 +1011,51 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const patchBody = JSON.parse(patchRes.body);
     assert.equal(patchBody.cat.defaultModel, 'gpt-5.4-mini');
     assert.equal(patchBody.cat.accountRef, sponsorProfile.id);
+  });
+
+  it('PATCH /api/cats/:id infers a matching ACP provider binding for seed ACP members', async () => {
+    const projectRoot = createProjectRootFromRepoTemplate();
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+
+    const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
+    const acpProfile = await createProviderProfile(projectRoot, {
+      displayName: 'agent-teams',
+      kind: 'acp',
+      protocol: 'acp',
+      command: 'agent-teams',
+      args: ['gateway', 'acp', 'stdio'],
+    });
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: '/api/cats/agentteams',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        displayName: '协作引擎',
+        roleDescription: '多智能体协作引擎',
+        mentionPatterns: ['@agentteams', '@协作引擎', '@小协', '@agent-teams'],
+        client: 'acp',
+        defaultModel: 'agent-teams',
+      }),
+    });
+
+    assert.equal(patchRes.statusCode, 200);
+    const patchBody = JSON.parse(patchRes.body);
+    assert.equal(patchBody.cat.id, 'agentteams');
+    assert.equal(patchBody.cat.accountRef, acpProfile.id);
+
+    await app.close();
   });
 
   it('PATCH /api/cats/:id allows non-provider edits for unbound opencode seed member', async () => {
