@@ -563,6 +563,12 @@ function installSharedPythonDeps(bundleDir) {
   // Install agent-teams CLI for ACP multi-agent orchestration
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'cool-play-agent-teams']);
 
+  // Patch agent-teams container.py to support AGENT_TEAMS_PROJECT_ROOT env var
+  // This ensures agent-teams uses the correct project directory per ACP session
+  // instead of persisting a stale workspace root from first startup.
+  patchAgentTeamsContainer(join(bundleDir, 'tools', 'python', 'Lib', 'site-packages',
+    'agent_teams', 'interfaces', 'server', 'container.py'));
+
   // Prune site-packages to reduce size
   const sitePackages = join(bundleDir, 'tools', 'python', 'Lib', 'site-packages');
   removeNamedDirectoriesRecursive(sitePackages, ['__pycache__', 'tests', 'test', '__tests__']);
@@ -571,6 +577,23 @@ function installSharedPythonDeps(bundleDir) {
       rmSync(fullPath, { force: true });
     }
   });
+}
+
+function patchAgentTeamsContainer(containerPath) {
+  if (!existsSync(containerPath)) return;
+  let src = readFileSync(containerPath, 'utf8');
+
+  // Patch 1: WorkspaceManager project_root — use AGENT_TEAMS_PROJECT_ROOT env var
+  const P1_OLD = `        self.workspace_manager: WorkspaceManager = WorkspaceManager(\n            project_root=Path.cwd(),`;
+  const P1_NEW = `        import os as _os\n        _env_project_root = _os.environ.get('AGENT_TEAMS_PROJECT_ROOT', '').strip()\n        self.workspace_manager: WorkspaceManager = WorkspaceManager(\n            project_root=Path(_env_project_root) if _env_project_root else Path.cwd(),`;
+  if (src.includes(P1_OLD)) src = src.replace(P1_OLD, P1_NEW);
+
+  // Patch 2: _ensure_default_workspace — reset stale workspace root when env var provided
+  const P2_OLD = `    def _ensure_default_workspace(self) -> None:\n        if self.workspace_repo.exists("default"):\n            return\n        _ = self.workspace_service.create_workspace(\n            workspace_id="default",\n            root_path=Path.cwd(),\n        )`;
+  const P2_NEW = `    def _ensure_default_workspace(self) -> None:\n        import os as _os\n        _env_root = _os.environ.get('AGENT_TEAMS_PROJECT_ROOT', '').strip()\n        if _env_root:\n            _new_root = Path(_env_root).resolve()\n            if self.workspace_repo.exists('default'):\n                _existing = self.workspace_repo.get('default')\n                if _existing.root_path != _new_root:\n                    self.workspace_repo.delete('default')\n                    _ = self.workspace_service.create_workspace(\n                        workspace_id='default',\n                        root_path=_new_root,\n                    )\n            else:\n                _ = self.workspace_service.create_workspace(\n                    workspace_id='default',\n                    root_path=_new_root,\n                )\n            return\n        if self.workspace_repo.exists("default"):\n            return\n        _ = self.workspace_service.create_workspace(\n            workspace_id="default",\n            root_path=Path.cwd(),\n        )`;
+  if (src.includes(P2_OLD)) src = src.replace(P2_OLD, P2_NEW);
+
+  writeFileSync(containerPath, src, 'utf8');
 }
 
 function stageVendorPythonSources(bundleDir) {
