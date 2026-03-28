@@ -546,7 +546,13 @@ export function buildCatIdToBreedIndex(config: CatCafeConfig): Map<string, CatBr
   for (const breed of config.breeds) {
     for (const variant of breed.variants) {
       const catId = variant.catId ?? breed.catId;
-      index.set(catId, breed);
+      // Prefer variants with an explicit catId — an inherited catId (variant.catId===undefined)
+      // must not overwrite an already-indexed explicit entry.  This prevents orphan variants
+      // from a template breed (e.g. codex-default) from clobbering the catalog breed's catId
+      // ("office") after a breed rename via deepMergeConfig.
+      if (!index.has(catId) || variant.catId !== undefined) {
+        index.set(catId, breed);
+      }
     }
   }
   return index;
@@ -636,11 +642,15 @@ let _defaultCatId: CatId | null = null;
  * Get the default cat ID for unaddressed messages.
  * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
  *
- * Defaults to jiuwenclaw (小九) — the office assistant handles general queries.
+ * Reads the first breed's catId from the loaded catalog/template config so that
+ * renamed breeds (e.g. jiuwenclaw → office) are handled correctly without hardcoding.
+ * Falls back to 'jiuwenclaw' only when no config is available.
  */
 export function getDefaultCatId(): CatId {
   if (_defaultCatId) return _defaultCatId;
-  _defaultCatId = createCatId('jiuwenclaw');
+  const cfg = getCachedConfig();
+  const firstBreed = cfg?.breeds?.[0];
+  _defaultCatId = createCatId(firstBreed?.catId ?? 'jiuwenclaw');
   return _defaultCatId;
 }
 
@@ -655,7 +665,13 @@ function buildCatIdToVariantIndex(config: CatCafeConfig): Map<string, CatVariant
   for (const breed of config.breeds) {
     for (const variant of breed.variants) {
       const catId = variant.catId ?? breed.catId;
-      index.set(catId, variant);
+      // Prefer variants with an explicit catId — an inherited catId (variant.catId===undefined)
+      // must not overwrite an already-indexed explicit entry.  This prevents orphan variants
+      // from a template breed (e.g. codex-default) from clobbering the catalog breed's catId
+      // ("office") after a breed rename via deepMergeConfig.
+      if (!index.has(catId) || variant.catId !== undefined) {
+        index.set(catId, variant);
+      }
     }
   }
   return index;
