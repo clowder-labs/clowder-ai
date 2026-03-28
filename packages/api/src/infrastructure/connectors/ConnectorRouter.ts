@@ -126,7 +126,7 @@ export class ConnectorRouter {
    * when the first Web user connects), then falls back to the static default.
    */
   private resolveOwnerUserId(): string {
-    return process.env.DEFAULT_OWNER_USER_ID || this.resolveOwnerUserId();
+    return process.env.DEFAULT_OWNER_USER_ID || this.opts.defaultUserId;
   }
 
   /** Build @-mention patterns from catRegistry for parseMentions. */

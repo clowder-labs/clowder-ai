@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
-import { buildEnvSummary, ENV_CATEGORIES, isEditableEnvVarName } from '../config/env-registry.js';
+import { buildEnvSummary, ENV_CATEGORIES, isEditableEnvVarName, requiresRestartEnvVar } from '../config/env-registry.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
@@ -273,7 +273,14 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     const next = applyEnvUpdatesToFile(current, updates);
     writeFileSync(envFilePath, next, 'utf8');
 
+    let needsRestart = false;
     for (const [name, value] of updates) {
+      if (requiresRestartEnvVar(name)) {
+        // Sensitive connector fields: written to .env but NOT applied to process.env.
+        // Requires service restart to take effect.
+        needsRestart = true;
+        continue;
+      }
       if (value == null || value === '') delete process.env[name];
       else process.env[name] = value;
     }
@@ -291,6 +298,6 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       request.log.warn({ err, keys: [...updates.keys()] }, 'env config audit append failed');
     }
 
-    return { ok: true, envFilePath, summary: buildEnvSummary() };
+    return { ok: true, requiresRestart: needsRestart, envFilePath, summary: buildEnvSummary() };
   });
 }
