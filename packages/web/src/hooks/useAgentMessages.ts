@@ -664,6 +664,29 @@ export function useAgentMessages() {
             const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
+          } else if (parsed?.type === 'recoverable_pause') {
+            const targetCatId = parsed.catId ?? msg.catId;
+            const currentProgress = targetCatId
+              ? useChatStore.getState().catInvocations?.[targetCatId]?.taskProgress
+              : undefined;
+            if (targetCatId) {
+              setCatInvocation(targetCatId, {
+                taskProgress: {
+                  tasks: currentProgress?.tasks ?? [],
+                  lastUpdate: Date.now(),
+                  snapshotStatus: 'interrupted',
+                  interruptReason:
+                    typeof parsed.interruptReason === 'string' ? parsed.interruptReason : 'recoverable_pause',
+                  ...(currentProgress?.lastInvocationId ? { lastInvocationId: currentProgress.lastInvocationId } : {}),
+                },
+                ...(typeof parsed.sessionId === 'string' ? { sessionId: parsed.sessionId } : {}),
+              });
+            }
+            sysContent =
+              typeof parsed.message === 'string' && parsed.message.trim()
+                ? parsed.message
+                : '上次运行已暂停，可继续执行或放弃当前会话。';
+            sysVariant = 'info';
           } else if (parsed?.type === 'invocation_created') {
             // New invocation boundary: clear stale task snapshot + finalized ref for this cat.
             // #586: Without clearing finalizedStreamRef here, a stale ref from the

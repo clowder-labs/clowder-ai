@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { TagEditor } from './hub-tag-editor';
 import type { AcpModelProfileItem, AcpModelProviderType, AcpModelAccessMode } from './hub-provider-profiles.types';
 
+type EditableAcpModelProvider = AcpModelProviderType | '';
+
 export function ProviderProfilesSummaryCard() {
   return (
     <div className="rounded-2xl border border-[#E6EAF2] bg-[#F8FAFD] p-4">
@@ -44,6 +46,7 @@ export function CreateApiKeyProfileSection({
   command,
   args,
   cwd,
+  envText,
   modelAccessMode,
   defaultModelProfileRef,
   acpModelProfiles,
@@ -57,6 +60,7 @@ export function CreateApiKeyProfileSection({
   onCommandChange,
   onArgsChange,
   onCwdChange,
+  onEnvTextChange,
   onModelAccessModeChange,
   onDefaultModelProfileRefChange,
   onCreate,
@@ -71,6 +75,7 @@ export function CreateApiKeyProfileSection({
   command: string;
   args: string;
   cwd: string;
+  envText: string;
   modelAccessMode: AcpModelAccessMode;
   defaultModelProfileRef: string;
   acpModelProfiles: AcpModelProfileItem[];
@@ -84,6 +89,7 @@ export function CreateApiKeyProfileSection({
   onCommandChange: (value: string) => void;
   onArgsChange: (value: string) => void;
   onCwdChange: (value: string) => void;
+  onEnvTextChange: (value: string) => void;
   onModelAccessModeChange: (value: AcpModelAccessMode) => void;
   onDefaultModelProfileRefChange: (value: string) => void;
   onCreate: () => void;
@@ -148,6 +154,13 @@ export function CreateApiKeyProfileSection({
                 value={cwd}
                 onChange={(e) => onCwdChange(e.target.value)}
                 placeholder="可选 cwd，例如 /opt/workspace/agent-teams"
+                className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+              />
+              <textarea
+                value={envText}
+                onChange={(e) => onEnvTextChange(e.target.value)}
+                rows={3}
+                placeholder="可选环境变量，每行 KEY=value"
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <select
@@ -247,13 +260,13 @@ export function CreateAcpModelProfileSection({
   onCreate,
 }: {
   displayName: string;
-  provider: AcpModelProviderType;
+  provider: EditableAcpModelProvider;
   model: string;
   baseUrl: string;
   apiKey: string;
   busy: boolean;
   onDisplayNameChange: (value: string) => void;
-  onProviderChange: (value: AcpModelProviderType) => void;
+  onProviderChange: (value: EditableAcpModelProvider) => void;
   onModelChange: (value: string) => void;
   onBaseUrlChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
@@ -289,9 +302,10 @@ export function CreateAcpModelProfileSection({
           />
           <select
             value={provider}
-            onChange={(e) => onProviderChange(e.target.value as AcpModelProviderType)}
+            onChange={(e) => onProviderChange(e.target.value as EditableAcpModelProvider)}
             className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
           >
+            <option value="">留空自动推断</option>
             {ACP_MODEL_PROVIDER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}

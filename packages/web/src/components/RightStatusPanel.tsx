@@ -2,15 +2,18 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
+import { useSendMessage } from '@/hooks/useSendMessage';
 import type { CatInvocationInfo } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { buildContinueMessage } from '@/utils/taskProgressContinue';
 import { AuditExplorerPanel } from './audit/AuditExplorerPanel';
 import { CatTokenUsage } from './CatTokenUsage';
 import { PlanBoardPanel } from './PlanBoardPanel';
 import { SessionChainPanel } from './SessionChainPanel';
 import { type CatStatus, type IntentMode, modeLabel, statusLabel, statusTone, truncateId } from './status-helpers';
 import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
+import { useConfirm } from './useConfirm';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -35,17 +38,51 @@ export interface RightStatusPanelProps {
 function CatInvocationCard({
   catId,
   inv,
+  threadId,
   onCopy,
   isActive,
 }: {
   catId: string;
   inv: CatInvocationInfo;
+  threadId: string;
   onCopy: (v: string) => void;
   isActive: boolean;
 }) {
   const { getCatById } = useCatData();
+  const confirm = useConfirm();
+  const { handleSend } = useSendMessage(threadId);
+  const setCatInvocation = useChatStore((s) => s.setCatInvocation);
   const cat = getCatById(catId);
   const dotColor = cat?.color.primary ?? '#9CA3AF';
+  const taskProgress = inv.taskProgress;
+  const isRecoverablePause =
+    taskProgress?.snapshotStatus === 'interrupted' && taskProgress.interruptReason === 'recoverable_pause';
+
+  const handleContinue = useCallback(async () => {
+    if (!taskProgress) return;
+    if (!(await confirm({ title: '继续任务', message: '确认继续上次任务？' }))) return;
+    void handleSend(buildContinueMessage(catId, taskProgress), undefined, threadId, undefined, undefined, {
+      resumeCatId: catId,
+    });
+  }, [catId, confirm, handleSend, taskProgress, threadId]);
+
+  const handleAbandon = useCallback(async () => {
+    if (!(await confirm({ title: '放弃任务', message: '确认放弃这次中断运行，并在下次调用时新建会话？' }))) return;
+    const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/cancel/${encodeURIComponent(catId)}`, {
+      method: 'POST',
+    });
+    if (!res.ok || !taskProgress) return;
+    setCatInvocation(catId, {
+      taskProgress: {
+        tasks: taskProgress.tasks,
+        lastUpdate: Date.now(),
+        snapshotStatus: 'interrupted',
+        interruptReason: 'canceled',
+        ...(taskProgress.lastInvocationId ? { lastInvocationId: taskProgress.lastInvocationId } : {}),
+      },
+    });
+  }, [catId, confirm, setCatInvocation, taskProgress, threadId]);
+
   return (
     <div className="text-xs">
       <div className="flex items-center gap-1.5 mb-1">
@@ -74,6 +111,28 @@ function CatInvocationCard({
       )}
       {(inv.sessionId || inv.invocationId) && (
         <CollapsibleIds sessionId={inv.sessionId} invocationId={inv.invocationId} onCopy={onCopy} />
+      )}
+      {isRecoverablePause && (
+        <div className="ml-3.5 mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void handleContinue();
+            }}
+            className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+          >
+            继续执行
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void handleAbandon();
+            }}
+            className="text-[11px] px-2 py-0.5 rounded-full border border-rose-200 text-rose-600 hover:border-rose-300 hover:bg-rose-50 transition-colors"
+          >
+            放弃本次运行
+          </button>
+        </div>
       )}
     </div>
   );
@@ -293,7 +352,13 @@ export function RightStatusPanel({
     const snapshotCats = Object.entries(catInvocations)
       .filter(([, inv]) => {
         const taskProgress = inv.taskProgress;
-        if (!taskProgress || taskProgress.tasks.length === 0) return false;
+        if (!taskProgress) return false;
+        if (taskProgress.tasks.length === 0) {
+          return (
+            taskProgress.snapshotStatus === 'interrupted' &&
+            taskProgress.interruptReason === 'recoverable_pause'
+          );
+        }
         return taskProgress.snapshotStatus !== 'completed';
       })
       .map(([catId]) => catId);
@@ -374,7 +439,7 @@ export function RightStatusPanel({
                     </div>
                     <span className={`text-xs font-medium ${statusTone(status)}`}>{statusLabel(status)}</span>
                   </div>
-                  {inv && <CatInvocationCard catId={catId} inv={inv} onCopy={copyText} isActive />}
+                  {inv && <CatInvocationCard catId={catId} inv={inv} threadId={threadId} onCopy={copyText} isActive />}
                 </div>
               );
             })}
@@ -410,7 +475,16 @@ export function RightStatusPanel({
                     </div>
                   );
                 }
-                return <CatInvocationCard key={catId} catId={catId} inv={inv} onCopy={copyText} isActive={false} />;
+                return (
+                  <CatInvocationCard
+                    key={catId}
+                    catId={catId}
+                    inv={inv}
+                    threadId={threadId}
+                    onCopy={copyText}
+                    isActive={false}
+                  />
+                );
               })}
             </div>
           )}

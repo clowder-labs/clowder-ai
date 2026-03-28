@@ -451,6 +451,10 @@ process.stdin.on('data', (chunk) => {
         true,
       );
       assert.equal(
+        messages.some((msg) => msg.type === 'system_info' && String(msg.content).includes('"type":"recoverable_pause"')),
+        true,
+      );
+      assert.equal(
         messages.some((msg) => msg.type === 'done'),
         true,
       );
@@ -488,6 +492,114 @@ process.stdin.on('data', (chunk) => {
 
       assert.deepEqual(methods, ['initialize', 'session/load', 'session/prompt']);
     });
+  });
+
+  it('maps paused-run prompt rejection into recoverable pause system info', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-agent-service-paused-prompt-'));
+    const logFile = path.join(tempDir, 'methods.json');
+    const scriptFile = path.join(tempDir, 'fake-acp-agent-paused-prompt.mjs');
+    const script = `
+import { appendFileSync } from 'node:fs';
+
+const logFile = process.env.ACP_TEST_LOG_FILE;
+let buffer = '';
+
+function write(message) {
+  const payload = Buffer.from(JSON.stringify(message), 'utf8');
+  process.stdout.write(\`Content-Length: \${payload.length}\\r\\n\\r\\n\`);
+  process.stdout.write(payload);
+}
+
+function handle(message) {
+  if (!message || typeof message !== 'object' || typeof message.method !== 'string') return;
+  appendFileSync(logFile, \`\${JSON.stringify(message.method)}\\n\`);
+  const params = message.params && typeof message.params === 'object' ? message.params : {};
+  if (message.method === 'initialize') {
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          promptCapabilities: { audio: false, embeddedContext: false, image: false },
+          mcpCapabilities: { http: true, sse: true },
+        },
+      },
+    });
+    return;
+  }
+  if (message.method === 'session/load') {
+    write({ jsonrpc: '2.0', id: message.id, result: { sessionId: params.sessionId || 'sess-test' } });
+    return;
+  }
+  if (message.method === 'session/prompt') {
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      error: {
+        code: -32000,
+        message: 'Session has a recoverable paused run; use session/resume or session/cancel',
+      },
+    });
+    return;
+  }
+  write({ jsonrpc: '2.0', id: message.id, result: {} });
+}
+
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const headerEnd = buffer.indexOf('\\r\\n\\r\\n');
+    if (headerEnd === -1) break;
+    const header = buffer.slice(0, headerEnd);
+    const match = header.match(/Content-Length:\\s*(\\d+)/i);
+    if (!match) {
+      buffer = buffer.slice(headerEnd + 4);
+      continue;
+    }
+    const length = Number.parseInt(match[1], 10);
+    const bodyStart = headerEnd + 4;
+    if (buffer.length < bodyStart + length) break;
+    const body = buffer.slice(bodyStart, bodyStart + length);
+    buffer = buffer.slice(bodyStart + length);
+    handle(JSON.parse(body));
+  }
+});
+`;
+    await writeFile(scriptFile, script);
+    try {
+      const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
+      const service = new ACPAgentService({ catId: 'codex' });
+      const providerProfile = {
+        id: 'agent-teams-test',
+        kind: 'acp',
+        protocol: 'acp',
+        authType: 'none',
+        modelAccessMode: 'bring_your_own_key',
+        command: process.execPath,
+        args: [scriptFile],
+        cwd: process.cwd(),
+        env: { ACP_TEST_LOG_FILE: logFile },
+      };
+
+      const messages = [];
+      for await (const msg of service.invoke('fresh prompt', {
+        providerProfile,
+        sessionId: 'sess-test',
+      })) {
+        messages.push(msg);
+      }
+
+      assert.equal(
+        messages.some((msg) => msg.type === 'system_info' && String(msg.content).includes('"type":"recoverable_pause"')),
+        true,
+      );
+      assert.equal(messages.some((msg) => msg.type === 'error'), false);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   });
 
   it('drops trailing session/load replay updates before streaming resume output', async () => {

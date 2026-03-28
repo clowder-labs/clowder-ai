@@ -41,6 +41,7 @@ export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   '.env.example',
   'LICENSE',
   'cat-template.json',
+  'modelarts-preset.json',
   'pnpm-workspace.yaml',
 ];
 
@@ -498,7 +499,7 @@ function createIcoFromPng(pngPath, icoPath) {
 }
 
 function copyTopLevelProject(bundleDir) {
-  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json', 'pnpm-workspace.yaml'];
+  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json', 'modelarts-preset.json', 'pnpm-workspace.yaml'];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
     if (!existsSync(source)) {

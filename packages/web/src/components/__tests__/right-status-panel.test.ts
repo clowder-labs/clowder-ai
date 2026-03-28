@@ -1,6 +1,19 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/hooks/useSendMessage', () => ({
+  useSendMessage: () => ({ handleSend: vi.fn() }),
+}));
+
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: vi.fn(),
+}));
+
+vi.mock('@/components/useConfirm', () => ({
+  useConfirm: () => vi.fn(async () => true),
+}));
+
 import { RightStatusPanel, type RightStatusPanelProps } from '@/components/RightStatusPanel';
 
 function render(props: RightStatusPanelProps): string {
@@ -207,6 +220,38 @@ describe('RightStatusPanel', () => {
     expect(html).toContain('缅因猫');
     expect(html).toContain('已中断');
     expect(html).toContain('继续');
+  });
+
+  it('shows continue and abandon actions for recoverable paused sessions without tasks', () => {
+    const html = render({
+      intentMode: 'execute',
+      targetCats: ['opus'],
+      catStatuses: { opus: 'streaming', codex: 'done' },
+      catInvocations: {
+        opus: { startedAt: Date.now() },
+        codex: {
+          startedAt: Date.now() - 120000,
+          taskProgress: {
+            tasks: [],
+            lastUpdate: Date.now(),
+            snapshotStatus: 'interrupted',
+            interruptReason: 'recoverable_pause',
+          },
+        },
+      },
+      threadId: 'thread-codex-recoverable',
+      messageSummary: {
+        total: 8,
+        assistant: 5,
+        system: 3,
+        evidence: 0,
+        followup: 0,
+      },
+    });
+
+    expect(html).toContain('缅因猫');
+    expect(html).toContain('继续执行');
+    expect(html).toContain('放弃本次运行');
   });
 
   it('renders task progress in 猫猫祟祟 panel', () => {
