@@ -375,7 +375,9 @@ export function AccountSection({
                   })
                   .map((profile) => ({
                     value: profile.id,
-                    label: profile.builtin
+                    label: profile.source === 'model_config'
+                      ? profile.displayName
+                      : profile.builtin
                       ? `${profile.displayName}（内置）`
                       : profile.kind === 'acp'
                         ? `${profile.displayName}（ACP）`

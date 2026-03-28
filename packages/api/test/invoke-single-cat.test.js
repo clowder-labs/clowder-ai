@@ -2851,6 +2851,96 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.OPENAI_API_BASE, 'https://api.bound.example');
   });
 
+  it('F127: injects Huawei MaaS runtime headers for dare cats bound via ~/.cat-cafe/model.json', async () => {
+    const { sessions } = await import('../dist/routes/auth.js');
+    const root = await mkdtemp(join(tmpdir(), 'f127-huawei-maas-model-config-dare-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+    await writeFile(
+      join(root, '.cat-cafe', 'model.json'),
+      `${JSON.stringify({ 'huawei-maas': [{ id: 'glm-5' }] }, null, 2)}\n`,
+      'utf-8',
+    );
+    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+
+    try {
+      sessions.set('user-f127-huawei-maas-model-config', {
+        userId: 'user-f127-huawei-maas-model-config',
+        token: 'iam-token',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        credential: {},
+        modelInfo: {
+          model_api_url_base: 'api.modelarts-maas.com',
+          model_auth_info: {
+            model_app_key: 'app-key',
+            model_app_secret: 'app-secret',
+          },
+        },
+      });
+
+      const registrySnapshot = catRegistry.getAllConfigs();
+      const originalConfig = catRegistry.tryGet('dare')?.config;
+      assert.ok(originalConfig, 'dare config should exist in registry');
+      const boundCatId = 'dare-huawei-maas-model-config-test';
+      catRegistry.register(boundCatId, {
+        ...originalConfig,
+        id: boundCatId,
+        mentionPatterns: [`@${boundCatId}`],
+        provider: 'dare',
+        providerProfileId: 'huawei-maas',
+        defaultModel: 'glm-5',
+      });
+
+      const optionsSeen = [];
+      const service = {
+        async *invoke(_prompt, options) {
+          optionsSeen.push(options ?? {});
+          yield { type: 'done', catId: 'dare', timestamp: Date.now() };
+        },
+      };
+
+      const deps = makeDeps();
+      const previousCwd = process.cwd();
+      try {
+        process.chdir(apiDir);
+        const messages = await collect(
+          invokeSingleCat(deps, {
+            catId: boundCatId,
+            service,
+            prompt: 'test',
+            userId: 'user-f127-huawei-maas-model-config',
+            threadId: 'thread-f127-huawei-maas-model-config',
+            isLastCat: true,
+          }),
+        );
+        assert.ok(messages.some((m) => m.type === 'done'));
+      } finally {
+        process.chdir(previousCwd);
+        sessions.delete('user-f127-huawei-maas-model-config');
+        catRegistry.reset();
+        for (const [id, config] of Object.entries(registrySnapshot)) {
+          catRegistry.register(id, config);
+        }
+      }
+
+      const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+      assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'huawei_maas');
+      assert.equal(callbackEnv.CAT_CAFE_HUAWEI_MAAS_ENABLED, '1');
+      assert.equal(callbackEnv.OPENAI_BASE_URL, 'https://api.modelarts-maas.com/v2');
+      assert.equal(callbackEnv.OPENAI_API_BASE, 'https://api.modelarts-maas.com/v2');
+      assert.equal(callbackEnv.OPENAI_API_KEY, 'huawei-maas-session');
+      assert.equal(callbackEnv.DARE_ENDPOINT, 'https://api.modelarts-maas.com/v2');
+      assert.equal(callbackEnv.DARE_API_KEY, 'huawei-maas-session');
+    } finally {
+      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('F127 P1: explicit builtin codex bindings force oauth callback env', async () => {
     const root = await mkdtemp(join(tmpdir(), 'f127-openai-builtin-oauth-'));
     const apiDir = join(root, 'packages', 'api');
