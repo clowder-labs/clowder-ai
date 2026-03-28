@@ -6,6 +6,10 @@ import { resolveProviderProfilesRootSync } from './provider-profiles-root.js';
 export interface ModelConfigBinding {
   id: string;
   models: string[];
+  displayName?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
   protocol?: ProviderProfileProtocol;
 }
 export const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
@@ -27,6 +31,19 @@ function normalizeModelIds(value: unknown): string[] {
   return Array.from(new Set(ids));
 }
 
+function normalizeHeaderMap(value: unknown): Record<string, string> | undefined {
+  if (!isRecord(value)) return undefined;
+  const entries = Object.entries(value)
+    .map(([key, rawValue]) => {
+      const trimmedKey = key.trim();
+      const trimmedValue = typeof rawValue === 'string' ? rawValue.trim() : '';
+      if (!trimmedKey || !trimmedValue) return null;
+      return [trimmedKey, trimmedValue] as const;
+    })
+    .filter((entry): entry is readonly [string, string] => entry !== null);
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries);
+}
 function inferProtocol(profileId: string): ProviderProfileProtocol | undefined {
   if (profileId.trim().toLowerCase() === HUAWEI_MAAS_MODEL_SOURCE_ID) return 'huawei_maas';
   return undefined;
@@ -34,7 +51,53 @@ function inferProtocol(profileId: string): ProviderProfileProtocol | undefined {
 
 function displayNameForBinding(binding: ModelConfigBinding): string {
   if (binding.protocol === 'huawei_maas') return 'Huawei MaaS';
-  return binding.id;
+  return binding.displayName?.trim() || binding.id;
+}
+
+function normalizeOpenAiBinding(id: string, value: Record<string, unknown>): ModelConfigBinding | null {
+  const protocol = typeof value.protocol === 'string' ? value.protocol.trim().toLowerCase() : '';
+  if (protocol !== 'openai') return null;
+
+  const models = normalizeModelIds(value.models);
+  const baseUrl = typeof value.baseUrl === 'string' ? value.baseUrl.trim() : '';
+  const apiKey = typeof value.apiKey === 'string' ? value.apiKey.trim() : '';
+  if (!baseUrl || !apiKey || models.length === 0) return null;
+
+  const displayName = typeof value.displayName === 'string' ? value.displayName.trim() : '';
+  const headers = normalizeHeaderMap(value.headers);
+  return {
+    id,
+    models,
+    protocol: 'openai',
+    ...(displayName ? { displayName } : {}),
+    baseUrl,
+    apiKey,
+    ...(headers ? { headers } : {}),
+  } satisfies ModelConfigBinding;
+}
+
+function normalizeModelSourceBinding(id: string, value: unknown): ModelConfigBinding | null {
+  const protocol = inferProtocol(id);
+  if (Array.isArray(value)) {
+    if (protocol !== 'huawei_maas') return null;
+    return {
+      id,
+      models: normalizeModelIds(value),
+      ...(protocol ? { protocol } : {}),
+    } satisfies ModelConfigBinding;
+  }
+  if (isRecord(value)) {
+    if (protocol === 'huawei_maas') {
+      const models = normalizeModelIds(value.models);
+      return {
+        id,
+        models,
+        protocol,
+      } satisfies ModelConfigBinding;
+    }
+    return normalizeOpenAiBinding(id, value);
+  }
+  return null;
 }
 
 export function resolveProjectModelConfigPath(projectRoot: string): string {
@@ -66,13 +129,7 @@ export async function readProjectModelConfigBindings(projectRoot: string): Promi
     .map(([id, value]) => {
       const trimmedId = id.trim();
       if (!trimmedId) return null;
-      const models = normalizeModelIds(value);
-      const protocol = inferProtocol(trimmedId);
-      return {
-        id: trimmedId,
-        models,
-        ...(protocol ? { protocol } : {}),
-      } satisfies ModelConfigBinding;
+      return normalizeModelSourceBinding(trimmedId, value);
     })
     .filter((entry): entry is ModelConfigBinding => entry !== null);
 }
@@ -110,7 +167,7 @@ export async function readProjectModelConfigProfileViews(projectRoot: string): P
     mode: binding.protocol === 'huawei_maas' ? 'none' : 'api_key',
     ...(binding.protocol ? { protocol: binding.protocol } : {}),
     models: binding.models,
-    hasApiKey: false,
+    hasApiKey: binding.protocol !== 'huawei_maas',
     createdAt: timestamp,
     updatedAt: timestamp,
   }));

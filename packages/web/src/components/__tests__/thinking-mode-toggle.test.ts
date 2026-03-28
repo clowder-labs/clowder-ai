@@ -135,6 +135,27 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     expect(container.querySelectorAll('.cli-output-md').length).toBe(0);
   });
 
+  it('normalizes pathological hard-wrapped thinking text after hydration', async () => {
+    const { ChatMessage } = await import('@/components/ChatMessage');
+
+    act(() => {
+      useChatStore.getState().setUiThinkingExpandedByDefault(true);
+      root.render(
+        React.createElement(ChatMessage, {
+          message: {
+            ...thinkingMsg,
+            id: 't2',
+            thinking: '用户\n\n通过\n\ncat\n\nca\n\nfe\n\n频道\n\n发送\n\n了一条\n\n消息\n\n，\n\n内容\n\n是',
+          } as never,
+          getCatById: getCatById as never,
+        }),
+      );
+    });
+
+    expect(container.textContent).toContain('用户通过catcafe频道发送了一条消息，内容是');
+    expect(container.textContent).not.toContain('用户通过cat ca fe频道');
+  });
+
   it('stream-origin messages render via CliOutputBlock (F097)', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
 

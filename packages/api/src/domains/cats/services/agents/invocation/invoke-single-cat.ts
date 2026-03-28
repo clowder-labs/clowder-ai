@@ -616,7 +616,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     if (modelConfigBinding) {
       const isHuaweiMaaSBinding =
         modelConfigBinding.id === HUAWEI_MAAS_MODEL_SOURCE_ID && modelConfigBinding.protocol === 'huawei_maas';
-      if (!isHuaweiMaaSBinding) {
+      const isCustomOpenAiBinding = modelConfigBinding.protocol === 'openai';
+      if (!isHuaweiMaaSBinding && !isCustomOpenAiBinding) {
         throw new Error(`unsupported model config source "${modelConfigBinding.id}"`);
       }
       if (provider !== 'dare' && provider !== 'relayclaw') {
@@ -725,7 +726,22 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
       }
     } else if (effectiveProtocol === 'openai') {
-      if (resolvedAccount?.authType === 'api_key') {
+      if (modelConfigBinding?.protocol === 'openai') {
+        callbackEnv.CODEX_AUTH_MODE = 'api_key';
+        if (modelConfigBinding.apiKey) {
+          callbackEnv.OPENAI_API_KEY = modelConfigBinding.apiKey;
+          callbackEnv.OPENROUTER_API_KEY = modelConfigBinding.apiKey;
+        }
+        if (modelConfigBinding.baseUrl) {
+          callbackEnv.OPENAI_BASE_URL = modelConfigBinding.baseUrl;
+          callbackEnv.OPENAI_API_BASE = modelConfigBinding.baseUrl;
+        }
+        if (modelConfigBinding.headers && Object.keys(modelConfigBinding.headers).length > 0) {
+          const headersJson = JSON.stringify(modelConfigBinding.headers);
+          callbackEnv.OPENAI_DEFAULT_HEADERS = headersJson;
+          callbackEnv.default_headers = headersJson;
+        }
+      } else if (resolvedAccount?.authType === 'api_key') {
         callbackEnv.CODEX_AUTH_MODE = 'api_key';
         if (resolvedAccount.apiKey) {
           callbackEnv.OPENAI_API_KEY = resolvedAccount.apiKey;
@@ -770,6 +786,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Dare has its own env vars regardless of protocol-based injection above
     if (provider === 'dare') {
       if (effectiveProtocol === 'huawei_maas') {
+        callbackEnv.CAT_CAFE_DARE_ADAPTER = 'openai';
+        if (callbackEnv.OPENAI_API_KEY) callbackEnv.DARE_API_KEY = callbackEnv.OPENAI_API_KEY;
+        if (callbackEnv.OPENAI_BASE_URL) callbackEnv.DARE_ENDPOINT = callbackEnv.OPENAI_BASE_URL;
+      } else if (modelConfigBinding?.protocol === 'openai') {
         callbackEnv.CAT_CAFE_DARE_ADAPTER = 'openai';
         if (callbackEnv.OPENAI_API_KEY) callbackEnv.DARE_API_KEY = callbackEnv.OPENAI_API_KEY;
         if (callbackEnv.OPENAI_BASE_URL) callbackEnv.DARE_ENDPOINT = callbackEnv.OPENAI_BASE_URL;

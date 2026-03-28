@@ -3,6 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
+const HAN_CHAR_RE = /\p{Script=Han}/u;
+const MARKDOWNISH_LINE_RE = /^\s*(?:[-*+] |\d+\. |> |#{1,6}\s|```|~~~|\|)/;
+
 /** Blend accent into a dark base → tinted dark surface */
 function tintedDark(hex: string, ratio = 0.25, base = '#1A1625'): string {
   const parse = (h: string) => [
@@ -16,6 +19,43 @@ function tintedDark(hex: string, ratio = 0.25, base = '#1A1625'): string {
 }
 
 const DIVIDER = '#334155';
+
+function shouldPreserveThinkingLineBreaks(content: string): boolean {
+  return content.split('\n').some((line) => MARKDOWNISH_LINE_RE.test(line));
+}
+
+function shouldJoinWithoutSpace(prev: string, next: string): boolean {
+  const prevChar = prev.slice(-1);
+  const nextChar = next.charAt(0);
+  const prevWordFragment = prev.match(/[A-Za-z]{1,8}$/)?.[0] ?? '';
+  const nextWordFragment = next.match(/^[A-Za-z]{1,8}/)?.[0] ?? '';
+  if (!prevChar || !nextChar) return true;
+  if (HAN_CHAR_RE.test(prevChar) || HAN_CHAR_RE.test(nextChar)) return true;
+  if (/[([{"'“‘]/.test(prevChar)) return true;
+  if (/[)\]}"'”’，。！？：；、,.!?:;]/.test(nextChar)) return true;
+  if (/^[a-z]+$/.test(prevWordFragment) && /^[a-z]{1,4}$/.test(nextWordFragment)) return true;
+  return false;
+}
+
+export function normalizeThinkingDisplayContent(content: string): string {
+  const normalized = content.replace(/\r\n?/g, '\n');
+  if (!normalized.includes('\n')) return normalized;
+  if (shouldPreserveThinkingLineBreaks(normalized)) return normalized;
+
+  const lines = normalized.split('\n');
+  const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
+  if (nonEmptyLines.length < 6) return normalized;
+
+  const shortLines = nonEmptyLines.filter((line) => line.length <= 6).length;
+  const averageLength = nonEmptyLines.reduce((sum, line) => sum + line.length, 0) / nonEmptyLines.length;
+  const looksHardWrapped = shortLines / nonEmptyLines.length >= 0.6 && averageLength <= 8;
+  if (!looksHardWrapped) return normalized;
+
+  return nonEmptyLines.slice(1).reduce((acc, line) => {
+    if (!acc) return line;
+    return `${acc}${shouldJoinWithoutSpace(acc, line) ? '' : ' '}${line}`;
+  }, nonEmptyLines[0] ?? '');
+}
 
 function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: string }) {
   return (
@@ -101,7 +141,9 @@ export function ThinkingContent({
     }
   }, [expanded]);
   const previewLength = 60;
-  const preview = content.length > previewLength ? `${content.slice(0, previewLength)}…` : content;
+  const normalizedContent = normalizeThinkingDisplayContent(content);
+  const preview =
+    normalizedContent.length > previewLength ? `${normalizedContent.slice(0, previewLength)}…` : normalizedContent;
   // Breed-tinted dark surface: accent blended into dark base → visibly colored AND text-readable
   const accent = breedColor || '#7C3AED';
   const surface = tintedDark(accent, 0.25);
@@ -137,7 +179,7 @@ export function ThinkingContent({
             style={{ padding: '8px 12px 10px 12px', color: '#CBD5E1' }}
             className="text-xs leading-relaxed cli-output-md"
           >
-            <MarkdownContent content={content} className={className} />
+            <MarkdownContent content={normalizedContent} className={className} />
           </div>
         </div>
       )}
