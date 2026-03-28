@@ -6,7 +6,6 @@ import { HubSkillsTab } from './HubSkillsTab';
 
 const INSTALLED = '已安装';
 const SKILL_PLAZA = '技能广场';
-const IMPORT_SKILL = '导入';
 
 export function SkillsPanel() {
   const [activeTab, setActiveTab] = useState<'installed' | 'plaza'>('installed');
@@ -36,13 +35,10 @@ export function SkillsPanel() {
             style={{ transform: activeTab === 'plaza' ? 'translateX(110px)' : 'translateX(0)' }}
           />
         </div>
-        <button type="button" className="ui-button-secondary">
-          {IMPORT_SKILL}
-        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="ui-panel p-4">{activeTab === 'plaza' ? <HubSkillsTab /> : <HubCapabilityTab />}</div>
+        <div>{activeTab === 'plaza' ? <HubSkillsTab /> : <HubCapabilityTab />}</div>
       </div>
     </div>
   );

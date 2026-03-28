@@ -325,7 +325,7 @@ export function HubSkillsTab() {
             {searchLoading ? '搜索中...' : '搜索'}
           </button>
           <button type="button" onClick={() => setShowUpload(true)} className="ui-button-secondary shrink-0">
-            + 上传
+            导入
           </button>
         </div>
         {searchError && <p className="text-[11px] text-[var(--state-error-text)]">{searchError}</p>}
@@ -340,7 +340,7 @@ export function HubSkillsTab() {
         )}
       </section>
 
-      <section className="ui-card p-3">
+      <section>
         <h3 className="mb-2 text-xs font-semibold text-[var(--text-primary)]">热门推荐</h3>
         {trendingLoading && <p className="text-[11px] text-[var(--text-muted)]">加载中...</p>}
         {trendingResults && (

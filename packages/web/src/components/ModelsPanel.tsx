@@ -5,8 +5,11 @@ import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
 
 const MODEL_TITLE = '模型';
+const SEARCH_PLACEHOLDER = '搜索模型、厂商或描述关键词';
 const LOADING_TEXT = '加载中...';
 const EMPTY_TEXT = '暂无模型信息';
+const NO_RESULTS_TEXT = '未找到匹配模型';
+const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
 const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 
 interface MassModelResponseItem {
@@ -22,6 +25,12 @@ interface ModelCardData {
   object: string;
   name: string;
   description: string;
+}
+
+interface ModelCardGroup {
+  key: string;
+  label: string;
+  items: ModelCardData[];
 }
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
@@ -160,8 +169,30 @@ function modelIconVisual(iconType: ModelIconType): { label: string; imageSrc: st
   }
 }
 
+function buildModelSearchText(card: ModelCardData): string {
+  const groupKey = groupKeyFromModelName(card.name);
+  const groupLabel = professionalGroupLabel(groupKey);
+  const vendorLabel = modelIconVisual(resolveModelIconType(groupKey)).label;
+
+  return [card.name, card.description, card.id, card.object, groupKey, groupLabel, vendorLabel].join(' ').toLowerCase();
+}
+
+function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
+  return cards.reduce<ModelCardGroup[]>((acc, item) => {
+    const key = groupKeyFromModelName(item.name);
+    const existing = acc.find((group) => group.key === key);
+    if (existing) {
+      existing.items.push(item);
+      return acc;
+    }
+    acc.push({ key, label: professionalGroupLabel(key), items: [item] });
+    return acc;
+  }, []);
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
 
   useEffect(() => {
@@ -190,37 +221,64 @@ export function ModelsPanel() {
     };
   }, []);
 
-  const groupedCards = useMemo(() => {
-    return cards.reduce<Array<{ key: string; label: string; items: ModelCardData[] }>>((acc, item) => {
-      const key = groupKeyFromModelName(item.name);
-      const existing = acc.find((group) => group.key === key);
-      if (existing) {
-        existing.items.push(item);
-        return acc;
-      }
-      acc.push({ key, label: professionalGroupLabel(key), items: [item] });
-      return acc;
-    }, []);
-  }, [cards]);
+  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+
+  const filteredCards = useMemo(() => {
+    if (!normalizedQuery) return cards;
+    return cards.filter((card) => buildModelSearchText(card).includes(normalizedQuery));
+  }, [cards, normalizedQuery]);
+
+  const groupedCards = useMemo(() => groupCards(filteredCards), [filteredCards]);
+  const hasSearchQuery = normalizedQuery.length > 0;
+  const showEmptyData = !loading && cards.length === 0;
+  const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
+  const showGroups = !loading && groupedCards.length > 0;
 
   return (
-    <div className="ui-page-shell gap-4">
+    <div className="ui-page-shell">
       <div className="ui-page-header">
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
       </div>
 
-      <div className="ui-divider" />
-
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
+        <div className="space-y-4 pb-2">
+          <section className="ui-card p-3">
+            <div className="relative">
+              <input
+                type="search"
+                aria-label="搜索模型"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={SEARCH_PLACEHOLDER}
+                className="ui-field w-full px-3 py-1.5 pr-10 text-xs"
+              />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]"
+              >
+                <circle cx="9" cy="9" r="5.25" />
+                <path d="m13 13 3.5 3.5" />
+              </svg>
+            </div>
+          </section>
 
-        {!loading && groupedCards.length === 0 && (
-          <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>
-        )}
+          {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
 
-        {!loading && groupedCards.length > 0 && (
-          <div className="space-y-4 pb-2">
-            {groupedCards.map((group) => (
+          {showEmptyData && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>}
+
+          {showNoResults && (
+            <div className="py-10 text-center">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">{NO_RESULTS_TEXT}</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_HINT}</p>
+            </div>
+          )}
+
+          {showGroups &&
+            groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
                 <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-secondary)]">
                   <svg
@@ -274,8 +332,7 @@ export function ModelsPanel() {
                 </div>
               </section>
             ))}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
