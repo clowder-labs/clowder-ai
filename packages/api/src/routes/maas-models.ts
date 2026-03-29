@@ -3,8 +3,9 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { readAcpModelProfiles } from '../config/acp-model-profiles.js';
 import {
   HUAWEI_MAAS_MODEL_SOURCE_ID,
@@ -19,6 +20,7 @@ import {
   projectQuerySchema,
   resolveProjectRoot,
 } from './provider-profiles.shared.js';
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
 
 export interface MassModelInfo {
   id: string;
@@ -28,6 +30,9 @@ export interface MassModelInfo {
   protocol?: string;
   enabled: boolean;
   description?: string;
+  labels?: string[]; // 标签
+  developer?: string; // 提供者
+  icon?: string; // 图标 URL
 }
 
 export interface MassModelsResponse {
@@ -35,6 +40,31 @@ export interface MassModelsResponse {
   models: MassModelInfo[];
 }
 
+const MAAS_DETAILS_PATH = resolve(findMonorepoRoot(), 'config', 'maas-details.json');
+
+function loadMaaSDetailsMap(): Record<string, Partial<MassModelInfo>> {
+  try {
+    const raw = readFileSync(MAAS_DETAILS_PATH, 'utf-8').trim();
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      console.warn(`[maas-models] Invalid maas-details.json format at ${MAAS_DETAILS_PATH}: expected object map.`);
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        ([key, value]) => key.trim().length > 0 && typeof value === 'object' && value !== null && !Array.isArray(value),
+      ),
+    ) as Record<string, Partial<MassModelInfo>>;
+  } catch (error) {
+    console.warn(`[maas-models] Failed to load ${MAAS_DETAILS_PATH}; continuing without static model metadata.`, error);
+    return {};
+  }
+}
+
+const MAAS_MAP = loadMaaSDetailsMap();
 function normalizeModelList(value: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(value)) {
     return value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null);
@@ -85,6 +115,7 @@ function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[
       ...(typeof rawDescription === 'string' && rawDescription.trim()
         ? { description: rawDescription.trim() }
         : {}),
+      ...(MAAS_MAP[rawId as string] ?? {}),
     } satisfies MassModelInfo;
   });
 }
