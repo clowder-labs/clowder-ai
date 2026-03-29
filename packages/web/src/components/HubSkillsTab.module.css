@@ -151,7 +151,7 @@
 @media (min-width: 640px) {
   .description {
     min-height: 66px;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
   }
 
   .installButton {

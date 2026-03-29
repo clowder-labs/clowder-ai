@@ -13,7 +13,7 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
-const SEARCH_PLACEHOLDER = '搜索模型、厂商或描述关键词';
+const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
