@@ -474,11 +474,23 @@ async function stageBundledApiRuntime(targetRootDir) {
   const distDir = join(targetDir, 'dist');
   ensureDir(distDir);
 
+  // ESM banner: provide CJS shims so bundled code can use require() for native modules
+  const banner = [
+    "import { createRequire as __createRequire } from 'node:module';",
+    "import { dirname as __pathDirname } from 'node:path';",
+    "import { fileURLToPath as __fileURLToPath } from 'node:url';",
+    'const require = __createRequire(import.meta.url);',
+    'const __filename = __fileURLToPath(import.meta.url);',
+    'const __dirname = __pathDirname(__filename);',
+  ].join(' ');
+
   run(esbuild, [
     join(repoRoot, 'packages', 'api', 'src', 'index.ts'),
     '--bundle', '--platform=node', '--target=node20', '--format=esm',
     `--outfile=${join(distDir, 'index.js')}`,
+    `--banner:js=${banner}`,
     '--sourcemap=external',
+    '--log-level=error',
     ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dep) => `--external:${dep}`),
     '--external:@cat-cafe/shared',
   ]);
@@ -511,14 +523,28 @@ function stageStandaloneWebRuntime(targetRootDir) {
     cpSync(WEB_PUBLIC_DIR, join(targetDir, 'public'), { recursive: true, force: true });
   }
 
+  // Remove pnpm-symlinked node_modules — npm install will recreate with real files
+  rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
+
   writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
 
   const webPkg = readJson(join(repoRoot, 'packages', 'web', 'package.json'));
+  const runtimeDeps = {};
+  for (const dep of WEB_RUNTIME_DEPENDENCIES) {
+    const ver = webPkg.dependencies?.[dep];
+    if (ver) { runtimeDeps[dep] = ver; continue; }
+    // Fall back to installed version in standalone node_modules
+    try {
+      const installed = readJson(join(WEB_STANDALONE_NODE_MODULES_DIR, dep, 'package.json'));
+      runtimeDeps[dep] = installed.version;
+    } catch { /* skip */ }
+  }
   writeJson(join(targetDir, 'package.json'), {
     name: webPkg.name,
     version: webPkg.version,
     private: true,
     scripts: { start: 'node server.js' },
+    ...(Object.keys(runtimeDeps).length > 0 ? { dependencies: runtimeDeps } : {}),
   });
 }
 
@@ -803,6 +829,25 @@ function buildSwiftLauncher(appContentsDir) {
   console.log('  Swift launcher compiled successfully.');
 }
 
+// ─── Codesign ───────────────────────────────────────────────────────
+
+function codesignApp(appPath) {
+  const entitlements = join(appPath, 'Contents', 'ClowderAI.entitlements');
+  const entArgs = existsSync(entitlements)
+    ? ['--entitlements', entitlements]
+    : [];
+
+  // Ad-hoc sign the entire .app so Gatekeeper doesn't silently block it.
+  // --deep signs nested code (frameworks, helpers) as well.
+  // --force replaces any existing linker-only signature on the binary.
+  run('codesign', [
+    '--force', '--deep', '--sign', '-',
+    ...entArgs,
+    appPath,
+  ]);
+  console.log('  Ad-hoc codesign complete.');
+}
+
 // ─── App Bundle ─────────────────────────────────────────────────────
 
 function assembleAppBundle(bundleDir, appPath) {
@@ -926,6 +971,8 @@ async function main() {
     }
     logStep('Rebuilding Swift launcher');
     buildSwiftLauncher(join(appPath, 'Contents'));
+    logStep('Codesigning .app bundle (ad-hoc)');
+    codesignApp(appPath);
     logStep(`Launcher rebuilt in ${appPath}`);
     return;
   }
@@ -1001,6 +1048,10 @@ async function main() {
     logStep('Compiling Swift desktop launcher');
     buildSwiftLauncher(contentsDir);
   }
+
+  // Ad-hoc codesign the .app bundle so macOS Gatekeeper allows launch
+  logStep('Codesigning .app bundle (ad-hoc)');
+  codesignApp(appPath);
 
   if (options.bundleOnly) {
     logStep(`.app bundle ready at ${appPath}`);

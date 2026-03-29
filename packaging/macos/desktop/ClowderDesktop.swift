@@ -14,6 +14,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var frontendUrl: String
     private var splashView: SplashView?
 
+    // No nib/storyboard — must wire the delegate manually.
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
+    }
+
     override init() {
         let bundle = Bundle.main
         projectRoot = bundle.resourcePath ?? bundle.bundlePath
@@ -203,6 +211,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func buildServiceEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
+        // Clear inherited port/URL vars so bundled mode uses its own random ports,
+        // not values leaked from a co-running cat-cafe dev environment.
+        for key in ["REDIS_PORT", "REDIS_URL", "API_SERVER_PORT", "FRONTEND_PORT", "PORT"] {
+            env.removeValue(forKey: key)
+        }
         env["CAT_CAFE_RESPECT_DOTENV_PORTS"] = "1"
         env["CAT_CAFE_DIRECT_NO_WATCH"] = "1"
         env["CAT_CAFE_STRICT_PROFILE_DEFAULTS"] = "1"
