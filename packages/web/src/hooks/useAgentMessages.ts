@@ -862,6 +862,15 @@ export function useAgentMessages() {
               },
             });
             consumed = true;
+          } else if (parsed?.type === 'processing_status') {
+            // RelayClaw processing heartbeat — update cat status silently, don't show as chat bubble
+            const processingStatus = parsed.status as string;
+            if (processingStatus === 'idle') {
+              // idle means the model finished processing — don't override active streaming status
+            } else {
+              setCatStatus(msg.catId, 'streaming');
+            }
+            consumed = true;
           } else if (parsed?.type === 'strategy_allow_compress' || parsed?.type === 'resume_failure_stats') {
             // Internal telemetry — suppress to avoid raw JSON bubbles
             consumed = true;
