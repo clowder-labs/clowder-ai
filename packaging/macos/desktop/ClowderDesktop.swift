@@ -21,7 +21,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .expandingTildeInPath
         runtimeStatePath = NSString(string: "~/.cat-cafe/run/macos/runtime-state.json")
             .expandingTildeInPath
-        frontendUrl = "http://127.0.0.1:3003/"
+        // No hardcoded port — will be read from runtime-state.json once services start.
+        // Empty string signals "not yet known"; waitForFrontend polls runtime state.
+        frontendUrl = ""
         super.init()
     }
 

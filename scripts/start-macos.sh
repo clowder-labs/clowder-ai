@@ -31,9 +31,9 @@ if [ -f "$PROJECT_ROOT/.env" ]; then
     set +a
 fi
 
-API_PORT="${API_SERVER_PORT:-3004}"
-WEB_PORT="${FRONTEND_PORT:-3003}"
-REDIS_PORT="${REDIS_PORT:-6399}"
+CONFIGURED_API_PORT="${API_SERVER_PORT:-3004}"
+CONFIGURED_WEB_PORT="${FRONTEND_PORT:-3003}"
+CONFIGURED_REDIS_PORT="${REDIS_PORT:-6399}"
 
 BUNDLED_NODE="$PROJECT_ROOT/tools/node/bin/node"
 BUNDLED_REDIS="$PROJECT_ROOT/tools/redis/bin/redis-server"
@@ -56,6 +56,65 @@ CLEANUP_RUNNING=false
 # ─── Helpers ─────────────────────────────────────────────────────────
 
 log() { echo -e "$(date '+%H:%M:%S') $*"; }
+
+is_port_available() {
+    ! nc -z 127.0.0.1 "$1" 2>/dev/null
+}
+
+find_available_port() {
+    local exclude=("$@")
+    local attempts=0
+    while [ "$attempts" -lt 64 ]; do
+        # Pick a random port in the dynamic range 49152-65535
+        local port=$(( (RANDOM % 16384) + 49152 ))
+        local skip=false
+        for ex in "${exclude[@]}"; do
+            [ "$port" -eq "$ex" ] && skip=true && break
+        done
+        [ "$skip" = true ] && { attempts=$((attempts + 1)); continue; }
+        if is_port_available "$port"; then
+            echo "$port"
+            return 0
+        fi
+        attempts=$((attempts + 1))
+    done
+    return 1
+}
+
+# Random port selection: enabled by default in bundled mode (mirrors Windows behavior)
+truthy_env() {
+    case "${1:-}" in 1|true|yes|on) return 0;; esac
+    return 1
+}
+falsy_env() {
+    case "${1:-}" in 0|false|no|off) return 0;; esac
+    return 1
+}
+PREFER_RANDOM_PORTS=false
+if [ "${CAT_CAFE_MACOS_BUNDLED:-}" = "1" ] && ! falsy_env "${CAT_CAFE_MACOS_RANDOM_PORTS:-}"; then
+    PREFER_RANDOM_PORTS=true
+fi
+if truthy_env "${CAT_CAFE_MACOS_RANDOM_PORTS:-}"; then
+    PREFER_RANDOM_PORTS=true
+fi
+
+USE_RANDOM_WEB_API=$( [ "$PREFER_RANDOM_PORTS" = true ] && [ "$CONFIGURED_WEB_PORT" = "3003" ] && [ "$CONFIGURED_API_PORT" = "3004" ] && echo true || echo false )
+USE_RANDOM_REDIS=$( [ "$PREFER_RANDOM_PORTS" = true ] && [ "$CONFIGURED_REDIS_PORT" = "6399" ] && echo true || echo false )
+
+if [ "$USE_RANDOM_WEB_API" = true ]; then
+    WEB_PORT=$(find_available_port "$CONFIGURED_WEB_PORT" "$CONFIGURED_API_PORT" "$CONFIGURED_REDIS_PORT") || { log "${RED}Cannot find available web port${NC}"; exit 1; }
+    API_PORT=$(find_available_port "$WEB_PORT" "$CONFIGURED_WEB_PORT" "$CONFIGURED_API_PORT" "$CONFIGURED_REDIS_PORT") || { log "${RED}Cannot find available API port${NC}"; exit 1; }
+    log "${YELLOW}  Using random ports (avoiding cat-cafe defaults 3003/3004/6399)${NC}"
+else
+    WEB_PORT="$CONFIGURED_WEB_PORT"
+    API_PORT="$CONFIGURED_API_PORT"
+fi
+
+if [ "$USE_RANDOM_REDIS" = true ]; then
+    REDIS_PORT=$(find_available_port "$WEB_PORT" "$API_PORT" "$CONFIGURED_REDIS_PORT") || { log "${RED}Cannot find available Redis port${NC}"; exit 1; }
+else
+    REDIS_PORT="$CONFIGURED_REDIS_PORT"
+fi
 
 write_runtime_state() {
     cat > "$RUNTIME_STATE_FILE" <<JSONEOF
