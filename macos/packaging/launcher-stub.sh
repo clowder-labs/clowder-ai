@@ -37,20 +37,33 @@ export CLOWDER_DATA_DIR="$DATA_DIR"
 export CLOWDER_CACHE_DIR="$CACHE_DIR"
 export MEMORY_STORE="${MEMORY_STORE:-1}"
 
+show_start_failure() {
+  local summary="$1"
+  local api_tail=""
+  local web_tail=""
+  if [[ -f "$LOG_DIR/api.log" ]]; then
+    api_tail="$(tail -n 20 "$LOG_DIR/api.log" 2>/dev/null || true)"
+  fi
+  if [[ -f "$LOG_DIR/web.log" ]]; then
+    web_tail="$(tail -n 20 "$LOG_DIR/web.log" 2>/dev/null || true)"
+  fi
+  show_dialog "$summary\n\nLogs:\n$LOG_DIR\n\nAPI log tail:\n$api_tail\n\nWeb log tail:\n$web_tail"
+}
+
 if ! "$START_SCRIPT"; then
-  show_dialog "Clowder AI failed to start.\n\nCheck logs in:\n$LOG_DIR"
+  show_start_failure "Clowder AI failed to start."
   exit 1
 fi
 
 if [[ ! -f "$STATE_FILE" ]]; then
-  show_dialog "Clowder AI started without writing runtime state.\n\nCheck logs in:\n$LOG_DIR"
+  show_start_failure "Clowder AI started without writing runtime state."
   exit 1
 fi
 
 FRONTEND_URL="$($NODE_BIN -e 'const fs=require("node:fs");const state=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(state.frontendUrl||"");' "$STATE_FILE" 2>/dev/null || true)"
 
 if [[ -z "$FRONTEND_URL" ]]; then
-  show_dialog "Clowder AI could not resolve the frontend URL.\n\nCheck logs in:\n$LOG_DIR"
+  show_start_failure "Clowder AI could not resolve the frontend URL."
   exit 1
 fi
 

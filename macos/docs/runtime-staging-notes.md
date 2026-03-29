@@ -111,6 +111,18 @@ The current staging logic is correct for a first bundleable runtime, but it stil
 - whether to make optional features install lazily on first run
 - whether to prebuild or cache native module artifacts for repeatable CI packaging
 
+## Current Runtime Limitations
+
+The bundled runtime now starts API and web services from `macos/scripts/start-bundle.sh`, but it is still an early desktop runtime and not a polished end-user release.
+
+Known limitations:
+
+- the launcher is still a shell-based stub that opens the frontend URL in the default browser instead of embedding `WKWebView`
+- the API starts in memory mode by default unless a different storage strategy is wired in later
+- optional sidecars such as Python-backed voice features are not bundled
+- Puppeteer installs without downloading Chromium because `PUPPETEER_SKIP_DOWNLOAD=1` is set during runtime dependency installation
+- preview gateway, audit logs, uploads, transcripts, and connector media paths are redirected or pre-created for startup stability, but they have not yet been reviewed as a final desktop UX contract
+
 ## Current First-Pass Policy
 
 For now, the macOS packaging policy is:

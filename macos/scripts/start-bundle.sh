@@ -26,7 +26,15 @@ require_env "CLOWDER_DATA_DIR"
 require_env "CLOWDER_CACHE_DIR"
 
 mkdir -p "$CLOWDER_RUN_DIR" "$CLOWDER_LOG_DIR" "$CLOWDER_CONFIG_DIR" "$CLOWDER_DATA_DIR" "$CLOWDER_CACHE_DIR"
-mkdir -p "$CLOWDER_RUNTIME_ROOT/uploads" "$CLOWDER_RUNTIME_ROOT/data/connector-media"
+mkdir -p \
+  "$CLOWDER_RUNTIME_ROOT/uploads" \
+  "$CLOWDER_RUNTIME_ROOT/data/connector-media" \
+  "$CLOWDER_RUNTIME_ROOT/data/audit-logs" \
+  "$CLOWDER_RUNTIME_ROOT/data/tts-cache" \
+  "$CLOWDER_DATA_DIR/transcripts" \
+  "$CLOWDER_DATA_DIR/connector-media" \
+  "$CLOWDER_DATA_DIR/audit-logs" \
+  "$CLOWDER_DATA_DIR/tts-cache"
 
 NODE_BIN="$CLOWDER_RUNTIME_ROOT/node/bin/node"
 API_ENTRY="$CLOWDER_RUNTIME_ROOT/packages/api/dist/index.js"
@@ -36,6 +44,7 @@ API_PID_FILE="$CLOWDER_RUN_DIR/api.pid"
 WEB_PID_FILE="$CLOWDER_RUN_DIR/web.pid"
 API_LOG_FILE="$CLOWDER_LOG_DIR/api.log"
 WEB_LOG_FILE="$CLOWDER_LOG_DIR/web.log"
+PREVIEW_GATEWAY_PORT_FILE="$CLOWDER_RUN_DIR/preview-gateway-port"
 
 [[ -x "$NODE_BIN" ]] || fail "bundled node not found at $NODE_BIN"
 [[ -f "$API_ENTRY" ]] || fail "bundled API entry not found at $API_ENTRY"
@@ -142,8 +151,15 @@ export HOSTNAME="127.0.0.1"
 export PORT="$FRONTEND_PORT"
 export CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT=1
 export TRANSCRIPT_DATA_DIR="$CLOWDER_DATA_DIR/transcripts"
+export CONNECTOR_MEDIA_DIR="$CLOWDER_DATA_DIR/connector-media"
+export AUDIT_LOG_DIR="$CLOWDER_DATA_DIR/audit-logs"
+export TTS_CACHE_DIR="$CLOWDER_DATA_DIR/tts-cache"
+export UPLOAD_DIR="$CLOWDER_RUNTIME_ROOT/uploads"
+export PREVIEW_GATEWAY_PORT="${PREVIEW_GATEWAY_PORT:-$(select_available_port 4100)}"
 export CLOWDER_API_LOG_FILE="$API_LOG_FILE"
 export CLOWDER_WEB_LOG_FILE="$WEB_LOG_FILE"
+
+printf '%s\n' "$PREVIEW_GATEWAY_PORT" > "$PREVIEW_GATEWAY_PORT_FILE"
 
 log "starting API on http://127.0.0.1:$API_SERVER_PORT"
 (
