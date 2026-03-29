@@ -618,6 +618,7 @@ function applyModelartsPreset(projectDir, apiKey) {
     applyEnvChanges(envFile, [
       'CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false',
       `CAT_CAFE_CLIENT_LABELS=${clientLabels}`,
+      'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED=true',
     ], []);
   }
 }
