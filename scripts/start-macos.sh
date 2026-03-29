@@ -81,6 +81,27 @@ find_available_port() {
     return 1
 }
 
+# Find a consecutive port pair: web=N, api=N+1 (frontend derives API as port+1)
+find_web_api_port_pair() {
+    local exclude=("$@")
+    local attempts=0
+    while [ "$attempts" -lt 64 ]; do
+        local web_port=$(( (RANDOM % 16383) + 49152 ))
+        local api_port=$(( web_port + 1 ))
+        local skip=false
+        for ex in "${exclude[@]}"; do
+            { [ "$web_port" -eq "$ex" ] || [ "$api_port" -eq "$ex" ]; } && skip=true && break
+        done
+        [ "$skip" = true ] && { attempts=$((attempts + 1)); continue; }
+        if is_port_available "$web_port" && is_port_available "$api_port"; then
+            echo "$web_port $api_port"
+            return 0
+        fi
+        attempts=$((attempts + 1))
+    done
+    return 1
+}
+
 # Random port selection: enabled by default in bundled mode (mirrors Windows behavior)
 truthy_env() {
     case "${1:-}" in 1|true|yes|on) return 0;; esac
@@ -102,9 +123,10 @@ USE_RANDOM_WEB_API=$( [ "$PREFER_RANDOM_PORTS" = true ] && [ "$CONFIGURED_WEB_PO
 USE_RANDOM_REDIS=$( [ "$PREFER_RANDOM_PORTS" = true ] && [ "$CONFIGURED_REDIS_PORT" = "6399" ] && echo true || echo false )
 
 if [ "$USE_RANDOM_WEB_API" = true ]; then
-    WEB_PORT=$(find_available_port "$CONFIGURED_WEB_PORT" "$CONFIGURED_API_PORT" "$CONFIGURED_REDIS_PORT") || { log "${RED}Cannot find available web port${NC}"; exit 1; }
-    API_PORT=$(find_available_port "$WEB_PORT" "$CONFIGURED_WEB_PORT" "$CONFIGURED_API_PORT" "$CONFIGURED_REDIS_PORT") || { log "${RED}Cannot find available API port${NC}"; exit 1; }
-    log "${YELLOW}  Using random ports (avoiding cat-cafe defaults 3003/3004/6399)${NC}"
+    PORT_PAIR=$(find_web_api_port_pair "$CONFIGURED_WEB_PORT" "$CONFIGURED_API_PORT" "$CONFIGURED_REDIS_PORT") || { log "${RED}Cannot find available web+api port pair${NC}"; exit 1; }
+    WEB_PORT="${PORT_PAIR% *}"
+    API_PORT="${PORT_PAIR#* }"
+    log "${YELLOW}  Using random ports: web=$WEB_PORT api=$API_PORT (api=web+1)${NC}"
 else
     WEB_PORT="$CONFIGURED_WEB_PORT"
     API_PORT="$CONFIGURED_API_PORT"
