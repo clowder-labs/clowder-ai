@@ -1023,6 +1023,18 @@ async function main() {
   logStep('Installing macOS runtime dependencies');
   installMacosRuntimeDependencies(bundleDir);
 
+  // Apply modelarts preset to generate filtered cat-catalog (3 cats instead of all dev cats)
+  const presetFile = join(bundleDir, 'modelarts-preset.json');
+  const installerScript = join(bundleDir, 'scripts', 'install-auth-config.mjs');
+  if (existsSync(presetFile) && existsSync(installerScript)) {
+    logStep('Applying modelarts preset');
+    try {
+      run('node', [installerScript, 'modelarts-preset', 'apply', '--project-dir', bundleDir]);
+    } catch (e) {
+      console.warn(`  Warning: preset apply failed (${e.message}), will retry on first boot`);
+    }
+  }
+
   logStep('Finalizing runtime bundle');
   ensureRuntimeSkeleton(bundleDir);
   writeReleaseMetadata(bundleDir, {

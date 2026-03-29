@@ -214,6 +214,29 @@ fi
 REDIS_VERSION=$("$BUNDLED_REDIS" --version | head -1)
 log "  Redis: $REDIS_VERSION"
 
+# ─── First-boot: apply modelarts preset if not done yet ──────────────
+
+PRESET_FILE="$PROJECT_ROOT/modelarts-preset.json"
+CATALOG_FILE="$PROJECT_ROOT/.cat-cafe/cat-catalog.json"
+INSTALLER_SCRIPT="$PROJECT_ROOT/scripts/install-auth-config.mjs"
+
+if [ -f "$PRESET_FILE" ] && [ -f "$INSTALLER_SCRIPT" ]; then
+    # Run preset if catalog doesn't exist or has more breeds than preset defines
+    NEED_PRESET=false
+    if [ ! -f "$CATALOG_FILE" ]; then
+        NEED_PRESET=true
+    else
+        PRESET_COUNT=$("$BUNDLED_NODE" -e "const p=require('$PRESET_FILE'); console.log((p.members||[]).length)" 2>/dev/null || echo 0)
+        CATALOG_COUNT=$("$BUNDLED_NODE" -e "const c=require('$CATALOG_FILE'); console.log((c.breeds||[]).length)" 2>/dev/null || echo 0)
+        [ "$CATALOG_COUNT" -gt "$PRESET_COUNT" ] 2>/dev/null && NEED_PRESET=true
+    fi
+    if [ "$NEED_PRESET" = true ]; then
+        log "  Applying modelarts preset (first boot)..."
+        "$BUNDLED_NODE" "$INSTALLER_SCRIPT" modelarts-preset apply --project-dir "$PROJECT_ROOT" 2>/dev/null || true
+        log "${GREEN}  ✓ Preset applied${NC}"
+    fi
+fi
+
 # ─── Start Redis ─────────────────────────────────────────────────────
 
 log "Starting Redis (port $REDIS_PORT)..."
