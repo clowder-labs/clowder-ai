@@ -21,10 +21,10 @@ from openjiuwen.core.session.checkpointer import CheckpointerFactory
 from openjiuwen.core.session.checkpointer.checkpointer import CheckpointerConfig
 from openjiuwen.core.session.checkpointer.persistence import PersistenceCheckpointerProvider
 
-from jiuwenclaw.agentserver.prompt_builder import build_system_prompt
+from jiuwenclaw.agentserver.prompt_builder import build_system_prompt, build_user_prompt
+from jiuwenclaw.agentserver.tools.command_tools import set_request_workspace
 from jiuwenclaw.agentserver.tools.multi_session_toolkits import MultiSessionToolkit
 from jiuwenclaw.agentserver.tools import SendFileToolkit
-from jiuwenclaw.agentserver.prompt_builder import build_system_prompt, build_user_prompt
 from jiuwenclaw.gateway.cron import CronController, CronTargetChannel
 from jiuwenclaw.utils import (
     get_agent_root_dir,
@@ -528,23 +528,15 @@ class JiuWenClaw:
         if self._instance is None:
             raise RuntimeError("JiuWenClaw 未初始化，请先调用 create_instance()")
 
-        # Per-request project directory: jiuwenclaw is a long-running sidecar that reads
-        # JIUWENCLAW_PROJECT_DIR only once at startup. Update the workspace on every request
-        # so switching projects in the UI takes effect immediately.
+        # Per-request project workspace: set via ContextVar so each asyncio task gets its
+        # own isolated copy. Concurrent requests in different project dirs never interfere.
         if project_dir and project_dir.strip():
             resolved = project_dir.strip()
-            self._instance.set_workspace(resolved, self._agent_name)
-            try:
-                sysop_card = SysOperationCard(
-                    mode=OperationMode.LOCAL,
-                    work_config=LocalWorkConfig(work_dir=resolved),
-                )
-                Runner.resource_mgr.add_sys_operation(sysop_card)
-                self._sysop_card_id = sysop_card.id
-            except Exception as exc:
-                logger.warning("[JiuWenClaw] update sys_operation for project_dir failed: %s", exc)
+            set_request_workspace(resolved)
             self._workspace_dir = resolved
-            logger.info("[JiuWenClaw] per-request project_dir updated: %s", resolved)
+            logger.info("[JiuWenClaw] per-request project_dir: %s", resolved)
+        else:
+            set_request_workspace(None)  # fall back to default ~/.jiuwenclaw workspace
 
         self._session_tool = None
 
