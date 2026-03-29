@@ -521,11 +521,30 @@ class JiuWenClaw:
             self, session_id: str | None,
             channel_id: str | None,
             request_id: str | None,
-            mode="plan"
+            mode="plan",
+            project_dir: str | None = None,
     ) -> None:
         """Register per-request tools for current agent execution."""
         if self._instance is None:
             raise RuntimeError("JiuWenClaw 未初始化，请先调用 create_instance()")
+
+        # Per-request project directory: jiuwenclaw is a long-running sidecar that reads
+        # JIUWENCLAW_PROJECT_DIR only once at startup. Update the workspace on every request
+        # so switching projects in the UI takes effect immediately.
+        if project_dir and project_dir.strip():
+            resolved = project_dir.strip()
+            self._instance.set_workspace(resolved, self._agent_name)
+            try:
+                sysop_card = SysOperationCard(
+                    mode=OperationMode.LOCAL,
+                    work_config=LocalWorkConfig(work_dir=resolved),
+                )
+                Runner.resource_mgr.add_sys_operation(sysop_card)
+                self._sysop_card_id = sysop_card.id
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] update sys_operation for project_dir failed: %s", exc)
+            self._workspace_dir = resolved
+            logger.info("[JiuWenClaw] per-request project_dir updated: %s", resolved)
 
         self._session_tool = None
 
@@ -690,7 +709,8 @@ class JiuWenClaw:
             "content": build_system_prompt(
                 mode=mode,
                 language=config_base.get("preferred_language", "zh"),
-                channel=channel
+                channel=channel,
+                workspace_dir=self._workspace_dir,
             ),
         }]
 
@@ -1084,7 +1104,8 @@ class JiuWenClaw:
                     request.session_id,
                     request.channel_id,
                     request.request_id,
-                    request.params.get("mode", "plan")
+                    request.params.get("mode", "plan"),
+                    project_dir=request.params.get("project_dir"),
                 )
                 return await Runner.run_agent(agent=self._instance, inputs=inputs)
             except asyncio.CancelledError:
@@ -1227,7 +1248,8 @@ class JiuWenClaw:
                     request.session_id,
                     request.channel_id,
                     request.request_id,
-                    request.params.get("mode", "plan")
+                    request.params.get("mode", "plan"),
+                    project_dir=request.params.get("project_dir"),
                 )
                 async for chunk in Runner.run_agent_streaming(self._instance, inputs):
                     parsed = self._parse_stream_chunk(chunk)
