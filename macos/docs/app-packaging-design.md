@@ -148,7 +148,7 @@ This keeps the first packaging milestone focused on the main desktop app path.
 
 ## Recommended Bundle Shape
 
-The planned app layout is described in detail in `docs/architecture/macos-app-bundle-structure-startup.md`, but the high-level shape is:
+The planned app layout is described in detail in `macos/docs/app-bundle-structure-startup.md`, but the high-level shape is:
 
 ```text
 Clowder AI.app/
@@ -185,7 +185,7 @@ The macOS implementation should introduce two packaging stages.
 
 ### Stage 1: Build App Bundle
 
-Expected script: `scripts/build-macos-app.mjs`
+Expected script: `macos/scripts/build-app.mjs`
 
 Responsibilities:
 
@@ -198,7 +198,7 @@ Responsibilities:
 
 ### Stage 2: Package DMG
 
-Expected script: `scripts/package-macos-dmg.mjs`
+Expected script: `macos/scripts/package-dmg.mjs`
 
 Responsibilities:
 
@@ -252,4 +252,4 @@ The first macOS packaging milestone is considered successful when all of the fol
 
 ## First Implementation Focus
 
-The first execution block for this design is the app bundle structure and startup sequence definition, documented in `docs/architecture/macos-app-bundle-structure-startup.md`.
+The first execution block for this design is the app bundle structure and startup sequence definition, documented in `macos/docs/app-bundle-structure-startup.md`.

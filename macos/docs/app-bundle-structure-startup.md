@@ -9,7 +9,7 @@ This document defines the first implementation block for macOS desktop packaging
 - the startup and shutdown sequence
 - the minimum responsibilities of the native launcher and bundle runtime scripts
 
-It is the execution companion to `docs/architecture/macos-app-packaging-design.md`.
+It is the execution companion to `macos/docs/app-packaging-design.md`.
 
 ## Design Goals
 
@@ -32,8 +32,8 @@ Clowder AI.app/
         .clowder-release.json
         package.json
         scripts/
-          start-macos-bundle.sh
-          stop-macos-bundle.sh
+          start-bundle.sh
+          stop-bundle.sh
           write-runtime-state.mjs
         node/
           bin/
@@ -162,7 +162,7 @@ The native launcher is responsible for the desktop-level concerns only.
 
 The bundle scripts are responsible for service orchestration, not desktop UX.
 
-### `start-macos-bundle.sh`
+### `start-bundle.sh`
 
 - validate required runtime paths
 - export runtime environment values
@@ -172,7 +172,7 @@ The bundle scripts are responsible for service orchestration, not desktop UX.
 - write pid files
 - write `runtime-state.json`
 
-### `stop-macos-bundle.sh`
+### `stop-bundle.sh`
 
 - read pid files from the run directory
 - stop only processes started by the app runtime
@@ -212,9 +212,9 @@ User double-clicks Clowder AI.app
   -> launcher prepares user dirs
   -> launcher acquires single-instance lock
   -> launcher selects ports
-  -> launcher starts start-macos-bundle.sh
-  -> start-macos-bundle.sh starts API and web
-  -> start-macos-bundle.sh writes pid files and runtime-state.json
+  -> launcher starts `start-bundle.sh`
+  -> `start-bundle.sh` starts API and web
+  -> `start-bundle.sh` writes pid files and `runtime-state.json`
   -> launcher polls frontend/api readiness
   -> launcher opens WKWebView with frontendUrl
   -> user interacts with embedded app
@@ -223,7 +223,7 @@ User double-clicks Clowder AI.app
 ## Startup Sequence Diagram
 
 ```text
-Launcher            start-macos-bundle.sh         API/Web Runtime
+Launcher            start-bundle.sh               API/Web Runtime
    |                         |                          |
    | resolve bundle paths    |                          |
    | prepare user dirs       |                          |
@@ -243,7 +243,7 @@ Launcher            start-macos-bundle.sh         API/Web Runtime
 ```text
 User quits app
   -> launcher marks exit requested
-  -> launcher invokes stop-macos-bundle.sh
+  -> launcher invokes `stop-bundle.sh`
   -> stop script reads pid files
   -> stop script terminates managed API/Web processes
   -> stop script removes pid files

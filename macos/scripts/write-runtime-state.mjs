@@ -11,6 +11,9 @@ function parseArgs(argv) {
     apiUrl: null,
     frontendPort: null,
     apiPort: null,
+    apiPidFile: null,
+    webPidFile: null,
+    mcpServerPidFile: null,
     startedAt: new Date().toISOString(),
   };
 
@@ -42,6 +45,18 @@ function parseArgs(argv) {
         options.apiPort = value ? Number.parseInt(value, 10) : null;
         index += 1;
         break;
+      case '--api-pid-file':
+        options.apiPidFile = value ? resolve(value) : null;
+        index += 1;
+        break;
+      case '--web-pid-file':
+        options.webPidFile = value ? resolve(value) : null;
+        index += 1;
+        break;
+      case '--mcp-server-pid-file':
+        options.mcpServerPidFile = value ? resolve(value) : null;
+        index += 1;
+        break;
       case '--started-at':
         options.startedAt = value ?? options.startedAt;
         index += 1;
@@ -49,7 +64,7 @@ function parseArgs(argv) {
       case '--help':
       case '-h':
         process.stdout.write(
-          `Usage: node scripts/write-runtime-state.mjs --file <path> [options]\n\nOptions:\n  --mode <mode>\n  --frontend-url <url>\n  --api-url <url>\n  --frontend-port <port>\n  --api-port <port>\n  --started-at <iso-timestamp>\n`,
+          `Usage: node macos/scripts/write-runtime-state.mjs --file <path> [options]\n\nOptions:\n  --mode <mode>\n  --frontend-url <url>\n  --api-url <url>\n  --frontend-port <port>\n  --api-port <port>\n  --api-pid-file <path>\n  --web-pid-file <path>\n  --mcp-server-pid-file <path>\n  --started-at <iso-timestamp>\n`,
         );
         process.exit(0);
         break;
@@ -72,6 +87,11 @@ const state = {
   apiUrl: options.apiUrl,
   frontendPort: Number.isInteger(options.frontendPort) ? options.frontendPort : null,
   apiPort: Number.isInteger(options.apiPort) ? options.apiPort : null,
+  pidFiles: {
+    api: options.apiPidFile,
+    web: options.webPidFile,
+    mcpServer: options.mcpServerPidFile,
+  },
   startedAt: options.startedAt,
 };
 
