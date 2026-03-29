@@ -60,6 +60,7 @@
     "package:windows:python-wheelhouse:win": "node ./scripts/prepare-windows-runtime-wheelhouse.mjs",
     "package:windows": "node ./scripts/build-windows-installer.mjs",
     "package:windows:bundle": "node ./scripts/build-windows-installer.mjs --bundle-only",
+    "package:macos:app": "node ./scripts/build-macos-app.mjs",
     "logs:health": "bash ./scripts/logs-health.sh",
     "clean": "pnpm -r run clean && rm -rf node_modules",
     "check:start-profile-isolation": "node --test scripts/start-dev-profile-isolation.test.mjs"
