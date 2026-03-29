@@ -143,6 +143,22 @@ Practical implication:
 - macOS app packaging can continue without blocking on toolchain repair
 - moving from browser-launch stub to embedded `WKWebView` still requires an aligned Xcode / Command Line Tools setup
 
+## DMG Packaging Status
+
+The repository now includes an unsigned preview DMG packager at `macos/scripts/package-dmg.mjs`.
+
+Current behavior:
+
+- it optionally rebuilds `Clowder AI.app`
+- it stages the `.app` plus an `Applications` symlink and a short `README.txt`
+- it creates a compressed `UDZO` disk image with `hdiutil`
+
+Current limitation:
+
+- the generated DMG is an internal preview artifact only
+- it is not signed or notarized
+- it inherits the current launcher behavior, including shell-stub fallback when native Swift launcher compilation is unavailable
+
 ## Current First-Pass Policy
 
 For now, the macOS packaging policy is:
