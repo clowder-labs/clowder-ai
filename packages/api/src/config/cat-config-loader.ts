@@ -636,10 +636,43 @@ let _defaultCatId: CatId | null = null;
  * Get the default cat ID for unaddressed messages.
  * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
  *
- * Defaults to jiuwenclaw (小九) — the office assistant handles general queries.
+ * Resolution order:
+ * 1. Catalog-level `defaultCatId` field (set by preset installers)
+ * 2. `jiuwenclaw` if present in catalog (backward compat with dev environment)
+ * 3. First breed's catId from the catalog (preset deployments)
+ * 4. Hardcoded `jiuwenclaw` (ultimate fallback)
  */
 export function getDefaultCatId(): CatId {
   if (_defaultCatId) return _defaultCatId;
+
+  const config = getCachedConfig();
+  if (config) {
+    // 1. Catalog-level explicit default (e.g. preset deployments set this)
+    const catalogDefault = (config as unknown as Record<string, unknown>).defaultCatId;
+    if (typeof catalogDefault === 'string' && catalogDefault.length > 0) {
+      _defaultCatId = createCatId(catalogDefault);
+      return _defaultCatId;
+    }
+
+    // 2. Try jiuwenclaw (backward compat with full dev catalog)
+    const allConfigs = toAllCatConfigs(config);
+    if (allConfigs['jiuwenclaw']) {
+      _defaultCatId = createCatId('jiuwenclaw');
+      return _defaultCatId;
+    }
+
+    // 3. First breed's catId (preset deployments with custom members)
+    const firstBreed = config.breeds[0];
+    if (firstBreed) {
+      const catId = firstBreed.catId ?? firstBreed.variants?.[0]?.catId;
+      if (catId) {
+        _defaultCatId = createCatId(catId as string);
+        return _defaultCatId;
+      }
+    }
+  }
+
+  // 4. Ultimate fallback
   _defaultCatId = createCatId('jiuwenclaw');
   return _defaultCatId;
 }
