@@ -123,6 +123,26 @@ Known limitations:
 - Puppeteer installs without downloading Chromium because `PUPPETEER_SKIP_DOWNLOAD=1` is set during runtime dependency installation
 - preview gateway, audit logs, uploads, transcripts, and connector media paths are redirected or pre-created for startup stability, but they have not yet been reviewed as a final desktop UX contract
 
+## Native Launcher Toolchain Status
+
+The repository now includes a first-pass native launcher source file at `macos/packaging/Launcher.swift`.
+
+Packaging behavior:
+
+- `macos/scripts/build-app.mjs` first tries to compile the native launcher with `swiftc`
+- if native compilation succeeds, the app bundle uses the Swift launcher
+- if native compilation fails, packaging falls back to `macos/packaging/launcher-stub.sh` so the `.app` build remains usable
+
+Current blocker on this machine:
+
+- the local Swift compiler and Apple SDK modules are out of sync
+- native launcher compilation fails before app assembly completes unless fallback is used
+
+Practical implication:
+
+- macOS app packaging can continue without blocking on toolchain repair
+- moving from browser-launch stub to embedded `WKWebView` still requires an aligned Xcode / Command Line Tools setup
+
 ## Current First-Pass Policy
 
 For now, the macOS packaging policy is:

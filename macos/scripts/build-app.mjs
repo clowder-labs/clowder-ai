@@ -176,6 +176,14 @@ function run(command, args, options = {}) {
   }
 }
 
+function commandExists(command) {
+  const result = spawnSync(command, ['--version'], {
+    cwd: repoRoot,
+    stdio: 'ignore',
+  });
+  return !result.error && result.status === 0;
+}
+
 function ensureDir(path) {
   mkdirSync(path, { recursive: true });
 }
@@ -205,6 +213,43 @@ function fillInfoPlist(templatePath, options) {
 function copyExecutable(sourcePath, destinationPath) {
   copyFileSync(sourcePath, destinationPath);
   chmodSync(destinationPath, 0o755);
+}
+
+function buildNativeLauncher(destinationPath) {
+  if (!commandExists('swiftc')) {
+    throw new Error('swiftc is required to build the native macOS launcher');
+  }
+  run('swiftc', [
+    '-O',
+    '-framework',
+    'AppKit',
+    '-framework',
+    'WebKit',
+    join(repoRoot, 'macos', 'packaging', 'Launcher.swift'),
+    '-o',
+    destinationPath,
+  ]);
+  chmodSync(destinationPath, 0o755);
+}
+
+function installLauncherExecutable(destinationPath) {
+  try {
+    logStep('Building native Swift launcher');
+    buildNativeLauncher(destinationPath);
+    return {
+      type: 'native-swift',
+      fallbackUsed: false,
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    logStep(`Native launcher unavailable, falling back to shell stub: ${reason}`);
+    copyExecutable(join(repoRoot, 'macos', 'packaging', 'launcher-stub.sh'), destinationPath);
+    return {
+      type: 'shell-stub',
+      fallbackUsed: true,
+      fallbackReason: reason,
+    };
+  }
 }
 
 function copyIfPresent(sourcePath, destinationPath) {
@@ -539,7 +584,7 @@ function stageCurrentMacNode(runtimeRoot) {
   };
 }
 
-function writeRuntimeReleaseMetadata(runtimeRoot, options, bundledNode) {
+function writeRuntimeReleaseMetadata(runtimeRoot, options, bundledNode, launcher) {
   const metadata = {
     name: options.appName,
     version: rootPackageJson.version,
@@ -550,6 +595,7 @@ function writeRuntimeReleaseMetadata(runtimeRoot, options, bundledNode) {
     scaffold: false,
     managedTopLevelPaths: ['scripts', 'node', 'packages', 'assets', '.clowder-release.json', 'package.json'],
     bundledNode,
+    launcher,
   };
   writeJson(join(runtimeRoot, '.clowder-release.json'), metadata);
 }
@@ -604,8 +650,8 @@ function buildAppBundle(options) {
   const infoPlist = fillInfoPlist(join(repoRoot, 'macos', 'packaging', 'Info.plist'), options);
   writeFileSync(join(contentsDir, 'Info.plist'), infoPlist, 'utf8');
 
-  logStep('Installing launcher scaffold');
-  copyExecutable(join(repoRoot, 'macos', 'packaging', 'launcher-stub.sh'), join(macOsDir, APP_EXECUTABLE_NAME));
+  logStep('Installing launcher executable');
+  const launcher = installLauncherExecutable(join(macOsDir, APP_EXECUTABLE_NAME));
 
   logStep('Staging runtime scripts');
   copyExecutable(join(repoRoot, 'macos', 'scripts', 'start-bundle.sh'), join(runtimeScriptsDir, 'start-bundle.sh'));
@@ -628,7 +674,7 @@ function buildAppBundle(options) {
 
   logStep('Writing runtime metadata');
   writeRuntimePackageJson(runtimeRoot);
-  writeRuntimeReleaseMetadata(runtimeRoot, options, bundledNode);
+  writeRuntimeReleaseMetadata(runtimeRoot, options, bundledNode, launcher);
 
   logStep('Copying placeholder assets when available');
   copyIfPresent(join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg'), join(runtimeAssetsDir, 'splash.jpg'));

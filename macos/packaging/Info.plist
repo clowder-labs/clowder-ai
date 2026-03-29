@@ -20,6 +20,11 @@
   <string>__APP_VERSION__</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSPrincipalClass</key>
