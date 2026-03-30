@@ -9,7 +9,7 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
-const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
+const SEARCH_INPUT_SELECTOR = 'input[type="search"]';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -58,7 +58,8 @@ describe('ModelsPanel search', () => {
                 object: 'model',
                 name: 'gpt-5',
                 description: 'flagship model',
-                labels: ['文本生成', 'Function Call'],
+                protocol: 'openai',
+                labels: ['text-gen', 'Function Call'],
                 developer: 'OpenAI',
                 icon: '/avatars/assistant.svg',
               },
@@ -67,7 +68,8 @@ describe('ModelsPanel search', () => {
                 object: 'model',
                 name: 'deepseek-r1',
                 description: 'reasoning model',
-                labels: ['深度思考'],
+                protocol: 'huawei_maas',
+                labels: ['reasoning'],
                 developer: 'DeepSeek',
                 icon: '/images/deepseek.svg',
               },
@@ -96,17 +98,18 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    expect(container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`)).not.toBeNull();
+    expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
   });
 
-  it('renders one Huawei MaaS group and model labels/developer', async () => {
+  it('renders grouped cards and model labels/developer', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('华为云 MaaS (2)');
-    expect(container.textContent).toContain('文本生成');
+    expect(container.textContent).toContain('MaaS (1)');
+    expect(container.textContent).not.toContain('MaaS (2)');
+    expect(container.textContent).toContain('text-gen');
     expect(container.textContent).toContain('DeepSeek');
   });
 
@@ -116,7 +119,7 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     await changeInputValue(input!, 'gpt');
 
@@ -130,9 +133,9 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
-    await changeInputValue(input!, '深度思考');
+    await changeInputValue(input!, 'reasoning');
 
     expect(container.textContent).toContain('deepseek-r1');
     expect(container.textContent).not.toContain('gpt-5');
@@ -148,7 +151,7 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     await changeInputValue(input!, 'no-match');
 
@@ -168,7 +171,7 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     expect(mockApiFetch).toHaveBeenCalledTimes(1);
     expect(mockApiFetch).toHaveBeenCalledWith('/api/maas-models');
