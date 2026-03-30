@@ -588,17 +588,18 @@ Storage types: "in_memory" (session cache)
 """
 
 
-def _workspace_prompt(language: str) -> str:
+def _workspace_prompt(language: str, workspace_dir: Path | None = None) -> str:
+    ws = workspace_dir or WORKSPACE_DIR
     if language == "zh":
         return f"""## 工作区
 
-你当前的工作路径为：{WORKSPACE_DIR}.
+你当前的工作路径为：{ws}.
 你可以自由在这个路径里操作文件，他们都属于你。如果用户没有要求在其他路径操作，默认将文件保存在此目录下。
 """
     else:
         return f"""## Workspace
 
-You are working under the dir：{WORKSPACE_DIR}.
+You are working under the dir：{ws}.
 Write or save all files under this dir, unless user ask you to operate in other dirs.
 """
 
@@ -824,8 +825,9 @@ After completing a system task, notify the user via a reply.
 """
 
 
-def _start_prompt(language: str) -> str:
+def _start_prompt(language: str, workspace_dir: Path | None = None) -> str:
     skill_dirs_text = _skill_dirs_text()
+    ws = workspace_dir or WORKSPACE_DIR
     if language == "zh":
         return f"""你是一个私人小助手，由 JiuwenClaw 创建并在 JiuwenClaw 项目下运行。你的任务是像一个有温度的人类助手一样与用户互动，让用户感到自然、舒适。
 
@@ -841,7 +843,7 @@ def _start_prompt(language: str) -> str:
 | `{HOME_DIR}` | 身份与任务信息 | 可适当更新，以更好地服务用户 |
 | `{MEMORY_DIR}` | 持久化记忆 | 将其视为你记忆的一部分，随时查阅 |
 | `{skill_dirs_text}` | 技能库 | 可随时翻阅、调用，不可修改 |
-| `{WORKSPACE_DIR}` | 工作区 | 你的安全屋，可自由读写，注意不要影响系统其他部分 |
+| `{ws}` | 工作区 | 你的安全屋，可自由读写，注意不要影响系统其他部分 |
 
 ## 配置信息
 
@@ -867,7 +869,7 @@ Everything starts from the `.jiuwenclaw` directory.
 | `{HOME_DIR}` | Identity and task info | You may update this to better serve your user |
 | `{MEMORY_DIR}` | Persistent memory | Treat it as part of your memory; consult it anytime |
 | `{skill_dirs_text}` | Skill library | Read and invoke freely; do not modify |
-| `{WORKSPACE_DIR}` | Workspace | Your safe space; read and write freely, but avoid affecting other parts of the system |
+| `{ws}` | Workspace | Your safe space; read and write freely, but avoid affecting other parts of the system |
 
 ## Configuration
 
@@ -879,25 +881,28 @@ Be careful with your configuration, if changes are required, remember to restart
 """
 
 
-def build_system_prompt(mode: str, language: str, channel: str) -> str:
+def build_system_prompt(mode: str, language: str, channel: str, workspace_dir: Path | str | None = None) -> str:
     """Build system prompt for the agent.
 
     Args:
         mode: plan or agent
         language: language for system prompt
         channel: channel
+        workspace_dir: per-request workspace override (jiuwenclaw is a long-running sidecar;
+                       the env-var-based WORKSPACE_DIR is set once at startup and can be stale)
 
     Returns:
         System prompt string
     """
+    ws = Path(workspace_dir) if isinstance(workspace_dir, str) else workspace_dir
 
-    system_prompt = _start_prompt(language) + '\n'
+    system_prompt = _start_prompt(language, workspace_dir=ws) + '\n'
     # Inject current time so the model can reason about "now"
     system_prompt += _time_prompt(language) + '\n'
     system_prompt += _context_prompt(language) + '\n'
     system_prompt += _skills_prompt(language) + '\n'
     system_prompt += _tool_prompt(mode, language) + '\n'
-    system_prompt += _workspace_prompt(language) + '\n'
+    system_prompt += _workspace_prompt(language, workspace_dir=ws) + '\n'
     if channel == "corn":
         system_prompt += _memory_prompt(language, is_cron=True) + '\n'
     else:

@@ -21,10 +21,10 @@ from openjiuwen.core.session.checkpointer import CheckpointerFactory
 from openjiuwen.core.session.checkpointer.checkpointer import CheckpointerConfig
 from openjiuwen.core.session.checkpointer.persistence import PersistenceCheckpointerProvider
 
-from jiuwenclaw.agentserver.prompt_builder import build_system_prompt
+from jiuwenclaw.agentserver.prompt_builder import build_system_prompt, build_user_prompt
+from jiuwenclaw.agentserver.tools.command_tools import set_request_workspace
 from jiuwenclaw.agentserver.tools.multi_session_toolkits import MultiSessionToolkit
 from jiuwenclaw.agentserver.tools import SendFileToolkit
-from jiuwenclaw.agentserver.prompt_builder import build_system_prompt, build_user_prompt
 from jiuwenclaw.gateway.cron import CronController, CronTargetChannel
 from jiuwenclaw.utils import (
     get_agent_root_dir,
@@ -521,11 +521,22 @@ class JiuWenClaw:
             self, session_id: str | None,
             channel_id: str | None,
             request_id: str | None,
-            mode="plan"
+            mode="plan",
+            project_dir: str | None = None,
     ) -> None:
         """Register per-request tools for current agent execution."""
         if self._instance is None:
             raise RuntimeError("JiuWenClaw 未初始化，请先调用 create_instance()")
+
+        # Per-request project workspace: set via ContextVar so each asyncio task gets its
+        # own isolated copy. Concurrent requests in different project dirs never interfere.
+        if project_dir and project_dir.strip():
+            resolved = project_dir.strip()
+            set_request_workspace(resolved)
+            self._workspace_dir = resolved
+            logger.info("[JiuWenClaw] per-request project_dir: %s", resolved)
+        else:
+            set_request_workspace(None)  # fall back to default ~/.jiuwenclaw workspace
 
         self._session_tool = None
 
@@ -690,7 +701,8 @@ class JiuWenClaw:
             "content": build_system_prompt(
                 mode=mode,
                 language=config_base.get("preferred_language", "zh"),
-                channel=channel
+                channel=channel,
+                workspace_dir=self._workspace_dir,
             ),
         }]
 
@@ -1084,7 +1096,8 @@ class JiuWenClaw:
                     request.session_id,
                     request.channel_id,
                     request.request_id,
-                    request.params.get("mode", "plan")
+                    request.params.get("mode", "plan"),
+                    project_dir=request.params.get("project_dir"),
                 )
                 return await Runner.run_agent(agent=self._instance, inputs=inputs)
             except asyncio.CancelledError:
@@ -1227,7 +1240,8 @@ class JiuWenClaw:
                     request.session_id,
                     request.channel_id,
                     request.request_id,
-                    request.params.get("mode", "plan")
+                    request.params.get("mode", "plan"),
+                    project_dir=request.params.get("project_dir"),
                 )
                 async for chunk in Runner.run_agent_streaming(self._instance, inputs):
                     parsed = self._parse_stream_chunk(chunk)
