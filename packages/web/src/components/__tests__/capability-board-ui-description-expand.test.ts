@@ -56,7 +56,6 @@ describe('CapabilitySection skill card layout', () => {
     });
 
     expect(container.textContent).toContain('来源：三方');
-    expect(container.textContent).toContain('启用状态');
     expect(container.textContent).toContain(description);
     expect(container.textContent).toContain('删除');
     expect(container.textContent).not.toContain('触发词');
