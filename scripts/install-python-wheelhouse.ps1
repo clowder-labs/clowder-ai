@@ -69,6 +69,16 @@ function ConvertTo-WheelhouseArray {
     return @($Value)
 }
 
+function ConvertFrom-WheelhouseJson {
+    param([string]$JsonText)
+
+    $convertFromJson = Get-Command ConvertFrom-Json -ErrorAction Stop
+    if ($convertFromJson.Parameters.ContainsKey("Depth")) {
+        return $JsonText | ConvertFrom-Json -Depth 100
+    }
+    return $JsonText | ConvertFrom-Json
+}
+
 function Get-WheelhouseSelectedGroups {
     param(
         $Manifest,
@@ -176,7 +186,7 @@ if (-not (Test-Path $resolvedPythonExe)) {
 }
 
 $manifestRaw = Get-Content -Path $resolvedManifestPath -Raw -Encoding UTF8
-$manifest = $manifestRaw | ConvertFrom-Json -Depth 100
+$manifest = ConvertFrom-WheelhouseJson -JsonText $manifestRaw
 $manifestDir = Split-Path -Parent $resolvedManifestPath
 $selectedGroups = Get-WheelhouseSelectedGroups -Manifest $manifest -RequestedGroups $Group
 
