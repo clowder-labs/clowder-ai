@@ -241,15 +241,6 @@ function MoreVerticalIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function CopyIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <rect x="8" y="8" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M6 15H5C3.9 15 3 14.1 3 13V5C3 3.9 3.9 3 5 3H13C14.1 3 15 3.9 15 5V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function TrashIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -1018,8 +1009,14 @@ export function AgentsPanel() {
                         <button
                           type="button"
                           onClick={() => setOpenActionMenuCatId((current) => (current === cat.id ? null : cat.id))}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#AAB2BF] transition hover:bg-[#EEF2F7] hover:text-[#6A7280]"
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] transition ${
+                            openActionMenuCatId === cat.id
+                              ? 'bg-[#EEF2F7] text-[#6A7280]'
+                              : 'text-[#AAB2BF] hover:bg-[#EEF2F7] hover:text-[#6A7280]'
+                          }`}
                           aria-label={`操作 ${cat.displayName}`}
+                          aria-expanded={openActionMenuCatId === cat.id}
+                          aria-haspopup="menu"
                         >
                           <MoreVerticalIcon className="h-4 w-4" />
                         </button>
@@ -1027,7 +1024,7 @@ export function AgentsPanel() {
                         {openActionMenuCatId === cat.id ? (
                           <div
                             role="menu"
-                            className="absolute right-0 top-full z-20 mt-2 w-[128px] rounded-[14px] border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                            className="absolute right-0 top-full z-20 mt-2 w-[136px] rounded-[16px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
                           >
                             <button
                               type="button"
@@ -1037,7 +1034,7 @@ export function AgentsPanel() {
                                 setOpenActionMenuCatId(null);
                                 openEditMember(cat.id);
                               }}
-                              className="flex h-8 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[12px] text-[#334155] transition hover:bg-[#F4F7FB]"
+                              className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#334155] transition hover:bg-[#F4F7FB]"
                             >
                               <EditIcon className="h-3.5 w-3.5" />
                               <span>编辑</span>
@@ -1046,18 +1043,7 @@ export function AgentsPanel() {
                               type="button"
                               role="menuitem"
                               onClick={() => setOpenActionMenuCatId(null)}
-                              className="flex h-8 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[12px] text-[#94A3B8]"
-                              aria-disabled="true"
-                            >
-                              <CopyIcon className="h-3.5 w-3.5" />
-                              <span>复制</span>
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => setOpenActionMenuCatId(null)}
-                              className="flex h-8 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[12px] text-[#D16B6B]"
-                              aria-disabled="true"
+                              className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#D16B6B] transition hover:bg-[#FFF3F1]"
                             >
                               <TrashIcon className="h-3.5 w-3.5" />
                               <span>删除</span>
