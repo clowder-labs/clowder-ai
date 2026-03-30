@@ -36,7 +36,7 @@ const INSTALLED_LABEL = '已安装';
 const SEARCH_FAILED_LABEL = '搜索失败';
 const NETWORK_ERROR_LABEL = '网络错误';
 const NETWORK_RETRY_LABEL = '网络错误，请重试';
-const SEARCH_PLACEHOLDER = '输入关键词搜索技能';
+const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索 SkillHub 技能';
 const IMPORT_LABEL = '导入';
 const LOADING_LABEL = '加载中...';
@@ -50,20 +50,6 @@ const UPLOAD_SUCCESS_LABEL = '技能上传成功';
 function getSkillCategory(skill: SearchSkill): string {
   const primaryTag = skill.tags.find((tag) => tag.trim().length > 0);
   return primaryTag ? primaryTag.replace(/[-_]/g, ' ') : GENERAL_CATEGORY;
-}
-
-function getSkillSourceLabel(skill: SearchSkill): string {
-  return skill.repo.githubOwner || skill.repo.githubRepoName || 'SkillHub';
-}
-
-function SkillSourceMark() {
-  return (
-    <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none">
-      <path d="M4 7.2 10 4l6 3.2-6 3.2L4 7.2Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-      <path d="M4 10.2 10 13.4l6-3.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M4 13.2 10 16.4l6-3.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
 }
 
 function SkillArtwork() {
@@ -114,7 +100,7 @@ function InstallButton({
   }
   if (typeof status === 'string' && status !== 'installing' && status !== 'success') {
     return (
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col gap-1">
         <button type="button" onClick={() => onInstall(owner, repo, slug)} className={`${styles.installButton} ui-status-error`}>
           {INSTALL_FAILED_LABEL}
         </button>
@@ -160,7 +146,7 @@ function SkillList({
                   <div className="min-w-0 flex-1">
                     <h3 className={`${styles.title} truncate`}>{skill.name}</h3>
                     <div className="mt-1 flex flex-wrap items-center gap-2 leading-[18px] text-[var(--text-secondary)] text-xs">
-                      <span className="truncate">{getSkillCategory(skill)}</span>
+                      <span className="ui-badge-muted">{getSkillCategory(skill)}</span>
                       {skill.stars !== undefined ? (
                         <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
                           <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor">
@@ -175,15 +161,9 @@ function SkillList({
               </div>
             </div>
 
-            <p className={styles.description}>{skill.description || FALLBACK_DESCRIPTION}</p>
+            <p className={ `${styles.description} line-clamp-2`} title={skill.description}>{skill.description || FALLBACK_DESCRIPTION}</p>
 
             <div className={styles.footer}>
-              <div className={styles.source}>
-                <span className={styles.sourceMark}>
-                  <SkillSourceMark />
-                </span>
-                <span className="truncate">{getSkillSourceLabel(skill)}</span>
-              </div>
               {!skill.isInstalled ? (
                 <div className="shrink-0">
                   <InstallButton
