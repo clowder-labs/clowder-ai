@@ -44,6 +44,21 @@ interface ModelConfigProfilesResponse {
   providers: ProfileItem[];
 }
 
+interface MaaSModelResponseItem {
+  id?: string | number;
+  name?: string;
+  icon?: string;
+  logo?: string;
+  image?: string;
+  avatar?: string;
+  [key: string]: unknown;
+}
+
+interface MaaSModelMeta {
+  displayName: string;
+  icon?: string;
+}
+
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
 
@@ -83,6 +98,45 @@ function buildProjectScopedUrl(path: string, projectPath: string | null | undefi
   if (!projectPath || projectPath === 'default') return path;
   const query = new URLSearchParams({ projectPath });
   return `${path}?${query.toString()}`;
+}
+
+function pickStringField(item: Record<string, unknown>, candidates: string[]): string | undefined {
+  for (const key of candidates) {
+    const value = item[key];
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  }
+  return undefined;
+}
+
+function normalizeModelLookupKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildModelMetaMap(source: MaaSModelResponseItem[]): Record<string, MaaSModelMeta> {
+  const next: Record<string, MaaSModelMeta> = {};
+
+  for (const item of source) {
+    const id = pickStringField(item, ['id']);
+    const name = pickStringField(item, ['name']);
+    const displayName = name ?? id;
+    const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']);
+    if (!displayName) continue;
+
+    const meta: MaaSModelMeta = { displayName, ...(icon ? { icon } : {}) };
+
+    if (id) next[normalizeModelLookupKey(id)] = meta;
+    if (name) next[normalizeModelLookupKey(name)] = meta;
+  }
+
+  return next;
+}
+
+function getModelMeta(
+  map: Record<string, MaaSModelMeta>,
+  modelIdOrName: string | null | undefined,
+): MaaSModelMeta | null {
+  if (!modelIdOrName) return null;
+  return map[normalizeModelLookupKey(modelIdOrName)] ?? null;
 }
 
 function mergeAcpProfiles(baseProfiles: ProfileItem[], providerProfiles: ProfileItem[]): ProfileItem[] {
@@ -265,6 +319,7 @@ export function CreateAgentModalDraft({
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
+  const [modelMetaMap, setModelMetaMap] = useState<Record<string, MaaSModelMeta>>({});
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -333,6 +388,30 @@ export function CreateAgentModalDraft({
     };
   }, [currentProjectPath, open, selectedClient]);
 
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await apiFetch(buildProjectScopedUrl('/api/maas-models', currentProjectPath));
+        if (!res.ok) {
+          if (!cancelled) setModelMetaMap({});
+          return;
+        }
+        const body = (await res.json()) as { list?: MaaSModelResponseItem[]; models?: MaaSModelResponseItem[] };
+        const source = Array.isArray(body.list) ? body.list : Array.isArray(body.models) ? body.models : [];
+        if (!cancelled) setModelMetaMap(buildModelMetaMap(source));
+      } catch {
+        if (!cancelled) setModelMetaMap({});
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectPath, open]);
+
   const availableProfiles = useMemo(() => filterAccounts(selectedClient, profiles), [profiles, selectedClient]);
   const selectedProfile = useMemo(
     () => availableProfiles.find((profile) => profile.id === selectedAccountRef) ?? null,
@@ -349,36 +428,44 @@ export function CreateAgentModalDraft({
   }, [draftModelId, selectedClient, selectedProfile]);
   const availableModels = useMemo<CreateModelOption[]>(
     () =>
-      modelOptions.map((modelName) => ({
-        id: modelName,
-        name: modelName,
-        profileId: selectedProfile?.id,
-        client: selectedClient,
-        model: modelName,
-        authType: selectedProfile?.authType,
-        providerName: selectedProfile?.provider,
-        providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
-      })),
-    [modelOptions, selectedClient, selectedProfile],
+      modelOptions.map((modelName) => {
+        const meta = getModelMeta(modelMetaMap, modelName);
+        return {
+          id: modelName,
+          name: meta?.displayName ?? modelName,
+          icon: meta?.icon,
+          profileId: selectedProfile?.id,
+          client: selectedClient,
+          model: modelName,
+          authType: selectedProfile?.authType,
+          providerName: selectedProfile?.provider,
+          providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
+        };
+      }),
+    [modelMetaMap, modelOptions, selectedClient, selectedProfile],
   );
   const selectedModel = useMemo(
     () =>
       (draftModelId ? availableModels.find((item) => item.id === draftModelId) : null) ??
       (draftModelId
-        ? {
-            id: draftModelId,
-            name: draftModelId,
-            profileId: selectedProfile?.id,
-            client: selectedClient,
-            model: draftModelId,
-            authType: selectedProfile?.authType,
-            providerName: selectedProfile?.provider,
-            providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
-          }
+        ? (() => {
+            const meta = getModelMeta(modelMetaMap, draftModelId);
+            return {
+              id: draftModelId,
+              name: meta?.displayName ?? draftModelId,
+              icon: meta?.icon,
+              profileId: selectedProfile?.id,
+              client: selectedClient,
+              model: draftModelId,
+              authType: selectedProfile?.authType,
+              providerName: selectedProfile?.provider,
+              providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
+            };
+          })()
         : null) ??
       availableModels[0] ??
       null,
-    [availableModels, draftModelId, selectedClient, selectedProfile],
+    [availableModels, draftModelId, modelMetaMap, selectedClient, selectedProfile],
   );
 
   useLayoutEffect(() => {

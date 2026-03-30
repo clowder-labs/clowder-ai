@@ -1,10 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
-import { groupKeyFromModelName, modelIconVisual, resolveModelIconType } from './model-icon';
 import { TagEditor } from './hub-tag-editor';
 
 const ADD_MODEL = '添加模型';
