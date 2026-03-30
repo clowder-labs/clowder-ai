@@ -14,6 +14,7 @@ import { delimiter, dirname, extname, isAbsolute, join, resolve } from 'node:pat
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
@@ -46,6 +47,7 @@ function preferCompactMcpEntry(mcpPath: string): string {
 
 const DARE_MCP_CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.md', '.markdown']);
 const DARE_MCP_JS_ENTRY_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
+const log = createModuleLogger('dare-agent');
 
 type JsonObject = Record<string, unknown>;
 
@@ -90,6 +92,58 @@ function inferCwdFromCommand(command: string, args: string[]): string | undefine
     return dirname(command);
   }
   return undefined;
+}
+
+function sanitizeArgValue(flag: string, value: string): string {
+  if (flag === '--task' || flag === '--system-prompt-text') {
+    return `<redacted:${value.length} chars>`;
+  }
+  return value;
+}
+
+function sanitizeArgsForLog(args: string[]): string[] {
+  const sanitized = [...args];
+  const valueFlags = new Set([
+    '--task',
+    '--system-prompt-text',
+    '--adapter',
+    '--model',
+    '--endpoint',
+    '--workspace',
+    '--session-id',
+    '--mcp-path',
+  ]);
+  for (let i = 0; i < sanitized.length; i += 1) {
+    const current = sanitized[i];
+    if (!current || !valueFlags.has(current)) continue;
+    const next = sanitized[i + 1];
+    if (!next) continue;
+    sanitized[i + 1] = sanitizeArgValue(current, next);
+    i += 1;
+  }
+  return sanitized;
+}
+
+function summarizeEnvForLog(env: Record<string, string | null>): Record<string, string> {
+  const summary: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (value === null) {
+      summary[key] = '(cleared)';
+      continue;
+    }
+    if (/key|secret|token|password|authorization/i.test(key)) {
+      summary[key] = value.length > 8 ? `${value.slice(0, 6)}***(${value.length})` : `${value[0] ?? ''}***(${value.length})`;
+      continue;
+    }
+    summary[key] = value.length > 160 ? `${value.slice(0, 160)}...(truncated)` : value;
+  }
+  return summary;
+}
+
+function extractArgValue(args: string[], flag: string): string | undefined {
+  const index = args.indexOf(flag);
+  if (index < 0) return undefined;
+  return args[index + 1];
 }
 
 function buildClaudeStyleDareServers(data: JsonObject): JsonObject[] | null {
@@ -484,6 +538,39 @@ export class DareAgentService implements AgentService {
     const childEnv = this.buildEnv(options?.callbackEnv, cliModel, effectiveAdapter);
     const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
     let sessionInitEmitted = false;
+
+    const cliMcpPath = extractArgValue(args, '--mcp-path');
+    log.info(
+      {
+        catId: this.catId,
+        invocationId: options?.invocationId ?? null,
+        workspace: options?.workingDirectory ?? null,
+        adapter: effectiveAdapter ?? null,
+        model: cliModel ?? null,
+        endpoint: endpoint ?? null,
+        configuredMcpServerPath: this.mcpServerPath ?? null,
+        resolvedMcpPathForDare: mcpPathForDare ?? null,
+        cliMcpPath: cliMcpPath ?? null,
+        launch: {
+          command: launchSpec.command,
+          runtimeMode: launchSpec.runtimeMode,
+          cwd: launchSpec.cwd ?? null,
+          argsPrefix: launchSpec.argsPrefix,
+        },
+        hasCallbackEnv: Boolean(options?.callbackEnv),
+        callbackEnvKeys: options?.callbackEnv ? Object.keys(options.callbackEnv).sort() : [],
+      },
+      'Invoking DARE CLI',
+    );
+    log.debug(
+      {
+        catId: this.catId,
+        invocationId: options?.invocationId ?? null,
+        args: sanitizeArgsForLog(args),
+        envOverrides: summarizeEnvForLog(childEnv),
+      },
+      'DARE CLI args and env summary',
+    );
 
     try {
       const cliOpts = {
