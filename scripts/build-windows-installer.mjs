@@ -64,8 +64,10 @@ const EXCLUDED_PREFIXES = [
   'packages/web/.next/',
 ];
 const RUNTIME_SCRIPT_FILES = [
+  'install-python-wheelhouse.ps1',
   'install-auth-config.mjs',
   'install-windows-helpers.ps1',
+  'manual-install-windows-runtime-wheelhouse.ps1',
   'start-entry.mjs',
   'start-windows.ps1',
   'start.bat',
@@ -77,6 +79,8 @@ const PYTHON_EMBED_VERSION = '3.13.4';
 const PYTHON_EMBED_URL = `https://www.python.org/ftp/python/${PYTHON_EMBED_VERSION}/python-${PYTHON_EMBED_VERSION}-embed-amd64.zip`;
 const GET_PIP_URL = 'https://bootstrap.pypa.io/get-pip.py';
 const PYTHON_MAJOR_MINOR = PYTHON_EMBED_VERSION.split('.').slice(0, 2).join('');
+const DEFAULT_WHEELHOUSE_DIR = join(repoRoot, 'dist', 'windows-python-wheelhouse');
+const PYTHON_WHEELHOUSE_CONFIG = join(repoRoot, 'packaging', 'windows', 'python-runtime-wheelhouse.json');
 const WEB_STANDALONE_BUILD_DIR = join(repoRoot, 'packages', 'web', '.next', 'standalone');
 const WEB_STANDALONE_APP_DIR = join(WEB_STANDALONE_BUILD_DIR, 'packages', 'web');
 const WEB_STANDALONE_NODE_MODULES_DIR = join(WEB_STANDALONE_BUILD_DIR, 'node_modules');
@@ -553,53 +557,33 @@ async function stageWindowsPython(bundleDir, options) {
   return { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
 }
 
-function installSharedPythonDeps(bundleDir) {
-  const pythonExe = join(bundleDir, 'tools', 'python', 'python.exe');
+function resolveStagedWindowsPythonWheelhouse() {
+  const wheelhouseDir = DEFAULT_WHEELHOUSE_DIR;
+  const manifestPath = join(wheelhouseDir, 'python-wheelhouse-manifest.json');
+  if (!existsSync(manifestPath)) {
+    throw new Error(`Python wheelhouse manifest not found: ${manifestPath}`);
+  }
+  const wheelhouseRoot = join(wheelhouseDir, 'wheelhouse');
+  if (!existsSync(wheelhouseRoot)) {
+    throw new Error(`Python wheelhouse directory not found: ${wheelhouseRoot}`);
+  }
+  return { rootDir: wheelhouseDir, manifestPath };
+}
 
-  // Ensure setuptools is available (needed by some packages with pyproject.toml builds)
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'setuptools', 'wheel']);
+function stageWindowsPythonWheelhouse() {
+  const wheelhouseDir = DEFAULT_WHEELHOUSE_DIR;
+  const prepareScript = join(repoRoot, 'scripts', 'prepare-python-wheelhouse.mjs');
 
-  // Install DARE dependencies (from pyproject.toml, excluding test deps)
-  const dareDeps = [
-    'anthropic', 'langchain-openai', 'langchain-core',
-    'httpx>=0.27.0', 'starlette>=0.37.0', 'uvicorn>=0.30.0', 'chromadb>=0.4.0',
-  ];
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
+  resetDir(wheelhouseDir);
+  run(process.execPath, [
+    prepareScript,
+    '--config',
+    PYTHON_WHEELHOUSE_CONFIG,
+    '--output-dir',
+    wheelhouseDir,
+  ]);
 
-  // Install JiuwenClaw core runtime deps explicitly, then the package itself with --no-deps
-  // (avoids pulling heavy optional deps like telegram-bot, discord.py, dingtalk etc.)
-  const jiuwenCoreDeps = [
-    'psutil>=7.0', 'loguru>=0.7', 'ruamel.yaml>=0.18', 'python-dotenv>=1.0',
-    'websockets>=12.0', 'aiosqlite>=0.22', 'croniter>=2.0', 'mutagen>=1.47',
-    'greenlet>=3.0', 'openjiuwen==0.1.7',
-  ];
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...jiuwenCoreDeps]);
-  const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', '--no-deps', jiuwenClawDir]);
-
-  // Install office automation libraries for MCP servers
-  const officeDeps = [
-    'python-pptx',   // PowerPoint read/write
-    'openpyxl',      // Excel read/write
-    'python-docx',   // Word read/write
-    'xlsxwriter',    // Excel write (fast, chart support)
-    'pypdf',         // PDF read/merge/split
-    'reportlab',     // PDF creation
-    'markitdown',    // Microsoft multi-format → Markdown converter
-  ];
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...officeDeps]);
-
-  // Install agent-teams CLI for ACP multi-agent orchestration
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'cool-play-agent-teams']);
-
-  // Prune site-packages to reduce size
-  const sitePackages = join(bundleDir, 'tools', 'python', 'Lib', 'site-packages');
-  removeNamedDirectoriesRecursive(sitePackages, ['tests', 'test', '__tests__']);
-  walkFiles(sitePackages, (fullPath, entry) => {
-    if (entry.name.endsWith('.pyo')) {
-      rmSync(fullPath, { force: true });
-    }
-  });
+  return resolveStagedWindowsPythonWheelhouse();
 }
 
 function stageVendorPythonSources(bundleDir) {
@@ -632,12 +616,22 @@ function stageVendorPythonSources(bundleDir) {
   copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
 }
 
-function stageInstallerSeed(bundleDir) {
+function stageInstallerSeed(bundleDir, wheelhouse = null) {
   const seedDir = join(bundleDir, 'installer-seed');
   ensureDir(seedDir);
   const catConfigPath = join(repoRoot, 'cat-config.json');
   if (existsSync(catConfigPath)) {
     cpSync(catConfigPath, join(seedDir, 'cat-config.json'), { force: true });
+  }
+  if (wheelhouse?.manifestPath) {
+    cpSync(wheelhouse.manifestPath, join(seedDir, 'python-wheelhouse-manifest.json'), { force: true });
+  }
+  if (wheelhouse?.rootDir) {
+    const wheelhouseSource = join(wheelhouse.rootDir, 'wheelhouse');
+    if (!existsSync(wheelhouseSource)) {
+      throw new Error(`Python wheelhouse directory missing: ${wheelhouseSource}`);
+    }
+    cpSync(wheelhouseSource, join(seedDir, 'wheelhouse'), { recursive: true, force: true });
   }
 }
 
@@ -1418,7 +1412,17 @@ async function main() {
 
   logStep('Copying project sources');
   copyTopLevelProject(bundleDir);
-  stageInstallerSeed(bundleDir);
+
+  let pythonWheelhouse = null;
+  if (!options.skipPython) {
+    logStep('Preparing Python wheelhouse');
+    pythonWheelhouse = stageWindowsPythonWheelhouse();
+  } else {
+    logStep('Reusing existing Python wheelhouse (--skip-python)');
+    pythonWheelhouse = resolveStagedWindowsPythonWheelhouse();
+  }
+
+  stageInstallerSeed(bundleDir, pythonWheelhouse);
 
   logStep('Staging vendor Python sources');
   stageVendorPythonSources(bundleDir);
@@ -1427,11 +1431,8 @@ async function main() {
   if (!options.skipPython) {
     logStep('Bundling Python embeddable runtime');
     pythonEmbed = await stageWindowsPython(bundleDir, options);
-
-    logStep('Installing shared Python dependencies');
-    installSharedPythonDeps(bundleDir);
   } else {
-    logStep('Skipping Python embed + pip install (--skip-python)');
+    logStep('Skipping Python embed + wheelhouse refresh (--skip-python)');
     const releaseMetaPath = join(bundleDir, '.clowder-release.json');
     const existingMeta = existsSync(releaseMetaPath) ? JSON.parse(readFileSync(releaseMetaPath, 'utf8')) : {};
     pythonEmbed = existingMeta.pythonEmbed ?? { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
