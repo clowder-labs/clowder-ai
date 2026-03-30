@@ -178,6 +178,11 @@ function listWheelFiles(targetDir) {
     .sort((left, right) => left.localeCompare(right));
 }
 
+function diffWheelFiles(beforeFiles, afterFiles) {
+  const before = new Set(beforeFiles);
+  return afterFiles.filter((entry) => !before.has(entry));
+}
+
 function resolvePythonTarget(config) {
   const target = config.pythonTarget ?? {};
   const platform = String(target.platform ?? 'win_amd64').trim();
@@ -298,10 +303,17 @@ function main() {
       const wheelArgs = project.wheelArgs
         ? normalizeStringArray(project.wheelArgs, `groups.${group.id}.localProjects.${project.path}.wheelArgs`)
         : [];
+      const wheelFilesBefore = listWheelFiles(groupDir);
       run(python.command, [...python.args, ...buildWheelArgs(groupDir, projectPath, wheelArgs)]);
+      const wheelFilesAfter = listWheelFiles(groupDir);
+      const builtWheelFiles = diffWheelFiles(wheelFilesBefore, wheelFilesAfter);
+      if (builtWheelFiles.length === 0) {
+        throw new Error(`Local project wheel build produced no new wheels for group ${group.id}: ${project.path}`);
+      }
       localProjects.push({
         path: toPosixRelative(repoRoot, projectPath),
         wheelArgs,
+        wheelFiles: builtWheelFiles,
       });
     }
 
