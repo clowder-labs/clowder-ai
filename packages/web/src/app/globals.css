@@ -113,6 +113,8 @@
 
   --state-success-surface: #e8f5e9;
   --state-success-text: #4caf50;
+  --state-error-surface: #fdecea;
+  --state-error-text: #d43c2f;
   --state-warning-surface: #fff3e0;
   --state-warning-text: #e65100;
   --state-info-surface: rgba(255, 221, 210, 0.32);
@@ -152,6 +154,8 @@
 
   --state-success-surface: #eef9d9;
   --state-success-text: #6a8f22;
+  --state-error-surface: #fdeff0;
+  --state-error-text: #c43b3b;
   --state-warning-surface: #fff2d8;
   --state-warning-text: #d08a00;
   --state-info-surface: #eef0ff;
