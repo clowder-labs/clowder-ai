@@ -223,11 +223,11 @@ export function HubConnectorConfigTab() {
                 type="button"
                 onClick={() => handleSelect(platform.id)}
                 data-testid={`platform-item-${platform.id}`}
-                className={`ui-card flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors ${
-                  isSelected
-                    ? 'border-[var(--border-accent)] bg-[var(--surface-card-muted)]'
-                    : 'hover:bg-[var(--surface-card-muted)]'
-                }`}
+                className="flex w-full items-center gap-3 border px-4 py-3.5 text-left transition-colors [border-radius:var(--connector-tab-radius)]"
+                style={{
+                  borderColor: isSelected ? 'var(--connector-tab-border-selected)' : 'var(--connector-tab-border-default)',
+                  backgroundColor: isSelected ? 'var(--connector-tab-bg-selected)' : 'var(--connector-tab-bg-default)',
+                }}
               >
                 <span
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
@@ -236,7 +236,7 @@ export function HubConnectorConfigTab() {
                   {v.icon}
                 </span>
                 <span className="min-w-0 flex-1 text-left">
-                  <span className="block text-[15px] font-semibold text-[var(--text-primary)]">
+                  <span className="block text-[14px] font-semibold text-[var(--text-primary)]">
                     {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
                   </span>
                   <span
@@ -258,7 +258,7 @@ export function HubConnectorConfigTab() {
             const platform = selectedPlatform;
             const guideSteps = platform.steps.slice(0, -1);
             const docsLink = parseDocsLink(platform.docsUrl);
-            const saveStepNum = Math.max(platform.steps.length, guideSteps.length + 1);
+            const saveStepNum = guideSteps.length + 2;
 
             return (
               <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
@@ -268,7 +268,7 @@ export function HubConnectorConfigTab() {
                       <div key={idx} className="space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <StepBadge num={idx + 1} />
-                          <span className="text-[13px] font-medium text-[var(--text-primary)]">{step}</span>
+                          <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
                         </div>
                         {idx === 0 && (
                           <div className="ml-[26px]">
@@ -286,7 +286,7 @@ export function HubConnectorConfigTab() {
                       <div key={idx} className="space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <StepBadge num={idx + 1} />
-                          <span className="text-[13px] font-medium text-[var(--text-primary)]">{step}</span>
+                          <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
                         </div>
                         {idx === 0 && docsLink && (
                           <a
@@ -305,7 +305,7 @@ export function HubConnectorConfigTab() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5">
                         <StepBadge num={guideSteps.length + 1} />
-                        <span className="text-[13px] font-medium text-[var(--text-primary)]">填写应用凭证</span>
+                        <span className="text-[14px] font-medium text-[var(--text-primary)]">填写应用凭证</span>
                       </div>
                       <div className="ml-[26px] space-y-2.5">
                         {platform.fields.map((field) => (
@@ -336,7 +336,7 @@ export function HubConnectorConfigTab() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5">
                         <StepBadge num={saveStepNum} />
-                        <span className="text-[13px] font-medium text-[var(--text-primary)]">测试连接并保存</span>
+                        <span className="text-[14px] font-medium text-[var(--text-primary)]">测试连接并保存</span>
                       </div>
                       {saveResult && (
                         <div

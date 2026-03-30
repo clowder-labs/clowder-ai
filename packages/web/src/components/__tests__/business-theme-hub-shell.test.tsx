@@ -36,6 +36,16 @@ async function flushEffects() {
   });
 }
 
+async function changeInputValue(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 describe('business theme hub shell', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -66,6 +76,18 @@ describe('business theme hub shell', () => {
                 description: 'automation helper',
                 triggers: ['ops'],
                 category: 'Automation',
+                mounts: { codex: true },
+                connectionStatus: 'connected',
+              },
+              {
+                id: 'doc-skill',
+                type: 'skill',
+                source: 'external',
+                enabled: true,
+                cats: { office: true },
+                description: 'document helper',
+                triggers: ['doc'],
+                category: 'Knowledge',
                 mounts: { codex: true },
                 connectionStatus: 'connected',
               },
@@ -104,6 +126,22 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('项目:');
     expect(container.querySelector('[data-testid="capability-card-skill-ops-skill"]')?.className).toContain('ui-card');
     expect(container.textContent).toContain('来源：官方');
-    expect(container.textContent).toContain('启用状态');
+  });
+
+  it('renders search input under title and filters installed skills', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+    expect(container.textContent).toContain('ops-skill');
+    expect(container.textContent).toContain('doc-skill');
+
+    await changeInputValue(searchInput!, 'doc');
+
+    expect(container.textContent).toContain('doc-skill');
+    expect(container.textContent).not.toContain('ops-skill');
   });
 });

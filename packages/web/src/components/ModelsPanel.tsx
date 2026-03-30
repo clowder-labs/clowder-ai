@@ -357,7 +357,10 @@ export function ModelsPanel() {
           {showGroups &&
             groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3 className="text-[13px] font-semibold text-[var(--text-secondary)]">
+                <h3
+                  className="text-[14px] font-semibold text-[var(--text-primary)]"
+                  style={{ marginBlock: '24px' }}
+                >
                   {group.label} ({group.items.length})
                 </h3>
 
