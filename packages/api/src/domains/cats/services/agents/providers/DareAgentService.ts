@@ -6,8 +6,11 @@
  * - a bundled standalone executable such as `vendor/dare.exe`
  */
 
+import { createHash } from 'node:crypto';
 import { accessSync, existsSync, constants as fsConstants, lstatSync, readFileSync } from 'node:fs';
-import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { delimiter, dirname, extname, isAbsolute, join, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
@@ -41,6 +44,92 @@ function preferCompactMcpEntry(mcpPath: string): string {
   return existsSync(compactPath) ? compactPath : mcpPath;
 }
 
+const DARE_MCP_CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.md', '.markdown']);
+const DARE_MCP_JS_ENTRY_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
+
+type JsonObject = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return [value];
+  }
+  return [];
+}
+
+function toStringMap(value: unknown): Record<string, string> | undefined {
+  if (!isRecord(value)) return undefined;
+  const result: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'string') result[key] = entry;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function resolveBridgeConfigPath(seed: string): string {
+  const digest = createHash('sha1').update(seed).digest('hex').slice(0, 12);
+  return join(tmpdir(), `cat-cafe-dare-mcp-${digest}.json`);
+}
+
+function normalizeMcpServerName(name: string): string | null {
+  const normalized = name.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function inferCwdFromCommand(command: string, args: string[]): string | undefined {
+  if (args.length > 0 && isAbsolute(args[0]!)) {
+    return dirname(args[0]!);
+  }
+  if (isAbsolute(command)) {
+    return dirname(command);
+  }
+  return undefined;
+}
+
+function buildClaudeStyleDareServers(data: JsonObject): JsonObject[] | null {
+  const mcpServers = data.mcpServers;
+  if (!isRecord(mcpServers)) return null;
+
+  const servers: JsonObject[] = [];
+  for (const [rawName, rawConfig] of Object.entries(mcpServers)) {
+    const name = normalizeMcpServerName(rawName);
+    if (!name || !isRecord(rawConfig)) continue;
+
+    const enabled = rawConfig.enabled !== false;
+    if (!enabled) continue;
+
+    const maybeType = typeof rawConfig.type === 'string' ? rawConfig.type : '';
+    const maybeUrl = typeof rawConfig.url === 'string' ? rawConfig.url.trim() : '';
+    if (maybeType === 'http' || maybeUrl.length > 0) {
+      if (maybeUrl.length === 0) continue;
+      const headers = toStringMap(rawConfig.headers);
+      const server: JsonObject = { name, transport: 'http', url: maybeUrl, enabled: true };
+      if (headers) server.headers = headers;
+      servers.push(server);
+      continue;
+    }
+
+    const command = typeof rawConfig.command === 'string' ? rawConfig.command.trim() : '';
+    if (command.length === 0) continue;
+    const args = toStringArray(rawConfig.args);
+    const env = toStringMap(rawConfig.env);
+    const explicitCwd =
+      typeof rawConfig.cwd === 'string' && rawConfig.cwd.trim().length > 0 ? rawConfig.cwd.trim() : undefined;
+    const cwd = explicitCwd ?? inferCwdFromCommand(command, args);
+    const server: JsonObject = { name, transport: 'stdio', command: [command, ...args], enabled: true };
+    if (env) server.env = env;
+    if (cwd) server.cwd = cwd;
+    servers.push(server);
+  }
+  return servers;
+}
+
 interface DareAgentServiceOptions {
   catId?: CatId;
   adapter?: string;
@@ -49,7 +138,7 @@ interface DareAgentServiceOptions {
   apiKey?: string;
   /** Path to a DARE source checkout, or a bundled dare executable. */
   darePath?: string;
-  /** Absolute path to the MCP server entry file for --mcp-path. */
+  /** Absolute path to Dare MCP config path for --mcp-path (file/dir), or legacy JS entry path. */
   mcpServerPath?: string;
   spawnFn?: SpawnFn;
 }
@@ -286,6 +375,54 @@ export class DareAgentService implements AgentService {
     this.spawnFn = options?.spawnFn;
   }
 
+  private async resolveMcpPathForDare(workspace?: string): Promise<string | undefined> {
+    const configuredPath = this.mcpServerPath;
+    if (!configuredPath) return undefined;
+
+    // DARE loader accepts directories and {.json,.yaml,.md} config files.
+    const extension = extname(configuredPath).toLowerCase();
+    if (!extension) return configuredPath;
+    if (DARE_MCP_CONFIG_EXTENSIONS.has(extension)) {
+      // Bridge Claude-style `.mcp.json` ({ mcpServers: ... }) when passed to DARE.
+      if (extension === '.json' && existsSync(configuredPath)) {
+        try {
+          const raw = readFileSync(configuredPath, 'utf-8');
+          const data = JSON.parse(raw) as unknown;
+          if (isRecord(data)) {
+            const servers = buildClaudeStyleDareServers(data);
+            if (servers && servers.length > 0) {
+              const bridgePath = resolveBridgeConfigPath(`claude:${configuredPath}`);
+              await writeFile(bridgePath, `${JSON.stringify({ servers }, null, 2)}\n`, 'utf-8');
+              return bridgePath;
+            }
+          }
+        } catch {
+          // Keep configured path on parse failure for backward compatibility.
+        }
+      }
+      return configuredPath;
+    }
+    if (!DARE_MCP_JS_ENTRY_EXTENSIONS.has(extension)) return configuredPath;
+
+    // Legacy CAT_CAFE_MCP_SERVER_PATH points to JS server entry.
+    // Generate a DARE-native JSON config and pass that path instead.
+    try {
+      const bridgePath = resolveBridgeConfigPath(`entry:${configuredPath}:${workspace ?? ''}`);
+      const bridgeServer: JsonObject = {
+        name: 'cat-cafe',
+        transport: 'stdio',
+        command: [process.execPath, configuredPath],
+        cwd: dirname(configuredPath),
+        enabled: true,
+      };
+      await writeFile(bridgePath, `${JSON.stringify(bridgeServer, null, 2)}\n`, 'utf-8');
+      return bridgePath;
+    } catch {
+      // Fall back to original path if bridge file cannot be written.
+      return configuredPath;
+    }
+  }
+
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const workspaceConfig = readWorkspaceDareConfig(options?.workingDirectory);
     const effectiveModel = options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
@@ -332,6 +469,7 @@ export class DareAgentService implements AgentService {
 
     const launchSpec = configuredLaunchSpec ?? buildModuleLaunchSpec(this.darePath);
     const endpoint = this.resolveEndpoint(options?.callbackEnv, effectiveAdapter);
+    const mcpPathForDare = options?.callbackEnv ? await this.resolveMcpPathForDare(options?.workingDirectory) : undefined;
     const args = this.buildArgs(prompt, {
       argsPrefix: launchSpec.argsPrefix,
       adapter: effectiveAdapter,
@@ -341,7 +479,7 @@ export class DareAgentService implements AgentService {
       model: cliModel,
       cliConfigArgs: options?.cliConfigArgs,
       systemPrompt: options?.systemPrompt,
-      mcpServerPath: options?.callbackEnv ? this.mcpServerPath : undefined,
+      mcpServerPath: mcpPathForDare,
     });
     const childEnv = this.buildEnv(options?.callbackEnv, cliModel, effectiveAdapter);
     const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
