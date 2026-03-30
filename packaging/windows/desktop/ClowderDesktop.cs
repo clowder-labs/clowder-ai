@@ -109,6 +109,7 @@ internal sealed class LauncherForm : Form
     private string _statusText = "Preparing OfficeClaw...";
     private int _spinnerAngle;
     private WebView2 _webView;
+    private Image _splashImage;
 
     public LauncherForm()
     {
@@ -137,7 +138,7 @@ internal sealed class LauncherForm : Form
         var splashImagePath = Path.Combine(_projectRoot, "assets", "splash.jpg");
         if (File.Exists(splashImagePath))
         {
-            try { _splashBox.Image = Image.FromFile(splashImagePath); }
+            try { _splashImage = Image.FromFile(splashImagePath); }
             catch { /* fall back to plain background */ }
         }
 
@@ -160,7 +161,11 @@ internal sealed class LauncherForm : Form
         _spinnerTimer.Start();
 
         _splashBox.Controls.Add(_statusPanel);
-        _splashBox.Resize += (_, __) => RepositionStatusLabel();
+        _splashBox.Resize += (_, __) =>
+        {
+            RepositionStatusLabel();
+            _splashBox.Invalidate();
+        };
         Controls.Add(_splashBox);
         RepositionStatusLabel();
         Shown += async (_, __) => await InitializeAsync();
@@ -563,10 +568,10 @@ internal sealed class LauncherForm : Form
         _spinnerTimer.Stop();
         _spinnerTimer.Dispose();
         Controls.Clear();
-        if (_splashBox.Image != null)
+        if (_splashImage != null)
         {
-            _splashBox.Image.Dispose();
-            _splashBox.Image = null;
+            _splashImage.Dispose();
+            _splashImage = null;
         }
         _splashBox.Dispose();
         Controls.Add(_webView);
@@ -691,14 +696,13 @@ internal sealed class LauncherForm : Form
 
     private void OnSplashPaint(object sender, PaintEventArgs eventArgs)
     {
-        var box = (PictureBox)sender;
-        if (box.Image == null)
+        if (_splashImage == null)
         {
             return;
         }
 
-        var img = box.Image;
-        var canvas = box.ClientSize;
+        var img = _splashImage;
+        var canvas = ((Control)sender).ClientSize;
 
         // "Cover" mode: scale to fill, crop the excess
         float scale = Math.Max(
