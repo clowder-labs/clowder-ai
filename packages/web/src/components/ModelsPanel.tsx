@@ -181,7 +181,7 @@ export function ModelsPanel() {
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
 
   const canConfirmCreateModel =
-    modelNameInput.trim().length > 0 && modelUrlInput.trim().length > 0 && modelApiKeyInput.trim().length > 0;
+    modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0 && modelDisplayNameInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -472,7 +472,7 @@ export function ModelsPanel() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u8bbf\u95eeURL *'}</p>
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u8bbf\u95eeURL'}</p>
                   <input
                     data-testid="models-create-model-url-input"
                     value={modelUrlInput}
