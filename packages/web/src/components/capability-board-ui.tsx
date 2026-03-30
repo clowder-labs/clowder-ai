@@ -97,9 +97,7 @@ export function ExtensionIcon({ className }: { className?: string }) {
 }
 
 export function CapabilitySection({
-  icon,
   title,
-  subtitle,
   items,
   catFamilies,
   toggling,
@@ -122,13 +120,7 @@ export function CapabilitySection({
   return (
     <div className="mb-6">
       <div className="mb-3 flex items-center gap-3 pl-1">
-        {icon}
-        <div>
-          <h3 className="text-[15px] font-bold tracking-wide text-[var(--text-primary)]">{title}</h3>
-          <p className="mt-0.5 text-xs font-medium text-[var(--text-muted)]">
-            {subtitle} · {items.length}
-          </p>
-        </div>
+        <p className="text-[20px] font-semibold">{title}</p>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
         {items.map((item) => (

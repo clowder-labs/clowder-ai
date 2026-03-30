@@ -13,8 +13,6 @@ import type {
 import {
   CapabilitySection,
   FilterChips,
-  SectionIconExtension,
-  SectionIconMcp,
   SectionIconSkill,
   SkillHealthBanner,
   StatusDot,
@@ -25,6 +23,8 @@ import { useConfirm } from './useConfirm';
 import { useProviderProfilesState } from './useProviderProfilesState';
 
 type FilterSource = 'all' | 'cat-cafe' | 'external';
+const ALL_CATEGORY = '全部';
+const UNCATEGORIZED = '未分类';
 
 export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatus?: boolean }) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
@@ -33,6 +33,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [toggling, setToggling] = useState<string | null>(null);
 
   const { providerCreateSectionProps } = useProviderProfilesState();
@@ -155,31 +156,32 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     return items.filter((item) => item.source === filterSource);
   }, [items, filterSource]);
 
-  const mcpItems = useMemo(() => filtered.filter((item) => item.type === 'mcp'), [filtered]);
-  const externalSkills = useMemo(
-    () => filtered.filter((item) => item.type === 'skill' && item.source === 'external'),
-    [filtered],
-  );
-  const catCafeSkillGroups = useMemo(() => {
-    const catCafe = filtered.filter((item) => item.type === 'skill' && item.source === 'cat-cafe');
-    const groups: { category: string; items: CapabilityBoardItem[] }[] = [];
-    const categoryMap = new Map<string, CapabilityBoardItem[]>();
-    const categoryOrder: string[] = [];
-    for (const item of catCafe) {
-      const category = item.category ?? '未分类';
-      let list = categoryMap.get(category);
-      if (!list) {
-        list = [];
-        categoryMap.set(category, list);
-        categoryOrder.push(category);
-      }
-      list.push(item);
+  const visibleItems = useMemo(() => filtered.filter((item) => item.type !== 'mcp'), [filtered]);
+  const skillItems = useMemo(() => visibleItems.filter((item) => item.type === 'skill'), [visibleItems]);
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of skillItems) {
+      const category = item.category?.trim() || UNCATEGORIZED;
+      counts.set(category, (counts.get(category) ?? 0) + 1);
     }
-    for (const category of categoryOrder) {
-      groups.push({ category, items: categoryMap.get(category)! });
-    }
-    return groups;
-  }, [filtered]);
+    return counts;
+  }, [skillItems]);
+  const categoryTabs = useMemo(() => {
+    const tabs = [ALL_CATEGORY];
+    const categories = Array.from(categoryCounts.keys());
+    const ordered = categories.filter((category) => category !== UNCATEGORIZED);
+    if (categories.includes(UNCATEGORIZED)) ordered.push(UNCATEGORIZED);
+    tabs.push(...ordered);
+    return tabs;
+  }, [categoryCounts]);
+  const displayedSkillItems = useMemo(() => {
+    if (activeCategory === ALL_CATEGORY) return skillItems;
+    return skillItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === activeCategory);
+  }, [activeCategory, skillItems]);
+
+  useEffect(() => {
+    if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
+  }, [activeCategory, categoryTabs]);
 
   if (loading) return <p className="text-sm text-[var(--text-muted)]">加载中...</p>;
 
@@ -210,42 +212,36 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
 
       {skillHealth && <SkillHealthBanner health={skillHealth} items={items} />}
 
-      <CapabilitySection
-        icon={<SectionIconMcp />}
-        title="MCP"
-        subtitle="工具服务"
-        items={mcpItems}
-        catFamilies={catFamilies}
-        toggling={toggling}
-        onToggle={handleToggle}
-      />
-
-      {catCafeSkillGroups.map((group) => (
-        <CapabilitySection
-          key={group.category}
-          icon={<SectionIconSkill />}
-          title={group.category}
-          subtitle="OfficeClaw Skills"
-          items={group.items}
-          catFamilies={catFamilies}
-          toggling={toggling}
-          onToggle={handleToggle}
-          hideSkillMountStatus={hideSkillMountStatus}
-        />
-      ))}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-4 border-b border-[var(--border-soft)] pb-2">
+          {categoryTabs.map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => setActiveCategory(category)}
+              className={`inline-flex min-h-7 items-center leading-none text-sm font-medium transition-colors ${
+                activeCategory === category ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <CapabilitySection
-        icon={<SectionIconExtension />}
-        title="Skill 扩展"
-        subtitle="外部扩展 Skills"
-        items={externalSkills}
+        icon={<SectionIconSkill />}
+        title={`${activeCategory} (${displayedSkillItems.length})`}
+        subtitle="已安装技能"
+        items={displayedSkillItems}
         catFamilies={catFamilies}
         toggling={toggling}
         onToggle={handleToggle}
         onUninstall={handleUninstall}
+        hideSkillMountStatus={hideSkillMountStatus}
       />
 
-      {filtered.length === 0 && (
+      {skillItems.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-card-muted)]">
             <svg
@@ -261,22 +257,18 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
             </svg>
           </div>
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">没有找到匹配的能力</h3>
-          <p className="mt-1 max-w-[220px] text-xs text-[var(--text-muted)]">试着切换来源筛选，或检查 MCP / Skills 配置。</p>
+          <p className="mt-1 max-w-[220px] text-xs text-[var(--text-muted)]">试着切换来源筛选，或检查 Skills 配置。</p>
         </div>
       )}
 
       <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
-        <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
-          <span>共 {items.length} 项</span>
+        <div className="flex items-center justify-end text-xs text-[var(--text-muted)]">
           <span className="flex gap-3">
             <span className="flex items-center gap-1.5">
-              <StatusDot status="connected" /> {items.filter((item) => item.connectionStatus === 'connected').length} 活跃
+              <StatusDot status="connected" /> {displayedSkillItems.filter((item) => item.connectionStatus === 'connected').length} 活跃
             </span>
             <span>
-              MCP: <strong className="font-medium text-[var(--text-secondary)]">{items.filter((item) => item.type === 'mcp').length}</strong>
-            </span>
-            <span>
-              Skill: <strong className="font-medium text-[var(--text-secondary)]">{items.filter((item) => item.type === 'skill').length}</strong>
+              Skill: <strong className="font-medium text-[var(--text-secondary)]">{displayedSkillItems.length}</strong>
             </span>
           </span>
         </div>
