@@ -119,7 +119,14 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
 
     if (message.variant === 'governance_blocked' && message.extra?.governanceBlocked) {
       const { projectPath, reasonKind, invocationId } = message.extra.governanceBlocked;
-      return <GovernanceBlockedCard projectPath={projectPath} reasonKind={reasonKind} invocationId={invocationId} />;
+      return (
+        <GovernanceBlockedCard
+          projectPath={projectPath}
+          reasonKind={reasonKind}
+          invocationId={invocationId}
+          onResolved={() => useChatStore.getState().removeMessage(message.id)}
+        />
+      );
     }
 
     // F045: variant='thinking' is deprecated — thinking is now embedded in assistant bubbles.

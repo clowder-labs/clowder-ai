@@ -7,6 +7,9 @@ import { describe, it } from 'node:test';
 const { RelayClawAgentService, __relayClawInternals } = await import(
   '../dist/domains/cats/services/agents/providers/RelayClawAgentService.js'
 );
+const { resolveRelayClawWebSocketCtor } = await import(
+  '../dist/domains/cats/services/agents/providers/relayclaw-connection.js'
+);
 const {
   buildRelayClawLaunchCommand,
   isRelayClawRuntimeReady,
@@ -16,6 +19,7 @@ const {
   resolveJiuwenClawExecutable,
   resolveJiuwenClawPythonBin,
 } = await import('../dist/utils/jiuwenclaw-paths.js');
+const { WebSocket: NodeWebSocket } = await import('ws');
 
 function createConnectionFactory(onSend) {
   return (requestQueues) => ({
@@ -31,6 +35,17 @@ function createConnectionFactory(onSend) {
 }
 
 describe('RelayClawAgentService', () => {
+  it('falls back to the ws module when global WebSocket is unavailable', () => {
+    const savedWebSocket = global.WebSocket;
+
+    try {
+      delete global.WebSocket;
+      assert.equal(resolveRelayClawWebSocketCtor(), NodeWebSocket);
+    } finally {
+      global.WebSocket = savedWebSocket;
+    }
+  });
+
   it('resolves vendored jiuwenclaw venv python on Windows-style paths', () => {
     const appDir = mkdtempSync(join(tmpdir(), 'jiuwenclaw-paths-'));
     const pythonBin =
