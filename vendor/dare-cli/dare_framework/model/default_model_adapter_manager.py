@@ -126,11 +126,11 @@ def _http_client_options_from_proxy(llm: LLMConfig) -> dict[str, Any]:
 
 
 def _emit_model_adapter_diag(payload: dict[str, Any]) -> None:
-    raw = os.getenv(_DIAG_ENV, "1").strip().lower()
+    raw = os.getenv(_DIAG_ENV, "0").strip().lower()
     if raw in {"0", "false", "off"}:
         return
     try:
-        _logger.info("[model-adapter-manager] %s", json.dumps(payload, ensure_ascii=False))
+        _logger.debug("[model-adapter-manager] %s", json.dumps(payload, ensure_ascii=False))
     except Exception:
         pass
 

@@ -380,11 +380,11 @@ def _summarize_tool_call(call: Any) -> dict[str, Any]:
 
 
 def _emit_diag(payload: dict[str, Any]) -> None:
-    raw = os.getenv(_DIAG_ENV, "1").strip().lower()
+    raw = os.getenv(_DIAG_ENV, "0").strip().lower()
     if raw in {"0", "false", "off"}:
         return
     try:
-        _logger.info("[model-adapter] %s", json.dumps(payload, ensure_ascii=False))
+        _logger.debug("[model-adapter] %s", json.dumps(payload, ensure_ascii=False))
     except Exception:
         pass
 

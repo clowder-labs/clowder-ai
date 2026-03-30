@@ -49,7 +49,7 @@ const DARE_MCP_JS_ENTRY_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
 const SHOULD_EMIT_DIAGNOSTICS =
   !process.argv.includes('--test') &&
   !process.execArgv.includes('--test') &&
-  process.env.CAT_CAFE_DARE_DIAG_LOG !== '0';
+  process.env.CAT_CAFE_DARE_DIAG_LOG === '1';
 
 type JsonObject = Record<string, unknown>;
 

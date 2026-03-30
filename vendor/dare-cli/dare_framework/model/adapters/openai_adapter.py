@@ -554,11 +554,11 @@ class OpenAIModelAdapter(IModelAdapter):
             return None, None
 
     def _emit_diag(self, event: str, payload: dict[str, Any]) -> None:
-        raw = os.getenv(self._diag_env, "1").strip().lower()
+        raw = os.getenv(self._diag_env, "0").strip().lower()
         if raw in {"0", "false", "off"}:
             return
         try:
-            self._logger.info("[model-adapter] %s", json.dumps({"event": event, **payload}, ensure_ascii=False))
+            self._logger.debug("[model-adapter] %s", json.dumps({"event": event, **payload}, ensure_ascii=False))
         except Exception:
             # Diagnostics must never break model generation.
             pass
