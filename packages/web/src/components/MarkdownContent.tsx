@@ -279,7 +279,7 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
   const components = basePath != null ? { ...mdComponents, a: createWorkspaceLinkComponent(basePath) } : mdComponents;
 
   return (
-    <div className={`markdown-content text-sm break-words ${className ?? ''}`}>
+    <div className={`test-123 markdown-content text-sm break-words ${className ?? ''}`}>
       {cmdMatch && <span className="font-semibold text-indigo-500">{cmdMatch[1]}</span>}
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>
         {md}

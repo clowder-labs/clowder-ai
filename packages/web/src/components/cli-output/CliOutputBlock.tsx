@@ -50,7 +50,7 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
       height="12"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="currentColor"
+      stroke="rgb(31, 31, 31)"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -202,7 +202,7 @@ function ToolRow({
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className="w-full text-left cursor-pointer rounded font-mono text-[11px] flex items-center gap-2"
+      className="w-full text-left cursor-pointer rounded  text-[11px] flex items-center gap-2"
       style={{
         padding: '5px 8px',
         borderRadius: 4,
@@ -280,7 +280,7 @@ function ToolsSection({
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-mono rounded transition-colors"
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px]  rounded transition-colors"
         style={{ color: '#94A3B8' }}
         onClick={() => {
           toolsUserInteracted.current = true;
@@ -376,15 +376,15 @@ export function CliOutputBlock({
   };
 
   return (
-    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: surface, borderRadius: 10 }}>
+    <div className="test-123 mt-2 mb-1 overflow-hidden">
       {/* Header — design: chevron(accent) + summary(slate-400) + paw chip */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
-        style={{ padding: '8px 12px', color: '#94A3B8', backgroundColor: surface }}
+        className="w-full flex items-center gap-2 text-[11px]  transition-colors"
+        style={{ padding: '8px 12px' }}
       >
-        <span style={{ color: accent }}>
+        <span style={{ color: 'rgb(31, 31, 31)' }}>
           <ChevronIcon expanded={expanded} />
         </span>
         <span className="font-medium">{summary}</span>
@@ -402,8 +402,7 @@ export function CliOutputBlock({
 
       {/* Expanded body */}
       {expanded && (
-        <div data-testid="cli-output-body" style={{ backgroundColor: surfaceInner }}>
-          <div style={{ height: 1, backgroundColor: DIVIDER }} />
+        <div data-testid="cli-output-body test-123">
           {toolUses.length > 0 && (
             <ToolsSection
               toolUses={toolUses}
@@ -435,9 +434,9 @@ export function CliOutputBlock({
               )}
               <div
                 style={{ padding: '8px 12px 10px 12px' }}
-                className="font-mono text-[11px] leading-relaxed cli-output-md"
+                className=" text-[11px] leading-relaxed cli-output-md"
               >
-                <span style={{ color: '#CBD5E1' }}>
+                <span>
                   <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
                 </span>
               </div>

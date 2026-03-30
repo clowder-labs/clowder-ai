@@ -173,9 +173,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     const coCreatorPrimary = coCreator.color?.primary ?? '#815b5b';
     const coCreatorSecondary = coCreator.color?.secondary ?? '#FFDDD2';
     return (
-      <div data-message-id={message.id} className="flex justify-end gap-2 mb-4 items-start">
+      <div data-message-id={message.id} className="test-123 flex justify-end gap-2 mb-4 items-start">
         <div className="max-w-[75%]">
-          <div className="flex justify-end items-center gap-2 mb-1">
+          <div className="hidden justify-end items-center gap-2 mb-1">
             {isWhisper && (
               <span
                 className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}
@@ -192,14 +192,14 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             </span>
           </div>
           <div
-            className={`rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5 ${
+            className={`rounded-2xl rounded-br-sm px-4 py-3 ${
               isWhisper && !isRevealed ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-300' : ''
             }`}
             style={
               !isWhisper || isRevealed
                 ? {
-                    backgroundColor: coCreatorSecondary,
-                    color: coCreatorPrimary,
+                    backgroundColor: 'rgb(222, 236, 255)',
+                    color: 'rgb(25, 25, 25)',
                   }
                 : undefined
             }
@@ -212,7 +212,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           </div>
         </div>
         <div
-          className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 flex items-center justify-center text-[11px] font-bold text-white"
+          className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 hidden items-center justify-center text-[11px] font-bold text-white"
           style={{ backgroundColor: coCreatorPrimary, boxShadow: `0 0 0 2px ${coCreatorSecondary}` }}
         >
           {coCreator.avatar ? (
@@ -252,9 +252,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   return (
     <div data-message-id={message.id} className="group flex gap-2 mb-4 items-start">
       {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
-      <div className="max-w-[85%] md:max-w-[75%] min-w-0">
+      <div className="test-123 max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
-          <div className="mb-1 flex flex-col gap-1 min-w-0">
+          <div className="test-123 mb-1 flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>
                 {catStyle.label}
@@ -322,17 +322,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           </div>
         )}
         <div
-          className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
+          className={`test-123 px-4 py-3 overflow-hidden ${
             catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200 rounded-2xl'
           }`}
-          style={
-            catStyle
-              ? {
-                  backgroundColor: catStyle.bgColor,
-                  borderColor: catStyle.borderColor,
-                }
-              : undefined
-          }
         >
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
