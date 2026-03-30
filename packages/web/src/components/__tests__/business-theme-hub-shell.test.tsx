@@ -94,13 +94,14 @@ describe('business theme hub shell', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('renders HubCapabilityTab with project selector and capability cards', async () => {
+  it('renders HubCapabilityTab capability cards without project selector', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
     });
     await flushEffects();
 
-    expect(container.querySelector('select')?.className).toContain('ui-field');
+    expect(container.querySelector('select')).toBeNull();
+    expect(container.textContent).not.toContain('项目:');
     expect(container.querySelector('[data-testid="capability-card-skill-ops-skill"]')?.className).toContain('ui-card');
     expect(container.textContent).toContain('来源：官方');
     expect(container.textContent).toContain('启用状态');

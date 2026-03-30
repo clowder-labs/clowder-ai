@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubSkillsTab } from './HubSkillsTab';
 
-const INSTALLED = '已安装';
+const INSTALLED = '我的技能';
 const SKILL_PLAZA = '技能广场';
 
 export function SkillsPanel() {
   const [activeTab, setActiveTab] = useState<'installed' | 'plaza'>('installed');
 
   return (
-    <div className="ui-page-shell gap-4">
+    <div className="ui-page-shell gap-2">
       <div className="ui-page-header-inline items-start">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-5">
@@ -31,8 +31,8 @@ export function SkillsPanel() {
             </button>
           </div>
           <div
-            className="ui-tab-indicator w-[42px]"
-            style={{ transform: activeTab === 'plaza' ? 'translateX(70px)' : 'translateX(0)' }}
+            className="ui-tab-indicator w-[56px]"
+            style={{ transform: activeTab === 'plaza' ? 'translateX(78px)' : 'translateX(0)' }}
           />
         </div>
       </div>
