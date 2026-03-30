@@ -1,10 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
 import { apiFetch } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
-import { groupKeyFromModelName, modelIconVisual, resolveModelIconType } from './model-icon';
 import { TagEditor } from './hub-tag-editor';
 
 const ADD_MODEL = '添加模型';
@@ -16,17 +14,20 @@ const NO_RESULTS_TEXT = '未找到匹配模型';
 const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
 const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
+const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
 const DEFAULT_ICON = '/avatars/assistant.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
+const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 
 interface MassModelResponseItem {
   id?: string | number;
   object?: string;
   name?: string;
   description?: string;
-  labels?: unknown;
-  developer?: unknown;
-  icon?: unknown;
+  protocol?: string;
+  labels?: string[];
+  developer?: string;
+  icon?: string;
   [key: string]: unknown;
 }
 
@@ -38,6 +39,8 @@ interface ModelCardData {
   labels: string[];
   developer: string;
   icon: string;
+  protocol: string;
+  [key: string]: unknown;
 }
 
 interface ModelCardGroup {
@@ -101,6 +104,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
   const developer =
     pickStringField(item, ['developer', 'provider', 'vendor', 'publisher', 'company']) ?? DEFAULT_DEVELOPER;
   const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']) ?? DEFAULT_ICON;
+  const protocol = pickStringField(item, ['protocol']) ?? UNKNOWN_PROTOCOL_LABEL;
 
   return {
     id,
@@ -110,7 +114,20 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     labels,
     developer,
     icon,
+    protocol,
   };
+}
+
+function protocolGroupLabel(protocol: string): string {
+  const trimmed = protocol.trim();
+  if (trimmed.toLowerCase() === 'huawei_maas') return HUAWEI_MAAS_GROUP_LABEL;
+  return CUSTOM_MODEL_GROUP_LABEL;
+}
+
+function protocolGroupKey(protocol: string): string {
+  const trimmed = protocol.trim().toLowerCase();
+  if (trimmed === 'huawei_maas') return 'huawei_maas';
+  return 'custom_models';
 }
 
 function buildModelSearchText(card: ModelCardData): string {
@@ -120,7 +137,8 @@ function buildModelSearchText(card: ModelCardData): string {
     card.id,
     card.object,
     card.developer,
-    HUAWEI_MAAS_GROUP_LABEL,
+    card.protocol,
+    protocolGroupLabel(card.protocol),
     ...card.labels,
   ]
     .join(' ')
@@ -128,8 +146,16 @@ function buildModelSearchText(card: ModelCardData): string {
 }
 
 function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
-  if (cards.length === 0) return [];
-  return [{ key: 'huawei-maas', label: HUAWEI_MAAS_GROUP_LABEL, items: cards }];
+  return cards.reduce<ModelCardGroup[]>((acc, item) => {
+    const key = protocolGroupKey(item.protocol || UNKNOWN_PROTOCOL_LABEL);
+    const existing = acc.find((group) => group.key === key);
+    if (existing) {
+      existing.items.push(item);
+      return acc;
+    }
+    acc.push({ key, label: protocolGroupLabel(key), items: [item] });
+    return acc;
+  }, []);
 }
 
 export function ModelsPanel() {
