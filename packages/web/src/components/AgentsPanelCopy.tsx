@@ -405,6 +405,7 @@ export function AgentsPanel() {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templatePage, setTemplatePage] = useState(0);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(INSPIRATION_TEMPLATES[0]?.id ?? null);
+  const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
 
   const filteredCats = useMemo(() => {
@@ -476,6 +477,11 @@ export function AgentsPanel() {
     [activeTemplateId, visibleTemplates],
   );
 
+  const hoveredTemplatePreview = useMemo(
+    () => visibleTemplates.find((template) => template.id === hoveredTemplateId) ?? null,
+    [hoveredTemplateId, visibleTemplates],
+  );
+
   useEffect(() => {
     if (cats.length === 0) {
       setSelectedCatId(null);
@@ -522,13 +528,18 @@ export function AgentsPanel() {
   useEffect(() => {
     if (!visibleTemplates.length) {
       setActiveTemplateId(null);
+      setHoveredTemplateId(null);
       return;
     }
 
     if (!activeTemplateId || !visibleTemplates.some((template) => template.id === activeTemplateId)) {
       setActiveTemplateId(visibleTemplates[0].id);
     }
-  }, [activeTemplateId, visibleTemplates]);
+
+    if (hoveredTemplateId && !visibleTemplates.some((template) => template.id === hoveredTemplateId)) {
+      setHoveredTemplateId(null);
+    }
+  }, [activeTemplateId, hoveredTemplateId, visibleTemplates]);
 
   useEffect(() => {
     if (currentTab.editable) return;
@@ -653,6 +664,7 @@ export function AgentsPanel() {
         };
       });
       setActiveTemplateId(template.id);
+      setHoveredTemplateId(null);
       setMode('edit');
       setTemplateModalOpen(false);
     },
@@ -744,7 +756,7 @@ export function AgentsPanel() {
   };
 
   const renderMarkdownEditor = () => (
-    <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
+    <div className="flex h-full min-h-0 flex-col px-6 pb-6">
       <div className="min-h-0 flex-1 overflow-hidden">
         <textarea
           value={activeWorkingDraft}
@@ -765,42 +777,12 @@ export function AgentsPanel() {
   );
 
   const renderPersonaEmptyEditor = () => (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       <p className="px-6 pb-1 text-[12px] text-[#9AA2B0]">
         请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
       </p>
-      <div className="relative flex min-h-0 flex-1 flex-col px-6 pb-6 pt-4">
-        {activeTemplatePreview ? (
-          <div className="pointer-events-none absolute left-1/2 top-10 z-10 w-full max-w-[304px] -translate-x-1/2">
-            <div className="pointer-events-auto relative rounded-[18px] border border-[#E7ECF3] bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
-              <div className="text-[13px] font-semibold text-[#2F3746]">{activeTemplatePreview.title}</div>
-              <div className="mt-4 text-[12px] font-semibold text-[#374151]">人格定义 (Persona)</div>
-              <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
-                {activeTemplatePreview.persona.map((line) => (
-                  <li key={line}>• {line}</li>
-                ))}
-              </ul>
-              <div className="mt-4 text-[12px] font-semibold text-[#374151]">行为准则 (Behavior)</div>
-              <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
-                {activeTemplatePreview.behavior.map((line) => (
-                  <li key={line}>• {line}</li>
-                ))}
-              </ul>
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => handleApplyTemplate(activeTemplatePreview.id)}
-                  className="rounded-full bg-[#1F2633] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#171D28]"
-                >
-                  插入模板
-                </button>
-              </div>
-              <div className="absolute left-1/2 top-[calc(100%-7px)] h-[14px] w-[14px] -translate-x-1/2 rotate-45 border-b border-r border-[#E7ECF3] bg-white" />
-            </div>
-          </div>
-        ) : null}
-
-        <div className="mt-auto">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6 pt-4">
+        <div className="mt-auto mx-auto w-full max-w-[1328px]">
           <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[#A0A8B6]">
             <span>灵魂模板</span>
             {templatePageCount > 1 ? (
@@ -826,25 +808,72 @@ export function AgentsPanel() {
               </div>
             ) : null}
           </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {visibleTemplates.map((template) => {
               const isActive = activeTemplatePreview?.id === template.id;
+              const isHovered = hoveredTemplatePreview?.id === template.id;
               return (
-                <button
+                <div
                   key={template.id}
-                  type="button"
-                  onMouseEnter={() => setActiveTemplateId(template.id)}
-                  onFocus={() => setActiveTemplateId(template.id)}
-                  onClick={() => setActiveTemplateId(template.id)}
-                  className={`min-h-[96px] rounded-[12px] border px-3 py-3 text-left transition ${
-                    isActive
-                      ? 'border-[#D8E1EC] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
-                      : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-[#FFFFFF]'
-                  }`}
+                  className="relative"
+                  onMouseEnter={() => {
+                    setHoveredTemplateId(template.id);
+                    setActiveTemplateId(template.id);
+                  }}
+                  onMouseLeave={() => setHoveredTemplateId(null)}
+                  onFocus={() => {
+                    setHoveredTemplateId(template.id);
+                    setActiveTemplateId(template.id);
+                  }}
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      setHoveredTemplateId(null);
+                    }
+                  }}
                 >
-                  <div className="text-[13px] font-semibold text-[#3A4352]">{template.title}</div>
-                  <div className="mt-2 text-[11px] leading-5 text-[#9AA2AF]">{template.description}</div>
-                </button>
+                  {isHovered ? (
+                    <div className="absolute bottom-[calc(100%+16px)] left-1/2 z-20 w-[304px] -translate-x-1/2">
+                      <div className="relative rounded-[18px] border border-[#E7ECF3] bg-white px-4 py-4 shadow-[0_12px_32px_rgba(15,23,42,0.10)]">
+                        <div className="text-[13px] font-semibold text-[#2F3746]">{template.title}</div>
+                        <div className="mt-4 text-[12px] font-semibold text-[#374151]">人格定义 (Persona)</div>
+                        <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+                          {template.persona.map((line) => (
+                            <li key={line}>• {line}</li>
+                          ))}
+                        </ul>
+                        <div className="mt-4 text-[12px] font-semibold text-[#374151]">行为准则 (Behavior)</div>
+                        <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+                          {template.behavior.map((line) => (
+                            <li key={line}>• {line}</li>
+                          ))}
+                        </ul>
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleApplyTemplate(template.id)}
+                            className="rounded-full bg-[#1F2633] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#171D28]"
+                          >
+                            插入模板
+                          </button>
+                        </div>
+                        <div className="absolute left-1/2 top-[calc(100%-7px)] h-[14px] w-[14px] -translate-x-1/2 rotate-45 border-b border-r border-[#E7ECF3] bg-white" />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTemplateId(template.id)}
+                    className={`min-h-[128px] w-full rounded-[14px] border px-4 py-4 text-left transition ${
+                      isHovered || isActive
+                        ? 'border-[#D8E1EC] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]'
+                        : 'border-[#E8ECF2] bg-[#FAFAFA] hover:border-[#D8E1EC] hover:bg-white'
+                    }`}
+                  >
+                    <div className="text-[13px] font-semibold text-[#3A4352]">{template.title}</div>
+                    <div className="mt-2 text-[11px] leading-5 text-[#9AA2AF]">{template.description}</div>
+                  </button>
+                </div>
               );
             })}
           </div>
