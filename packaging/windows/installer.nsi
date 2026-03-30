@@ -264,10 +264,10 @@ Section "Install"
   ; Rebuild Python launchers with the user's installed runtime so console_scripts
   ; like agent-teams.exe do not retain the build machine's absolute Python path.
   DetailPrint "正在安装 Python 运行时依赖..."
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\install-python-wheelhouse.ps1" -ProjectRoot "$INSTDIR" -ManifestPath "$INSTDIR\installer-seed\python-wheelhouse-manifest.json" -PythonExe "$INSTDIR\tools\python\python.exe" -ForceReinstall'
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\install-python-wheelhouse.ps1" -ProjectRoot "$INSTDIR" -ManifestPath "$INSTDIR\installer-seed\python-wheelhouse-manifest.json" -PythonExe "$INSTDIR\tools\python\python.exe" -LogPath "$INSTDIR\logs\python-wheelhouse-install.log" -ForceReinstall'
   Pop $0
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "Python 运行时依赖安装失败，安装已中止。"
+    MessageBox MB_ICONSTOP|MB_OK "Python 运行时依赖安装失败，安装已中止。$\r$\n$\r$\n请查看日志：$INSTDIR\logs\python-wheelhouse-install.log"
     Abort
   ${EndIf}
 
