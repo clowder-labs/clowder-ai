@@ -124,7 +124,7 @@ vi.mock('@/hooks/useCatData', () => ({
 }));
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
-    theme: 'default',
+    theme: 'warm',
     config: {
       sidebar: { bg: '#fff' },
       content: { bg: '#fff' },
