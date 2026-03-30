@@ -123,9 +123,10 @@ class McpToolManager(IToolProvider):
 
     @staticmethod
     def _normalize_tool_name(mcp_name: str, tool_name: str) -> str:
-        prefix = f"{mcp_name}:"
-        if tool_name.startswith(prefix):
-            return tool_name[len(prefix):]
+        # Accept both legacy ":" and new "_" MCP separators.
+        for prefix in (f"{mcp_name}:", f"{mcp_name}_"):
+            if tool_name.startswith(prefix):
+                return tool_name[len(prefix):]
         return tool_name
 
 

@@ -21,6 +21,7 @@ from dare_framework.tool.types import (
 )
 
 logger = logging.getLogger(__name__)
+MCP_TOOL_NAME_SEPARATOR = "_"
 
 
 class MCPError(Exception):
@@ -168,7 +169,8 @@ class MCPClient(IMCPClient):
             tool_name = _tool_field(tool_def, "name", "")
             if not tool_name:
                 continue
-            full_name = f"{self._name}:{tool_name}"
+            # Use underscore separator for compatibility with providers that reject ':' in function names.
+            full_name = f"{self._name}{MCP_TOOL_NAME_SEPARATOR}{tool_name}"
             tools.append(
                 _MCPRemoteTool(
                     client=self,
