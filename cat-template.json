@@ -82,6 +82,20 @@
       "lead": true,
       "available": true,
       "evaluation": "开源多模型编码猫，自带 Oh My OpenCode 多专家编排 + LSP (F105)"
+    },
+    "jiuwenclaw": {
+      "family": "jiuwenclaw",
+      "roles": ["assistant", "office"],
+      "lead": false,
+      "available": false,
+      "evaluation": "通用 office 助理，适合文档整理、信息汇总、日程和事务协助；绑定 OpenAI-compatible API key 后可启用"
+    },
+    "agentteams": {
+      "family": "agentteams",
+      "roles": ["coding", "multi-agent", "complex-task"],
+      "lead": false,
+      "available": true,
+      "evaluation": "多智能体协作引擎，擅长复杂任务拆解与多步骤编排；绑定 ACP provider profile 后可启用"
     }
   },
   "reviewPolicy": {
@@ -623,6 +637,87 @@
             "refText": "你的本事不错，对丘丘…咳…邪魔从不手软，我们结伴而行如何。",
             "instruct": "用一个正直可靠的少年语气说话，话不多但每句都认真",
             "temperature": 0.3
+          }
+        }
+      ]
+    },
+    {
+      "id": "jiuwenclaw",
+      "catId": "jiuwenclaw",
+      "name": "办公助理",
+      "displayName": "办公助理",
+      "nickname": "小九",
+      "avatar": "/avatars/jiuwenclaw.png",
+      "color": {
+        "primary": "#D97A3A",
+        "secondary": "#F6E7DA"
+      },
+      "mentionPatterns": ["@jiuwenclaw", "@jiuwenClaw", "@jiuwen", "@办公助理", "@office", "@小九"],
+      "roleDescription": "通用 office 助理，负责文档整理、会议纪要、资料汇总、事项跟进和日常事务协助",
+      "teamStrengths": "文档整理、会议纪要、信息汇总、事务推进、流程协助",
+      "caution": "默认仅固定展示；真正启用仍需绑定 OpenAI-compatible API key profile",
+      "defaultVariantId": "jiuwenclaw-default",
+      "features": {
+        "sessionChain": false
+      },
+      "variants": [
+        {
+          "id": "jiuwenclaw-default",
+          "provider": "relayclaw",
+          "defaultModel": "gpt-5.4",
+          "mcpSupport": true,
+          "cli": {
+            "command": "jiuwenclaw-app",
+            "outputFormat": "json"
+          },
+          "personality": "耐心细致、沟通清楚，优先帮助用户把办公事务梳理清楚并推进落地",
+          "strengths": ["office-assistant", "documentation", "summarization", "coordination"],
+          "contextBudget": {
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
+          }
+        }
+      ]
+    },
+    {
+      "id": "agentteams",
+      "catId": "agentteams",
+      "name": "协作引擎",
+      "displayName": "协作引擎",
+      "nickname": "小协",
+      "avatar": "/avatars/agentteams.png",
+      "color": {
+        "primary": "#4CAF50",
+        "secondary": "#E8F5E9"
+      },
+      "mentionPatterns": ["@agentteams", "@协作引擎", "@小协", "@agent-teams"],
+      "roleDescription": "多智能体协作引擎，擅长复杂任务拆解、多步骤编排和工具链调度",
+      "teamStrengths": "复杂任务分解、多步骤编排、工具链调度",
+      "caution": null,
+      "capabilities": {
+        "sessionChain": true
+      },
+      "defaultVariantId": "agentteams-default",
+      "variants": [
+        {
+          "id": "agentteams-default",
+          "provider": "acp",
+          "defaultModel": "agent-teams",
+          "mcpSupport": true,
+          "cli": {
+            "command": "agent-teams",
+            "args": ["gateway", "acp", "stdio"],
+            "outputFormat": "json"
+          },
+          "personality": "冷静高效的任务指挥官，擅长将复杂问题拆解为可执行步骤并协调多方资源完成",
+          "strengths": ["multi-agent", "task-decomposition", "tool-orchestration", "coding"],
+          "contextBudget": {
+            "maxPromptTokens": 120000,
+            "maxContextTokens": 100000,
+            "maxMessages": 100,
+            "maxContentLengthPerMsg": 10000
           }
         }
       ]
