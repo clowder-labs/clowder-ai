@@ -39,7 +39,7 @@ def summarize_tools(agent: Any) -> dict[str, Any]:
             pass
 
     # Compatibility heuristic for environments without inspect_mcp_tools().
-    mcp_tools = [name for name in names if ":" in name or name.count("_") >= 2]
+    mcp_tools = [name for name in names if ":" in name or "-" in name or name.count("_") >= 2]
     local_tools = [name for name in names if name not in set(mcp_tools)]
     return {"mcp_tools": mcp_tools, "local_tools": local_tools}
 
