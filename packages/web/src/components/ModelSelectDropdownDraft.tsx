@@ -117,7 +117,7 @@ export function ModelSelectDropdownDraft({
         <div className="text-[10px] font-medium text-[var(--text-muted)]">{groupLabel}</div>
       </div>
 
-      <div role="listbox" className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2 pt-1">
+      <div role="listbox" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-0 pb-2 pt-1">
         {filteredItems.map((item) => {
           const isSelected = item.id === selectedId;
 
@@ -129,10 +129,10 @@ export function ModelSelectDropdownDraft({
               aria-selected={isSelected}
               data-testid={`model-row-${item.id}`}
               onClick={() => onSelect?.(item)}
-              className={`flex h-[34px] items-center rounded-[var(--radius-xs)] border px-2 text-left transition ${
+              className={`flex h-[34px] w-full items-center border-0 px-4 text-left transition-colors ${
                 isSelected
-                  ? 'border-[var(--border-accent)] bg-[var(--surface-selected)]'
-                  : 'border-transparent bg-[var(--surface-panel)] hover:bg-[var(--surface-card-muted)]'
+                  ? 'bg-[var(--surface-selected)]'
+                  : 'bg-[var(--surface-panel)] hover:bg-[rgb(245,245,245)]'
               }`}
             >
               <div className="flex min-w-0 items-center gap-2.5">

@@ -349,7 +349,7 @@ export function AgentsPanel() {
   const [connectThirdPartyModalOpen, setConnectThirdPartyModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templatePage, setTemplatePage] = useState(0);
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(INSPIRATION_TEMPLATES[0]?.id ?? null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
@@ -426,7 +426,7 @@ export function AgentsPanel() {
   );
 
   const activeTemplatePreview = useMemo(
-    () => visibleTemplates.find((template) => template.id === activeTemplateId) ?? visibleTemplates[0] ?? null,
+    () => visibleTemplates.find((template) => template.id === activeTemplateId) ?? null,
     [activeTemplateId, visibleTemplates],
   );
 
@@ -519,8 +519,8 @@ export function AgentsPanel() {
       return;
     }
 
-    if (!activeTemplateId || !visibleTemplates.some((template) => template.id === activeTemplateId)) {
-      setActiveTemplateId(visibleTemplates[0].id);
+    if (activeTemplateId && !visibleTemplates.some((template) => template.id === activeTemplateId)) {
+      setActiveTemplateId(null);
     }
 
     if (hoveredTemplateId && !visibleTemplates.some((template) => template.id === hoveredTemplateId)) {
@@ -753,26 +753,26 @@ export function AgentsPanel() {
   );
 
   const renderEditActions = () => {
-    const templateButtonDisabled = activeTab !== 'persona';
+    const showTemplateButton = activeTab === 'persona';
 
     return (
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            if (templateButtonDisabled || isSavingEdit) return;
-            setTemplateModalOpen(true);
-          }}
-          disabled={templateButtonDisabled || isSavingEdit}
-          className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
-            templateButtonDisabled || isSavingEdit
-              ? 'cursor-not-allowed text-[#B1B8C4]'
-              : 'text-[#445066] hover:text-[#2F3A4D]'
-          }`}
-        >
-          <TemplateIcon className="h-3.5 w-3.5" />
-          <span>模板</span>
-        </button>
+        {showTemplateButton ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (isSavingEdit) return;
+              setTemplateModalOpen(true);
+            }}
+            disabled={isSavingEdit}
+            className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
+              isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#445066] hover:text-[#2F3A4D]'
+            }`}
+          >
+            <TemplateIcon className="h-3.5 w-3.5" />
+            <span>模板</span>
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={handleCancelEdit}
@@ -895,7 +895,6 @@ export function AgentsPanel() {
                     }
                     hoveredTemplateTriggerRef.current = event.currentTarget;
                     setHoveredTemplateId(template.id);
-                    setActiveTemplateId(template.id);
                   }}
                   onMouseLeave={scheduleTemplateHoverClear}
                   onFocus={(event) => {
@@ -905,7 +904,6 @@ export function AgentsPanel() {
                     }
                     hoveredTemplateTriggerRef.current = event.currentTarget;
                     setHoveredTemplateId(template.id);
-                    setActiveTemplateId(template.id);
                   }}
                   onBlur={(event) => {
                     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -916,10 +914,12 @@ export function AgentsPanel() {
                   <button
                     type="button"
                     onClick={() => setActiveTemplateId(template.id)}
-                    className={`min-h-[128px] w-full rounded-[14px] border px-4 py-4 text-left transition ${
-                      isHovered || isActive
+                    className={`min-h-[128px] w-full rounded-[8px] border px-4 py-4 text-left transition ${
+                      isHovered
                         ? 'border-[#D8E1EC] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]'
-                        : 'border-[#E8ECF2] bg-[#FAFAFA] hover:border-[#D8E1EC] hover:bg-white'
+                        : isActive
+                          ? 'border-[#D8E1EC] bg-white'
+                        : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-white'
                     }`}
                   >
                     <div className="text-[13px] font-semibold text-[#3A4352]">{template.title}</div>
@@ -1012,9 +1012,9 @@ export function AgentsPanel() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-[16px] font-semibold text-[#1F2329]">智能体管理</h1>
+        <h1 className="ui-page-title">智能体管理</h1>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
@@ -1115,7 +1115,7 @@ export function AgentsPanel() {
               <div
                 ref={actionMenuRef}
                 role="menu"
-                className="fixed z-40 w-[80px] rounded-[6px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                className="fixed z-40 w-[80px] rounded-[6px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.16)]"
                 style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
               >
                 <button
@@ -1163,9 +1163,9 @@ export function AgentsPanel() {
                         setActiveTab(tab.id);
                         setMode('preview');
                       }}
-                      className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] transition ${
+                      className={`inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] transition ${
                         isActive
-                          ? 'bg-[#F3F4F6] font-semibold text-[#445066]'
+                          ? 'bg-[rgba(230,230,230,1)] font-semibold text-[#445066]'
                           : 'text-[#6F7785] hover:bg-[#F8FAFC]'
                       }`}
                       data-testid={`agent-tab-${tab.id}`}
@@ -1198,7 +1198,7 @@ export function AgentsPanel() {
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center justify-between gap-4 px-6 pb-4 pt-6">
                 <h2 className="text-[18px] font-bold text-[#1F2329]">{currentTab.label}</h2>
-                {mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()}
+                {currentTab.editable ? (mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()) : null}
               </div>
 
               {saveError ? <div className="px-6 pb-3 text-[12px] text-[#D16B6B]">{saveError}</div> : null}

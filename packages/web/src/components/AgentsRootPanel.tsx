@@ -15,7 +15,7 @@ export function AgentsRootPanel() {
 
   return (
     <div className="ui-page-shell">
-      <div className="flex shrink-0 items-center gap-6 px-1 pb-3">
+      <div className="flex shrink-0 items-center gap-6 px-1">
         {ROOT_TABS.map((tab) => {
           const isActive = tab.id === activeTab;
 
@@ -42,7 +42,7 @@ export function AgentsRootPanel() {
         })}
       </div>
 
-      <div data-testid="agents-root-divider" className="mb-4 h-px w-full shrink-0 bg-[#E6EAF0]" />
+      <div data-testid="agents-root-divider" className="mb-6 h-px w-full shrink-0 bg-[#E6EAF0]" />
 
       <div className="min-h-0 flex-1">
         {activeTab === 'agents' ? (
