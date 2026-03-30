@@ -80,9 +80,21 @@ describe('business theme panels', () => {
     root = createRoot(container);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === '/api/mass-models') {
+      if (url === '/api/maas-models') {
         return Promise.resolve(
-          jsonResponse({ list: [{ id: 'gpt-5', object: 'model', name: 'gpt-5', description: 'flagship model' }] }),
+          jsonResponse({
+            list: [
+              {
+                id: 'gpt-5',
+                object: 'model',
+                name: 'gpt-5',
+                description: 'flagship model',
+                labels: ['文本生成'],
+                developer: 'OpenAI',
+                icon: '/avatars/assistant.svg',
+              },
+            ],
+          }),
         );
       }
       if (url === '/api/config') {

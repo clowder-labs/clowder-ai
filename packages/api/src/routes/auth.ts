@@ -269,7 +269,6 @@ async function subscriptionClaw(token = '', promotionCode?: string): Promise<Mod
     return { success: false, message: '开通失败' };
   }
 }
-
 async function getErrorMessage(response: Response): Promise<{error_code: string, error_message: string}> {
   const data: any = await response.json();
   if (data && typeof data === 'object') {

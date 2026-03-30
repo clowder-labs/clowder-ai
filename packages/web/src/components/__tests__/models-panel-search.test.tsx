@@ -1,12 +1,8 @@
-﻿import React, { act } from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
-
-vi.mock('next/image', () => ({
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => React.createElement('img', props),
-}));
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
@@ -53,12 +49,28 @@ describe('ModelsPanel search', () => {
     root = createRoot(container);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === '/api/mass-models') {
+      if (url === '/api/maas-models') {
         return Promise.resolve(
           jsonResponse({
             list: [
-              { id: 'gpt-5', object: 'model', name: 'gpt-5', description: 'flagship model' },
-              { id: 'deepseek-r1', object: 'model', name: 'deepseek-r1', description: 'reasoning model' },
+              {
+                id: 'gpt-5',
+                object: 'model',
+                name: 'gpt-5',
+                description: 'flagship model',
+                labels: ['文本生成', 'Function Call'],
+                developer: 'OpenAI',
+                icon: '/avatars/assistant.svg',
+              },
+              {
+                id: 'deepseek-r1',
+                object: 'model',
+                name: 'deepseek-r1',
+                description: 'reasoning model',
+                labels: ['深度思考'],
+                developer: 'DeepSeek',
+                icon: '/images/deepseek.svg',
+              },
             ],
           }),
         );
@@ -87,6 +99,17 @@ describe('ModelsPanel search', () => {
     expect(container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`)).not.toBeNull();
   });
 
+  it('renders one Huawei MaaS group and model labels/developer', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('华为云 MaaS (2)');
+    expect(container.textContent).toContain('文本生成');
+    expect(container.textContent).toContain('DeepSeek');
+  });
+
   it('filters cards by model name', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -101,7 +124,7 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).not.toContain('deepseek-r1');
   });
 
-  it('filters cards by derived vendor label', async () => {
+  it('filters cards by labels and developer field', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -109,8 +132,12 @@ describe('ModelsPanel search', () => {
 
     const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
     expect(input).not.toBeNull();
-    await changeInputValue(input!, 'openai');
+    await changeInputValue(input!, '深度思考');
 
+    expect(container.textContent).toContain('deepseek-r1');
+    expect(container.textContent).not.toContain('gpt-5');
+
+    await changeInputValue(input!, 'openai');
     expect(container.textContent).toContain('gpt-5');
     expect(container.textContent).not.toContain('deepseek-r1');
   });
@@ -144,7 +171,7 @@ describe('ModelsPanel search', () => {
     const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/mass-models');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/maas-models');
 
     await changeInputValue(input!, 'deepseek');
 

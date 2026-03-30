@@ -12,6 +12,7 @@ import {
   buildCodexConfigPatches,
   buildStrategyPayload,
   builtinAccountIdForClient,
+  type ClientValue,
   type CodexRuntimeSettings,
   DEFAULT_ANTIGRAVITY_COMMAND_ARGS,
   filterAccounts,
@@ -65,6 +66,62 @@ function buildProjectScopedUrl(path: string, projectPath: string | null | undefi
   return `${path}?${query.toString()}`;
 }
 
+function mergeAcpProfiles(baseProfiles: ProfileItem[], providerProfiles: ProfileItem[]): ProfileItem[] {
+  const nextProfiles = [...baseProfiles];
+  const seen = new Set(baseProfiles.map((profile) => profile.id));
+  for (const profile of providerProfiles) {
+    if (profile.kind !== 'acp' || seen.has(profile.id)) continue;
+    nextProfiles.push(profile);
+    seen.add(profile.id);
+  }
+  return nextProfiles;
+}
+
+async function loadProfilesForClient(
+  projectPath: string | null | undefined,
+  client: ClientValue,
+): Promise<ProfileItem[]> {
+  const modelConfigUrl = '/api/model-config-profiles';
+  const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', projectPath);
+  const needsAcpProfiles = client === 'acp';
+
+  async function readProviderProfiles(): Promise<ProfileItem[]> {
+    const providerProfilesRes = await apiFetch(providerProfilesUrl);
+    if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+    const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+    return providerProfilesBody.providers;
+  }
+
+  let modelConfigRes: Response;
+  try {
+    modelConfigRes = await apiFetch(modelConfigUrl);
+  } catch {
+    const providerProfiles = await readProviderProfiles();
+    return needsAcpProfiles ? providerProfiles.filter((profile) => profile.kind === 'acp') : providerProfiles;
+  }
+
+  if (!modelConfigRes.ok) {
+    if (modelConfigRes.status === 404) return [];
+    throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
+  }
+
+  const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
+  if (body.exists) {
+    if (!needsAcpProfiles) return body.providers;
+    return mergeAcpProfiles(body.providers, await readProviderProfiles());
+  }
+
+  if (needsAcpProfiles) {
+    return (await readProviderProfiles()).filter((profile) => profile.kind === 'acp');
+  }
+
+  if (!body.fallbackToProviderProfiles) {
+    return [];
+  }
+
+  return readProviderProfiles();
+}
+
 export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: HubCatEditorProps) {
   const confirm = useConfirm();
   const { clients: detectedClients, clientLabels } = useAvailableClients();
@@ -96,8 +153,13 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
   );
   const modelOptions = useMemo(() => {
     if (form.client === 'antigravity' || form.client === 'acp') return [];
-    return selectedProfile?.models ?? [];
-  }, [form.client, selectedProfile]);
+    const currentModel = form.defaultModel.trim();
+    const profileModels = selectedProfile?.models ?? [];
+    if (currentModel && !profileModels.includes(currentModel)) {
+      return [currentModel, ...profileModels];
+    }
+    return profileModels;
+  }, [form.client, form.defaultModel, selectedProfile]);
   const showCodexSettings = form.client === 'openai';
   const codexSettingsEditable = !showCodexSettings || codexSettingsBaseline !== null;
 
@@ -117,35 +179,8 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
     if (!open) return;
     let cancelled = false;
     setLoadingProfiles(true);
-    const modelConfigUrl = '/api/model-config-profiles';
-    const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
     Promise.resolve()
-      .then(async () => {
-        let modelConfigRes: Response;
-        try {
-          modelConfigRes = await apiFetch(modelConfigUrl);
-        } catch {
-          const providerProfilesRes = await apiFetch(providerProfilesUrl);
-          if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-          const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-          return providerProfilesBody.providers;
-        }
-        if (!modelConfigRes.ok) {
-          if (modelConfigRes.status === 404) return [] as ProfileItem[];
-          throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
-        }
-        const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
-        if (body.exists) {
-          return body.providers;
-        }
-        if (!body.fallbackToProviderProfiles) {
-          return [] as ProfileItem[];
-        }
-        const providerProfilesRes = await apiFetch(providerProfilesUrl);
-        if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-        const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-        return providerProfilesBody.providers;
-      })
+      .then(() => loadProfilesForClient(currentProjectPath, form.client))
       .then((nextProfiles) => {
         if (!cancelled) setProfiles(nextProfiles);
       })
@@ -158,7 +193,7 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
     return () => {
       cancelled = true;
     };
-  }, [currentProjectPath, open]);
+  }, [currentProjectPath, form.client, open]);
 
   useEffect(() => {
     if (!open || !resolvedCat) {
