@@ -522,6 +522,8 @@ async function main(): Promise<void> {
   }
 
   // ── F139: Unified Scheduler (TaskRunnerV2) — additive, runs alongside V1 ──
+  // Hoist reference so invokeTrigger (created later) can be late-bound
+  let taskRunnerV2Ref: import('./infrastructure/scheduler/TaskRunnerV2.js').TaskRunnerV2 | null = null;
   try {
     const { TaskRunnerV2 } = await import('./infrastructure/scheduler/TaskRunnerV2.js');
     const { RunLedger } = await import('./infrastructure/scheduler/RunLedger.js');
@@ -573,6 +575,7 @@ async function main(): Promise<void> {
     // Hydrate persisted dynamic tasks + start
     taskRunnerV2.hydrateDynamic(dynamicTaskStore, templateRegistry);
     taskRunnerV2.start();
+    taskRunnerV2Ref = taskRunnerV2;
     app.log.info(`[api] F139: TaskRunnerV2 started, tasks: [${taskRunnerV2.getRegisteredTasks().join(', ')}]`);
   } catch (err) {
     app.log.warn(`[api] F139: TaskRunnerV2 init failed (non-fatal): ${err}`);
@@ -1314,6 +1317,8 @@ async function main(): Promise<void> {
     }
   }
 
+  // F139 Phase 4b: late-bind invokeTrigger so scheduler templates can wake cats
+  // (TaskRunnerV2 is constructed before invokeTrigger exists; bind here after both are ready)
   // Phase 3b: connector invoke trigger (auto-invoke cat after review email routing)
   const frontendBaseUrl = resolveFrontendBaseUrl(process.env, app.log);
   const invokeTrigger = new ConnectorInvokeTrigger({
@@ -1334,6 +1339,12 @@ async function main(): Promise<void> {
     },
     log: app.log,
   });
+
+  // F139 Phase 4b: late-bind invokeTrigger so scheduler templates can wake cats
+  if (taskRunnerV2Ref) {
+    taskRunnerV2Ref.setInvokeTrigger(invokeTrigger);
+    app.log.info('[api] F139: invokeTrigger bound to TaskRunnerV2');
+  }
 
   // Start email watcher AFTER listen (non-blocking, best-effort)
   await startGithubReviewWatcher({

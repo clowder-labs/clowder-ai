@@ -2,6 +2,8 @@
  * Phase 4 (AC-H2): Content fetch with browser-automation routing detection.
  * Server-side fetch for simple HTML; flags JS-heavy sites as needs-browser.
  */
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import type { FetchResult } from './types.js';
 
 /** Known JS-heavy site patterns that need real browser rendering */
@@ -32,15 +34,35 @@ const BLOCKED_HOSTS = [
   /^\[?::ffff:/i,
 ];
 
+/** Check if a resolved IP address falls in private/loopback/link-local ranges */
+function isPrivateIP(ip: string): boolean {
+  // IPv4 checks
+  if (ip.startsWith('127.') || ip.startsWith('10.') || ip.startsWith('0.') || ip.startsWith('169.254.')) return true;
+  if (ip.startsWith('192.168.')) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return true;
+  // IPv6 loopback and private
+  if (ip === '::1' || ip === '::') return true;
+  if (/^f[cd][0-9a-f]{2}:/i.test(ip)) return true;
+  if (/^fe[89ab][0-9a-f]:/i.test(ip)) return true;
+  if (/^::ffff:/i.test(ip)) return true;
+  return false;
+}
+
 /** Validate URL for SSRF safety: only public HTTP(S) allowed */
-export function validateUrl(url: string): void {
+export async function validateUrl(url: string): Promise<void> {
   const parsed = new URL(url);
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new Error(`URL blocked: only HTTP(S) allowed, got ${parsed.protocol}`);
   }
   const host = parsed.hostname;
+  // Phase 1: hostname pattern check (fast path)
   if (BLOCKED_HOSTS.some((p) => p.test(host))) {
     throw new Error(`URL blocked: internal/private address not allowed (${host})`);
+  }
+  // Phase 2: DNS resolution check — prevents rebind attacks via external domains pointing to internal IPs
+  const resolvedIP = isIP(host) ? host : (await lookup(host)).address;
+  if (isPrivateIP(resolvedIP)) {
+    throw new Error(`URL blocked: resolved to private IP ${resolvedIP} (${host})`);
   }
 }
 
@@ -64,7 +86,7 @@ export function extractText(html: string): { title: string; text: string } {
 
 export function createFetchContentFn(): (url: string) => Promise<FetchResult> {
   return async (url: string): Promise<FetchResult> => {
-    validateUrl(url);
+    await validateUrl(url);
 
     if (needsBrowser(url)) {
       return {

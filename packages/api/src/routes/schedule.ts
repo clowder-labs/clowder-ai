@@ -227,12 +227,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       createdAt: new Date().toISOString(),
     };
 
-    dynamicTaskStore.insert(def);
-
-    // Register in runtime
+    // Register in runtime first (validates cron expression etc.), then persist
     const spec = template.createSpec(id, { trigger, params, deliveryThreadId: def.deliveryThreadId });
     spec.display = display;
-    taskRunner.registerDynamic(spec, id);
+    try {
+      taskRunner.registerDynamic(spec, id);
+    } catch (err) {
+      reply.status(400);
+      return { error: `Failed to register task: ${err instanceof Error ? err.message : String(err)}` };
+    }
+
+    // Only persist after successful runtime registration
+    dynamicTaskStore.insert(def);
 
     return { success: true, task: { id, ...display, trigger } };
   });

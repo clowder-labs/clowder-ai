@@ -39,6 +39,14 @@ async function callbackDelete(path: string): Promise<ToolResult> {
   }
 }
 
+// ─── List registered tasks ──────────────────────────────────
+
+export const listScheduledTasksInputSchema = {};
+
+export async function handleListScheduledTasks(_input: Record<string, never>): Promise<ToolResult> {
+  return callbackGet('/api/schedule/tasks');
+}
+
 // ─── List templates ──────────────────────────────────────────
 
 export const listScheduleTemplatesInputSchema = {};
@@ -181,6 +189,15 @@ export async function handleRemoveScheduledTask(input: { taskId: string }): Prom
 // ─── Tool definitions ───────────────────────────────────────
 
 export const scheduleTools = [
+  {
+    name: 'cat_cafe_list_scheduled_tasks',
+    description:
+      'List all currently registered scheduled tasks (both builtin and user-created dynamic tasks). ' +
+      'Returns task IDs, labels, triggers, last run info, and enabled state. ' +
+      'Use this to check what tasks are active before registering or removing tasks.',
+    inputSchema: listScheduledTasksInputSchema,
+    handler: handleListScheduledTasks,
+  },
   {
     name: 'cat_cafe_list_schedule_templates',
     description:
