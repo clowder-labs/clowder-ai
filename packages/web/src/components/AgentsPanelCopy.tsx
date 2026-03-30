@@ -1,0 +1,1140 @@
+﻿'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
+import { type CatData, useCatData } from '@/hooks/useCatData';
+import { CreateAgentModalDraft } from './CreateAgentModalDraft';
+import { MarkdownContent } from './MarkdownContent';
+import { PromptSelectionModal } from './PromptSelectionModal';
+
+type AgentTabKey = 'persona' | 'collab' | 'skills' | 'memory' | 'preference';
+type EditableTabKey = 'persona' | 'collab';
+type PanelMode = 'preview' | 'edit';
+type EditableDrafts = Record<EditableTabKey, string>;
+type IconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+
+type InspirationTemplate = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  persona: string[];
+  behavior: string[];
+};
+
+type TabDefinition = {
+  id: AgentTabKey;
+  label: string;
+  icon: IconComponent;
+  editable: boolean;
+};
+
+const EMPTY_EDITABLE_DRAFTS: EditableDrafts = {
+  persona: '',
+  collab: '',
+};
+
+const TEMPLATE_PAGE_SIZE = 4;
+
+const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
+  {
+    id: 'customer-service',
+    title: '专业客服助手',
+    description: '遵循服务规范，礼貌应答、流程引导、问题定位与转接支持，严格遵守业务边界。',
+    category: '客服支持',
+    persona: [
+      '身份：资深客服顾问，擅长复杂问题拆解与安抚沟通。',
+      '性格：耐心克制、语气专业、表达清晰。',
+      '边界：优先给流程和升级路径，不承诺超出权限范围的结果。',
+    ],
+    behavior: [
+      '精准识别用户诉求与情绪波动，先安抚再给处理路径。',
+      '优先提供标准流程与升级建议，避免模糊表述。',
+      '回复中同步标注下一步动作和责任归属，方便继续跟进。',
+    ],
+  },
+  {
+    id: 'content-creation',
+    title: '内容创作助手',
+    description: '支持文案策写、标题优化、脚本创作与风格适配，结构清晰，表达自然。',
+    category: '文案创作',
+    persona: [
+      '身份：资深内容创作者，擅长短视频脚本、公众号与朋友圈文案。',
+      '性格：创意灵活、洞察强，适配多平台风格。',
+      '边界：只提供创作思路和文案优化，不涉及侵权内容。',
+    ],
+    behavior: [
+      '先明确平台、受众、核心卖点与风格，再组织内容结构。',
+      '快速提供多版初稿，并标注亮点和适用场景。',
+      '根据反馈迭代修改，同时说明调整重点和原因。',
+    ],
+  },
+  {
+    id: 'knowledge-answering',
+    title: '知识解答专家',
+    description: '以严谨准确为原则，科普概念、拆解原理、解释规则，输出可信且有条理。',
+    category: '知识解答',
+    persona: [
+      '身份：知识顾问，擅长多源信息整合与严谨解释。',
+      '性格：理性克制、客观中立、注重依据。',
+      '边界：不制造未经验证的结论，需要时先补充上下文。',
+    ],
+    behavior: [
+      '先确认问题边界和上下文，再给出结构化解释。',
+      '需要时补充适用范围、风险提醒和可执行建议。',
+      '输出以结论、依据、行动项三段式为主，便于快速吸收。',
+    ],
+  },
+  {
+    id: 'work-efficiency',
+    title: '职场效率助手',
+    description: '提供沟通话术、汇报提纲、流程梳理与决策辅助，帮助提升交付效率。',
+    category: '效率协作',
+    persona: [
+      '身份：项目协作教练，擅长流程梳理与任务推进。',
+      '性格：简洁务实、节奏明确、结果导向。',
+      '边界：优先提升沟通和推进效率，不替代最终业务判断。',
+    ],
+    behavior: [
+      '优先沉淀行动项、责任人和时间节点。',
+      '必要时给出沟通模板、纪要模板和复盘建议。',
+      '遇到阻塞时先拆原因，再提供可落地的替代方案。',
+    ],
+  },
+  {
+    id: 'project-management',
+    title: '项目管理助手',
+    description: '帮助拆解目标、制定里程碑、推动协作与风险跟踪，保持推进节奏清晰。',
+    category: '项目协同',
+    persona: [
+      '身份：项目经理与交付协调者，擅长推进计划落地。',
+      '性格：稳健清晰、节奏明确、关注依赖关系。',
+      '边界：聚焦项目推进与协作管理，不替代业务 owner 决策。',
+    ],
+    behavior: [
+      '先明确目标与边界，再拆解任务、识别风险并推动闭环。',
+      '围绕依赖关系和优先级安排里程碑与检查点。',
+      '产出默认带负责人、时间节点和跟踪建议。',
+    ],
+  },
+  {
+    id: 'data-analysis',
+    title: '数据分析助手',
+    description: '聚焦指标拆解、数据解读、洞察归纳与结论表达，适合业务分析场景。',
+    category: '数据分析',
+    persona: [
+      '身份：数据分析师，擅长从指标与样本中提炼业务洞察。',
+      '性格：严谨客观、表达简洁、重视证据。',
+      '边界：不在样本不足时输出确定性结论，会明确说明口径和限制。',
+    ],
+    behavior: [
+      '先确认指标口径与样本范围，再给出分析过程。',
+      '输出结论时同步说明依据、异常点和建议动作。',
+      '默认补充图表建议、后续验证方向和数据缺口。',
+    ],
+  },
+];
+
+function SearchIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PersonaIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <rect x="6" y="4" width="12" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8.8 16.2C9.7 14.8 10.8 14 12 14C13.2 14 14.3 14.8 15.2 16.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CollaborateIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <circle cx="8" cy="9" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="16" cy="9" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4.5 18C5.2 15.8 6.8 14.8 8.5 14.8C10.2 14.8 11.8 15.8 12.5 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M11.5 18C12.2 15.8 13.8 14.8 15.5 14.8C17.2 14.8 18.8 15.8 19.5 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SkillsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M12 4L13.8 8.2L18 10L13.8 11.8L12 16L10.2 11.8L6 10L10.2 8.2L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M18.5 4.5L19 6L20.5 6.5L19 7L18.5 8.5L18 7L16.5 6.5L18 6L18.5 4.5Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function MemoryIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M7 5.5A2.5 2.5 0 0 1 9.5 3H17V20L12 16.8L7 20V5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M7 6H5.5A2.5 2.5 0 0 0 3 8.5V17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PreferenceIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M5 6H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M5 18H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="9" cy="6" r="2" fill="white" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="15" cy="12" r="2" fill="white" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="11" cy="18" r="2" fill="white" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function TemplateIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <rect x="4" y="5" width="16" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 10H16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 14H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function EditIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M4 20H8L18 10C18.8 9.2 18.8 7.9 18 7.1L16.9 6C16.1 5.2 14.8 5.2 14 6L4 16V20Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12.8 7.2L16.8 11.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M5 12.5L9.2 16.5L19 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MoreVerticalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <circle cx="12" cy="5.5" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="12" cy="18.5" r="1.6" />
+    </svg>
+  );
+}
+
+function CopyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <rect x="8" y="8" width="10" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6 15H5C3.9 15 3 14.1 3 13V5C3 3.9 3.9 3 5 3H13C14.1 3 15 3.9 15 5V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TrashIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M5 7H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9 7V5.5C9 4.7 9.7 4 10.5 4H13.5C14.3 4 15 4.7 15 5.5V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 9.5V18C8 19.1 8.9 20 10 20H14C15.1 20 16 19.1 16 18V9.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M10 11.5V16.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M14 11.5V16.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M15 6L9 12L15 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+const AGENT_TABS: TabDefinition[] = [
+  { id: 'persona', label: '灵魂配置', icon: PersonaIcon, editable: true },
+  { id: 'collab', label: '协作配置', icon: CollaborateIcon, editable: true },
+  { id: 'skills', label: '技能配置', icon: SkillsIcon, editable: false },
+  { id: 'memory', label: '记忆配置', icon: MemoryIcon, editable: false },
+  { id: 'preference', label: '用户偏好', icon: PreferenceIcon, editable: false },
+];
+
+function isEditableTab(tab: AgentTabKey): tab is EditableTabKey {
+  return tab === 'persona' || tab === 'collab';
+}
+
+function buildPersonaDraft(cat: CatData | null): string {
+  return cat?.personality?.trim() ?? '';
+}
+
+function buildCollabDraft(cat: Pick<CatData, 'teamStrengths' | 'strengths' | 'caution' | 'sessionChain'> | null): string {
+  if (!cat) return '';
+
+  const lines: string[] = [];
+  lines.push('## 协作配置');
+  lines.push('');
+
+  if (cat.teamStrengths?.trim()) lines.push(`- 团队协作优势：${cat.teamStrengths.trim()}`);
+  if (cat.strengths?.length) lines.push(`- 能力标签：${cat.strengths.join('、')}`);
+  if (typeof cat.sessionChain === 'boolean') lines.push(`- Session Chain：${cat.sessionChain ? '开启' : '关闭'}`);
+  if (cat.caution?.trim()) lines.push(`- 协作提醒：${cat.caution.trim()}`);
+
+  if (lines.length === 2) return '';
+  lines.push('');
+  lines.push('## 交接规则');
+  lines.push('');
+  lines.push('- 输出尽量使用结论、步骤、风险三段式，方便其他智能体继续接力。');
+  lines.push('- 需要升级处理时，先补充上下文、依赖和待确认事项。');
+  return lines.join('\n');
+}
+
+function buildEditableDrafts(cat: CatData | null): EditableDrafts {
+  return {
+    persona: buildPersonaDraft(cat),
+    collab: buildCollabDraft(cat),
+  };
+}
+
+function buildTemplateMarkdown(template: InspirationTemplate): string {
+  return [
+    `## ${template.title}`,
+    '',
+    '### 人格定义 (Persona)',
+    '',
+    ...template.persona.map((line) => `- ${line}`),
+    '',
+    '### 行为准则 (Behavior)',
+    '',
+    ...template.behavior.map((line) => `- ${line}`),
+  ].join('\n');
+}
+
+function formatBudgetLabel(value?: number): string {
+  if (!value || Number.isNaN(value)) return '-- KB';
+  const kb = Math.max(1, Math.round(value / 1024));
+  return `${kb} KB`;
+}
+
+function catInitial(name?: string): string {
+  if (!name) return '智';
+  return name.slice(0, 1).toUpperCase();
+}
+
+function renderAvatar(cat: CatData) {
+  const avatar = cat.avatar?.trim() ?? '';
+  const isImageAvatar = /^(https?:\/\/|\/|data:image)/.test(avatar);
+
+  if (isImageAvatar) {
+    return <img src={avatar} alt={cat.displayName} className="h-9 w-9 rounded-full object-cover" />;
+  }
+
+  return (
+    <div
+      className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white"
+      style={{ backgroundColor: cat.color?.primary ?? '#7AAEFF' }}
+    >
+      <span>{avatar || catInitial(cat.displayName)}</span>
+    </div>
+  );
+}
+
+function SkillToggle({ title, description, enabled }: { title: string; description: string; enabled: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-[14px] border border-[#E8ECF2] bg-white px-4 py-3">
+      <div className="min-w-0">
+        <div className="text-[13px] font-semibold text-[#2A303C]">{title}</div>
+        <div className="mt-1 text-[12px] leading-5 text-[#7A8495]">{description}</div>
+      </div>
+      <div className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${enabled ? 'bg-[#1F2633]' : 'bg-[#D8DEE8]'}`}>
+        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${enabled ? 'left-6' : 'left-1'}`} />
+      </div>
+    </div>
+  );
+}
+
+function PlaceholderPanel({ title, description, label }: { title: string; description: string; label: string }) {
+  return (
+    <div className="px-6 pb-6">
+      <div className="rounded-[18px] border border-dashed border-[#DCE3EC] bg-[#FCFDFE] p-6">
+        <span className="inline-flex rounded-full bg-[#F3F5F8] px-3 py-1 text-[11px] font-semibold text-[#7A8495]">{label}</span>
+        <h3 className="mt-4 text-[18px] font-semibold text-[#1F2329]">{title}</h3>
+        <p className="mt-2 max-w-[560px] text-[13px] leading-6 text-[#6F7785]">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+export function AgentsPanel() {
+  const { cats, refresh } = useCatData();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
+  const [mode, setMode] = useState<PanelMode>('preview');
+  const [savedDraftsByCatId, setSavedDraftsByCatId] = useState<Record<string, EditableDrafts>>({});
+  const [workingDraftsByCatId, setWorkingDraftsByCatId] = useState<Record<string, EditableDrafts>>({});
+  const [openActionMenuCatId, setOpenActionMenuCatId] = useState<string | null>(null);
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [templatePage, setTemplatePage] = useState(0);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(INSPIRATION_TEMPLATES[0]?.id ?? null);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredCats = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return cats;
+    return cats.filter((cat) =>
+      [cat.displayName, cat.defaultModel, cat.roleDescription, ...(cat.strengths ?? [])]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(normalizedQuery)),
+    );
+  }, [cats, searchQuery]);
+
+  const currentTab = useMemo(
+    () => AGENT_TABS.find((tab) => tab.id === activeTab) ?? AGENT_TABS[0],
+    [activeTab],
+  );
+
+  const selectedCat = useMemo(
+    () => cats.find((cat) => cat.id === selectedCatId) ?? filteredCats[0] ?? cats[0] ?? null,
+    [cats, filteredCats, selectedCatId],
+  );
+
+  const selectedSavedDrafts = selectedCat
+    ? savedDraftsByCatId[selectedCat.id] ?? buildEditableDrafts(selectedCat)
+    : EMPTY_EDITABLE_DRAFTS;
+
+  const selectedWorkingDrafts = selectedCat
+    ? workingDraftsByCatId[selectedCat.id] ?? selectedSavedDrafts
+    : EMPTY_EDITABLE_DRAFTS;
+
+  const canEditActiveTab = currentTab.editable && isEditableTab(activeTab);
+  const activeSavedDraft = canEditActiveTab ? selectedSavedDrafts[activeTab] : '';
+  const activeWorkingDraft = canEditActiveTab ? selectedWorkingDrafts[activeTab] : '';
+  const showEmptyPersonaEditor = mode === 'edit' && activeTab === 'persona' && !activeWorkingDraft.trim();
+
+  const editingCat = editingCatId ? cats.find((cat) => cat.id === editingCatId) ?? null : null;
+
+  const promptSelectionItems = useMemo(
+    () =>
+      INSPIRATION_TEMPLATES.map((template) => ({
+        id: template.id,
+        title: template.title,
+        category: template.category,
+        source: '灵魂模板',
+        creator: '官方预置',
+        createdAt: '2025-09-12 17:22:30',
+        summary: template.description,
+        sections: [
+          { title: '人格定义 (Persona)', lines: template.persona },
+          { title: '行为准则 (Behavior)', lines: template.behavior },
+        ],
+        content: buildTemplateMarkdown(template),
+      })),
+    [],
+  );
+
+  const templatePageCount = Math.max(1, Math.ceil(INSPIRATION_TEMPLATES.length / TEMPLATE_PAGE_SIZE));
+  const visibleTemplates = useMemo(
+    () =>
+      INSPIRATION_TEMPLATES.slice(
+        templatePage * TEMPLATE_PAGE_SIZE,
+        templatePage * TEMPLATE_PAGE_SIZE + TEMPLATE_PAGE_SIZE,
+      ),
+    [templatePage],
+  );
+
+  const activeTemplatePreview = useMemo(
+    () => visibleTemplates.find((template) => template.id === activeTemplateId) ?? visibleTemplates[0] ?? null,
+    [activeTemplateId, visibleTemplates],
+  );
+
+  useEffect(() => {
+    if (cats.length === 0) {
+      setSelectedCatId(null);
+      return;
+    }
+
+    setSavedDraftsByCatId((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const cat of cats) {
+        if (!next[cat.id]) {
+          next[cat.id] = buildEditableDrafts(cat);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+
+    setWorkingDraftsByCatId((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const cat of cats) {
+        if (!next[cat.id]) {
+          next[cat.id] = buildEditableDrafts(cat);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [cats]);
+
+  useEffect(() => {
+    if (filteredCats.length === 0) {
+      setSelectedCatId(null);
+      return;
+    }
+
+    if (!selectedCatId || !filteredCats.some((cat) => cat.id === selectedCatId)) {
+      setSelectedCatId(filteredCats[0].id);
+      setMode('preview');
+    }
+  }, [filteredCats, selectedCatId]);
+
+  useEffect(() => {
+    if (!visibleTemplates.length) {
+      setActiveTemplateId(null);
+      return;
+    }
+
+    if (!activeTemplateId || !visibleTemplates.some((template) => template.id === activeTemplateId)) {
+      setActiveTemplateId(visibleTemplates[0].id);
+    }
+  }, [activeTemplateId, visibleTemplates]);
+
+  useEffect(() => {
+    if (currentTab.editable) return;
+    setMode('preview');
+  }, [currentTab.editable]);
+
+  useEffect(() => {
+    if (!templateModalOpen) return;
+    if (mode !== 'edit' || activeTab !== 'persona') {
+      setTemplateModalOpen(false);
+    }
+  }, [activeTab, mode, templateModalOpen]);
+
+  useEffect(() => {
+    if (!openActionMenuCatId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+        setOpenActionMenuCatId(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenActionMenuCatId(null);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [openActionMenuCatId]);
+
+  const updateWorkingDraft = useCallback(
+    (tab: EditableTabKey, value: string) => {
+      if (!selectedCat) return;
+      setWorkingDraftsByCatId((current) => ({
+        ...current,
+        [selectedCat.id]: {
+          ...(current[selectedCat.id] ?? selectedSavedDrafts),
+          [tab]: value,
+        },
+      }));
+    },
+    [selectedCat, selectedSavedDrafts],
+  );
+
+  const openAddMember = useCallback(() => {
+    setEditingCatId(null);
+    setEditorOpen(true);
+  }, []);
+
+  const openEditMember = useCallback((catId: string) => {
+    setEditingCatId(catId);
+    setEditorOpen(true);
+  }, []);
+
+  const handleEditorSaved = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
+  const handleStartEdit = useCallback(() => {
+    if (!selectedCat || !canEditActiveTab || !isEditableTab(activeTab)) return;
+    setWorkingDraftsByCatId((current) => ({
+      ...current,
+      [selectedCat.id]: {
+        ...(current[selectedCat.id] ?? selectedSavedDrafts),
+        [activeTab]: selectedSavedDrafts[activeTab],
+      },
+    }));
+    setMode('edit');
+  }, [activeTab, canEditActiveTab, selectedCat, selectedSavedDrafts]);
+
+  const handleCancelEdit = useCallback(() => {
+    if (!selectedCat) return;
+    setWorkingDraftsByCatId((current) => ({
+      ...current,
+      [selectedCat.id]: {
+        ...(current[selectedCat.id] ?? EMPTY_EDITABLE_DRAFTS),
+        ...selectedSavedDrafts,
+      },
+    }));
+    setMode('preview');
+  }, [selectedCat, selectedSavedDrafts]);
+
+  const handleSaveEdit = useCallback(() => {
+    if (!selectedCat || !canEditActiveTab || !isEditableTab(activeTab)) return;
+    setSavedDraftsByCatId((current) => ({
+      ...current,
+      [selectedCat.id]: {
+        ...(current[selectedCat.id] ?? EMPTY_EDITABLE_DRAFTS),
+        [activeTab]: selectedWorkingDrafts[activeTab],
+      },
+    }));
+    setWorkingDraftsByCatId((current) => ({
+      ...current,
+      [selectedCat.id]: {
+        ...(current[selectedCat.id] ?? EMPTY_EDITABLE_DRAFTS),
+        [activeTab]: selectedWorkingDrafts[activeTab],
+      },
+    }));
+    setMode('preview');
+  }, [activeTab, canEditActiveTab, selectedCat, selectedWorkingDrafts]);
+
+  const handleApplyTemplate = useCallback(
+    (templateId: string) => {
+      if (!selectedCat) return;
+      const template = INSPIRATION_TEMPLATES.find((item) => item.id === templateId);
+      if (!template) return;
+
+      const markdown = buildTemplateMarkdown(template);
+      setWorkingDraftsByCatId((current) => {
+        const baseDrafts = current[selectedCat.id] ?? selectedSavedDrafts;
+        const existing = baseDrafts.persona.trim();
+        return {
+          ...current,
+          [selectedCat.id]: {
+            ...baseDrafts,
+            persona: existing ? `${existing}\n\n${markdown}` : markdown,
+          },
+        };
+      });
+      setActiveTemplateId(template.id);
+      setMode('edit');
+      setTemplateModalOpen(false);
+    },
+    [selectedCat, selectedSavedDrafts],
+  );
+
+  const renderPreviewActions = () => (
+    <button
+      type="button"
+      onClick={handleStartEdit}
+      disabled={!canEditActiveTab}
+      className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
+        canEditActiveTab
+          ? 'bg-[#F5F7FA] text-[#445066] hover:bg-[#ECEFF4]'
+          : 'cursor-not-allowed bg-[#F5F7FA] text-[#B1B8C4]'
+      }`}
+    >
+      <EditIcon className="h-3.5 w-3.5" />
+      <span>编辑</span>
+    </button>
+  );
+
+  const renderEditActions = () => {
+    const templateButtonDisabled = activeTab !== 'persona';
+
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (templateButtonDisabled) return;
+            setTemplateModalOpen(true);
+          }}
+          disabled={templateButtonDisabled}
+          className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
+            templateButtonDisabled
+              ? 'cursor-not-allowed bg-[#F5F7FA] text-[#B1B8C4]'
+              : 'bg-[#F5F7FA] text-[#445066] hover:bg-[#ECEFF4]'
+          }`}
+        >
+          <TemplateIcon className="h-3.5 w-3.5" />
+          <span>模板</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleCancelEdit}
+          className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#F5F7FA] px-3 py-1.5 text-[12px] font-semibold text-[#5E6775] transition hover:bg-[#ECEFF4]"
+        >
+          <CloseIcon className="h-3.5 w-3.5" />
+          <span>取消</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleSaveEdit}
+          className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#1F2633] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
+        >
+          <CheckIcon className="h-3.5 w-3.5" />
+          <span>保存</span>
+        </button>
+      </div>
+    );
+  };
+
+  const renderEmptyEditablePreview = (message: string) => (
+    <div className="px-6 pb-6">
+      <div className="rounded-[18px] border border-dashed border-[#DCE3EC] bg-[#FCFDFE] p-6">
+        <h3 className="text-[16px] font-semibold text-[#1F2329]">{currentTab.label}</h3>
+        <p className="mt-2 max-w-[560px] text-[13px] leading-6 text-[#6F7785]">{message}</p>
+      </div>
+    </div>
+  );
+
+  const renderMarkdownPreview = (content: string) => {
+    if (!content.trim()) {
+      return renderEmptyEditablePreview('当前页签还没有内容，点击右上角“编辑”后即可开始填写。');
+    }
+
+    return (
+      <div className="px-6 pb-6">
+        <div className="h-full overflow-auto">
+          <MarkdownContent
+            content={content}
+            className="text-[13px] leading-7 text-[#445066] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[#2A303C] [&_h3]:mb-3 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-[#2A303C] [&_p]:text-[#445066] [&_ul]:mb-4 [&_li]:text-[#445066]"
+            disableCommandPrefix
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderMarkdownEditor = () => (
+    <div className="flex min-h-0 flex-1 flex-col px-6 pb-6">
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <textarea
+          value={activeWorkingDraft}
+          onChange={(event) => {
+            if (!isEditableTab(activeTab)) return;
+            updateWorkingDraft(activeTab, event.target.value);
+          }}
+          placeholder={
+            activeTab === 'persona'
+              ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
+              : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
+          }
+          className="h-full w-full resize-none border-0 bg-transparent text-[12px] leading-7 text-[#445066] outline-none placeholder:text-[#A0A8B6]"
+          data-testid="agent-tab-textarea"
+        />
+      </div>
+    </div>
+  );
+
+  const renderPersonaEmptyEditor = () => (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <p className="px-6 pb-1 text-[12px] text-[#9AA2B0]">
+        请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
+      </p>
+      <div className="relative flex min-h-0 flex-1 flex-col px-6 pb-6 pt-4">
+        {activeTemplatePreview ? (
+          <div className="pointer-events-none absolute left-1/2 top-10 z-10 w-full max-w-[304px] -translate-x-1/2">
+            <div className="pointer-events-auto relative rounded-[18px] border border-[#E7ECF3] bg-white px-4 py-4 shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+              <div className="text-[13px] font-semibold text-[#2F3746]">{activeTemplatePreview.title}</div>
+              <div className="mt-4 text-[12px] font-semibold text-[#374151]">人格定义 (Persona)</div>
+              <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+                {activeTemplatePreview.persona.map((line) => (
+                  <li key={line}>• {line}</li>
+                ))}
+              </ul>
+              <div className="mt-4 text-[12px] font-semibold text-[#374151]">行为准则 (Behavior)</div>
+              <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+                {activeTemplatePreview.behavior.map((line) => (
+                  <li key={line}>• {line}</li>
+                ))}
+              </ul>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleApplyTemplate(activeTemplatePreview.id)}
+                  className="rounded-full bg-[#1F2633] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#171D28]"
+                >
+                  插入模板
+                </button>
+              </div>
+              <div className="absolute left-1/2 top-[calc(100%-7px)] h-[14px] w-[14px] -translate-x-1/2 rotate-45 border-b border-r border-[#E7ECF3] bg-white" />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-auto">
+          <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[#A0A8B6]">
+            <span>灵魂模板</span>
+            {templatePageCount > 1 ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTemplatePage((current) => Math.max(0, current - 1))}
+                  disabled={templatePage === 0}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[#8F98A8] transition enabled:hover:bg-[#F3F5F8] disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="上一页模板"
+                >
+                  <ChevronLeftIcon className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplatePage((current) => Math.min(templatePageCount - 1, current + 1))}
+                  disabled={templatePage >= templatePageCount - 1}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[#8F98A8] transition enabled:hover:bg-[#F3F5F8] disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="下一页模板"
+                >
+                  <ChevronRightIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {visibleTemplates.map((template) => {
+              const isActive = activeTemplatePreview?.id === template.id;
+              return (
+                <button
+                  key={template.id}
+                  type="button"
+                  onMouseEnter={() => setActiveTemplateId(template.id)}
+                  onFocus={() => setActiveTemplateId(template.id)}
+                  onClick={() => setActiveTemplateId(template.id)}
+                  className={`min-h-[96px] rounded-[12px] border px-3 py-3 text-left transition ${
+                    isActive
+                      ? 'border-[#D8E1EC] bg-white shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                      : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-[#FFFFFF]'
+                  }`}
+                >
+                  <div className="text-[13px] font-semibold text-[#3A4352]">{template.title}</div>
+                  <div className="mt-2 text-[11px] leading-5 text-[#9AA2AF]">{template.description}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSkillsPreview = () => (
+    <div className="grid min-h-0 gap-4 px-6 pb-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="space-y-4">
+        <div className="rounded-[18px] border border-[#E8ECF2] bg-[#FCFDFE] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-[12px] text-[#7A8495]">默认技能包</div>
+              <div className="mt-1 text-[18px] font-semibold text-[#1F2329]">通用业务协作包</div>
+            </div>
+            <span className="rounded-full bg-[#F3F5F8] px-3 py-1 text-[11px] font-semibold text-[#445066]">页面稿</span>
+          </div>
+          <p className="mt-3 text-[13px] leading-6 text-[#6F7785]">
+            当前仅表达技能配置页面结构和视觉分组，用于承接后续真实数据接入。
+          </p>
+        </div>
+        <SkillToggle title="联网检索" description="默认开启，用于在需要外部事实和最新资料时补充搜索能力。" enabled />
+        <SkillToggle title="模板生成" description="允许按当前智能体角色快速装配预置提示模板和输出结构。" enabled />
+        <SkillToggle title="知识库检索" description="预留知识库接入位，用于后续对接内部资料和项目上下文。" enabled={false} />
+        <SkillToggle title="多步骤拆解" description="支持将复杂任务拆成多个执行阶段，并显式暴露中间检查点。" enabled />
+      </div>
+
+      <div className="rounded-[18px] border border-[#E8ECF2] bg-white p-5">
+        <div className="text-[15px] font-semibold text-[#1F2329]">能力标签</div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {['检索增强', '模板装配', '步骤拆解', '风险提醒', '多轮跟进', '结构化输出'].map((tag) => (
+            <span key={tag} className="rounded-full bg-[#F3F5F8] px-3 py-1.5 text-[12px] font-medium text-[#445066]">
+              {tag}
+            </span>
+          ))}
+        </div>
+        <div className="mt-6 rounded-[14px] bg-[#FAFBFD] p-4">
+          <div className="text-[12px] font-semibold text-[#445066]">调用说明</div>
+          <p className="mt-2 text-[12px] leading-6 text-[#7A8495]">
+            技能启停、默认技能包和能力标签目前均为静态页面示意，不绑定真实后端字段。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDetailBody = () => {
+    if (!selectedCat) {
+      return renderEmptyEditablePreview('当前没有可展示的智能体，后续可通过“新建智能体”继续补齐页面内容。');
+    }
+
+    if (mode === 'edit' && canEditActiveTab) {
+      if (showEmptyPersonaEditor) return renderPersonaEmptyEditor();
+      return renderMarkdownEditor();
+    }
+
+    if (activeTab === 'persona' || activeTab === 'collab') {
+      return renderMarkdownPreview(activeSavedDraft);
+    }
+
+    if (activeTab === 'skills') {
+      return renderSkillsPreview();
+    }
+
+    if (activeTab === 'memory') {
+      return (
+        <PlaceholderPanel
+          label="后续支持"
+          title="记忆配置暂未开放"
+          description="本轮先保留页签和内容区占位，后续会在这里补充记忆策略、保留规则、摘要方式等能力。"
+        />
+      );
+    }
+
+    return (
+      <PlaceholderPanel
+        label="后续支持"
+        title="用户偏好暂未开放"
+        description="本轮先保留页签和页面结构，后续会在这里接入输出风格、默认习惯、禁忌项等偏好配置。"
+      />
+    );
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-[16px] font-semibold text-[#1F2329]">智能体管理</h1>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
+        <div className="flex h-full min-h-0">
+          <aside className="flex h-full w-[230px] shrink-0 flex-col border-r border-[#ECEFF3] bg-white p-3">
+            <label className="mb-3 flex h-10 items-center gap-2 rounded-[10px] border border-[#E3E8EF] bg-white px-3 text-[#A4ADBA]">
+              <SearchIcon className="h-3.5 w-3.5 shrink-0" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="搜索智能体"
+                className="w-full border-0 bg-transparent text-[12px] text-[#2E3440] outline-none placeholder:text-[#A4ADBA]"
+              />
+            </label>
+
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+              {filteredCats.map((cat) => {
+                const isSelected = selectedCat?.id === cat.id;
+                const modelText = cat.defaultModel || '未配置模型';
+                const budgetText = formatBudgetLabel(cat.contextBudget?.maxContextTokens);
+
+                return (
+                  <div
+                    key={cat.id}
+                    className={`relative rounded-[12px] border px-3 py-2 transition ${
+                      isSelected
+                        ? 'border-[#86B1FF] bg-[#F7FBFF] shadow-[0_0_0_1px_rgba(134,177,255,0.18)]'
+                        : 'border-[#ECEFF3] bg-[#FAFBFC] hover:border-[#DCE5EF] hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCatId(cat.id);
+                          setOpenActionMenuCatId(null);
+                          setMode('preview');
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      >
+                        <span className="shrink-0">{renderAvatar(cat)}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13px] font-semibold text-[#2A303C]">
+                            {cat.displayName}
+                          </span>
+                          <span className="mt-1 block truncate text-[11px] text-[#9AA2B0]">
+                            {modelText} | {budgetText}
+                          </span>
+                        </span>
+                      </button>
+
+                      <div ref={openActionMenuCatId === cat.id ? actionMenuRef : null} className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setOpenActionMenuCatId((current) => (current === cat.id ? null : cat.id))}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[#AAB2BF] transition hover:bg-[#EEF2F7] hover:text-[#6A7280]"
+                          aria-label={`操作 ${cat.displayName}`}
+                        >
+                          <MoreVerticalIcon className="h-4 w-4" />
+                        </button>
+
+                        {openActionMenuCatId === cat.id ? (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-full z-20 mt-2 w-[128px] rounded-[14px] border border-[#E6EAF0] bg-white p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setSelectedCatId(cat.id);
+                                setOpenActionMenuCatId(null);
+                                openEditMember(cat.id);
+                              }}
+                              className="flex h-8 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[12px] text-[#334155] transition hover:bg-[#F4F7FB]"
+                            >
+                              <EditIcon className="h-3.5 w-3.5" />
+                              <span>编辑</span>
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => setOpenActionMenuCatId(null)}
+                              className="flex h-8 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[12px] text-[#94A3B8]"
+                              aria-disabled="true"
+                            >
+                              <CopyIcon className="h-3.5 w-3.5" />
+                              <span>复制</span>
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => setOpenActionMenuCatId(null)}
+                              className="flex h-8 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[12px] text-[#D16B6B]"
+                              aria-disabled="true"
+                            >
+                              <TrashIcon className="h-3.5 w-3.5" />
+                              <span>删除</span>
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredCats.length === 0 ? (
+                <div className="rounded-[12px] border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
+                  没有匹配的智能体
+                </div>
+              ) : null}
+            </div>
+          </aside>
+
+          <section className="flex min-w-0 flex-1 flex-col bg-white">
+            <div className="flex items-center justify-between gap-4 border-b border-[#EEF2F7] px-4 py-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {AGENT_TABS.map((tab) => {
+                  const TabIcon = tab.icon;
+                  const isActive = tab.id === activeTab;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setMode('preview');
+                      }}
+                      className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] transition ${
+                        isActive
+                          ? 'bg-[#F3F4F6] font-semibold text-[#445066]'
+                          : 'text-[#6F7785] hover:bg-[#F8FAFC]'
+                      }`}
+                      data-testid={`agent-tab-${tab.id}`}
+                    >
+                      <TabIcon className="h-3.5 w-3.5" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  title="连接三方智能体待接入"
+                  className="rounded-[10px] bg-[#F5F7FA] px-3 py-1.5 text-[12px] font-semibold text-[#445066] transition hover:bg-[#ECEFF4]"
+                >
+                  链接三方智能体
+                </button>
+                <button
+                  type="button"
+                  onClick={openAddMember}
+                  className="rounded-[10px] bg-[#1F2633] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
+                >
+                  新建智能体
+                </button>
+              </div>
+            </div>
+
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-center justify-between gap-4 px-6 pb-4 pt-6">
+                <h2 className="text-[18px] font-bold text-[#1F2329]">{currentTab.label}</h2>
+                {mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()}
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-hidden">{renderDetailBody()}</div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <CreateAgentModalDraft
+        open={editorOpen}
+        cat={editingCat ?? undefined}
+        name={editingCat?.name ?? editingCat?.displayName}
+        description={editingCat?.roleDescription}
+        selectedModelId={
+          editingCat?.accountRef && editingCat.defaultModel ? `${editingCat.accountRef}::${editingCat.defaultModel}` : null
+        }
+        title={editingCatId ? '编辑智能体' : '创建智能体'}
+        onClose={() => {
+          setEditorOpen(false);
+          setEditingCatId(null);
+        }}
+        onSaved={handleEditorSaved}
+      />
+
+      <PromptSelectionModal
+        open={templateModalOpen}
+        items={promptSelectionItems}
+        title="灵魂模板"
+        searchPlaceholder="输入关键字搜索"
+        cancelLabel="取消"
+        confirmLabel="插入"
+        initialSelectedId={activeTemplatePreview?.id ?? promptSelectionItems[0]?.id ?? null}
+        onClose={() => setTemplateModalOpen(false)}
+        onConfirm={(item) => handleApplyTemplate(item.id)}
+      />
+    </div>
+  );
+}
