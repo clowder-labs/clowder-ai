@@ -130,13 +130,29 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /buildVendoredJiuwenClawExecutable\(options\)/);
   assert.match(buildScript, /stageVendoredJiuwenClawExecutable\(bundleDir, jiuwenClawExecutable\)/);
   assert.match(buildScript, /cpSync\(executablePath, join\(vendorDir, 'jiuwenclaw\.exe'\), \{ force: true \}\)/);
-  assert.match(buildScript, /function writePythonRuntimePth\(targetDir, options = \{\}\)/);
-  assert.match(buildScript, /writePythonRuntimePth\(targetDir, \{ includeVendorPaths: false \}\)/);
+  assert.match(buildScript, /'install-python-wheelhouse\.ps1'/);
+  assert.match(buildScript, /'manual-install-windows-runtime-wheelhouse\.ps1'/);
+  assert.match(buildScript, /const DEFAULT_WHEELHOUSE_DIR = join\(repoRoot, 'dist', 'windows-python-wheelhouse'\)/);
   assert.match(
     buildScript,
-    /writePythonRuntimePth\(join\(bundleDir, 'tools', 'python'\), \{ includeVendorPaths: true \}\)/,
+    /const PYTHON_WHEELHOUSE_CONFIG = join\(repoRoot, 'packaging', 'windows', 'python-runtime-wheelhouse\.json'\)/,
   );
-  assert.match(buildScript, /pthLines\.push\('\.\.\/\.\.\/vendor\/dare-cli', '\.\.\/\.\.\/vendor\/jiuwenclaw'\)/);
+  assert.match(buildScript, /function writePythonRuntimePth\(targetDir, options = \{\}\)/);
+  assert.match(buildScript, /writePythonRuntimePth\(targetDir, \{ includeVendorPaths: false \}\)/);
+  assert.match(buildScript, /function resolveStagedWindowsPythonWheelhouse\(\)/);
+  assert.match(buildScript, /function stageWindowsPythonWheelhouse\(\)/);
+  assert.match(buildScript, /logStep\('Preparing Python wheelhouse'\)/);
+  assert.match(buildScript, /pythonWheelhouse = stageWindowsPythonWheelhouse\(\)/);
+  assert.match(buildScript, /pythonWheelhouse = resolveStagedWindowsPythonWheelhouse\(\)/);
+  assert.match(buildScript, /stageInstallerSeed\(bundleDir, pythonWheelhouse\)/);
+  assert.match(
+    buildScript,
+    /cpSync\(wheelhouse\.manifestPath, join\(seedDir, 'python-wheelhouse-manifest\.json'\), \{ force: true \}\)/,
+  );
+  assert.match(
+    buildScript,
+    /cpSync\(wheelhouseSource, join\(seedDir, 'wheelhouse'\), \{ recursive: true, force: true \}\)/,
+  );
   assert.match(
     buildScript,
     /if \(entry\.name\.endsWith\('\\.egg-info'\) \|\| entry\.name\.endsWith\('\\.dist-info'\)\) continue;/,
