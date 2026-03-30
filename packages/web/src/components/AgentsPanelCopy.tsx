@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
 import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModalDraft } from './CreateAgentModalDraft';
@@ -13,6 +13,7 @@ type PanelMode = 'preview' | 'edit';
 type EditableDrafts = Record<EditableTabKey, string>;
 type IconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element;
 type ActionMenuPosition = { top: number; left: number };
+type TemplateBubblePosition = { top: number; left: number; tailLeft: number };
 
 type InspirationTemplate = {
   id: string;
@@ -401,8 +402,12 @@ export function AgentsPanel() {
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(INSPIRATION_TEMPLATES[0]?.id ?? null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const [actionMenuPosition, setActionMenuPosition] = useState<ActionMenuPosition | null>(null);
+  const [templateBubblePosition, setTemplateBubblePosition] = useState<TemplateBubblePosition | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const templateBubbleRef = useRef<HTMLDivElement | null>(null);
+  const hoveredTemplateTriggerRef = useRef<HTMLDivElement | null>(null);
+  const templateHoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filteredCats = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -478,6 +483,40 @@ export function AgentsPanel() {
     [hoveredTemplateId, visibleTemplates],
   );
 
+  const scheduleTemplateHoverClear = useCallback(() => {
+    if (templateHoverClearTimerRef.current) {
+      clearTimeout(templateHoverClearTimerRef.current);
+    }
+    templateHoverClearTimerRef.current = setTimeout(() => {
+      hoveredTemplateTriggerRef.current = null;
+      setHoveredTemplateId(null);
+      setTemplateBubblePosition(null);
+      templateHoverClearTimerRef.current = null;
+    }, 90);
+  }, []);
+
+  const positionTemplateBubble = useCallback(() => {
+    const trigger = hoveredTemplateTriggerRef.current;
+    const bubble = templateBubbleRef.current;
+    if (!trigger || !bubble) return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const bubbleRect = bubble.getBoundingClientRect();
+    const viewportPadding = 12;
+    const gap = 16;
+    const desiredLeft = triggerRect.left + triggerRect.width / 2 - bubbleRect.width / 2;
+    const maxLeft = Math.max(viewportPadding, window.innerWidth - bubbleRect.width - viewportPadding);
+    const left = Math.min(Math.max(desiredLeft, viewportPadding), maxLeft);
+    const top = Math.max(viewportPadding, triggerRect.top - bubbleRect.height - gap);
+    const triggerCenterX = triggerRect.left + triggerRect.width / 2;
+    const tailLeft = Math.min(
+      Math.max(triggerCenterX - left - 7, 18),
+      Math.max(18, bubbleRect.width - 18),
+    );
+
+    setTemplateBubblePosition({ top, left, tailLeft });
+  }, []);
+
   useEffect(() => {
     if (cats.length === 0) {
       setSelectedCatId(null);
@@ -549,6 +588,15 @@ export function AgentsPanel() {
     }
   }, [activeTab, mode, templateModalOpen]);
 
+  useEffect(
+    () => () => {
+      if (templateHoverClearTimerRef.current) {
+        clearTimeout(templateHoverClearTimerRef.current);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!openActionMenuCatId) return;
 
@@ -593,6 +641,20 @@ export function AgentsPanel() {
       document.removeEventListener('scroll', updateMenuPosition, true);
     };
   }, [openActionMenuCatId]);
+
+  useLayoutEffect(() => {
+    if (!hoveredTemplateId) return;
+
+    positionTemplateBubble();
+
+    const handleViewportChange = () => positionTemplateBubble();
+    window.addEventListener('resize', handleViewportChange);
+    document.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      document.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [hoveredTemplateId, positionTemplateBubble]);
 
   const updateWorkingDraft = useCallback(
     (tab: EditableTabKey, value: string) => {
@@ -721,8 +783,8 @@ export function AgentsPanel() {
           disabled={templateButtonDisabled}
           className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
             templateButtonDisabled
-              ? 'cursor-not-allowed bg-[#F5F7FA] text-[#B1B8C4]'
-              : 'bg-[#F5F7FA] text-[#445066] hover:bg-[#ECEFF4]'
+              ? 'cursor-not-allowed text-[#B1B8C4]'
+              : 'text-[#445066] hover:text-[#2F3A4D]'
           }`}
         >
           <TemplateIcon className="h-3.5 w-3.5" />
@@ -731,7 +793,7 @@ export function AgentsPanel() {
         <button
           type="button"
           onClick={handleCancelEdit}
-          className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#F5F7FA] px-3 py-1.5 text-[12px] font-semibold text-[#5E6775] transition hover:bg-[#ECEFF4]"
+          className="inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#5E6775] transition hover:text-[#2F3A4D]"
         >
           <CloseIcon className="h-3.5 w-3.5" />
           <span>取消</span>
@@ -739,7 +801,7 @@ export function AgentsPanel() {
         <button
           type="button"
           onClick={handleSaveEdit}
-          className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#1F2633] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
+          className="inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#1F2633] transition hover:text-[#111827]"
         >
           <CheckIcon className="h-3.5 w-3.5" />
           <span>保存</span>
@@ -836,51 +898,32 @@ export function AgentsPanel() {
                 <div
                   key={template.id}
                   className="relative"
-                  onMouseEnter={() => {
+                  ref={isHovered ? hoveredTemplateTriggerRef : null}
+                  onMouseEnter={(event) => {
+                    if (templateHoverClearTimerRef.current) {
+                      clearTimeout(templateHoverClearTimerRef.current);
+                      templateHoverClearTimerRef.current = null;
+                    }
+                    hoveredTemplateTriggerRef.current = event.currentTarget;
                     setHoveredTemplateId(template.id);
                     setActiveTemplateId(template.id);
                   }}
-                  onMouseLeave={() => setHoveredTemplateId(null)}
-                  onFocus={() => {
+                  onMouseLeave={scheduleTemplateHoverClear}
+                  onFocus={(event) => {
+                    if (templateHoverClearTimerRef.current) {
+                      clearTimeout(templateHoverClearTimerRef.current);
+                      templateHoverClearTimerRef.current = null;
+                    }
+                    hoveredTemplateTriggerRef.current = event.currentTarget;
                     setHoveredTemplateId(template.id);
                     setActiveTemplateId(template.id);
                   }}
                   onBlur={(event) => {
                     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                      setHoveredTemplateId(null);
+                      scheduleTemplateHoverClear();
                     }
                   }}
                 >
-                  {isHovered ? (
-                    <div className="absolute bottom-[calc(100%+16px)] left-1/2 z-20 w-[304px] -translate-x-1/2">
-                      <div className="relative rounded-[18px] border border-[#E7ECF3] bg-white px-4 py-4 shadow-[0_12px_32px_rgba(15,23,42,0.10)]">
-                        <div className="text-[13px] font-semibold text-[#2F3746]">{template.title}</div>
-                        <div className="mt-4 text-[12px] font-semibold text-[#374151]">人格定义 (Persona)</div>
-                        <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
-                          {template.persona.map((line) => (
-                            <li key={line}>• {line}</li>
-                          ))}
-                        </ul>
-                        <div className="mt-4 text-[12px] font-semibold text-[#374151]">行为准则 (Behavior)</div>
-                        <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
-                          {template.behavior.map((line) => (
-                            <li key={line}>• {line}</li>
-                          ))}
-                        </ul>
-                        <div className="mt-4 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => handleApplyTemplate(template.id)}
-                            className="rounded-full bg-[#1F2633] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#171D28]"
-                          >
-                            插入模板
-                          </button>
-                        </div>
-                        <div className="absolute left-1/2 top-[calc(100%-7px)] h-[14px] w-[14px] -translate-x-1/2 rotate-45 border-b border-r border-[#E7ECF3] bg-white" />
-                      </div>
-                    </div>
-                  ) : null}
-
                   <button
                     type="button"
                     onClick={() => setActiveTemplateId(template.id)}
@@ -897,6 +940,54 @@ export function AgentsPanel() {
               );
             })}
           </div>
+
+          {hoveredTemplatePreview ? (
+            <div
+              ref={templateBubbleRef}
+              className="fixed z-40 w-[304px]"
+              style={{
+                top: templateBubblePosition?.top ?? 0,
+                left: templateBubblePosition?.left ?? 0,
+                visibility: templateBubblePosition ? 'visible' : 'hidden',
+              }}
+              onMouseEnter={() => {
+                if (templateHoverClearTimerRef.current) {
+                  clearTimeout(templateHoverClearTimerRef.current);
+                  templateHoverClearTimerRef.current = null;
+                }
+              }}
+              onMouseLeave={scheduleTemplateHoverClear}
+            >
+              <div className="relative rounded-[18px] border border-[#E7ECF3] bg-white px-4 py-4 shadow-[0_12px_32px_rgba(15,23,42,0.10)]">
+                <div className="text-[13px] font-semibold text-[#2F3746]">{hoveredTemplatePreview.title}</div>
+                <div className="mt-4 text-[12px] font-semibold text-[#374151]">人格定义 (Persona)</div>
+                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+                  {hoveredTemplatePreview.persona.map((line) => (
+                    <li key={line}>• {line}</li>
+                  ))}
+                </ul>
+                <div className="mt-4 text-[12px] font-semibold text-[#374151]">行为准则 (Behavior)</div>
+                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+                  {hoveredTemplatePreview.behavior.map((line) => (
+                    <li key={line}>• {line}</li>
+                  ))}
+                </ul>
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
+                    className="rounded-full bg-[#1F2633] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#171D28]"
+                  >
+                    插入模板
+                  </button>
+                </div>
+                <div
+                  className="absolute top-[calc(100%-7px)] h-[14px] w-[14px] rotate-45 border-b border-r border-[#E7ECF3] bg-white"
+                  style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -987,7 +1078,7 @@ export function AgentsPanel() {
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
         <div className="flex h-full min-h-0">
-          <aside className="relative z-10 flex h-full w-[322px] shrink-0 flex-col border-r border-[#ECEFF3] bg-white px-4 py-6">
+          <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[#ECEFF3] bg-white px-4 py-6">
             <label className="mb-3 flex h-10 items-center gap-2 rounded-[10px] border border-[#E3E8EF] bg-white px-3 text-[#A4ADBA]">
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <input
@@ -1083,7 +1174,7 @@ export function AgentsPanel() {
               <div
                 ref={actionMenuRef}
                 role="menu"
-                className="fixed z-40 w-[136px] rounded-[16px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                className="fixed z-40 w-[80px] rounded-[6px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
                 style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
               >
                 <button
@@ -1095,9 +1186,9 @@ export function AgentsPanel() {
                     setActionMenuPosition(null);
                     openEditMember(openActionMenuCatId);
                   }}
-                  className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#334155] transition hover:bg-[#F4F7FB]"
+                  className="flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium text-[#1F2329] transition hover:bg-[#F4F7FB]"
                 >
-                  <EditIcon className="h-3.5 w-3.5" />
+                  <EditIcon className="h-3.5 w-3.5 text-[#1F2329]" />
                   <span>编辑</span>
                 </button>
                 <button
@@ -1107,9 +1198,9 @@ export function AgentsPanel() {
                     setOpenActionMenuCatId(null);
                     setActionMenuPosition(null);
                   }}
-                  className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#D16B6B] transition hover:bg-[#FFF3F1]"
+                  className="flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium text-[#1F2329] transition hover:bg-[#F4F7FB]"
                 >
-                  <TrashIcon className="h-3.5 w-3.5" />
+                  <TrashIcon className="h-3.5 w-3.5 text-[#1F2329]" />
                   <span>删除</span>
                 </button>
               </div>
