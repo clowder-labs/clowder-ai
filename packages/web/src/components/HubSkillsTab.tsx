@@ -137,47 +137,61 @@ function SkillList({
   return (
     <div className="space-y-4">
       <div className={styles.skillGrid}>
-        {results.skills.map((skill) => (
-          <article key={skill.id} className={styles.card}>
-            <div className={styles.header}>
-              <SkillArtwork />
-              <div className={styles.content}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className={`${styles.title} truncate`}>{skill.name}</h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 leading-[18px] text-[var(--text-secondary)] text-xs">
-                      <span className="ui-badge-muted">{getSkillCategory(skill)}</span>
-                      {skill.stars !== undefined ? (
-                        <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
-                          <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor">
-                            <path d="M6 1.2 7.55 4.3l3.45.5-2.5 2.45.6 3.45L6 9.1l-3.1 1.6.6-3.45L1 4.8l3.45-.5L6 1.2Z" />
-                          </svg>
-                          <span>{skill.stars}</span>
-                        </span>
-                      ) : null}
+        {results.skills.map((skill) => {
+          const resolvedDescription = skill.description.trim() || FALLBACK_DESCRIPTION;
+
+          return (
+            <article key={skill.id} className={styles.card}>
+              <div className={styles.header}>
+                <SkillArtwork />
+                <div className={styles.content}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className={`${styles.title} truncate`}>{skill.name}</h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 leading-[18px] text-[var(--text-secondary)] text-xs">
+                        <span className="ui-badge-muted">{getSkillCategory(skill)}</span>
+                        {skill.stars !== undefined ? (
+                          <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
+                            <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor">
+                              <path d="M6 1.2 7.55 4.3l3.45.5-2.5 2.45.6 3.45L6 9.1l-3.1 1.6.6-3.45L1 4.8l3.45-.5L6 1.2Z" />
+                            </svg>
+                            <span>{skill.stars}</span>
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <p className={ `${styles.description} line-clamp-2`} title={skill.description}>{skill.description || FALLBACK_DESCRIPTION}</p>
+              <p className={styles.description} title={resolvedDescription}>
+                {resolvedDescription}
+              </p>
 
-            <div className={styles.footer}>
-              {!skill.isInstalled ? (
-                <div className="shrink-0">
-                  <InstallButton
-                    slug={skill.slug}
-                    owner={skill.repo.githubOwner}
-                    repo={skill.repo.githubRepoName}
-                    status={installStatus.get(skill.slug)}
-                    onInstall={onInstall}
-                  />
-                </div>
-              ) : <span className={`${styles.badge} ui-status-success shrink-0`}>{INSTALLED_LABEL}</span>}
-            </div>
-          </article>
-        ))}
+              <div className={styles.footer}>
+                {!skill.isInstalled ? (
+                  <div className="shrink-0">
+                    <InstallButton
+                      slug={skill.slug}
+                      owner={skill.repo.githubOwner}
+                      repo={skill.repo.githubRepoName}
+                      status={installStatus.get(skill.slug)}
+                      onInstall={onInstall}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className={`${styles.installButton} ${styles.installButtonSuccess} shrink-0`}
+                  >
+                    {INSTALLED_LABEL}
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
       {results.hasMore && showPagination && (
         <button type="button" onClick={onLoadMore} disabled={loadingMore} className="ui-button-secondary mt-1 w-full disabled:opacity-50">
