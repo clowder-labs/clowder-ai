@@ -317,14 +317,14 @@ export function ModelsPanel() {
               <button
                 type="button"
                 onClick={() => openHub('provider-profiles')}
-                className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
               >
                 ACP / 账号配置
               </button>
               <button
                 type="button"
                 onClick={() => setShowAddModelModal(true)}
-                className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+                className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
               >
                 {ADD_MODEL}
               </button>
@@ -332,7 +332,7 @@ export function ModelsPanel() {
                 type="button"
                 onClick={() => setShowCreateModelModal(true)}
                 data-testid="models-open-create-model-modal"
-                className="rounded-[16px] border border-[#DCE1E8] px-4 py-1.5 text-[12px] font-semibold text-[#2E3440] transition-colors hover:bg-[#F7F8FA]"
+                className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
               >
                 {ADD_MODEL}
               </button>
