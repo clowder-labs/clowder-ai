@@ -44,6 +44,21 @@ interface ModelConfigProfilesResponse {
   providers: ProfileItem[];
 }
 
+interface MaaSModelResponseItem {
+  id?: string | number;
+  name?: string;
+  icon?: string;
+  logo?: string;
+  image?: string;
+  avatar?: string;
+  [key: string]: unknown;
+}
+
+interface MaaSModelMeta {
+  displayName: string;
+  icon?: string;
+}
+
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
 
@@ -83,6 +98,45 @@ function buildProjectScopedUrl(path: string, projectPath: string | null | undefi
   if (!projectPath || projectPath === 'default') return path;
   const query = new URLSearchParams({ projectPath });
   return `${path}?${query.toString()}`;
+}
+
+function pickStringField(item: Record<string, unknown>, candidates: string[]): string | undefined {
+  for (const key of candidates) {
+    const value = item[key];
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  }
+  return undefined;
+}
+
+function normalizeModelLookupKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildModelMetaMap(source: MaaSModelResponseItem[]): Record<string, MaaSModelMeta> {
+  const next: Record<string, MaaSModelMeta> = {};
+
+  for (const item of source) {
+    const id = pickStringField(item, ['id']);
+    const name = pickStringField(item, ['name']);
+    const displayName = name ?? id;
+    const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']);
+    if (!displayName) continue;
+
+    const meta: MaaSModelMeta = { displayName, ...(icon ? { icon } : {}) };
+
+    if (id) next[normalizeModelLookupKey(id)] = meta;
+    if (name) next[normalizeModelLookupKey(name)] = meta;
+  }
+
+  return next;
+}
+
+function getModelMeta(
+  map: Record<string, MaaSModelMeta>,
+  modelIdOrName: string | null | undefined,
+): MaaSModelMeta | null {
+  if (!modelIdOrName) return null;
+  return map[normalizeModelLookupKey(modelIdOrName)] ?? null;
 }
 
 function mergeAcpProfiles(baseProfiles: ProfileItem[], providerProfiles: ProfileItem[]): ProfileItem[] {
@@ -265,6 +319,7 @@ export function CreateAgentModalDraft({
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
   const [profiles, setProfiles] = useState<ProfileItem[]>([]);
+  const [modelMetaMap, setModelMetaMap] = useState<Record<string, MaaSModelMeta>>({});
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -333,6 +388,30 @@ export function CreateAgentModalDraft({
     };
   }, [currentProjectPath, open, selectedClient]);
 
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await apiFetch(buildProjectScopedUrl('/api/maas-models', currentProjectPath));
+        if (!res.ok) {
+          if (!cancelled) setModelMetaMap({});
+          return;
+        }
+        const body = (await res.json()) as { list?: MaaSModelResponseItem[]; models?: MaaSModelResponseItem[] };
+        const source = Array.isArray(body.list) ? body.list : Array.isArray(body.models) ? body.models : [];
+        if (!cancelled) setModelMetaMap(buildModelMetaMap(source));
+      } catch {
+        if (!cancelled) setModelMetaMap({});
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectPath, open]);
+
   const availableProfiles = useMemo(() => filterAccounts(selectedClient, profiles), [profiles, selectedClient]);
   const selectedProfile = useMemo(
     () => availableProfiles.find((profile) => profile.id === selectedAccountRef) ?? null,
@@ -349,36 +428,44 @@ export function CreateAgentModalDraft({
   }, [draftModelId, selectedClient, selectedProfile]);
   const availableModels = useMemo<CreateModelOption[]>(
     () =>
-      modelOptions.map((modelName) => ({
-        id: modelName,
-        name: modelName,
-        profileId: selectedProfile?.id,
-        client: selectedClient,
-        model: modelName,
-        authType: selectedProfile?.authType,
-        providerName: selectedProfile?.provider,
-        providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
-      })),
-    [modelOptions, selectedClient, selectedProfile],
+      modelOptions.map((modelName) => {
+        const meta = getModelMeta(modelMetaMap, modelName);
+        return {
+          id: modelName,
+          name: meta?.displayName ?? modelName,
+          icon: meta?.icon,
+          profileId: selectedProfile?.id,
+          client: selectedClient,
+          model: modelName,
+          authType: selectedProfile?.authType,
+          providerName: selectedProfile?.provider,
+          providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
+        };
+      }),
+    [modelMetaMap, modelOptions, selectedClient, selectedProfile],
   );
   const selectedModel = useMemo(
     () =>
       (draftModelId ? availableModels.find((item) => item.id === draftModelId) : null) ??
       (draftModelId
-        ? {
-            id: draftModelId,
-            name: draftModelId,
-            profileId: selectedProfile?.id,
-            client: selectedClient,
-            model: draftModelId,
-            authType: selectedProfile?.authType,
-            providerName: selectedProfile?.provider,
-            providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
-          }
+        ? (() => {
+            const meta = getModelMeta(modelMetaMap, draftModelId);
+            return {
+              id: draftModelId,
+              name: meta?.displayName ?? draftModelId,
+              icon: meta?.icon,
+              profileId: selectedProfile?.id,
+              client: selectedClient,
+              model: draftModelId,
+              authType: selectedProfile?.authType,
+              providerName: selectedProfile?.provider,
+              providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
+            };
+          })()
         : null) ??
       availableModels[0] ??
       null,
-    [availableModels, draftModelId, selectedClient, selectedProfile],
+    [availableModels, draftModelId, modelMetaMap, selectedClient, selectedProfile],
   );
 
   useLayoutEffect(() => {
@@ -480,44 +567,46 @@ export function CreateAgentModalDraft({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
       <div
-        className="ui-panel relative flex w-[860px] flex-col overflow-visible rounded-[var(--radius-2xl)] bg-[var(--surface-panel)] shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex h-[642px] w-[550px] flex-col overflow-hidden rounded-[var(--radius-2xl)] bg-[var(--surface-panel)] shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
         data-testid="create-agent-modal"
       >
-        <div className="flex h-[72px] items-center justify-between border-b border-[var(--border-soft)] px-6">
-          <h2 className="text-[28px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
+        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-6 py-6">
+          <h2 className="text-[18px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
           <button type="button" onClick={onClose} className="ui-icon-button h-10 w-10 rounded-full">
             <CloseIcon />
           </button>
         </div>
 
-        <div className="flex flex-col gap-[18px] px-6 pb-[22px] pt-5">
+        <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-6 pb-6 pt-6">
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">名称</div>
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">名称</div>
             <input
               aria-label="Name"
               value={draftName}
               onChange={(event) => setDraftName(event.target.value)}
-              className="ui-field h-[52px] w-full px-4 text-base"
+              className="ui-field h-[28px] w-full px-4 text-base"
             />
           </div>
 
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">描述（可选）</div>
-            <div className="ui-field bg-[var(--surface-panel)] px-4 py-3">
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">描述（可选）</div>
+            <div className="ui-field relative bg-[var(--surface-panel)] px-4 py-3">
               <textarea
                 aria-label="Description"
                 value={draftDescription}
                 onChange={(event) => setDraftDescription(event.target.value)}
                 placeholder="请输入描述"
                 maxLength={1000}
-                className="h-[72px] w-full resize-none border-0 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                className="h-[84px] min-h-[84px] w-full resize-y border-0 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
               />
-              <div className="text-right text-xs text-[var(--text-muted)]">{draftDescription.length}/1000</div>
+              <div className="pointer-events-none absolute bottom-3 right-10 text-xs text-[var(--text-muted)]">
+                {draftDescription.length}/1000
+              </div>
             </div>
           </div>
 
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">图标</div>
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -551,58 +640,68 @@ export function CreateAgentModalDraft({
           </div>
 
           <div className="relative space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">Client</div>
-            <select
-              aria-label="Client"
-              value={selectedClient}
-              onChange={(event) => {
-                setSelectedClient(event.target.value as ClientValue);
-                setSelectedAccountRef('');
-                setDraftModelId(null);
-                setModelMenuOpen(false);
-              }}
-              className="ui-field h-[44px] w-full px-4 text-sm"
-            >
-              {CLIENT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">Client</div>
+            <div className="relative">
+              <select
+                aria-label="Client"
+                value={selectedClient}
+                onChange={(event) => {
+                  setSelectedClient(event.target.value as ClientValue);
+                  setSelectedAccountRef('');
+                  setDraftModelId(null);
+                  setModelMenuOpen(false);
+                }}
+                className="ui-field h-[44px] w-full appearance-none px-4 pr-10 text-sm"
+              >
+                {CLIENT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[var(--text-muted)]">
+                <ModelSelectTriggerIcon />
+              </span>
+            </div>
           </div>
 
           {selectedClient !== 'antigravity' ? (
             <div className="relative space-y-2.5">
-              <div className="text-sm font-semibold text-[var(--text-primary)]">认证信息</div>
-              <select
-                aria-label="认证信息"
-                value={selectedAccountRef}
-                onChange={(event) => {
-                  setSelectedAccountRef(event.target.value);
-                  setDraftModelId(null);
-                  setModelMenuOpen(false);
-                }}
-                disabled={loadingProfiles}
-                className="ui-field h-[44px] w-full px-4 text-sm"
-              >
-                <option value="">{loadingProfiles ? '加载中…' : '请选择认证方式'}</option>
-                {availableProfiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.source === 'model_config'
-                      ? profile.displayName
-                      : profile.builtin
-                        ? `${profile.displayName}（内置）`
-                        : profile.kind === 'acp'
-                          ? `${profile.displayName}（ACP）`
-                          : `${profile.displayName}（API Key）`}
-                  </option>
-                ))}
-              </select>
+              <div className="text-[12px] font-semibold text-[var(--text-primary)]">认证信息</div>
+              <div className="relative">
+                <select
+                  aria-label="认证信息"
+                  value={selectedAccountRef}
+                  onChange={(event) => {
+                    setSelectedAccountRef(event.target.value);
+                    setDraftModelId(null);
+                    setModelMenuOpen(false);
+                  }}
+                  disabled={loadingProfiles}
+                  className="ui-field h-[44px] w-full appearance-none px-4 pr-10 text-sm"
+                >
+                  <option value="">{loadingProfiles ? '加载中…' : '请选择认证方式'}</option>
+                  {availableProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.source === 'model_config'
+                        ? profile.displayName
+                        : profile.builtin
+                          ? `${profile.displayName}（内置）`
+                          : profile.kind === 'acp'
+                            ? `${profile.displayName}（ACP）`
+                            : `${profile.displayName}（API Key）`}
+                    </option>
+                  ))}
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[var(--text-muted)]">
+                  <ModelSelectTriggerIcon />
+                </span>
+              </div>
             </div>
           ) : null}
 
           <div className="relative space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">模型</div>
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">模型</div>
             {availableModels.length > 0 ? (
               <>
                 <button
@@ -652,13 +751,14 @@ export function CreateAgentModalDraft({
           </div>
 
           {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</div> : null}
+        </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+        <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--border-soft)] bg-[var(--surface-panel)] px-6 py-4">
             <button
               type="button"
               aria-label="Cancel"
               onClick={onClose}
-              className="ui-button-secondary h-[42px] min-w-[112px] px-6 text-base"
+              className="ui-button-secondary h-[32px] w-[96px] px-0 text-[14px]"
             >
               取消
             </button>
@@ -667,12 +767,11 @@ export function CreateAgentModalDraft({
               aria-label="Create"
               onClick={handleSave}
               disabled={saving}
-              className="ui-button-primary h-[42px] min-w-[112px] px-6 text-base font-semibold disabled:opacity-50"
+              className="ui-button-primary h-[32px] w-[96px] px-0 text-[14px] font-semibold disabled:opacity-50"
             >
               {primaryButtonText}
             </button>
           </div>
-        </div>
       </div>
     </div>
   );

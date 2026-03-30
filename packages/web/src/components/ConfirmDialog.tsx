@@ -79,16 +79,14 @@ export function ConfirmDialog({
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="ui-button-secondary"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             disabled={!canConfirm}
-            className={`px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-              isDanger ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
-            }`}
+            className={isDanger ? 'ui-button-danger' : 'ui-button-primary'}
           >
             {confirmLabel}
           </button>

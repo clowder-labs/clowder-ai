@@ -7,7 +7,7 @@ import { TagEditor } from './hub-tag-editor';
 
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
-const SEARCH_PLACEHOLDER = '搜索模型、厂商或描述关键词';
+const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const LOADING_TEXT = '加载中...';
 const EMPTY_TEXT = '暂无模型信息';
 const NO_RESULTS_TEXT = '未找到匹配模型';
@@ -288,36 +288,43 @@ export function ModelsPanel() {
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => (
-                    <article key={card.id} className="ui-card px-4 py-4">
-                      <div className="flex items-start gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={card.icon || DEFAULT_ICON}
-                          alt={`${card.name} icon`}
-                          width={48}
-                          height={48}
-                          className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--surface-card-muted)] object-cover p-1.5"
-                          data-testid={`model-card-icon-${card.id}`}
-                        />
+                    <article key={card.id} className="ui-card px-4 py-4 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start gap-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={card.icon || DEFAULT_ICON}
+                            alt={`${card.name} icon`}
+                            width={48}
+                            height={48}
+                            className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
+                            data-testid={`model-card-icon-${card.id}`}
+                          />
 
-                        <div className="min-w-0 flex-1">
-                          <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
-                            {card.name}
-                          </h4>
-                          {card.labels.length > 0 ? (
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                              {card.labels.map((label, index) => (
-                                <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
-                                  {label}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
+                              {card.name}
+                            </h4>
+                            {card.labels.length > 0 ? (
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {card.labels.map((label, index) => (
+                                  <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
+
+                        <p
+                          className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden"
+                          title={card.description}
+                        >
+                          {card.description}
+                        </p>
+
                       </div>
-
-                      <p className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)]">{card.description}</p>
-
                       <div className="ui-thread-meta mt-3 flex items-center justify-start">
                         <span className="inline-flex items-center gap-1.5">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
