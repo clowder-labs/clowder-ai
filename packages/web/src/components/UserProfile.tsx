@@ -156,7 +156,7 @@ export function UserProfile({ className }: UserProfileProps) {
                   <rect x="3" y="3" width="18" height="18" rx="2" />
                   <path d="M8 8h8M8 12h8M8 16h8" />
                 </svg>
-                主题模式（当前：{theme === 'default' ? '默认主题' : '商务主题'}）
+                主题模式
               </button>
 
               <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50">

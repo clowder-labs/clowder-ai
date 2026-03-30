@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
@@ -176,6 +176,7 @@ export function ModelsPanel() {
   const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
+  const [modelHeadersInput, setModelHeadersInput] = useState('');
   const openHub = useChatStore((s) => s.openHub);
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
 
@@ -260,6 +261,7 @@ export function ModelsPanel() {
     setModelDisplayNameInput('');
     setModelUrlInput('');
     setModelApiKeyInput('');
+    setModelHeadersInput('');
   };
 
   const handleCreateModel = async () => {
@@ -267,11 +269,13 @@ export function ModelsPanel() {
     setCreateModelError(null);
     setCreateModelBusy(true);
     try {
+      const headers = parseHeadersJson(modelHeadersInput);
       const payload = {
         sourceId: generateModelConfigSourceId(),
         displayName: modelDisplayNameInput.trim(),
         baseUrl: modelUrlInput.trim(),
         apiKey: modelApiKeyInput.trim(),
+        ...(headers ? { headers } : {}),
         models: [modelNameInput.trim()],
         ...(resolvedProjectPath ? { projectPath: resolvedProjectPath } : {}),
       };
@@ -334,7 +338,7 @@ export function ModelsPanel() {
                 data-testid="models-open-create-model-modal"
                 className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
               >
-                {ADD_MODEL}
+                {CREATE_MODEL_LABEL}
               </button>
             </div>
           </section>
@@ -429,7 +433,7 @@ export function ModelsPanel() {
           >
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold text-[#2E3440]">{ADD_MODEL}</h3>
+                <h3 className="text-[16px] font-bold text-[#2E3440]">{CREATE_MODEL_MODAL_TITLE}</h3>
                 <button
                   type="button"
                   onClick={closeCreateModelModal}
@@ -444,7 +448,7 @@ export function ModelsPanel() {
 
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u540d\u79f0 *'}</p>
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u540d\u79f0'}</p>
                   <input
                     data-testid="models-create-model-name-input"
                     value={modelNameInput}
@@ -464,6 +468,7 @@ export function ModelsPanel() {
                     placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u5c55\u793a\u540d\u79f0'}
                     className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                     style={{ height: '28px' }}
+                    required
                   />
                 </div>
                 <div className="space-y-1">
@@ -479,7 +484,7 @@ export function ModelsPanel() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key *'}</p>
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
                   <input
                     data-testid="models-create-model-api-key-input"
                     type="password"
@@ -489,6 +494,17 @@ export function ModelsPanel() {
                     className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                     style={{ height: '28px' }}
                     required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头(可选)'}</p>
+                  <textarea
+                    data-testid="models-create-model-headers-textarea"
+                    value={modelHeadersInput}
+                    onChange={(event) => setModelHeadersInput(event.target.value)}
+                    rows={4}
+                    placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
+                    className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
                   />
                 </div>
               </div>
