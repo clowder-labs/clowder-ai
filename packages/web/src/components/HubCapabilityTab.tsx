@@ -19,6 +19,8 @@ import { useProviderProfilesState } from './useProviderProfilesState';
 
 const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '未分类';
+const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
+const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 
 export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatus?: boolean }) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
@@ -26,6 +28,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
+  const [searchQuery, setSearchQuery] = useState('');
   const [toggling, setToggling] = useState<string | null>(null);
 
   const { providerCreateSectionProps } = useProviderProfilesState();
@@ -147,6 +150,22 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     if (activeCategory === ALL_CATEGORY) return skillItems;
     return skillItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === activeCategory);
   }, [activeCategory, skillItems]);
+  const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const filteredDisplayedSkillItems = useMemo(() => {
+    if (!normalizedSearchQuery) return displayedSkillItems;
+    return displayedSkillItems.filter((item) => {
+      const sourceLabel = item.source === 'cat-cafe' ? '官方' : item.source === 'external' ? '三方' : '未知';
+      const haystack = [
+        item.id,
+        item.description ?? '',
+        item.category ?? '',
+        sourceLabel,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedSearchQuery);
+    });
+  }, [displayedSkillItems, normalizedSearchQuery]);
 
   useEffect(() => {
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
@@ -159,7 +178,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
       {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-4 pb-2">
+        <div className="flex flex-wrap items-center gap-4">
           {categoryTabs.map((category) => (
             <button
               key={category}
@@ -179,7 +198,17 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
         icon={<SectionIconSkill />}
         title={`${activeCategory} (${displayedSkillItems.length})`}
         subtitle="已安装技能"
-        items={displayedSkillItems}
+        headerSlot={(
+          <input
+            type="search"
+            aria-label={SKILL_SEARCH_ARIA_LABEL}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={SKILL_SEARCH_PLACEHOLDER}
+            className="ui-field min-h-[var(--control-height-touch)] w-full px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
+          />
+        )}
+        items={filteredDisplayedSkillItems}
         catFamilies={catFamilies}
         toggling={toggling}
         onToggle={handleToggle}
@@ -211,10 +240,10 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
         <div className="flex items-center justify-end text-xs text-[var(--text-muted)]">
           <span className="flex gap-3">
             <span className="flex items-center gap-1.5">
-              <StatusDot status="connected" /> {displayedSkillItems.filter((item) => item.connectionStatus === 'connected').length} 活跃
+              <StatusDot status="connected" /> {filteredDisplayedSkillItems.filter((item) => item.connectionStatus === 'connected').length} 活跃
             </span>
             <span>
-              Skill: <strong className="font-medium text-[var(--text-secondary)]">{displayedSkillItems.length}</strong>
+              Skill: <strong className="font-medium text-[var(--text-secondary)]">{filteredDisplayedSkillItems.length}</strong>
             </span>
           </span>
         </div>

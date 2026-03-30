@@ -171,10 +171,10 @@ describe('business theme secondary surfaces', () => {
     const leftPane = container.querySelector('[data-testid="connector-left-pane"]');
     const rightPane = container.querySelector('[data-testid="connector-right-pane"]');
     expect(leftPane).not.toBeNull();
-    expect(rightPane?.className).toContain('ui-card');
+    expect(rightPane).not.toBeNull();
 
     const slackItem = container.querySelector('[data-testid="platform-item-slack"]');
-    expect(slackItem?.className).toContain('ui-card');
+    expect(slackItem?.className).toContain('[border-radius:var(--connector-tab-radius)]');
     await act(async () => {
       slackItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });

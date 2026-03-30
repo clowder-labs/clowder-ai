@@ -1020,7 +1020,7 @@ export function AgentsPanel() {
       <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
         <div className="flex h-full min-h-0">
           <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[#ECEFF3] bg-white px-4 py-6">
-            <label className="mb-3 flex h-10 items-center gap-2 rounded-[10px] border border-[#E3E8EF] bg-white px-3 text-[#A4ADBA]">
+            <label className="mb-3 flex h-7 items-center gap-2 rounded-[10px] border border-[#E3E8EF] bg-white px-3 text-[#A4ADBA]">
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <input
                 value={searchQuery}

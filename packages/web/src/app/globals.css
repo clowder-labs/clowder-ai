@@ -80,10 +80,17 @@
   --control-height-xs: 30px;
   --control-height-sm: 32px;
   --control-height-md: 34px;
-  --control-height-touch: 44px;
+  --control-height-touch: 48px;
   --control-height-lg: 52px;
   --control-height-xl: 66px;
   --control-height-input: 96px;
+
+  /* Connector list item tokens */
+  --connector-tab-radius: 8px;
+  --connector-tab-bg-default: #ffffff;
+  --connector-tab-border-default: #f1e7df;
+  --connector-tab-bg-selected: #fff5f2;
+  --connector-tab-border-selected: rgba(226, 149, 120, 0.4);
 }
 
 [data-ui-theme="warm"] {
@@ -112,7 +119,7 @@
   --accent-soft-strong: #ffddd2;
 
   --state-success-surface: #e8f5e9;
-  --state-success-text: #4caf50;
+  --state-success-text: #029931;
   --state-error-surface: #fdecea;
   --state-error-text: #d43c2f;
   --state-warning-surface: #fff3e0;
@@ -125,6 +132,12 @@
   --bg-app: var(--surface-app);
   --border-radius-base: var(--radius-lg);
   --spacing-unit: var(--space-3);
+
+  --connector-tab-radius: 8px;
+  --connector-tab-bg-default: var(--surface-card-muted);
+  --connector-tab-border-default: var(--border-default);
+  --connector-tab-bg-selected: var(--surface-panel);
+  --connector-tab-border-selected: var(--border-accent);
 }
 
 [data-ui-theme="business"] {
@@ -136,14 +149,14 @@
   --surface-selected: #f7fbff;
   --surface-inverse: #111111;
 
-  --text-primary: #1f1f1f;
+  --text-primary: #191919;
   --text-secondary: #666666;
-  --text-muted: #a1a1a1;
+  --text-muted: #595959;
   --text-subtle: #d0d0d0;
   --text-inverse: #ffffff;
-  --text-accent: #5b6cff;
+  --text-accent: #1476ff;
 
-  --border-default: #eceef2;
+  --border-default: #e6e6e6;
   --border-soft: #e8ebf1;
   --border-strong: #e5e8ee;
   --border-accent: #7fb2ff;
@@ -166,6 +179,12 @@
   --bg-app: var(--surface-app);
   --border-radius-base: var(--radius-lg);
   --spacing-unit: var(--space-3);
+
+  --connector-tab-radius: 8px;
+  --connector-tab-bg-default: #fafafa;
+  --connector-tab-border-default: #f0f0f0;
+  --connector-tab-bg-selected: #ffffff;
+  --connector-tab-border-selected: #1476ff;
 }
 
 [data-theme="dark"] {
@@ -366,11 +385,9 @@ body {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    border-radius: var(--radius-xs);
     background: var(--surface-card-muted);
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-sm);
     line-height: 1;
-    padding: 4px 8px;
   }
 
   .ui-tab-trigger {
