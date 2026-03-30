@@ -98,10 +98,28 @@ export function createFetchContentFn(): (url: string) => Promise<FetchResult> {
       };
     }
 
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'CatCafe-WebDigest/1.0' },
-      signal: AbortSignal.timeout(15_000),
-    });
+    // Manual redirect loop — validate each hop to prevent SSRF via 302 to internal IP
+    const MAX_REDIRECTS = 5;
+    let currentUrl = url;
+    let res: Response | undefined;
+    for (let i = 0; i <= MAX_REDIRECTS; i++) {
+      res = await fetch(currentUrl, {
+        headers: { 'User-Agent': 'CatCafe-WebDigest/1.0' },
+        signal: AbortSignal.timeout(15_000),
+        redirect: 'manual',
+      });
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location');
+        if (!location) throw new Error(`Redirect ${res.status} without Location header`);
+        currentUrl = new URL(location, currentUrl).href;
+        await validateUrl(currentUrl);
+        continue;
+      }
+      break;
+    }
+    if (!res || (res.status >= 300 && res.status < 400)) {
+      throw new Error(`Too many redirects (>${MAX_REDIRECTS})`);
+    }
     if (!res.ok) {
       throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
     }

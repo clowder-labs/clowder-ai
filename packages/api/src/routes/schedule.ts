@@ -237,8 +237,14 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Failed to register task: ${err instanceof Error ? err.message : String(err)}` };
     }
 
-    // Only persist after successful runtime registration
-    dynamicTaskStore.insert(def);
+    // Persist — rollback runtime registration on DB failure
+    try {
+      dynamicTaskStore.insert(def);
+    } catch (err) {
+      taskRunner.unregister(id);
+      reply.status(500);
+      return { error: `Task registered but DB insert failed (rolled back): ${err instanceof Error ? err.message : String(err)}` };
+    }
 
     return { success: true, task: { id, ...display, trigger } };
   });
