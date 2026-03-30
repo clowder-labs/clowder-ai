@@ -8,7 +8,7 @@ import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
 
-type AgentTabKey = 'persona' | 'collab' | 'skills' | 'memory' | 'preference';
+type AgentTabKey = 'persona' | 'collab' | 'skills';
 type EditableTabKey = 'persona' | 'collab';
 type PanelMode = 'preview' | 'edit';
 type EditableDrafts = Record<EditableTabKey, string>;
@@ -177,28 +177,6 @@ function SkillsIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function MemoryIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M7 5.5A2.5 2.5 0 0 1 9.5 3H17V20L12 16.8L7 20V5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M7 6H5.5A2.5 2.5 0 0 0 3 8.5V17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PreferenceIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M5 6H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M5 18H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="9" cy="6" r="2" fill="white" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="15" cy="12" r="2" fill="white" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="11" cy="18" r="2" fill="white" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
 function TemplateIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -277,8 +255,6 @@ const AGENT_TABS: TabDefinition[] = [
   { id: 'persona', label: '灵魂配置', icon: PersonaIcon, editable: true },
   { id: 'collab', label: '协作配置', icon: CollaborateIcon, editable: true },
   { id: 'skills', label: '技能配置', icon: SkillsIcon, editable: false },
-  { id: 'memory', label: '记忆配置', icon: MemoryIcon, editable: false },
-  { id: 'preference', label: '用户偏好', icon: PreferenceIcon, editable: false },
 ];
 
 function isEditableTab(tab: AgentTabKey): tab is EditableTabKey {
@@ -343,20 +319,6 @@ function renderAvatar(cat: CatData) {
       style={{ backgroundColor: cat.color?.primary ?? '#7AAEFF' }}
     >
       <span>{avatar || catInitial(cat.displayName)}</span>
-    </div>
-  );
-}
-
-function SkillToggle({ title, description, enabled }: { title: string; description: string; enabled: boolean }) {
-  return (
-    <div className="flex items-start justify-between gap-4 rounded-[14px] border border-[#E8ECF2] bg-white px-4 py-3">
-      <div className="min-w-0">
-        <div className="text-[13px] font-semibold text-[#2A303C]">{title}</div>
-        <div className="mt-1 text-[12px] leading-5 text-[#7A8495]">{description}</div>
-      </div>
-      <div className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${enabled ? 'bg-[#1F2633]' : 'bg-[#D8DEE8]'}`}>
-        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${enabled ? 'left-6' : 'left-1'}`} />
-      </div>
     </div>
   );
 }
@@ -1021,43 +983,11 @@ export function AgentsPanel() {
   );
 
   const renderSkillsPreview = () => (
-    <div className="grid min-h-0 gap-4 px-6 pb-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <div className="space-y-4">
-        <div className="rounded-[18px] border border-[#E8ECF2] bg-[#FCFDFE] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="text-[12px] text-[#7A8495]">默认技能包</div>
-              <div className="mt-1 text-[18px] font-semibold text-[#1F2329]">通用业务协作包</div>
-            </div>
-            <span className="rounded-full bg-[#F3F5F8] px-3 py-1 text-[11px] font-semibold text-[#445066]">页面稿</span>
-          </div>
-          <p className="mt-3 text-[13px] leading-6 text-[#6F7785]">
-            当前仅表达技能配置页面结构和视觉分组，用于承接后续真实数据接入。
-          </p>
-        </div>
-        <SkillToggle title="联网检索" description="默认开启，用于在需要外部事实和最新资料时补充搜索能力。" enabled />
-        <SkillToggle title="模板生成" description="允许按当前智能体角色快速装配预置提示模板和输出结构。" enabled />
-        <SkillToggle title="知识库检索" description="预留知识库接入位，用于后续对接内部资料和项目上下文。" enabled={false} />
-        <SkillToggle title="多步骤拆解" description="支持将复杂任务拆成多个执行阶段，并显式暴露中间检查点。" enabled />
-      </div>
-
-      <div className="rounded-[18px] border border-[#E8ECF2] bg-white p-5">
-        <div className="text-[15px] font-semibold text-[#1F2329]">能力标签</div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {['检索增强', '模板装配', '步骤拆解', '风险提醒', '多轮跟进', '结构化输出'].map((tag) => (
-            <span key={tag} className="rounded-full bg-[#F3F5F8] px-3 py-1.5 text-[12px] font-medium text-[#445066]">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="mt-6 rounded-[14px] bg-[#FAFBFD] p-4">
-          <div className="text-[12px] font-semibold text-[#445066]">调用说明</div>
-          <p className="mt-2 text-[12px] leading-6 text-[#7A8495]">
-            技能启停、默认技能包和能力标签目前均为静态页面示意，不绑定真实后端字段。
-          </p>
-        </div>
-      </div>
-    </div>
+    <PlaceholderPanel
+      label="占位展示"
+      title="技能配置暂未展开"
+      description="当前仅保留技能配置入口和页面占位，后续会在这里补充技能包、工具授权和能力标签等真实配置内容。"
+    />
   );
 
   const renderDetailBody = () => {
@@ -1078,23 +1008,7 @@ export function AgentsPanel() {
       return renderSkillsPreview();
     }
 
-    if (activeTab === 'memory') {
-      return (
-        <PlaceholderPanel
-          label="后续支持"
-          title="记忆配置暂未开放"
-          description="本轮先保留页签和内容区占位，后续会在这里补充记忆策略、保留规则、摘要方式等能力。"
-        />
-      );
-    }
-
-    return (
-      <PlaceholderPanel
-        label="后续支持"
-        title="用户偏好暂未开放"
-        description="本轮先保留页签和页面结构，后续会在这里接入输出风格、默认习惯、禁忌项等偏好配置。"
-      />
-    );
+    return renderEmptyEditablePreview('当前页签暂不可编辑。');
   };
 
   return (
