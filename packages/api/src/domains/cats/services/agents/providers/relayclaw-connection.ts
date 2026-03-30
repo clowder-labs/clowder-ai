@@ -1,4 +1,12 @@
 import type { RelayClawWsFrame } from '@cat-cafe/shared';
+// @ts-expect-error - ws declarations are not installed in this workspace
+import { WebSocket as NodeWebSocket } from 'ws';
+
+type RelayClawWebSocketCtor = typeof WebSocket;
+
+export function resolveRelayClawWebSocketCtor(): RelayClawWebSocketCtor {
+  return (globalThis.WebSocket ?? NodeWebSocket) as unknown as RelayClawWebSocketCtor;
+}
 
 export class FrameQueue {
   private queue: (RelayClawWsFrame | null)[] = [];
@@ -53,7 +61,7 @@ export class RelayClawConnectionManager implements RelayClawConnection {
 
   constructor(options: RelayClawConnectionManagerOptions) {
     this.requestQueues = options.requestQueues;
-    this.wsFactory = options.wsFactory ?? ((url) => new WebSocket(url));
+    this.wsFactory = options.wsFactory ?? ((url) => new (resolveRelayClawWebSocketCtor())(url));
   }
 
   async ensureConnected(url: string, signal?: AbortSignal): Promise<void> {
