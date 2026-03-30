@@ -5,7 +5,6 @@ export type ProviderProfileAuthType = 'oauth' | 'api_key' | 'none';
 export type BuiltinAccountClient = 'anthropic' | 'openai' | 'google' | 'dare' | 'opencode';
 export type ProviderProfileKind = 'builtin' | 'api_key' | 'acp';
 export type BootstrapBindingMode = 'oauth' | 'api_key' | 'skip';
-export type ACPModelAccessMode = 'self_managed' | 'clowder_default_profile';
 
 export interface BootstrapBinding {
   enabled: boolean;
@@ -29,8 +28,8 @@ export interface ProviderProfileMeta {
   args?: string[];
   cwd?: string;
   envKeys?: string[];
-  modelAccessMode?: ACPModelAccessMode;
-  defaultModelProfileRef?: string;
+  boundProviderRef?: string;
+  defaultModel?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,8 +68,8 @@ export interface CreateProviderProfileInput {
   args?: string[];
   cwd?: string;
   env?: Record<string, string>;
-  modelAccessMode?: ACPModelAccessMode;
-  defaultModelProfileRef?: string;
+  boundProviderRef?: string;
+  defaultModel?: string;
   setActive?: boolean;
 }
 
@@ -89,8 +88,8 @@ export interface UpdateProviderProfileInput {
   args?: string[];
   cwd?: string | null;
   env?: Record<string, string> | null;
-  modelAccessMode?: ACPModelAccessMode;
-  defaultModelProfileRef?: string | null;
+  boundProviderRef?: string | null;
+  defaultModel?: string | null;
 }
 
 export interface RuntimeProviderProfile {
@@ -106,8 +105,8 @@ export interface RuntimeProviderProfile {
   args?: string[];
   cwd?: string;
   env?: Record<string, string>;
-  modelAccessMode?: ACPModelAccessMode;
-  defaultModelProfileRef?: string;
+  boundProviderRef?: string;
+  defaultModel?: string;
 }
 
 export interface AnthropicRuntimeProfile {

@@ -1,24 +1,22 @@
-import type { ACPModelAccessMode } from './provider-profiles.types.js';
-
 const ACP_ALWAYS_BLOCKED_ENV_PREFIXES = ['AWS_', 'CAT_CAFE_', 'DATABASE_', 'GITHUB_', 'POSTGRES_', 'REDIS_'];
 const ACP_MODEL_CREDENTIAL_ENV_PREFIXES = ['ANTHROPIC_', 'DARE_', 'GEMINI_', 'GOOGLE_', 'OPENAI_', 'OPENROUTER_'];
 const ACP_ALWAYS_BLOCKED_ENV_KEYS = new Set(['DATABASE_URL', 'GITHUB_MCP_PAT', 'GITHUB_TOKEN', 'REDIS_URL']);
 const ACP_ENV_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-function blockedPrefixes(modelAccessMode: ACPModelAccessMode | undefined): string[] {
-  return modelAccessMode === 'clowder_default_profile'
+function blockedPrefixes(boundProviderRef: string | undefined): string[] {
+  return boundProviderRef?.trim()
     ? [...ACP_ALWAYS_BLOCKED_ENV_PREFIXES, ...ACP_MODEL_CREDENTIAL_ENV_PREFIXES]
     : ACP_ALWAYS_BLOCKED_ENV_PREFIXES;
 }
 
-export function isBlockedACPEnvKey(key: string, modelAccessMode: ACPModelAccessMode | undefined): boolean {
+export function isBlockedACPEnvKey(key: string, boundProviderRef: string | undefined): boolean {
   if (ACP_ALWAYS_BLOCKED_ENV_KEYS.has(key)) return true;
-  return blockedPrefixes(modelAccessMode).some((prefix) => key.startsWith(prefix));
+  return blockedPrefixes(boundProviderRef).some((prefix) => key.startsWith(prefix));
 }
 
 export function normalizeACPEnvEntries(
   env: Record<string, unknown> | undefined | null,
-  modelAccessMode: ACPModelAccessMode | undefined,
+  boundProviderRef: string | undefined,
   options?: { strict?: boolean },
 ): { env: Record<string, string> | undefined; dirty: boolean } {
   if (!env || typeof env !== 'object') {
@@ -41,7 +39,7 @@ export function normalizeACPEnvEntries(
       dirty = true;
       continue;
     }
-    if (isBlockedACPEnvKey(key, modelAccessMode)) {
+    if (isBlockedACPEnvKey(key, boundProviderRef)) {
       if (strict) throw new Error(`ACP env key "${key}" is reserved and cannot be overridden`);
       dirty = true;
       continue;
@@ -60,17 +58,17 @@ export function normalizeACPEnvEntries(
 }
 
 export function buildACPSubprocessEnv(input: {
-  modelAccessMode?: ACPModelAccessMode;
+  boundProviderRef?: string;
   env?: Record<string, string>;
 }): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (typeof value !== 'string') continue;
-    if (isBlockedACPEnvKey(key, input.modelAccessMode)) continue;
+    if (isBlockedACPEnvKey(key, input.boundProviderRef)) continue;
     env[key] = value;
   }
 
-  const normalizedCustomEnv = normalizeACPEnvEntries(input.env, input.modelAccessMode, { strict: false }).env;
+  const normalizedCustomEnv = normalizeACPEnvEntries(input.env, input.boundProviderRef, { strict: false }).env;
   if (normalizedCustomEnv) {
     for (const [key, value] of Object.entries(normalizedCustomEnv)) {
       env[key] = value;

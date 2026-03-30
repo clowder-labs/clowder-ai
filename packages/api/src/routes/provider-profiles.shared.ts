@@ -11,8 +11,6 @@ export const protocolEnum = z.enum(['anthropic', 'openai', 'google', 'acp']);
 export const authTypeEnum = z.enum(['oauth', 'api_key', 'none']);
 export const modeEnum = z.enum(['subscription', 'api_key', 'none']);
 export const kindEnum = z.enum(['api_key', 'acp']);
-export const acpModelAccessModeEnum = z.enum(['self_managed', 'clowder_default_profile']);
-export const acpModelProviderEnum = z.enum(['openai_compatible', 'bigmodel', 'minimax', 'echo']);
 
 export const projectQuerySchema = z.object({
   projectPath: z.string().optional(),
@@ -40,8 +38,8 @@ export const createBodySchema = z
     args: z.array(z.string()).optional(),
     cwd: z.string().optional(),
     env: z.record(z.string().trim().min(1), z.string()).optional(),
-    modelAccessMode: acpModelAccessModeEnum.optional(),
-    defaultModelProfileRef: z.string().trim().min(1).optional(),
+    boundProviderRef: z.string().trim().min(1).optional(),
+    defaultModel: z.string().trim().min(1).optional(),
     setActive: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
@@ -57,6 +55,13 @@ export const createBodySchema = z
         code: z.ZodIssueCode.custom,
         path: ['command'],
         message: 'command is required for ACP providers',
+      });
+    }
+    if ((value.boundProviderRef && !value.defaultModel) || (!value.boundProviderRef && value.defaultModel)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['boundProviderRef'],
+        message: 'boundProviderRef and defaultModel must be provided together',
       });
     }
   });
@@ -78,8 +83,8 @@ export const updateBodySchema = z.object({
   args: z.array(z.string()).optional(),
   cwd: z.string().nullable().optional(),
   env: z.record(z.string().trim().min(1), z.string()).nullable().optional(),
-  modelAccessMode: acpModelAccessModeEnum.optional(),
-  defaultModelProfileRef: z.string().trim().min(1).nullable().optional(),
+  boundProviderRef: z.string().trim().min(1).nullable().optional(),
+  defaultModel: z.string().trim().min(1).nullable().optional(),
 });
 
 export const activateBodySchema = z.object({
@@ -91,48 +96,6 @@ export const testBodySchema = z.object({
   projectPath: z.string().optional(),
   provider: z.string().trim().min(1).optional(),
   protocol: protocolEnum.optional(),
-});
-
-export const createAcpModelProfileBodySchema = z
-  .object({
-    projectPath: z.string().optional(),
-    name: z.string().trim().min(1).optional(),
-    displayName: z.string().trim().min(1).optional(),
-    provider: acpModelProviderEnum.optional(),
-    model: z.string().trim().min(1),
-    baseUrl: z.string().trim().min(1),
-    apiKey: z.string().trim().min(1),
-    sslVerify: z.boolean().nullable().optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    topP: z.number().min(0).max(1).optional(),
-    maxTokens: z.number().positive().optional(),
-    contextWindow: z.number().positive().optional(),
-    connectTimeoutSeconds: z.number().positive().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!value.name && !value.displayName) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['displayName'],
-        message: 'displayName or name is required',
-      });
-    }
-  });
-
-export const updateAcpModelProfileBodySchema = z.object({
-  projectPath: z.string().optional(),
-  name: z.string().trim().min(1).optional(),
-  displayName: z.string().trim().min(1).optional(),
-  provider: acpModelProviderEnum.nullable().optional(),
-  model: z.string().trim().min(1).optional(),
-  baseUrl: z.string().trim().min(1).optional(),
-  apiKey: z.string().trim().min(1).optional(),
-  sslVerify: z.boolean().nullable().optional(),
-  temperature: z.number().min(0).max(2).nullable().optional(),
-  topP: z.number().min(0).max(1).nullable().optional(),
-  maxTokens: z.number().positive().nullable().optional(),
-  contextWindow: z.number().positive().nullable().optional(),
-  connectTimeoutSeconds: z.number().positive().nullable().optional(),
 });
 
 export async function resolveProjectRoot(projectPath?: string): Promise<string | null> {

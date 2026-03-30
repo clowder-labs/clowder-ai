@@ -3,14 +3,10 @@
 import { useCallback, useState } from 'react';
 import { parseProviderEnvText } from './hub-provider-env';
 import type { ApiProtocol } from './hub-provider-profiles.sections';
-import type { AcpModelAccessMode, AcpModelProfileItem, ProfileItem } from './hub-provider-profiles.types';
+import type { ProfileItem } from './hub-provider-profiles.types';
 import { TagEditor } from './hub-tag-editor';
 import { useConfirm } from './useConfirm';
 
-const ACP_MODEL_ACCESS_OPTIONS: Array<{ value: AcpModelAccessMode; label: string }> = [
-  { value: 'self_managed', label: 'Agent Teams 自管' },
-  { value: 'clowder_default_profile', label: 'Clowder 下发 default' },
-];
 export interface ProfileEditPayload {
   displayName: string;
   protocol?: string;
@@ -22,14 +18,14 @@ export interface ProfileEditPayload {
   args?: string[];
   cwd?: string | null;
   env?: Record<string, string> | null;
-  modelAccessMode?: AcpModelAccessMode;
-  defaultModelProfileRef?: string | null;
+  boundProviderRef?: string | null;
+  defaultModel?: string | null;
 }
 
 interface HubProviderProfileItemProps {
   profile: ProfileItem;
   busy: boolean;
-  acpModelProfiles?: AcpModelProfileItem[];
+  bindableProviders?: ProfileItem[];
   onSave: (payload: ProfileEditPayload) => Promise<void>;
   onDelete: () => void;
   onTest?: () => Promise<void> | void;
@@ -53,7 +49,7 @@ function isEditableHttpProfile(profile: ProfileItem): boolean {
 export function HubProviderProfileItem({
   profile,
   busy,
-  acpModelProfiles = [],
+  bindableProviders = [],
   onSave,
   onDelete,
   onTest,
@@ -69,10 +65,8 @@ export function HubProviderProfileItem({
   const [editArgs, setEditArgs] = useState((profile.args ?? []).join(' '));
   const [editCwd, setEditCwd] = useState(profile.cwd ?? '');
   const [editEnvText, setEditEnvText] = useState('');
-  const [editModelAccessMode, setEditModelAccessMode] = useState<AcpModelAccessMode>(
-    profile.modelAccessMode ?? 'self_managed',
-  );
-  const [editDefaultModelProfileRef, setEditDefaultModelProfileRef] = useState(profile.defaultModelProfileRef ?? '');
+  const [editBoundProviderRef, setEditBoundProviderRef] = useState(profile.boundProviderRef ?? '');
+  const [editDefaultModel, setEditDefaultModel] = useState(profile.defaultModel ?? '');
 
   const startEdit = useCallback(() => {
     setEditDisplayName(profile.displayName);
@@ -84,24 +78,42 @@ export function HubProviderProfileItem({
     setEditArgs((profile.args ?? []).join(' '));
     setEditCwd(profile.cwd ?? '');
     setEditEnvText('');
-    setEditModelAccessMode(profile.modelAccessMode ?? 'self_managed');
-    setEditDefaultModelProfileRef(profile.defaultModelProfileRef ?? '');
+    setEditBoundProviderRef(profile.boundProviderRef ?? '');
+    setEditDefaultModel(profile.defaultModel ?? '');
     setEditing(true);
   }, [
     profile.args,
     profile.baseUrl,
+    profile.boundProviderRef,
     profile.command,
     profile.cwd,
-    profile.defaultModelProfileRef,
+    profile.defaultModel,
     profile.displayName,
-    profile.modelAccessMode,
     profile.models,
     profile.protocol,
   ]);
 
+  const selectedBoundProvider = bindableProviders.find((item) => item.id === editBoundProviderRef) ?? null;
+  const currentBoundProvider = bindableProviders.find((item) => item.id === profile.boundProviderRef) ?? null;
+  const hasInvalidAcpBinding = Boolean(
+    (editBoundProviderRef.trim() && !editDefaultModel.trim()) || (!editBoundProviderRef.trim() && editDefaultModel.trim()),
+  );
+
+  const handleBoundProviderChange = useCallback(
+    (value: string) => {
+      setEditBoundProviderRef(value);
+      const nextModels = bindableProviders.find((item) => item.id === value)?.models ?? [];
+      setEditDefaultModel((current) => (current && nextModels.includes(current) ? current : ''));
+    },
+    [bindableProviders],
+  );
+
   const saveEdit = useCallback(async () => {
     if (profile.kind === 'acp') {
       const parsedEnv = parseProviderEnvText(editEnvText);
+      if (hasInvalidAcpBinding) {
+        return;
+      }
       await onSave({
         displayName: editDisplayName.trim(),
         command: editCommand.trim(),
@@ -111,9 +123,8 @@ export function HubProviderProfileItem({
           .filter(Boolean),
         cwd: editCwd.trim() || null,
         ...(parsedEnv ? { env: parsedEnv } : {}),
-        modelAccessMode: editModelAccessMode,
-        defaultModelProfileRef:
-          editModelAccessMode === 'clowder_default_profile' ? editDefaultModelProfileRef.trim() || null : null,
+        boundProviderRef: editBoundProviderRef.trim() || null,
+        defaultModel: editBoundProviderRef.trim() ? editDefaultModel.trim() || null : null,
       });
     } else {
       await onSave({
@@ -133,14 +144,15 @@ export function HubProviderProfileItem({
     editApiKey,
     editArgs,
     editBaseUrl,
+    editBoundProviderRef,
     editCommand,
     editCwd,
+    editDefaultModel,
     editEnvText,
-    editDefaultModelProfileRef,
     editDisplayName,
-    editModelAccessMode,
     editModels,
     editProtocol,
+    hasInvalidAcpBinding,
     onSave,
     profile.authType,
     profile.id,
@@ -187,26 +199,27 @@ export function HubProviderProfileItem({
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <select
-                value={editModelAccessMode}
-                onChange={(e) => setEditModelAccessMode(e.target.value as AcpModelAccessMode)}
+                value={editBoundProviderRef}
+                onChange={(e) => handleBoundProviderChange(e.target.value)}
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
               >
-                {ACP_MODEL_ACCESS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                <option value="">不绑定上游 Provider，Agent 自管</option>
+                {bindableProviders.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.displayName}
                   </option>
                 ))}
               </select>
-              {editModelAccessMode === 'clowder_default_profile' ? (
+              {selectedBoundProvider ? (
                 <select
-                  value={editDefaultModelProfileRef}
-                  onChange={(e) => setEditDefaultModelProfileRef(e.target.value)}
+                  value={editDefaultModel}
+                  onChange={(e) => setEditDefaultModel(e.target.value)}
                   className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
                 >
-                  <option value="">选择 ACP Model Profile</option>
-                  {acpModelProfiles.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.displayName}
+                  <option value="">选择默认模型</option>
+                  {(selectedBoundProvider.models ?? []).map((modelName) => (
+                    <option key={modelName} value={modelName}>
+                      {modelName}
                     </option>
                   ))}
                 </select>
@@ -257,7 +270,7 @@ export function HubProviderProfileItem({
           <button
             type="button"
             onClick={saveEdit}
-            disabled={busy}
+            disabled={busy || hasInvalidAcpBinding}
             className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
           >
             {busy ? '保存中...' : '保存'}
@@ -305,9 +318,10 @@ export function HubProviderProfileItem({
           </div>
           {summaryText(profile) ? <p className="text-sm text-[#727D8F]">{summaryText(profile)}</p> : null}
           {profile.kind === 'acp' ? (
-            <p className="text-xs leading-5 text-[#727D8F]">
-              模型接入: {profile.modelAccessMode === 'clowder_default_profile' ? 'Clowder default profile' : 'Agent Teams 自管'}
-            </p>
+            <div className="space-y-1 text-xs leading-5 text-[#727D8F]">
+              <p>模型接入: {profile.boundProviderRef ? `绑定 ${currentBoundProvider?.displayName ?? profile.boundProviderRef}` : 'Agent 自管'}</p>
+              {profile.boundProviderRef && profile.defaultModel ? <p>默认模型: {profile.defaultModel}</p> : null}
+            </div>
           ) : (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-[#6E7785]">可用模型</p>

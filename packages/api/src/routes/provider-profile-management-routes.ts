@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
-  type ACPModelAccessMode,
   activateProviderProfile,
   createProviderProfile,
   deleteProviderProfile,
@@ -95,8 +94,8 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
         ...(parsed.data.args != null ? { args: parsed.data.args } : {}),
         ...(parsed.data.cwd != null ? { cwd: parsed.data.cwd } : {}),
         ...(parsed.data.env != null ? { env: parsed.data.env } : {}),
-        ...(parsed.data.modelAccessMode != null ? { modelAccessMode: parsed.data.modelAccessMode } : {}),
-        ...(parsed.data.defaultModelProfileRef != null ? { defaultModelProfileRef: parsed.data.defaultModelProfileRef } : {}),
+        ...(parsed.data.boundProviderRef != null ? { boundProviderRef: parsed.data.boundProviderRef } : {}),
+        ...(parsed.data.defaultModel != null ? { defaultModel: parsed.data.defaultModel } : {}),
         ...(parsed.data.setActive != null ? { setActive: parsed.data.setActive } : {}),
       });
       return { projectPath: projectRoot, profile };
@@ -144,12 +143,8 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
           ...(parsed.data.args != null ? { args: parsed.data.args } : {}),
           ...(parsed.data.cwd !== undefined ? { cwd: parsed.data.cwd } : {}),
           ...(parsed.data.env !== undefined ? { env: parsed.data.env } : {}),
-          ...(parsed.data.modelAccessMode != null
-            ? { modelAccessMode: parsed.data.modelAccessMode as ACPModelAccessMode }
-            : {}),
-          ...(parsed.data.defaultModelProfileRef !== undefined
-            ? { defaultModelProfileRef: parsed.data.defaultModelProfileRef }
-            : {}),
+          ...(parsed.data.boundProviderRef !== undefined ? { boundProviderRef: parsed.data.boundProviderRef } : {}),
+          ...(parsed.data.defaultModel !== undefined ? { defaultModel: parsed.data.defaultModel } : {}),
         },
       );
       return { projectPath: projectRoot, profile };

@@ -5,7 +5,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { readAcpModelProfiles } from '../config/acp-model-profiles.js';
 import {
   HUAWEI_MAAS_MODEL_SOURCE_ID,
   isModelConfigProviderFallbackEnabled,
@@ -25,7 +24,7 @@ export interface MassModelInfo {
   id: string;
   name: string;
   provider: string;
-  kind: 'provider' | 'acp';
+  kind: 'provider';
   protocol?: string;
   enabled: boolean;
   description?: string;
@@ -131,10 +130,7 @@ async function readCachedModelConfig(modelJsonPath: string): Promise<Record<stri
 }
 
 async function aggregateConfiguredModels(projectRoot: string): Promise<MassModelsResponse> {
-  const [providerProfiles, acpModelProfiles] = await Promise.all([
-    readProviderProfiles(projectRoot),
-    readAcpModelProfiles(projectRoot),
-  ]);
+  const providerProfiles = await readProviderProfiles(projectRoot);
 
   const providerModels = providerProfiles.providers.flatMap((profile) =>
     (profile.models ?? []).map((modelName) => ({
@@ -148,19 +144,9 @@ async function aggregateConfiguredModels(projectRoot: string): Promise<MassModel
     })),
   );
 
-  const acpModels = acpModelProfiles.profiles.map((profile) => ({
-    id: `acp:${profile.id}:${profile.model}`,
-    name: profile.model,
-    provider: profile.displayName,
-    kind: 'acp' as const,
-    ...(profile.provider ? { protocol: profile.provider } : {}),
-    enabled: true,
-    description: `ACP Model Profile · ${profile.displayName}`,
-  }));
-
   return {
     projectPath: projectRoot,
-    models: uniqueById([...providerModels, ...acpModels]),
+    models: uniqueById(providerModels),
   };
 }
 

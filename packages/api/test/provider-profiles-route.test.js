@@ -247,38 +247,60 @@ describe('provider profiles routes', () => {
     }
   });
 
-  it('creates ACP model profiles even when provider type is omitted', async () => {
+  it('creates ACP providers that bind existing API-key providers', async () => {
     const Fastify = (await import('fastify')).default;
     const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
     const app = Fastify();
     await app.register(providerProfilesRoutes);
     await app.ready();
 
-    const projectDir = await makeTmpDir('acp-model-no-provider');
+    const projectDir = await makeTmpDir('acp-bound-provider');
     setGlobalRoot(projectDir);
     try {
-      const createRes = await app.inject({
+      const upstreamRes = await app.inject({
         method: 'POST',
-        url: '/api/acp-model-profiles',
+        url: '/api/provider-profiles',
         headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
         payload: JSON.stringify({
           projectPath: projectDir,
-          displayName: 'Gateway Default',
-          model: 'gpt-5.3-codex',
+          displayName: 'OpenAI Proxy',
+          authType: 'api_key',
+          protocol: 'openai',
           baseUrl: 'https://api.example.com/v1',
-          apiKey: 'sk-test',
+          apiKey: 'sk-upstream',
+          models: ['gpt-5.3-codex', 'gpt-5.4'],
+        }),
+      });
+      assert.equal(upstreamRes.statusCode, 200);
+      const upstream = upstreamRes.json().profile;
+
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          kind: 'acp',
+          displayName: 'Agent Teams Local',
+          command: 'agent-teams',
+          args: ['gateway', 'acp', 'stdio'],
+          boundProviderRef: upstream.id,
+          defaultModel: 'gpt-5.3-codex',
         }),
       });
       assert.equal(createRes.statusCode, 200);
-      assert.equal(createRes.json().profile.provider, undefined);
+      assert.equal(createRes.json().profile.boundProviderRef, upstream.id);
+      assert.equal(createRes.json().profile.defaultModel, 'gpt-5.3-codex');
 
       const listRes = await app.inject({
         method: 'GET',
-        url: `/api/acp-model-profiles?projectPath=${encodeURIComponent(projectDir)}`,
+        url: `/api/provider-profiles?projectPath=${encodeURIComponent(projectDir)}`,
         headers: AUTH_HEADERS,
       });
       assert.equal(listRes.statusCode, 200);
-      assert.equal(listRes.json().profiles[0]?.provider, undefined);
+      const acpProfile = listRes.json().providers.find((profile) => profile.id === createRes.json().profile.id);
+      assert.equal(acpProfile?.boundProviderRef, upstream.id);
+      assert.equal(acpProfile?.defaultModel, 'gpt-5.3-codex');
     } finally {
       restoreGlobalRoot();
       await rm(projectDir, { recursive: true, force: true });

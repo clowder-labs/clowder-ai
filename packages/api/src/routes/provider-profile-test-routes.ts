@@ -1,5 +1,4 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { resolveRuntimeAcpModelProfileById } from '../config/acp-model-profiles.js';
 import { getProviderProfile, resolveRuntimeProviderProfileById } from '../config/provider-profiles.js';
 import { runACPProviderProbe } from '../domains/cats/services/agents/providers/ACPAgentService.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -54,24 +53,35 @@ export const providerProfileTestRoutes: FastifyPluginAsync<ProviderProfilesRoute
     }
 
     if (profile.kind === 'acp') {
-      let acpModelProfile = undefined;
-      if (runtime.modelAccessMode === 'clowder_default_profile') {
-        const defaultModelProfileRef = runtime.defaultModelProfileRef?.trim();
-        if (!defaultModelProfileRef) {
+      let boundProviderProfile = undefined;
+      if (runtime.boundProviderRef?.trim()) {
+        const boundProviderRef = runtime.boundProviderRef.trim();
+        if (!runtime.defaultModel?.trim()) {
           reply.status(400);
-          return { error: 'ACP provider requires defaultModelProfileRef for clowder_default_profile mode' };
+          return { error: 'ACP provider requires defaultModel when boundProviderRef is set' };
         }
-        acpModelProfile = await resolveRuntimeAcpModelProfileById(projectRoot, defaultModelProfileRef);
-        if (!acpModelProfile) {
+        const resolvedBoundProvider = await resolveRuntimeProviderProfileById(projectRoot, boundProviderRef);
+        if (
+          !resolvedBoundProvider ||
+          resolvedBoundProvider.kind !== 'api_key' ||
+          resolvedBoundProvider.authType !== 'api_key' ||
+          !resolvedBoundProvider.baseUrl ||
+          !resolvedBoundProvider.apiKey
+        ) {
           reply.status(400);
-          return { error: `ACP model profile "${defaultModelProfileRef}" not found or missing apiKey` };
+          return { error: `bound provider "${boundProviderRef}" not found or missing apiKey/baseUrl` };
         }
+        if (!resolvedBoundProvider.models?.includes(runtime.defaultModel.trim())) {
+          reply.status(400);
+          return { error: `model "${runtime.defaultModel.trim()}" is not available on provider "${boundProviderRef}"` };
+        }
+        boundProviderProfile = resolvedBoundProvider;
       }
 
       const probe = await runACPProviderProbe({
         providerProfile: runtime,
         workingDirectory: projectRoot,
-        ...(acpModelProfile ? { acpModelProfile } : {}),
+        ...(boundProviderProfile ? { boundProviderProfile } : {}),
       });
       if (probe.ok) {
         return {

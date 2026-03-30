@@ -4,7 +4,6 @@
  */
 
 import type { CatId, MessageContent } from '@cat-cafe/shared';
-import type { RuntimeAcpModelProfile } from '../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../config/provider-profiles.js';
 import type { CliSpawnOptions } from '../../../utils/cli-types.js';
 
@@ -192,8 +191,8 @@ export interface AgentServiceOptions {
   cliConfigArgs?: readonly string[];
   /** Resolved account/provider profile for non-CLI runtimes such as ACP. */
   providerProfile?: RuntimeProviderProfile | null;
-  /** Optional session-scoped model override for ACP runtimes. */
-  acpModelProfile?: RuntimeAcpModelProfile | null;
+  /** Optional ACP model override source resolved from a bound API-key provider. */
+  boundProviderProfile?: RuntimeProviderProfile | null;
 }
 
 /**

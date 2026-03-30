@@ -12,7 +12,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { type CatId, type ContextHealth, catRegistry, type MessageContent } from '@cat-cafe/shared';
-import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
@@ -837,16 +836,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
-    let resolvedAcpModelProfile: Awaited<ReturnType<typeof resolveRuntimeAcpModelProfileById>> = null;
+    let resolvedBoundProviderProfile: Awaited<ReturnType<typeof resolveRuntimeProviderProfileById>> = null;
     if (provider === 'acp' && resolvedAccount?.kind === 'acp') {
-      if (resolvedAccount.modelAccessMode === 'clowder_default_profile') {
-        const modelProfileRef = resolvedAccount.defaultModelProfileRef?.trim();
-        if (!modelProfileRef) {
-          throw new Error(`ACP provider "${resolvedAccount.id}" requires a default model profile`);
+      const boundProviderRef = resolvedAccount.boundProviderRef?.trim();
+      if (boundProviderRef) {
+        const defaultModel = resolvedAccount.defaultModel?.trim();
+        if (!defaultModel) {
+          throw new Error(`ACP provider "${resolvedAccount.id}" requires a default model when boundProviderRef is set`);
         }
-        resolvedAcpModelProfile = await resolveRuntimeAcpModelProfileById(configProjectRoot, modelProfileRef);
-        if (!resolvedAcpModelProfile) {
-          throw new Error(`ACP model profile "${modelProfileRef}" not found or missing apiKey`);
+        resolvedBoundProviderProfile = await resolveRuntimeProviderProfileById(configProjectRoot, boundProviderRef);
+        if (
+          !resolvedBoundProviderProfile ||
+          resolvedBoundProviderProfile.kind !== 'api_key' ||
+          resolvedBoundProviderProfile.authType !== 'api_key' ||
+          !resolvedBoundProviderProfile.baseUrl ||
+          !resolvedBoundProviderProfile.apiKey
+        ) {
+          throw new Error(`bound provider "${boundProviderRef}" not found or missing apiKey/baseUrl`);
+        }
+        if (!resolvedBoundProviderProfile.models?.includes(defaultModel)) {
+          throw new Error(`model "${defaultModel}" is not available on provider "${boundProviderRef}"`);
         }
       }
     }
@@ -923,7 +932,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       livenessProbe: {},
       ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),
       ...(resolvedAccount ? { providerProfile: resolvedAccount } : {}),
-      ...(resolvedAcpModelProfile ? { acpModelProfile: resolvedAcpModelProfile } : {}),
+      ...(resolvedBoundProviderProfile ? { boundProviderProfile: resolvedBoundProviderProfile } : {}),
     };
 
     let lastErrorMessage: string | undefined;

@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import type { AcpModelProfileEditPayload } from './HubAcpModelProfileItem';
 import type { ProfileEditPayload } from './HubProviderProfileItem';
-import type { AcpModelProfilesResponse, ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
+import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
 import { ensureBuiltinProviderProfiles, resolveAccountActionId } from './hub-provider-profiles.view';
 import { useProviderProfilesCreateSections } from './useProviderProfilesCreateSections';
 
@@ -16,7 +15,6 @@ export function useProviderProfilesState() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ProviderProfilesResponse | null>(null);
-  const [acpModelData, setAcpModelData] = useState<AcpModelProfilesResponse | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const requestProjectPath = threadProjectPath;
@@ -42,22 +40,13 @@ export function useProviderProfilesState() {
     try {
       const query = new URLSearchParams();
       if (projectPath) query.set('projectPath', projectPath);
-      const [providerRes, acpModelRes] = await Promise.all([
-        apiFetch(`/api/provider-profiles?${query.toString()}`),
-        apiFetch(`/api/acp-model-profiles?${query.toString()}`),
-      ]);
+      const providerRes = await apiFetch(`/api/provider-profiles?${query.toString()}`);
       if (!providerRes.ok) {
         const body = (await providerRes.json().catch(() => ({}))) as Record<string, unknown>;
         setError((body.error as string) ?? '加载失败');
         return;
       }
-      if (!acpModelRes.ok) {
-        const body = (await acpModelRes.json().catch(() => ({}))) as Record<string, unknown>;
-        setError((body.error as string) ?? '加载失败');
-        return;
-      }
       setData((await providerRes.json()) as ProviderProfilesResponse);
-      setAcpModelData((await acpModelRes.json()) as AcpModelProfilesResponse);
     } catch {
       setError('网络错误');
     } finally {
@@ -133,47 +122,6 @@ export function useProviderProfilesState() {
     [callApi, mutationProjectPath],
   );
 
-  const saveAcpModelProfile = useCallback(
-    async (profileId: string, payload: AcpModelProfileEditPayload) => {
-      setBusyId(profileId);
-      setError(null);
-      try {
-        await callApi(`/api/acp-model-profiles/${profileId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            projectPath: mutationProjectPath ?? undefined,
-            ...payload,
-          }),
-        });
-        await refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [callApi, mutationProjectPath, refresh],
-  );
-
-  const deleteAcpModelProfile = useCallback(
-    async (profileId: string) => {
-      setBusyId(profileId);
-      setError(null);
-      try {
-        await callApi(`/api/acp-model-profiles/${profileId}`, {
-          method: 'DELETE',
-          body: JSON.stringify({ projectPath: mutationProjectPath ?? undefined }),
-        });
-        await refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [callApi, mutationProjectPath, refresh],
-  );
-
   const displayProfiles = useMemo(
     () => ensureBuiltinProviderProfiles(data?.providers ?? [], data?.visibleBuiltinClients),
     [data?.providers, data?.visibleBuiltinClients],
@@ -182,9 +130,12 @@ export function useProviderProfilesState() {
   const customProfiles = useMemo(() => displayProfiles.filter((profile) => !profile.builtin), [displayProfiles]);
 
   const displayCards = useMemo(() => [...builtinProfiles, ...customProfiles], [builtinProfiles, customProfiles]);
-  const acpModelProfiles = acpModelData?.profiles ?? [];
-  const { providerCreateSectionProps, acpModelCreateSectionProps } = useProviderProfilesCreateSections({
-    acpModelProfiles,
+  const bindableProviderProfiles = useMemo(
+    () => displayProfiles.filter((profile) => profile.kind === 'api_key' && profile.authType === 'api_key'),
+    [displayProfiles],
+  );
+  const { providerCreateSectionProps } = useProviderProfilesCreateSections({
+    bindableProviders: bindableProviderProfiles,
     mutationProjectPath,
     callApi,
     refresh,
@@ -204,20 +155,14 @@ export function useProviderProfilesState() {
     data,
     busyId,
     displayCards,
-    acpModelProfiles,
+    bindableProviderProfiles,
     isProfileBusy,
     providerCreateSectionProps: {
       ...providerCreateSectionProps,
       busy: busyId === 'create',
     },
-    acpModelCreateSectionProps: {
-      ...acpModelCreateSectionProps,
-      busy: busyId === 'create-acp-model',
-    },
     saveProfile,
     deleteProfile,
     testProfile,
-    saveAcpModelProfile,
-    deleteAcpModelProfile,
   };
 }

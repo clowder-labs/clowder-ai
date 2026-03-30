@@ -17,7 +17,7 @@ describe('buildACPSubprocessEnv', () => {
 
     try {
       const env = buildACPSubprocessEnv({
-        modelAccessMode: 'clowder_default_profile',
+        boundProviderRef: 'openai-proxy',
         env: {
           ACP_TRACE_STDIO: '1',
           CUSTOM_FLAG: 'enabled',
@@ -284,7 +284,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -311,7 +310,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -423,7 +421,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -470,7 +467,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -577,7 +573,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -704,7 +699,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -837,7 +831,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -877,7 +870,6 @@ process.stdin.on('data', (chunk) => {
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
-        modelAccessMode: 'bring_your_own_key',
         command: process.execPath,
         args: [scriptFile],
         cwd: process.cwd(),
@@ -907,21 +899,20 @@ process.stdin.on('data', (chunk) => {
 });
 
 describe('buildACPModelProfileOverridePayload', () => {
-  it('omits provider when a legacy ACP model profile leaves it unset', async () => {
+  it('builds override payload from a bound API-key provider and selected model', async () => {
     const { buildACPModelProfileOverridePayload } = await import(
       '../dist/domains/cats/services/agents/providers/acp-model-profile-override.js'
     );
 
     assert.deepEqual(
       buildACPModelProfileOverridePayload({
-        id: 'legacy-default',
-        displayName: 'Legacy Default',
-        model: 'gpt-5.3-codex',
+        id: 'openai-proxy',
+        kind: 'api_key',
+        authType: 'api_key',
         baseUrl: 'https://api.example.com/v1',
         apiKey: 'sk-test',
-        createdAt: '2026-03-27T00:00:00.000Z',
-        updatedAt: '2026-03-27T00:00:00.000Z',
-      }),
+        models: ['gpt-5.3-codex'],
+      }, 'gpt-5.3-codex'),
       {
         name: 'default',
         model: 'gpt-5.3-codex',

@@ -255,8 +255,8 @@ describe('HubProviderProfileItem', () => {
       args: ['--directory', '/opt/workspace/agent-teams', 'run', 'agent-teams', 'gateway', 'acp', 'stdio'],
       cwd: '/opt/workspace/agent-teams',
       envKeys: ['ACP_TRACE_STDIO'],
-      modelAccessMode: 'clowder_default_profile',
-      defaultModelProfileRef: 'default-openai',
+      boundProviderRef: 'openai-proxy',
+      defaultModel: 'gpt-4.1',
       hasApiKey: false,
       createdAt: '2026-03-18T00:00:00.000Z',
       updatedAt: '2026-03-18T00:00:00.000Z',
@@ -268,14 +268,18 @@ describe('HubProviderProfileItem', () => {
         <HubProviderProfileItem
           profile={profile}
           busy={false}
-          acpModelProfiles={[
+          bindableProviders={[
             {
-              id: 'default-openai',
-              displayName: 'Default OpenAI',
-              name: 'Default OpenAI',
-              provider: 'openai_compatible',
-              model: 'gpt-4.1',
+              id: 'openai-proxy',
+              displayName: 'OpenAI Proxy',
+              name: 'OpenAI Proxy',
+              authType: 'api_key',
+              protocol: 'openai',
+              kind: 'api_key',
+              builtin: false,
+              mode: 'api_key',
               baseUrl: 'https://api.openai.com/v1',
+              models: ['gpt-4.1', 'gpt-4.1-mini'],
               hasApiKey: true,
               createdAt: '2026-03-18T00:00:00.000Z',
               updatedAt: '2026-03-18T00:00:00.000Z',
@@ -317,8 +321,8 @@ describe('HubProviderProfileItem', () => {
         ACP_TRACE_STDIO: '1',
         AGENT_TEAMS_LOG_LEVEL: 'DEBUG',
       },
-      modelAccessMode: 'clowder_default_profile',
-      defaultModelProfileRef: 'default-openai',
+      boundProviderRef: 'openai-proxy',
+      defaultModel: 'gpt-4.1',
     } satisfies ProfileEditPayload);
   });
 });

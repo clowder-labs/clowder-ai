@@ -1,10 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { TagEditor } from './hub-tag-editor';
-import type { AcpModelProfileItem, AcpModelProviderType, AcpModelAccessMode } from './hub-provider-profiles.types';
-
-type EditableAcpModelProvider = AcpModelProviderType | '';
+import type { ProfileItem } from './hub-provider-profiles.types';
 
 export function ProviderProfilesSummaryCard() {
   return (
@@ -24,18 +22,6 @@ const PROTOCOL_OPTIONS: Array<{ value: ApiProtocol; label: string }> = [
   { value: 'google', label: 'Google' },
 ];
 
-const ACP_MODEL_PROVIDER_OPTIONS: Array<{ value: AcpModelProviderType; label: string }> = [
-  { value: 'openai_compatible', label: 'openai_compatible' },
-  { value: 'bigmodel', label: 'bigmodel' },
-  { value: 'minimax', label: 'minimax' },
-  { value: 'echo', label: 'echo' },
-];
-
-const ACP_MODEL_ACCESS_OPTIONS: Array<{ value: AcpModelAccessMode; label: string }> = [
-  { value: 'self_managed', label: 'Agent Teams 自管' },
-  { value: 'clowder_default_profile', label: 'Clowder 下发 default profile' },
-];
-
 export function CreateApiKeyProfileSection({
   kind,
   displayName,
@@ -47,9 +33,9 @@ export function CreateApiKeyProfileSection({
   args,
   cwd,
   envText,
-  modelAccessMode,
-  defaultModelProfileRef,
-  acpModelProfiles,
+  boundProviderRef,
+  defaultModel,
+  bindableProviders,
   protocolOptions = PROTOCOL_OPTIONS,
   busy,
   onKindChange,
@@ -62,8 +48,8 @@ export function CreateApiKeyProfileSection({
   onArgsChange,
   onCwdChange,
   onEnvTextChange,
-  onModelAccessModeChange,
-  onDefaultModelProfileRefChange,
+  onBoundProviderRefChange,
+  onDefaultModelChange,
   onCreate,
   defaultExpanded = false,
 }: {
@@ -77,9 +63,9 @@ export function CreateApiKeyProfileSection({
   args: string;
   cwd: string;
   envText: string;
-  modelAccessMode: AcpModelAccessMode;
-  defaultModelProfileRef: string;
-  acpModelProfiles: AcpModelProfileItem[];
+  boundProviderRef: string;
+  defaultModel: string;
+  bindableProviders: ProfileItem[];
   protocolOptions?: Array<{ value: ApiProtocol; label: string }>;
   busy: boolean;
   onKindChange: (kind: AcpProviderKind) => void;
@@ -92,16 +78,17 @@ export function CreateApiKeyProfileSection({
   onArgsChange: (value: string) => void;
   onCwdChange: (value: string) => void;
   onEnvTextChange: (value: string) => void;
-  onModelAccessModeChange: (value: AcpModelAccessMode) => void;
-  onDefaultModelProfileRefChange: (value: string) => void;
+  onBoundProviderRefChange: (value: string) => void;
+  onDefaultModelChange: (value: string) => void;
   onCreate: () => void;
   defaultExpanded?: boolean;
 }) {
+  const selectedBoundProvider = bindableProviders.find((profile) => profile.id === boundProviderRef) ?? null;
   const canCreate =
     kind === 'acp'
       ? displayName.trim().length > 0 &&
         command.trim().length > 0 &&
-        (modelAccessMode !== 'clowder_default_profile' || defaultModelProfileRef.trim().length > 0)
+        ((!boundProviderRef.trim() && !defaultModel.trim()) || (boundProviderRef.trim().length > 0 && defaultModel.trim().length > 0))
       : displayName.trim().length > 0 &&
         baseUrl.trim().length > 0 &&
         apiKey.trim().length > 0 &&
@@ -166,26 +153,27 @@ export function CreateApiKeyProfileSection({
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <select
-                value={modelAccessMode}
-                onChange={(e) => onModelAccessModeChange(e.target.value as AcpModelAccessMode)}
+                value={boundProviderRef}
+                onChange={(e) => onBoundProviderRefChange(e.target.value)}
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
               >
-                {ACP_MODEL_ACCESS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                <option value="">不绑定上游 Provider，Agent 自管</option>
+                {bindableProviders.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.displayName}
                   </option>
                 ))}
               </select>
-              {modelAccessMode === 'clowder_default_profile' ? (
+              {selectedBoundProvider ? (
                 <select
-                  value={defaultModelProfileRef}
-                  onChange={(e) => onDefaultModelProfileRefChange(e.target.value)}
+                  value={defaultModel}
+                  onChange={(e) => onDefaultModelChange(e.target.value)}
                   className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
                 >
-                  <option value="">选择 ACP Model Profile</option>
-                  {acpModelProfiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.displayName}
+                  <option value="">选择默认模型</option>
+                  {(selectedBoundProvider.models ?? []).map((modelName) => (
+                    <option key={modelName} value={modelName}>
+                      {modelName}
                     </option>
                   ))}
                 </select>
@@ -243,107 +231,6 @@ export function CreateApiKeyProfileSection({
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-export function CreateAcpModelProfileSection({
-  displayName,
-  provider,
-  model,
-  baseUrl,
-  apiKey,
-  busy,
-  onDisplayNameChange,
-  onProviderChange,
-  onModelChange,
-  onBaseUrlChange,
-  onApiKeyChange,
-  onCreate,
-}: {
-  displayName: string;
-  provider: EditableAcpModelProvider;
-  model: string;
-  baseUrl: string;
-  apiKey: string;
-  busy: boolean;
-  onDisplayNameChange: (value: string) => void;
-  onProviderChange: (value: EditableAcpModelProvider) => void;
-  onModelChange: (value: string) => void;
-  onBaseUrlChange: (value: string) => void;
-  onApiKeyChange: (value: string) => void;
-  onCreate: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const canCreate = useMemo(
-    () =>
-      displayName.trim().length > 0 &&
-      model.trim().length > 0 &&
-      baseUrl.trim().length > 0 &&
-      apiKey.trim().length > 0,
-    [apiKey, baseUrl, displayName, model],
-  );
-
-  return (
-    <div className="rounded-2xl border border-[#E6EAF2] bg-[#F8FAFD] p-4">
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-center justify-between text-left"
-      >
-        <h4 className="text-base font-semibold text-[#2E3440]">+ 新建 ACP Model Profile</h4>
-        <span className="text-sm text-[#8A93A2]">{expanded ? '▾ 收起' : '▸ 展开'}</span>
-      </button>
-      {expanded ? (
-        <div className="mt-4 space-y-3">
-          <input
-            value={displayName}
-            onChange={(e) => onDisplayNameChange(e.target.value)}
-            placeholder="显示名，如 gateway-default-openai"
-            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
-          />
-          <select
-            value={provider}
-            onChange={(e) => onProviderChange(e.target.value as EditableAcpModelProvider)}
-            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm"
-          >
-            <option value="">留空自动推断</option>
-            {ACP_MODEL_PROVIDER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <input
-            value={model}
-            onChange={(e) => onModelChange(e.target.value)}
-            placeholder="模型名，如 gpt-4.1"
-            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
-          />
-          <input
-            value={baseUrl}
-            onChange={(e) => onBaseUrlChange(e.target.value)}
-            placeholder="Base URL，如 https://api.openai.com/v1"
-            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
-          />
-          <input
-            type="password"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(e) => onApiKeyChange(e.target.value)}
-            placeholder="API Key"
-            className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
-          />
-          <button
-            type="button"
-            onClick={onCreate}
-            disabled={busy || !canCreate}
-            className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
-          >
-            {busy ? '创建中...' : '创建'}
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }

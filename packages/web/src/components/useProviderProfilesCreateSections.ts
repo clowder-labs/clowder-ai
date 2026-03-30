@@ -2,10 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { parseProviderEnvText } from './hub-provider-env';
+import type { ProfileItem } from './hub-provider-profiles.types';
 import type { AcpProviderKind } from './hub-provider-profiles.sections';
-import type { AcpModelAccessMode, AcpModelProfileItem, AcpModelProviderType } from './hub-provider-profiles.types';
-
-type EditableAcpModelProvider = AcpModelProviderType | '';
 
 const DEFAULT_ACP_ARGS = 'gateway acp stdio';
 const DEFAULT_ACP_CWD = '/opt/workspace/agent-teams';
@@ -18,7 +16,7 @@ function splitCommandArgs(value: string): string[] {
 }
 
 interface CreateSectionsOptions {
-  acpModelProfiles: AcpModelProfileItem[];
+  bindableProviders: ProfileItem[];
   mutationProjectPath: string | null;
   callApi: (path: string, init: RequestInit) => Promise<Record<string, unknown>>;
   refresh: () => Promise<void>;
@@ -37,14 +35,8 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
   const [createAcpArgs, setCreateAcpArgs] = useState(DEFAULT_ACP_ARGS);
   const [createAcpCwd, setCreateAcpCwd] = useState(DEFAULT_ACP_CWD);
   const [createAcpEnvText, setCreateAcpEnvText] = useState('');
-  const [createAcpModelAccessMode, setCreateAcpModelAccessMode] = useState<AcpModelAccessMode>('self_managed');
-  const [createAcpModelProfileRef, setCreateAcpModelProfileRef] = useState('');
-
-  const [createAcpModelDisplayName, setCreateAcpModelDisplayName] = useState('');
-  const [createAcpModelProvider, setCreateAcpModelProvider] = useState<EditableAcpModelProvider>('');
-  const [createAcpModel, setCreateAcpModel] = useState('');
-  const [createAcpModelBaseUrl, setCreateAcpModelBaseUrl] = useState('');
-  const [createAcpModelApiKey, setCreateAcpModelApiKey] = useState('');
+  const [createAcpBoundProviderRef, setCreateAcpBoundProviderRef] = useState('');
+  const [createAcpDefaultModel, setCreateAcpDefaultModel] = useState('');
 
   const resetCreateProfileForm = useCallback(() => {
     setCreateDisplayName('');
@@ -56,17 +48,18 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
     setCreateAcpArgs(DEFAULT_ACP_ARGS);
     setCreateAcpCwd(DEFAULT_ACP_CWD);
     setCreateAcpEnvText('');
-    setCreateAcpModelAccessMode('self_managed');
-    setCreateAcpModelProfileRef('');
+    setCreateAcpBoundProviderRef('');
+    setCreateAcpDefaultModel('');
   }, []);
 
-  const resetCreateAcpModelForm = useCallback(() => {
-    setCreateAcpModelDisplayName('');
-    setCreateAcpModelProvider('');
-    setCreateAcpModel('');
-    setCreateAcpModelBaseUrl('');
-    setCreateAcpModelApiKey('');
-  }, []);
+  const handleCreateBoundProviderRefChange = useCallback(
+    (value: string) => {
+      setCreateAcpBoundProviderRef(value);
+      const nextModels = options.bindableProviders.find((profile) => profile.id === value)?.models ?? [];
+      setCreateAcpDefaultModel((current) => (current && nextModels.includes(current) ? current : ''));
+    },
+    [options.bindableProviders],
+  );
 
   const createProfile = useCallback(async () => {
     if (!createDisplayName.trim()) {
@@ -78,8 +71,11 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
         options.setError('ACP provider 需要填写 command');
         return;
       }
-      if (createAcpModelAccessMode === 'clowder_default_profile' && !createAcpModelProfileRef.trim()) {
-        options.setError('请选择 ACP Model Profile');
+      if (
+        (createAcpBoundProviderRef.trim() && !createAcpDefaultModel.trim()) ||
+        (!createAcpBoundProviderRef.trim() && createAcpDefaultModel.trim())
+      ) {
+        options.setError('绑定上游 Provider 时必须同时选择默认模型');
         return;
       }
     } else if (!createBaseUrl.trim() || !createApiKey.trim()) {
@@ -102,9 +98,11 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
                 args: splitCommandArgs(createAcpArgs),
                 cwd: createAcpCwd.trim(),
                 ...(parseProviderEnvText(createAcpEnvText) ? { env: parseProviderEnvText(createAcpEnvText) } : {}),
-                modelAccessMode: createAcpModelAccessMode,
-                ...(createAcpModelAccessMode === 'clowder_default_profile' && createAcpModelProfileRef.trim()
-                  ? { defaultModelProfileRef: createAcpModelProfileRef.trim() }
+                ...(createAcpBoundProviderRef.trim()
+                  ? {
+                      boundProviderRef: createAcpBoundProviderRef.trim(),
+                      defaultModel: createAcpDefaultModel.trim(),
+                    }
                   : {}),
               }
             : {
@@ -127,11 +125,11 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
     }
   }, [
     createAcpArgs,
+    createAcpBoundProviderRef,
     createAcpCommand,
     createAcpCwd,
+    createAcpDefaultModel,
     createAcpEnvText,
-    createAcpModelAccessMode,
-    createAcpModelProfileRef,
     createApiKey,
     createBaseUrl,
     createDisplayName,
@@ -140,48 +138,6 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
     createProtocol,
     options,
     resetCreateProfileForm,
-  ]);
-
-  const createAcpModelProfile = useCallback(async () => {
-    if (
-      !createAcpModelDisplayName.trim() ||
-      !createAcpModel.trim() ||
-      !createAcpModelBaseUrl.trim() ||
-      !createAcpModelApiKey.trim()
-    ) {
-      options.setError('ACP Model Profile 需要填写显示名、model、baseUrl、apiKey');
-      return;
-    }
-
-    options.setBusyId('create-acp-model');
-    options.setError(null);
-    try {
-      await options.callApi('/api/acp-model-profiles', {
-        method: 'POST',
-        body: JSON.stringify({
-          projectPath: options.mutationProjectPath ?? undefined,
-          displayName: createAcpModelDisplayName.trim(),
-          ...(createAcpModelProvider ? { provider: createAcpModelProvider } : {}),
-          model: createAcpModel.trim(),
-          baseUrl: createAcpModelBaseUrl.trim(),
-          apiKey: createAcpModelApiKey.trim(),
-        }),
-      });
-      resetCreateAcpModelForm();
-      await options.refresh();
-    } catch (err) {
-      options.setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      options.setBusyId(null);
-    }
-  }, [
-    createAcpModel,
-    createAcpModelApiKey,
-    createAcpModelBaseUrl,
-    createAcpModelDisplayName,
-    createAcpModelProvider,
-    options,
-    resetCreateAcpModelForm,
   ]);
 
   return {
@@ -196,9 +152,9 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
       args: createAcpArgs,
       cwd: createAcpCwd,
       envText: createAcpEnvText,
-      modelAccessMode: createAcpModelAccessMode,
-      defaultModelProfileRef: createAcpModelProfileRef,
-      acpModelProfiles: options.acpModelProfiles,
+      boundProviderRef: createAcpBoundProviderRef,
+      defaultModel: createAcpDefaultModel,
+      bindableProviders: options.bindableProviders,
       busy: false,
       onKindChange: setCreateKind,
       onDisplayNameChange: setCreateDisplayName,
@@ -210,23 +166,9 @@ export function useProviderProfilesCreateSections(options: CreateSectionsOptions
       onArgsChange: setCreateAcpArgs,
       onCwdChange: setCreateAcpCwd,
       onEnvTextChange: setCreateAcpEnvText,
-      onModelAccessModeChange: setCreateAcpModelAccessMode,
-      onDefaultModelProfileRefChange: setCreateAcpModelProfileRef,
+      onBoundProviderRefChange: handleCreateBoundProviderRefChange,
+      onDefaultModelChange: setCreateAcpDefaultModel,
       onCreate: createProfile,
-    },
-    acpModelCreateSectionProps: {
-      displayName: createAcpModelDisplayName,
-      provider: createAcpModelProvider,
-      model: createAcpModel,
-      baseUrl: createAcpModelBaseUrl,
-      apiKey: createAcpModelApiKey,
-      busy: false,
-      onDisplayNameChange: setCreateAcpModelDisplayName,
-      onProviderChange: setCreateAcpModelProvider,
-      onModelChange: setCreateAcpModel,
-      onBaseUrlChange: setCreateAcpModelBaseUrl,
-      onApiKeyChange: setCreateAcpModelApiKey,
-      onCreate: createAcpModelProfile,
     },
   };
 }

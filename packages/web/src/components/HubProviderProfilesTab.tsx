@@ -1,8 +1,7 @@
 'use client';
 
-import { HubAcpModelProfilesSection } from './HubAcpModelProfilesSection';
 import { HubProviderProfileItem } from './HubProviderProfileItem';
-import { CreateAcpModelProfileSection, CreateApiKeyProfileSection, ProviderProfilesSummaryCard } from './hub-provider-profiles.sections';
+import { CreateApiKeyProfileSection, ProviderProfilesSummaryCard } from './hub-provider-profiles.sections';
 import type { ProfileItem } from './hub-provider-profiles.types';
 import { resolveAccountActionId } from './hub-provider-profiles.view';
 import { useProviderProfilesState } from './useProviderProfilesState';
@@ -25,17 +24,13 @@ export function HubProviderProfilesTab() {
     loading,
     error,
     data,
-    busyId,
     displayCards,
-    acpModelProfiles,
+    bindableProviderProfiles,
     isProfileBusy,
     providerCreateSectionProps,
-    acpModelCreateSectionProps,
     saveProfile,
     deleteProfile,
     testProfile,
-    saveAcpModelProfile,
-    deleteAcpModelProfile,
   } = useProviderProfilesState();
 
   if (loading) return <p className="text-sm text-gray-400">{'\u52a0\u8f7d\u4e2d...'}</p>;
@@ -74,7 +69,7 @@ export function HubProviderProfilesTab() {
                 <HubProviderProfileItem
                   key={profile.id}
                   profile={profile}
-                  acpModelProfiles={acpModelProfiles}
+                  bindableProviders={bindableProviderProfiles}
                   busy={isProfileBusy(profile)}
                   onSave={(payload) => saveProfile(resolveAccountActionId(profile), payload)}
                   onDelete={() => deleteProfile(resolveAccountActionId(profile))}
@@ -88,18 +83,8 @@ export function HubProviderProfilesTab() {
 
       <CreateApiKeyProfileSection {...providerCreateSectionProps} />
 
-      <HubAcpModelProfilesSection
-        profiles={acpModelProfiles}
-        busyId={busyId}
-        onSave={saveAcpModelProfile}
-        onDelete={deleteAcpModelProfile}
-      />
-
-      <CreateAcpModelProfileSection {...acpModelCreateSectionProps} />
-
       <p className="text-xs leading-5 text-[#B59A88]">
-        secrets are stored in `.cat-cafe/provider-profiles.secrets.local.json` and
-        `.cat-cafe/acp-model-profiles.secrets.local.json`.
+        secrets are stored in `.cat-cafe/provider-profiles.secrets.local.json`.
       </p>
     </div>
   );

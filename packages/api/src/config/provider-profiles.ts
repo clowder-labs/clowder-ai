@@ -3,7 +3,6 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSyn
 import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type {
-  ACPModelAccessMode,
   AnthropicRuntimeProfile,
   BootstrapBinding,
   BootstrapBindings,
@@ -34,7 +33,6 @@ import {
 import { normalizeACPEnvEntries } from './acp-env.js';
 
 export type {
-  ACPModelAccessMode,
   AnthropicRuntimeProfile,
   BootstrapBinding,
   BootstrapBindings,
@@ -229,22 +227,15 @@ function normalizeCwd(cwd: string | undefined | null): string | undefined {
 
 function normalizeEnvKeys(
   values: string[] | undefined,
-  modelAccessMode: ACPModelAccessMode | undefined,
+  boundProviderRef: string | undefined,
 ): string[] | undefined {
   if (!Array.isArray(values)) return undefined;
   const normalized = normalizeACPEnvEntries(
     Object.fromEntries(values.map((value) => [value, ''])),
-    modelAccessMode,
+    boundProviderRef,
     { strict: false },
   ).env;
   return normalized ? Object.keys(normalized) : undefined;
-}
-
-function normalizeAcpModelAccessMode(value: string | undefined): ACPModelAccessMode | undefined {
-  if (value === 'self_managed' || value === 'clowder_default_profile') {
-    return value;
-  }
-  return undefined;
 }
 
 function normalizeModels(models: string[] | undefined): string[] | undefined {
@@ -368,12 +359,20 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
   const normalizedProtocol = normalizeProtocol(profile.protocol);
   const normalizedCommand = profile.command?.trim();
   const normalizedArgs = normalizeStringList(profile.args);
-  const normalizedModelAccessMode = normalizeAcpModelAccessMode(profile.modelAccessMode);
-  const normalizedDefaultModelProfileRef = profile.defaultModelProfileRef?.trim();
+  const normalizedBoundProviderRef = profile.boundProviderRef?.trim();
+  const normalizedDefaultModel = profile.defaultModel?.trim();
+  const legacyModelAccessMode =
+    (profile as ProviderProfileMeta & { modelAccessMode?: string }).modelAccessMode?.trim();
+  const legacyDefaultModelProfileRef =
+    (profile as ProviderProfileMeta & { defaultModelProfileRef?: string }).defaultModelProfileRef?.trim();
   // Early ACP profiles were stored before kind/authType/protocol normalization landed.
   // In practice, any custom profile with a command is an ACP profile.
   const hasAcpSpecificFields =
-    Boolean(normalizedCommand) || normalizedModelAccessMode !== undefined || Boolean(normalizedDefaultModelProfileRef);
+    Boolean(normalizedCommand) ||
+    Boolean(normalizedBoundProviderRef) ||
+    Boolean(normalizedDefaultModel) ||
+    Boolean(legacyModelAccessMode) ||
+    Boolean(legacyDefaultModelProfileRef);
   const isLegacyAcpProfile = normalizedProtocol === 'acp' || hasAcpSpecificFields;
   const isAcpProfile = profile.kind === 'acp' || isLegacyAcpProfile;
 
@@ -381,8 +380,7 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
     if (!normalizedCommand) {
       throw new Error(`ACP account "${profile.id}" requires a command`);
     }
-    const modelAccessMode = normalizedModelAccessMode ?? 'self_managed';
-    const envKeys = normalizeEnvKeys(profile.envKeys, modelAccessMode);
+    const envKeys = normalizeEnvKeys(profile.envKeys, normalizedBoundProviderRef);
     return {
       id: profile.id,
       displayName: profile.displayName?.trim() || profile.id,
@@ -394,10 +392,8 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
       ...(normalizedArgs?.length ? { args: normalizedArgs } : {}),
       ...(normalizeCwd(profile.cwd) ? { cwd: normalizeCwd(profile.cwd) } : {}),
       ...(envKeys?.length ? { envKeys } : {}),
-      modelAccessMode,
-      ...(modelAccessMode === 'clowder_default_profile' && normalizedDefaultModelProfileRef
-        ? { defaultModelProfileRef: normalizedDefaultModelProfileRef }
-        : {}),
+      ...(normalizedBoundProviderRef ? { boundProviderRef: normalizedBoundProviderRef } : {}),
+      ...(normalizedBoundProviderRef && normalizedDefaultModel ? { defaultModel: normalizedDefaultModel } : {}),
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     };
@@ -869,7 +865,7 @@ function syncAcpEnvMetadata(meta: ProviderProfilesMetaFile, secrets: ProviderPro
       continue;
     }
 
-    const normalizedEnv = normalizeACPEnvEntries(existingSecretEntry?.env, profile.modelAccessMode, { strict: false }).env;
+    const normalizedEnv = normalizeACPEnvEntries(existingSecretEntry?.env, profile.boundProviderRef, { strict: false }).env;
     const nextEnvKeys = normalizedEnv ? Object.keys(normalizedEnv) : undefined;
     if (JSON.stringify(profile.envKeys ?? []) !== JSON.stringify(nextEnvKeys ?? [])) {
       if (nextEnvKeys?.length) profile.envKeys = nextEnvKeys;
@@ -936,6 +932,41 @@ function requireDisplayName(input: CreateProviderProfileInput | UpdateProviderPr
 
 function findProfile(meta: ProviderProfilesMetaFile, profileId: string): ProviderProfileMeta | undefined {
   return meta.providers.find((profile) => profile.id === profileId);
+}
+
+function resolveValidatedAcpBinding(
+  meta: ProviderProfilesMetaFile,
+  secrets: ProviderProfilesSecretsFile,
+  input: {
+    boundProviderRef?: string | null;
+    defaultModel?: string | null;
+    acpProfileId?: string;
+  },
+): { boundProviderRef?: string; defaultModel?: string } {
+  const boundProviderRef = input.boundProviderRef?.trim();
+  const defaultModel = input.defaultModel?.trim();
+  if (!boundProviderRef && !defaultModel) return {};
+  if (!boundProviderRef || !defaultModel) {
+    throw new Error('ACP provider requires both boundProviderRef and defaultModel');
+  }
+  if (input.acpProfileId && boundProviderRef === input.acpProfileId) {
+    throw new Error('ACP provider cannot bind to itself');
+  }
+  const boundProfile = findProfile(meta, boundProviderRef);
+  if (!boundProfile) {
+    throw new Error(`bound provider profile "${boundProviderRef}" was not found`);
+  }
+  const runtime = toRuntimeProviderProfile(boundProfile, secrets);
+  if (!runtime || runtime.kind !== 'api_key' || runtime.authType !== 'api_key') {
+    throw new Error(`bound provider profile "${boundProviderRef}" must be an API-key provider`);
+  }
+  if (!runtime.baseUrl || !runtime.apiKey) {
+    throw new Error(`bound provider profile "${boundProviderRef}" is missing baseUrl or apiKey`);
+  }
+  if (!runtime.models?.includes(defaultModel)) {
+    throw new Error(`model "${defaultModel}" is not available on provider "${boundProviderRef}"`);
+  }
+  return { boundProviderRef, defaultModel };
 }
 
 function resolveClientFromSelector(
@@ -1119,12 +1150,11 @@ export async function createProviderProfile(
     if (kind === 'acp') {
       const command = input.command?.trim();
       if (!command) throw new Error('command is required for ACP providers');
-      const modelAccessMode = normalizeAcpModelAccessMode(input.modelAccessMode) ?? 'self_managed';
-      const defaultModelProfileRef = input.defaultModelProfileRef?.trim();
-      const env = normalizeACPEnvEntries(input.env, modelAccessMode).env;
-      if (modelAccessMode === 'clowder_default_profile' && !defaultModelProfileRef) {
-        throw new Error('defaultModelProfileRef is required when modelAccessMode=clowder_default_profile');
-      }
+      const binding = resolveValidatedAcpBinding(meta, secrets, {
+        boundProviderRef: input.boundProviderRef,
+        defaultModel: input.defaultModel,
+      });
+      const env = normalizeACPEnvEntries(input.env, binding.boundProviderRef).env;
       if (input.setActive) {
         throw new Error('ACP providers do not support bootstrap activation');
       }
@@ -1139,10 +1169,8 @@ export async function createProviderProfile(
         ...(normalizeStringList(input.args)?.length ? { args: normalizeStringList(input.args) } : {}),
         ...(normalizeCwd(input.cwd) ? { cwd: normalizeCwd(input.cwd) } : {}),
         ...(env ? { envKeys: Object.keys(env) } : {}),
-        modelAccessMode,
-        ...(modelAccessMode === 'clowder_default_profile' && defaultModelProfileRef
-          ? { defaultModelProfileRef }
-          : {}),
+        ...(binding.boundProviderRef ? { boundProviderRef: binding.boundProviderRef } : {}),
+        ...(binding.defaultModel ? { defaultModel: binding.defaultModel } : {}),
         createdAt: now,
         updatedAt: now,
       };
@@ -1224,21 +1252,19 @@ export async function updateProviderProfile(
         if (cwd) profile.cwd = cwd;
         else delete profile.cwd;
       }
-      if (input.modelAccessMode !== undefined) {
-        const modelAccessMode = normalizeAcpModelAccessMode(input.modelAccessMode);
-        if (!modelAccessMode) throw new Error('invalid modelAccessMode');
-        profile.modelAccessMode = modelAccessMode;
-        if (modelAccessMode === 'self_managed') {
-          delete profile.defaultModelProfileRef;
-        }
-      }
-      if (input.defaultModelProfileRef !== undefined) {
-        const ref = input.defaultModelProfileRef?.trim();
-        if (ref) profile.defaultModelProfileRef = ref;
-        else delete profile.defaultModelProfileRef;
-      }
+      const nextBoundProviderRef = input.boundProviderRef !== undefined ? input.boundProviderRef : profile.boundProviderRef;
+      const nextDefaultModel = input.defaultModel !== undefined ? input.defaultModel : profile.defaultModel;
+      const binding = resolveValidatedAcpBinding(meta, secrets, {
+        boundProviderRef: nextBoundProviderRef,
+        defaultModel: nextDefaultModel,
+        acpProfileId: profile.id,
+      });
+      if (binding.boundProviderRef) profile.boundProviderRef = binding.boundProviderRef;
+      else delete profile.boundProviderRef;
+      if (binding.defaultModel) profile.defaultModel = binding.defaultModel;
+      else delete profile.defaultModel;
       if (input.env !== undefined) {
-        const normalizedEnv = normalizeACPEnvEntries(input.env, profile.modelAccessMode).env;
+        const normalizedEnv = normalizeACPEnvEntries(input.env, profile.boundProviderRef).env;
         const nextSecretEntry = { ...(secrets.profiles[profile.id] ?? {}) };
         if (normalizedEnv) nextSecretEntry.env = normalizedEnv;
         else delete nextSecretEntry.env;
@@ -1250,11 +1276,8 @@ export async function updateProviderProfile(
         if (normalizedEnv) profile.envKeys = Object.keys(normalizedEnv);
         else delete profile.envKeys;
       }
-      if ((profile.modelAccessMode ?? 'self_managed') === 'clowder_default_profile' && !profile.defaultModelProfileRef) {
-        throw new Error('defaultModelProfileRef is required when modelAccessMode=clowder_default_profile');
-      }
       if (input.env === undefined) {
-        const normalizedEnv = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.modelAccessMode, {
+        const normalizedEnv = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.boundProviderRef, {
           strict: false,
         }).env;
         const nextSecretEntry = { ...(secrets.profiles[profile.id] ?? {}) };
@@ -1287,8 +1310,8 @@ export async function updateProviderProfile(
         input.args !== undefined ||
         input.cwd !== undefined ||
         input.env !== undefined ||
-        input.modelAccessMode !== undefined ||
-        input.defaultModelProfileRef !== undefined;
+        input.boundProviderRef !== undefined ||
+        input.defaultModel !== undefined;
       if (hasNonModelUpdates) {
         throw new Error('builtin accounts only support model updates');
       }
@@ -1384,6 +1407,14 @@ export async function deleteProviderProfile(
     if (isReferencedByBootstrapBindings(meta, profileId)) {
       throw new Error(`provider profile "${profileId}" is still referenced by bootstrap bindings`);
     }
+    const referencingAcpProviders = meta.providers
+      .filter((item) => item.kind === 'acp' && item.boundProviderRef === profileId)
+      .map((item) => item.id);
+    if (referencingAcpProviders.length > 0) {
+      throw new Error(
+        `provider profile "${profileId}" is still referenced by ACP providers: ${referencingAcpProviders.join(', ')}`,
+      );
+    }
     meta.providers = meta.providers.filter((item) => item.id !== profileId);
     delete secrets.profiles[profileId];
     await writeRaw(metaPath, secretsPath, meta, secrets);
@@ -1410,7 +1441,7 @@ function toRuntimeProviderProfile(
   secrets: ProviderProfilesSecretsFile,
 ): RuntimeProviderProfile | null {
   if (profile.kind === 'acp') {
-    const env = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.modelAccessMode, { strict: false }).env;
+    const env = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.boundProviderRef, { strict: false }).env;
     return {
       id: profile.id,
       kind: 'acp',
@@ -1420,8 +1451,8 @@ function toRuntimeProviderProfile(
       ...(profile.args ? { args: profile.args } : {}),
       ...(profile.cwd ? { cwd: profile.cwd } : {}),
       ...(env ? { env } : {}),
-      ...(profile.modelAccessMode ? { modelAccessMode: profile.modelAccessMode } : {}),
-      ...(profile.defaultModelProfileRef ? { defaultModelProfileRef: profile.defaultModelProfileRef } : {}),
+      ...(profile.boundProviderRef ? { boundProviderRef: profile.boundProviderRef } : {}),
+      ...(profile.defaultModel ? { defaultModel: profile.defaultModel } : {}),
     };
   }
   if (profile.kind === 'api_key') {

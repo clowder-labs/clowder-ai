@@ -3,7 +3,6 @@ import { basename, join } from 'node:path';
 import type { CatId } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
 import { buildACPSubprocessEnv as buildFilteredACPSubprocessEnv } from '../../../../../config/acp-env.js';
-import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../../../config/provider-profiles.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
@@ -195,17 +194,19 @@ function buildACPSubprocessEnv(providerProfile: RuntimeProviderProfile): NodeJS.
 function buildSessionParams(
   providerProfile: RuntimeProviderProfile,
   workingDirectory: string | undefined,
-  acpModelProfile: RuntimeAcpModelProfile | undefined,
+  boundProviderProfile: RuntimeProviderProfile | undefined,
   initializeResult: Record<string, unknown> | undefined,
   options?: AgentServiceOptions,
 ): Record<string, unknown> {
   const resolvedWorkingDirectory = workingDirectory ?? providerProfile.cwd;
   const mcpServers = buildAcpMcpServers(initializeResult, options);
+  const shouldInjectModelOverride =
+    Boolean(providerProfile.boundProviderRef?.trim()) && Boolean(providerProfile.defaultModel?.trim()) && boundProviderProfile;
   return {
     ...(resolvedWorkingDirectory ? { cwd: resolvedWorkingDirectory } : {}),
     mcpServers,
-    ...(providerProfile.modelAccessMode === 'clowder_default_profile' && acpModelProfile
-      ? { modelProfileOverride: buildACPModelProfileOverridePayload(acpModelProfile) }
+    ...(shouldInjectModelOverride
+      ? { modelProfileOverride: buildACPModelProfileOverridePayload(boundProviderProfile, providerProfile.defaultModel!) }
       : {}),
   };
 }
@@ -213,7 +214,7 @@ function buildSessionParams(
 export async function runACPProviderProbe(input: {
   providerProfile: RuntimeProviderProfile;
   workingDirectory?: string;
-  acpModelProfile?: RuntimeAcpModelProfile;
+  boundProviderProfile?: RuntimeProviderProfile;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const providerProfile = input.providerProfile;
   if (providerProfile.kind !== 'acp' || !providerProfile.command) {
@@ -235,7 +236,7 @@ export async function runACPProviderProbe(input: {
     const sessionParams = buildSessionParams(
       providerProfile,
       input.workingDirectory,
-      input.acpModelProfile,
+      input.boundProviderProfile,
       initializeResult,
     );
     const created = await client.call('session/new', sessionParams);
@@ -251,7 +252,7 @@ export async function runACPProviderProbe(input: {
       );
     }
     client.drainMessages();
-    if (providerProfile.modelAccessMode === 'clowder_default_profile') {
+    if (providerProfile.boundProviderRef?.trim() && providerProfile.defaultModel?.trim() && input.boundProviderProfile) {
       const promptResult = client.call('session/prompt', {
         sessionId,
         prompt: [{ type: 'text', text: 'ping' }],
@@ -286,7 +287,7 @@ export class ACPAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const providerProfile = options?.providerProfile;
-    const acpModelProfile = options?.acpModelProfile;
+    const boundProviderProfile = options?.boundProviderProfile;
     const metadataModel = providerProfile?.id?.trim() || 'acp';
     if (providerProfile?.kind !== 'acp' || providerProfile.authType !== 'none' || !providerProfile.command) {
       yield errorMessage(this.catId, 'ACP provider profile is not configured');
@@ -317,7 +318,7 @@ export class ACPAgentService implements AgentService {
       const sessionParams = buildSessionParams(
         providerProfile,
         options?.workingDirectory,
-        acpModelProfile ?? undefined,
+        boundProviderProfile ?? undefined,
         initializeResult,
         options,
       );
