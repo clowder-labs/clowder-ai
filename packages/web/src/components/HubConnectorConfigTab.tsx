@@ -207,9 +207,13 @@ export function HubConnectorConfigTab() {
   const selectedPlatform = platforms.find((platform) => platform.id === selectedPlatformId) ?? platforms[0] ?? null;
 
   return (
-    <div className="space-y-3">
-      <div className="grid gap-3 lg:grid-cols-[304px_minmax(0,1fr)]">
-        <div className="space-y-2" data-testid="connector-left-pane">
+    <div className="space-y-3 h-full flex flex-col">
+      <div className="ui-status-warning flex items-center gap-2 rounded-[var(--radius-sm)] px-3.5 py-2.5 text-xs font-medium">
+        <TriangleAlertIcon />
+        <span>修改配置后需重启 API 生效</span>
+      </div>
+      <div className="ui-panel grid lg:grid-cols-[304px_minmax(0,1fr)] flex-1">
+        <div className="space-y-2 p-4" data-testid="connector-left-pane">
           {platforms.map((platform) => {
             const isSelected = selectedPlatform?.id === platform.id;
             const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
@@ -221,7 +225,7 @@ export function HubConnectorConfigTab() {
                 data-testid={`platform-item-${platform.id}`}
                 className={`ui-card flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors ${
                   isSelected
-                    ? 'border-[var(--state-brand-border)] bg-[var(--surface-card-muted)]'
+                    ? 'border-[var(--border-accent)] bg-[var(--surface-card-muted)]'
                     : 'hover:bg-[var(--surface-card-muted)]'
                 }`}
               >
@@ -249,7 +253,7 @@ export function HubConnectorConfigTab() {
           })}
         </div>
 
-        <div className="ui-card min-h-[480px] overflow-hidden" data-testid="connector-right-pane">
+        <div className="p-4 min-h-[480px] overflow-hidden border-l border-[#e5e7eb]" data-testid="connector-right-pane">
           {selectedPlatform && (() => {
             const platform = selectedPlatform;
             const guideSteps = platform.steps.slice(0, -1);
@@ -257,7 +261,7 @@ export function HubConnectorConfigTab() {
             const saveStepNum = Math.max(platform.steps.length, guideSteps.length + 1);
 
             return (
-              <div className="space-y-3.5 px-4 py-4" data-testid={`platform-card-${platform.id}`}>
+              <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
                 {platform.id === 'weixin' && (
                   <div className="space-y-3.5">
                     {platform.steps.map((step, idx) => (
@@ -370,11 +374,6 @@ export function HubConnectorConfigTab() {
             );
           })()}
         </div>
-      </div>
-
-      <div className="ui-status-warning flex items-center gap-2 rounded-[var(--radius-sm)] px-3.5 py-2.5 text-xs font-medium">
-        <TriangleAlertIcon />
-        <span>修改配置后需重启 API 生效</span>
       </div>
     </div>
   );

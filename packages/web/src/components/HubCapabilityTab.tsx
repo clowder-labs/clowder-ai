@@ -1,23 +1,19 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import type {
   CapabilityBoardItem,
   CapabilityBoardResponse,
   CatFamily,
-  SkillHealthSummary,
   ToggleHandler,
 } from './capability-board-ui';
 import {
   CapabilitySection,
   SectionIconSkill,
-  SkillHealthBanner,
   StatusDot,
 } from './capability-board-ui';
 import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
-import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-utils';
 import { useConfirm } from './useConfirm';
 import { useProviderProfilesState } from './useProviderProfilesState';
 
@@ -27,7 +23,6 @@ const UNCATEGORIZED = '未分类';
 export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatus?: boolean }) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
   const [catFamilies, setCatFamilies] = useState<CatFamily[]>([]);
-  const [skillHealth, setSkillHealth] = useState<SkillHealthSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
@@ -35,17 +30,11 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
 
   const { providerCreateSectionProps } = useProviderProfilesState();
   const confirm = useConfirm();
-  const [projectPath, setProjectPath] = useState<string | null>(null);
-  const [resolvedProjectPath, setResolvedProjectPath] = useState<string>('');
 
-  const threads = useChatStore((state) => state.threads);
-  const knownProjects = useMemo(() => getProjectPaths(threads), [threads]);
-
-  const fetchCapabilities = useCallback(async (forProject?: string) => {
+  const fetchCapabilities = useCallback(async () => {
     setError(null);
     try {
       const query = new URLSearchParams();
-      if (forProject) query.set('projectPath', forProject);
       query.set('probe', 'true');
       const res = await apiFetch(`/api/capabilities?${query.toString()}`);
       if (!res.ok) {
@@ -56,8 +45,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
       const data = (await res.json()) as CapabilityBoardResponse;
       setItems(data.items);
       setCatFamilies(data.catFamilies);
-      setResolvedProjectPath(data.projectPath);
-      setSkillHealth(data.skillHealth ?? null);
     } catch {
       setError('网络错误');
     } finally {
@@ -72,21 +59,12 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        void fetchCapabilities(projectPath ?? undefined);
+        void fetchCapabilities();
       }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [fetchCapabilities, projectPath]);
-
-  const switchProject = useCallback(
-    (path: string | null) => {
-      setProjectPath(path);
-      setLoading(true);
-      void fetchCapabilities(path ?? undefined);
-    },
-    [fetchCapabilities],
-  );
+  }, [fetchCapabilities]);
 
   const handleToggle: ToggleHandler = useCallback(
     async (capabilityId, capabilityType, enabled, scope = 'global', catId) => {
@@ -98,7 +76,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           capabilityType,
           scope,
           enabled,
-          projectPath: projectPath ?? undefined,
         };
         if (catId) body.catId = catId;
 
@@ -112,14 +89,14 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           setError((data.error as string) ?? `开关失败 (${res.status})`);
           return;
         }
-        await fetchCapabilities(projectPath ?? undefined);
+        await fetchCapabilities();
       } catch {
         setError('网络错误');
       } finally {
         setToggling(null);
       }
     },
-    [fetchCapabilities, projectPath],
+    [fetchCapabilities],
   );
 
   const handleUninstall = useCallback(
@@ -139,13 +116,13 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           body: JSON.stringify({ name: skillId }),
         });
         if (res.ok) {
-          await fetchCapabilities(projectPath ?? undefined);
+          await fetchCapabilities();
         }
       } catch {
         // ignore
       }
     },
-    [confirm, fetchCapabilities, projectPath],
+    [confirm, fetchCapabilities],
   );
 
   const visibleItems = useMemo(() => items.filter((item) => item.type !== 'mcp'), [items]);
@@ -181,21 +158,8 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     <div className="space-y-4">
       {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <ProjectSelector
-            resolvedPath={resolvedProjectPath}
-            knownProjects={knownProjects}
-            currentSelection={projectPath}
-            onSwitch={switchProject}
-          />
-        </div>
-      </div>
-
-      {skillHealth && <SkillHealthBanner health={skillHealth} items={items} />}
-
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-4 border-b border-[var(--border-soft)] pb-2">
+        <div className="flex flex-wrap items-center gap-4 pb-2">
           {categoryTabs.map((category) => (
             <button
               key={category}
@@ -243,7 +207,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
         </div>
       )}
 
-      <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
+      <div className="mt-4">
         <div className="flex items-center justify-end text-xs text-[var(--text-muted)]">
           <span className="flex gap-3">
             <span className="flex items-center gap-1.5">
@@ -255,57 +219,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           </span>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ProjectSelector({
-  resolvedPath,
-  knownProjects,
-  currentSelection,
-  onSwitch,
-}: {
-  resolvedPath: string;
-  knownProjects: string[];
-  currentSelection: string | null;
-  onSwitch: (path: string | null) => void;
-}) {
-  const allPaths = useMemo(() => {
-    const set = new Set<string>();
-    set.add(resolvedPath);
-    for (const path of knownProjects) set.add(path);
-    return Array.from(set);
-  }, [resolvedPath, knownProjects]);
-
-  if (allPaths.length <= 1) {
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-        <span>项目:</span>
-        <span className="font-medium text-[var(--text-secondary)]">{projectDisplayName(resolvedPath)}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <label htmlFor="project-select" className="whitespace-nowrap text-[var(--text-muted)]">
-        项目:
-      </label>
-      <select
-        id="project-select"
-        value={currentSelection ?? ''}
-        onChange={(event) => onSwitch(event.target.value || null)}
-        className="ui-field min-w-0 flex-1 px-2 py-1 text-xs"
-      >
-        <option value="">{projectDisplayName(resolvedPath)}</option>
-        {allPaths
-          .filter((path) => path !== resolvedPath || currentSelection !== null)
-          .map((path) => (
-            <option key={path} value={path}>
-              {projectDisplayName(path)}
-            </option>
-          ))}
-      </select>
     </div>
   );
 }
