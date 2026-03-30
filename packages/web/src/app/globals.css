@@ -252,14 +252,13 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
     min-height: var(--control-height-xs);
     border-radius: var(--radius-pill);
     background: var(--surface-inverse);
     color: var(--text-inverse);
     font-size: 13px;
     font-weight: var(--font-weight-medium);
-    padding: 8px 18px;
+    padding: 5px 24px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   }
 
@@ -271,7 +270,6 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
     min-height: var(--control-height-xs);
     border: var(--border-width-default) solid var(--border-default);
     border-radius: var(--radius-pill);
@@ -279,7 +277,7 @@ body {
     color: var(--text-secondary);
     font-size: 13px;
     font-weight: var(--font-weight-medium);
-    padding: 8px 18px;
+    padding: 5px 24px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   }
 
