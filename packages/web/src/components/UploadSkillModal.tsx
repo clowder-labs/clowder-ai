@@ -139,7 +139,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-sm font-bold text-gray-800 mb-5">上传 Skill</h3>
 
         {/* Name input */}
@@ -243,7 +243,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
           <button
             type="button"
             onClick={handleClose}
-            className="px-3 py-1.5 text-xs rounded border border-gray-200 hover:bg-gray-50"
+            className="ui-button-secondary"
           >
             取消
           </button>
@@ -251,7 +251,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             type="button"
             onClick={handleSubmit}
             disabled={uploading || !name.trim() || files.length === 0}
-            className="px-3 py-1.5 text-xs font-medium rounded bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {uploading ? '上传中...' : '上传'}
           </button>

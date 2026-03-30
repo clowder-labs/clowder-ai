@@ -168,12 +168,15 @@ describe('business theme secondary surfaces', () => {
     });
     await flushEffects();
 
-    const card = container.querySelector('[data-testid="platform-card-slack"]');
-    expect(card?.className).toContain('ui-card');
+    const leftPane = container.querySelector('[data-testid="connector-left-pane"]');
+    const rightPane = container.querySelector('[data-testid="connector-right-pane"]');
+    expect(leftPane).not.toBeNull();
+    expect(rightPane?.className).toContain('ui-card');
 
-    const expandButton = card?.querySelector('button');
+    const slackItem = container.querySelector('[data-testid="platform-item-slack"]');
+    expect(slackItem?.className).toContain('ui-card');
     await act(async () => {
-      expandButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      slackItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
     expect(container.querySelector('input')?.className).toContain('ui-field');
