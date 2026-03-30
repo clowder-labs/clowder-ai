@@ -14,7 +14,6 @@ import { delimiter, dirname, extname, isAbsolute, join, resolve } from 'node:pat
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
-import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
@@ -47,7 +46,10 @@ function preferCompactMcpEntry(mcpPath: string): string {
 
 const DARE_MCP_CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.md', '.markdown']);
 const DARE_MCP_JS_ENTRY_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
-const log = createModuleLogger('dare-agent');
+const SHOULD_EMIT_DIAGNOSTICS =
+  !process.argv.includes('--test') &&
+  !process.execArgv.includes('--test') &&
+  process.env.CAT_CAFE_DARE_DIAG_LOG !== '0';
 
 type JsonObject = Record<string, unknown>;
 
@@ -80,8 +82,29 @@ function resolveBridgeConfigPath(seed: string): string {
 }
 
 function normalizeMcpServerName(name: string): string | null {
-  const normalized = name.trim();
-  return normalized.length > 0 ? normalized : null;
+  const normalized = name
+    .trim()
+    .replace(/[^A-Za-z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+  if (normalized.length === 0) return null;
+  if (/^\d/.test(normalized)) return `mcp_${normalized}`;
+  return normalized;
+}
+
+function makeUniqueServerName(baseName: string, usedNames: Set<string>): string {
+  if (!usedNames.has(baseName)) {
+    usedNames.add(baseName);
+    return baseName;
+  }
+  let suffix = 2;
+  while (usedNames.has(`${baseName}_${suffix}`)) {
+    suffix += 1;
+  }
+  const candidate = `${baseName}_${suffix}`;
+  usedNames.add(candidate);
+  return candidate;
 }
 
 function inferCwdFromCommand(command: string, args: string[]): string | undefined {
@@ -146,14 +169,28 @@ function extractArgValue(args: string[], flag: string): string | undefined {
   return args[index + 1];
 }
 
+function emitDareDiagnostic(level: 'info' | 'debug', message: string, payload: Record<string, unknown>): void {
+  if (!SHOULD_EMIT_DIAGNOSTICS) return;
+  const line = JSON.stringify({ module: 'dare-agent', ...payload, msg: message });
+  if (level === 'debug') {
+    if (process.argv.includes('--debug') || process.env.LOG_LEVEL === 'debug') {
+      console.debug(line);
+    }
+    return;
+  }
+  console.info(line);
+}
+
 function buildClaudeStyleDareServers(data: JsonObject): JsonObject[] | null {
   const mcpServers = data.mcpServers;
   if (!isRecord(mcpServers)) return null;
 
   const servers: JsonObject[] = [];
+  const usedServerNames = new Set<string>();
   for (const [rawName, rawConfig] of Object.entries(mcpServers)) {
-    const name = normalizeMcpServerName(rawName);
-    if (!name || !isRecord(rawConfig)) continue;
+    const normalizedName = normalizeMcpServerName(rawName);
+    if (!normalizedName || !isRecord(rawConfig)) continue;
+    const name = makeUniqueServerName(normalizedName, usedServerNames);
 
     const enabled = rawConfig.enabled !== false;
     if (!enabled) continue;
@@ -463,7 +500,7 @@ export class DareAgentService implements AgentService {
     try {
       const bridgePath = resolveBridgeConfigPath(`entry:${configuredPath}:${workspace ?? ''}`);
       const bridgeServer: JsonObject = {
-        name: 'cat-cafe',
+        name: 'cat_cafe',
         transport: 'stdio',
         command: [process.execPath, configuredPath],
         cwd: dirname(configuredPath),
@@ -540,7 +577,9 @@ export class DareAgentService implements AgentService {
     let sessionInitEmitted = false;
 
     const cliMcpPath = extractArgValue(args, '--mcp-path');
-    log.info(
+    emitDareDiagnostic(
+      'info',
+      'Invoking DARE CLI',
       {
         catId: this.catId,
         invocationId: options?.invocationId ?? null,
@@ -560,16 +599,16 @@ export class DareAgentService implements AgentService {
         hasCallbackEnv: Boolean(options?.callbackEnv),
         callbackEnvKeys: options?.callbackEnv ? Object.keys(options.callbackEnv).sort() : [],
       },
-      'Invoking DARE CLI',
     );
-    log.debug(
+    emitDareDiagnostic(
+      'debug',
+      'DARE CLI args and env summary',
       {
         catId: this.catId,
         invocationId: options?.invocationId ?? null,
         args: sanitizeArgsForLog(args),
         envOverrides: summarizeEnvForLog(childEnv),
       },
-      'DARE CLI args and env summary',
     );
 
     try {
