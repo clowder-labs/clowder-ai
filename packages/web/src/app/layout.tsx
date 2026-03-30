@@ -1,5 +1,4 @@
 ﻿import type { Metadata, Viewport } from 'next';
-import { BrakeModal } from '@/components/BrakeModal';
 import { ThemeRootSync } from '@/components/ThemeRootSync';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
@@ -32,7 +31,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         <ThemeRootSync />
         <ConfirmProvider>{children}</ConfirmProvider>
-        <BrakeModal />
         <ToastContainer />
       </body>
     </html>

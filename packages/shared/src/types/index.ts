@@ -57,14 +57,6 @@ export type {
   ThreadPhase,
   UpdateBacklogDispatchProgressInput,
 } from './backlog.js';
-// Brake types (F085 Phase 4 — 平台级健康守护)
-export type {
-  BrakeCheckinRequest,
-  BrakeCheckinResponse,
-  BrakeEvent,
-  BrakeSettings,
-  BrakeState,
-} from './brake.js';
 // Capability types (F041 统一能力模型)
 export type {
   BootstrapAction,

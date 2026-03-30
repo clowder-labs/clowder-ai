@@ -5,7 +5,6 @@ import { useAvailableClients } from '@/hooks/useAvailableClients';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { BrakeSettingsPanel } from './BrakeSettingsPanel';
 import {
   AccordionSection,
   ALL_TABS,
@@ -270,7 +269,6 @@ export function CatCafeHub() {
             {tab === 'voice' && <VoiceSettingsPanel />}
             {tab === 'notify' && <PushSettingsPanel />}
             {tab === 'governance' && <HubGovernanceTab />}
-            {tab === 'health' && <BrakeSettingsPanel />}
             {tab === 'rescue' && <HubClaudeRescueSection />}
             {tab === 'leaderboard' && <HubLeaderboardTab />}
             {tab === 'skills' && <HubSkillsTab />}

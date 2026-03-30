@@ -13,7 +13,12 @@ import Fastify from 'fastify';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
-import { bootstrapDefaultCatCatalog, getConfigSessionStrategy, getDefaultCatId, toAllCatConfigs } from './config/cat-config-loader.js';
+import {
+  bootstrapDefaultCatCatalog,
+  getConfigSessionStrategy,
+  getDefaultCatId,
+  toAllCatConfigs,
+} from './config/cat-config-loader.js';
 import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { resolveAnthropicRuntimeProfile, resolveRuntimeProviderProfileForClient } from './config/provider-profiles.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
@@ -69,7 +74,6 @@ import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { AgentService } from './domains/cats/services/types.js';
-import { ActivityTracker } from './domains/health/ActivityTracker.js';
 import { PortDiscoveryService } from './domains/preview/port-discovery.js';
 import { collectRuntimePorts } from './domains/preview/port-validator.js';
 import { PreviewGateway } from './domains/preview/preview-gateway.js';
@@ -96,20 +100,13 @@ import {
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
-import { resolveActiveProjectRoot } from './utils/active-project-root.js';
-import {
-  resolveJiuwenClawAppDir,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} from './utils/jiuwenclaw-paths.js';
 import {
   auditRoutes,
-  authRoutes,
   authorizationRoutes,
+  authRoutes,
   availableClientsRoutes,
   backlogRoutes,
   bootcampRoutes,
-  brakeRoutes,
   callbackAuthRoutes,
   callbacksRoutes,
   capabilitiesRoutes,
@@ -153,6 +150,7 @@ import {
   signalsRoutes,
   skillsRoutes,
   sliceRoutes,
+  soulTemplatesRoutes,
   summariesRoutes,
   tasksRoutes,
   threadBranchRoutes,
@@ -170,6 +168,12 @@ import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
+import { resolveActiveProjectRoot } from './utils/active-project-root.js';
+import {
+  resolveJiuwenClawAppDir,
+  resolveJiuwenClawExecutable,
+  resolveJiuwenClawPythonBin,
+} from './utils/jiuwenclaw-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
 
@@ -229,32 +233,6 @@ async function main(): Promise<void> {
   // Initialize WebSocket manager BEFORE routes (injected via opts, no circular import).
   // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
   socketManager = new SocketManager(app.server, invocationTracker);
-
-  // F085 Phase 4: Platform-level activity tracker (hyperfocus brake)
-  const activityTracker = new ActivityTracker();
-  app.addHook('onRequest', (request, _reply, done) => {
-    // Skip non-API paths and brake endpoints (avoid trigger-on-checkin loop)
-    if (!request.url.startsWith('/api/') || request.url.startsWith('/api/brake/')) {
-      done();
-      return;
-    }
-    const userId = resolveUserId(request);
-    if (userId) {
-      activityTracker.recordActivity(userId);
-      // shouldTrigger reads per-user settings (enabled + threshold) internally
-      const level = activityTracker.shouldTrigger(userId);
-      if (level > 0 && socketManager) {
-        activityTracker.markTriggered(userId, level as 1 | 2 | 3);
-        socketManager.emitToUser(userId, 'brake:trigger', {
-          level,
-          activeMinutes: Math.round(activityTracker.getState(userId).activeWorkMs / 60_000),
-          nightMode: ActivityTracker.isNightMode(),
-          timestamp: Date.now(),
-        });
-      }
-    }
-    done();
-  });
 
   // Create shared service instances for MCP callback flow
   const registry = new InvocationRegistry();
@@ -606,7 +584,9 @@ async function main(): Promise<void> {
           break;
         }
         case 'relayclaw': {
-          const { RelayClawAgentService } = await import('./domains/cats/services/agents/providers/RelayClawAgentService.js');
+          const { RelayClawAgentService } = await import(
+            './domains/cats/services/agents/providers/RelayClawAgentService.js'
+          );
           const wsEnvKey = `CAT_${id.toUpperCase()}_WS_URL`;
           const wsUrl = process.env[wsEnvKey]?.trim() ?? '';
           const projectRoot = resolveActiveProjectRoot(process.cwd());
@@ -817,8 +797,6 @@ async function main(): Promise<void> {
   await app.register(bootcampRoutes, { threadStore });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);
-  await app.register(brakeRoutes, { activityTracker });
-
   // F101: Game routes (store created earlier for /game command interception)
   if (f101GameStore) {
     await app.register(gameRoutes, {
@@ -985,6 +963,7 @@ async function main(): Promise<void> {
     },
   });
   await app.register(skillsRoutes);
+  await app.register(soulTemplatesRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
 
   // Session chain (F24)
