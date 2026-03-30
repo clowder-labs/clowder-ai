@@ -85,12 +85,12 @@ function Get-WheelhouseSelectedGroups {
         [string[]]$RequestedGroups
     )
 
-    $groups = ConvertTo-WheelhouseArray $Manifest.groups
-    if ($groups.Count -eq 0) {
+    $groups = @(ConvertTo-WheelhouseArray $Manifest.groups)
+    if ($groups.Length -eq 0) {
         throw "wheelhouse manifest contains no groups"
     }
 
-    if (-not $RequestedGroups -or $RequestedGroups.Count -eq 0) {
+    if (-not $RequestedGroups -or @($RequestedGroups).Length -eq 0) {
         return $groups
     }
 
@@ -124,8 +124,8 @@ function Invoke-WheelhouseInstallGroup {
         throw "wheelhouse directory not found for group $($Group.id): $wheelDir"
     }
 
-    $wheelFiles = ConvertTo-WheelhouseArray $Group.wheelFiles
-    if ($wheelFiles.Count -eq 0) {
+    $wheelFiles = @(ConvertTo-WheelhouseArray $Group.wheelFiles)
+    if ($wheelFiles.Length -eq 0) {
         throw "wheelhouse group $($Group.id) has no wheel files"
     }
 
