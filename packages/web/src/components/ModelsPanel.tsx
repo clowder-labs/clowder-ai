@@ -18,6 +18,10 @@ const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
 const DEFAULT_ICON = '/avatars/assistant.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
+const CREATE_MODEL_LABEL = '\u521b\u5efa\u6a21\u578b';
+const CREATE_MODEL_MODAL_TITLE = '\u521b\u5efa\u6a21\u578b';
+const CREATE_MODEL_CANCEL_LABEL = '\u53d6\u6d88';
+const CREATE_MODEL_CONFIRM_LABEL = '\u786e\u5b9a';
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -162,10 +166,21 @@ export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
+  const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const [showCreateModelModal, setShowCreateModelModal] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createModelError, setCreateModelError] = useState<string | null>(null);
+  const [createModelBusy, setCreateModelBusy] = useState(false);
+  const [modelNameInput, setModelNameInput] = useState('');
+  const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
+  const [modelUrlInput, setModelUrlInput] = useState('');
+  const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const openHub = useChatStore((s) => s.openHub);
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
+
+  const canConfirmCreateModel =
+    modelNameInput.trim().length > 0 && modelUrlInput.trim().length > 0 && modelApiKeyInput.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -184,9 +199,10 @@ export function ModelsPanel() {
         setCards([]);
         return;
       }
-      const json = (await res.json()) as { list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
+      const json = (await res.json()) as { projectPath?: string; list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
       const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
       setCards(source.map(normalizeModel));
+      setResolvedProjectPath(typeof json.projectPath === 'string' ? json.projectPath : null);
     } catch {
       setCards([]);
     } finally {
@@ -204,9 +220,12 @@ export function ModelsPanel() {
           if (!cancelled) setCards([]);
           return;
         }
-        const json = (await res.json()) as { list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
+        const json = (await res.json()) as { projectPath?: string; list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
         const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
-        if (!cancelled) setCards(source.map(normalizeModel));
+        if (!cancelled) {
+          setCards(source.map(normalizeModel));
+          setResolvedProjectPath(typeof json.projectPath === 'string' ? json.projectPath : null);
+        }
       } catch {
         if (!cancelled) setCards([]);
       } finally {
@@ -230,6 +249,50 @@ export function ModelsPanel() {
   const showEmptyData = !loading && cards.length === 0;
   const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
   const showGroups = !loading && groupedCards.length > 0;
+
+  const closeCreateModelModal = () => {
+    setShowCreateModelModal(false);
+    setCreateModelError(null);
+  };
+
+  const resetCreateModelForm = () => {
+    setModelNameInput('');
+    setModelDisplayNameInput('');
+    setModelUrlInput('');
+    setModelApiKeyInput('');
+  };
+
+  const handleCreateModel = async () => {
+    if (!canConfirmCreateModel || createModelBusy) return;
+    setCreateModelError(null);
+    setCreateModelBusy(true);
+    try {
+      const payload = {
+        sourceId: generateModelConfigSourceId(),
+        displayName: modelDisplayNameInput.trim(),
+        baseUrl: modelUrlInput.trim(),
+        apiKey: modelApiKeyInput.trim(),
+        models: [modelNameInput.trim()],
+        ...(resolvedProjectPath ? { projectPath: resolvedProjectPath } : {}),
+      };
+      const res = await apiFetch('/api/model-config-profiles', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(body.error ?? `璇锋眰澶辫触 (${res.status})`);
+      }
+      resetCreateModelForm();
+      closeCreateModelModal();
+      await fetchModels();
+    } catch (error) {
+      setCreateModelError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCreateModelBusy(false);
+    }
+  };
 
   return (
     <div className="ui-page-shell">
@@ -262,6 +325,14 @@ export function ModelsPanel() {
                 type="button"
                 onClick={() => setShowAddModelModal(true)}
                 className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+              >
+                {ADD_MODEL}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreateModelModal(true)}
+                data-testid="models-open-create-model-modal"
+                className="rounded-[16px] border border-[#DCE1E8] px-4 py-1.5 text-[12px] font-semibold text-[#2E3440] transition-colors hover:bg-[#F7F8FA]"
               >
                 {ADD_MODEL}
               </button>
@@ -345,6 +416,106 @@ export function ModelsPanel() {
             ))}
         </div>
       </div>
+
+      {showCreateModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={closeCreateModelModal}
+          data-testid="models-create-model-modal"
+        >
+          <div
+            className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[16px] font-bold text-[#2E3440]">{ADD_MODEL}</h3>
+                <button
+                  type="button"
+                  onClick={closeCreateModelModal}
+                  aria-label="close"
+                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u540d\u79f0 *'}</p>
+                  <input
+                    data-testid="models-create-model-name-input"
+                    value={modelNameInput}
+                    onChange={(event) => setModelNameInput(event.target.value)}
+                    placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u540d\u79f0'}
+                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                    style={{ height: '28px' }}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u5c55\u793a\u540d\u79f0'}</p>
+                  <input
+                    data-testid="models-create-model-display-name-input"
+                    value={modelDisplayNameInput}
+                    onChange={(event) => setModelDisplayNameInput(event.target.value)}
+                    placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u5c55\u793a\u540d\u79f0'}
+                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                    style={{ height: '28px' }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u8bbf\u95eeURL *'}</p>
+                  <input
+                    data-testid="models-create-model-url-input"
+                    value={modelUrlInput}
+                    onChange={(event) => setModelUrlInput(event.target.value)}
+                    placeholder={'\u8bf7\u8f93\u5165\u8bbf\u95eeURL'}
+                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                    style={{ height: '28px' }}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key *'}</p>
+                  <input
+                    data-testid="models-create-model-api-key-input"
+                    type="password"
+                    value={modelApiKeyInput}
+                    onChange={(event) => setModelApiKeyInput(event.target.value)}
+                    placeholder={'\u8bf7\u8f93\u5165API Key'}
+                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                    style={{ height: '28px' }}
+                    required
+                  />
+                </div>
+              </div>
+              {createModelError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p> : null}
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeCreateModelModal}
+                  className="rounded-[16px] border border-[#DCE1E8] px-4 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                >
+                  {CREATE_MODEL_CANCEL_LABEL}
+                </button>
+                <button
+                  type="button"
+                  disabled={!canConfirmCreateModel || createModelBusy}
+                  onClick={handleCreateModel}
+                  data-testid="models-create-model-confirm"
+                  className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {createModelBusy ? '\u521b\u5efa\u4e2d...' : CREATE_MODEL_CONFIRM_LABEL}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddModelModal && (
         <div
