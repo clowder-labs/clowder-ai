@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
+import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
@@ -393,6 +394,7 @@ export function AgentsPanel() {
   const [openActionMenuCatId, setOpenActionMenuCatId] = useState<string | null>(null);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [connectThirdPartyModalOpen, setConnectThirdPartyModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templatePage, setTemplatePage] = useState(0);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(INSPIRATION_TEMPLATES[0]?.id ?? null);
@@ -1096,10 +1098,10 @@ export function AgentsPanel() {
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  title="连接三方智能体待接入"
+                  onClick={() => setConnectThirdPartyModalOpen(true)}
                   className="rounded-[10px] bg-[#F5F7FA] px-3 py-1.5 text-[12px] font-semibold text-[#445066] transition hover:bg-[#ECEFF4]"
                 >
-                  链接三方智能体
+                  连接三方智能体
                 </button>
                 <button
                   type="button"
@@ -1137,6 +1139,11 @@ export function AgentsPanel() {
           setEditingCatId(null);
         }}
         onSaved={handleEditorSaved}
+      />
+
+      <ConnectThirdPartyAgentModal
+        open={connectThirdPartyModalOpen}
+        onClose={() => setConnectThirdPartyModalOpen(false)}
       />
 
       <PromptSelectionModal
