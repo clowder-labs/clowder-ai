@@ -14,7 +14,7 @@ type ChannelItem = {
 };
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error';
-type SupportedChannelId = 'web' | 'xiaoyi' | 'feishu' | 'dingtalk' | 'telegram' | 'discord' | 'whatsapp'| 'wecom';
+type SupportedChannelId = 'web' | 'xiaoyi' | 'feishu' | 'dingtalk' | 'telegram' | 'discord' | 'whatsapp' | 'wecom';
 const ADAPTING_CHANNEL_IDS = new Set<SupportedChannelId>([]);
 
 type FeishuConfig = {
@@ -215,15 +215,13 @@ const DEFAULT_WECOM_CONF: WecomConfig = {
 
 const SUPPORTED_CHANNELS: Array<{ channel_id: SupportedChannelId; logo_src: string | null }> = [
   { channel_id: 'web', logo_src: null },
-  { channel_id: 'xiaoyi', logo_src: '/xiaoyi.webp' },
   { channel_id: 'feishu', logo_src: '/feishu.webp' },
   { channel_id: 'dingtalk', logo_src: '/dingtalk.png' },
-  { channel_id: 'telegram', logo_src: '/telegram.webp' },
+  { channel_id: 'xiaoyi', logo_src: '/xiaoyi.webp' },
   { channel_id: 'discord', logo_src: '/discord.webp' },
   { channel_id: 'whatsapp', logo_src: '/whatsapp.png' },
   { channel_id: 'wecom', logo_src: '/wecom.webp' },
 ];
-
 
 function formatTime(iso: string | null, locale: string): string {
   if (!iso) return '-';
@@ -250,16 +248,16 @@ function normalizeEnabledChannels(channels: unknown): Set<string> {
   }
   return new Set(
     channels
-    .map((item) => {
-      if (!item || typeof item !== 'object') {
-        return null;
-      }
-      const channelId = (item as { channel_id?: unknown }).channel_id;
-      if (typeof channelId !== 'string' || !channelId.trim()) {
-        return null;
-      }
-      return channelId.trim().toLowerCase();
-    })
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+        const channelId = (item as { channel_id?: unknown }).channel_id;
+        if (typeof channelId !== 'string' || !channelId.trim()) {
+          return null;
+        }
+        return channelId.trim().toLowerCase();
+      })
       .filter((item): item is string => item !== null),
   );
 }
@@ -282,9 +280,7 @@ function normalizeFeishuConfig(input: unknown): FeishuConfig {
   }
   const data = input as Record<string, unknown>;
   const allowFromRaw = Array.isArray(data.allow_from) ? data.allow_from : [];
-  const allowFrom = allowFromRaw
-    .map((item) => String(item ?? '').trim())
-    .filter((item) => item.length > 0);
+  const allowFrom = allowFromRaw.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
   return {
     enabled: Boolean(data.enabled),
     enable_streaming: data.enable_streaming === undefined ? true : Boolean(data.enable_streaming),
@@ -370,9 +366,7 @@ function normalizeDingtalkConfig(input: unknown): DingTalkConfig {
   }
   const data = input as Record<string, unknown>;
   const allowFromRaw = Array.isArray(data.allow_from) ? data.allow_from : [];
-  const allowFrom = allowFromRaw
-    .map((item) => String(item ?? '').trim())
-    .filter((item) => item.length > 0);
+  const allowFrom = allowFromRaw.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
   return {
     enabled: Boolean(data.enabled),
     client_id: String(data.client_id ?? '').trim(),
@@ -405,9 +399,7 @@ function normalizeTelegramConfig(input: unknown): TelegramConfig {
   }
   const data = input as Record<string, unknown>;
   const allowFromRaw = Array.isArray(data.allow_from) ? data.allow_from : [];
-  const allowFrom = allowFromRaw
-    .map((item) => String(item ?? '').trim())
-    .filter((item) => item.length > 0);
+  const allowFrom = allowFromRaw.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
   return {
     enabled: Boolean(data.enabled),
     bot_token: String(data.bot_token ?? '').trim(),
@@ -447,9 +439,7 @@ function normalizeDiscordConfig(input: unknown): DiscordConfig {
   }
   const data = input as Record<string, unknown>;
   const allowFromRaw = Array.isArray(data.allow_from) ? data.allow_from : [];
-  const allowFrom = allowFromRaw
-    .map((item) => String(item ?? '').trim())
-    .filter((item) => item.length > 0);
+  const allowFrom = allowFromRaw.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
   return {
     enabled: Boolean(data.enabled),
     bot_token: String(data.bot_token ?? '').trim(),
@@ -488,9 +478,7 @@ function normalizeWhatsAppConfig(input: unknown): WhatsAppConfig {
   }
   const data = input as Record<string, unknown>;
   const allowFromRaw = Array.isArray(data.allow_from) ? data.allow_from : [];
-  const allowFrom = allowFromRaw
-    .map((item) => String(item ?? '').trim())
-    .filter((item) => item.length > 0);
+  const allowFrom = allowFromRaw.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
   return {
     enabled: Boolean(data.enabled),
     bridge_ws_url: String(data.bridge_ws_url ?? 'ws://127.0.0.1:19600/ws').trim(),
@@ -535,9 +523,7 @@ function normalizeWecomConfig(input: unknown): WecomConfig {
   }
   const data = input as Record<string, unknown>;
   const allowFromRaw = Array.isArray(data.allow_from) ? data.allow_from : [];
-  const allowFrom = allowFromRaw
-    .map((item) => String(item ?? '').trim())
-    .filter((item) => item.length > 0);
+  const allowFrom = allowFromRaw.map((item) => String(item ?? '').trim()).filter((item) => item.length > 0);
   return {
     enabled: Boolean(data.enabled),
     bot_id: String(data.bot_id ?? '').trim(),
@@ -581,13 +567,25 @@ function VisibilityIcon({ visible }: { visible: boolean }) {
     <svg className="channels-panel__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M10.58 10.58A2 2 0 0013.42 13.42" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.88 5.09A10.94 10.94 0 0112 4.9c5.05 0 9.27 3.11 10.5 7.5a11.6 11.6 0 01-3.06 4.88" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6.61 6.61A11.6 11.6 0 001.5 12.4c.53 1.9 1.63 3.56 3.11 4.79" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.88 5.09A10.94 10.94 0 0112 4.9c5.05 0 9.27 3.11 10.5 7.5a11.6 11.6 0 01-3.06 4.88"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6.61 6.61A11.6 11.6 0 001.5 12.4c.53 1.9 1.63 3.56 3.11 4.79"
+      />
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.12 14.12a3 3 0 01-4.24-4.24" />
     </svg>
   ) : (
     <svg className="channels-panel__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12s-3.75 7.5-10.5 7.5S1.5 12 1.5 12z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M1.5 12s3.75-7.5 10.5-7.5S22.5 12 22.5 12s-3.75 7.5-10.5 7.5S1.5 12 1.5 12z"
+      />
       <circle cx="12" cy="12" r="3" />
     </svg>
   );
@@ -607,7 +605,10 @@ function ChannelLogo({ channel, label }: { channel: ChannelItem; label: string }
     <span className="h-6 w-6 rounded-md border border-border bg-card flex items-center justify-center text-text-muted">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
         <circle cx="12" cy="12" r="9" />
-        <path strokeLinecap="round" d="M3 12h18M12 3c2.5 2.2 4 5.5 4 9s-1.5 6.8-4 9m0-18c-2.5 2.2-4 5.5-4 9s1.5 6.8 4 9" />
+        <path
+          strokeLinecap="round"
+          d="M3 12h18M12 3c2.5 2.2 4 5.5 4 9s-1.5 6.8-4 9m0-18c-2.5 2.2-4 5.5-4 9s1.5 6.8 4 9"
+        />
       </svg>
     </span>
   );
@@ -628,7 +629,10 @@ function ChannelHeaderLogo({ channelId, label }: { channelId: SupportedChannelId
     <span className="h-9 w-9 rounded-lg border border-border bg-card flex items-center justify-center text-text-muted">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-7 w-7">
         <circle cx="12" cy="12" r="9" />
-        <path strokeLinecap="round" d="M3 12h18M12 3c2.5 2.2 4 5.5 4 9s-1.5 6.8-4 9m0-18c-2.5 2.2-4 5.5-4 9s1.5 6.8 4 9" />
+        <path
+          strokeLinecap="round"
+          d="M3 12h18M12 3c2.5 2.2 4 5.5 4 9s-1.5 6.8-4 9m0-18c-2.5 2.2-4 5.5-4 9s1.5 6.8 4 9"
+        />
       </svg>
     </span>
   );
@@ -810,7 +814,7 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
       setWhatsappLoading(false);
     }
   }, [t]);
-  
+
   const fetchWecomConfig = useCallback(async () => {
     setWecomLoading(true);
     setWecomSaveError(null);
@@ -828,15 +832,12 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
     }
   }, [t]);
 
-  const handleSelectChannel = useCallback(
-    (channelId: SupportedChannelId) => {
-      if (ADAPTING_CHANNEL_IDS.has(channelId)) {
-        return;
-      }
-      setActiveChannelId(channelId);
-    },
-    [],
-  );
+  const handleSelectChannel = useCallback((channelId: SupportedChannelId) => {
+    if (ADAPTING_CHANNEL_IDS.has(channelId)) {
+      return;
+    }
+    setActiveChannelId(channelId);
+  }, []);
 
   useEffect(() => {
     if (activeChannelId === 'feishu') {
@@ -865,7 +866,16 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
     if (activeChannelId === 'wecom') {
       void fetchWecomConfig();
     }
-  }, [activeChannelId, fetchDiscordConfig, fetchDingtalkConfig, fetchFeishuConfig, fetchTelegramConfig, fetchWhatsAppConfig,fetchXiaoyiConfig, fetchWecomConfig]);
+  }, [
+    activeChannelId,
+    fetchDiscordConfig,
+    fetchDingtalkConfig,
+    fetchFeishuConfig,
+    fetchTelegramConfig,
+    fetchWhatsAppConfig,
+    fetchXiaoyiConfig,
+    fetchWecomConfig,
+  ]);
 
   const statusText = useMemo(() => {
     const enabledCount = channels.filter((channel) => channel.enabled).length;
@@ -907,7 +917,8 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
       baseDraft.enabled !== dingtalkDraft.enabled ||
       baseDraft.client_id !== dingtalkDraft.client_id ||
       baseDraft.client_secret !== dingtalkDraft.client_secret ||
-      normalizeAllowFromText(baseDraft.allow_from).join('\n') !== normalizeAllowFromText(dingtalkDraft.allow_from).join('\n')
+      normalizeAllowFromText(baseDraft.allow_from).join('\n') !==
+        normalizeAllowFromText(dingtalkDraft.allow_from).join('\n')
     );
   }, [dingtalkConfig, dingtalkDraft]);
 
@@ -916,7 +927,8 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
     return (
       baseDraft.enabled !== telegramDraft.enabled ||
       baseDraft.bot_token !== telegramDraft.bot_token ||
-      normalizeAllowFromText(baseDraft.allow_from).join('\n') !== normalizeAllowFromText(telegramDraft.allow_from).join('\n') ||
+      normalizeAllowFromText(baseDraft.allow_from).join('\n') !==
+        normalizeAllowFromText(telegramDraft.allow_from).join('\n') ||
       baseDraft.parse_mode !== telegramDraft.parse_mode ||
       baseDraft.group_chat_mode !== telegramDraft.group_chat_mode
     );
@@ -929,7 +941,8 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
       baseDraft.application_id !== discordDraft.application_id ||
       baseDraft.guild_id !== discordDraft.guild_id ||
       baseDraft.channel_id !== discordDraft.channel_id ||
-      normalizeAllowFromText(baseDraft.allow_from).join('\n') !== normalizeAllowFromText(discordDraft.allow_from).join('\n')
+      normalizeAllowFromText(baseDraft.allow_from).join('\n') !==
+        normalizeAllowFromText(discordDraft.allow_from).join('\n')
     );
   }, [discordConfig, discordDraft]);
   const hasWhatsAppConfigChanges = useMemo(() => {
@@ -938,7 +951,8 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
       baseDraft.enabled !== whatsappDraft.enabled ||
       baseDraft.bridge_ws_url !== whatsappDraft.bridge_ws_url ||
       baseDraft.default_jid !== whatsappDraft.default_jid ||
-      normalizeAllowFromText(baseDraft.allow_from).join('\n') !== normalizeAllowFromText(whatsappDraft.allow_from).join('\n') ||
+      normalizeAllowFromText(baseDraft.allow_from).join('\n') !==
+        normalizeAllowFromText(whatsappDraft.allow_from).join('\n') ||
       baseDraft.enable_streaming !== whatsappDraft.enable_streaming ||
       baseDraft.auto_start_bridge !== whatsappDraft.auto_start_bridge ||
       baseDraft.bridge_command !== whatsappDraft.bridge_command ||
@@ -952,7 +966,8 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
       baseDraft.bot_id !== wecomDraft.bot_id ||
       baseDraft.secret !== wecomDraft.secret ||
       baseDraft.default_chat_id !== wecomDraft.default_chat_id ||
-      normalizeAllowFromText(baseDraft.allow_from).join('\n') !== normalizeAllowFromText(wecomDraft.allow_from).join('\n')
+      normalizeAllowFromText(baseDraft.allow_from).join('\n') !==
+        normalizeAllowFromText(wecomDraft.allow_from).join('\n')
     );
   }, [wecomConfig, wecomDraft]);
   const handleFieldChange = <K extends keyof FeishuDraft>(key: K, value: FeishuDraft[K]) => {
@@ -1227,16 +1242,38 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
     }
   };
 
-  const isConfigRefreshing = feishuLoading || xiaoyiLoading || dingtalkLoading || telegramLoading || discordLoading || whatsappLoading || wecomLoading;
+  const isConfigRefreshing =
+    feishuLoading ||
+    xiaoyiLoading ||
+    dingtalkLoading ||
+    telegramLoading ||
+    discordLoading ||
+    whatsappLoading ||
+    wecomLoading;
   const configErrorNotice = useMemo(() => {
     return Array.from(
       new Set(
-        [saveError, xiaoyiSaveError, dingtalkSaveError, telegramSaveError, discordSaveError, whatsappSaveError, wecomSaveError].filter(
-          (message): message is string => Boolean(message),
-        ),
+        [
+          saveError,
+          xiaoyiSaveError,
+          dingtalkSaveError,
+          telegramSaveError,
+          discordSaveError,
+          whatsappSaveError,
+          wecomSaveError,
+        ].filter((message): message is string => Boolean(message)),
       ),
     ).join(t('common.and'));
-  }, [discordSaveError, dingtalkSaveError, saveError, t, telegramSaveError, whatsappSaveError, wecomSaveError, xiaoyiSaveError]);
+  }, [
+    discordSaveError,
+    dingtalkSaveError,
+    saveError,
+    t,
+    telegramSaveError,
+    whatsappSaveError,
+    wecomSaveError,
+    xiaoyiSaveError,
+  ]);
   useEffect(() => {
     if (!configErrorNotice) {
       return;
@@ -1275,7 +1312,9 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
 
         {error ? (
           <div className="border border-[var(--border-danger)] bg-danger-subtle rounded-lg p-4 text-sm text-danger flex items-center justify-between">
-            <span>{t('channels.fetchFailed')}: {error}</span>
+            <span>
+              {t('channels.fetchFailed')}: {error}
+            </span>
             <button onClick={() => void fetchChannels()} className="btn !px-3 !py-1.5">
               {t('channels.retry')}
             </button>
@@ -1346,7 +1385,11 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
                                     : 'text-text-muted border-border bg-secondary'
                               }`}
                             >
-                              {isAdapting ? t('channels.status.adapting') : channel.enabled ? t('channels.status.enabled') : t('channels.status.disabled')}
+                              {isAdapting
+                                ? t('channels.status.adapting')
+                                : channel.enabled
+                                  ? t('channels.status.enabled')
+                                  : t('channels.status.disabled')}
                             </span>
                           </div>
                         </button>
@@ -1358,379 +1401,416 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
             </section>
 
             <section className="min-h-0 flex">
-                {activeChannelId === 'web' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+              {activeChannelId === 'web' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center gap-3">
+                      <ChannelHeaderLogo channelId="web" label={getChannelLabel(t, 'web')} />
+                      <div>
+                        <h4 className="text-sm font-medium text-text">{t('channels.config.webTitle')}</h4>
+                        <p className="text-xs text-text-muted mt-1">{t('channels.config.webSubtitle')}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 text-sm text-text-muted flex-1 overflow-auto flex items-center justify-center text-center">
+                    {t('channels.config.webEmpty')}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeChannelId === 'xiaoyi' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <ChannelHeaderLogo channelId="web" label={getChannelLabel(t, 'web')} />
+                        <ChannelHeaderLogo channelId="xiaoyi" label={getChannelLabel(t, 'xiaoyi')} />
                         <div>
-                          <h4 className="text-sm font-medium text-text">{t('channels.config.webTitle')}</h4>
-                          <p className="text-xs text-text-muted mt-1">{t('channels.config.webSubtitle')}</p>
+                          <h4 className="text-sm font-medium text-text">{t('channels.config.xiaoyiTitle')}</h4>
+                          <p className="text-xs text-text-muted mt-1">{t('channels.config.xiaoyiSubtitle')}</p>
                         </div>
                       </div>
-                    </div>
-                    <div className="p-4 text-sm text-text-muted flex-1 overflow-auto flex items-center justify-center text-center">
-                      {t('channels.config.webEmpty')}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void fetchXiaoyiConfig()}
+                          disabled={xiaoyiSaving || isConfigRefreshing}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {xiaoyiLoading ? t('common.refreshing') : t('common.refresh')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelXiaoyiConfig}
+                          disabled={!hasXiaoyiConfigChanges || xiaoyiSaving}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveXiaoyiConfig()}
+                          disabled={!hasXiaoyiConfigChanges || xiaoyiSaving || !isConnected}
+                          className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {xiaoyiSaving ? t('common.saving') : t('common.save')}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ) : null}
 
-                {activeChannelId === 'xiaoyi' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ChannelHeaderLogo channelId="xiaoyi" label={getChannelLabel(t, 'xiaoyi')} />
-                          <div>
-                            <h4 className="text-sm font-medium text-text">{t('channels.config.xiaoyiTitle')}</h4>
-                            <p className="text-xs text-text-muted mt-1">{t('channels.config.xiaoyiSubtitle')}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void fetchXiaoyiConfig()}
-                            disabled={xiaoyiSaving || isConfigRefreshing}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {xiaoyiLoading ? t('common.refreshing') : t('common.refresh')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelXiaoyiConfig}
-                            disabled={!hasXiaoyiConfigChanges || xiaoyiSaving}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveXiaoyiConfig()}
-                            disabled={!hasXiaoyiConfigChanges || xiaoyiSaving || !isConnected}
-                            className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {xiaoyiSaving ? t('common.saving') : t('common.save')}
-                          </button>
-                        </div>
-                      </div>
+                  {xiaoyiSuccess ? (
+                    <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
+                      {xiaoyiSuccess}
                     </div>
+                  ) : null}
 
-                    {xiaoyiSuccess ? (
-                      <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
-                        {xiaoyiSuccess}
-                      </div>
-                    ) : null}
-
-                    <div className="p-4 pt-3 flex-1 overflow-auto">
-                      {xiaoyiLoading ? (
-                        <div className="text-sm text-text-muted">{t('channels.loading.xiaoyi')}</div>
-                      ) : (
-                        <table className="w-full text-sm">
-                          <tbody>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={xiaoyiDraft.enabled}
-                                  onClick={() => handleXiaoyiFieldChange('enabled', !xiaoyiDraft.enabled)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    xiaoyiDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                  <div className="p-4 pt-3 flex-1 overflow-auto">
+                    {xiaoyiLoading ? (
+                      <div className="text-sm text-text-muted">{t('channels.loading.xiaoyi')}</div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={xiaoyiDraft.enabled}
+                                onClick={() => handleXiaoyiFieldChange('enabled', !xiaoyiDraft.enabled)}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  xiaoyiDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    xiaoyiDraft.enabled ? 'translate-x-4' : 'translate-x-0'
                                   }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      xiaoyiDraft.enabled ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enable_streaming</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={xiaoyiDraft.enable_streaming}
-                                  onClick={() => handleXiaoyiFieldChange('enable_streaming', !xiaoyiDraft.enable_streaming)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    xiaoyiDraft.enable_streaming ? 'bg-ok' : 'bg-secondary'
-                                  }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      xiaoyiDraft.enable_streaming ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            {(['ak', 'sk', 'agent_id'] as const).map((field) => (
-                              <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
-                                <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                  <div className="relative">
-                                    <input
-                                      type={isSensitiveXiaoyiField(field) && !xiaoyiVisibleFields[field] ? 'password' : 'text'}
-                                      value={xiaoyiDraft[field]}
-                                      onChange={(e) => handleXiaoyiFieldChange(field, e.target.value)}
-                                      placeholder={t('channels.placeholders.configValue')}
-                                      className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
-                                        isSensitiveXiaoyiField(field) ? 'pr-10' : ''
-                                      }`}
-                                    />
-                                    {isSensitiveXiaoyiField(field) ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleXiaoyiFieldVisible(field)}
-                                        className="channels-panel__visibility-toggle"
-                                        aria-label={xiaoyiVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                        title={xiaoyiVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                      >
-                                        <VisibilityIcon visible={Boolean(xiaoyiVisibleFields[field])} />
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeChannelId === 'dingtalk' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ChannelHeaderLogo channelId="dingtalk" label={getChannelLabel(t, 'dingtalk')} />
-                          <div>
-                            <h4 className="text-sm font-medium text-text">{t('channels.config.dingtalkTitle')}</h4>
-                            <p className="text-xs text-text-muted mt-1">{t('channels.config.dingtalkSubtitle')}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void fetchDingtalkConfig()}
-                            disabled={dingtalkSaving || isConfigRefreshing}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {dingtalkLoading ? t('common.refreshing') : t('common.refresh')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelDingtalkConfig}
-                            disabled={!hasDingtalkConfigChanges || dingtalkSaving}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveDingtalkConfig()}
-                            disabled={
-                              !hasDingtalkConfigChanges ||
-                              dingtalkSaving ||
-                              !isConnected ||
-                              !dingtalkDraft.client_id.trim() ||
-                              !dingtalkDraft.client_secret.trim()
-                            }
-                            className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {dingtalkSaving ? t('common.saving') : t('common.save')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {dingtalkSuccess ? (
-                      <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
-                        {dingtalkSuccess}
-                      </div>
-                    ) : null}
-
-                    <div className="p-4 pt-3 flex-1 overflow-auto">
-                      {dingtalkLoading ? (
-                        <div className="text-sm text-text-muted">{t('channels.loading.dingtalk')}</div>
-                      ) : (
-                        <table className="w-full text-sm">
-                          <tbody>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={dingtalkDraft.enabled}
-                                  onClick={() => handleDingtalkFieldChange('enabled', !dingtalkDraft.enabled)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    dingtalkDraft.enabled ? 'bg-ok' : 'bg-secondary'
-                                  }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      dingtalkDraft.enabled ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            {(['client_id', 'client_secret'] as const).map((field) => (
-                              <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
-                                <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                  <div className="relative">
-                                    <input
-                                      type={isSensitiveDingtalkField(field) && !dingtalkVisibleFields[field] ? 'password' : 'text'}
-                                      value={dingtalkDraft[field]}
-                                      onChange={(e) => handleDingtalkFieldChange(field, e.target.value)}
-                                      placeholder={field === 'client_id' ? t('channels.placeholders.appId') : t('channels.placeholders.appSecret')}
-                                      className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
-                                        isSensitiveDingtalkField(field) ? 'pr-10' : ''
-                                      }`}
-                                    />
-                                    {isSensitiveDingtalkField(field) ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleDingtalkFieldVisible(field)}
-                                        className="channels-panel__visibility-toggle"
-                                        aria-label={dingtalkVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                        title={dingtalkVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                      >
-                                        <VisibilityIcon visible={Boolean(dingtalkVisibleFields[field])} />
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <textarea
-                                  value={dingtalkDraft.allow_from}
-                                  onChange={(e) => handleDingtalkFieldChange('allow_from', e.target.value)}
-                                  placeholder={t('channels.placeholders.employeeIds')}
-                                  rows={4}
-                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
                                 />
+                              </button>
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                              enable_streaming
+                            </td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={xiaoyiDraft.enable_streaming}
+                                onClick={() =>
+                                  handleXiaoyiFieldChange('enable_streaming', !xiaoyiDraft.enable_streaming)
+                                }
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  xiaoyiDraft.enable_streaming ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    xiaoyiDraft.enable_streaming ? 'translate-x-4' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                          {(['ak', 'sk', 'agent_id'] as const).map((field) => (
+                            <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
+                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                                <div className="relative">
+                                  <input
+                                    type={
+                                      isSensitiveXiaoyiField(field) && !xiaoyiVisibleFields[field] ? 'password' : 'text'
+                                    }
+                                    value={xiaoyiDraft[field]}
+                                    onChange={(e) => handleXiaoyiFieldChange(field, e.target.value)}
+                                    placeholder={t('channels.placeholders.configValue')}
+                                    className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
+                                      isSensitiveXiaoyiField(field) ? 'pr-10' : ''
+                                    }`}
+                                  />
+                                  {isSensitiveXiaoyiField(field) ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleXiaoyiFieldVisible(field)}
+                                      className="channels-panel__visibility-toggle"
+                                      aria-label={
+                                        xiaoyiVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')
+                                      }
+                                      title={
+                                        xiaoyiVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')
+                                      }
+                                    >
+                                      <VisibilityIcon visible={Boolean(xiaoyiVisibleFields[field])} />
+                                    </button>
+                                  ) : null}
+                                </div>
                               </td>
                             </tr>
-                          </tbody>
-                        </table>
-                      )}
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeChannelId === 'dingtalk' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <ChannelHeaderLogo channelId="dingtalk" label={getChannelLabel(t, 'dingtalk')} />
+                        <div>
+                          <h4 className="text-sm font-medium text-text">{t('channels.config.dingtalkTitle')}</h4>
+                          <p className="text-xs text-text-muted mt-1">{t('channels.config.dingtalkSubtitle')}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void fetchDingtalkConfig()}
+                          disabled={dingtalkSaving || isConfigRefreshing}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {dingtalkLoading ? t('common.refreshing') : t('common.refresh')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelDingtalkConfig}
+                          disabled={!hasDingtalkConfigChanges || dingtalkSaving}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveDingtalkConfig()}
+                          disabled={
+                            !hasDingtalkConfigChanges ||
+                            dingtalkSaving ||
+                            !isConnected ||
+                            !dingtalkDraft.client_id.trim() ||
+                            !dingtalkDraft.client_secret.trim()
+                          }
+                          className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {dingtalkSaving ? t('common.saving') : t('common.save')}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ) : null}
 
-                {activeChannelId === 'feishu' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ChannelHeaderLogo channelId="feishu" label={getChannelLabel(t, 'feishu')} />
-                          <div>
-                            <h4 className="text-sm font-medium text-text">{t('channels.config.feishuTitle')}</h4>
-                            <p className="text-xs text-text-muted mt-1">{t('channels.config.feishuSubtitle')}</p>
-                          </div>
+                  {dingtalkSuccess ? (
+                    <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
+                      {dingtalkSuccess}
+                    </div>
+                  ) : null}
+
+                  <div className="p-4 pt-3 flex-1 overflow-auto">
+                    {dingtalkLoading ? (
+                      <div className="text-sm text-text-muted">{t('channels.loading.dingtalk')}</div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={dingtalkDraft.enabled}
+                                onClick={() => handleDingtalkFieldChange('enabled', !dingtalkDraft.enabled)}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  dingtalkDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    dingtalkDraft.enabled ? 'translate-x-4' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                          {(['client_id', 'client_secret'] as const).map((field) => (
+                            <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
+                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                                <div className="relative">
+                                  <input
+                                    type={
+                                      isSensitiveDingtalkField(field) && !dingtalkVisibleFields[field]
+                                        ? 'password'
+                                        : 'text'
+                                    }
+                                    value={dingtalkDraft[field]}
+                                    onChange={(e) => handleDingtalkFieldChange(field, e.target.value)}
+                                    placeholder={
+                                      field === 'client_id'
+                                        ? t('channels.placeholders.appId')
+                                        : t('channels.placeholders.appSecret')
+                                    }
+                                    className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
+                                      isSensitiveDingtalkField(field) ? 'pr-10' : ''
+                                    }`}
+                                  />
+                                  {isSensitiveDingtalkField(field) ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleDingtalkFieldVisible(field)}
+                                      className="channels-panel__visibility-toggle"
+                                      aria-label={
+                                        dingtalkVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')
+                                      }
+                                      title={
+                                        dingtalkVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')
+                                      }
+                                    >
+                                      <VisibilityIcon visible={Boolean(dingtalkVisibleFields[field])} />
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <textarea
+                                value={dingtalkDraft.allow_from}
+                                onChange={(e) => handleDingtalkFieldChange('allow_from', e.target.value)}
+                                placeholder={t('channels.placeholders.employeeIds')}
+                                rows={4}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeChannelId === 'feishu' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <ChannelHeaderLogo channelId="feishu" label={getChannelLabel(t, 'feishu')} />
+                        <div>
+                          <h4 className="text-sm font-medium text-text">{t('channels.config.feishuTitle')}</h4>
+                          <p className="text-xs text-text-muted mt-1">{t('channels.config.feishuSubtitle')}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void fetchFeishuConfig()}
-                            disabled={saving || isConfigRefreshing}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {feishuLoading ? t('common.refreshing') : t('common.refresh')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelConfig}
-                            disabled={!hasConfigChanges || saving}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveConfig()}
-                            disabled={!hasConfigChanges || saving || !isConnected || !draft.app_id.trim() || !draft.app_secret.trim()}
-                            className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {saving ? t('common.saving') : t('common.save')}
-                          </button>
-                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void fetchFeishuConfig()}
+                          disabled={saving || isConfigRefreshing}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {feishuLoading ? t('common.refreshing') : t('common.refresh')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelConfig}
+                          disabled={!hasConfigChanges || saving}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveConfig()}
+                          disabled={
+                            !hasConfigChanges ||
+                            saving ||
+                            !isConnected ||
+                            !draft.app_id.trim() ||
+                            !draft.app_secret.trim()
+                          }
+                          className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {saving ? t('common.saving') : t('common.save')}
+                        </button>
                       </div>
                     </div>
+                  </div>
 
-                    {success ? (
-                      <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
-                        {success}
-                      </div>
-                    ) : null}
+                  {success ? (
+                    <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
+                      {success}
+                    </div>
+                  ) : null}
 
-                    <div className="p-4 pt-3 flex-1 overflow-auto">
-                      {feishuLoading ? (
-                        <div className="text-sm text-text-muted">{t('channels.loading.feishu')}</div>
-                      ) : (
-                        <table className="w-full text-sm">
-                          <tbody>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={draft.enabled}
-                                  onClick={() => handleFieldChange('enabled', !draft.enabled)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    draft.enabled ? 'bg-ok' : 'bg-secondary'
+                  <div className="p-4 pt-3 flex-1 overflow-auto">
+                    {feishuLoading ? (
+                      <div className="text-sm text-text-muted">{t('channels.loading.feishu')}</div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={draft.enabled}
+                                onClick={() => handleFieldChange('enabled', !draft.enabled)}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  draft.enabled ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    draft.enabled ? 'translate-x-4' : 'translate-x-0'
                                   }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      draft.enabled ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enable_streaming</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={draft.enable_streaming}
-                                  onClick={() => handleFieldChange('enable_streaming', !draft.enable_streaming)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    draft.enable_streaming ? 'bg-ok' : 'bg-secondary'
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                              enable_streaming
+                            </td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={draft.enable_streaming}
+                                onClick={() => handleFieldChange('enable_streaming', !draft.enable_streaming)}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  draft.enable_streaming ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    draft.enable_streaming ? 'translate-x-4' : 'translate-x-0'
                                   }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      draft.enable_streaming ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            {(['app_id', 'app_secret', 'encrypt_key', 'verification_token', 'chat_id'] as const).map((field) => (
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                          {(['app_id', 'app_secret', 'encrypt_key', 'verification_token', 'chat_id'] as const).map(
+                            (field) => (
                               <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
+                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                                  {field}
+                                </td>
                                 <td className="px-4 py-2.5 break-all text-[13px] align-middle">
                                   <div className="relative">
                                     <input
                                       type={isSensitiveField(field) && !visibleFields[field] ? 'password' : 'text'}
                                       value={draft[field]}
                                       onChange={(e) => handleFieldChange(field, e.target.value)}
-                                      placeholder={field === 'chat_id' ? t('channels.placeholders.chatId') : t('channels.placeholders.configValue')}
+                                      placeholder={
+                                        field === 'chat_id'
+                                          ? t('channels.placeholders.chatId')
+                                          : t('channels.placeholders.configValue')
+                                      }
                                       className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
                                         isSensitiveField(field) ? 'pr-10' : ''
                                       }`}
@@ -1740,10 +1820,308 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
                                         type="button"
                                         onClick={() => toggleFieldVisible(field)}
                                         className="channels-panel__visibility-toggle"
-                                        aria-label={visibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
+                                        aria-label={
+                                          visibleFields[field] ? t('channels.hideValue') : t('channels.showValue')
+                                        }
                                         title={visibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
                                       >
                                         <VisibilityIcon visible={Boolean(visibleFields[field])} />
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <textarea
+                                value={draft.allow_from}
+                                onChange={(e) => handleFieldChange('allow_from', e.target.value)}
+                                placeholder={t('channels.placeholders.ids')}
+                                rows={4}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeChannelId === 'telegram' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <ChannelHeaderLogo channelId="telegram" label={getChannelLabel(t, 'telegram')} />
+                        <div>
+                          <h4 className="text-sm font-medium text-text">{t('channels.config.telegramTitle')}</h4>
+                          <p className="text-xs text-text-muted mt-1">{t('channels.config.telegramSubtitle')}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void fetchTelegramConfig()}
+                          disabled={telegramSaving || isConfigRefreshing}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {telegramLoading ? t('common.refreshing') : t('common.refresh')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelTelegramConfig}
+                          disabled={!hasTelegramConfigChanges || telegramSaving}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveTelegramConfig()}
+                          disabled={!hasTelegramConfigChanges || telegramSaving || !isConnected}
+                          className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {telegramSaving ? t('common.saving') : t('common.save')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {telegramSuccess ? (
+                    <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
+                      {telegramSuccess}
+                    </div>
+                  ) : null}
+
+                  <div className="p-4 pt-3 flex-1 overflow-auto">
+                    {telegramLoading ? (
+                      <div className="text-sm text-text-muted">{t('channels.loading.telegram')}</div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={telegramDraft.enabled}
+                                onClick={() => handleTelegramFieldChange('enabled', !telegramDraft.enabled)}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  telegramDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    telegramDraft.enabled ? 'translate-x-4' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">bot_token</td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <div className="relative">
+                                <input
+                                  type={telegramVisibleFields['bot_token'] ? 'text' : 'password'}
+                                  value={telegramDraft.bot_token}
+                                  onChange={(e) => handleTelegramFieldChange('bot_token', e.target.value)}
+                                  placeholder={t('channels.placeholders.telegramBotToken')}
+                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent pr-10"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => toggleTelegramFieldVisible('bot_token')}
+                                  className="channels-panel__visibility-toggle"
+                                  aria-label={
+                                    telegramVisibleFields['bot_token']
+                                      ? t('channels.hideValue')
+                                      : t('channels.showValue')
+                                  }
+                                  title={
+                                    telegramVisibleFields['bot_token']
+                                      ? t('channels.hideValue')
+                                      : t('channels.showValue')
+                                  }
+                                >
+                                  <VisibilityIcon visible={Boolean(telegramVisibleFields['bot_token'])} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <textarea
+                                value={telegramDraft.allow_from}
+                                onChange={(e) => handleTelegramFieldChange('allow_from', e.target.value)}
+                                placeholder={t('channels.placeholders.telegramUserIds')}
+                                rows={4}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
+                              />
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                              parse_mode
+                            </td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <select
+                                value={telegramDraft.parse_mode}
+                                onChange={(e) => handleTelegramFieldChange('parse_mode', e.target.value)}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
+                              >
+                                <option value="Markdown">Markdown</option>
+                                <option value="HTML">HTML</option>
+                                <option value="None">None</option>
+                              </select>
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                              group_chat_mode
+                            </td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <select
+                                value={telegramDraft.group_chat_mode}
+                                onChange={(e) => handleTelegramFieldChange('group_chat_mode', e.target.value)}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
+                              >
+                                <option value="mention">Only respond to @mentions (mention)</option>
+                                <option value="reply">Only respond to replies (reply)</option>
+                                <option value="all">Respond to all messages (all)</option>
+                                <option value="off">Disable group chat (off)</option>
+                              </select>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeChannelId === 'discord' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <ChannelHeaderLogo channelId="discord" label={getChannelLabel(t, 'discord')} />
+                        <div>
+                          <h4 className="text-sm font-medium text-text">{t('channels.config.discordTitle')}</h4>
+                          <p className="text-xs text-text-muted mt-1">{t('channels.config.discordSubtitle')}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void fetchDiscordConfig()}
+                          disabled={discordSaving || isConfigRefreshing}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {discordLoading ? t('common.refreshing') : t('common.refresh')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelDiscordConfig}
+                          disabled={!hasDiscordConfigChanges || discordSaving}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveDiscordConfig()}
+                          disabled={
+                            !hasDiscordConfigChanges || discordSaving || !isConnected || !discordDraft.bot_token.trim()
+                          }
+                          className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {discordSaving ? t('common.saving') : t('common.save')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {discordSuccess ? (
+                    <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
+                      {discordSuccess}
+                    </div>
+                  ) : null}
+
+                  <div className="p-4 pt-3 flex-1 overflow-auto">
+                    {discordLoading ? (
+                      <div className="text-sm text-text-muted">{t('channels.loading.discord')}</div>
+                    ) : (
+                      <>
+                        <div className="mb-3 rounded-md border border-border bg-secondary/20 px-3 py-2 text-xs text-text-muted">
+                          {t('channels.config.discordHint')}
+                        </div>
+                        <table className="w-full text-sm">
+                          <tbody>
+                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
+                              <td className="px-4 py-2.5 align-middle">
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={discordDraft.enabled}
+                                  onClick={() => handleDiscordFieldChange('enabled', !discordDraft.enabled)}
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                    discordDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                                  }`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                      discordDraft.enabled ? 'translate-x-4' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+                              </td>
+                            </tr>
+                            {(['bot_token', 'application_id', 'guild_id', 'channel_id'] as const).map((field) => (
+                              <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                                  {field}
+                                </td>
+                                <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                                  <div className="relative">
+                                    <input
+                                      type={
+                                        isSensitiveDiscordField(field) && !discordVisibleFields[field]
+                                          ? 'password'
+                                          : 'text'
+                                      }
+                                      value={discordDraft[field]}
+                                      onChange={(e) => handleDiscordFieldChange(field, e.target.value)}
+                                      placeholder={t('channels.placeholders.configValue')}
+                                      className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
+                                        isSensitiveDiscordField(field) ? 'pr-10' : ''
+                                      }`}
+                                    />
+                                    {isSensitiveDiscordField(field) ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleDiscordFieldVisible(field)}
+                                        className="channels-panel__visibility-toggle"
+                                        aria-label={
+                                          discordVisibleFields[field]
+                                            ? t('channels.hideValue')
+                                            : t('channels.showValue')
+                                        }
+                                        title={
+                                          discordVisibleFields[field]
+                                            ? t('channels.hideValue')
+                                            : t('channels.showValue')
+                                        }
+                                      >
+                                        <VisibilityIcon visible={Boolean(discordVisibleFields[field])} />
                                       </button>
                                     ) : null}
                                   </div>
@@ -1754,8 +2132,8 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
                               <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
                               <td className="px-4 py-2.5 break-all text-[13px] align-middle">
                                 <textarea
-                                  value={draft.allow_from}
-                                  onChange={(e) => handleFieldChange('allow_from', e.target.value)}
+                                  value={discordDraft.allow_from}
+                                  onChange={(e) => handleDiscordFieldChange('allow_from', e.target.value)}
                                   placeholder={t('channels.placeholders.ids')}
                                   rows={4}
                                   className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
@@ -1764,359 +2142,90 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
                             </tr>
                           </tbody>
                         </table>
-                      )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeChannelId === 'whatsapp' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <ChannelHeaderLogo channelId="whatsapp" label={getChannelLabel(t, 'whatsapp')} />
+                        <div>
+                          <h4 className="text-sm font-medium text-text">{t('channels.config.whatsappTitle')}</h4>
+                          <p className="text-xs text-text-muted mt-1">{t('channels.config.whatsappSubtitle')}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void fetchWhatsAppConfig()}
+                          disabled={whatsappSaving || isConfigRefreshing}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {whatsappLoading ? t('common.refreshing') : t('common.refresh')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelWhatsAppConfig}
+                          disabled={!hasWhatsAppConfigChanges || whatsappSaving}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveWhatsAppConfig()}
+                          disabled={!hasWhatsAppConfigChanges || whatsappSaving || !isConnected}
+                          className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {whatsappSaving ? t('common.saving') : t('common.save')}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ) : null}
 
-                {activeChannelId === 'telegram' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ChannelHeaderLogo channelId="telegram" label={getChannelLabel(t, 'telegram')} />
-                          <div>
-                            <h4 className="text-sm font-medium text-text">{t('channels.config.telegramTitle')}</h4>
-                            <p className="text-xs text-text-muted mt-1">{t('channels.config.telegramSubtitle')}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void fetchTelegramConfig()}
-                            disabled={telegramSaving || isConfigRefreshing}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {telegramLoading ? t('common.refreshing') : t('common.refresh')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelTelegramConfig}
-                            disabled={!hasTelegramConfigChanges || telegramSaving}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveTelegramConfig()}
-                            disabled={!hasTelegramConfigChanges || telegramSaving || !isConnected}
-                            className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {telegramSaving ? t('common.saving') : t('common.save')}
-                          </button>
-                        </div>
-                      </div>
+                  {whatsappSuccess ? (
+                    <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
+                      {whatsappSuccess}
                     </div>
+                  ) : null}
 
-                    {telegramSuccess ? (
-                      <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
-                        {telegramSuccess}
-                      </div>
-                    ) : null}
-
-                    <div className="p-4 pt-3 flex-1 overflow-auto">
-                      {telegramLoading ? (
-                        <div className="text-sm text-text-muted">{t('channels.loading.telegram')}</div>
-                      ) : (
-                        <table className="w-full text-sm">
-                          <tbody>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={telegramDraft.enabled}
-                                  onClick={() => handleTelegramFieldChange('enabled', !telegramDraft.enabled)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    telegramDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                  <div className="p-4 pt-3 flex-1 overflow-auto">
+                    {whatsappLoading ? (
+                      <div className="text-sm text-text-muted">{t('channels.loading.whatsapp')}</div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={whatsappDraft.enabled}
+                                onClick={() => handleWhatsAppFieldChange('enabled', !whatsappDraft.enabled)}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  whatsappDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    whatsappDraft.enabled ? 'translate-x-4' : 'translate-x-0'
                                   }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      telegramDraft.enabled ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">bot_token</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <div className="relative">
-                                  <input
-                                    type={telegramVisibleFields['bot_token'] ? 'text' : 'password'}
-                                    value={telegramDraft.bot_token}
-                                    onChange={(e) => handleTelegramFieldChange('bot_token', e.target.value)}
-                                    placeholder={t('channels.placeholders.telegramBotToken')}
-                                    className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent pr-10"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleTelegramFieldVisible('bot_token')}
-                                    className="channels-panel__visibility-toggle"
-                                    aria-label={telegramVisibleFields['bot_token'] ? t('channels.hideValue') : t('channels.showValue')}
-                                    title={telegramVisibleFields['bot_token'] ? t('channels.hideValue') : t('channels.showValue')}
-                                  >
-                                    <VisibilityIcon visible={Boolean(telegramVisibleFields['bot_token'])} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <textarea
-                                  value={telegramDraft.allow_from}
-                                  onChange={(e) => handleTelegramFieldChange('allow_from', e.target.value)}
-                                  placeholder={t('channels.placeholders.telegramUserIds')}
-                                  rows={4}
-                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
                                 />
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">parse_mode</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <select
-                                  value={telegramDraft.parse_mode}
-                                  onChange={(e) => handleTelegramFieldChange('parse_mode', e.target.value)}
-                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
-                                >
-                                  <option value="Markdown">Markdown</option>
-                                  <option value="HTML">HTML</option>
-                                  <option value="None">None</option>
-                                </select>
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">group_chat_mode</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <select
-                                  value={telegramDraft.group_chat_mode}
-                                  onChange={(e) => handleTelegramFieldChange('group_chat_mode', e.target.value)}
-                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
-                                >
-                                  <option value="mention">Only respond to @mentions (mention)</option>
-                                  <option value="reply">Only respond to replies (reply)</option>
-                                  <option value="all">Respond to all messages (all)</option>
-                                  <option value="off">Disable group chat (off)</option>
-                                </select>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeChannelId === 'discord' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ChannelHeaderLogo channelId="discord" label={getChannelLabel(t, 'discord')} />
-                          <div>
-                            <h4 className="text-sm font-medium text-text">{t('channels.config.discordTitle')}</h4>
-                            <p className="text-xs text-text-muted mt-1">{t('channels.config.discordSubtitle')}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void fetchDiscordConfig()}
-                            disabled={discordSaving || isConfigRefreshing}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {discordLoading ? t('common.refreshing') : t('common.refresh')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelDiscordConfig}
-                            disabled={!hasDiscordConfigChanges || discordSaving}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveDiscordConfig()}
-                            disabled={
-                              !hasDiscordConfigChanges ||
-                              discordSaving ||
-                              !isConnected ||
-                              !discordDraft.bot_token.trim()
-                            }
-                            className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {discordSaving ? t('common.saving') : t('common.save')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {discordSuccess ? (
-                      <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
-                        {discordSuccess}
-                      </div>
-                    ) : null}
-
-                    <div className="p-4 pt-3 flex-1 overflow-auto">
-                      {discordLoading ? (
-                        <div className="text-sm text-text-muted">{t('channels.loading.discord')}</div>
-                      ) : (
-                        <>
-                          <div className="mb-3 rounded-md border border-border bg-secondary/20 px-3 py-2 text-xs text-text-muted">
-                            {t('channels.config.discordHint')}
-                          </div>
-                          <table className="w-full text-sm">
-                            <tbody>
-                              <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
-                                <td className="px-4 py-2.5 align-middle">
-                                  <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={discordDraft.enabled}
-                                    onClick={() => handleDiscordFieldChange('enabled', !discordDraft.enabled)}
-                                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                      discordDraft.enabled ? 'bg-ok' : 'bg-secondary'
-                                    }`}
-                                  >
-                                    <span
-                                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                        discordDraft.enabled ? 'translate-x-4' : 'translate-x-0'
-                                      }`}
-                                    />
-                                  </button>
-                                </td>
-                              </tr>
-                              {(['bot_token', 'application_id', 'guild_id', 'channel_id'] as const).map((field) => (
-                                <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                  <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
-                                  <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                    <div className="relative">
-                                      <input
-                                        type={isSensitiveDiscordField(field) && !discordVisibleFields[field] ? 'password' : 'text'}
-                                        value={discordDraft[field]}
-                                        onChange={(e) => handleDiscordFieldChange(field, e.target.value)}
-                                        placeholder={t('channels.placeholders.configValue')}
-                                        className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
-                                          isSensitiveDiscordField(field) ? 'pr-10' : ''
-                                        }`}
-                                      />
-                                      {isSensitiveDiscordField(field) ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleDiscordFieldVisible(field)}
-                                          className="channels-panel__visibility-toggle"
-                                          aria-label={discordVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                          title={discordVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                        >
-                                          <VisibilityIcon visible={Boolean(discordVisibleFields[field])} />
-                                        </button>
-                                      ) : null}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                              <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
-                                <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                  <textarea
-                                    value={discordDraft.allow_from}
-                                    onChange={(e) => handleDiscordFieldChange('allow_from', e.target.value)}
-                                    placeholder={t('channels.placeholders.ids')}
-                                    rows={4}
-                                    className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
-                                  />
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-
-                {activeChannelId === 'whatsapp' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ChannelHeaderLogo channelId="whatsapp" label={getChannelLabel(t, 'whatsapp')} />
-                          <div>
-                            <h4 className="text-sm font-medium text-text">{t('channels.config.whatsappTitle')}</h4>
-                            <p className="text-xs text-text-muted mt-1">{t('channels.config.whatsappSubtitle')}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void fetchWhatsAppConfig()}
-                            disabled={whatsappSaving || isConfigRefreshing}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {whatsappLoading ? t('common.refreshing') : t('common.refresh')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelWhatsAppConfig}
-                            disabled={!hasWhatsAppConfigChanges || whatsappSaving}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveWhatsAppConfig()}
-                            disabled={!hasWhatsAppConfigChanges || whatsappSaving || !isConnected}
-                            className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {whatsappSaving ? t('common.saving') : t('common.save')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {whatsappSuccess ? (
-                      <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
-                        {whatsappSuccess}
-                      </div>
-                    ) : null}
-
-                    <div className="p-4 pt-3 flex-1 overflow-auto">
-                      {whatsappLoading ? (
-                        <div className="text-sm text-text-muted">{t('channels.loading.whatsapp')}</div>
-                      ) : (
-                        <table className="w-full text-sm">
-                          <tbody>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={whatsappDraft.enabled}
-                                  onClick={() => handleWhatsAppFieldChange('enabled', !whatsappDraft.enabled)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    whatsappDraft.enabled ? 'bg-ok' : 'bg-secondary'
-                                  }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      whatsappDraft.enabled ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            {(['bridge_ws_url', 'default_jid', 'bridge_command', 'bridge_workdir'] as const).map((field) => (
+                              </button>
+                            </td>
+                          </tr>
+                          {(['bridge_ws_url', 'default_jid', 'bridge_command', 'bridge_workdir'] as const).map(
+                            (field) => (
                               <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
+                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                                  {field}
+                                </td>
                                 <td className="px-4 py-2.5 break-all text-[13px] align-middle">
                                   <input
                                     type="text"
@@ -2127,204 +2236,223 @@ export function ChannelsPanel({ isConnected }: ChannelsPanelProps) {
                                   />
                                 </td>
                               </tr>
-                            ))}
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <textarea
-                                  value={whatsappDraft.allow_from}
-                                  onChange={(e) => handleWhatsAppFieldChange('allow_from', e.target.value)}
-                                  placeholder={t('channels.placeholders.whatsappJids')}
-                                  rows={4}
-                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
+                            ),
+                          )}
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <textarea
+                                value={whatsappDraft.allow_from}
+                                onChange={(e) => handleWhatsAppFieldChange('allow_from', e.target.value)}
+                                placeholder={t('channels.placeholders.whatsappJids')}
+                                rows={4}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
+                              />
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                              enable_streaming
+                            </td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={whatsappDraft.enable_streaming}
+                                onClick={() =>
+                                  handleWhatsAppFieldChange('enable_streaming', !whatsappDraft.enable_streaming)
+                                }
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  whatsappDraft.enable_streaming ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    whatsappDraft.enable_streaming ? 'translate-x-4' : 'translate-x-0'
+                                  }`}
                                 />
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enable_streaming</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={whatsappDraft.enable_streaming}
-                                  onClick={() => handleWhatsAppFieldChange('enable_streaming', !whatsappDraft.enable_streaming)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    whatsappDraft.enable_streaming ? 'bg-ok' : 'bg-secondary'
+                              </button>
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">
+                              auto_start_bridge
+                            </td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={whatsappDraft.auto_start_bridge}
+                                onClick={() =>
+                                  handleWhatsAppFieldChange('auto_start_bridge', !whatsappDraft.auto_start_bridge)
+                                }
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  whatsappDraft.auto_start_bridge ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    whatsappDraft.auto_start_bridge ? 'translate-x-4' : 'translate-x-0'
                                   }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      whatsappDraft.enable_streaming ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">auto_start_bridge</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={whatsappDraft.auto_start_bridge}
-                                  onClick={() => handleWhatsAppFieldChange('auto_start_bridge', !whatsappDraft.auto_start_bridge)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    whatsappDraft.auto_start_bridge ? 'bg-ok' : 'bg-secondary'
-                                  }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      whatsappDraft.auto_start_bridge ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
                   </div>
-                ) : null}
+                </div>
+              ) : null}
 
-                {activeChannelId === 'wecom' ? (
-                  <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
-                    <div className="px-4 py-3 bg-secondary/30 border-b border-border">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <ChannelHeaderLogo channelId="wecom" label={getChannelLabel(t, 'wecom')} />
-                          <div>
-                            <h4 className="text-sm font-medium text-text">{t('channels.config.wecomTitle')}</h4>
-                            <p className="text-xs text-text-muted mt-1">{t('channels.config.wecomSubtitle')}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void fetchWecomConfig()}
-                            disabled={wecomSaving || isConfigRefreshing}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {wecomLoading ? t('common.refreshing') : t('common.refresh')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCancelWecomConfig}
-                            disabled={!hasWecomConfigChanges || wecomSaving}
-                            className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {t('common.cancel')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleSaveWecomConfig()}
-                            disabled={
-                              !hasWecomConfigChanges ||
-                              wecomSaving ||
-                              !isConnected ||
-                              !wecomDraft.bot_id.trim() ||
-                              !wecomDraft.secret.trim()
-                            }
-                            className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {wecomSaving ? t('common.saving') : t('common.save')}
-                          </button>
+              {activeChannelId === 'wecom' ? (
+                <div className="w-full h-full rounded-xl border border-border bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm flex flex-col">
+                  <div className="px-4 py-3 bg-secondary/30 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <ChannelHeaderLogo channelId="wecom" label={getChannelLabel(t, 'wecom')} />
+                        <div>
+                          <h4 className="text-sm font-medium text-text">{t('channels.config.wecomTitle')}</h4>
+                          <p className="text-xs text-text-muted mt-1">{t('channels.config.wecomSubtitle')}</p>
                         </div>
                       </div>
-                    </div>
-
-                    {wecomSuccess ? (
-                      <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
-                        {wecomSuccess}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void fetchWecomConfig()}
+                          disabled={wecomSaving || isConfigRefreshing}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {wecomLoading ? t('common.refreshing') : t('common.refresh')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelWecomConfig}
+                          disabled={!hasWecomConfigChanges || wecomSaving}
+                          className="btn !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleSaveWecomConfig()}
+                          disabled={
+                            !hasWecomConfigChanges ||
+                            wecomSaving ||
+                            !isConnected ||
+                            !wecomDraft.bot_id.trim() ||
+                            !wecomDraft.secret.trim()
+                          }
+                          className="btn primary !px-3 !py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {wecomSaving ? t('common.saving') : t('common.save')}
+                        </button>
                       </div>
-                    ) : null}
-
-                    <div className="p-4 pt-3 flex-1 overflow-auto">
-                      {wecomLoading ? (
-                        <div className="text-sm text-text-muted">{t('channels.loading.wecom')}</div>
-                      ) : (
-                        <table className="w-full text-sm">
-                          <tbody>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
-                              <td className="px-4 py-2.5 align-middle">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={wecomDraft.enabled}
-                                  onClick={() => handleWecomFieldChange('enabled', !wecomDraft.enabled)}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                                    wecomDraft.enabled ? 'bg-ok' : 'bg-secondary'
-                                  }`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
-                                      wecomDraft.enabled ? 'translate-x-4' : 'translate-x-0'
-                                    }`}
-                                  />
-                                </button>
-                              </td>
-                            </tr>
-                            {(['bot_id', 'secret'] as const).map((field) => (
-                              <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                                <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
-                                <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                  <div className="relative">
-                                    <input
-                                      type={isSensitiveWecomField(field) && !wecomVisibleFields[field] ? 'password' : 'text'}
-                                      value={wecomDraft[field]}
-                                      onChange={(e) => handleWecomFieldChange(field, e.target.value)}
-                                      placeholder={t('channels.placeholders.configValue')}
-                                      className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
-                                        isSensitiveWecomField(field) ? 'pr-10' : ''
-                                      }`}
-                                    />
-                                    {isSensitiveWecomField(field) ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleWecomFieldVisible(field)}
-                                        className="channels-panel__visibility-toggle"
-                                        aria-label={wecomVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                        title={wecomVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')}
-                                      >
-                                        <VisibilityIcon visible={Boolean(wecomVisibleFields[field])} />
-                                      </button>
-                                    ) : null}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">default_chat_id</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <input
-                                  type="text"
-                                  value={wecomDraft.default_chat_id}
-                                  onChange={(e) => handleWecomFieldChange('default_chat_id', e.target.value)}
-                                  placeholder={t('channels.placeholders.wecomDefaultChatId')}
-                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
-                                />
-                                <p className="mt-1 text-xs text-text-muted">{t('channels.placeholders.wecomDefaultChatIdHint')}</p>
-                              </td>
-                            </tr>
-                            <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
-                              <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
-                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
-                                <textarea
-                                  value={wecomDraft.allow_from}
-                                  onChange={(e) => handleWecomFieldChange('allow_from', e.target.value)}
-                                  placeholder={t('channels.placeholders.ids')}
-                                  rows={4}
-                                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
-                                />
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      )}
                     </div>
                   </div>
-                ) : null}
+
+                  {wecomSuccess ? (
+                    <div className="mx-4 mt-4 rounded-md border border-[var(--border-ok)] bg-ok-subtle px-3 py-2 text-sm text-ok">
+                      {wecomSuccess}
+                    </div>
+                  ) : null}
+
+                  <div className="p-4 pt-3 flex-1 overflow-auto">
+                    {wecomLoading ? (
+                      <div className="text-sm text-text-muted">{t('channels.loading.wecom')}</div>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">enabled</td>
+                            <td className="px-4 py-2.5 align-middle">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={wecomDraft.enabled}
+                                onClick={() => handleWecomFieldChange('enabled', !wecomDraft.enabled)}
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  wecomDraft.enabled ? 'bg-ok' : 'bg-secondary'
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ${
+                                    wecomDraft.enabled ? 'translate-x-4' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                          {(['bot_id', 'secret'] as const).map((field) => (
+                            <tr key={field} className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                              <td className="px-4 py-2.5 align-middle mono text-xs text-text-muted w-[32%]">{field}</td>
+                              <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                                <div className="relative">
+                                  <input
+                                    type={
+                                      isSensitiveWecomField(field) && !wecomVisibleFields[field] ? 'password' : 'text'
+                                    }
+                                    value={wecomDraft[field]}
+                                    onChange={(e) => handleWecomFieldChange(field, e.target.value)}
+                                    placeholder={t('channels.placeholders.configValue')}
+                                    className={`w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent ${
+                                      isSensitiveWecomField(field) ? 'pr-10' : ''
+                                    }`}
+                                  />
+                                  {isSensitiveWecomField(field) ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleWecomFieldVisible(field)}
+                                      className="channels-panel__visibility-toggle"
+                                      aria-label={
+                                        wecomVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')
+                                      }
+                                      title={
+                                        wecomVisibleFields[field] ? t('channels.hideValue') : t('channels.showValue')
+                                      }
+                                    >
+                                      <VisibilityIcon visible={Boolean(wecomVisibleFields[field])} />
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">
+                              default_chat_id
+                            </td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <input
+                                type="text"
+                                value={wecomDraft.default_chat_id}
+                                onChange={(e) => handleWecomFieldChange('default_chat_id', e.target.value)}
+                                placeholder={t('channels.placeholders.wecomDefaultChatId')}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent"
+                              />
+                              <p className="mt-1 text-xs text-text-muted">
+                                {t('channels.placeholders.wecomDefaultChatIdHint')}
+                              </p>
+                            </td>
+                          </tr>
+                          <tr className="border-t border-border first:border-t-0 even:bg-secondary/10">
+                            <td className="px-4 py-2.5 align-top mono text-xs text-text-muted w-[32%]">allow_from</td>
+                            <td className="px-4 py-2.5 break-all text-[13px] align-middle">
+                              <textarea
+                                value={wecomDraft.allow_from}
+                                onChange={(e) => handleWecomFieldChange('allow_from', e.target.value)}
+                                placeholder={t('channels.placeholders.ids')}
+                                rows={4}
+                                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-[13px] outline-none focus:border-accent resize-y"
+                              />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </section>
           </div>
         )}
