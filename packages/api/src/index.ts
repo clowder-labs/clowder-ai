@@ -521,6 +521,63 @@ async function main(): Promise<void> {
     }
   }
 
+  // ── F139: Unified Scheduler (TaskRunnerV2) — additive, runs alongside V1 ──
+  try {
+    const { TaskRunnerV2 } = await import('./infrastructure/scheduler/TaskRunnerV2.js');
+    const { RunLedger } = await import('./infrastructure/scheduler/RunLedger.js');
+    const { createActorResolver } = await import('./infrastructure/scheduler/ActorResolver.js');
+    const { getRoster } = await import('./config/cat-config-loader.js');
+    const schedulerDb = memoryServices.store.getDb();
+    const runLedger = new RunLedger(schedulerDb);
+    const actorResolver = createActorResolver(getRoster);
+
+    // Governance + Emission stores
+    const { GlobalControlStore } = await import('./infrastructure/scheduler/GlobalControlStore.js');
+    const { EmissionStore } = await import('./infrastructure/scheduler/EmissionStore.js');
+    const { PackTemplateStore } = await import('./infrastructure/scheduler/PackTemplateStore.js');
+    const globalControlStore = new GlobalControlStore(schedulerDb);
+    const emissionStore = new EmissionStore(schedulerDb);
+    const packTemplateStore = new PackTemplateStore(schedulerDb);
+
+    // Delivery + content fetch for template execution
+    const { createDeliverFn } = await import('./infrastructure/scheduler/delivery.js');
+    const { createFetchContentFn } = await import('./infrastructure/scheduler/content-fetcher.js');
+    const schedulerDeliver = createDeliverFn({ messageStore, socketManager: getSocketManager() });
+    const schedulerFetchContent = createFetchContentFn();
+
+    const taskRunnerV2 = new TaskRunnerV2({
+      logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
+      ledger: runLedger,
+      actorResolver,
+      globalControlStore,
+      emissionStore,
+      deliver: schedulerDeliver,
+      fetchContent: schedulerFetchContent,
+    });
+
+    // Dynamic task store + template registry
+    const { DynamicTaskStore } = await import('./infrastructure/scheduler/DynamicTaskStore.js');
+    const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
+    const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
+
+    // Schedule panel API routes
+    const { scheduleRoutes } = await import('./routes/schedule.js');
+    await app.register(scheduleRoutes, {
+      taskRunner: taskRunnerV2,
+      dynamicTaskStore,
+      templateRegistry,
+      globalControlStore,
+      packTemplateStore,
+    });
+
+    // Hydrate persisted dynamic tasks + start
+    taskRunnerV2.hydrateDynamic(dynamicTaskStore, templateRegistry);
+    taskRunnerV2.start();
+    app.log.info(`[api] F139: TaskRunnerV2 started, tasks: [${taskRunnerV2.getRegisteredTasks().join(', ')}]`);
+  } catch (err) {
+    app.log.warn(`[api] F139: TaskRunnerV2 init failed (non-fatal): ${err}`);
+  }
+
   // ── F32-b/F127: Bootstrap runtime catalog, then populate CatRegistry (all variants) ──
   // Must happen BEFORE AgentRouter construction (parseMentions reads catRegistry)
   try {
