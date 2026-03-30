@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" data-ui-theme="default">
+    <html lang="zh-CN" data-ui-theme="business">
       <body className="min-h-screen">
         <ThemeRootSync />
         <ConfirmProvider>{children}</ConfirmProvider>

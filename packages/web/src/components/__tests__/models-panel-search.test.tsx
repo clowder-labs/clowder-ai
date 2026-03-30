@@ -1,19 +1,15 @@
-﻿import React, { act } from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
-
-vi.mock('next/image', () => ({
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => React.createElement('img', props),
-}));
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
-const SEARCH_PLACEHOLDER = '搜索模型、厂商或描述关键词';
+const SEARCH_INPUT_SELECTOR = 'input[type="search"]';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -53,12 +49,30 @@ describe('ModelsPanel search', () => {
     root = createRoot(container);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === '/api/mass-models') {
+      if (url === '/api/maas-models') {
         return Promise.resolve(
           jsonResponse({
             list: [
-              { id: 'gpt-5', object: 'model', name: 'gpt-5', description: 'flagship model' },
-              { id: 'deepseek-r1', object: 'model', name: 'deepseek-r1', description: 'reasoning model' },
+              {
+                id: 'gpt-5',
+                object: 'model',
+                name: 'gpt-5',
+                description: 'flagship model',
+                protocol: 'openai',
+                labels: ['text-gen', 'Function Call'],
+                developer: 'OpenAI',
+                icon: '/avatars/assistant.svg',
+              },
+              {
+                id: 'deepseek-r1',
+                object: 'model',
+                name: 'deepseek-r1',
+                description: 'reasoning model',
+                protocol: 'huawei_maas',
+                labels: ['reasoning'],
+                developer: 'DeepSeek',
+                icon: '/images/deepseek.svg',
+              },
             ],
           }),
         );
@@ -84,7 +98,19 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    expect(container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`)).not.toBeNull();
+    expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
+  });
+
+  it('renders grouped cards and model labels/developer', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('MaaS (1)');
+    expect(container.textContent).not.toContain('MaaS (2)');
+    expect(container.textContent).toContain('text-gen');
+    expect(container.textContent).toContain('DeepSeek');
   });
 
   it('filters cards by model name', async () => {
@@ -93,7 +119,7 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     await changeInputValue(input!, 'gpt');
 
@@ -101,16 +127,20 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).not.toContain('deepseek-r1');
   });
 
-  it('filters cards by derived vendor label', async () => {
+  it('filters cards by labels and developer field', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
-    await changeInputValue(input!, 'openai');
+    await changeInputValue(input!, 'reasoning');
 
+    expect(container.textContent).toContain('deepseek-r1');
+    expect(container.textContent).not.toContain('gpt-5');
+
+    await changeInputValue(input!, 'openai');
     expect(container.textContent).toContain('gpt-5');
     expect(container.textContent).not.toContain('deepseek-r1');
   });
@@ -121,7 +151,7 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     await changeInputValue(input!, 'no-match');
 
@@ -141,10 +171,10 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const input = container.querySelector(`input[placeholder="${SEARCH_PLACEHOLDER}"]`) as HTMLInputElement | null;
+    const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
     expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/mass-models');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/maas-models');
 
     await changeInputValue(input!, 'deepseek');
 
