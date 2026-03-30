@@ -2,6 +2,7 @@ param(
     [string]$ProjectRoot,
     [string]$ManifestPath,
     [string]$PythonExe,
+    [string]$LogPath,
     [string[]]$Group = @(),
     [switch]$ForceReinstall,
     [switch]$DryRun
@@ -57,6 +58,19 @@ function Resolve-WheelhousePythonExe {
     return [System.IO.Path]::GetFullPath($candidate)
 }
 
+function Resolve-WheelhouseLogPath {
+    param(
+        [string]$ResolvedProjectRoot,
+        [string]$RequestedPath
+    )
+
+    if ($RequestedPath) {
+        return [System.IO.Path]::GetFullPath($RequestedPath)
+    }
+
+    return [System.IO.Path]::GetFullPath((Join-Path $ResolvedProjectRoot "logs\python-wheelhouse-install.log"))
+}
+
 function ConvertTo-WheelhouseArray {
     param($Value)
 
@@ -105,6 +119,58 @@ function Get-WheelhouseSelectedGroups {
     return $selected
 }
 
+function Get-WheelhouseLocalProjectInstalls {
+    param($Group)
+
+    $projects = @(ConvertTo-WheelhouseArray $Group.localProjects)
+    if ($projects.Length -eq 0) {
+        return @()
+    }
+
+    $installs = @()
+    foreach ($project in $projects) {
+        $projectWheelFiles = @(ConvertTo-WheelhouseArray $project.wheelFiles)
+        if ($projectWheelFiles.Length -eq 0) {
+            continue
+        }
+        $installs += [pscustomobject]@{
+            path = "$($project.path)"
+            wheelArgs = @(ConvertTo-WheelhouseArray $project.wheelArgs)
+            wheelFiles = $projectWheelFiles
+        }
+    }
+    return $installs
+}
+
+function Write-WheelhouseLogLine {
+    param([string]$Message)
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $line = "[wheelhouse] $timestamp $Message"
+    Write-Host $line
+    if ($script:WheelhouseLogPath) {
+        Add-Content -Path $script:WheelhouseLogPath -Value $line -Encoding UTF8
+    }
+}
+
+function Invoke-WheelhouseProcess {
+    param(
+        [string]$ExecutablePath,
+        [string[]]$Arguments,
+        [string]$FailureMessage
+    )
+
+    if ($DryRun) {
+        Write-WheelhouseLogLine "dry-run: $ExecutablePath $($Arguments -join ' ')"
+        return
+    }
+
+    & $ExecutablePath @Arguments 2>&1 | Tee-Object -FilePath $script:WheelhouseLogPath -Append
+    if ($LASTEXITCODE -ne 0) {
+        throw $FailureMessage
+    }
+}
+
 function Invoke-WheelhouseInstallGroup {
     param(
         [string]$PythonExePath,
@@ -124,6 +190,14 @@ function Invoke-WheelhouseInstallGroup {
         throw "wheelhouse directory not found for group $($Group.id): $wheelDir"
     }
 
+    $localProjectInstalls = @(Get-WheelhouseLocalProjectInstalls -Group $Group)
+    $localProjectWheelFileSet = @{}
+    foreach ($localProject in $localProjectInstalls) {
+        foreach ($localWheelFile in @($localProject.wheelFiles)) {
+            $localProjectWheelFileSet["$localWheelFile"] = $true
+        }
+    }
+
     $wheelFiles = @(ConvertTo-WheelhouseArray $Group.wheelFiles)
     if ($wheelFiles.Length -eq 0) {
         throw "wheelhouse group $($Group.id) has no wheel files"
@@ -131,6 +205,9 @@ function Invoke-WheelhouseInstallGroup {
 
     $wheelPaths = @()
     foreach ($wheelFile in $wheelFiles) {
+        if ($localProjectWheelFileSet.ContainsKey("$wheelFile")) {
+            continue
+        }
         $wheelPath = Join-Path $wheelDir "$wheelFile"
         if (-not (Test-Path $wheelPath)) {
             throw "wheel file missing for group $($Group.id): $wheelPath"
@@ -138,11 +215,8 @@ function Invoke-WheelhouseInstallGroup {
         $wheelPaths += [System.IO.Path]::GetFullPath($wheelPath)
     }
 
-    $requirementsFile = [System.IO.Path]::GetTempFileName()
+    $requirementsFile = $null
     try {
-        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-        [System.IO.File]::WriteAllText($requirementsFile, ($wheelPaths -join [Environment]::NewLine), $utf8NoBom)
-
         $pipArgs = @(
             "-m", "pip", "install",
             "--no-index",
@@ -152,20 +226,46 @@ function Invoke-WheelhouseInstallGroup {
         if ($ForceReinstall) {
             $pipArgs += "--force-reinstall"
         }
-        $pipArgs += @("-r", $requirementsFile)
 
-        Write-Host "[wheelhouse] installing group $($Group.id) from $wheelDir"
-        if ($DryRun) {
-            Write-Host "[wheelhouse] dry-run: $PythonExePath $($pipArgs -join ' ')"
-            return
+        Write-WheelhouseLogLine "installing group $($Group.id) from $wheelDir"
+        if ($wheelPaths.Length -gt 0) {
+            $requirementsFile = [System.IO.Path]::GetTempFileName()
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($requirementsFile, ($wheelPaths -join [Environment]::NewLine), $utf8NoBom)
+
+            $groupInstallArgs = @($pipArgs + @("-r", $requirementsFile))
+            Invoke-WheelhouseProcess `
+                -ExecutablePath $PythonExePath `
+                -Arguments $groupInstallArgs `
+                -FailureMessage "pip install failed for group $($Group.id)"
         }
 
-        & $PythonExePath @pipArgs
-        if ($LASTEXITCODE -ne 0) {
-            throw "pip install failed for group $($Group.id)"
+        foreach ($localProject in $localProjectInstalls) {
+            $projectWheelPaths = @()
+            foreach ($projectWheelFile in @($localProject.wheelFiles)) {
+                $projectWheelPath = Join-Path $wheelDir "$projectWheelFile"
+                if (-not (Test-Path $projectWheelPath)) {
+                    throw "wheel file missing for local project $($localProject.path): $projectWheelPath"
+                }
+                $projectWheelPaths += [System.IO.Path]::GetFullPath($projectWheelPath)
+            }
+
+            $projectInstallArgs = @($pipArgs)
+            if ($localProject.wheelArgs -contains "--no-deps") {
+                $projectInstallArgs += "--no-deps"
+            }
+            $projectInstallArgs += $projectWheelPaths
+
+            Write-WheelhouseLogLine "installing local project $($localProject.path) in group $($Group.id)"
+            Invoke-WheelhouseProcess `
+                -ExecutablePath $PythonExePath `
+                -Arguments $projectInstallArgs `
+                -FailureMessage "pip install failed for local project $($localProject.path) in group $($Group.id)"
         }
     } finally {
-        Remove-Item $requirementsFile -Force -ErrorAction SilentlyContinue
+        if ($requirementsFile) {
+            Remove-Item $requirementsFile -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -177,6 +277,14 @@ $resolvedProjectRoot = if ($ProjectRoot) {
 
 $resolvedManifestPath = Resolve-WheelhouseManifestPath -ResolvedProjectRoot $resolvedProjectRoot -RequestedPath $ManifestPath
 $resolvedPythonExe = Resolve-WheelhousePythonExe -ResolvedProjectRoot $resolvedProjectRoot -RequestedPath $PythonExe
+$resolvedLogPath = Resolve-WheelhouseLogPath -ResolvedProjectRoot $resolvedProjectRoot -RequestedPath $LogPath
+
+$logDir = Split-Path -Parent $resolvedLogPath
+if ($logDir) {
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+}
+$script:WheelhouseLogPath = $resolvedLogPath
+"[wheelhouse] $(Get-Date -Format "yyyy-MM-dd HH:mm:ss") begin install" | Set-Content -Path $resolvedLogPath -Encoding UTF8
 
 if (-not (Test-Path $resolvedManifestPath)) {
     throw "wheelhouse manifest not found: $resolvedManifestPath"
@@ -184,6 +292,10 @@ if (-not (Test-Path $resolvedManifestPath)) {
 if (-not (Test-Path $resolvedPythonExe)) {
     throw "python.exe not found: $resolvedPythonExe"
 }
+
+Write-WheelhouseLogLine "log path: $resolvedLogPath"
+Write-WheelhouseLogLine "manifest: $resolvedManifestPath"
+Write-WheelhouseLogLine "python: $resolvedPythonExe"
 
 $manifestRaw = Get-Content -Path $resolvedManifestPath -Raw -Encoding UTF8
 $manifest = ConvertFrom-WheelhouseJson -JsonText $manifestRaw
@@ -199,4 +311,4 @@ foreach ($selectedGroup in $selectedGroups) {
         -DryRun:$DryRun
 }
 
-Write-Host "[wheelhouse] install complete"
+Write-WheelhouseLogLine "install complete"
