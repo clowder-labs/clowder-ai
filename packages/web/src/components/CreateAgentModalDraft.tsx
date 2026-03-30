@@ -2,9 +2,10 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { CatData } from '@/hooks/useCatData';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
-import { builtinAccountIdForClient } from './hub-cat-editor.model';
+import { builtinAccountIdForClient, CLIENT_OPTIONS, filterAccounts } from './hub-cat-editor.model';
 import { initialState, type ClientValue, type HubCatEditorDraft, type HubCatEditorFormState } from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
 import {
@@ -14,14 +15,6 @@ import {
   type DraftModelOption,
 } from './ModelSelectDropdownDraft';
 import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
-
-interface MassModelResponseItem {
-  id?: string | number;
-  object?: string;
-  name?: string;
-  description?: string;
-  [key: string]: unknown;
-}
 
 interface CreateAgentModalDraftProps {
   open: boolean;
@@ -44,54 +37,15 @@ interface CreateModelOption extends DraftModelOption {
   providerName?: string;
 }
 
-interface MassModelDescriptor {
-  name: string;
-  protocol?: string;
+interface ModelConfigProfilesResponse {
+  projectPath: string;
+  fallbackToProviderProfiles?: boolean;
+  exists: boolean;
+  providers: ProfileItem[];
 }
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
-
-function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
-  for (const key of candidates) {
-    const value = item[key];
-    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
-  }
-  return undefined;
-}
-
-function normalizeMassModelName(item: MassModelResponseItem): string {
-  const nameFromKnownFields = pickStringField(item, ['name', 'modelName', 'model_name', 'displayName', 'display_name', '名称']);
-  if (nameFromKnownFields) return nameFromKnownFields;
-
-  const genericStringEntries = Object.entries(item).filter(
-    ([key, value]) => typeof value === 'string' && key !== 'id' && key !== 'object',
-  ) as Array<[string, string]>;
-  return genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ?? '';
-}
-
-function chooseProfileForModel(
-  modelName: string,
-  profiles: ProfileItem[],
-  preferredProfileIds: string[],
-  activeProfileId: string | null,
-): ProfileItem | null {
-  const matches = profiles.filter((profile) => (profile.models ?? []).includes(modelName));
-  if (matches.length === 0) return null;
-
-  for (const profileId of preferredProfileIds) {
-    const matched = matches.find((profile) => profile.id === profileId);
-    if (matched) return matched;
-  }
-
-  if (activeProfileId) {
-    const activeMatch = matches.find((profile) => profile.id === activeProfileId);
-    if (activeMatch) return activeMatch;
-  }
-
-  return matches[0] ?? null;
-}
 
 function CloseIcon() {
   return (
@@ -125,46 +79,63 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
-function resolveProfileClient(profile: ProfileItem): ClientValue | null {
-  if (profile.client) return profile.client;
-  if (profile.oauthLikeClient === 'dare' || profile.oauthLikeClient === 'opencode') return profile.oauthLikeClient;
-
-  const normalized = `${profile.id} ${profile.provider ?? ''} ${profile.displayName} ${profile.name}`.toLowerCase();
-  if (normalized.includes('claude')) return 'anthropic';
-  if (normalized.includes('codex')) return 'openai';
-  if (normalized.includes('gemini')) return 'google';
-  if (normalized.includes('dare')) return 'dare';
-  if (normalized.includes('opencode')) return 'opencode';
-  if (normalized.includes('jiuwen') || normalized.includes('relayclaw')) return 'relayclaw';
-
-  switch (profile.protocol) {
-    case 'anthropic':
-      return 'anthropic';
-    case 'openai':
-      return 'openai';
-    case 'google':
-      return 'google';
-    default:
-      return null;
-  }
+function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
+  if (!projectPath || projectPath === 'default') return path;
+  const query = new URLSearchParams({ projectPath });
+  return `${path}?${query.toString()}`;
 }
 
-function inferClientFromModelName(modelName: string): ClientValue {
-  const normalized = modelName.toLowerCase();
-  if (normalized.includes('claude')) return 'anthropic';
-  if (normalized.includes('gpt')) return 'openai';
-  if (normalized.includes('gemini')) return 'google';
-  if (normalized.includes('qwen') || normalized.includes('deepseek') || normalized.includes('glm') || normalized.includes('kimi')) {
-    return 'dare';
+function mergeAcpProfiles(baseProfiles: ProfileItem[], providerProfiles: ProfileItem[]): ProfileItem[] {
+  const nextProfiles = [...baseProfiles];
+  const seen = new Set(baseProfiles.map((profile) => profile.id));
+  for (const profile of providerProfiles) {
+    if (profile.kind !== 'acp' || seen.has(profile.id)) continue;
+    nextProfiles.push(profile);
+    seen.add(profile.id);
   }
-  return 'dare';
+  return nextProfiles;
 }
 
-function defaultProfileIdForModel(client: ClientValue, descriptor?: MassModelDescriptor): string {
-  if (descriptor?.protocol === 'huawei_maas' && client === 'dare') {
-    return HUAWEI_MAAS_MODEL_SOURCE_ID;
+async function loadProfilesForClient(
+  projectPath: string | null | undefined,
+  client: ClientValue,
+): Promise<ProfileItem[]> {
+  const modelConfigUrl = '/api/model-config-profiles';
+  const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', projectPath);
+  const needsAcpProfiles = client === 'acp';
+
+  async function readProviderProfiles(): Promise<ProfileItem[]> {
+    const providerProfilesRes = await apiFetch(providerProfilesUrl);
+    if (!providerProfilesRes.ok) throw new Error(`模型配置加载失败 (${providerProfilesRes.status})`);
+    const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+    return providerProfilesBody.providers;
   }
-  return builtinAccountIdForClient(client) ?? '';
+
+  let modelConfigRes: Response;
+  try {
+    modelConfigRes = await apiFetch(modelConfigUrl);
+  } catch {
+    const providerProfiles = await readProviderProfiles();
+    return needsAcpProfiles ? providerProfiles.filter((profile) => profile.kind === 'acp') : providerProfiles;
+  }
+
+  if (!modelConfigRes.ok) {
+    if (modelConfigRes.status === 404) return [];
+    throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
+  }
+
+  const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
+  if (body.exists) {
+    if (!needsAcpProfiles) return body.providers;
+    return mergeAcpProfiles(body.providers, await readProviderProfiles());
+  }
+
+  if (needsAcpProfiles) {
+    return (await readProviderProfiles()).filter((profile) => profile.kind === 'acp');
+  }
+
+  if (!body.fallbackToProviderProfiles) return [];
+  return readProviderProfiles();
 }
 
 function avatarSeed(name: string): string {
@@ -288,38 +259,33 @@ export function CreateAgentModalDraft({
   const [draftName, setDraftName] = useState(name);
   const [draftDescription, setDraftDescription] = useState(description);
   const [draftAvatar, setDraftAvatar] = useState('');
+  const [selectedClient, setSelectedClient] = useState<ClientValue>(draft?.client ?? ((cat?.provider as ClientValue | undefined) ?? 'anthropic'));
+  const [selectedAccountRef, setSelectedAccountRef] = useState(draft?.accountRef ?? cat?.accountRef ?? cat?.providerProfileId ?? '');
   const [draftModelId, setDraftModelId] = useState<string | null>(selectedModelId);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
-  const [availableModels, setAvailableModels] = useState<CreateModelOption[]>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
+  const [profiles, setProfiles] = useState<ProfileItem[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const currentProjectPath = useChatStore((state) => state.currentProjectPath);
 
   useEffect(() => {
     if (!open) return;
     setDraftName(name || cat?.name || cat?.displayName || 'BOT');
     setDraftDescription(description || cat?.roleDescription || '');
     setDraftAvatar(resolveInitialAvatar(cat));
+    setSelectedClient(draft?.client ?? ((cat?.provider as ClientValue | undefined) ?? 'anthropic'));
+    setSelectedAccountRef(draft?.accountRef ?? cat?.accountRef ?? cat?.providerProfileId ?? '');
     setDraftModelId(resolveInitialModelId(cat, draft, selectedModelId));
     setModelMenuOpen(false);
     setOpenAbove(false);
     setError(null);
   }, [cat, description, draft, name, open, selectedModelId]);
-
-  useLayoutEffect(() => {
-    if (!modelMenuOpen || !modelTriggerRef.current) return;
-
-    const rect = modelTriggerRef.current.getBoundingClientRect();
-    const estimatedMenuHeight =
-      modelMenuRef.current?.offsetHeight ?? Math.min(Math.max(availableModels.length, 1) * 34 + 52, MODEL_MENU_MAX_HEIGHT);
-    const spaceBelow = window.innerHeight - rect.bottom;
-    setOpenAbove(spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET);
-  }, [availableModels.length, modelMenuOpen]);
 
   useEffect(() => {
     if (!modelMenuOpen) return;
@@ -347,78 +313,107 @@ export function CreateAgentModalDraft({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoadingModels(true);
-
-    Promise.all([apiFetch('/api/mass-models'), apiFetch('/api/provider-profiles')])
-      .then(async ([massModelsRes, profilesRes]) => {
-        if (!massModelsRes.ok) throw new Error(`模型列表加载失败 (${massModelsRes.status})`);
-        if (!profilesRes.ok) throw new Error(`模型配置加载失败 (${profilesRes.status})`);
-
-        const massModelsBody = (await massModelsRes.json()) as { list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
-        const profilesBody = (await profilesRes.json()) as ProviderProfilesResponse;
+    setLoadingProfiles(true);
+    loadProfilesForClient(currentProjectPath, selectedClient)
+      .then((nextProfiles) => {
         if (cancelled) return;
-
-        const source = Array.isArray(massModelsBody.list)
-          ? massModelsBody.list
-          : Array.isArray(massModelsBody.models)
-            ? massModelsBody.models
-            : [];
-        const preferredProfileIds = [cat?.accountRef, draft?.accountRef].filter((value): value is string => Boolean(value));
-        const modelDescriptors = new Map<string, MassModelDescriptor>();
-        for (const item of source) {
-          const modelName = normalizeMassModelName(item);
-          if (!modelName || modelDescriptors.has(modelName)) continue;
-          modelDescriptors.set(modelName, {
-            name: modelName,
-            protocol: typeof item.protocol === 'string' ? item.protocol : undefined,
-          });
-        }
-        for (const modelName of [cat?.defaultModel ?? '', draft?.defaultModel ?? '']) {
-          if (!modelName || modelDescriptors.has(modelName)) continue;
-          modelDescriptors.set(modelName, { name: modelName });
-        }
-        const uniqueModelNames = [...modelDescriptors.keys()];
-
-        const nextModels = uniqueModelNames.map<CreateModelOption>((modelName) => {
-          const profile = chooseProfileForModel(modelName, profilesBody.providers, preferredProfileIds, profilesBody.activeProfileId);
-          const resolvedClient = profile ? resolveProfileClient(profile) : null;
-          const client = resolvedClient ?? inferClientFromModelName(modelName);
-
-          return {
-            id: modelName,
-            name: modelName,
-            profileId: profile?.id ?? defaultProfileIdForModel(client, modelDescriptors.get(modelName)),
-            client,
-            model: modelName,
-            authType: profile?.authType,
-            providerName: profile?.provider,
-            providerGroup: profile?.displayName || profile?.name || profile?.provider || undefined,
-            statusText: profile ? (profile.hasApiKey || profile.authType !== 'api_key' ? '已开通' : '未配置') : undefined,
-            rightLabel: modelName.toLowerCase().includes('deepseek-v3.2') ? '工具' : undefined,
-          };
-        });
-
-        setAvailableModels(nextModels);
-        setDraftModelId((current) => current ?? nextModels[0]?.id ?? null);
+        setProfiles(nextProfiles);
       })
       .catch((err) => {
         if (cancelled) return;
-        setAvailableModels([]);
-        setError(err instanceof Error ? err.message : '模型列表加载失败');
+        setProfiles([]);
+        setError(err instanceof Error ? err.message : '模型配置加载失败');
       })
       .finally(() => {
-        if (!cancelled) setLoadingModels(false);
+        if (!cancelled) setLoadingProfiles(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [open, cat?.accountRef, cat?.defaultModel, draft?.accountRef, draft?.defaultModel]);
+  }, [currentProjectPath, open, selectedClient]);
 
-  const selectedModel = useMemo(
-    () => availableModels.find((item) => item.id === draftModelId) ?? availableModels[0] ?? null,
-    [availableModels, draftModelId],
+  const availableProfiles = useMemo(() => filterAccounts(selectedClient, profiles), [profiles, selectedClient]);
+  const selectedProfile = useMemo(
+    () => availableProfiles.find((profile) => profile.id === selectedAccountRef) ?? null,
+    [availableProfiles, selectedAccountRef],
   );
+  const modelOptions = useMemo(() => {
+    if (selectedClient === 'antigravity' || selectedClient === 'acp') return [];
+    const currentModel = draftModelId?.trim() ?? '';
+    const profileModels = selectedProfile?.models?.map((value) => value.trim()).filter(Boolean) ?? [];
+    if (currentModel && !profileModels.includes(currentModel)) {
+      return [currentModel, ...profileModels];
+    }
+    return profileModels;
+  }, [draftModelId, selectedClient, selectedProfile]);
+  const availableModels = useMemo<CreateModelOption[]>(
+    () =>
+      modelOptions.map((modelName) => ({
+        id: modelName,
+        name: modelName,
+        profileId: selectedProfile?.id,
+        client: selectedClient,
+        model: modelName,
+        authType: selectedProfile?.authType,
+        providerName: selectedProfile?.provider,
+        providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
+      })),
+    [modelOptions, selectedClient, selectedProfile],
+  );
+  const selectedModel = useMemo(
+    () =>
+      (draftModelId ? availableModels.find((item) => item.id === draftModelId) : null) ??
+      (draftModelId
+        ? {
+            id: draftModelId,
+            name: draftModelId,
+            profileId: selectedProfile?.id,
+            client: selectedClient,
+            model: draftModelId,
+            authType: selectedProfile?.authType,
+            providerName: selectedProfile?.provider,
+            providerGroup: selectedProfile?.displayName || selectedProfile?.name || selectedProfile?.provider || undefined,
+          }
+        : null) ??
+      availableModels[0] ??
+      null,
+    [availableModels, draftModelId, selectedClient, selectedProfile],
+  );
+
+  useLayoutEffect(() => {
+    if (!modelMenuOpen || !modelTriggerRef.current) return;
+
+    const rect = modelTriggerRef.current.getBoundingClientRect();
+    const estimatedMenuHeight =
+      modelMenuRef.current?.offsetHeight ?? Math.min(Math.max(availableModels.length, 1) * 34 + 52, MODEL_MENU_MAX_HEIGHT);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setOpenAbove(spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET);
+  }, [availableModels.length, modelMenuOpen]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (selectedClient === 'antigravity') {
+      setSelectedAccountRef('');
+      return;
+    }
+    if (availableProfiles.length === 0) return;
+    const preferredBuiltin = builtinAccountIdForClient(selectedClient);
+    const nextProfile =
+      availableProfiles.find((profile) => profile.id === selectedAccountRef) ??
+      (preferredBuiltin ? availableProfiles.find((profile) => profile.id === preferredBuiltin) : null) ??
+      availableProfiles[0] ??
+      null;
+    if (!nextProfile || nextProfile.id === selectedAccountRef) return;
+    setSelectedAccountRef(nextProfile.id);
+  }, [availableProfiles, open, selectedAccountRef, selectedClient]);
+
+  useEffect(() => {
+    if (!open || selectedClient === 'antigravity' || selectedClient === 'acp' || modelOptions.length === 0) return;
+    const currentModel = draftModelId?.trim() ?? '';
+    if (currentModel && modelOptions.includes(currentModel)) return;
+    setDraftModelId(modelOptions[0] ?? null);
+  }, [draftModelId, modelOptions, open, selectedClient]);
 
   const modalTitle = title ?? (cat ? '编辑智能体' : '创建智能体');
   const primaryButtonText = saving ? (cat ? '保存中...' : '创建中...') : cat ? '保存' : '确定';
@@ -464,7 +459,7 @@ export function CreateAgentModalDraft({
       const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
         method: cat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({...payload, client: 'relayclaw', "accountRef": "huawei-maas", "provider": "relayclaw"}),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -556,35 +551,104 @@ export function CreateAgentModalDraft({
           </div>
 
           <div className="relative space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">模型</div>
-            <button
-              ref={modelTriggerRef}
-              type="button"
-              aria-label="Model"
-              aria-haspopup="listbox"
-              aria-expanded={modelMenuOpen}
-              onClick={() => setModelMenuOpen((current) => !current)}
-              className="ui-field flex h-8 w-full items-center justify-between rounded-[var(--radius-xs)] bg-[var(--surface-panel)] px-[10px] text-left"
+            <div className="text-sm font-semibold text-[var(--text-primary)]">Client</div>
+            <select
+              aria-label="Client"
+              value={selectedClient}
+              onChange={(event) => {
+                setSelectedClient(event.target.value as ClientValue);
+                setSelectedAccountRef('');
+                setDraftModelId(null);
+                setModelMenuOpen(false);
+              }}
+              className="ui-field h-[44px] w-full px-4 text-sm"
             >
-              <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
-              <ModelSelectTriggerIcon />
-            </button>
+              {CLIENT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {modelMenuOpen ? (
-              <div
-                ref={modelMenuRef}
-                className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-32px)] mb-2' : 'top-full mt-2'}`}
+          {selectedClient !== 'antigravity' ? (
+            <div className="relative space-y-2.5">
+              <div className="text-sm font-semibold text-[var(--text-primary)]">认证信息</div>
+              <select
+                aria-label="认证信息"
+                value={selectedAccountRef}
+                onChange={(event) => {
+                  setSelectedAccountRef(event.target.value);
+                  setDraftModelId(null);
+                  setModelMenuOpen(false);
+                }}
+                disabled={loadingProfiles}
+                className="ui-field h-[44px] w-full px-4 text-sm"
               >
-                <ModelSelectDropdownDraft
-                  items={availableModels}
-                  selectedId={draftModelId}
-                  onSelect={(item) => {
-                    setDraftModelId(item.id);
-                    setModelMenuOpen(false);
-                  }}
-                />
-              </div>
-            ) : null}
+                <option value="">{loadingProfiles ? '加载中…' : '请选择认证方式'}</option>
+                {availableProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.source === 'model_config'
+                      ? profile.displayName
+                      : profile.builtin
+                        ? `${profile.displayName}（内置）`
+                        : profile.kind === 'acp'
+                          ? `${profile.displayName}（ACP）`
+                          : `${profile.displayName}（API Key）`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <div className="relative space-y-2.5">
+            <div className="text-sm font-semibold text-[var(--text-primary)]">模型</div>
+            {availableModels.length > 0 ? (
+              <>
+                <button
+                  ref={modelTriggerRef}
+                  type="button"
+                  aria-label="Model"
+                  aria-haspopup="listbox"
+                  aria-expanded={modelMenuOpen}
+                  onClick={() => setModelMenuOpen((current) => !current)}
+                  className="ui-field flex h-8 w-full items-center justify-between rounded-[var(--radius-xs)] bg-[var(--surface-panel)] px-[10px] text-left"
+                >
+                  <ModelSelectValueDraft item={selectedModel} loading={loadingProfiles} />
+                  <ModelSelectTriggerIcon />
+                </button>
+
+                {modelMenuOpen ? (
+                  <div
+                    ref={modelMenuRef}
+                    className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-32px)] mb-2' : 'top-full mt-2'}`}
+                  >
+                    <ModelSelectDropdownDraft
+                      items={availableModels}
+                      selectedId={draftModelId}
+                      onSelect={(item) => {
+                        setDraftModelId(item.id);
+                        setModelMenuOpen(false);
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <input
+                aria-label="Model"
+                value={draftModelId ?? ''}
+                onChange={(event) => setDraftModelId(event.target.value)}
+                className="ui-field h-[44px] w-full px-4 text-sm"
+                placeholder={
+                  selectedClient === 'acp'
+                    ? '显示标签，可留如 agent-teams/default'
+                    : selectedClient === 'opencode'
+                      ? '例如 openai/gpt-5.4'
+                      : '模型标识符'
+                }
+              />
+            )}
           </div>
 
           {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</div> : null}

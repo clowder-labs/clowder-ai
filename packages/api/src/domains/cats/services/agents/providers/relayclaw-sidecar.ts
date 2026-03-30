@@ -184,7 +184,6 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         defaultHeaders,
         modelName,
         provider,
-        projectDir,
         runtimeSkillsDir: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
         sharedSkillsSignature: buildRelayClawSharedSkillsSignature(),
         disabledSkillsSignature: buildRelayClawDisabledSkillsSignature(projectRoot, this.catId as string),

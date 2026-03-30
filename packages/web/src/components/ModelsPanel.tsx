@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
-import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
-import { useProviderProfilesState } from './useProviderProfilesState';
+import { TagEditor } from './hub-tag-editor';
 
+const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const LOADING_TEXT = '加载中...';
@@ -14,17 +14,20 @@ const NO_RESULTS_TEXT = '未找到匹配模型';
 const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
 const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
+const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
 const DEFAULT_ICON = '/avatars/assistant.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
+const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 
 interface MassModelResponseItem {
   id?: string | number;
   object?: string;
   name?: string;
   description?: string;
-  labels?: unknown;
-  developer?: unknown;
-  icon?: unknown;
+  protocol?: string;
+  labels?: string[];
+  developer?: string;
+  icon?: string;
   [key: string]: unknown;
 }
 
@@ -36,6 +39,8 @@ interface ModelCardData {
   labels: string[];
   developer: string;
   icon: string;
+  protocol: string;
+  [key: string]: unknown;
 }
 
 interface ModelCardGroup {
@@ -99,6 +104,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
   const developer =
     pickStringField(item, ['developer', 'provider', 'vendor', 'publisher', 'company']) ?? DEFAULT_DEVELOPER;
   const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']) ?? DEFAULT_ICON;
+  const protocol = pickStringField(item, ['protocol']) ?? UNKNOWN_PROTOCOL_LABEL;
 
   return {
     id,
@@ -108,7 +114,20 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     labels,
     developer,
     icon,
+    protocol,
   };
+}
+
+function protocolGroupLabel(protocol: string): string {
+  const trimmed = protocol.trim();
+  if (trimmed.toLowerCase() === 'huawei_maas') return HUAWEI_MAAS_GROUP_LABEL;
+  return CUSTOM_MODEL_GROUP_LABEL;
+}
+
+function protocolGroupKey(protocol: string): string {
+  const trimmed = protocol.trim().toLowerCase();
+  if (trimmed === 'huawei_maas') return 'huawei_maas';
+  return 'custom_models';
 }
 
 function buildModelSearchText(card: ModelCardData): string {
@@ -118,7 +137,8 @@ function buildModelSearchText(card: ModelCardData): string {
     card.id,
     card.object,
     card.developer,
-    HUAWEI_MAAS_GROUP_LABEL,
+    card.protocol,
+    protocolGroupLabel(card.protocol),
     ...card.labels,
   ]
     .join(' ')
@@ -126,22 +146,60 @@ function buildModelSearchText(card: ModelCardData): string {
 }
 
 function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
-  if (cards.length === 0) return [];
-  return [{ key: 'huawei-maas', label: HUAWEI_MAAS_GROUP_LABEL, items: cards }];
+  return cards.reduce<ModelCardGroup[]>((acc, item) => {
+    const key = protocolGroupKey(item.protocol || UNKNOWN_PROTOCOL_LABEL);
+    const existing = acc.find((group) => group.key === key);
+    if (existing) {
+      existing.items.push(item);
+      return acc;
+    }
+    acc.push({ key, label: protocolGroupLabel(key), items: [item] });
+    return acc;
+  }, []);
 }
 
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
+  const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const openHub = useChatStore((s) => s.openHub);
+  const currentProjectPath = useChatStore((s) => s.currentProjectPath);
+
+  const buildModelsUrl = useCallback(() => {
+    const query = new URLSearchParams();
+    if (currentProjectPath && currentProjectPath !== 'default') {
+      query.set('projectPath', currentProjectPath);
+    }
+    const queryText = query.toString();
+    return queryText ? `/api/maas-models?${queryText}` : '/api/maas-models';
+  }, [currentProjectPath]);
+
+  const fetchModels = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(buildModelsUrl());
+      if (!res.ok) {
+        setCards([]);
+        return;
+      }
+      const json = (await res.json()) as { list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
+      const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
+      setCards(source.map(normalizeModel));
+    } catch {
+      setCards([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [buildModelsUrl]);
 
   useEffect(() => {
     let cancelled = false;
-    const fetchModels = async () => {
+    void (async () => {
       setLoading(true);
       try {
-        const res = await apiFetch('/api/maas-models');
+        const res = await apiFetch(buildModelsUrl());
         if (!res.ok) {
           if (!cancelled) setCards([]);
           return;
@@ -154,13 +212,11 @@ export function ModelsPanel() {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    };
-
-    void fetchModels();
+    })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [buildModelsUrl]);
 
   const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
 
@@ -183,15 +239,33 @@ export function ModelsPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-4 pb-2">
-          <section>
-            <input
-              type="search"
-              aria-label="搜索模型"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={SEARCH_PLACEHOLDER}
-              className="ui-field w-full px-3 py-1.5 text-xs"
-            />
+          <section className='flex justify-between gap-2'>
+            <div className="relative flex-1 mr-2">
+              <input
+                type="search"
+                aria-label="搜索模型"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={SEARCH_PLACEHOLDER}
+                className="ui-field w-full px-3 py-1.5 text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openHub('provider-profiles')}
+                className="rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                ACP / 账号配置
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddModelModal(true)}
+                className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+              >
+                {ADD_MODEL}
+              </button>
+            </div>
           </section>
 
           {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
@@ -271,6 +345,196 @@ export function ModelsPanel() {
             ))}
         </div>
       </div>
+
+      {showAddModelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowAddModelModal(false)}
+          data-testid="models-add-model-modal"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreateError(null);
+                  setShowAddModelModal(false);
+                }}
+                className="rounded-lg border border-[#DCE1E8] px-3 py-1.5 text-xs font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                关闭
+              </button>
+            </div>
+            <ModelsCreateModelConfigSource
+              projectPath={currentProjectPath && currentProjectPath !== 'default' ? currentProjectPath : null}
+              error={createError}
+              onError={setCreateError}
+              onCreated={async () => {
+                setCreateError(null);
+                await fetchModels();
+                setShowAddModelModal(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function parseHeadersJson(value: string): Record<string, string> | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Headers 必须是 JSON 对象');
+  }
+  const entries = Object.entries(parsed).map(([key, rawValue]) => {
+    const normalizedKey = key.trim();
+    const normalizedValue = typeof rawValue === 'string' ? rawValue.trim() : '';
+    if (!normalizedKey || !normalizedValue) {
+      throw new Error('Headers 的 key 和 value 都必须是非空字符串');
+    }
+    return [normalizedKey, normalizedValue] as const;
+  });
+  return Object.fromEntries(entries);
+}
+
+function generateModelConfigSourceId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (typeof uuid === 'string' && uuid.trim()) {
+    return uuid.replace(/-/g, '').slice(0, 8);
+  }
+  return Math.random().toString(16).slice(2, 10).padEnd(8, '0');
+}
+
+function ModelsCreateModelConfigSource({
+  projectPath,
+  error,
+  onError,
+  onCreated,
+}: {
+  projectPath: string | null;
+  error: string | null;
+  onError: (value: string | null) => void;
+  onCreated: () => Promise<void>;
+}) {
+  const [sourceId, setSourceId] = useState(() => generateModelConfigSourceId());
+  const [displayName, setDisplayName] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [headersText, setHeadersText] = useState('');
+  const [models, setModels] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const canCreate =
+    displayName.trim().length > 0 &&
+    baseUrl.trim().length > 0 &&
+    apiKey.trim().length > 0 &&
+    models.length > 0;
+
+  const reset = () => {
+    setSourceId(generateModelConfigSourceId());
+    setDisplayName('');
+    setBaseUrl('');
+    setApiKey('');
+    setHeadersText('');
+    setModels([]);
+  };
+
+  return (
+    <div className="space-y-3">
+      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{error}</p> : null}
+      <select
+        value="openai"
+        disabled
+        aria-label="协议"
+        className="w-full rounded border border-[#DCE2EB] bg-[#F7F8FA] px-3 py-2 text-sm text-[#5F6775]"
+      >
+        <option value="openai">OpenAI</option>
+      </select>
+      <input
+        value={displayName}
+        onChange={(event) => setDisplayName(event.target.value)}
+        placeholder="显示名称，如 My OpenAI Proxy"
+        autoComplete="off"
+        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+      />
+      <input
+        value={baseUrl}
+        onChange={(event) => setBaseUrl(event.target.value)}
+        placeholder="Base URL，如 https://api.example.com/v1"
+        autoComplete="off"
+        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+      />
+      <input
+        type="password"
+        autoComplete="off"
+        value={apiKey}
+        onChange={(event) => setApiKey(event.target.value)}
+        placeholder="API Key"
+        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+      />
+      <textarea
+        value={headersText}
+        onChange={(event) => setHeadersText(event.target.value)}
+        rows={4}
+        placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
+        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+      />
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-[#6E7785]">可用模型 *</p>
+        <TagEditor
+          tags={models}
+          tone="purple"
+          addLabel="+ 添加模型"
+          placeholder="输入模型名，如 gpt-4o-mini"
+          emptyLabel="(至少添加 1 个模型)"
+          onChange={setModels}
+          minCount={0}
+        />
+      </div>
+      <button
+        type="button"
+        disabled={busy || !canCreate}
+        onClick={async () => {
+          onError(null);
+          setBusy(true);
+          try {
+            const headers = parseHeadersJson(headersText);
+            const res = await apiFetch('/api/model-config-profiles', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                ...(projectPath ? { projectPath } : {}),
+                sourceId: sourceId.trim(),
+                displayName: displayName.trim(),
+                baseUrl: baseUrl.trim(),
+                apiKey: apiKey.trim(),
+                ...(headers ? { headers } : {}),
+                models,
+              }),
+            });
+            const body = (await res.json().catch(() => ({}))) as { error?: string };
+            if (!res.ok) {
+              throw new Error(body.error ?? `请求失败 (${res.status})`);
+            }
+            reset();
+            await onCreated();
+          } catch (createError) {
+            onError(createError instanceof Error ? createError.message : String(createError));
+          } finally {
+            setBusy(false);
+          }
+        }}
+        className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
+      >
+        {busy ? '创建中...' : '创建'}
+      </button>
     </div>
   );
 }

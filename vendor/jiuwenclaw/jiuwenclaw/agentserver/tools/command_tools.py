@@ -10,12 +10,23 @@ import os
 import re
 import shutil
 import subprocess
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Sequence
 
 from openjiuwen.core.foundation.tool import tool
 
 from jiuwenclaw.utils import get_workspace_dir
+
+# Per-request project workspace, set via set_request_workspace() before each agent run.
+# Uses ContextVar so concurrent asyncio tasks are fully isolated — each task gets its
+# own copy of the context, no shared mutable state.
+_request_workspace: ContextVar[Path | None] = ContextVar('request_workspace', default=None)
+
+
+def set_request_workspace(path: str | Path | None) -> None:
+    """Set the project workspace for the current asyncio task context."""
+    _request_workspace.set(Path(path).resolve() if path else None)
 
 
 _DANGEROUS_COMMAND_PATTERNS: list[tuple[re.Pattern[str], str]] = [
@@ -75,11 +86,14 @@ def _check_command_safety(command: str) -> str | None:
 
 
 def _resolve_command_workdir(workdir: str) -> Path:
-    project_root = get_workspace_dir()
+    # Per-request workspace takes priority (set via set_request_workspace before each run).
+    # Falls back to the global jiuwenclaw workspace when no project is active.
+    project_root = _request_workspace.get() or get_workspace_dir()
     candidate = Path(workdir) if workdir else project_root
     if not candidate.is_absolute():
         candidate = project_root / candidate
     candidate = candidate.resolve()
+    # Security: workdir must stay inside the project root.
     candidate.relative_to(project_root)
     return candidate
 
