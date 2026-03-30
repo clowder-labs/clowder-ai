@@ -64,8 +64,10 @@ const EXCLUDED_PREFIXES = [
   'packages/web/.next/',
 ];
 const RUNTIME_SCRIPT_FILES = [
+  'install-python-wheelhouse.ps1',
   'install-auth-config.mjs',
   'install-windows-helpers.ps1',
+  'manual-install-windows-runtime-wheelhouse.ps1',
   'start-entry.mjs',
   'start-windows.ps1',
   'start.bat',
@@ -77,6 +79,8 @@ const PYTHON_EMBED_VERSION = '3.13.4';
 const PYTHON_EMBED_URL = `https://www.python.org/ftp/python/${PYTHON_EMBED_VERSION}/python-${PYTHON_EMBED_VERSION}-embed-amd64.zip`;
 const GET_PIP_URL = 'https://bootstrap.pypa.io/get-pip.py';
 const PYTHON_MAJOR_MINOR = PYTHON_EMBED_VERSION.split('.').slice(0, 2).join('');
+const DEFAULT_WHEELHOUSE_DIR = join(repoRoot, 'dist', 'windows-python-wheelhouse');
+const PYTHON_WHEELHOUSE_CONFIG = join(repoRoot, 'packaging', 'windows', 'python-runtime-wheelhouse.json');
 const WEB_STANDALONE_BUILD_DIR = join(repoRoot, 'packages', 'web', '.next', 'standalone');
 const WEB_STANDALONE_APP_DIR = join(WEB_STANDALONE_BUILD_DIR, 'packages', 'web');
 const WEB_STANDALONE_NODE_MODULES_DIR = join(WEB_STANDALONE_BUILD_DIR, 'node_modules');
@@ -499,7 +503,14 @@ function createIcoFromPng(pngPath, icoPath) {
 }
 
 function copyTopLevelProject(bundleDir) {
-  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json', 'modelarts-preset.json', 'pnpm-workspace.yaml'];
+  const entries = [
+    'cat-cafe-skills',
+    'LICENSE',
+    '.env.example',
+    'cat-template.json',
+    'modelarts-preset.json',
+    'pnpm-workspace.yaml',
+  ];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
     if (!existsSync(source)) {
@@ -530,19 +541,10 @@ async function stageWindowsPython(bundleDir, options) {
   resetDir(targetDir);
   extractZip(archivePath, targetDir);
 
-  // Enable site-packages and add vendor paths to ._pth
-  const pthFile = join(targetDir, `python${PYTHON_MAJOR_MINOR}._pth`);
-  if (existsSync(pthFile)) {
-    const pthContent = [
-      `python${PYTHON_MAJOR_MINOR}.zip`,
-      '.',
-      'Lib/site-packages',
-      '../../vendor/dare-cli',
-      '../../vendor/jiuwenclaw',
-      'import site',
-    ].join('\n');
-    writeFileSync(pthFile, pthContent, 'utf8');
-  }
+  // Keep vendor source trees off sys.path while pip bootstraps/installs.
+  // Some local checkouts contain generated *.egg-info/*.dist-info metadata that
+  // pip/importlib.metadata will eagerly parse, which breaks on Python 3.13.
+  writePythonRuntimePth(targetDir, { includeVendorPaths: false });
 
   // Bootstrap pip
   const getPipPath = join(options.cacheDir, 'get-pip.py');
@@ -553,61 +555,58 @@ async function stageWindowsPython(bundleDir, options) {
   return { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
 }
 
-function installSharedPythonDeps(bundleDir) {
-  const pythonExe = join(bundleDir, 'tools', 'python', 'python.exe');
+function writePythonRuntimePth(targetDir, options = {}) {
+  const pthFile = join(targetDir, `python${PYTHON_MAJOR_MINOR}._pth`);
+  if (!existsSync(pthFile)) {
+    return;
+  }
 
-  // Ensure setuptools is available (needed by some packages with pyproject.toml builds)
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'setuptools', 'wheel']);
+  const pthLines = [`python${PYTHON_MAJOR_MINOR}.zip`, '.', 'Lib/site-packages'];
+  if (options.includeVendorPaths) {
+    pthLines.push('../../vendor/dare-cli', '../../vendor/jiuwenclaw');
+  }
+  pthLines.push('import site');
 
-  // Install DARE dependencies (from pyproject.toml, excluding test deps)
-  const dareDeps = [
-    'anthropic', 'langchain-openai', 'langchain-core',
-    'httpx>=0.27.0', 'starlette>=0.37.0', 'uvicorn>=0.30.0', 'chromadb>=0.4.0',
-  ];
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
+  writeFileSync(pthFile, `${pthLines.join('\n')}\n`, 'utf8');
+}
 
-  // Install JiuwenClaw core runtime deps explicitly, then the package itself with --no-deps
-  // (avoids pulling heavy optional deps like telegram-bot, discord.py, dingtalk etc.)
-  const jiuwenCoreDeps = [
-    'psutil>=7.0', 'loguru>=0.7', 'ruamel.yaml>=0.18', 'python-dotenv>=1.0',
-    'websockets>=12.0', 'aiosqlite>=0.22', 'croniter>=2.0', 'mutagen>=1.47',
-    'greenlet>=3.0', 'openjiuwen==0.1.7',
-  ];
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...jiuwenCoreDeps]);
-  const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', '--no-deps', jiuwenClawDir]);
+function resolveStagedWindowsPythonWheelhouse() {
+  const wheelhouseDir = DEFAULT_WHEELHOUSE_DIR;
+  const manifestPath = join(wheelhouseDir, 'python-wheelhouse-manifest.json');
+  if (!existsSync(manifestPath)) {
+    throw new Error(`Python wheelhouse manifest not found: ${manifestPath}`);
+  }
+  const wheelhouseRoot = join(wheelhouseDir, 'wheelhouse');
+  if (!existsSync(wheelhouseRoot)) {
+    throw new Error(`Python wheelhouse directory not found: ${wheelhouseRoot}`);
+  }
+  return { rootDir: wheelhouseDir, manifestPath };
+}
 
-  // Install office automation libraries for MCP servers
-  const officeDeps = [
-    'python-pptx',   // PowerPoint read/write
-    'openpyxl',      // Excel read/write
-    'python-docx',   // Word read/write
-    'xlsxwriter',    // Excel write (fast, chart support)
-    'pypdf',         // PDF read/merge/split
-    'reportlab',     // PDF creation
-    'markitdown',    // Microsoft multi-format → Markdown converter
-  ];
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...officeDeps]);
+function stageWindowsPythonWheelhouse() {
+  const wheelhouseDir = DEFAULT_WHEELHOUSE_DIR;
+  const prepareScript = join(repoRoot, 'scripts', 'prepare-python-wheelhouse.mjs');
 
-  // Install agent-teams CLI for ACP multi-agent orchestration
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'cool-play-agent-teams']);
+  resetDir(wheelhouseDir);
+  run(process.execPath, [prepareScript, '--config', PYTHON_WHEELHOUSE_CONFIG, '--output-dir', wheelhouseDir]);
 
-  // Prune site-packages to reduce size
-  const sitePackages = join(bundleDir, 'tools', 'python', 'Lib', 'site-packages');
-  removeNamedDirectoriesRecursive(sitePackages, ['tests', 'test', '__tests__']);
-  walkFiles(sitePackages, (fullPath, entry) => {
-    if (entry.name.endsWith('.pyo')) {
-      rmSync(fullPath, { force: true });
-    }
-  });
+  return resolveStagedWindowsPythonWheelhouse();
 }
 
 function stageVendorPythonSources(bundleDir) {
   const excludeDirs = new Set([
-    'dist', '.venv', '.build-venv', 'tests', 'test',
-    '.git', 'node_modules', 'build', '.mypy_cache', '.pytest_cache',
+    'dist',
+    '.venv',
+    '.build-venv',
+    'tests',
+    'test',
+    '.git',
+    'node_modules',
+    'build',
+    '.mypy_cache',
+    '.pytest_cache',
   ]);
-  const excludeFiles = new Set(['uv.lock']);
+  const excludeFiles = new Set(['uv.lock', 'PKG-INFO', 'METADATA']);
 
   function copySourceTree(srcDir, destDir) {
     ensureDir(destDir);
@@ -616,6 +615,7 @@ function stageVendorPythonSources(bundleDir) {
       const destPath = join(destDir, entry.name);
       if (entry.isDirectory()) {
         if (excludeDirs.has(entry.name)) continue;
+        if (entry.name.endsWith('.egg-info') || entry.name.endsWith('.dist-info')) continue;
         copySourceTree(srcPath, destPath);
       } else {
         if (excludeFiles.has(entry.name)) continue;
@@ -632,12 +632,22 @@ function stageVendorPythonSources(bundleDir) {
   copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
 }
 
-function stageInstallerSeed(bundleDir) {
+function stageInstallerSeed(bundleDir, wheelhouse = null) {
   const seedDir = join(bundleDir, 'installer-seed');
   ensureDir(seedDir);
   const catConfigPath = join(repoRoot, 'cat-config.json');
   if (existsSync(catConfigPath)) {
     cpSync(catConfigPath, join(seedDir, 'cat-config.json'), { force: true });
+  }
+  if (wheelhouse?.manifestPath) {
+    cpSync(wheelhouse.manifestPath, join(seedDir, 'python-wheelhouse-manifest.json'), { force: true });
+  }
+  if (wheelhouse?.rootDir) {
+    const wheelhouseSource = join(wheelhouse.rootDir, 'wheelhouse');
+    if (!existsSync(wheelhouseSource)) {
+      throw new Error(`Python wheelhouse directory missing: ${wheelhouseSource}`);
+    }
+    cpSync(wheelhouseSource, join(seedDir, 'wheelhouse'), { recursive: true, force: true });
   }
 }
 
@@ -699,10 +709,7 @@ function removeNamedDirectoriesRecursive(rootDir, directoryNames) {
 
 function pruneRuntimePackage(targetDir, options = {}) {
   removePaths(targetDir, options.removePaths ?? []);
-  removeNamedDirectoriesRecursive(targetDir, [
-    'test', 'tests', '__tests__',
-    'example', 'examples', 'doc', 'docs',
-  ]);
+  removeNamedDirectoriesRecursive(targetDir, ['test', 'tests', '__tests__', 'example', 'examples', 'doc', 'docs']);
   walkFiles(targetDir, (fullPath, entry) => {
     const fileName = entry.name;
     if (fileName === 'package-lock.json' || fileName === '.package-lock.json') {
@@ -737,7 +744,11 @@ function pruneNativePrebuilds(rootDir) {
   while (stack.length > 0) {
     const current = stack.pop();
     let entries;
-    try { entries = readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const fullPath = join(current, entry.name);
@@ -913,7 +924,9 @@ async function stageBundledApiRuntime(targetRootDir) {
 
     writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(sourceDir, 'package.json')));
   } catch (error) {
-    logStep(`API bundling unavailable, falling back to staged dist (${error instanceof Error ? error.message : String(error)})`);
+    logStep(
+      `API bundling unavailable, falling back to staged dist (${error instanceof Error ? error.message : String(error)})`,
+    );
     copyIfPresent(join(sourceDir, 'dist'), join(targetDir, 'dist'));
     writeJson(
       join(targetDir, 'package.json'),
@@ -971,7 +984,10 @@ function stageStandaloneWebRuntime(targetRootDir) {
   rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
   copyIfPresent(WEB_BUILD_STATIC_DIR, join(targetDir, '.next', 'static'));
   copyIfPresent(WEB_PUBLIC_DIR, join(targetDir, 'public'));
-  writeJson(join(targetDir, 'package.json'), createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')),
+  );
   writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
   pruneRuntimePackage(targetDir, {
     removePaths: [
@@ -1310,9 +1326,8 @@ function buildInstallerOutputPath(outputDir, version) {
 
 function createPayloadTar(bundleDir, tarPath) {
   rmSync(tarPath, { force: true });
-  const tarExe = process.platform === 'win32'
-    ? join(process.env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'tar.exe')
-    : 'tar';
+  const tarExe =
+    process.platform === 'win32' ? join(process.env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
   run(tarExe, ['-czf', tarPath, '-C', bundleDir, '.']);
   if (!existsSync(tarPath)) {
     throw new Error(`Failed to create payload archive: ${tarPath}`);
@@ -1418,7 +1433,17 @@ async function main() {
 
   logStep('Copying project sources');
   copyTopLevelProject(bundleDir);
-  stageInstallerSeed(bundleDir);
+
+  let pythonWheelhouse = null;
+  if (!options.skipPython) {
+    logStep('Preparing Python wheelhouse');
+    pythonWheelhouse = stageWindowsPythonWheelhouse();
+  } else {
+    logStep('Reusing existing Python wheelhouse (--skip-python)');
+    pythonWheelhouse = resolveStagedWindowsPythonWheelhouse();
+  }
+
+  stageInstallerSeed(bundleDir, pythonWheelhouse);
 
   logStep('Staging vendor Python sources');
   stageVendorPythonSources(bundleDir);
@@ -1427,11 +1452,8 @@ async function main() {
   if (!options.skipPython) {
     logStep('Bundling Python embeddable runtime');
     pythonEmbed = await stageWindowsPython(bundleDir, options);
-
-    logStep('Installing shared Python dependencies');
-    installSharedPythonDeps(bundleDir);
   } else {
-    logStep('Skipping Python embed + pip install (--skip-python)');
+    logStep('Skipping Python embed + wheelhouse refresh (--skip-python)');
     const releaseMetaPath = join(bundleDir, '.clowder-release.json');
     const existingMeta = existsSync(releaseMetaPath) ? JSON.parse(readFileSync(releaseMetaPath, 'utf8')) : {};
     pythonEmbed = existingMeta.pythonEmbed ?? { version: PYTHON_EMBED_VERSION, url: PYTHON_EMBED_URL };
