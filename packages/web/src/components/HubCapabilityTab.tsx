@@ -12,7 +12,6 @@ import type {
 } from './capability-board-ui';
 import {
   CapabilitySection,
-  FilterChips,
   SectionIconSkill,
   SkillHealthBanner,
   StatusDot,
@@ -22,7 +21,6 @@ import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-util
 import { useConfirm } from './useConfirm';
 import { useProviderProfilesState } from './useProviderProfilesState';
 
-type FilterSource = 'all' | 'cat-cafe' | 'external';
 const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '未分类';
 
@@ -32,7 +30,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   const [skillHealth, setSkillHealth] = useState<SkillHealthSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterSource, setFilterSource] = useState<FilterSource>('all');
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [toggling, setToggling] = useState<string | null>(null);
 
@@ -151,12 +148,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     [confirm, fetchCapabilities, projectPath],
   );
 
-  const filtered = useMemo(() => {
-    if (filterSource === 'all') return items;
-    return items.filter((item) => item.source === filterSource);
-  }, [items, filterSource]);
-
-  const visibleItems = useMemo(() => filtered.filter((item) => item.type !== 'mcp'), [filtered]);
+  const visibleItems = useMemo(() => items.filter((item) => item.type !== 'mcp'), [items]);
   const skillItems = useMemo(() => visibleItems.filter((item) => item.type === 'skill'), [visibleItems]);
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -196,16 +188,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
             knownProjects={knownProjects}
             currentSelection={projectPath}
             onSwitch={switchProject}
-          />
-          <FilterChips
-            label="来源"
-            value={filterSource}
-            options={[
-              { value: 'all', label: '全部' },
-              { value: 'cat-cafe', label: 'OfficeClaw' },
-              { value: 'external', label: '外部' },
-            ]}
-            onChange={(value) => setFilterSource(value as FilterSource)}
           />
         </div>
       </div>
@@ -257,7 +239,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
             </svg>
           </div>
           <h3 className="text-sm font-semibold text-[var(--text-primary)]">没有找到匹配的能力</h3>
-          <p className="mt-1 max-w-[220px] text-xs text-[var(--text-muted)]">试着切换来源筛选，或检查 Skills 配置。</p>
+          <p className="mt-1 max-w-[220px] text-xs text-[var(--text-muted)]">请检查 Skills 配置，或切换分类后重试。</p>
         </div>
       )}
 
