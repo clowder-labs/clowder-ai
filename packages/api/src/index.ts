@@ -69,7 +69,6 @@ import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import type { AgentService } from './domains/cats/services/types.js';
-import { ActivityTracker } from './domains/health/ActivityTracker.js';
 import { PortDiscoveryService } from './domains/preview/port-discovery.js';
 import { collectRuntimePorts } from './domains/preview/port-validator.js';
 import { PreviewGateway } from './domains/preview/preview-gateway.js';
@@ -109,7 +108,6 @@ import {
   availableClientsRoutes,
   backlogRoutes,
   bootcampRoutes,
-  brakeRoutes,
   callbackAuthRoutes,
   callbacksRoutes,
   capabilitiesRoutes,
@@ -229,32 +227,6 @@ async function main(): Promise<void> {
   // Initialize WebSocket manager BEFORE routes (injected via opts, no circular import).
   // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
   socketManager = new SocketManager(app.server, invocationTracker);
-
-  // F085 Phase 4: Platform-level activity tracker (hyperfocus brake)
-  const activityTracker = new ActivityTracker();
-  app.addHook('onRequest', (request, _reply, done) => {
-    // Skip non-API paths and brake endpoints (avoid trigger-on-checkin loop)
-    if (!request.url.startsWith('/api/') || request.url.startsWith('/api/brake/')) {
-      done();
-      return;
-    }
-    const userId = resolveUserId(request);
-    if (userId) {
-      activityTracker.recordActivity(userId);
-      // shouldTrigger reads per-user settings (enabled + threshold) internally
-      const level = activityTracker.shouldTrigger(userId);
-      if (level > 0 && socketManager) {
-        activityTracker.markTriggered(userId, level as 1 | 2 | 3);
-        socketManager.emitToUser(userId, 'brake:trigger', {
-          level,
-          activeMinutes: Math.round(activityTracker.getState(userId).activeWorkMs / 60_000),
-          nightMode: ActivityTracker.isNightMode(),
-          timestamp: Date.now(),
-        });
-      }
-    }
-    done();
-  });
 
   // Create shared service instances for MCP callback flow
   const registry = new InvocationRegistry();
@@ -817,8 +789,6 @@ async function main(): Promise<void> {
   await app.register(bootcampRoutes, { threadStore });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);
-  await app.register(brakeRoutes, { activityTracker });
-
   // F101: Game routes (store created earlier for /game command interception)
   if (f101GameStore) {
     await app.register(gameRoutes, {
