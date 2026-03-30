@@ -79,21 +79,21 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
   // 检查登录状态接口
   app.get('/api/islogin', async (request) => {
     if (skipAuth) {
-      return { islogin: true, hascode: true, userId: 'debug-user' };
+      return { islogin: true, hascode: true, userId: 'debug-user', isskip: true };
     }
     const hascode = secureConfig.get('lastPromotionCode') ? true : false;
     const userId = request.headers['x-cat-cafe-user'] as string;
     if (!userId) {
-      return { islogin: false, hascode };
+      return { islogin: false, hascode, isskip: false };
     }
-    const userInfo: UserInfo = secureConfig.get(userId) as UserInfo;
-    const expiresAt = userInfo?.expiresAt;
+    const userInfo: UserInfo = secureConfig.get(`${userId}-new`) as UserInfo;
+    const expiresAt = secureConfig.get(userId) || userInfo.expiresAt;
     console.log(`Checking login for userId: ${userId}, expiresAt: ${expiresAt}`);
     if (!expiresAt || new Date(userInfo.expiresAt).getTime() < new Date().getTime()) {
-      return { islogin: false, hascode };
+      return { islogin: false, hascode, isskip: false };
     }
     sessions.set(userInfo.userId, { ...userInfo });
-    return { islogin: true, hascode, userId };
+    return { islogin: true, hascode, userId, isskip: false };
   });
 
   /**
@@ -134,7 +134,8 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     userInfo.userId = `${domainName}:${name ?? ''}`;
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
     userInfo.modelInfo = modelInfo ?? {};
-    secureConfig.set(userInfo.userId, userInfo);
+    secureConfig.set(userInfo.userId, userInfo.expiresAt);
+    secureConfig.set(`${userInfo.userId}-new`, userInfo);
     sessions.set(userInfo.userId, { ...userInfo });
 
     // 创建session（简单实现，生产环境应该生成JWT token）
