@@ -357,7 +357,49 @@ function logStep(message) {
   process.stdout.write(`\n[windows-installer] ${message}\n`);
 }
 
+function quoteCommandSegment(segment) {
+  if (segment.length === 0) {
+    return '""';
+  }
+  if (/^[A-Za-z0-9_./:=-]+$/.test(segment)) {
+    return segment;
+  }
+  return `"${segment.replaceAll('"', '\\"')}"`;
+}
+
+function formatCommandForLog(command, args) {
+  return [command, ...args].map((segment) => quoteCommandSegment(String(segment))).join(' ');
+}
+
+function logCommand(command, args, options = {}) {
+  process.stdout.write(`[windows-installer] $ ${formatCommandForLog(command, args)}\n`);
+  const cwd = options.cwd ?? repoRoot;
+  if (cwd !== repoRoot) {
+    process.stdout.write(`[windows-installer] cwd: ${cwd}\n`);
+  }
+}
+
+function buildCommandFailure(command, args, result, options = {}) {
+  const lines = [`${formatCommandForLog(command, args)} failed with exit code ${result.status ?? 'unknown'}`];
+  const cwd = options.cwd ?? repoRoot;
+  if (cwd !== repoRoot) {
+    lines.push(`cwd: ${cwd}`);
+  }
+  if (result.signal) {
+    lines.push(`signal: ${result.signal}`);
+  }
+  const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : '';
+  const stdout = typeof result.stdout === 'string' ? result.stdout.trim() : '';
+  if (stderr) {
+    lines.push(`stderr:\n${stderr}`);
+  } else if (stdout) {
+    lines.push(`stdout:\n${stdout}`);
+  }
+  return new Error(lines.join('\n'));
+}
+
 function run(command, args, options = {}) {
+  logCommand(command, args, options);
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? repoRoot,
     stdio: options.stdio ?? 'inherit',
@@ -368,11 +410,12 @@ function run(command, args, options = {}) {
     throw result.error;
   }
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(' ')} failed with exit code ${result.status ?? 'unknown'}`);
+    throw buildCommandFailure(command, args, result, options);
   }
 }
 
 function runAndCapture(command, args, options = {}) {
+  logCommand(command, args, options);
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? repoRoot,
     stdio: 'pipe',
@@ -384,7 +427,7 @@ function runAndCapture(command, args, options = {}) {
     throw result.error;
   }
   if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || `${command} failed`).trim());
+    throw buildCommandFailure(command, args, result, options);
   }
   return (result.stdout ?? '').trim();
 }
@@ -499,7 +542,14 @@ function createIcoFromPng(pngPath, icoPath) {
 }
 
 function copyTopLevelProject(bundleDir) {
-  const entries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'cat-template.json', 'modelarts-preset.json', 'pnpm-workspace.yaml'];
+  const entries = [
+    'cat-cafe-skills',
+    'LICENSE',
+    '.env.example',
+    'cat-template.json',
+    'modelarts-preset.json',
+    'pnpm-workspace.yaml',
+  ];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
     if (!existsSync(source)) {
@@ -561,17 +611,29 @@ function installSharedPythonDeps(bundleDir) {
 
   // Install DARE dependencies (from pyproject.toml, excluding test deps)
   const dareDeps = [
-    'anthropic', 'langchain-openai', 'langchain-core',
-    'httpx>=0.27.0', 'starlette>=0.37.0', 'uvicorn>=0.30.0', 'chromadb>=0.4.0',
+    'anthropic',
+    'langchain-openai',
+    'langchain-core',
+    'httpx>=0.27.0',
+    'starlette>=0.37.0',
+    'uvicorn>=0.30.0',
+    'chromadb>=0.4.0',
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...dareDeps]);
 
   // Install JiuwenClaw core runtime deps explicitly, then the package itself with --no-deps
   // (avoids pulling heavy optional deps like telegram-bot, discord.py, dingtalk etc.)
   const jiuwenCoreDeps = [
-    'psutil>=7.0', 'loguru>=0.7', 'ruamel.yaml>=0.18', 'python-dotenv>=1.0',
-    'websockets>=12.0', 'aiosqlite>=0.22', 'croniter>=2.0', 'mutagen>=1.47',
-    'greenlet>=3.0', 'openjiuwen==0.1.7',
+    'psutil>=7.0',
+    'loguru>=0.7',
+    'ruamel.yaml>=0.18',
+    'python-dotenv>=1.0',
+    'websockets>=12.0',
+    'aiosqlite>=0.22',
+    'croniter>=2.0',
+    'mutagen>=1.47',
+    'greenlet>=3.0',
+    'openjiuwen==0.1.7',
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...jiuwenCoreDeps]);
   const jiuwenClawDir = join(repoRoot, 'vendor', 'jiuwenclaw');
@@ -579,13 +641,13 @@ function installSharedPythonDeps(bundleDir) {
 
   // Install office automation libraries for MCP servers
   const officeDeps = [
-    'python-pptx',   // PowerPoint read/write
-    'openpyxl',      // Excel read/write
-    'python-docx',   // Word read/write
-    'xlsxwriter',    // Excel write (fast, chart support)
-    'pypdf',         // PDF read/merge/split
-    'reportlab',     // PDF creation
-    'markitdown',    // Microsoft multi-format → Markdown converter
+    'python-pptx', // PowerPoint read/write
+    'openpyxl', // Excel read/write
+    'python-docx', // Word read/write
+    'xlsxwriter', // Excel write (fast, chart support)
+    'pypdf', // PDF read/merge/split
+    'reportlab', // PDF creation
+    'markitdown', // Microsoft multi-format → Markdown converter
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...officeDeps]);
 
@@ -604,8 +666,17 @@ function installSharedPythonDeps(bundleDir) {
 
 function stageVendorPythonSources(bundleDir) {
   const excludeDirs = new Set([
-    'dist', '.venv', '.build-venv', '__pycache__', 'tests', 'test',
-    '.git', 'node_modules', 'build', '.mypy_cache', '.pytest_cache',
+    'dist',
+    '.venv',
+    '.build-venv',
+    '__pycache__',
+    'tests',
+    'test',
+    '.git',
+    'node_modules',
+    'build',
+    '.mypy_cache',
+    '.pytest_cache',
   ]);
   const excludeFiles = new Set(['uv.lock']);
 
@@ -699,10 +770,7 @@ function removeNamedDirectoriesRecursive(rootDir, directoryNames) {
 
 function pruneRuntimePackage(targetDir, options = {}) {
   removePaths(targetDir, options.removePaths ?? []);
-  removeNamedDirectoriesRecursive(targetDir, [
-    'test', 'tests', '__tests__',
-    'example', 'examples', 'doc', 'docs',
-  ]);
+  removeNamedDirectoriesRecursive(targetDir, ['test', 'tests', '__tests__', 'example', 'examples', 'doc', 'docs']);
   walkFiles(targetDir, (fullPath, entry) => {
     const fileName = entry.name;
     if (fileName === 'package-lock.json' || fileName === '.package-lock.json') {
@@ -737,7 +805,11 @@ function pruneNativePrebuilds(rootDir) {
   while (stack.length > 0) {
     const current = stack.pop();
     let entries;
-    try { entries = readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const fullPath = join(current, entry.name);
@@ -913,7 +985,9 @@ async function stageBundledApiRuntime(targetRootDir) {
 
     writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(sourceDir, 'package.json')));
   } catch (error) {
-    logStep(`API bundling unavailable, falling back to staged dist (${error instanceof Error ? error.message : String(error)})`);
+    logStep(
+      `API bundling unavailable, falling back to staged dist (${error instanceof Error ? error.message : String(error)})`,
+    );
     copyIfPresent(join(sourceDir, 'dist'), join(targetDir, 'dist'));
     writeJson(
       join(targetDir, 'package.json'),
@@ -971,7 +1045,10 @@ function stageStandaloneWebRuntime(targetRootDir) {
   rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
   copyIfPresent(WEB_BUILD_STATIC_DIR, join(targetDir, '.next', 'static'));
   copyIfPresent(WEB_PUBLIC_DIR, join(targetDir, 'public'));
-  writeJson(join(targetDir, 'package.json'), createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')),
+  );
   writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
   pruneRuntimePackage(targetDir, {
     removePaths: [
@@ -1310,9 +1387,8 @@ function buildInstallerOutputPath(outputDir, version) {
 
 function createPayloadTar(bundleDir, tarPath) {
   rmSync(tarPath, { force: true });
-  const tarExe = process.platform === 'win32'
-    ? join(process.env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'tar.exe')
-    : 'tar';
+  const tarExe =
+    process.platform === 'win32' ? join(process.env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
   run(tarExe, ['-czf', tarPath, '-C', bundleDir, '.']);
   if (!existsSync(tarPath)) {
     throw new Error(`Failed to create payload archive: ${tarPath}`);
