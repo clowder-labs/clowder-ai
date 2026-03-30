@@ -60,10 +60,10 @@ export function ChatContainerHeader({
             type="button"
             onClick={toggleTheme}
             className="ui-icon-button"
-            title={theme === 'default' ? '切换到商务主题' : '切换到默认主题'}
-            aria-label={theme === 'default' ? 'Switch to business theme' : 'Switch to default theme'}
+            title={theme === 'warm' ? '切换到商务主题' : '切换到暖色主题'}
+            aria-label={theme === 'warm' ? 'Switch to business theme' : 'Switch to warm theme'}
           >
-            {theme === 'default' ? (
+            {theme === 'warm' ? (
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <path d="M9 11h6M9 15h6M9 7h6" />

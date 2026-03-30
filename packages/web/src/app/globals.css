@@ -86,7 +86,7 @@
   --control-height-input: 96px;
 }
 
-[data-ui-theme="default"] {
+[data-ui-theme="warm"] {
   --surface-app: var(--color-base-white);
   --surface-sidebar: #fff5f2;
   --surface-panel: #ffffff;
