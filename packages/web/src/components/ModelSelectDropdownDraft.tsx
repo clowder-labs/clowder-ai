@@ -62,8 +62,11 @@ export function ModelSelectValueDraft({
   loading = false,
 }: ModelSelectValueDraftProps) {
   return (
-    <span className={`truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
-      {loading ? '加载模型中...' : item?.name ?? placeholder}
+    <span className="flex min-w-0 items-center gap-2.5">
+      {item && !loading ? <ModelIcon item={item} /> : null}
+      <span className={`truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
+        {loading ? '加载模型中...' : item?.name ?? placeholder}
+      </span>
     </span>
   );
 }

@@ -12,6 +12,7 @@ type EditableTabKey = 'persona' | 'collab';
 type PanelMode = 'preview' | 'edit';
 type EditableDrafts = Record<EditableTabKey, string>;
 type IconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+type ActionMenuPosition = { top: number; left: number };
 
 type InspirationTemplate = {
   id: string;
@@ -399,7 +400,9 @@ export function AgentsPanel() {
   const [templatePage, setTemplatePage] = useState(0);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(INSPIRATION_TEMPLATES[0]?.id ?? null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<ActionMenuPosition | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
+  const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const filteredCats = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -550,20 +553,44 @@ export function AgentsPanel() {
     if (!openActionMenuCatId) return;
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const clickedInsideMenu = actionMenuRef.current?.contains(target);
+      const clickedInsideTrigger = actionMenuTriggerRef.current?.contains(target);
+      if (!clickedInsideMenu && !clickedInsideTrigger) {
         setOpenActionMenuCatId(null);
+        setActionMenuPosition(null);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenActionMenuCatId(null);
+      if (event.key === 'Escape') {
+        setOpenActionMenuCatId(null);
+        setActionMenuPosition(null);
+      }
     };
 
+    const updateMenuPosition = () => {
+      const trigger = actionMenuTriggerRef.current;
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      const menuWidth = 136;
+      const viewportPadding = 12;
+      const nextLeft = Math.min(rect.right - 24, window.innerWidth - menuWidth - viewportPadding);
+      const nextTop = rect.bottom + 8;
+      setActionMenuPosition({ top: nextTop, left: nextLeft });
+    };
+
+    updateMenuPosition();
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', updateMenuPosition);
+    document.addEventListener('scroll', updateMenuPosition, true);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', updateMenuPosition);
+      document.removeEventListener('scroll', updateMenuPosition, true);
     };
   }, [openActionMenuCatId]);
 
@@ -960,7 +987,7 @@ export function AgentsPanel() {
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
         <div className="flex h-full min-h-0">
-          <aside className="flex h-full w-[230px] shrink-0 flex-col border-r border-[#ECEFF3] bg-white p-3">
+          <aside className="relative z-10 flex h-full w-[322px] shrink-0 flex-col border-r border-[#ECEFF3] bg-white px-4 py-6">
             <label className="mb-3 flex h-10 items-center gap-2 rounded-[10px] border border-[#E3E8EF] bg-white px-3 text-[#A4ADBA]">
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <input
@@ -1007,10 +1034,27 @@ export function AgentsPanel() {
                         </span>
                       </button>
 
-                      <div ref={openActionMenuCatId === cat.id ? actionMenuRef : null} className="relative shrink-0">
+                      <div className="relative shrink-0">
                         <button
+                          ref={openActionMenuCatId === cat.id ? actionMenuTriggerRef : null}
                           type="button"
-                          onClick={() => setOpenActionMenuCatId((current) => (current === cat.id ? null : cat.id))}
+                          onClick={(event) => {
+                            const nextOpen = openActionMenuCatId !== cat.id;
+                            if (!nextOpen) {
+                              setOpenActionMenuCatId(null);
+                              setActionMenuPosition(null);
+                              actionMenuTriggerRef.current = null;
+                              return;
+                            }
+
+                            const rect = event.currentTarget.getBoundingClientRect();
+                            const menuWidth = 136;
+                            const viewportPadding = 12;
+                            const nextLeft = Math.min(rect.right - 24, window.innerWidth - menuWidth - viewportPadding);
+                            setActionMenuPosition({ top: rect.bottom + 8, left: nextLeft });
+                            actionMenuTriggerRef.current = event.currentTarget;
+                            setOpenActionMenuCatId(cat.id);
+                          }}
                           className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] transition ${
                             openActionMenuCatId === cat.id
                               ? 'bg-[#EEF2F7] text-[#6A7280]'
@@ -1022,36 +1066,6 @@ export function AgentsPanel() {
                         >
                           <MoreVerticalIcon className="h-4 w-4" />
                         </button>
-
-                        {openActionMenuCatId === cat.id ? (
-                          <div
-                            role="menu"
-                            className="absolute right-0 top-full z-20 mt-2 w-[136px] rounded-[16px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
-                          >
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => {
-                                setSelectedCatId(cat.id);
-                                setOpenActionMenuCatId(null);
-                                openEditMember(cat.id);
-                              }}
-                              className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#334155] transition hover:bg-[#F4F7FB]"
-                            >
-                              <EditIcon className="h-3.5 w-3.5" />
-                              <span>编辑</span>
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => setOpenActionMenuCatId(null)}
-                              className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#D16B6B] transition hover:bg-[#FFF3F1]"
-                            >
-                              <TrashIcon className="h-3.5 w-3.5" />
-                              <span>删除</span>
-                            </button>
-                          </div>
-                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -1064,9 +1078,45 @@ export function AgentsPanel() {
                 </div>
               ) : null}
             </div>
+
+            {openActionMenuCatId && actionMenuPosition ? (
+              <div
+                ref={actionMenuRef}
+                role="menu"
+                className="fixed z-40 w-[136px] rounded-[16px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
+                style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setSelectedCatId(openActionMenuCatId);
+                    setOpenActionMenuCatId(null);
+                    setActionMenuPosition(null);
+                    openEditMember(openActionMenuCatId);
+                  }}
+                  className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#334155] transition hover:bg-[#F4F7FB]"
+                >
+                  <EditIcon className="h-3.5 w-3.5" />
+                  <span>编辑</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenActionMenuCatId(null);
+                    setActionMenuPosition(null);
+                  }}
+                  className="flex h-9 w-full items-center gap-2.5 rounded-[12px] px-3 text-left text-[12px] font-medium text-[#D16B6B] transition hover:bg-[#FFF3F1]"
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                  <span>删除</span>
+                </button>
+              </div>
+            ) : null}
           </aside>
 
-          <section className="flex min-w-0 flex-1 flex-col bg-white">
+          <section className="relative z-0 flex min-w-0 flex-1 flex-col bg-white">
             <div className="flex items-center justify-between gap-4 border-b border-[#EEF2F7] px-4 py-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {AGENT_TABS.map((tab) => {
