@@ -91,7 +91,7 @@ function BrainIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       className="flex-shrink-0"
-      style={{ color: '#94A3B8' }}
+      style={{ color: 'rgb(31, 31, 31)' }}
     >
       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
       <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
@@ -150,33 +150,32 @@ export function ThinkingContent({
   const surfaceInner = tintedDark(accent, 0.18);
 
   return (
-    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: surface, borderRadius: 10 }}>
+    <div className="mt-2 mb-1 overflow-hidden">
       <button
         type="button"
         onClick={() => {
           setExpanded((v) => !v);
         }}
         className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
-        style={{ padding: '8px 12px', backgroundColor: surface }}
+        style={{ padding: '8px 12px' }}
       >
-        <span style={{ color: breedColor || '#6B7280' }}>
+        <span style={{ color: 'rgb(31, 31, 31)' }}>
           <ThinkingChevron expanded={expanded} color={breedColor} />
         </span>
         <BrainIcon />
-        <span className="font-medium" style={{ color: '#94A3B8' }}>
+        <span className="font-medium" style={{ color: 'rgb(31, 31, 31)' }}>
           {label}
         </span>
         {!expanded && (
-          <span className="truncate max-w-[240px]" style={{ color: '#6B7280' }}>
+          <span className="truncate max-w-[240px]" style={{ color: 'rgb(31, 31, 31)' }}>
             {preview}
           </span>
         )}
       </button>
       {expanded && (
-        <div style={{ backgroundColor: surfaceInner }}>
-          <div style={{ height: 1, backgroundColor: DIVIDER }} />
+        <div>
           <div
-            style={{ padding: '8px 12px 10px 12px', color: '#CBD5E1' }}
+            style={{ padding: '8px 12px 10px 12px', color: 'rgb(31, 31, 31)' }}
             className="text-xs leading-relaxed cli-output-md"
           >
             <MarkdownContent content={normalizedContent} className={className} />
