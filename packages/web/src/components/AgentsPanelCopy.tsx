@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
+import { apiFetch } from '@/utils/api-client';
 import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import { MarkdownContent } from './MarkdownContent';
@@ -288,25 +289,8 @@ function buildPersonaDraft(cat: CatData | null): string {
   return cat?.personality?.trim() ?? '';
 }
 
-function buildCollabDraft(cat: Pick<CatData, 'teamStrengths' | 'strengths' | 'caution' | 'sessionChain'> | null): string {
-  if (!cat) return '';
-
-  const lines: string[] = [];
-  lines.push('## 协作配置');
-  lines.push('');
-
-  if (cat.teamStrengths?.trim()) lines.push(`- 团队协作优势：${cat.teamStrengths.trim()}`);
-  if (cat.strengths?.length) lines.push(`- 能力标签：${cat.strengths.join('、')}`);
-  if (typeof cat.sessionChain === 'boolean') lines.push(`- Session Chain：${cat.sessionChain ? '开启' : '关闭'}`);
-  if (cat.caution?.trim()) lines.push(`- 协作提醒：${cat.caution.trim()}`);
-
-  if (lines.length === 2) return '';
-  lines.push('');
-  lines.push('## 交接规则');
-  lines.push('');
-  lines.push('- 输出尽量使用结论、步骤、风险三段式，方便其他智能体继续接力。');
-  lines.push('- 需要升级处理时，先补充上下文、依赖和待确认事项。');
-  return lines.join('\n');
+function buildCollabDraft(cat: Pick<CatData, 'teamStrengths'> | null): string {
+  return cat?.teamStrengths?.trim() ?? '';
 }
 
 function buildEditableDrafts(cat: CatData | null): EditableDrafts {
@@ -314,6 +298,10 @@ function buildEditableDrafts(cat: CatData | null): EditableDrafts {
     persona: buildPersonaDraft(cat),
     collab: buildCollabDraft(cat),
   };
+}
+
+function buildEditableSavePayload(tab: EditableTabKey, draft: string): Record<string, string> {
+  return tab === 'persona' ? { personality: draft } : { teamStrengths: draft };
 }
 
 function buildTemplateMarkdown(template: InspirationTemplate): string {
@@ -401,6 +389,8 @@ export function AgentsPanel() {
   const [templatePage, setTemplatePage] = useState(0);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(INSPIRATION_TEMPLATES[0]?.id ?? null);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [actionMenuPosition, setActionMenuPosition] = useState<ActionMenuPosition | null>(null);
   const [templateBubblePosition, setTemplateBubblePosition] = useState<TemplateBubblePosition | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -582,6 +572,10 @@ export function AgentsPanel() {
   }, [currentTab.editable]);
 
   useEffect(() => {
+    setSaveError(null);
+  }, [activeTab, selectedCat?.id]);
+
+  useEffect(() => {
     if (!templateModalOpen) return;
     if (mode !== 'edit' || activeTab !== 'persona') {
       setTemplateModalOpen(false);
@@ -666,6 +660,7 @@ export function AgentsPanel() {
           [tab]: value,
         },
       }));
+      setSaveError(null);
     },
     [selectedCat, selectedSavedDrafts],
   );
@@ -686,6 +681,7 @@ export function AgentsPanel() {
 
   const handleStartEdit = useCallback(() => {
     if (!selectedCat || !canEditActiveTab || !isEditableTab(activeTab)) return;
+    setSaveError(null);
     setWorkingDraftsByCatId((current) => ({
       ...current,
       [selectedCat.id]: {
@@ -698,6 +694,7 @@ export function AgentsPanel() {
 
   const handleCancelEdit = useCallback(() => {
     if (!selectedCat) return;
+    setSaveError(null);
     setWorkingDraftsByCatId((current) => ({
       ...current,
       [selectedCat.id]: {
@@ -708,24 +705,47 @@ export function AgentsPanel() {
     setMode('preview');
   }, [selectedCat, selectedSavedDrafts]);
 
-  const handleSaveEdit = useCallback(() => {
+  const handleSaveEdit = useCallback(async () => {
     if (!selectedCat || !canEditActiveTab || !isEditableTab(activeTab)) return;
-    setSavedDraftsByCatId((current) => ({
-      ...current,
-      [selectedCat.id]: {
-        ...(current[selectedCat.id] ?? EMPTY_EDITABLE_DRAFTS),
-        [activeTab]: selectedWorkingDrafts[activeTab],
-      },
-    }));
-    setWorkingDraftsByCatId((current) => ({
-      ...current,
-      [selectedCat.id]: {
-        ...(current[selectedCat.id] ?? EMPTY_EDITABLE_DRAFTS),
-        [activeTab]: selectedWorkingDrafts[activeTab],
-      },
-    }));
-    setMode('preview');
-  }, [activeTab, canEditActiveTab, selectedCat, selectedWorkingDrafts]);
+    const draft = selectedWorkingDrafts[activeTab];
+    setIsSavingEdit(true);
+    setSaveError(null);
+
+    try {
+      const res = await apiFetch(`/api/cats/${selectedCat.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildEditableSavePayload(activeTab, draft)),
+      });
+
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setSaveError(payload.error ?? `保存失败 (${res.status})`);
+        return;
+      }
+
+      setSavedDraftsByCatId((current) => ({
+        ...current,
+        [selectedCat.id]: {
+          ...(current[selectedCat.id] ?? EMPTY_EDITABLE_DRAFTS),
+          [activeTab]: draft,
+        },
+      }));
+      setWorkingDraftsByCatId((current) => ({
+        ...current,
+        [selectedCat.id]: {
+          ...(current[selectedCat.id] ?? EMPTY_EDITABLE_DRAFTS),
+          [activeTab]: draft,
+        },
+      }));
+      await refresh();
+      setMode('preview');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : '保存失败');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }, [activeTab, canEditActiveTab, refresh, selectedCat, selectedWorkingDrafts]);
 
   const handleApplyTemplate = useCallback(
     (templateId: string) => {
@@ -745,6 +765,7 @@ export function AgentsPanel() {
           },
         };
       });
+      setSaveError(null);
       setActiveTemplateId(template.id);
       setHoveredTemplateId(null);
       setMode('edit');
@@ -777,12 +798,12 @@ export function AgentsPanel() {
         <button
           type="button"
           onClick={() => {
-            if (templateButtonDisabled) return;
+            if (templateButtonDisabled || isSavingEdit) return;
             setTemplateModalOpen(true);
           }}
-          disabled={templateButtonDisabled}
+          disabled={templateButtonDisabled || isSavingEdit}
           className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
-            templateButtonDisabled
+            templateButtonDisabled || isSavingEdit
               ? 'cursor-not-allowed text-[#B1B8C4]'
               : 'text-[#445066] hover:text-[#2F3A4D]'
           }`}
@@ -793,7 +814,10 @@ export function AgentsPanel() {
         <button
           type="button"
           onClick={handleCancelEdit}
-          className="inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#5E6775] transition hover:text-[#2F3A4D]"
+          disabled={isSavingEdit}
+          className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
+            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#5E6775] hover:text-[#2F3A4D]'
+          }`}
         >
           <CloseIcon className="h-3.5 w-3.5" />
           <span>取消</span>
@@ -801,10 +825,13 @@ export function AgentsPanel() {
         <button
           type="button"
           onClick={handleSaveEdit}
-          className="inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold text-[#1F2633] transition hover:text-[#111827]"
+          disabled={isSavingEdit}
+          className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
+            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#1F2633] hover:text-[#111827]'
+          }`}
         >
           <CheckIcon className="h-3.5 w-3.5" />
-          <span>保存</span>
+          <span>{isSavingEdit ? '保存中' : '保存'}</span>
         </button>
       </div>
     );
@@ -1259,6 +1286,8 @@ export function AgentsPanel() {
                 <h2 className="text-[18px] font-bold text-[#1F2329]">{currentTab.label}</h2>
                 {mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()}
               </div>
+
+              {saveError ? <div className="px-6 pb-3 text-[12px] text-[#D16B6B]">{saveError}</div> : null}
 
               <div className="min-h-0 flex-1 overflow-hidden">{renderDetailBody()}</div>
             </div>
