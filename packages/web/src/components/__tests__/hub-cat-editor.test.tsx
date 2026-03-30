@@ -563,6 +563,84 @@ describe('HubCatEditor', () => {
     expect(payload.accountRef).toBe('my-openai-proxy');
     expect(payload.defaultModel).toBe('glm-5');
   });
+
+  it('loads ACP providers from provider-profiles when client is ACP even if ~/.cat-cafe/model.json exists', async () => {
+    const onSaved = vi.fn(() => Promise.resolve());
+    useChatStore.getState().setCurrentProject('/tmp/project');
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'global',
+            exists: true,
+            providers: [
+              {
+                id: 'huawei-maas',
+                provider: 'huawei-maas',
+                source: 'model_config',
+                displayName: 'Huawei MaaS',
+                name: 'Huawei MaaS',
+                authType: 'none',
+                kind: 'api_key',
+                builtin: false,
+                mode: 'none',
+                protocol: 'huawei_maas',
+                models: ['glm-5'],
+                hasApiKey: false,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (String(path).startsWith('/api/provider-profiles')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: '/tmp/project',
+            activeProfileId: null,
+            providers: [
+              {
+                id: 'agent-teams-local',
+                provider: 'agent-teams-local',
+                displayName: 'Agent Teams Local',
+                name: 'Agent Teams Local',
+                authType: 'none',
+                kind: 'acp',
+                builtin: false,
+                mode: 'none',
+                protocol: 'acp',
+                command: 'agent-teams',
+                args: ['gateway', 'acp', 'stdio'],
+                cwd: '/tmp/project',
+                hasApiKey: false,
+                createdAt: '2026-03-28T00:00:00.000Z',
+                updatedAt: '2026-03-28T00:00:00.000Z',
+              },
+            ],
+          }),
+        );
+      }
+      if (path === '/api/available-clients') {
+        return Promise.resolve(jsonResponse(ALL_CLIENTS_RESPONSE));
+      }
+      throw new Error(`Unexpected apiFetch path: ${path}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCatEditor, { open: true, onClose: vi.fn(), onSaved }));
+    });
+    await flushEffects();
+
+    await changeField(queryField(container, 'select[aria-label="Client"]'), 'acp', 'change');
+    await flushEffects();
+    await flushEffects();
+
+    const accountSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]');
+    const accountLabels = Array.from(accountSelect.options).map((option) => option.textContent ?? '');
+    expect(accountLabels).toContain('Agent Teams Local（ACP）');
+    expect(mockApiFetch.mock.calls.some(([path]) => String(path).startsWith('/api/provider-profiles'))).toBe(true);
+  });
   it('blocks creating opencode+api_key member without ocProviderName', async () => {
     const onSaved = vi.fn(() => Promise.resolve());
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
