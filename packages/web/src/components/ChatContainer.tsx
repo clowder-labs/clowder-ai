@@ -25,7 +25,7 @@ import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
-import { AgentsPanel } from './AgentsPanel';
+import { AgentsRootPanel } from './AgentsRootPanel';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -470,7 +470,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           {sidebarMenu !== 'chat' && (
             <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
-              {sidebarMenu === 'agents' && <AgentsPanel />}
+              {sidebarMenu === 'agents' && <AgentsRootPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
               {sidebarMenu === 'skills' && <SkillsPanel />}
             </div>

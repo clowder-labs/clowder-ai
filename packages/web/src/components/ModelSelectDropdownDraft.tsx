@@ -1,11 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { groupKeyFromModelName, modelIconVisual, resolveModelIconType } from './model-icon';
+
+const DEFAULT_MODEL_ICON = '/avatars/assistant.svg';
 
 export interface DraftModelOption {
   id: string;
   name: string;
+  icon?: string;
   providerGroup?: string;
   experienceText?: string;
   statusText?: string;
@@ -44,12 +46,12 @@ function ChevronDownIcon() {
 }
 
 function ModelIcon({ item }: { item: DraftModelOption }) {
-  const visual = modelIconVisual(resolveModelIconType(groupKeyFromModelName(item.name)));
+  const imageSrc = item.icon?.trim() || DEFAULT_MODEL_ICON;
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={visual.imageSrc}
-      alt={visual.label}
+      src={imageSrc}
+      alt={`${item.name} icon`}
       data-testid={`model-logo-${item.name}`}
       className="h-[18px] w-[18px] shrink-0 object-contain"
     />
@@ -62,8 +64,11 @@ export function ModelSelectValueDraft({
   loading = false,
 }: ModelSelectValueDraftProps) {
   return (
-    <span className={`truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
-      {loading ? '加载模型中...' : item?.name ?? placeholder}
+    <span className="flex min-w-0 items-center gap-2.5">
+      {item && !loading ? <ModelIcon item={item} /> : null}
+      <span className={`truncate text-[12px] ${item ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
+        {loading ? '加载模型中...' : item?.name ?? placeholder}
+      </span>
     </span>
   );
 }
