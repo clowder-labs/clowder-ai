@@ -368,7 +368,7 @@ export function ModelsPanel() {
                   {group.items.map((card) => (
                     <article
                       key={card.id}
-                      className="ui-card group flex min-h-[194px] flex-col gap-4 p-5 transition-colors hover:border-[var(--border-accent)]"
+                      className="ui-card group flex min-h-[194px] flex-col gap-4 p-5"
                     >
                       <div className="flex items-start gap-3">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
