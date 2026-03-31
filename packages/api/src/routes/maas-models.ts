@@ -3,12 +3,14 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { readAcpModelProfiles } from '../config/acp-model-profiles.js';
 import {
   HUAWEI_MAAS_MODEL_SOURCE_ID,
   isModelConfigProviderFallbackEnabled,
+  readProjectModelConfigBindings,
   resolveProjectModelConfigPath,
 } from '../config/model-config-profiles.js';
 import { readProviderProfiles } from '../config/provider-profiles.js';
@@ -19,6 +21,7 @@ import {
   projectQuerySchema,
   resolveProjectRoot,
 } from './provider-profiles.shared.js';
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
 
 export interface MassModelInfo {
   id: string;
@@ -28,6 +31,9 @@ export interface MassModelInfo {
   protocol?: string;
   enabled: boolean;
   description?: string;
+  labels?: string[]; // 标签
+  developer?: string; // 提供者
+  icon?: string; // 图标 URL
 }
 
 export interface MassModelsResponse {
@@ -35,6 +41,31 @@ export interface MassModelsResponse {
   models: MassModelInfo[];
 }
 
+const MAAS_DETAILS_PATH = resolve(findMonorepoRoot(), 'config', 'maas-details.json');
+
+function loadMaaSDetailsMap(): Record<string, Partial<MassModelInfo>> {
+  try {
+    const raw = readFileSync(MAAS_DETAILS_PATH, 'utf-8').trim();
+    if (!raw) return {};
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      console.warn(`[maas-models] Invalid maas-details.json format at ${MAAS_DETAILS_PATH}: expected object map.`);
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        ([key, value]) => key.trim().length > 0 && typeof value === 'object' && value !== null && !Array.isArray(value),
+      ),
+    ) as Record<string, Partial<MassModelInfo>>;
+  } catch (error) {
+    console.warn(`[maas-models] Failed to load ${MAAS_DETAILS_PATH}; continuing without static model metadata.`, error);
+    return {};
+  }
+}
+
+const MAAS_MAP = loadMaaSDetailsMap();
 function normalizeModelList(value: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(value)) {
     return value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null);
@@ -85,8 +116,33 @@ function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[
       ...(typeof rawDescription === 'string' && rawDescription.trim()
         ? { description: rawDescription.trim() }
         : {}),
+      ...(MAAS_MAP[rawId as string] ?? {}),
     } satisfies MassModelInfo;
   });
+}
+
+function toConfiguredModelList(
+  bindings: Array<{
+    id: string;
+    models: string[];
+    displayName?: string;
+    protocol?: string;
+  }>,
+): MassModelInfo[] {
+  return bindings.flatMap((binding) =>
+    binding.models.map((modelName) => ({
+      id: `model_config:${binding.id}:${modelName}`,
+      name: modelName,
+      provider: binding.protocol === 'huawei_maas' ? 'Huawei MaaS' : binding.displayName?.trim() || binding.id,
+      kind: 'provider' as const,
+      ...(binding.protocol ? { protocol: binding.protocol } : {}),
+      enabled: true,
+      description:
+        binding.protocol === 'huawei_maas'
+          ? '来自 ~/.cat-cafe/model.json'
+          : `自定义模型源 · ${binding.displayName?.trim() || binding.id}`,
+    })),
+  );
 }
 
 async function readCachedMaaSModels(modelJsonPath: string): Promise<Array<Record<string, unknown>>> {
@@ -156,10 +212,18 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
     }
 
     const modelJsonPath = resolveProjectModelConfigPath(projectRoot);
+    const modelConfigBindings = (await readProjectModelConfigBindings(projectRoot)) ?? [];
+    const configuredNonHuaweiModels = toConfiguredModelList(
+      modelConfigBindings.filter((binding) => binding.protocol !== 'huawei_maas'),
+    );
     try {
       const cachedModels = await readCachedMaaSModels(modelJsonPath);
       if (cachedModels.length > 0) {
-        return { success: true, list: toMassModelList(cachedModels), projectPath: projectRoot };
+        return {
+          success: true,
+          list: [...toMassModelList(cachedModels), ...configuredNonHuaweiModels],
+          projectPath: projectRoot,
+        };
       }
     } catch (readError) {
       if ((readError as { code?: string })?.code !== 'ENOENT') {
@@ -204,10 +268,22 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
           `${JSON.stringify({ ...existingConfig, [HUAWEI_MAAS_MODEL_SOURCE_ID]: mergedModels }, null, 2)}\n`,
           'utf-8',
         );
-        return { success: true, list: toMassModelList(incomingModels), projectPath: projectRoot };
+        return {
+          success: true,
+          list: [...toMassModelList(incomingModels), ...configuredNonHuaweiModels],
+          projectPath: projectRoot,
+        };
       } catch (error) {
         console.error('获取 Huawei MaaS 模型失败，将回退到本地聚合模型列表:', error);
       }
+    }
+
+    if (configuredNonHuaweiModels.length > 0) {
+      return {
+        success: true,
+        list: configuredNonHuaweiModels,
+        projectPath: projectRoot,
+      };
     }
 
     if (isModelConfigProviderFallbackEnabled()) {

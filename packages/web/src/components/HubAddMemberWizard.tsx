@@ -34,6 +34,59 @@ function buildProjectScopedUrl(path: string, projectPath: string | null | undefi
   return `${path}?${query.toString()}`;
 }
 
+function mergeAcpProfiles(baseProfiles: ProfileItem[], providerProfiles: ProfileItem[]): ProfileItem[] {
+  const nextProfiles = [...baseProfiles];
+  const seen = new Set(baseProfiles.map((profile) => profile.id));
+  for (const profile of providerProfiles) {
+    if (profile.kind !== 'acp' || seen.has(profile.id)) continue;
+    nextProfiles.push(profile);
+    seen.add(profile.id);
+  }
+  return nextProfiles;
+}
+
+async function loadProfilesForClient(
+  projectPath: string | null | undefined,
+  client: ClientValue | null,
+): Promise<ProfileItem[]> {
+  const modelConfigUrl = '/api/model-config-profiles';
+  const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', projectPath);
+  const needsAcpProfiles = client === 'acp';
+
+  async function readProviderProfiles(): Promise<ProfileItem[]> {
+    const providerProfilesRes = await apiFetch(providerProfilesUrl);
+    if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
+    const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
+    return providerProfilesBody.providers;
+  }
+
+  let modelConfigRes: Response;
+  try {
+    modelConfigRes = await apiFetch(modelConfigUrl);
+  } catch {
+    const providerProfiles = await readProviderProfiles();
+    return needsAcpProfiles ? providerProfiles.filter((profile) => profile.kind === 'acp') : providerProfiles;
+  }
+
+  if (!modelConfigRes.ok) {
+    if (modelConfigRes.status === 404) return [];
+    throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
+  }
+
+  const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
+  if (body.exists) {
+    if (!needsAcpProfiles) return body.providers;
+    return mergeAcpProfiles(body.providers, await readProviderProfiles());
+  }
+
+  if (needsAcpProfiles) {
+    return (await readProviderProfiles()).filter((profile) => profile.kind === 'acp');
+  }
+
+  if (!body.fallbackToProviderProfiles) return [];
+  return readProviderProfiles();
+}
+
 interface HubAddMemberWizardProps {
   open: boolean;
   onClose: () => void;
@@ -120,31 +173,8 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     if (!open) return;
     let cancelled = false;
     setLoadingProfiles(true);
-    const modelConfigUrl = '/api/model-config-profiles';
-    const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', currentProjectPath);
     Promise.resolve()
-      .then(async () => {
-        let modelConfigRes: Response;
-        try {
-          modelConfigRes = await apiFetch(modelConfigUrl);
-        } catch {
-          const providerProfilesRes = await apiFetch(providerProfilesUrl);
-          if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-          const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-          return providerProfilesBody.providers;
-        }
-        if (!modelConfigRes.ok) {
-          if (modelConfigRes.status === 404) return [] as ProfileItem[];
-          throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
-        }
-        const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
-        if (body.exists) return body.providers;
-        if (!body.fallbackToProviderProfiles) return [] as ProfileItem[];
-        const providerProfilesRes = await apiFetch(providerProfilesUrl);
-        if (!providerProfilesRes.ok) throw new Error(`账号配置加载失败 (${providerProfilesRes.status})`);
-        const providerProfilesBody = (await providerProfilesRes.json()) as ProviderProfilesResponse;
-        return providerProfilesBody.providers;
-      })
+      .then(() => loadProfilesForClient(currentProjectPath, client))
       .then((nextProfiles) => {
         if (!cancelled) setProfiles(nextProfiles);
       })
@@ -157,7 +187,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
     return () => {
       cancelled = true;
     };
-  }, [currentProjectPath, open]);
+  }, [client, currentProjectPath, open]);
 
   useEffect(() => {
     if (!open) return;

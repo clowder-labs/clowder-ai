@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ChatContainer } from '@/components/ChatContainer';
 import { apiFetch } from '@/utils/api-client';
+import { setIsSkipAuth } from '@/utils/userId';
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -15,6 +16,7 @@ export default function Home() {
       try {
         const response = await apiFetch('/api/islogin');
         const data = await response.json();
+        setIsSkipAuth(Boolean(data?.isskip));
         if (data.islogin) {
           setIsLoggedIn(true);
         } else {
