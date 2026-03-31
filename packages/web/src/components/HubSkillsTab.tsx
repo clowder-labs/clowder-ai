@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
 
@@ -31,16 +31,10 @@ const INSTALL_LABEL = '安装';
 const NO_RESULTS_LABEL = '未找到匹配的技能';
 const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
 const INSTALLED_LABEL = '已安装';
-const SEARCH_FAILED_LABEL = '搜索失败';
-const NETWORK_ERROR_LABEL = '网络错误';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索 SkillHub 技能';
 const LOADING_LABEL = '加载中...';
 const SILL_SQUARE_LABEL = '技能广场';
-const PAGE_LABEL_PREFIX = '第 ';
-const PAGE_LABEL_SUFFIX = ' 页';
-const LOAD_MORE_PREFIX = '加载更多（';
-const LOAD_MORE_SUFFIX = '）';
 
 function getSkillCategory(skill: SearchSkill): string {
   const primaryTag = skill.tags.find((tag) => tag.trim().length > 0);
@@ -94,16 +88,10 @@ function SkillList({
   results,
   installStatus,
   onInstall,
-  onLoadMore,
-  loadingMore,
-  showPagination = true,
 }: {
   results: SearchResult;
   installStatus: Map<string, InstallStatus>;
   onInstall: (owner: string, repo: string, skill: string) => void;
-  onLoadMore: () => void;
-  loadingMore: boolean;
-  showPagination?: boolean;
 }) {
   if (results.skills.length === 0) {
     return <p className="py-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_LABEL}</p>;
@@ -168,26 +156,17 @@ function SkillList({
           );
         })}
       </div>
-      {results.hasMore && showPagination && (
-        <button type="button" onClick={onLoadMore} disabled={loadingMore} className="ui-button-secondary mt-1 w-full disabled:opacity-50">
-          {loadingMore ? LOADING_LABEL : `${LOAD_MORE_PREFIX}${PAGE_LABEL_PREFIX}${results.page + 1}${PAGE_LABEL_SUFFIX}${LOAD_MORE_SUFFIX}`}
-        </button>
-      )}
     </div>
   );
 }
 
 export function HubSkillsTab() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [trendingResults, setTrendingResults] = useState<SearchResult | null>(null);
-  const [trendingLoading, setTrendingLoading] = useState(false);
+  const [allResults, setAllResults] = useState<SearchResult | null>(null);
+  const [loading, setLoading] = useState(false);
   const [installStatus, setInstallStatus] = useState<Map<string, InstallStatus>>(new Map());
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setInstallStatusWithTimer = useCallback((slug: string, status: InstallStatus) => {
     setInstallStatus((prev) => new Map(prev).set(slug, status));
@@ -231,8 +210,7 @@ export function HubSkillsTab() {
       return changed ? { ...result, skills } : result;
     };
 
-    setSearchResults((prev) => markInstalled(prev));
-    setTrendingResults((prev) => markInstalled(prev));
+    setAllResults((prev) => markInstalled(prev));
   }, []);
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
@@ -248,71 +226,33 @@ export function HubSkillsTab() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    setTrendingLoading(true);
+    setLoading(true);
     apiFetch('/api/skills/trending')
       .then((res) => res.ok && res.json())
-      .then((data) => data && setTrendingResults(data as SearchResult))
+      .then((data) => data && setAllResults(data as SearchResult))
       .catch(() => {})
-      .finally(() => setTrendingLoading(false));
+      .finally(() => setLoading(false));
   }, []);
 
-  const executeSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setSearchResults(null);
-      setSearchError(null);
-      return;
-    }
-    setSearchError(null);
-    try {
-      const res = await apiFetch(`/api/skills/search?q=${encodeURIComponent(query.trim())}&page=1&limit=20`);
-      if (!res.ok) {
-        setSearchError(SEARCH_FAILED_LABEL);
-        return;
-      }
-      setSearchResults((await res.json()) as SearchResult);
-    } catch {
-      setSearchError(NETWORK_ERROR_LABEL);
-    }
-  }, []);
-
-  const handleSearchInput = useCallback(
-    (value: string) => {
-      setSearchQuery(value);
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-      if (!value.trim()) {
-        setSearchResults(null);
-        setSearchError(null);
-        return;
-      }
-      debounceTimer.current = setTimeout(() => executeSearch(value), 300);
-    },
-    [executeSearch],
-  );
-
-  const handleLoadMore = useCallback(async () => {
-    if (!searchResults || !searchQuery.trim()) return;
-    const nextPage = searchResults.page + 1;
-    setLoadingMore(true);
-    try {
-      const res = await apiFetch(
-        `/api/skills/search?q=${encodeURIComponent(searchQuery.trim())}&page=${nextPage}&limit=20`,
-      );
-      if (res.ok) {
-        const data = (await res.json()) as SearchResult;
-        setSearchResults({ ...data, skills: [...searchResults.skills, ...data.skills] });
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [searchResults, searchQuery]);
+  const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const filteredSkills = useMemo(() => {
+    const source = allResults?.skills ?? [];
+    if (!normalizedSearch) return source;
+    const tokens = normalizedSearch.split(/\s+/).filter(Boolean);
+    return source.filter((skill) => {
+      const haystack = [
+        skill.id,
+        skill.slug,
+        skill.name,
+        ...skill.tags,
+        skill.repo.githubOwner,
+        skill.repo.githubRepoName,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return tokens.every((token) => haystack.includes(token));
+    });
+  }, [allResults, normalizedSearch]);
 
   const handleInstall = useCallback(
     async (owner: string, repo: string, skill: string) => {
@@ -342,8 +282,15 @@ export function HubSkillsTab() {
     [clearInstallStatus, markSkillInstalled, setInstallStatusWithTimer, showToast],
   );
 
-  const displayResults = searchResults ?? trendingResults;
-  const displayPagination = searchResults !== null;
+  const displayResults: SearchResult | null = allResults
+    ? {
+        ...allResults,
+        skills: filteredSkills,
+        total: filteredSkills.length,
+        page: 1,
+        hasMore: false,
+      }
+    : null;
 
   return (
     <div className="space-y-[var(--space-9)]">
@@ -363,30 +310,24 @@ export function HubSkillsTab() {
           <p className="text-[20px] font-semibold">
             {SILL_SQUARE_LABEL}
             {displayResults ? ` (${displayResults.total})` : ''}
-            {displayResults && displayPagination ? `，${PAGE_LABEL_PREFIX}${displayResults.page}${PAGE_LABEL_SUFFIX}` : ''}
           </p>
           <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center">
             <input
               type="text"
               aria-label={SEARCH_ARIA_LABEL}
               value={searchQuery}
-              onChange={(event) => handleSearchInput(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && void executeSearch(searchQuery)}
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={SEARCH_PLACEHOLDER}
               className="ui-field min-h-[var(--control-height-touch)] flex-1 px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
             />
           </div>
-          {searchError && <p className="text-[11px] text-[var(--state-error-text)]">{searchError}</p>}
           {displayResults ? (
             <SkillList
               results={displayResults}
               installStatus={installStatus}
               onInstall={handleInstall}
-              onLoadMore={displayPagination ? handleLoadMore : () => {}}
-              loadingMore={displayPagination ? loadingMore : false}
-              showPagination={displayPagination}
             />
-          ) : trendingLoading ? (
+          ) : loading ? (
             <p className="text-[11px] text-[var(--text-muted)]">{LOADING_LABEL}</p>
           ) : null}
         </div>
