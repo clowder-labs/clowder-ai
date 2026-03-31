@@ -561,7 +561,7 @@ function applyModelartsPreset(projectDir, apiKey) {
   for (const member of preset.members) {
     if (member.provider !== 'acp') continue;
     const acpProfileId = member.providerProfileId || `acp-${member.catId}`;
-    const acpCommand = path.join(projectDir, 'tools', 'python', 'Scripts', 'agent-teams.exe');
+    const acpCommand = path.join(projectDir, 'tools', 'python', 'python.exe');
     const acpModelProfileId = `${acpProfileId}-model`;
     const now = new Date().toISOString();
 
@@ -577,7 +577,7 @@ function applyModelartsPreset(projectDir, apiKey) {
       builtin: false,
       protocol: 'acp',
       command: acpCommand,
-      args: ['gateway', 'acp', 'stdio'],
+      args: ['-m', 'agent_teams', 'gateway', 'acp', 'stdio'],
       modelAccessMode: 'clowder_default_profile',
       defaultModelProfileRef: acpModelProfileId,
       createdAt: now,

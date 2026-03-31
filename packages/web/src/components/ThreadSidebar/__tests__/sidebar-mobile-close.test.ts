@@ -111,7 +111,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
 
     // Open the new-thread picker
-    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u65b0\u5bf9\u8bdd'))!;
+    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u65b0\u5efa\u4f1a\u8bdd'))!;
     expect(newBtn).toBeTruthy();
     act(() => {
       newBtn.click();
@@ -157,7 +157,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
 
     // Open picker
-    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u65b0\u5bf9\u8bdd'))!;
+    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u65b0\u5efa\u4f1a\u8bdd'))!;
     act(() => {
       newBtn.click();
     });
