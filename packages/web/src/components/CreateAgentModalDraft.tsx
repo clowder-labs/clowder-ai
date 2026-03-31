@@ -64,6 +64,19 @@ const HUAWEI_GROUP_LABEL = 'Huawei MaaS';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
 
+// 预设头像列表
+const PRESET_AVATARS = [
+  '/avatars/agent-avatar-1.png',
+  '/avatars/agent-avatar-2.png',
+  '/avatars/agent-avatar-3.png',
+  '/avatars/agent-avatar-4.png',
+  '/avatars/agent-avatar-5.png',
+  '/avatars/agent-avatar-6.png',
+  '/avatars/agent-avatar-7.png',
+  '/avatars/agent-avatar-8.png',
+  '/avatars/agent-avatar-9.png',
+];
+
 function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-6 w-6" />;
 }
@@ -89,6 +102,14 @@ function autoSlug(name: string): string {
     .replace(/[\s_]+/g, '-')
     .replace(/[^a-z0-9\u4e00-\u9fff-]/g, '')
     .slice(0, 40);
+}
+
+/**
+ * 从预设头像中随机选择一个
+ */
+function getRandomPresetAvatar(): string {
+  const randomIndex = Math.floor(Math.random() * PRESET_AVATARS.length);
+  return PRESET_AVATARS[randomIndex];
 }
 
 function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
@@ -330,7 +351,12 @@ export function CreateAgentModalDraft({
     if (!open) return;
     setDraftName(name || cat?.name || cat?.displayName || 'BOT');
     setDraftDescription(description || cat?.roleDescription || '');
-    setDraftAvatar(resolveInitialAvatar(cat));
+    // 如果是新建智能体且没有头像，则随机选择一个预设头像；否则使用已有头像
+    if (cat) {
+      setDraftAvatar(resolveInitialAvatar(cat));
+    } else {
+      setDraftAvatar(getRandomPresetAvatar());
+    }
     setSelectedOptionId(null);
     setModelMenuOpen(false);
     setOpenAbove(false);
@@ -448,6 +474,7 @@ export function CreateAgentModalDraft({
 
   const modalTitle = title ?? (cat ? '编辑智能体' : '创建智能体');
   const primaryButtonText = saving ? (cat ? '保存中...' : '创建中...') : cat ? '保存' : '确定';
+  // 优先使用 draftAvatar，如果为空则使用生成的默认头像（用于显示名称首字母）
   const displayAvatar = draftAvatar || buildGeneratedAvatarDataUrl(draftName);
 
   if (!open) return null;
@@ -572,8 +599,9 @@ export function CreateAgentModalDraft({
               />
               <button
                 type="button"
-                aria-label="Auto generate avatar"
-                onClick={() => setDraftAvatar(buildGeneratedAvatarDataUrl(draftName))}
+                aria-label="Random preset avatar"
+                onClick={() => setDraftAvatar(getRandomPresetAvatar())}
+                title="换一换"
                 className="ui-button-secondary h-[34px] w-[34px] rounded-[var(--radius-sm)] p-0"
               >
                 <SparklesIcon />
