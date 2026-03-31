@@ -75,7 +75,7 @@ export const DEFAULT_VISUAL: PlatformVisual = {
 
 export function StepBadge({ num }: { num: number }) {
   return (
-    <span className="text-[14px] font-medium text-[var(--text-primary)]">
+    <span className="text-[14px]">
       {num}、
     </span>
   );
