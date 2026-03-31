@@ -40,6 +40,7 @@ export function ThreadSidebar({
     threads,
     currentThreadId,
     setThreads,
+    setCurrentThread,
     setCurrentProject,
     isLoadingThreads,
     setLoadingThreads,
@@ -423,7 +424,7 @@ export function ThreadSidebar({
     searchQuery: normalizedQuery,
     currentThreadId,
   });
-  const isChatMenu = !activeMenu;
+  const isChatMenu = !activeMenu && currentThreadId === 'default';
   const menuItemBase = 'ui-menu-item flex w-full items-center gap-1.5 px-2.5 transition-colors';
   const menuItemActive = 'ui-menu-item-active';
   const menuItemInactive = 'ui-menu-item-inactive';
@@ -477,7 +478,12 @@ export function ThreadSidebar({
                 if (onNewChatClick) {
                   onNewChatClick();
                 } else {
-                  setShowPicker(true);
+                  setCurrentThread('default');
+                  setCurrentProject('default');
+                  navigateToThread('default');
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    onClose?.();
+                  }
                 }
               }}
               className={`${menuItemBase} ${isChatMenu ? menuItemActive : menuItemInactive} text-cafe-black`}
