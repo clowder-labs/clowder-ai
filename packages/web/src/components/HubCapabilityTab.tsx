@@ -21,8 +21,17 @@ const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '未分类';
 const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
+const IMPORT_LABEL = '导入';
 
-export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatus?: boolean }) {
+export function HubCapabilityTab({
+  hideSkillMountStatus,
+  onImport,
+  refreshSignal,
+}: {
+  hideSkillMountStatus?: boolean;
+  onImport?: () => void;
+  refreshSignal?: number;
+}) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
   const [catFamilies, setCatFamilies] = useState<CatFamily[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +66,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
 
   useEffect(() => {
     void fetchCapabilities();
-  }, [fetchCapabilities]);
+  }, [fetchCapabilities, refreshSignal]);
 
   useEffect(() => {
     const onVisible = () => {
@@ -199,14 +208,25 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
         title={`${activeCategory} (${displayedSkillItems.length})`}
         subtitle="已安装技能"
         headerSlot={(
-          <input
-            type="search"
-            aria-label={SKILL_SEARCH_ARIA_LABEL}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={SKILL_SEARCH_PLACEHOLDER}
-            className="ui-field min-h-[var(--control-height-touch)] w-full px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
-          />
+          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center">
+            <input
+              type="search"
+              aria-label={SKILL_SEARCH_ARIA_LABEL}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={SKILL_SEARCH_PLACEHOLDER}
+              className="ui-field min-h-[var(--control-height-touch)] flex-1 px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
+            />
+            {onImport ? (
+              <button
+                type="button"
+                onClick={onImport}
+                className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
+              >
+                {IMPORT_LABEL}
+              </button>
+            ) : null}
+          </div>
         )}
         items={filteredDisplayedSkillItems}
         catFamilies={catFamilies}
@@ -235,19 +255,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           <p className="mt-1 max-w-[220px] text-xs text-[var(--text-muted)]">请检查 Skills 配置，或切换分类后重试。</p>
         </div>
       )}
-
-      <div className="mt-4">
-        <div className="flex items-center justify-end text-xs text-[var(--text-muted)]">
-          <span className="flex gap-3">
-            <span className="flex items-center gap-1.5">
-              <StatusDot status="connected" /> {filteredDisplayedSkillItems.filter((item) => item.connectionStatus === 'connected').length} 活跃
-            </span>
-            <span>
-              Skill: <strong className="font-medium text-[var(--text-secondary)]">{filteredDisplayedSkillItems.length}</strong>
-            </span>
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

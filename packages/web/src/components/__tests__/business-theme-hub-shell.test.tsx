@@ -144,4 +144,21 @@ describe('business theme hub shell', () => {
     expect(container.textContent).toContain('doc-skill');
     expect(container.textContent).not.toContain('ops-skill');
   });
+
+  it('renders optional import action beside installed skills search', async () => {
+    const onImport = vi.fn();
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab, { onImport }));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]');
+    const importButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('导入'));
+    expect(searchInput).not.toBeNull();
+    expect(importButton?.className).toContain('ui-button-secondary');
+    await act(async () => {
+      importButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onImport).toHaveBeenCalledTimes(1);
+  });
 });
