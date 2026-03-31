@@ -567,7 +567,8 @@ function writePythonRuntimePth(targetDir, options = {}) {
 }
 
 function installSharedPythonDeps(bundleDir) {
-  const pythonExe = join(bundleDir, 'tools', 'python', 'python.exe');
+  const pythonDir = join(bundleDir, 'tools', 'python');
+  const pythonExe = join(pythonDir, 'python.exe');
 
   // Ensure setuptools is available (needed by some packages with pyproject.toml builds)
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'setuptools', 'wheel']);
@@ -613,6 +614,9 @@ function installSharedPythonDeps(bundleDir) {
       rmSync(fullPath, { force: true });
     }
   });
+
+  // Restore vendor source paths for runtime module launches after pip work is done.
+  writePythonRuntimePth(pythonDir, { includeVendorPaths: true });
 }
 
 function stageVendorPythonSources(bundleDir) {
