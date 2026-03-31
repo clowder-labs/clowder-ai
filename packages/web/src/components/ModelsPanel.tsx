@@ -336,7 +336,7 @@ export function ModelsPanel() {
                 type="button"
                 onClick={() => setShowCreateModelModal(true)}
                 data-testid="models-open-create-model-modal"
-                className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+                className="ui-button-primary"
               >
                 {CREATE_MODEL_LABEL}
               </button>
