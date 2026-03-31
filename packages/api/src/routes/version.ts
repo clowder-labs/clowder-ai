@@ -36,32 +36,30 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
   });
 
   app.get('/api/lastversion', async () => {
+    const curversion = getPackageVersion(projectRoot);
     try {
-      const response = await fetch('https://registry.npmjs.org/@cat-cafe/api/latest', {
+      const response = await fetch('https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-latest-version', {
         headers: {
           Accept: 'application/json',
         },
       });
       if (!response.ok) {
         return {
-          version: getPackageVersion(projectRoot),
-          name: '@cat-cafe/api',
-          latest: true,
-          error: 'Failed to fetch latest version',
+          curversion,
+          lastversion: curversion,
         };
       }
-      const data = (await response.json()) as { version: string };
+      const data: any = await response.json();
       return {
-        version: data.version,
-        name: '@cat-cafe/api',
-        latest: true,
+        curversion,
+        lastversion: data.latest_version || curversion,
+        downloadUrl: data.download_url || '',
+        description: data.description || '',
       };
     } catch {
       return {
-        version: getPackageVersion(projectRoot),
-        name: '@cat-cafe/api',
-        latest: true,
-        error: 'Network error',
+        curversion,
+        lastversion: curversion
       };
     }
   });
