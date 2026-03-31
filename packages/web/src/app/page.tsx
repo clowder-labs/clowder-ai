@@ -46,5 +46,5 @@ export default function Home() {
     return null; // 会被重定向，不渲染内容
   }
 
-  return <ChatContainer threadId="default" />;
+  return <ChatContainer mode="new" />;
 }

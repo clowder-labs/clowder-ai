@@ -27,6 +27,7 @@ const mockStore: Record<string, unknown> = {
   getThreadState: () => ({ catStatuses: {}, unreadCount: 0 }),
   updateThreadPin: vi.fn(),
   updateThreadFavorite: vi.fn(),
+  threadStates: {},
 };
 vi.mock('@/stores/chatStore', () => {
   const hook = Object.assign(
@@ -36,6 +37,10 @@ vi.mock('@/stores/chatStore', () => {
   return { useChatStore: hook };
 });
 vi.mock('../TaskPanel', () => ({ TaskPanel: () => null }));
+vi.mock('../UserProfile', () => ({ UserProfile: () => null }));
+vi.mock('../DirectoryPickerModal', () => ({
+  DirectoryPickerModal: () => null,
+}));
 
 function jsonOk(data: unknown) {
   return Promise.resolve({ ok: true, json: () => Promise.resolve(data) });
@@ -178,6 +183,47 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
     await flush();
 
+    expect(onClose).not.toHaveBeenCalled();
+  });
+  
+  it('calls onClose after pressing 新建会话 on mobile viewport', async () => {
+    // Simulate mobile viewport
+    Object.defineProperty(window, 'innerWidth', { value: 375, writable: true });
+
+    const onClose = vi.fn();
+    act(() => {
+      root.render(React.createElement(ThreadSidebar, { onClose }));
+    });
+    await flush();
+
+    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('新建会话'))!;
+    expect(newBtn).toBeTruthy();
+    act(() => {
+      newBtn.click();
+    });
+    await flush();
+
+    expect(mockPush).toHaveBeenCalledWith('/');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not call onClose after pressing 新建会话 on desktop viewport', async () => {
+    // Simulate desktop viewport
+    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
+
+    const onClose = vi.fn();
+    act(() => {
+      root.render(React.createElement(ThreadSidebar, { onClose }));
+    });
+    await flush();
+
+    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('新建会话'))!;
+    act(() => {
+      newBtn.click();
+    });
+    await flush();
+
+    expect(mockPush).toHaveBeenCalledWith('/');
     expect(onClose).not.toHaveBeenCalled();
   });
 });

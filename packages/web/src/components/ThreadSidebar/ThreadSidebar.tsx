@@ -22,6 +22,7 @@ interface ThreadSidebarProps {
   onBootcampClick?: () => void;
   onHubClick?: () => void;
   onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills') => void;
+  onNewChatClick?: () => void;
   activeMenu?: 'models' | 'agents' | 'channels' | 'skills';
 }
 
@@ -31,6 +32,7 @@ export function ThreadSidebar({
   onBootcampClick,
   onHubClick,
   onMenuClick,
+  onNewChatClick,
   activeMenu,
 }: ThreadSidebarProps) {
   const router = useRouter();
@@ -471,7 +473,13 @@ export function ThreadSidebar({
           <div className="flex flex-col gap-1.5 items-start">
             <button
               type="button"
-              onClick={() => setShowPicker(true)}
+              onClick={() => {
+                if (onNewChatClick) {
+                  onNewChatClick();
+                } else {
+                  setShowPicker(true);
+                }
+              }}
               className={`${menuItemBase} ${isChatMenu ? menuItemActive : menuItemInactive} text-cafe-black`}
             >
               <img src="/icons/menu/new-chat.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
@@ -746,4 +754,3 @@ export function ThreadSidebar({
     </>
   );
 }
-
