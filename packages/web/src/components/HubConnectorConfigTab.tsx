@@ -207,7 +207,7 @@ export function HubConnectorConfigTab() {
 
   return (
     <div className="ui-panel grid lg:grid-cols-[304px_minmax(0,1fr)] h-full">
-      <div className="space-y-2 p-4" data-testid="connector-left-pane">
+      <div className="space-y-2 px-4 py-6 h-full" data-testid="connector-left-pane">
         {platforms.map((platform) => {
           const isSelected = selectedPlatform?.id === platform.id;
           const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
@@ -246,7 +246,8 @@ export function HubConnectorConfigTab() {
         })}
       </div>
 
-      <div className="p-4 min-h-[480px] overflow-hidden border-l border-[#e5e7eb]" data-testid="connector-right-pane">
+      <div className="py-6 px-12 h-full overflow-auto border-l border-[#e5e7eb] flex flex-col gap-6" data-testid="connector-right-pane">
+        <p className='text-[var(--text-primary)] font-semibold'>配置</p>
         {selectedPlatform && (() => {
           const platform = selectedPlatform;
           const guideSteps = platform.steps.slice(0, -1);
@@ -261,7 +262,7 @@ export function HubConnectorConfigTab() {
                     <div key={idx} className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         <StepBadge num={idx + 1} />
-                        <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
+                        <span className="text-[14px]">{step}</span>
                       </div>
                       {idx === 0 && (
                         <div className="ml-[26px]">
@@ -279,7 +280,7 @@ export function HubConnectorConfigTab() {
                     <div key={idx} className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         <StepBadge num={idx + 1} />
-                        <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
+                        <span className="text-[14px]">{step}</span>
                       </div>
                       {idx === 0 && docsLink && (
                         <a
@@ -298,12 +299,12 @@ export function HubConnectorConfigTab() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
                       <StepBadge num={guideSteps.length + 1} />
-                      <span className="text-[14px] font-medium text-[var(--text-primary)]">填写应用凭证</span>
+                      <span className="text-[14px]">填写应用凭证</span>
                     </div>
                     <div className="ml-[26px] space-y-2.5">
                       {platform.fields.map((field) => (
-                        <div key={field.envName}>
-                          <label htmlFor={`config-${field.envName}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
+                        <div key={field.envName} className="w-[60%]">
+                          <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
                             {field.label}
                             {field.sensitive && (
                               <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
@@ -329,7 +330,7 @@ export function HubConnectorConfigTab() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
                       <StepBadge num={saveStepNum} />
-                      <span className="text-[14px] font-medium text-[var(--text-primary)]">测试连接并保存</span>
+                      <span className="text-[14px]">测试连接并保存</span>
                     </div>
                     {saveResult && (
                       <div
