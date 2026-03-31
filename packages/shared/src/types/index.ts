@@ -106,6 +106,7 @@ export type {
   CatFeatures,
   CatVariant,
   CliConfig,
+  EmbeddedAcpConfig,
   // F067: Co-Creator config for @ mention routing
   CoCreatorConfig,
   ContextBudget,

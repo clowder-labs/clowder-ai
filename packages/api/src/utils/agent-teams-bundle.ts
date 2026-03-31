@@ -1,11 +1,13 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
+import type { EmbeddedAcpConfig } from '@cat-cafe/shared';
 import type { ModelConfigBinding } from '../config/model-config-profiles.js';
 import type { RuntimeAcpModelProfile } from '../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../config/provider-profiles.js';
 import { resolveHuaweiMaaSRuntimeConfig } from '../integrations/huawei-maas.js';
 
-const BUNDLED_AGENT_TEAMS_PATH_SEGMENTS = ['tools', 'python', 'Scripts', 'agent-teams.exe'] as const;
+const BUNDLED_AGENT_TEAMS_PATH_SEGMENTS = ['tools', 'python', 'python.exe'] as const;
+export const DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS = ['-m', 'agent_teams', 'gateway', 'acp', 'stdio'] as const;
 
 export function resolveBundledAgentTeamsExecutable(projectRoot: string): string {
   return resolve(projectRoot, ...BUNDLED_AGENT_TEAMS_PATH_SEGMENTS);
@@ -33,14 +35,19 @@ export function embeddedAgentTeamsRuntimeAvailable(projectRoot: string, executab
 export function buildEmbeddedAgentTeamsProviderProfile(
   projectRoot: string,
   executablePathOverride?: string | null,
+  config?: EmbeddedAcpConfig,
 ): RuntimeProviderProfile {
+  const command = resolveEmbeddedAgentTeamsExecutable(projectRoot, config?.executablePath ?? executablePathOverride);
+  const args = config?.args?.filter((value) => value.trim().length > 0) ?? [...DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS];
   return {
     id: 'embedded-agentteams-runtime',
     kind: 'acp',
     authType: 'none',
     protocol: 'acp',
-    command: resolveEmbeddedAgentTeamsExecutable(projectRoot, executablePathOverride),
-    args: ['gateway', 'acp', 'stdio'],
+    command,
+    args,
+    ...(config?.cwd ? { cwd: config.cwd } : {}),
+    ...(config?.env ? { env: config.env } : {}),
     modelAccessMode: 'clowder_default_profile',
   };
 }

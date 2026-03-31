@@ -477,14 +477,14 @@ export function EmbeddedAcpConfigSection({
         ariaLabel="EXE Path"
         value={form.embeddedAcpExecutablePath ?? ''}
         onChange={(value) => onChange({ embeddedAcpExecutablePath: value })}
-        placeholder="留空使用 tools/python/Scripts/agent-teams.exe"
+        placeholder="留空使用 tools/python/python.exe"
       />
       <TextField
         label="ACP Args"
         ariaLabel="ACP Args"
         value={form.embeddedAcpArgs}
         onChange={(value) => onChange({ embeddedAcpArgs: value })}
-        placeholder="留空使用 gateway acp stdio"
+        placeholder="留空使用 -m agent_teams gateway acp stdio"
       />
       <TextField
         label="ACP CWD"

@@ -149,13 +149,13 @@ export function CreateApiKeyProfileSection({
                 value={args}
                 onChange={(e) => onArgsChange(e.target.value)}
                 rows={3}
-                placeholder="参数按空格分隔，例如 --directory /opt/workspace/agent-teams run agent-teams gateway acp stdio"
+                placeholder="参数按空格分隔，例如 -m agent_teams gateway acp stdio"
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <input
                 value={cwd}
                 onChange={(e) => onCwdChange(e.target.value)}
-                placeholder="可选 cwd，例如 /opt/workspace/agent-teams"
+                placeholder="可选 cwd"
                 className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
               />
               <textarea

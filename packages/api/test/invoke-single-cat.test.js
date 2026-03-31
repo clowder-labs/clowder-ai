@@ -2436,9 +2436,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await mkdir(join(root, '.cat-cafe'), { recursive: true });
-    await mkdir(join(root, 'tools', 'python', 'Scripts'), { recursive: true });
+    await mkdir(join(root, 'tools', 'python'), { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    await writeFile(join(root, 'tools', 'python', 'Scripts', 'agent-teams.exe'), '', 'utf-8');
+    await writeFile(join(root, 'tools', 'python', 'python.exe'), '', 'utf-8');
     await writeFile(
       join(root, '.cat-cafe', 'model.json'),
       `${JSON.stringify(
@@ -2480,6 +2480,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         provider: 'relayclaw',
         accountRef: 'my-openai-proxy',
         defaultModel: 'mimo-v2-flash',
+        embeddedAcpConfig: {
+          executablePath: 'tools/python/python.exe',
+          args: ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio'],
+          cwd: '/tmp/custom-agent-teams',
+          env: {
+            ACP_TRACE_STDIO: '1',
+            AGENT_TEAMS_LOG_LEVEL: 'debug',
+          },
+        },
       });
 
       const optionsSeen = [];
@@ -2516,7 +2525,13 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       const providerProfile = optionsSeen[0]?.providerProfile ?? null;
       const acpModelProfile = optionsSeen[0]?.acpModelProfile ?? null;
       assert.equal(providerProfile?.kind, 'acp');
-      assert.match(String(providerProfile?.command ?? ''), /agent-teams\.exe$/i);
+      assert.match(String(providerProfile?.command ?? ''), /python\.exe$/i);
+      assert.deepEqual(providerProfile?.args, ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio']);
+      assert.equal(providerProfile?.cwd, '/tmp/custom-agent-teams');
+      assert.deepEqual(providerProfile?.env, {
+        ACP_TRACE_STDIO: '1',
+        AGENT_TEAMS_LOG_LEVEL: 'debug',
+      });
       assert.equal(acpModelProfile?.provider, 'openai_compatible');
       assert.equal(acpModelProfile?.model, 'mimo-v2-flash');
       assert.equal(acpModelProfile?.baseUrl, 'https://proxy.example.com/v1');
