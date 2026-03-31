@@ -279,8 +279,11 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
   const components = basePath != null ? { ...mdComponents, a: createWorkspaceLinkComponent(basePath) } : mdComponents;
 
   return (
-    <div className={`test-123 markdown-content text-sm break-words ${className ?? ''}`}>
-      {cmdMatch && <span className="font-semibold text-indigo-500">{cmdMatch[1]}</span>}
+    <div
+      className={`markdown-content font-sans text-sm break-words ${className ?? ''}`}
+      style={{ fontFamily: 'Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif' }}
+    >
+      {cmdMatch && <span className="text-indigo-500">{cmdMatch[1]}</span>}
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>
         {md}
       </ReactMarkdown>

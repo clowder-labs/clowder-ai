@@ -173,7 +173,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     const coCreatorPrimary = coCreator.color?.primary ?? '#815b5b';
     const coCreatorSecondary = coCreator.color?.secondary ?? '#FFDDD2';
     return (
-      <div data-message-id={message.id} className="test-123 flex justify-end gap-2 mb-4 items-start">
+      <div data-message-id={message.id} className="user-question-group flex justify-end gap-2 mb-4 items-start">
         <div className="max-w-[75%]">
           <div className="hidden justify-end items-center gap-2 mb-1">
             {isWhisper && (
@@ -250,13 +250,13 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   }
 
   return (
-    <div data-message-id={message.id} className="group flex gap-2 mb-4 items-start">
+    <div data-message-id={message.id} className="answer-group group flex gap-2 mb-4 items-start">
       {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
-      <div className="test-123 max-w-[85%] md:max-w-[75%] min-w-0">
+      <div className="answer-container  max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
-          <div className="test-123 mb-1 flex flex-col gap-1 min-w-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>
+          <div className="answer-header mb-1 flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 text-[rgb(128_128_128)]">
+              <span className="text-xs">
                 {catStyle.label}
               </span>
               <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
@@ -280,7 +280,8 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               {message.replyTo && message.replyPreview && (
                 <ReplyPill replyPreview={message.replyPreview} replyToId={message.replyTo} getCatById={getCatById} />
               )}
-              {hasTextContent && !message.isStreaming && (
+              {/* 播放语音 */}
+              {false && hasTextContent && !message.isStreaming && (
                 <TtsPlayButton
                   messageId={message.id}
                   text={message.content}
@@ -322,7 +323,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           </div>
         )}
         <div
-          className={`test-123 px-4 py-3 overflow-hidden ${
+          className={`answer-body py-3 overflow-hidden ${
             catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200 rounded-2xl'
           }`}
         >
@@ -335,6 +336,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           ) : null}
           {message.thinking && (
             <ThinkingContent
+              status={cliStatus}
               content={message.thinking}
               className={catStyle?.font}
               label="Thinking"
