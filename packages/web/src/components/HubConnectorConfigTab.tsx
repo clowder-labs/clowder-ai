@@ -10,7 +10,6 @@ import {
   StatusDotConnected,
   StatusDotIdle,
   StepBadge,
-  TriangleAlertIcon,
   WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
@@ -207,173 +206,165 @@ export function HubConnectorConfigTab() {
   const selectedPlatform = platforms.find((platform) => platform.id === selectedPlatformId) ?? platforms[0] ?? null;
 
   return (
-    <div className="space-y-3 h-full flex flex-col">
-      <div className="ui-status-warning flex items-center gap-2 rounded-[var(--radius-sm)] px-3.5 py-2.5 text-xs font-medium">
-        <TriangleAlertIcon />
-        <span>修改配置后需重启 API 生效</span>
-      </div>
-      <div className="ui-panel grid lg:grid-cols-[304px_minmax(0,1fr)] flex-1">
-        <div className="space-y-2 p-4" data-testid="connector-left-pane">
-          {platforms.map((platform) => {
-            const isSelected = selectedPlatform?.id === platform.id;
-            const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
-            return (
-              <button
-                key={platform.id}
-                type="button"
-                onClick={() => handleSelect(platform.id)}
-                data-testid={`platform-item-${platform.id}`}
-                className="flex w-full items-center gap-3 border px-4 py-3.5 text-left transition-colors [border-radius:var(--connector-tab-radius)]"
-                style={{
-                  borderColor: isSelected ? 'var(--connector-tab-border-selected)' : 'var(--connector-tab-border-default)',
-                  backgroundColor: isSelected ? 'var(--connector-tab-bg-selected)' : 'var(--connector-tab-bg-default)',
-                }}
+    <div className="ui-panel grid lg:grid-cols-[304px_minmax(0,1fr)] h-full">
+      <div className="space-y-2 p-4" data-testid="connector-left-pane">
+        {platforms.map((platform) => {
+          const isSelected = selectedPlatform?.id === platform.id;
+          const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
+          return (
+            <button
+              key={platform.id}
+              type="button"
+              onClick={() => handleSelect(platform.id)}
+              data-testid={`platform-item-${platform.id}`}
+              className="flex w-full items-center gap-3 border px-4 py-3.5 text-left transition-colors [border-radius:var(--connector-tab-radius)]"
+              style={{
+                borderColor: isSelected ? 'var(--connector-tab-border-selected)' : 'var(--connector-tab-border-default)',
+                backgroundColor: isSelected ? 'var(--connector-tab-bg-selected)' : 'var(--connector-tab-bg-default)',
+              }}
+            >
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
+                style={{ backgroundColor: v.iconBg, color: v.iconColor }}
               >
+                {v.icon}
+              </span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[14px] font-semibold text-[var(--text-primary)]">
+                  {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
+                </span>
                 <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
-                  style={{ backgroundColor: v.iconBg, color: v.iconColor }}
-                >
-                  {v.icon}
-                </span>
-                <span className="min-w-0 flex-1 text-left">
-                  <span className="block text-[14px] font-semibold text-[var(--text-primary)]">
-                    {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
-                  </span>
-                  <span
-                    className={`flex items-center gap-1 text-xs ${
-                      platform.configured ? 'text-[var(--state-success-text)]' : 'text-[var(--text-muted)]'
+                  className={`flex items-center gap-1 text-xs ${platform.configured ? 'text-[var(--state-success-text)]' : 'text-[var(--text-muted)]'
                     }`}
-                  >
-                    {platform.configured ? <StatusDotConnected /> : <StatusDotIdle />}
-                    {platform.configured ? '已配置' : '未配置'}
-                  </span>
+                >
+                  {platform.configured ? <StatusDotConnected /> : <StatusDotIdle />}
+                  {platform.configured ? '已配置' : '未配置'}
                 </span>
-              </button>
-            );
-          })}
-        </div>
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="p-4 min-h-[480px] overflow-hidden border-l border-[#e5e7eb]" data-testid="connector-right-pane">
-          {selectedPlatform && (() => {
-            const platform = selectedPlatform;
-            const guideSteps = platform.steps.slice(0, -1);
-            const docsLink = parseDocsLink(platform.docsUrl);
-            const saveStepNum = guideSteps.length + 2;
+      <div className="p-4 min-h-[480px] overflow-hidden border-l border-[#e5e7eb]" data-testid="connector-right-pane">
+        {selectedPlatform && (() => {
+          const platform = selectedPlatform;
+          const guideSteps = platform.steps.slice(0, -1);
+          const docsLink = parseDocsLink(platform.docsUrl);
+          const saveStepNum = guideSteps.length + 2;
 
-            return (
-              <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
-                {platform.id === 'weixin' && (
-                  <div className="space-y-3.5">
-                    {platform.steps.map((step, idx) => (
-                      <div key={idx} className="space-y-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <StepBadge num={idx + 1} />
-                          <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
-                        </div>
-                        {idx === 0 && (
-                          <div className="ml-[26px]">
-                            <WeixinQrPanel configured={platform.configured} />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {platform.id !== 'weixin' && (
-                  <div className="space-y-3.5">
-                    {guideSteps.map((step, idx) => (
-                      <div key={idx} className="space-y-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <StepBadge num={idx + 1} />
-                          <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
-                        </div>
-                        {idx === 0 && docsLink && (
-                          <a
-                            href={docsLink.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
-                          >
-                            <ExternalLinkIcon />
-                            <span>{docsLink.hostname} {'->'} 查看官方文档</span>
-                          </a>
-                        )}
-                      </div>
-                    ))}
-
-                    <div className="space-y-2">
+          return (
+            <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
+              {platform.id === 'weixin' && (
+                <div className="space-y-3.5">
+                  {platform.steps.map((step, idx) => (
+                    <div key={idx} className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
-                        <StepBadge num={guideSteps.length + 1} />
-                        <span className="text-[14px] font-medium text-[var(--text-primary)]">填写应用凭证</span>
+                        <StepBadge num={idx + 1} />
+                        <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
                       </div>
-                      <div className="ml-[26px] space-y-2.5">
-                        {platform.fields.map((field) => (
-                          <div key={field.envName}>
-                            <label htmlFor={`config-${field.envName}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
-                              {field.label}
-                              {field.sensitive && (
-                                <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
-                                  <LockIcon />
-                                </span>
-                              )}
-                            </label>
-                            <input
-                              id={`config-${field.envName}`}
-                              type={field.sensitive ? 'password' : 'text'}
-                              placeholder={field.sensitive ? (field.currentValue ? '已设置（输入新值覆盖）' : '未设置') : (field.currentValue ?? '未设置')}
-                              value={fieldValues[field.envName] ?? ''}
-                              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                              autoComplete={field.sensitive ? 'off' : undefined}
-                              className="ui-field h-9 w-full px-3 text-[13px]"
-                              data-testid={`field-${field.envName}`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5">
-                        <StepBadge num={saveStepNum} />
-                        <span className="text-[14px] font-medium text-[var(--text-primary)]">测试连接并保存</span>
-                      </div>
-                      {saveResult && (
-                        <div
-                          className={`ml-[26px] rounded-[var(--radius-md)] px-3 py-2 text-xs ${
-                            saveResult.type === 'success' ? 'ui-status-success' : 'ui-status-error'
-                          }`}
-                          data-testid="save-result"
-                        >
-                          {saveResult.message}
+                      {idx === 0 && (
+                        <div className="ml-[26px]">
+                          <WeixinQrPanel configured={platform.configured} />
                         </div>
                       )}
-                      <div className="ml-[26px] flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="ui-button-secondary inline-flex items-center gap-1.5"
-                          onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
-                        >
-                          <WifiIcon />
-                          测试连接
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSave(platform)}
-                          disabled={saving}
-                          className="ui-button-primary disabled:opacity-50"
-                          data-testid={`save-${platform.id}`}
-                        >
-                          {saving ? '保存中...' : '保存配置'}
-                        </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {platform.id !== 'weixin' && (
+                <div className="space-y-3.5">
+                  {guideSteps.map((step, idx) => (
+                    <div key={idx} className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <StepBadge num={idx + 1} />
+                        <span className="text-[14px] font-medium text-[var(--text-primary)]">{step}</span>
                       </div>
+                      {idx === 0 && docsLink && (
+                        <a
+                          href={docsLink.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
+                        >
+                          <ExternalLinkIcon />
+                          <span>{docsLink.hostname} {'->'} 查看官方文档</span>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <StepBadge num={guideSteps.length + 1} />
+                      <span className="text-[14px] font-medium text-[var(--text-primary)]">填写应用凭证</span>
+                    </div>
+                    <div className="ml-[26px] space-y-2.5">
+                      {platform.fields.map((field) => (
+                        <div key={field.envName}>
+                          <label htmlFor={`config-${field.envName}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
+                            {field.label}
+                            {field.sensitive && (
+                              <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
+                                <LockIcon />
+                              </span>
+                            )}
+                          </label>
+                          <input
+                            id={`config-${field.envName}`}
+                            type={field.sensitive ? 'password' : 'text'}
+                            placeholder={field.sensitive ? (field.currentValue ? '已设置（输入新值覆盖）' : '未设置') : (field.currentValue ?? '未设置')}
+                            value={fieldValues[field.envName] ?? ''}
+                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                            autoComplete={field.sensitive ? 'off' : undefined}
+                            className="ui-field h-9 w-full px-3 text-[13px]"
+                            data-testid={`field-${field.envName}`}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
-                )}
-              </div>
-            );
-          })()}
-        </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <StepBadge num={saveStepNum} />
+                      <span className="text-[14px] font-medium text-[var(--text-primary)]">测试连接并保存</span>
+                    </div>
+                    {saveResult && (
+                      <div
+                        className={`ml-[26px] rounded-[var(--radius-md)] px-3 py-2 text-xs ${saveResult.type === 'success' ? 'ui-status-success' : 'ui-status-error'
+                          }`}
+                        data-testid="save-result"
+                      >
+                        {saveResult.message}
+                      </div>
+                    )}
+                    <div className="ml-[26px] flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="ui-button-secondary inline-flex items-center gap-1.5"
+                        onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
+                      >
+                        <WifiIcon />
+                        测试连接
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSave(platform)}
+                        disabled={saving}
+                        className="ui-button-primary disabled:opacity-50"
+                        data-testid={`save-${platform.id}`}
+                      >
+                        {saving ? '保存中...' : '保存配置'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
