@@ -189,6 +189,19 @@ describe('Thread delete confirmation (I-1)', () => {
     expect(stack?.className).toContain('flex-col');
     expect(stack?.className).toContain('gap-5');
 
+    const headerRow = Array.from(stack?.children ?? []).find((node) =>
+      (node as HTMLDivElement).className?.includes('flex items-center justify-between'),
+    ) as HTMLDivElement | undefined;
+    expect(headerRow?.className).toContain('flex');
+    expect(headerRow?.className).toContain('items-center');
+    expect(headerRow?.className).toContain('justify-between');
+
+    const closeBtn = Array.from(headerRow?.querySelectorAll('button') ?? []).find((button) =>
+      button.getAttribute('aria-label') === 'close',
+    ) as HTMLButtonElement | undefined;
+    expect(closeBtn?.className).toContain('flex h-6 w-6 items-center justify-center');
+    expect(closeBtn?.className).toContain('hover:bg-[#F7F8FA]');
+
     const contentBlock = Array.from(stack?.children ?? []).find((node) =>
       (node as HTMLDivElement).className?.includes('space-y-1'),
     ) as HTMLDivElement | undefined;
@@ -210,10 +223,7 @@ describe('Thread delete confirmation (I-1)', () => {
     expect(container.textContent).toContain('\u786e\u8ba4\u5220\u9664\u5bf9\u8bdd');
 
     const cancelBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '\u53d6\u6d88')!;
-    expect(cancelBtn.className).toContain('rounded-[16px]');
-    expect(cancelBtn.className).toContain('border-[#DCE1E8]');
-    expect(cancelBtn.className).toContain('text-[12px]');
-    expect(cancelBtn.className).toContain('text-[#5F6775]');
+    expect(cancelBtn.className).toContain('ui-button-secondary');
 
     // Click cancel
     act(() => {
@@ -234,10 +244,7 @@ describe('Thread delete confirmation (I-1)', () => {
     // Click confirm
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '\u79fb\u5165\u56de\u6536\u7ad9')!;
     expect(confirmBtn).toBeTruthy();
-    expect(confirmBtn.className).toContain('rounded-[16px]');
-    expect(confirmBtn.className).toContain('bg-[#101317]');
-    expect(confirmBtn.className).toContain('text-[12px]');
-    expect(confirmBtn.className).toContain('font-semibold');
+    expect(confirmBtn.className).toContain('ui-button-primary');
 
     await act(async () => {
       confirmBtn.click();
