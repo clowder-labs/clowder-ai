@@ -110,7 +110,7 @@ function SkillArtwork({ name }: { name: string }) {
       aria-hidden="true"
       className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-soft)] bg-[var(--accent-soft)] shadow-sm"
     >
-      <span className="text-base font-bold text-[var(--text-accent)]">{initial}</span>
+      <span className="text-xl font-bold text-[var(--text-accent)]">{initial}</span>
     </div>
   );
 }
