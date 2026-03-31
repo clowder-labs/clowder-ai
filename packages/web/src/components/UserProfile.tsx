@@ -203,7 +203,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                className="hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
                 onClick={handleOpenVersionUpdate}
               >
                 <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -221,7 +221,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 </button>
               </div>
 
-              <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50">
+              <button className="hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50">
                 <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 帮助
               </button>

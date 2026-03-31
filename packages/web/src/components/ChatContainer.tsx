@@ -24,7 +24,7 @@ import { useGameStore } from '@/stores/gameStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { getUserId } from '@/utils/userId';
+import { getUserId, setIsSkipAuth } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsRootPanel } from './AgentsRootPanel';
 import { AuthorizationCard } from './AuthorizationCard';
@@ -58,22 +58,81 @@ const SIDEBAR_DEFAULT = 240;
 type ChatContainerProps =
   | {
       mode: 'new';
+      requireLoginCheck?: boolean;
       threadId?: never;
+      initialSidebarMenu?: never;
     }
   | {
       mode?: 'thread';
       threadId: string;
+      requireLoginCheck?: boolean;
+      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
     };
 
 export function ChatContainer(props: ChatContainerProps) {
+  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
+  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!props.requireLoginCheck) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiFetch('/api/islogin');
+        const data = await response.json();
+        if (cancelled) return;
+        setIsSkipAuth(Boolean(data?.isskip));
+        if (data?.islogin) {
+          setIsLoggedIn(true);
+        } else {
+          router.replace('/login');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('检查登录状态失败:', err);
+          router.replace('/login');
+        }
+      } finally {
+        if (!cancelled) setAuthChecked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.requireLoginCheck, router]);
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
+
   if (props.mode === 'new') {
     return <NewThreadContainer />;
   }
 
-  return <ThreadModeChatContainer threadId={props.threadId} />;
+  return <ThreadModeChatContainer threadId={props.threadId} initialSidebarMenu={props.initialSidebarMenu} />;
 }
 
-function ThreadModeChatContainer({ threadId }: { threadId: string }) {
+function ThreadModeChatContainer({
+  threadId,
+  initialSidebarMenu = 'chat',
+}: {
+  threadId: string;
+  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+}) {
   const {
     messages,
     hasActiveInvocation,
@@ -123,7 +182,9 @@ function ThreadModeChatContainer({ threadId }: { threadId: string }) {
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
-  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>('chat');
+  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>(
+    initialSidebarMenu,
+  );
   // F106: fetch bootcamp count independently of sidebar lifecycle
   // refreshKey increments only on modal close to avoid duplicate fetch on open
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -479,7 +540,7 @@ function ThreadModeChatContainer({ threadId }: { threadId: string }) {
       )}
 
       <div className="flex flex-col min-w-0" style={{ flex: '1 1 0%' }}>
-        {sidebarMenu === 'chat' && (
+        {false && sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
