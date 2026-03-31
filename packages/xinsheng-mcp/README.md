@@ -34,21 +34,33 @@
 
 ```bash
 pnpm --filter @cat-cafe/xinsheng-mcp build
-pnpm --filter @cat-cafe/xinsheng-mcp start
+cd packages/xinsheng-mcp
+node dist/index.js
 ```
 
-## MCP 配置示例
+> 注意：把这个 server 接到 `stdio` MCP client（例如 Codex）时，不要用 `pnpm ... start` 当启动命令。
+> `pnpm` 会往标准输出打印脚本 banner，破坏 MCP 的 JSON-RPC 握手。请直接运行 `node dist/index.js`。
 
-```json
-{
-  "mcpServers": {
-    "xinsheng-search": {
-      "command": "pnpm",
-      "args": ["--dir", "/ABS/PATH/TO/clowder-ai", "--filter", "@cat-cafe/xinsheng-mcp", "start"],
-      "env": {
-        "XINSHENG_BROWSER_EXECUTABLE_PATH": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-      }
-    }
-  }
-}
+## Codex 配置示例
+
+```toml
+[mcp_servers.xinsheng-search]
+command = "node"
+args = ["/ABS/PATH/TO/clowder-ai/packages/xinsheng-mcp/dist/index.js"]
+startup_timeout_sec = 30
+
+[mcp_servers.xinsheng-search.env]
+XINSHENG_BROWSER_EXECUTABLE_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+XINSHENG_DEFAULT_VISIBLE = "false"
+```
+
+也可以临时用 CLI 注入，不改现有 `~/.codex/config.toml`：
+
+```bash
+codex exec \
+  -c 'mcp_servers.xinsheng-search.command="node"' \
+  -c 'mcp_servers.xinsheng-search.args=["/ABS/PATH/TO/clowder-ai/packages/xinsheng-mcp/dist/index.js"]' \
+  -c 'mcp_servers.xinsheng-search.env.XINSHENG_BROWSER_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"' \
+  -c 'mcp_servers.xinsheng-search.env.XINSHENG_DEFAULT_VISIBLE="false"' \
+  "Use the MCP tool named xinsheng_search with query DeepSeek."
 ```
