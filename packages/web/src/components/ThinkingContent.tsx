@@ -70,7 +70,7 @@ function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: strin
       strokeLinecap="round"
       strokeLinejoin="round"
       className="flex-shrink-0 transition-transform duration-150"
-      style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+      style={{ transform: expanded ? 'rotate(-90deg)' : 'rotate(90deg)' }}
     >
       <polyline points="9 18 15 12 9 6" />
     </svg>
@@ -91,7 +91,7 @@ function BrainIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       className="flex-shrink-0"
-      style={{ color: '#94A3B8' }}
+      style={{ color: 'rgb(31, 31, 31)' }}
     >
       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
       <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
@@ -114,6 +114,7 @@ export function ThinkingContent({
   defaultExpanded = false,
   expandInExport = true,
   breedColor,
+  status,
 }: {
   content: string;
   className?: string;
@@ -121,6 +122,7 @@ export function ThinkingContent({
   defaultExpanded?: boolean;
   expandInExport?: boolean;
   breedColor?: string;
+  status?: 'done' | 'streaming' | 'failed';
 }) {
   const isExport =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
@@ -150,34 +152,34 @@ export function ThinkingContent({
   const surfaceInner = tintedDark(accent, 0.18);
 
   return (
-    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: surface, borderRadius: 10 }}>
+    <div className="thinking-output-container mt-2 mb-1 overflow-hidden">
       <button
         type="button"
         onClick={() => {
           setExpanded((v) => !v);
         }}
-        className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
-        style={{ padding: '8px 12px', backgroundColor: surface }}
+        className="thinking-button w-full flex items-center gap-2 text-[14px] font-mono transition-colors"
+        style={{ padding: '8px 0' }}
       >
-        <span style={{ color: breedColor || '#6B7280' }}>
-          <ThinkingChevron expanded={expanded} color={breedColor} />
-        </span>
-        <BrainIcon />
-        <span className="font-medium" style={{ color: '#94A3B8' }}>
+        { status === 'done' && <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5287" width="20" height="20"><path d="M512 0C228.430769 0 0 228.430769 0 512s228.430769 512 512 512 512-228.430769 512-512S795.569231 0 512 0z m256 413.538462l-271.753846 271.753846c-7.876923 7.876923-19.692308 11.815385-31.507692 11.815384-11.815385 0-23.630769-3.938462-31.507693-11.815384l-169.353846-169.353846c-15.753846-15.753846-15.753846-47.261538 0-63.015385 15.753846-15.753846 47.261538-15.753846 63.015385 0l137.846154 137.846154 240.246153-240.246154c15.753846-15.753846 47.261538-15.753846 63.015385 0 19.692308 15.753846 19.692308 47.261538 0 63.015385z" fill="#94C86C" p-id="5288"></path></svg>
+        }
+        <span className="font-medium" style={{ color: 'rgb(31, 31, 31)' }}>
           {label}
         </span>
+        <span style={{ color: 'rgb(31, 31, 31)' }}>
+          <ThinkingChevron expanded={expanded} color={'rgb(31, 31, 31)'} />
+        </span>
         {!expanded && (
-          <span className="truncate max-w-[240px]" style={{ color: '#6B7280' }}>
+          <span className="hidden truncate max-w-[240px]" style={{ color: 'rgb(31, 31, 31)' }}>
             {preview}
           </span>
         )}
       </button>
       {expanded && (
-        <div style={{ backgroundColor: surfaceInner }}>
-          <div style={{ height: 1, backgroundColor: DIVIDER }} />
+        <div className="thinking-output-body">
           <div
-            style={{ padding: '8px 12px 10px 12px', color: '#CBD5E1' }}
-            className="text-xs leading-relaxed cli-output-md"
+            style={{ padding: '8px 12px 10px 12px', color: 'rgb(31, 31, 31)' }}
+            className="text-[16px] leading-relaxed cli-output-md"
           >
             <MarkdownContent content={normalizedContent} className={className} />
           </div>

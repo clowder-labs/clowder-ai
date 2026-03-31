@@ -305,7 +305,7 @@ export function ModelsPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-4 pb-2">
+        <div className="space-y-0 pb-2">
           <section className='flex justify-between gap-2'>
             <div className="relative flex-1 mr-2">
               <input
@@ -314,7 +314,7 @@ export function ModelsPanel() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={SEARCH_PLACEHOLDER}
-                className="ui-field w-full px-3 py-1.5 text-xs"
+                className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -336,7 +336,7 @@ export function ModelsPanel() {
                 type="button"
                 onClick={() => setShowCreateModelModal(true)}
                 data-testid="models-open-create-model-modal"
-                className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+                className="ui-button-primary"
               >
                 {CREATE_MODEL_LABEL}
               </button>
@@ -357,61 +357,67 @@ export function ModelsPanel() {
           {showGroups &&
             groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3 className="text-[13px] font-semibold text-[var(--text-secondary)]">
+                <h3
+                  className="text-[14px] font-semibold text-[var(--text-primary)]"
+                  style={{ marginBlock: '24px' }}
+                >
                   {group.label} ({group.items.length})
                 </h3>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => (
-                    <article key={card.id} className="ui-card px-4 py-4 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-start gap-3">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={card.icon || DEFAULT_ICON}
-                            alt={`${card.name} icon`}
-                            width={48}
-                            height={48}
-                            className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
-                            data-testid={`model-card-icon-${card.id}`}
-                          />
+                    <article
+                      key={card.id}
+                      className="ui-card group flex min-h-[194px] flex-col gap-4 p-5 transition-colors hover:border-[var(--border-accent)]"
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={card.icon || DEFAULT_ICON}
+                          alt={`${card.name} icon`}
+                          width={48}
+                          height={48}
+                          className="h-12 w-12 shrink-0 rounded-[10px] border border-[var(--border-soft)] bg-[var(--accent-soft)] object-cover p-1.5"
+                          data-testid={`model-card-icon-${card.id}`}
+                        />
 
-                          <div className="min-w-0 flex-1">
-                            <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
-                              {card.name}
-                            </h4>
-                            {card.labels.length > 0 ? (
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                {card.labels.map((label, index) => (
-                                  <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
-                                    {label}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="truncate text-base font-semibold text-[var(--text-primary)]">
+                            {card.name}
+                          </h4>
+                          {card.labels.length > 0 ? (
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                              {card.labels.map((label, index) => (
+                                <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
-
-                        <p
-                          className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden"
-                          title={card.description}
-                        >
-                          {card.description}
-                        </p>
-
                       </div>
-                      <div className="ui-thread-meta mt-3 flex items-center justify-start">
-                        <span className="inline-flex items-center gap-1.5">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={card.icon || DEFAULT_ICON}
-                            alt={`${card.developer} icon`}
-                            width={16}
-                            height={16}
-                            className="h-4 w-4 rounded-sm object-cover"
-                          />
-                          <span>{card.developer}</span>
-                        </span>
+
+                      <p
+                        className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]"
+                        title={card.description}
+                      >
+                        {card.description}
+                      </p>
+
+                      <div className="mt-auto flex items-end justify-between gap-3">
+                        <div className="min-h-5 text-xs leading-5">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={card.icon || DEFAULT_ICON}
+                              alt={`${card.developer} icon`}
+                              width={16}
+                              height={16}
+                              className="h-4 w-4 rounded-sm object-cover"
+                            />
+                            <span>{card.developer}</span>
+                          </span>
+                        </div>
                       </div>
                     </article>
                   ))}
@@ -433,7 +439,7 @@ export function ModelsPanel() {
           >
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold text-[#2E3440]">{CREATE_MODEL_MODAL_TITLE}</h3>
+                <h3 className="text-[16px] font-bold">{CREATE_MODEL_MODAL_TITLE}</h3>
                 <button
                   type="button"
                   onClick={closeCreateModelModal}
@@ -514,7 +520,7 @@ export function ModelsPanel() {
                 <button
                   type="button"
                   onClick={closeCreateModelModal}
-                  className="rounded-[16px] border border-[#DCE1E8] px-4 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                  className="ui-button-secondary"
                 >
                   {CREATE_MODEL_CANCEL_LABEL}
                 </button>
@@ -523,7 +529,7 @@ export function ModelsPanel() {
                   disabled={!canConfirmCreateModel || createModelBusy}
                   onClick={handleCreateModel}
                   data-testid="models-create-model-confirm"
-                  className="rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createModelBusy ? '\u521b\u5efa\u4e2d...' : CREATE_MODEL_CONFIRM_LABEL}
                 </button>

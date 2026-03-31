@@ -19,13 +19,25 @@ import { useProviderProfilesState } from './useProviderProfilesState';
 
 const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '未分类';
+const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
+const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
+const IMPORT_LABEL = '导入';
 
-export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatus?: boolean }) {
+export function HubCapabilityTab({
+  hideSkillMountStatus,
+  onImport,
+  refreshSignal,
+}: {
+  hideSkillMountStatus?: boolean;
+  onImport?: () => void;
+  refreshSignal?: number;
+}) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
   const [catFamilies, setCatFamilies] = useState<CatFamily[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
+  const [searchQuery, setSearchQuery] = useState('');
   const [toggling, setToggling] = useState<string | null>(null);
 
   const { providerCreateSectionProps } = useProviderProfilesState();
@@ -54,7 +66,7 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
 
   useEffect(() => {
     void fetchCapabilities();
-  }, [fetchCapabilities]);
+  }, [fetchCapabilities, refreshSignal]);
 
   useEffect(() => {
     const onVisible = () => {
@@ -147,6 +159,22 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
     if (activeCategory === ALL_CATEGORY) return skillItems;
     return skillItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === activeCategory);
   }, [activeCategory, skillItems]);
+  const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const filteredDisplayedSkillItems = useMemo(() => {
+    if (!normalizedSearchQuery) return displayedSkillItems;
+    return displayedSkillItems.filter((item) => {
+      const sourceLabel = item.source === 'cat-cafe' ? '官方' : item.source === 'external' ? '三方' : '未知';
+      const haystack = [
+        item.id,
+        item.description ?? '',
+        item.category ?? '',
+        sourceLabel,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedSearchQuery);
+    });
+  }, [displayedSkillItems, normalizedSearchQuery]);
 
   useEffect(() => {
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
@@ -155,18 +183,20 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
   if (loading) return <p className="text-sm text-[var(--text-muted)]">加载中...</p>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-0">
       {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-4 pb-2">
+        <div className="flex flex-wrap items-center gap-4">
           {categoryTabs.map((category) => (
             <button
               key={category}
               type="button"
               onClick={() => setActiveCategory(category)}
-              className={`inline-flex min-h-7 items-center leading-none text-sm font-medium transition-colors ${
-                activeCategory === category ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
+                activeCategory === category
+                  ? 'font-semibold text-[var(--text-primary)]'
+                  : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
               }`}
             >
               {category}
@@ -179,7 +209,29 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
         icon={<SectionIconSkill />}
         title={`${activeCategory} (${displayedSkillItems.length})`}
         subtitle="已安装技能"
-        items={displayedSkillItems}
+        headerSlotClassName="mt-0 py-6"
+        titleActionSlot={
+          onImport ? (
+            <button
+              type="button"
+              onClick={onImport}
+              className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
+            >
+              {IMPORT_LABEL}
+            </button>
+          ) : undefined
+        }
+        headerSlot={(
+          <input
+            type="search"
+            aria-label={SKILL_SEARCH_ARIA_LABEL}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={SKILL_SEARCH_PLACEHOLDER}
+            className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+          />
+        )}
+        items={filteredDisplayedSkillItems}
         catFamilies={catFamilies}
         toggling={toggling}
         onToggle={handleToggle}
@@ -206,19 +258,6 @@ export function HubCapabilityTab({ hideSkillMountStatus }: { hideSkillMountStatu
           <p className="mt-1 max-w-[220px] text-xs text-[var(--text-muted)]">请检查 Skills 配置，或切换分类后重试。</p>
         </div>
       )}
-
-      <div className="mt-4">
-        <div className="flex items-center justify-end text-xs text-[var(--text-muted)]">
-          <span className="flex gap-3">
-            <span className="flex items-center gap-1.5">
-              <StatusDot status="connected" /> {displayedSkillItems.filter((item) => item.connectionStatus === 'connected').length} 活跃
-            </span>
-            <span>
-              Skill: <strong className="font-medium text-[var(--text-secondary)]">{displayedSkillItems.length}</strong>
-            </span>
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

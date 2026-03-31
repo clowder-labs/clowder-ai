@@ -140,7 +140,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-bold text-gray-800 mb-5">上传 Skill</h3>
+        <h3 className="text-sm font-bold mb-5">上传 Skill</h3>
 
         {/* Name input */}
         <div className="mb-4">

@@ -133,6 +133,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
 
     userInfo.userId = `${domainName}:${name ?? ''}`;
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
+    userInfo.token = tokenResult.token ?? '';
     userInfo.modelInfo = modelInfo ?? {};
     secureConfig.set(userInfo.userId, userInfo.expiresAt);
     secureConfig.set(`${userInfo.userId}-new`, userInfo);

@@ -108,9 +108,9 @@ function SkillArtwork({ name }: { name: string }) {
   return (
     <div
       aria-hidden="true"
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-soft)] bg-[var(--accent-soft)] shadow-sm"
+      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-soft)] shadow-sm"
     >
-      <span className="text-base font-bold text-[var(--text-accent)]">{initial}</span>
+      <span className="text-xl font-bold text-[var(--text-accent)]">{initial}</span>
     </div>
   );
 }
@@ -124,6 +124,9 @@ function getSourceLabel(source: CapabilityBoardItem['source']): string {
 export function CapabilitySection({
   title,
   subtitle: _subtitle,
+  headerSlot,
+  headerSlotClassName,
+  titleActionSlot,
   items,
   catFamilies,
   toggling,
@@ -134,6 +137,9 @@ export function CapabilitySection({
   icon: ReactNode;
   title: string;
   subtitle: string;
+  headerSlot?: ReactNode;
+  headerSlotClassName?: string;
+  titleActionSlot?: ReactNode;
   items: CapabilityBoardItem[];
   catFamilies: CatFamily[];
   toggling: string | null;
@@ -144,9 +150,13 @@ export function CapabilitySection({
   if (items.length === 0) return null;
 
   return (
-    <div className="mb-6">
-      <div className="mb-3 flex items-center gap-3 pl-1">
-        <p className="text-[20px] font-semibold">{title}</p>
+    <div className="mb-6 pt-6">
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[20px] font-semibold">{title}</p>
+          {titleActionSlot ? <div className="shrink-0">{titleActionSlot}</div> : null}
+        </div>
+        {headerSlot ? <div className={headerSlotClassName ?? 'mt-3'}>{headerSlot}</div> : null}
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
@@ -199,7 +209,6 @@ function CapabilityCard({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
             <span className="ui-badge-muted">{item.category?.trim() || '未分类'}</span>
-            <span className="ui-badge-muted">{item.type === 'mcp' ? 'MCP' : 'Skill'}</span>
           </div>
         </div>
       </div>
@@ -221,7 +230,7 @@ function CapabilityCard({
                   event.stopPropagation();
                   onUninstall?.(item.id);
                 }}
-                className="absolute left-0 top-0 opacity-0 text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
+                className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
               >
                 删除
               </button>
@@ -229,11 +238,6 @@ function CapabilityCard({
           ) : (
             <span className="text-[var(--text-muted)]">来源：{sourceLabel}</span>
           )}
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-          <span>启用状态</span>
-          <ToggleSwitch enabled={item.enabled} disabled={isToggling} onChange={(value) => onToggle(item.id, item.type, value)} />
         </div>
       </div>
     </div>
@@ -249,51 +253,6 @@ export function StatusDot({ status }: { status: 'connected' | 'disconnected' | '
         : 'bg-[var(--text-muted)]';
   const label = status === 'connected' ? '已连接' : status === 'disconnected' ? '掉线' : '未知';
   return <span className={`inline-block h-2 w-2 rounded-full ${color}`} title={label} />;
-}
-
-function ToggleSwitch({
-  enabled,
-  disabled,
-  size = 'md',
-  onChange,
-}: {
-  enabled: boolean;
-  disabled?: boolean;
-  size?: 'sm' | 'md';
-  onChange: (value: boolean) => void;
-}) {
-  const isSm = size === 'sm';
-  return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        onChange(!enabled);
-      }}
-      disabled={disabled}
-      className={`relative box-content shrink-0 rounded-full border-[3px] border-transparent transition-[background-color,opacity] duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-accent)] focus-visible:ring-offset-2 ${
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:opacity-90'
-      } ${enabled ? 'bg-[var(--accent-primary)]' : 'bg-[var(--border-strong)]'} ${isSm ? 'h-3.5 w-7' : 'h-5 w-10'}`}
-    >
-      <span
-        className={`absolute top-0 flex items-center justify-center rounded-full bg-white ring-1 ring-black/5 transition-transform duration-300 ease-in-out ${
-          isSm ? 'h-3.5 w-3.5' : 'h-5 w-5'
-        } ${enabled ? (isSm ? 'translate-x-[14px]' : 'translate-x-[20px]') : 'translate-x-0'}`}
-      >
-        {enabled && !isSm && (
-          <svg className="h-2.5 w-2.5 text-[var(--text-accent)]" viewBox="0 0 12 12" fill="none">
-            <path
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3.5 6.5l2 2 3-4"
-            />
-          </svg>
-        )}
-      </span>
-    </button>
-  );
 }
 
 export function SkillHealthBanner({ health, items }: { health: SkillHealthSummary; items?: CapabilityBoardItem[] }) {
