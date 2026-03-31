@@ -93,6 +93,8 @@ export interface CatVariant {
    *  Used with api_key auth — runtime assembles `ocProviderName/defaultModel` for the -m flag
    *  and generates an OPENCODE_CONFIG runtime config file for the provider. */
   readonly ocProviderName?: string;
+  /** Embedded ACP runtime executable override (relative paths resolve from project root). */
+  readonly embeddedAcpExecutablePath?: string;
 }
 
 /**

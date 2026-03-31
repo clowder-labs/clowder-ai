@@ -93,6 +93,8 @@ export {
   CAT_CONFIGS,
   findCatByMention,
   getAllCatIds,
+  resolveEmbeddedRuntimeKind,
+  usesEmbeddedAcpRuntime,
 } from './cat.js';
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
