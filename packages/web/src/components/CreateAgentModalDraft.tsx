@@ -255,6 +255,10 @@ export function buildDefaultCreateForm(
       selectedModel?.client === 'opencode' && selectedModel.authType === 'api_key'
         ? selectedModel.providerName ?? ''
         : '',
+    embeddedAcpExecutablePath: '',
+    embeddedAcpArgs: '',
+    embeddedAcpCwd: '',
+    embeddedAcpEnvText: '',
     sessionChain: 'true',
     maxPromptTokens: '',
     maxContextTokens: '',
@@ -539,10 +543,16 @@ export function CreateAgentModalDraft({
     setSaving(true);
     setError(null);
     try {
-      const formState = cat
-        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel)
-        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedModel);
-      const payload = buildCatPayload(formState, cat);
+      let formState: HubCatEditorFormState;
+      if (cat) {
+        formState = buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel);
+      } else {
+        formState = buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedModel);
+      }
+      const payload = (buildCatPayload as (form: HubCatEditorFormState, cat?: CatData | null) => Record<string, unknown>)(
+        formState,
+        cat,
+      );
       const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
         method: cat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
