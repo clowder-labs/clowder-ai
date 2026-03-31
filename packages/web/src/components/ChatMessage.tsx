@@ -97,6 +97,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
     : message.variant === 'error'
       ? ('failed' as const)
       : ('done' as const);
+  const thinkingLabel = cliStatus === 'done' ? '完成深度思考' : '深度思考中';
 
   if (isSummary && message.summary) {
     return (
@@ -192,7 +193,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             </span>
           </div>
           <div
-            className={`rounded-2xl rounded-br-sm px-4 py-3 ${
+            className={`rounded-[24px] rounded-tr-sm px-4 py-3 ${
               isWhisper && !isRevealed ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-300' : ''
             }`}
             style={
@@ -250,7 +251,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   }
 
   return (
-    <div data-message-id={message.id} className="answer-group group flex gap-2 mb-4 items-start">
+    <div data-message-id={message.id} className="answer-group group flex gap-3 mb-4 items-start">
       {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
       <div className="answer-container  max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
@@ -323,7 +324,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           </div>
         )}
         <div
-          className={`answer-body py-3 overflow-hidden ${
+          className={`answer-body overflow-hidden ${
             catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200 rounded-2xl'
           }`}
         >
@@ -339,7 +340,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               status={cliStatus}
               content={message.thinking}
               className={catStyle?.font}
-              label="Thinking"
+              label={thinkingLabel}
               defaultExpanded={uiThinkingExpandedByDefault}
               expandInExport={false}
               breedColor={catData?.color.primary}
@@ -361,6 +362,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
           )}
         </div>
+        <div style={{ display: 'none', height: 1, backgroundColor: 'rgb(240, 240, 240)', margin: '8px 0' }} />
         {!message.isStreaming && message.metadata && <MetadataBadge metadata={message.metadata} />}
       </div>
     </div>

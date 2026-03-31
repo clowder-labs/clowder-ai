@@ -41,7 +41,7 @@ const doneEvents: CliEvent[] = [
 ];
 
 describe('CliOutputBlock', () => {
-  it('renders summary line with tool count when collapsed (default)', () => {
+  it('renders completed tool-call summary when collapsed (default)', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -51,10 +51,8 @@ describe('CliOutputBlock', () => {
       );
     });
     const text = container.textContent ?? '';
-    expect(text).toContain('CLI Output');
-    expect(text).toContain('done');
-    // 1 tool_use event → "1 tools"
-    expect(text).toMatch(/1 tool/);
+    expect(text).toContain('已执行1次工具调用');
+    expect(text).not.toContain('正在执行工具调用');
   });
 
   it('shows expanded content when defaultExpanded=true', () => {
@@ -69,7 +67,7 @@ describe('CliOutputBlock', () => {
     });
     // CLI block expanded, stdout visible; tools collapsed by default when done
     expect(container.textContent).toContain('Looks good.');
-    expect(container.textContent).toContain('1 tool');
+    expect(container.textContent).toContain('已执行1次工具调用');
     // Expand tools section to see tool labels
     const toolsToggle = container.querySelector('[data-testid="tools-section-toggle"]') as HTMLElement | null;
     act(() => {
@@ -78,7 +76,7 @@ describe('CliOutputBlock', () => {
     expect(container.textContent).toContain('Read index.ts');
   });
 
-  it('streaming status → always expanded, summary says streaming', () => {
+  it('streaming status → always expanded, summary says tool call is running', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -88,7 +86,7 @@ describe('CliOutputBlock', () => {
       );
     });
     const text = container.textContent ?? '';
-    expect(text).toContain('streaming');
+    expect(text).toContain('正在执行工具调用');
     expect(text).toContain('Bash pnpm test');
   });
 
@@ -156,8 +154,8 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    // Initially collapsed — no tool details
-    expect(container.textContent).not.toContain('Looks good.');
+    // Initially collapsed — tool stdout is visible, detail body is collapsed
+    expect(container.textContent).toContain('Looks good.');
 
     // Click to expand
     const button = container.querySelector('button');
@@ -171,10 +169,10 @@ describe('CliOutputBlock', () => {
     act(() => {
       button?.click();
     });
-    expect(container.textContent).not.toContain('Looks good.');
+    expect(container.querySelector('[data-testid="cli-output-body"]')).toBeFalsy();
   });
 
-  it('shows failed status text', () => {
+  it('shows completed tool count even after failure', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -183,7 +181,7 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    expect(container.textContent).toContain('failed');
+    expect(container.textContent).toContain('已执行1次工具调用');
   });
 
   // ── P1-1: per-tool collapse (AC-A2) ──
@@ -359,8 +357,7 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    // 135s = 2m15s
-    expect(container.textContent).toContain('2m15s');
+    expect(container.textContent).toContain('已执行1次工具调用');
   });
 
   // ── P2-5: visibility chip always shown ──

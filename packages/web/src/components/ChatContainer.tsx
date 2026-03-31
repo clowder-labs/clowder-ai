@@ -513,7 +513,7 @@ function ThreadModeChatContainer({ threadId }: { threadId: string }) {
             >
               {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
               {!hasMore && messages.length > 0 && (
-                <div className="text-center py-3 text-xs text-gray-300">没有更多消息...</div>
+                <div className="text-center py-3 text-xs text-gray-300 hidden">没有更多消息...</div>
               )}
               {messages.length === 0 && !isLoadingHistory ? (
                 <ChatEmptyState
