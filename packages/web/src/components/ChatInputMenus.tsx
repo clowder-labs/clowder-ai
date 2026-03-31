@@ -116,7 +116,7 @@ export function ChatInputMenus({
           ref={menuRef}
           className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-[200px] z-10 flex flex-col p-2"
         >
-          <div className="px-1 pt-0 pb-2 border-b border-gray-100">
+          <div className="px-1 pt-0 pb-2">
             <div className="relative">
               <svg
                 className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
@@ -136,7 +136,7 @@ export function ChatInputMenus({
               />
             </div>
           </div>
-          <div ref={scrollRef} className="max-h-[220px] overflow-y-auto flex-1 pt-1">
+          <div ref={scrollRef} className="max-h-[220px] overflow-y-auto flex-1 border-0">
             {catOptions.map((opt, i) => (
               <button
                 key={opt.id}
