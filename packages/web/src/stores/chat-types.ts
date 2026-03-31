@@ -173,6 +173,8 @@ export interface RichFileBlock {
   fileName: string;
   mimeType?: string;
   fileSize?: number;
+  worktreeId?: string;
+  workspacePath?: string;
 }
 
 /** F120 Phase C: Inline HTML/JS widget rendered in sandboxed iframe (srcdoc) */

@@ -19,7 +19,8 @@ import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { dirname, extname, join, relative } from 'node:path';
+import { homedir } from 'node:os';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import {
@@ -39,6 +40,8 @@ const MAX_FILE_SIZE = 1024 * 1024; // 1 MB text preview
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB image preview
 const MAX_SEARCH_RESULTS = 100;
 const MAX_TREE_DEPTH = 5;
+const LOCAL_AGENT_ROOT = resolve(homedir(), '.jiuwenclaw', 'agent');
+const LOCAL_AGENT_PRESENTATION_EXTS = new Set(['.ppt', '.pptx']);
 
 const MIME_MAP: Record<string, string> = {
   '.ts': 'text/typescript',
@@ -56,6 +59,13 @@ const MIME_MAP: Record<string, string> = {
   '.gif': 'image/gif',
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.yaml': 'text/yaml',
   '.yml': 'text/yaml',
   '.toml': 'text/toml',
@@ -79,6 +89,11 @@ function guessMime(filepath: string): string {
 
 function sha256(content: string): string {
   return createHash('sha256').update(content).digest('hex');
+}
+
+function isPathWithinRoot(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
 interface TreeNode {
@@ -277,6 +292,47 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       }
       reply.header('Content-Type', mime);
       reply.header('Content-Length', fileStat.size);
+      reply.header('Cache-Control', 'private, max-age=60');
+      return reply.send(createReadStream(resolved));
+    } catch (e) {
+      if (e instanceof WorkspaceSecurityError) {
+        reply.status(e.code === 'NOT_FOUND' ? 404 : 403);
+        return { error: e.message };
+      }
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'File not found' };
+      }
+      reply.status(500);
+      return { error: 'Internal error' };
+    }
+  });
+
+  // GET /api/workspace/download?worktreeId=&path= — download any workspace file as attachment
+  app.get<{
+    Querystring: { worktreeId?: string; path?: string };
+  }>('/api/workspace/download', async (request, reply) => {
+    const { worktreeId, path: filePath } = request.query;
+    if (!worktreeId || !filePath) {
+      reply.status(400);
+      return { error: 'worktreeId and path required' };
+    }
+
+    try {
+      const root = await getWorktreeRoot(worktreeId);
+      const resolved = await resolveWorkspacePath(root, filePath);
+      const fileStat = await stat(resolved);
+
+      if (fileStat.isDirectory()) {
+        reply.status(400);
+        return { error: 'Path is a directory' };
+      }
+
+      const fileName = basename(resolved);
+      const mime = guessMime(resolved);
+      reply.header('Content-Type', mime);
+      reply.header('Content-Length', fileStat.size);
+      reply.header('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
       reply.header('Cache-Control', 'private, max-age=60');
       return reply.send(createReadStream(resolved));
     } catch (e) {
@@ -645,7 +701,92 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
     }
   });
 
+  // POST /api/workspace/open — open file/directory in the system default app
+  app.post<{
+    Body: { worktreeId?: string; path?: string };
+  }>('/api/workspace/open', async (request, reply) => {
+    const { worktreeId, path: filePath } = request.body ?? {};
+    if (!worktreeId || !filePath) {
+      reply.status(400);
+      return { error: 'worktreeId and path required' };
+    }
+    try {
+      const root = await getWorktreeRoot(worktreeId);
+      const resolved = await resolveWorkspacePath(root, filePath);
+      await stat(resolved);
+
+      if (process.platform === 'darwin') {
+        await execFileAsync('open', [resolved], { timeout: 5000 });
+      } else if (process.platform === 'win32') {
+        await execFileAsync('cmd', ['/c', 'start', '', resolved], { timeout: 5000 });
+      } else {
+        await execFileAsync('xdg-open', [resolved], { timeout: 5000 });
+      }
+      return { ok: true };
+    } catch (e) {
+      if (e instanceof WorkspaceSecurityError) {
+        reply.status(e.code === 'NOT_FOUND' ? 404 : 403);
+        return { error: e.message };
+      }
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'File not found' };
+      }
+      reply.status(500);
+      return { error: 'Failed to open file' };
+    }
+  });
+
   // POST /api/workspace/navigate — F131: cat-initiated workspace panel navigation
+  app.post<{
+    Body: { path?: string };
+  }>('/api/workspace/open-local', async (request, reply) => {
+    const { path: filePath } = request.body ?? {};
+    if (!filePath) {
+      reply.status(400);
+      return { error: 'path required' };
+    }
+    if (!isAbsolute(filePath)) {
+      reply.status(400);
+      return { error: 'path must be an absolute path' };
+    }
+
+    const resolved = resolve(filePath);
+    const extension = extname(resolved).toLowerCase();
+    if (!LOCAL_AGENT_PRESENTATION_EXTS.has(extension)) {
+      reply.status(400);
+      return { error: 'Only PPT/PPTX files are supported' };
+    }
+    if (!isPathWithinRoot(LOCAL_AGENT_ROOT, resolved)) {
+      reply.status(403);
+      return { error: `Only files inside ${LOCAL_AGENT_ROOT} can be opened` };
+    }
+
+    try {
+      const targetStat = await stat(resolved);
+      if (!targetStat.isFile()) {
+        reply.status(400);
+        return { error: 'path must point to a file' };
+      }
+
+      if (process.platform === 'darwin') {
+        await execFileAsync('open', [resolved], { timeout: 5000 });
+      } else if (process.platform === 'win32') {
+        await execFileAsync('cmd', ['/c', 'start', '', resolved], { timeout: 5000 });
+      } else {
+        await execFileAsync('xdg-open', [resolved], { timeout: 5000 });
+      }
+      return { ok: true };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'File not found' };
+      }
+      reply.status(500);
+      return { error: 'Failed to open local file' };
+    }
+  });
+
   app.post<{
     Body: { worktreeId?: string; path?: string; action?: 'reveal' | 'open'; line?: number; threadId?: string };
   }>('/api/workspace/navigate', async (request, reply) => {
