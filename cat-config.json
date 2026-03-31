@@ -41,7 +41,7 @@
       "name": "通用智能体",
       "displayName": "通用智能体",
       "nickname": "小理",
-      "avatar": "/avatars/assistant.svg",
+      "avatar": "/avatars/agent-avatar-1.png",
       "color": {
         "primary": "#E8913A",
         "secondary": "#FFF0DD"
@@ -78,7 +78,7 @@
       "name": "办公智能体",
       "displayName": "办公智能体",
       "nickname": "小九",
-      "avatar": "/avatars/office.svg",
+      "avatar": "/avatars/agent-avatar-2.png",
       "color": {
         "primary": "#2B5797",
         "secondary": "#C0D0E8"
@@ -116,7 +116,7 @@
       "name": "编码智能体",
       "displayName": "编码智能体",
       "nickname": "小码",
-      "avatar": "/avatars/agentteams.png",
+      "avatar": "/avatars/agent-avatar-3.png",
       "color": {
         "primary": "#4CAF50",
         "secondary": "#E8F5E9"
