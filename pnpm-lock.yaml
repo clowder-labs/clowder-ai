@@ -314,6 +314,28 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@20.19.31)(jiti@1.21.7)(jsdom@28.0.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/xinsheng-mcp:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.0.0
+        version: 1.26.0(zod@3.25.76)
+      puppeteer:
+        specifier: ^24.37.2
+        version: 24.38.0(typescript@5.9.3)
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.31
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
 packages:
 
   '@acemir/cssom@0.9.31':
