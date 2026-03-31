@@ -90,15 +90,15 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     ],
   },
   {
-    id: 'telegram',
-    name: 'Telegram',
-    nameEn: 'Telegram',
-    fields: [{ envName: 'TELEGRAM_BOT_TOKEN', label: 'Bot Token', sensitive: true }],
-    docsUrl: 'https://core.telegram.org/bots/tutorial',
+    id: 'weixin',
+    name: '微信',
+    nameEn: 'WeChat Personal',
+    fields: [],
+    docsUrl: 'https://chatbot.weixin.qq.com/',
     steps: [
-      { text: '在 Telegram 中找到 @BotFather，发送 /newbot 创建机器人' },
-      { text: '复制生成的 Bot Token' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '点击「生成二维码」按钮' },
+      { text: '使用微信扫描二维码并确认授权' },
+      { text: '授权成功后自动连接，无需重启服务' },
     ],
   },
   {
@@ -114,18 +114,6 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { text: '在钉钉开放平台创建企业内部应用，获取 App Key 和 App Secret' },
       { text: '在「机器人与消息推送」中开启机器人能力' },
       { text: '填写以下配置并保存，重启 API 服务后生效' },
-    ],
-  },
-  {
-    id: 'weixin',
-    name: '微信',
-    nameEn: 'WeChat Personal',
-    fields: [],
-    docsUrl: 'https://chatbot.weixin.qq.com/',
-    steps: [
-      { text: '点击「生成二维码」按钮' },
-      { text: '使用微信扫描二维码并确认授权' },
-      { text: '授权成功后自动连接，无需重启服务' },
     ],
   },
   {
