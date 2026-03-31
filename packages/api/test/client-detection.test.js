@@ -40,8 +40,8 @@ test('detectAvailableClients marks ACP available only when bundled agent-teams r
   const oldAllowedClients = process.env.CAT_CAFE_ALLOWED_CLIENTS;
 
   try {
-    mkdirSync(join(projectRoot, 'tools', 'python', 'Scripts'), { recursive: true });
-    writeFileSync(join(projectRoot, 'tools', 'python', 'Scripts', 'agent-teams.exe'), '', 'utf8');
+    mkdirSync(join(projectRoot, 'tools', 'python'), { recursive: true });
+    writeFileSync(join(projectRoot, 'tools', 'python', 'python.exe'), '', 'utf8');
     writeFileSync(join(projectRoot, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf8');
 
     process.chdir(projectRoot);
@@ -53,7 +53,7 @@ test('detectAvailableClients marks ACP available only when bundled agent-teams r
     assert.equal(clients.length, 1);
     assert.equal(clients[0].id, 'acp');
     assert.equal(clients[0].available, true);
-    assert.match(clients[0].command, /agent-teams\.exe gateway acp stdio$/);
+    assert.match(clients[0].command, /python\.exe -m agent_teams gateway acp stdio$/);
   } finally {
     process.chdir(previousCwd);
     if (oldAllowedClients === undefined) delete process.env.CAT_CAFE_ALLOWED_CLIENTS;

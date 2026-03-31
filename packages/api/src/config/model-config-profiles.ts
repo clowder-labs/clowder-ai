@@ -217,6 +217,27 @@ export async function findProjectModelConfigBinding(
   return bindings.find((binding) => binding.id === trimmedRef) ?? null;
 }
 
+export async function deleteProjectModelConfigSource(projectRoot: string, sourceId: string): Promise<boolean> {
+  const trimmedId = sourceId.trim();
+  if (!trimmedId) {
+    throw new Error('model config source id is required');
+  }
+  if (trimmedId === HUAWEI_MAAS_MODEL_SOURCE_ID) {
+    throw new Error(`model config source "${HUAWEI_MAAS_MODEL_SOURCE_ID}" cannot be deleted`);
+  }
+
+  const existingDocument = await readProjectModelConfigDocument(projectRoot);
+  if (!existingDocument || existingDocument[trimmedId] === undefined) {
+    return false;
+  }
+
+  delete existingDocument[trimmedId];
+  const filePath = resolveProjectModelConfigPath(projectRoot);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(existingDocument, null, 2)}\n`, 'utf-8');
+  return true;
+}
+
 export async function readProjectModelConfigProfileViews(projectRoot: string): Promise<ProviderProfileView[] | null> {
   const bindings = await readProjectModelConfigBindings(projectRoot);
   if (!bindings) return null;
