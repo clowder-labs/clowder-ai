@@ -694,12 +694,8 @@ export function ChatInput({
                 placeholder={
                   whisperMode ? '悄悄话...' : hasActiveInvocation ? '继续输入，消息会排队...' : '输入消息... (@ 召唤猫猫)'
                 }
-                className={`block h-[100px] w-full resize-none rounded-xl border p-3 pr-24 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
-                  whisperMode
-                    ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
-                    : 'border-cocreator-light bg-white focus:ring-cocreator-primary'
-                }`}
-                style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                className={`block h-[100px] w-full resize-none rounded-xl border p-3 pr-24 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400`}
+                style={{ borderColor: 'rgba(219,219,219,1)' }}
                 rows={1}
                 disabled={disabled}
               >
