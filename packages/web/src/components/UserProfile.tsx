@@ -25,8 +25,7 @@ const THEME_OPTIONS: Array<{
   {
     id: 'warm',
     label: '橙白浅色',
-    swatchBackground:
-      'linear-gradient(-65.45deg, rgba(123, 72, 255, 1), rgba(200, 27, 181, 0.74) 24%, rgba(255, 100, 84, 0.44) 50%, rgba(255, 119, 49, 0.35) 72%, rgba(255, 92, 12, 1) 100%)',
+    swatchBackground: '#f6d7c6',
   },
 ];
 
