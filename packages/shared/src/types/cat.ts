@@ -40,6 +40,27 @@ export interface CatColor {
   readonly secondary: string;
 }
 
+export type EmbeddedRuntimeKind = 'agentteams_acp';
+
+const EMBEDDED_RUNTIME_SEEDS: Readonly<Record<string, { provider: string; kind: EmbeddedRuntimeKind }>> = {
+  agentteams: { provider: 'acp', kind: 'agentteams_acp' },
+};
+
+export function resolveEmbeddedRuntimeKind(input: {
+  id?: string | null;
+  provider?: string | null;
+  source?: string | null;
+}): EmbeddedRuntimeKind | null {
+  if (input.source === 'runtime') return null;
+  const entry = input.id ? EMBEDDED_RUNTIME_SEEDS[input.id] : undefined;
+  if (!entry) return null;
+  return entry.kind;
+}
+
+export function usesEmbeddedAcpRuntime(input: { id?: string | null; provider?: string | null; source?: string | null }): boolean {
+  return resolveEmbeddedRuntimeKind(input) === 'agentteams_acp';
+}
+
 /**
  * Cat configuration (immutable)
  */
@@ -80,6 +101,8 @@ export interface CatConfig {
   readonly cliConfigArgs?: readonly string[];
   /** F189: OpenCode custom provider name for api_key routing (runtime assembles provider/model). */
   readonly ocProviderName?: string;
+  /** Embedded ACP runtime executable override (relative paths resolve from project root). */
+  readonly embeddedAcpExecutablePath?: string;
 }
 
 /**

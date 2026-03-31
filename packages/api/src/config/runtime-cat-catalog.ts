@@ -41,6 +41,7 @@ export interface RuntimeCatInput {
   cliConfigArgs?: string[];
   contextBudget?: ContextBudget;
   ocProviderName?: string;
+  embeddedAcpExecutablePath?: string;
 }
 
 export interface RuntimeCatUpdate {
@@ -65,6 +66,7 @@ export interface RuntimeCatUpdate {
   cliConfigArgs?: string[];
   contextBudget?: ContextBudget | null;
   ocProviderName?: string | null;
+  embeddedAcpExecutablePath?: string | null;
   available?: boolean;
 }
 
@@ -225,6 +227,7 @@ function createBreedFromInput(input: RuntimeCatInput): CatBreed {
         ...(input.cliConfigArgs && input.cliConfigArgs.length > 0 ? { cliConfigArgs: input.cliConfigArgs } : {}),
         ...(input.contextBudget ? { contextBudget: input.contextBudget } : {}),
         ...(input.ocProviderName ? { ocProviderName: input.ocProviderName } : {}),
+        ...(input.embeddedAcpExecutablePath ? { embeddedAcpExecutablePath: input.embeddedAcpExecutablePath } : {}),
         ...(input.personality != null && input.personality.trim().length > 0 ? { personality: input.personality } : {}),
         ...(input.teamStrengths != null && input.teamStrengths.trim().length > 0
           ? { teamStrengths: input.teamStrengths.trim() }
@@ -416,6 +419,13 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
       variant.ocProviderName = patch.ocProviderName;
     } else {
       delete variant.ocProviderName;
+    }
+  }
+  if (patch.embeddedAcpExecutablePath !== undefined) {
+    if (patch.embeddedAcpExecutablePath) {
+      variant.embeddedAcpExecutablePath = patch.embeddedAcpExecutablePath;
+    } else {
+      delete variant.embeddedAcpExecutablePath;
     }
   }
   if (patch.available !== undefined && catalog.version === 2) {
