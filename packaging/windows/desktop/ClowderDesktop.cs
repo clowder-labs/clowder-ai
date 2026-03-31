@@ -21,8 +21,6 @@ internal static class Program
     [DllImport("shcore.dll", SetLastError = true)]
     private static extern int SetProcessDpiAwareness(int awareness);
 
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
@@ -33,6 +31,10 @@ internal static class Program
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hWnd);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    internal const uint WM_SHOWOFFICECLAW = 0x8001;
     private const int SW_RESTORE = 9;
     private const int SW_SHOW = 5;
 
@@ -52,22 +54,34 @@ internal static class Program
 
     private static void ActivateExistingInstance()
     {
-        var hWnd = FindWindow(null, "OfficeClaw");
-        if (hWnd == IntPtr.Zero)
+        var currentProcess = Process.GetCurrentProcess();
+        foreach (var process in Process.GetProcessesByName(currentProcess.ProcessName))
         {
+            if (process.Id == currentProcess.Id)
+            {
+                continue;
+            }
+
+            var hWnd = process.MainWindowHandle;
+            if (hWnd == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            SendMessage(hWnd, WM_SHOWOFFICECLAW, IntPtr.Zero, IntPtr.Zero);
+
+            if (IsIconic(hWnd))
+            {
+                ShowWindow(hWnd, SW_RESTORE);
+            }
+            else
+            {
+                ShowWindow(hWnd, SW_SHOW);
+            }
+
+            SetForegroundWindow(hWnd);
             return;
         }
-
-        if (IsIconic(hWnd))
-        {
-            ShowWindow(hWnd, SW_RESTORE);
-        }
-        else
-        {
-            ShowWindow(hWnd, SW_SHOW);
-        }
-
-        SetForegroundWindow(hWnd);
     }
 
     [STAThread]
@@ -119,7 +133,8 @@ internal sealed class LauncherForm : Form
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
-        Text = "OfficeClaw";
+        Text = string.Empty;
+        ShowIcon = false;
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
@@ -313,6 +328,17 @@ internal sealed class LauncherForm : Form
         ShowInTaskbar = true;
         WindowState = FormWindowState.Normal;
         Activate();
+    }
+
+    protected override void WndProc(ref Message message)
+    {
+        if (message.Msg == Program.WM_SHOWOFFICECLAW)
+        {
+            RestoreFromTray();
+            return;
+        }
+
+        base.WndProc(ref message);
     }
 
     private void RequestExit()

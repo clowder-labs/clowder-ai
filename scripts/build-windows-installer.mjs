@@ -1376,6 +1376,14 @@ function invokeMakensis(installerScript, outputExe, payloadTar, version) {
   ]);
 }
 
+function stageWindowsDesktopAssets(bundleDir) {
+  logStep('Staging desktop assets');
+  const assetsSource = join(repoRoot, 'packaging', 'windows', 'assets');
+  if (existsSync(assetsSource)) {
+    cpSync(assetsSource, join(bundleDir, 'assets'), { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const bundleDir = join(options.outputDir, 'bundle');
@@ -1409,17 +1417,7 @@ async function main() {
     }
     logStep('Building WebView2 desktop launcher');
     buildWindowsDesktopLauncher(bundleDir, options);
-    logStep('Staging desktop assets');
-    const assetsTarget = join(bundleDir, 'assets');
-    ensureDir(assetsTarget);
-    const desktopSplashSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg');
-    if (existsSync(desktopSplashSource)) {
-      cpSync(desktopSplashSource, join(assetsTarget, 'splash.jpg'), { force: true });
-    }
-    const appIconSource = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
-    if (existsSync(appIconSource)) {
-      cpSync(appIconSource, join(assetsTarget, 'app.ico'), { force: true });
-    }
+    stageWindowsDesktopAssets(bundleDir);
     logStep(`Launcher rebuilt in ${bundleDir}`);
     return;
   }
@@ -1479,17 +1477,7 @@ async function main() {
   logStep('Building WebView2 desktop launcher');
   buildWindowsDesktopLauncher(bundleDir, options);
 
-  logStep('Staging desktop assets');
-  const assetsTarget = join(bundleDir, 'assets');
-  ensureDir(assetsTarget);
-  const desktopSplashSource = join(repoRoot, 'packaging', 'windows', 'desktop', 'splash.jpg');
-  if (existsSync(desktopSplashSource)) {
-    cpSync(desktopSplashSource, join(assetsTarget, 'splash.jpg'), { force: true });
-  }
-  const appIconSource = join(repoRoot, 'packaging', 'windows', 'assets', 'app.ico');
-  if (existsSync(appIconSource)) {
-    cpSync(appIconSource, join(assetsTarget, 'app.ico'), { force: true });
-  }
+  stageWindowsDesktopAssets(bundleDir);
 
   logStep('Finalizing runtime bundle');
   ensureRuntimeSkeleton(bundleDir);
