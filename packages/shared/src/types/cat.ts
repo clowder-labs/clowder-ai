@@ -3,7 +3,7 @@
  * 三只 AI 猫猫的类型定义和配置
  */
 
-import type { ContextBudget } from './cat-breed.js';
+import type { ContextBudget, EmbeddedAcpConfig } from './cat-breed.js';
 import type { CatId, SessionId } from './ids.js';
 import { createCatId } from './ids.js';
 
@@ -103,6 +103,8 @@ export interface CatConfig {
   readonly ocProviderName?: string;
   /** Embedded ACP runtime executable override (relative paths resolve from project root). */
   readonly embeddedAcpExecutablePath?: string;
+  /** Embedded ACP runtime command/env/model overrides. */
+  readonly embeddedAcpConfig?: EmbeddedAcpConfig;
 }
 
 /**

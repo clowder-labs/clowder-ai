@@ -54,6 +54,23 @@ const cliSchema = z.object({
   defaultArgs: z.array(z.string().min(1)).optional(),
 });
 
+const embeddedAcpConfigSchema = z.object({
+  executablePath: z.string().min(1).optional(),
+  args: z.array(z.string().min(1)).optional(),
+  cwd: z.string().min(1).optional(),
+  env: z.record(z.string().min(1), z.string()).optional(),
+  provider: z.enum(['openai_compatible', 'bigmodel', 'minimax', 'echo']).optional(),
+  baseUrl: z.string().min(1).optional(),
+  apiKey: z.string().min(1).optional(),
+  headers: z.record(z.string().min(1), z.string()).optional(),
+  sslVerify: z.boolean().nullable().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  topP: z.number().min(0).max(1).optional(),
+  maxTokens: z.number().positive().optional(),
+  contextWindow: z.number().positive().optional(),
+  connectTimeoutSeconds: z.number().positive().optional(),
+});
+
 const clientSchema = z.enum(['anthropic', 'openai', 'google', 'dare', 'antigravity', 'opencode', 'relayclaw', 'acp']);
 const catIdSchema = z
   .string()
@@ -91,6 +108,7 @@ const createNormalCatSchema = baseCatSchema.extend({
   cliConfigArgs: z.array(z.string().min(1)).optional(),
   ocProviderName: z.string().min(1).optional(),
   embeddedAcpExecutablePath: z.string().min(1).optional(),
+  embeddedAcpConfig: embeddedAcpConfigSchema.optional(),
 });
 
 const createAntigravityCatSchema = baseCatSchema.extend({
@@ -126,6 +144,7 @@ const updateCatSchema = z.object({
   cliConfigArgs: z.array(z.string().min(1)).optional(),
   ocProviderName: z.string().min(1).nullable().optional(),
   embeddedAcpExecutablePath: z.string().min(1).nullable().optional(),
+  embeddedAcpConfig: embeddedAcpConfigSchema.nullable().optional(),
 });
 
 function resolveOperator(raw: unknown): string | null {
@@ -139,6 +158,15 @@ function resolveOperator(raw: unknown): string | null {
 
 function resolveProjectRoot(): string {
   return resolveActiveProjectRoot();
+}
+
+function resolveEmbeddedAcpExecutableOverride(input: {
+  embeddedAcpExecutablePath?: string | null;
+  embeddedAcpConfig?: { executablePath?: string } | null;
+}): string | null | undefined {
+  if (input.embeddedAcpExecutablePath !== undefined) return input.embeddedAcpExecutablePath;
+  const nested = input.embeddedAcpConfig?.executablePath?.trim();
+  return nested ? nested : undefined;
 }
 
 
@@ -353,6 +381,7 @@ async function toCatResponse(
     cliConfigArgs: cat.cliConfigArgs,
     ocProviderName: cat.ocProviderName,
     embeddedAcpExecutablePath: cat.embeddedAcpExecutablePath,
+    embeddedAcpConfig: cat.embeddedAcpConfig,
     variantLabel: cat.variantLabel ?? undefined,
     isDefaultVariant: cat.isDefaultVariant ?? undefined,
     breedDisplayName: cat.breedDisplayName ?? undefined,
@@ -471,8 +500,10 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     const accountRef = resolveAccountRef(body);
     try {
       const ocProviderNameForValidation = 'ocProviderName' in body ? body.ocProviderName : undefined;
-      const embeddedAcpExecutablePathForValidation =
-        'embeddedAcpExecutablePath' in body ? body.embeddedAcpExecutablePath : undefined;
+      const embeddedAcpExecutablePathForValidation = resolveEmbeddedAcpExecutableOverride({
+        embeddedAcpExecutablePath: 'embeddedAcpExecutablePath' in body ? body.embeddedAcpExecutablePath : undefined,
+        embeddedAcpConfig: 'embeddedAcpConfig' in body ? body.embeddedAcpConfig : undefined,
+      });
       await validateAccountBindingOrThrow(
         projectRoot,
         body.catId,
@@ -539,6 +570,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           ...(body.cliConfigArgs ? { cliConfigArgs: body.cliConfigArgs } : {}),
           ...(body.ocProviderName ? { ocProviderName: body.ocProviderName } : {}),
           ...(body.embeddedAcpExecutablePath ? { embeddedAcpExecutablePath: body.embeddedAcpExecutablePath } : {}),
+          ...(body.embeddedAcpConfig ? { embeddedAcpConfig: body.embeddedAcpConfig } : {}),
         });
       }
     } catch (err) {
@@ -598,16 +630,16 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     const effectiveAccountRef =
       nextAccountRef !== undefined ? (nextAccountRef ?? undefined) : currentEffectiveAccountRef;
     const effectiveDefaultModel = body.defaultModel !== undefined ? body.defaultModel : currentCat.defaultModel;
+    const nextEmbeddedAcpExecutablePath = resolveEmbeddedAcpExecutableOverride(body);
     const effectiveEmbeddedAcpExecutablePath =
-      body.embeddedAcpExecutablePath !== undefined
-        ? body.embeddedAcpExecutablePath
-        : currentCat.embeddedAcpExecutablePath;
+      nextEmbeddedAcpExecutablePath !== undefined ? nextEmbeddedAcpExecutablePath : currentCat.embeddedAcpExecutablePath;
     const providerConfigTouched =
       body.client !== undefined ||
       body.defaultModel !== undefined ||
       nextAccountRef !== undefined ||
       body.ocProviderName !== undefined ||
-      body.embeddedAcpExecutablePath !== undefined;
+      body.embeddedAcpExecutablePath !== undefined ||
+      body.embeddedAcpConfig !== undefined;
 
     if (providerConfigTouched) {
       try {
@@ -679,6 +711,11 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
           ? body.embeddedAcpExecutablePath === null
             ? { embeddedAcpExecutablePath: undefined }
             : { embeddedAcpExecutablePath: body.embeddedAcpExecutablePath }
+          : {}),
+        ...(body.embeddedAcpConfig !== undefined
+          ? body.embeddedAcpConfig === null
+            ? { embeddedAcpConfig: null }
+            : { embeddedAcpConfig: body.embeddedAcpConfig }
           : {}),
       });
       const resolved = await reconcileCatRegistry(projectRoot, managedIdsBefore, opts.onCatalogChanged);

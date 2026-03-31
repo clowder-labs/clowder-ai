@@ -35,7 +35,7 @@ const ALL_CLIENTS_RESPONSE = {
     { id: 'dare', label: 'Dare', command: 'dare', available: true },
     { id: 'opencode', label: 'OpenCode', command: 'opencode', available: true },
     { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
-    { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio', available: true },
+    { id: 'acp', label: 'ACP', command: 'tools/python/python.exe -m agent_teams gateway acp stdio', available: true },
     { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: true },
   ],
 };
@@ -627,7 +627,7 @@ describe('HubCatEditor', () => {
               { id: 'dare', label: 'Dare', command: 'dare', available: false },
               { id: 'opencode', label: 'OpenCode', command: 'opencode', available: false },
               { id: 'relayclaw', label: 'jiuwenClaw', command: 'jiuwenclaw-app', available: true },
-              { id: 'acp', label: 'ACP', command: 'agent-teams gateway acp stdio', available: false },
+              { id: 'acp', label: 'ACP', command: 'tools/python/python.exe -m agent_teams gateway acp stdio', available: false },
               { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: false },
             ],
           }),

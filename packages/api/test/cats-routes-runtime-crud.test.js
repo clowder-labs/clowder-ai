@@ -657,6 +657,15 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         accountRef: openAiProfile.id,
         defaultModel: 'gpt-5.4',
         embeddedAcpExecutablePath: 'vendor/agent-teams/agent-teams.exe',
+        embeddedAcpConfig: {
+          executablePath: 'vendor/agent-teams/agent-teams.exe',
+          args: ['--trace', 'gateway', 'acp', 'stdio'],
+          cwd: 'vendor/agent-teams',
+          env: {
+            ACP_TRACE_STDIO: '1',
+            AGENT_TEAMS_LOG_LEVEL: 'debug',
+          },
+        },
       }),
     });
 
@@ -665,6 +674,15 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.equal(patchBody.cat.id, 'agentteams');
     assert.equal(patchBody.cat.accountRef, openAiProfile.id);
     assert.equal(patchBody.cat.embeddedAcpExecutablePath, 'vendor/agent-teams/agent-teams.exe');
+    assert.deepEqual(patchBody.cat.embeddedAcpConfig, {
+      executablePath: 'vendor/agent-teams/agent-teams.exe',
+      args: ['--trace', 'gateway', 'acp', 'stdio'],
+      cwd: 'vendor/agent-teams',
+      env: {
+        ACP_TRACE_STDIO: '1',
+        AGENT_TEAMS_LOG_LEVEL: 'debug',
+      },
+    });
 
     const listRes = await app.inject({ method: 'GET', url: '/api/cats' });
     assert.equal(listRes.statusCode, 200);
@@ -672,14 +690,23 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const agentTeams = listBody.cats.find((cat) => cat.id === 'agentteams');
     assert.ok(agentTeams, 'agentteams should appear in /api/cats');
     assert.equal(agentTeams.embeddedAcpExecutablePath, 'vendor/agent-teams/agent-teams.exe');
+    assert.deepEqual(agentTeams.embeddedAcpConfig, {
+      executablePath: 'vendor/agent-teams/agent-teams.exe',
+      args: ['--trace', 'gateway', 'acp', 'stdio'],
+      cwd: 'vendor/agent-teams',
+      env: {
+        ACP_TRACE_STDIO: '1',
+        AGENT_TEAMS_LOG_LEVEL: 'debug',
+      },
+    });
   });
 
   it('PATCH /api/cats/:id accepts model.json bindings for the embedded Agent Teams seed member', async () => {
     const projectRoot = createProjectRootFromRepoTemplate();
     process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
 
-    mkdirSync(join(projectRoot, 'tools', 'python', 'Scripts'), { recursive: true });
-    writeFileSync(join(projectRoot, 'tools', 'python', 'Scripts', 'agent-teams.exe'), '', 'utf8');
+    mkdirSync(join(projectRoot, 'tools', 'python'), { recursive: true });
+    writeFileSync(join(projectRoot, 'tools', 'python', 'python.exe'), '', 'utf8');
     mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
     writeFileSync(
       join(projectRoot, '.cat-cafe', 'model.json'),
