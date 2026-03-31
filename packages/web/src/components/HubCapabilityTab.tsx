@@ -188,19 +188,21 @@ export function HubCapabilityTab({
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-4">
-          {categoryTabs.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => setActiveCategory(category)}
-              className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
-                activeCategory === category
-                  ? 'font-semibold text-[var(--text-primary)]'
-                  : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-              }`}
-            >
-              {category}
-            </button>
+          {categoryTabs.map((category, index) => (
+            <div key={category} className="flex items-center">
+              {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
+              <button
+                type="button"
+                onClick={() => setActiveCategory(category)}
+                className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
+                  activeCategory === category
+                    ? 'font-semibold text-[var(--text-primary)]'
+                    : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                }`}
+              >
+                {category}
+              </button>
+            </div>
           ))}
         </div>
       </div>
