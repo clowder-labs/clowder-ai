@@ -68,7 +68,13 @@
             "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
-          }
+          },
+          "accountRef": "huawei-maas",
+          "roleDescription": "商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析",
+          "providerProfileId": "huawei-maas",
+          "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
+          "caution": null,
+          "sessionChain": true
         }
       ]
     },
@@ -105,7 +111,13 @@
             "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
-          }
+          },
+          "accountRef": "huawei-maas",
+          "roleDescription": "个人助理，擅长日常问答、信息整理、创意写作和生活建议",
+          "providerProfileId": "huawei-maas",
+          "teamStrengths": "日常问答、信息整理、创意写作、生活建议",
+          "caution": null,
+          "sessionChain": true
         }
       ]
     },

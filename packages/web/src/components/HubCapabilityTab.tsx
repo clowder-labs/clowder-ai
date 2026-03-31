@@ -2,24 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import type {
-  CapabilityBoardItem,
-  CapabilityBoardResponse,
-  CatFamily,
-  ToggleHandler,
-} from './capability-board-ui';
-import {
-  CapabilitySection,
-  SectionIconSkill,
-  StatusDot,
-} from './capability-board-ui';
+import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
+import { CapabilitySection, SectionIconSkill, StatusDot } from './capability-board-ui';
 import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
 import { useConfirm } from './useConfirm';
 import { useProviderProfilesState } from './useProviderProfilesState';
 
 const ALL_CATEGORY = '全部';
-const UNCATEGORIZED = '未分类';
-const ALL_SOURCES = 'all';
+const UNCATEGORIZED = '其他';
 const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
@@ -181,14 +171,7 @@ export function HubCapabilityTab({
     if (!normalizedSearchQuery) return sourceFilteredItems;
     return sourceFilteredItems.filter((item) => {
       const sourceLabel = item.source === 'cat-cafe' ? '官方' : item.source === 'external' ? '三方' : '未知';
-      const haystack = [
-        item.id,
-        item.description ?? '',
-        item.category ?? '',
-        sourceLabel,
-      ]
-        .join(' ')
-        .toLowerCase();
+      const haystack = [item.id, item.description ?? '', item.category ?? '', sourceLabel].join(' ').toLowerCase();
       return haystack.includes(normalizedSearchQuery);
     });
   }, [sourceFilteredItems, normalizedSearchQuery]);

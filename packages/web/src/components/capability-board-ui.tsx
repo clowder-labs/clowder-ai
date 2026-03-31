@@ -208,12 +208,15 @@ function CapabilityCard({
             {item.connectionStatus ? <StatusDot status={item.connectionStatus} /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span className="ui-badge-muted">{item.category?.trim() || '未分类'}</span>
+            <span className="ui-badge-muted">{item.category?.trim() || '其他'}</span>
           </div>
         </div>
       </div>
 
-      <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]" title={resolvedDescription}>
+      <p
+        className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]"
+        title={resolvedDescription}
+      >
         {resolvedDescription}
       </p>
 
@@ -268,14 +271,20 @@ export function SkillHealthBanner({ health, items }: { health: SkillHealthSummar
     }));
 
   return (
-    <div className={`rounded-[var(--radius-md)] border px-3.5 py-2.5 text-xs ${allGood ? 'ui-status-success' : 'ui-status-warning'}`}>
+    <div
+      className={`rounded-[var(--radius-md)] border px-3.5 py-2.5 text-xs ${allGood ? 'ui-status-success' : 'ui-status-warning'}`}
+    >
       <div className="space-y-1">
         <div className="flex items-center gap-3">
           <span className={health.allMounted ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'}>
             {health.allMounted ? '全部挂载正常' : '部分挂载异常'}
           </span>
           <span className="text-[var(--text-subtle)]">/</span>
-          <span className={health.registrationConsistent ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'}>
+          <span
+            className={
+              health.registrationConsistent ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'
+            }
+          >
             {health.registrationConsistent ? '注册一致' : '注册不一致'}
           </span>
         </div>
@@ -283,13 +292,20 @@ export function SkillHealthBanner({ health, items }: { health: SkillHealthSummar
           <div className="space-y-0.5 text-[var(--state-warning-text)]">
             {mountFailures.map((failure) => (
               <p key={failure.id}>
-                <code className="rounded-[var(--radius-xs)] bg-[var(--state-warning-surface)] px-1 text-[10px]">{failure.id}</code> — {failure.failed.join(', ')} 未挂载
+                <code className="rounded-[var(--radius-xs)] bg-[var(--state-warning-surface)] px-1 text-[10px]">
+                  {failure.id}
+                </code>{' '}
+                — {failure.failed.join(', ')} 未挂载
               </p>
             ))}
           </div>
         )}
-        {health.unregistered.length > 0 && <p className="text-[var(--state-warning-text)]">未注册: {health.unregistered.join(', ')}</p>}
-        {health.phantom.length > 0 && <p className="text-[var(--state-warning-text)]">幽灵项: {health.phantom.join(', ')}</p>}
+        {health.unregistered.length > 0 && (
+          <p className="text-[var(--state-warning-text)]">未注册: {health.unregistered.join(', ')}</p>
+        )}
+        {health.phantom.length > 0 && (
+          <p className="text-[var(--state-warning-text)]">幽灵项: {health.phantom.join(', ')}</p>
+        )}
       </div>
     </div>
   );
@@ -350,5 +366,3 @@ export function SectionIconExtension() {
     </div>
   );
 }
-
-
