@@ -570,12 +570,12 @@ function ThreadModeChatContainer({
             <main
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="ui-shell-surface h-full overflow-y-auto p-4"
+              className="ui-shell-surface h-full overflow-y-auto p-4 pt-[60px]"
               data-chat-container
             >
               {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
               {!hasMore && messages.length > 0 && (
-                <div className="text-center py-3 text-xs text-gray-300">没有更多消息...</div>
+                <div className="text-center py-3 text-xs text-gray-300 hidden">没有更多消息...</div>
               )}
               {messages.length === 0 && !isLoadingHistory ? (
                 <ChatEmptyState
