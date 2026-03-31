@@ -108,7 +108,7 @@ function SkillArtwork({ name }: { name: string }) {
   return (
     <div
       aria-hidden="true"
-      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-soft)] bg-[var(--accent-soft)] shadow-sm"
+      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-soft)] shadow-sm"
     >
       <span className="text-xl font-bold text-[var(--text-accent)]">{initial}</span>
     </div>
@@ -125,6 +125,8 @@ export function CapabilitySection({
   title,
   subtitle: _subtitle,
   headerSlot,
+  headerSlotClassName,
+  titleActionSlot,
   items,
   catFamilies,
   toggling,
@@ -136,6 +138,8 @@ export function CapabilitySection({
   title: string;
   subtitle: string;
   headerSlot?: ReactNode;
+  headerSlotClassName?: string;
+  titleActionSlot?: ReactNode;
   items: CapabilityBoardItem[];
   catFamilies: CatFamily[];
   toggling: string | null;
@@ -146,12 +150,13 @@ export function CapabilitySection({
   if (items.length === 0) return null;
 
   return (
-    <div className="mb-6">
-      <div className="mb-3">
-        <div className="flex items-center gap-3">
+    <div className="mb-6 pt-6">
+      <div>
+        <div className="flex items-center justify-between gap-3">
           <p className="text-[20px] font-semibold">{title}</p>
+          {titleActionSlot ? <div className="shrink-0">{titleActionSlot}</div> : null}
         </div>
-        {headerSlot ? <div className="mt-3">{headerSlot}</div> : null}
+        {headerSlot ? <div className={headerSlotClassName ?? 'mt-3'}>{headerSlot}</div> : null}
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
@@ -225,7 +230,7 @@ function CapabilityCard({
                   event.stopPropagation();
                   onUninstall?.(item.id);
                 }}
-                className="absolute left-0 top-0 opacity-0 text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
+                className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
               >
                 删除
               </button>

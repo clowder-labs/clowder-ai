@@ -305,7 +305,7 @@ export function ModelsPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-4 pb-2">
+        <div className="space-y-0 pb-2">
           <section className='flex justify-between gap-2'>
             <div className="relative flex-1 mr-2">
               <input
@@ -314,7 +314,7 @@ export function ModelsPanel() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={SEARCH_PLACEHOLDER}
-                className="ui-field w-full px-3 py-1.5 text-xs"
+                className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
               />
             </div>
             <div className="flex items-center gap-2">

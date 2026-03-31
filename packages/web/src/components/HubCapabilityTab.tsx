@@ -183,7 +183,7 @@ export function HubCapabilityTab({
   if (loading) return <p className="text-sm text-[var(--text-muted)]">加载中...</p>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-0">
       {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
       <div className="space-y-3">
@@ -193,8 +193,10 @@ export function HubCapabilityTab({
               key={category}
               type="button"
               onClick={() => setActiveCategory(category)}
-              className={`inline-flex min-h-7 items-center leading-none text-sm font-medium transition-colors ${
-                activeCategory === category ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
+                activeCategory === category
+                  ? 'font-semibold text-[var(--text-primary)]'
+                  : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
               }`}
             >
               {category}
@@ -207,26 +209,27 @@ export function HubCapabilityTab({
         icon={<SectionIconSkill />}
         title={`${activeCategory} (${displayedSkillItems.length})`}
         subtitle="已安装技能"
+        headerSlotClassName="mt-0 py-6"
+        titleActionSlot={
+          onImport ? (
+            <button
+              type="button"
+              onClick={onImport}
+              className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
+            >
+              {IMPORT_LABEL}
+            </button>
+          ) : undefined
+        }
         headerSlot={(
-          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center">
-            <input
-              type="search"
-              aria-label={SKILL_SEARCH_ARIA_LABEL}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={SKILL_SEARCH_PLACEHOLDER}
-              className="ui-field min-h-[var(--control-height-touch)] flex-1 px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
-            />
-            {onImport ? (
-              <button
-                type="button"
-                onClick={onImport}
-                className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
-              >
-                {IMPORT_LABEL}
-              </button>
-            ) : null}
-          </div>
+          <input
+            type="search"
+            aria-label={SKILL_SEARCH_ARIA_LABEL}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={SKILL_SEARCH_PLACEHOLDER}
+            className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+          />
         )}
         items={filteredDisplayedSkillItems}
         catFamilies={catFamilies}

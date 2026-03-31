@@ -305,20 +305,20 @@ export function HubSkillsTab() {
         </div>
       )}
 
-      <section className="space-y-[var(--space-6)]">
-        <div className="space-y-4">
+      <section className="space-y-[var(--space-6)] mt-4">
+        <div className="space-y-0">
           <p className="text-[20px] font-semibold">
             {SILL_SQUARE_LABEL}
             {displayResults ? ` (${displayResults.total})` : ''}
           </p>
-          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
             <input
               type="text"
               aria-label={SEARCH_ARIA_LABEL}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={SEARCH_PLACEHOLDER}
-              className="ui-field min-h-[var(--control-height-touch)] flex-1 px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
+              className="ui-field h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
             />
           </div>
           {displayResults ? (
