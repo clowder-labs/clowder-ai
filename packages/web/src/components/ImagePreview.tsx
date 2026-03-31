@@ -26,7 +26,7 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
 
   return (
     <>
-      <div className="flex gap-2 px-4 py-2 overflow-x-auto">
+      <div className="flex gap-2 px-4 py-2 overflow-x-auto mx-auto w-[80%]">
         {files.map((file, i) => (
           <div key={`${file.name}-${i}`} className="relative flex-shrink-0 group">
             <img

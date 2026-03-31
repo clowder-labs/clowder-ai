@@ -576,23 +576,23 @@ export function ChatInput({
       />
 
       {imageLifecycleStatus === 'preparing' && (
-        <div className="px-4 pt-2 text-xs text-gray-500" role="status">
+        <div className="px-4 pt-2 text-xs text-gray-500 mx-auto w-[80%]" role="status">
           图片处理中，完成后可发送
         </div>
       )}
       {imageLifecycleStatus === 'uploading' && (
-        <div className="px-4 pt-2 text-xs text-indigo-500" role="status">
+        <div className="px-4 pt-2 text-xs text-indigo-500 mx-auto w-[80%]" role="status">
           图片上传中，请稍候...
         </div>
       )}
       {imageLifecycleStatus === 'failed' && uploadError && (
-        <div className="px-4 pt-2 text-xs text-red-500" role="alert">
+        <div className="px-4 pt-2 text-xs text-red-500 mx-auto w-[80%]" role="alert">
           图片发送失败：{uploadError}
         </div>
       )}
 
       {whisperMode && (
-        <div className="px-4 pt-2 flex items-center gap-2 flex-wrap">
+        <div className="px-4 pt-2 flex items-center gap-2 flex-wrap mx-auto w-[80%]">
           <span className="text-xs text-amber-600 font-medium">悄悄话发给:</span>
           {whisperOptions.map((cat) => {
             const isActive = activeCatIds.has(cat.id);
@@ -646,7 +646,7 @@ export function ChatInput({
         />
       )}
 
-      <div className="p-4 pt-2">
+      <div className="p-4 pt-2 mx-auto w-[80%]">
         <div className="flex gap-2 items-end">
         {/* Mobile: + toggle button */}
         <button
