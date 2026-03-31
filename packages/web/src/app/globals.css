@@ -393,13 +393,13 @@ body {
 
   .ui-tab-trigger {
     font-size: var(--font-size-md);
-    font-weight: var(--font-weight-bold);
     color: var(--text-muted);
     transition: color 200ms ease;
   }
 
   .ui-tab-trigger-active {
     color: var(--text-primary);
+    font-weight: var(--font-weight-bold);
   }
 
   .ui-tab-indicator {
