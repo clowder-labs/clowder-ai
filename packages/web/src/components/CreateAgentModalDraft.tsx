@@ -2,11 +2,18 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { CatData } from '@/hooks/useCatData';
+import { useAvailableClients } from '@/hooks/useAvailableClients';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
-import { initialState, type ClientValue, type HubCatEditorDraft, type HubCatEditorFormState } from './hub-cat-editor.model';
+import {
+  CLIENT_OPTIONS as HUB_CLIENT_OPTIONS,
+  initialState,
+  type ClientValue,
+  type HubCatEditorDraft,
+  type HubCatEditorFormState,
+} from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
 import {
   ModelSelectDropdownDraft,
@@ -63,6 +70,16 @@ const MODEL_MENU_OFFSET = 8;
 const HUAWEI_GROUP_LABEL = 'Huawei MaaS';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
+const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
+  'anthropic',
+  'openai',
+  'google',
+  'dare',
+  'opencode',
+  'relayclaw',
+  'antigravity',
+  'acp',
+]);
 
 // 预设头像列表
 const PRESET_AVATARS = [
@@ -260,6 +277,7 @@ export function buildDefaultCreateForm(
   name: string,
   description: string,
   avatar: string,
+  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const safeName = name.trim();
@@ -278,7 +296,7 @@ export function buildDefaultCreateForm(
     teamStrengths: '',
     caution: '',
     strengths: '',
-    client: selectedModel?.client ?? RELAYCLAW_CLIENT,
+    client: selectedClient,
     accountRef: selectedModel?.accountRef ?? '',
     defaultModel: selectedModel?.model ?? '',
     commandArgs: '',
@@ -297,6 +315,7 @@ function buildEditForm(
   name: string,
   description: string,
   avatar: string,
+  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const base = initialState(cat, null);
@@ -307,7 +326,7 @@ function buildEditForm(
     displayName: safeName,
     avatar,
     roleDescription: description.trim() || base.roleDescription,
-    client: selectedModel?.client ?? base.client,
+    client: selectedClient,
     accountRef: selectedModel?.accountRef ?? base.accountRef,
     defaultModel: selectedModel?.model ?? base.defaultModel,
     ocProviderName: '',
@@ -326,9 +345,11 @@ export function CreateAgentModalDraft({
   onClose,
   onSaved,
 }: CreateAgentModalDraftProps) {
+  const { clients: detectedClients, clientLabels } = useAvailableClients();
   const [draftName, setDraftName] = useState(name);
   const [draftDescription, setDraftDescription] = useState(description);
   const [draftAvatar, setDraftAvatar] = useState('');
+  const [selectedClient, setSelectedClient] = useState<ClientValue>(RELAYCLAW_CLIENT);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
@@ -341,6 +362,15 @@ export function CreateAgentModalDraft({
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const currentProjectPath = useChatStore((state) => state.currentProjectPath);
+  const clientOptions = useMemo(() => {
+    const normalized = detectedClients
+      .filter((client) => KNOWN_CLIENT_VALUES.has(client.id as ClientValue))
+      .map((client) => ({
+        value: client.id as ClientValue,
+        label: clientLabels[client.id] ?? client.label,
+      }));
+    return normalized.length > 0 ? normalized : HUB_CLIENT_OPTIONS;
+  }, [clientLabels, detectedClients]);
 
   const selectionHint = useMemo(
     () => resolveSelectionHint(cat, draft, selectedModelId),
@@ -357,11 +387,20 @@ export function CreateAgentModalDraft({
     } else {
       setDraftAvatar(getRandomPresetAvatar());
     }
+    const incomingClient = (draft?.client ?? cat?.provider ?? RELAYCLAW_CLIENT) as ClientValue;
+    const nextClient = HUB_CLIENT_OPTIONS.some((option) => option.value === incomingClient) ? incomingClient : RELAYCLAW_CLIENT;
+    setSelectedClient(nextClient);
     setSelectedOptionId(null);
     setModelMenuOpen(false);
     setOpenAbove(false);
     setError(null);
-  }, [cat, description, name, open]);
+  }, [cat, description, draft?.client, name, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (clientOptions.some((option) => option.value === selectedClient)) return;
+    setSelectedClient(clientOptions[0]?.value ?? RELAYCLAW_CLIENT);
+  }, [clientOptions, open, selectedClient]);
 
   useEffect(() => {
     if (!modelMenuOpen) return;
@@ -511,8 +550,8 @@ export function CreateAgentModalDraft({
     setError(null);
     try {
       const formState = cat
-        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel)
-        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedModel);
+        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel)
+        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel);
       const payload = buildCatPayload(formState, cat);
       const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
         method: cat ? 'PATCH' : 'POST',
@@ -610,6 +649,22 @@ export function CreateAgentModalDraft({
             <div className="text-[12px] text-[var(--text-muted)]">
               {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
             </div>
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
+            <select
+              aria-label="Client"
+              value={selectedClient}
+              onChange={(event) => setSelectedClient(event.target.value as ClientValue)}
+              className="ui-field h-[28px] w-full rounded-[6px] px-3 text-[12px]"
+            >
+              {clientOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="relative space-y-2.5">
