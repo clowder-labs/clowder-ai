@@ -31,6 +31,10 @@ internal static class Program
     [DllImport("user32.dll")]
     private static extern bool IsIconic(IntPtr hWnd);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    internal const uint WM_SHOWOFFICECLAW = 0x8001;
     private const int SW_RESTORE = 9;
     private const int SW_SHOW = 5;
 
@@ -63,6 +67,8 @@ internal static class Program
             {
                 continue;
             }
+
+            SendMessage(hWnd, WM_SHOWOFFICECLAW, IntPtr.Zero, IntPtr.Zero);
 
             if (IsIconic(hWnd))
             {
@@ -322,6 +328,17 @@ internal sealed class LauncherForm : Form
         ShowInTaskbar = true;
         WindowState = FormWindowState.Normal;
         Activate();
+    }
+
+    protected override void WndProc(ref Message message)
+    {
+        if (message.Msg == Program.WM_SHOWOFFICECLAW)
+        {
+            RestoreFromTray();
+            return;
+        }
+
+        base.WndProc(ref message);
     }
 
     private void RequestExit()
