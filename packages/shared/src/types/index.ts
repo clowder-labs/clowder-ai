@@ -93,9 +93,9 @@ export type {
   CatColor,
   CatConfig,
   CatProvider,
-  KnownCatProvider,
   CatState,
   CatStatus,
+  KnownCatProvider,
 } from './cat.js';
 export {
   CAT_CONFIGS,
@@ -122,6 +122,7 @@ export type {
 } from './cat-breed.js';
 // Connector types (F97 外部信息源抽象)
 export type {
+  ConnectorAgentConfig,
   ConnectorDefinition,
   ConnectorSource,
   ConnectorTailwindTheme,
@@ -281,13 +282,6 @@ export type {
   RefluxCategory,
   RefluxPattern,
 } from './reflux.js';
-// Resolution types (F076 Phase 2 — 风险消解)
-export type {
-  AnswerResolutionInput,
-  CreateResolutionInput,
-  ResolutionItem,
-  ResolutionStatus,
-} from './resolution.js';
 // RelayClaw types (relay-claw WebSocket agent bridge)
 export type {
   RelayClawAgentConfig,
@@ -295,6 +289,13 @@ export type {
   RelayClawEventType,
   RelayClawWsFrame,
 } from './relayclaw.js';
+// Resolution types (F076 Phase 2 — 风险消解)
+export type {
+  AnswerResolutionInput,
+  CreateResolutionInput,
+  ResolutionItem,
+  ResolutionStatus,
+} from './resolution.js';
 // Rich block types (F22 Rich Blocks 富消息系统)
 export type {
   InteractiveOption,

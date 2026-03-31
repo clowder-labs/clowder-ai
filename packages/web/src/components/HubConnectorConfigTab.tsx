@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import {
   ChevronDown,
@@ -40,9 +41,10 @@ function readStepText(step: unknown): string | null {
     return trimmed.length > 0 ? trimmed : null;
   }
   if (!step || typeof step !== 'object') return null;
-  const candidate = (step as { text?: unknown; title?: unknown; label?: unknown }).text
-    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).title
-    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).label;
+  const candidate =
+    (step as { text?: unknown; title?: unknown; label?: unknown }).text ??
+    (step as { text?: unknown; title?: unknown; label?: unknown }).title ??
+    (step as { text?: unknown; title?: unknown; label?: unknown }).label;
   if (typeof candidate !== 'string') return null;
   const trimmed = candidate.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -72,12 +74,14 @@ function normalizePlatform(raw: unknown, index: number): PlatformStatus | null {
     const label = typeof labelRaw === 'string' && labelRaw.trim() ? labelRaw.trim() : envName;
     const currentValueRaw = current.currentValue;
     const currentValue = typeof currentValueRaw === 'string' ? currentValueRaw : null;
-    return [{
-      envName,
-      label,
-      sensitive: Boolean(current.sensitive),
-      currentValue,
-    }];
+    return [
+      {
+        envName,
+        label,
+        sensitive: Boolean(current.sensitive),
+        currentValue,
+      },
+    ];
   });
 
   const stepsRaw = Array.isArray(item.steps) ? item.steps : [];
@@ -116,6 +120,11 @@ export function HubConnectorConfigTab() {
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Agent config state
+  const { cats } = useCatData();
+  const [agentConfig, setAgentConfig] = useState<Record<string, { agentIds: string[]; primaryAgentId: string }>>({});
+  const [agentConfigLoading, setAgentConfigLoading] = useState<Record<string, boolean>>({});
+
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -151,35 +160,79 @@ export function HubConnectorConfigTab() {
     setSaveResult(null);
   };
 
-  const handleSave = async (platform: PlatformStatus) => {
+  const handleLoadAgents = async (platformId: string) => {
+    setAgentConfigLoading((prev) => ({ ...prev, [platformId]: true }));
+    try {
+      const res = await apiFetch(`/api/connector/${platformId}/agents`);
+      if (res.ok) {
+        const data = await res.json();
+        setAgentConfig((prev) => ({
+          ...prev,
+          [platformId]: {
+            agentIds: Array.isArray(data.agentIds) ? data.agentIds : [],
+            primaryAgentId: data.primaryAgentId ?? '',
+          },
+        }));
+      }
+    } catch {
+      // fall through
+    } finally {
+      setAgentConfigLoading((prev) => ({ ...prev, [platformId]: false }));
+    }
+  };
+
+  const handleSaveAll = async (platform: PlatformStatus) => {
     const updates = platform.fields
       .filter((f) => fieldValues[f.envName] !== undefined && fieldValues[f.envName] !== '')
       .map((f) => ({ name: f.envName, value: fieldValues[f.envName] }));
 
-    if (updates.length === 0) {
-      setSaveResult({ type: 'error', message: '请填写至少一个配置项' });
+    const config = agentConfig[platform.id];
+    const hasCredentialUpdates = updates.length > 0;
+    const hasAgentConfig = config != null;
+
+    if (!hasCredentialUpdates && !hasAgentConfig) {
+      setSaveResult({ type: 'error', message: '请填写凭证或加载智能体配置' });
       return;
     }
 
     setSaving(true);
     setSaveResult(null);
     try {
-      const res = await apiFetch('/api/config/env', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setSaveResult({ type: 'error', message: data.error ?? '保存失败' });
-        return;
+      // Save credentials if any field changes
+      if (hasCredentialUpdates) {
+        const res = await apiFetch('/api/config/env', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setSaveResult({ type: 'error', message: data.error ?? '凭证保存失败' });
+          return;
+        }
       }
-      const data = await res.json().catch(() => ({}));
+
+      // Save agent config if loaded
+      if (hasAgentConfig) {
+        const res = await apiFetch(`/api/connector/${platform.id}/agents`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentIds: config.agentIds,
+            primaryAgentId: config.primaryAgentId,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setSaveResult({ type: 'error', message: data.error ?? '智能体配置保存失败' });
+          return;
+        }
+      }
+
       const hasSensitive = updates.some((u) => platform.fields.find((f) => f.envName === u.name)?.sensitive);
-      const restartHint = data.requiresRestart || hasSensitive;
       setSaveResult({
         type: 'success',
-        message: restartHint
+        message: hasSensitive
           ? '配置已保存。包含敏感字段，需重启 API 服务使连接器生效。'
           : '配置已保存。需重启 API 服务使连接器生效。',
       });
@@ -237,7 +290,9 @@ export function HubConnectorConfigTab() {
                   {platform.configured ? '已配置' : '未配置'}
                 </span>
               </span>
-              <span className="shrink-0 text-[var(--text-muted)]">{isExpanded ? <ChevronDown /> : <ChevronRight />}</span>
+              <span className="shrink-0 text-[var(--text-muted)]">
+                {isExpanded ? <ChevronDown /> : <ChevronRight />}
+              </span>
             </button>
 
             {isExpanded && platform.id === 'weixin' && (
@@ -266,18 +321,16 @@ export function HubConnectorConfigTab() {
                       <StepBadge num={idx + 1} />
                       <span className="text-[13px] font-medium text-[var(--text-primary)]">{step}</span>
                     </div>
-                    {idx === 0 && (
-                      docsLink && (
-                        <a
-                          href={docsLink.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
-                        >
-                          <ExternalLinkIcon />
-                          <span>{docsLink.hostname} → 查看官方文档</span>
-                        </a>
-                      )
+                    {idx === 0 && docsLink && (
+                      <a
+                        href={docsLink.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
+                      >
+                        <ExternalLinkIcon />
+                        <span>{docsLink.hostname} → 查看官方文档</span>
+                      </a>
                     )}
                   </div>
                 ))}
@@ -290,7 +343,10 @@ export function HubConnectorConfigTab() {
                   <div className="ml-[26px] space-y-2.5">
                     {platform.fields.map((field) => (
                       <div key={field.envName}>
-                        <label htmlFor={`config-${field.envName}`} className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">
+                        <label
+                          htmlFor={`config-${field.envName}`}
+                          className="mb-1 block text-xs font-medium text-[var(--text-secondary)]"
+                        >
                           {field.label}
                           {field.sensitive && (
                             <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
@@ -301,7 +357,13 @@ export function HubConnectorConfigTab() {
                         <input
                           id={`config-${field.envName}`}
                           type={field.sensitive ? 'password' : 'text'}
-                          placeholder={field.sensitive ? (field.currentValue ? '已设置（输入新值覆盖）' : '未设置') : (field.currentValue ?? '未设置')}
+                          placeholder={
+                            field.sensitive
+                              ? field.currentValue
+                                ? '已设置（输入新值覆盖）'
+                                : '未设置'
+                              : (field.currentValue ?? '未设置')
+                          }
                           value={fieldValues[field.envName] ?? ''}
                           onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
                           autoComplete={field.sensitive ? 'off' : undefined}
@@ -313,9 +375,64 @@ export function HubConnectorConfigTab() {
                   </div>
                 </div>
 
+                {/* Agent Config Section */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
-                    <StepBadge num={saveStepNum} />
+                    <StepBadge num={guideSteps.length + 2} />
+                    <span className="text-[13px] font-medium text-[var(--text-primary)]">配置智能体</span>
+                  </div>
+                  <div className="ml-[26px] space-y-2.5">
+                    {agentConfigLoading[platform.id] ? (
+                      <p className="text-xs text-[var(--text-muted)]">加载智能体配置...</p>
+                    ) : !agentConfig[platform.id] ? (
+                      <button
+                        type="button"
+                        onClick={() => handleLoadAgents(platform.id)}
+                        className="ui-button-secondary"
+                      >
+                        加载智能体
+                      </button>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {cats.map((cat) => {
+                          const config = agentConfig[platform.id] ?? { agentIds: [], primaryAgentId: '' };
+                          const isChecked = config.agentIds.includes(cat.id);
+                          return (
+                            <label
+                              key={cat.id}
+                              className="flex items-center gap-2 text-[13px] text-[var(--text-primary)]"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const newAgentIds = e.target.checked
+                                    ? [...config.agentIds, cat.id]
+                                    : config.agentIds.filter((id) => id !== cat.id);
+                                  const newPrimaryAgentId =
+                                    newAgentIds.length > 0 && !newAgentIds.includes(config.primaryAgentId)
+                                      ? newAgentIds[0]
+                                      : config.primaryAgentId;
+                                  setAgentConfig((prev) => ({
+                                    ...prev,
+                                    [platform.id]: { agentIds: newAgentIds, primaryAgentId: newPrimaryAgentId },
+                                  }));
+                                }}
+                                className="h-3.5 w-3.5 rounded border-[var(--border-default)]"
+                              />
+                              <span>{cat.displayName}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Save Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <StepBadge num={guideSteps.length + 3} />
                     <span className="text-[13px] font-medium text-[var(--text-primary)]">测试连接并保存</span>
                   </div>
                   {saveResult && (
@@ -339,7 +456,7 @@ export function HubConnectorConfigTab() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSave(platform)}
+                      onClick={() => handleSaveAll(platform)}
                       disabled={saving}
                       className="ui-button-primary disabled:opacity-50"
                       data-testid={`save-${platform.id}`}

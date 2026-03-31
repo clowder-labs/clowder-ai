@@ -1357,6 +1357,8 @@ async function main(): Promise<void> {
     if (connectorGatewayHandle) {
       invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
       invokeTrigger.setStreamingHook(connectorGatewayHandle.streamingHook);
+      // Wire agentConfigStore to connectorHubOpts (late-bound after gateway bootstrap)
+      connectorHubOpts.agentConfigStore = connectorGatewayHandle.agentConfigStore;
       queueProcessor.setOutboundHook(
         connectorGatewayHandle.outboundHook as Parameters<typeof queueProcessor.setOutboundHook>[0],
       );
