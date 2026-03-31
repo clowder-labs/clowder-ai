@@ -1023,6 +1023,7 @@ export function AgentsPanel() {
                 const isSelected = selectedCat?.id === cat.id;
                 const modelText = cat.defaultModel || '未配置模型';
                 const budgetText = formatBudgetLabel(cat.contextBudget?.maxContextTokens);
+                const isPlatformPreset = cat.source !== 'runtime';
 
                 return (
                   <div
@@ -1046,8 +1047,15 @@ export function AgentsPanel() {
                       >
                         <span className="shrink-0">{renderAvatar(cat)}</span>
                         <span className="min-w-0">
-                          <span className="block truncate text-[13px] font-semibold text-[#2A303C]">
-                            {cat.displayName}
+                          <span className="flex min-w-0 items-center gap-1">
+                            <span className="block truncate text-[13px] font-semibold text-[#2A303C]">
+                              {cat.displayName}
+                            </span>
+                            {isPlatformPreset ? (
+                              <span className="inline-flex h-[18px] shrink-0 items-center rounded-[2px] bg-[rgba(230,230,230,1)] px-1 text-[12px] text-[rgba(25,25,25,1)]">
+                                平台预置
+                              </span>
+                            ) : null}
                           </span>
                           <span className="mt-1 block truncate text-[11px] text-[#9AA2B0]">
                             {modelText} | {budgetText}
