@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import type { CliEvent, CliStatus } from '@/stores/chat-types';
 import { LoadingSmall } from '../LoadingSmall';
+import { LoadingPointStyle } from '../LoadingPointStyle';
 
 /* ── Helpers ── */
 
@@ -400,6 +401,7 @@ export function CliOutputBlock({
         className="cli-output-button w-full flex items-center gap-2 text-[14px] transition-colors"
         style={{ padding: '8px 0' }}
       >
+        {status === 'streaming' && <LoadingPointStyle className="w-4 h-4 flex-shrink-0" />}
         { status === 'done' && 
           <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none">
             <mask id="mask_5" width="16.000000" height="16.000008" x="0.000000" y="0.000000" maskUnits="userSpaceOnUse">

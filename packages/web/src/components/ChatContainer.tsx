@@ -508,7 +508,7 @@ function ThreadModeChatContainer({ threadId }: { threadId: string }) {
             <main
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="ui-shell-surface h-full overflow-y-auto p-4"
+              className="ui-shell-surface h-full overflow-y-auto p-4 pt-[60px]"
               data-chat-container
             >
               {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}

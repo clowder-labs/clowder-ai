@@ -333,7 +333,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           ) : !isStreamOrigin && hasTextContent ? (
             <MarkdownContent content={message.content} className={catStyle?.font} />
           ) : message.isStreaming ? (
-            <span className="text-xs text-gray-500">Thinking...</span>
+            <span className="text-xs text-gray-500 hidden">Thinking...</span>
           ) : null}
           {message.thinking && (
             <ThinkingContent
