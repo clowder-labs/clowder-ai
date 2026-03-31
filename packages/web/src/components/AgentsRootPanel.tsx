@@ -5,10 +5,7 @@ import { AgentsPanel } from './AgentsPanelCopy';
 
 type RootTabKey = 'agents' | 'experts';
 
-const ROOT_TABS: Array<{ id: RootTabKey; label: string }> = [
-  { id: 'agents', label: '我的智能体' },
-  { id: 'experts', label: '专家中心' },
-];
+const ROOT_TABS: Array<{ id: RootTabKey; label: string }> = [{ id: 'agents', label: '我的智能体' }];
 
 export function AgentsRootPanel() {
   const [activeTab, setActiveTab] = useState<RootTabKey>('agents');
