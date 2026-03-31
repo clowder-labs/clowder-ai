@@ -485,7 +485,7 @@ function buildModelartsBreed(template, breedId, options) {
     color: options.color ?? breed.color,
     mentionPatterns: options.mentionPatterns,
     roleDescription: options.roleDescription ?? breed.roleDescription,
-    ...(options.teamStrengths ?? breed.teamStrengths
+    ...((options.teamStrengths ?? breed.teamStrengths)
       ? { teamStrengths: options.teamStrengths ?? breed.teamStrengths }
       : {}),
     ...(breed.caution !== undefined ? { caution: breed.caution } : {}),
@@ -494,7 +494,7 @@ function buildModelartsBreed(template, breedId, options) {
     variants: [
       {
         personality: options.personality ?? baseVariant?.personality,
-        ...(options.strengths ?? baseVariant?.strengths
+        ...((options.strengths ?? baseVariant?.strengths)
           ? { strengths: options.strengths ?? baseVariant.strengths }
           : {}),
         ...(baseVariant?.contextBudget ? { contextBudget: baseVariant.contextBudget } : {}),
@@ -537,9 +537,12 @@ function applyModelartsPreset(projectDir, apiKey) {
 
   const template = readSeedTemplate();
   const roster = {};
-  const rosterTemplateMap = { office: 'codex', assistant: 'opencode' };
   for (const member of preset.members) {
-    roster[member.catId] = { ...template.roster[rosterTemplateMap[member.catId] ?? member.catId], available: true };
+    const base = template.roster[member.catId];
+    if (!base) {
+      throw new Error(`ModelArts preset roster template for "${member.catId}" not found in cat-template.json`);
+    }
+    roster[member.catId] = { ...base, available: true };
   }
   const catalog = {
     version: 2,
@@ -611,14 +614,16 @@ function applyModelartsPreset(projectDir, apiKey) {
   // Disable builtin OAuth clients and only show preset members in the console
   const envFile = path.join(projectDir, '.env');
   if (existsSync(envFile)) {
-    const clientLabels = preset.members
-      .map((m) => `${m.provider}:${m.displayName || m.catId}`)
-      .join(',');
-    applyEnvChanges(envFile, [
-      'CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false',
-      `CAT_CAFE_CLIENT_LABELS=${clientLabels}`,
-      'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED=true',
-    ], []);
+    const clientLabels = preset.members.map((m) => `${m.provider}:${m.displayName || m.catId}`).join(',');
+    applyEnvChanges(
+      envFile,
+      [
+        'CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false',
+        `CAT_CAFE_CLIENT_LABELS=${clientLabels}`,
+        'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED=true',
+      ],
+      [],
+    );
   }
 }
 

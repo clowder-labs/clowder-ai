@@ -11,7 +11,7 @@
   "members": [
     {
       "catId": "office",
-      "breedId": "maine-coon",
+      "breedId": "office",
       "nickname": "小九",
       "displayName": "九问Office",
       "avatar": "/avatars/office.svg",
@@ -25,7 +25,7 @@
     },
     {
       "catId": "assistant",
-      "breedId": "golden-chinchilla",
+      "breedId": "assistant",
       "nickname": "小理",
       "displayName": "九问助理",
       "avatar": "/avatars/assistant.svg",
