@@ -204,7 +204,6 @@ function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
 const AGENT_TABS: TabDefinition[] = [
   { id: 'persona', label: '灵魂配置', icon: PersonaIcon, editable: true },
   { id: 'collab', label: '协作配置', icon: CollaborateIcon, editable: true },
-  { id: 'skills', label: '技能配置', icon: SkillsIcon, editable: false },
 ];
 
 function isEditableTab(tab: AgentTabKey): tab is EditableTabKey {
@@ -995,14 +994,6 @@ export function AgentsPanel() {
       <div className="flex items-center justify-between">
         <h1 className="ui-page-title">智能体管理</h1>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            data-testid="connect-third-party-agent-button"
-            onClick={() => setConnectThirdPartyModalOpen(true)}
-            className="rounded-[999px] border border-[#595959] bg-white px-6 py-[5px] text-[12px] font-semibold text-[#445066] transition"
-          >
-            连接三方智能体
-          </button>
           <button
             type="button"
             data-testid="create-agent-button"
