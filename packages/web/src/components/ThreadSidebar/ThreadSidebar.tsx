@@ -21,6 +21,7 @@ interface ThreadSidebarProps {
   className?: string;
   onBootcampClick?: () => void;
   onHubClick?: () => void;
+  onThreadSelect?: () => void;
   onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills') => void;
   onNewChatClick?: () => void;
   activeMenu?: 'models' | 'agents' | 'channels' | 'skills';
@@ -31,6 +32,7 @@ export function ThreadSidebar({
   className,
   onBootcampClick,
   onHubClick,
+  onThreadSelect,
   onMenuClick,
   onNewChatClick,
   activeMenu,
@@ -333,6 +335,7 @@ export function ThreadSidebar({
 
   const handleSelect = useCallback(
     (threadId: string) => {
+      onThreadSelect?.();
       if (threadId === currentThreadId) return;
       // B1.1: Restore projectPath from thread metadata on switch
       const target = threads.find((t) => t.id === threadId);
@@ -343,7 +346,7 @@ export function ThreadSidebar({
         onClose?.();
       }
     },
-    [currentThreadId, threads, setCurrentProject, navigateToThread, onClose],
+    [currentThreadId, onThreadSelect, threads, setCurrentProject, navigateToThread, onClose],
   );
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
