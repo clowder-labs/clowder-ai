@@ -669,7 +669,7 @@ export function ChatInput({
 
         <div className="flex-1">
           <div className="mx-auto w-[80%]">
-            <div className="mb-2 flex flex-wrap gap-2">
+            <div className="mb-2 hidden flex-wrap gap-2">
               {QUICK_ACTIONS.map((action) => (
                 <button
                   key={action}
