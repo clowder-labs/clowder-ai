@@ -5,6 +5,13 @@ import path from 'node:path';
 import { describe, test } from 'node:test';
 
 describe('xinsheng config helpers', () => {
+  test('buildDetailUrl targets detail route with encoded uuid', async () => {
+    const { buildDetailUrl } = await import('../dist/config.js');
+    const url = buildDetailUrl('https://xinsheng.huawei.com/next/detail/#/index', 'abc 123');
+
+    assert.equal(url, 'https://xinsheng.huawei.com/next/detail/#/index?uuid=abc+123');
+  });
+
   test('buildSearchUrl targets plus search route with encoded keyword', async () => {
     const { buildSearchUrl } = await import('../dist/config.js');
     const url = buildSearchUrl('https://xinsheng.huawei.com/next/plus/#/search', 'DeepSeek R1');

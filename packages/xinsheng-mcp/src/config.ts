@@ -3,12 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const DEFAULT_HOME_URL = 'https://xinsheng.huawei.com/next/index/#/home';
+export const DEFAULT_DETAIL_PAGE_URL = 'https://xinsheng.huawei.com/next/detail/#/index';
 export const DEFAULT_SEARCH_PAGE_URL = 'https://xinsheng.huawei.com/next/plus/#/search';
 export const DEFAULT_NAVIGATION_TIMEOUT_MS = 60_000;
 export const DEFAULT_SEARCH_TIMEOUT_MS = 45_000;
 
 export interface XinshengConfig {
   homeUrl: string;
+  detailPageUrl: string;
   searchPageUrl: string;
   browserExecutablePath: string;
   profileDir: string;
@@ -23,6 +25,23 @@ export function normalizeQuery(query: string): string {
     throw new Error('搜索词至少需要 2 个字符。');
   }
   return normalized;
+}
+
+export function normalizeUuid(uuid: string): string {
+  const normalized = uuid.trim();
+  if (!normalized) {
+    throw new Error('文章 uuid 不能为空。');
+  }
+  return normalized;
+}
+
+export function buildDetailUrl(detailPageUrl: string, uuid: string): string {
+  const url = new URL(detailPageUrl);
+  const params = new URLSearchParams({
+    uuid: normalizeUuid(uuid),
+  });
+  url.hash = `/index?${params.toString()}`;
+  return url.toString();
 }
 
 export function buildSearchUrl(searchPageUrl: string, query: string): string {
@@ -98,6 +117,7 @@ export function resolveConfig(env: NodeJS.ProcessEnv = process.env): XinshengCon
   const profileDir = ensureDirectory(env.XINSHENG_PROFILE_DIR || defaultProfileDir());
   return {
     homeUrl: env.XINSHENG_HOME_URL || DEFAULT_HOME_URL,
+    detailPageUrl: env.XINSHENG_DETAIL_PAGE_URL || DEFAULT_DETAIL_PAGE_URL,
     searchPageUrl: env.XINSHENG_SEARCH_PAGE_URL || DEFAULT_SEARCH_PAGE_URL,
     browserExecutablePath: resolveChromeExecutablePath(env),
     profileDir,

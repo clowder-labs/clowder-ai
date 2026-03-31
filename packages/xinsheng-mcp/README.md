@@ -8,9 +8,15 @@
 
 ## 工具
 
+- `xinsheng_list_home_articles`
+  - 读取首页当前公开可见的文章列表
+  - 不依赖登录，适合先确认匿名可读内容
 - `xinsheng_prepare_session`
   - 打开一个可见浏览器窗口，进入搜索页并保留 profile
   - 适合首次登录、补登录、验证当前 session 是否可用
+- `xinsheng_read_article`
+  - 按 `uuid` 或详情页 URL 读取单篇文章正文
+  - 优先用于首页公开文章，也可在登录后读取更多详情页
 - `xinsheng_search`
   - 直接打开搜索路由并抽取结果卡片
   - 如果尚未登录，会返回明确提示并建议先调用 `xinsheng_prepare_session`
@@ -23,6 +29,8 @@
   - 可选。持久化浏览器 profile 目录
 - `XINSHENG_HOME_URL`
   - 默认：`https://xinsheng.huawei.com/next/index/#/home`
+- `XINSHENG_DETAIL_PAGE_URL`
+  - 默认：`https://xinsheng.huawei.com/next/detail/#/index`
 - `XINSHENG_SEARCH_PAGE_URL`
   - 默认：`https://xinsheng.huawei.com/next/plus/#/search`
 - `XINSHENG_DEFAULT_VISIBLE`
@@ -62,5 +70,5 @@ codex exec \
   -c 'mcp_servers.xinsheng-search.args=["/ABS/PATH/TO/clowder-ai/packages/xinsheng-mcp/dist/index.js"]' \
   -c 'mcp_servers.xinsheng-search.env.XINSHENG_BROWSER_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"' \
   -c 'mcp_servers.xinsheng-search.env.XINSHENG_DEFAULT_VISIBLE="false"' \
-  "Use the MCP tool named xinsheng_search with query DeepSeek."
+  "Use the MCP tool named xinsheng_list_home_articles with limit 2."
 ```

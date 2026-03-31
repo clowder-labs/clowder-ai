@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 describe('xinsheng mcp server', () => {
-  test('registers prepare_session and search tools', async () => {
+  test('registers homepage, article, session, and search tools', async () => {
     process.env.XINSHENG_BROWSER_EXECUTABLE_PATH =
       process.env.XINSHENG_BROWSER_EXECUTABLE_PATH ||
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -11,6 +11,11 @@ describe('xinsheng mcp server', () => {
     const server = createServer();
     const toolNames = Object.keys(server._registeredTools).sort();
 
-    assert.deepEqual(toolNames, ['xinsheng_prepare_session', 'xinsheng_search']);
+    assert.deepEqual(toolNames, [
+      'xinsheng_list_home_articles',
+      'xinsheng_prepare_session',
+      'xinsheng_read_article',
+      'xinsheng_search',
+    ]);
   });
 });

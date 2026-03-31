@@ -7,6 +7,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { XinshengBrowserSession } from './browser-session.js';
 import { resolveConfig } from './config.js';
+import { formatArticleDetail, formatHomeArticles } from './home.js';
 import { formatSearchResults } from './search.js';
 
 function createBaseServer(name: string): McpServer {
@@ -30,6 +31,31 @@ export function createServer(): McpServer {
   const server = createBaseServer('xinsheng-search-mcp');
 
   server.tool(
+    'xinsheng_list_home_articles',
+    '读取心声首页当前不需要登录即可看到的文章列表。',
+    {
+      limit: z.number().int().positive().max(20).optional().describe('返回条数，默认 10，最大 20。'),
+      visible: z.boolean().optional().describe('是否使用可见浏览器。默认读取环境变量 XINSHENG_DEFAULT_VISIBLE。'),
+      timeoutMs: z.number().int().positive().max(300000).optional().describe('等待首页稳定的超时毫秒数。'),
+    },
+    async ({ limit, visible, timeoutMs }) => {
+      const result = await session.listHomeArticles({ limit, visible, timeoutMs });
+      if (result.state !== 'articles') {
+        return {
+          ...textResponse(`当前无法从首页提取公开文章。\n页面: ${result.pageUrl}`, {
+            structuredContent: result,
+          }),
+          isError: true,
+        };
+      }
+
+      return textResponse(formatHomeArticles(result.articles, result.pageUrl), {
+        structuredContent: result,
+      });
+    },
+  );
+
+  server.tool(
     'xinsheng_prepare_session',
     '打开华为心声搜索页并复用持久化浏览器 profile。首次登录或登录过期时先调用这个工具。',
     {
@@ -51,6 +77,32 @@ export function createServer(): McpServer {
           structuredContent: result,
         },
       );
+    },
+  );
+
+  server.tool(
+    'xinsheng_read_article',
+    '读取一篇心声文章详情。优先用于首页匿名可访问的文章，可传 uuid 或完整详情页 URL。',
+    {
+      uuid: z.string().optional().describe('文章 uuid。与 url 二选一；若都传，优先使用 url。'),
+      url: z.string().url().optional().describe('文章详情页完整 URL。与 uuid 二选一。'),
+      visible: z.boolean().optional().describe('是否使用可见浏览器。默认读取环境变量 XINSHENG_DEFAULT_VISIBLE。'),
+      timeoutMs: z.number().int().positive().max(300000).optional().describe('等待详情页稳定的超时毫秒数。'),
+    },
+    async ({ uuid, url, visible, timeoutMs }) => {
+      const result = await session.readArticle({ uuid, url, visible, timeoutMs });
+      if (result.state !== 'readable' || !result.article) {
+        return {
+          ...textResponse(`当前无法读取该文章详情。\n页面: ${result.pageUrl}`, {
+            structuredContent: result,
+          }),
+          isError: true,
+        };
+      }
+
+      return textResponse(formatArticleDetail(result.article), {
+        structuredContent: result,
+      });
     },
   );
 
