@@ -618,15 +618,18 @@ export function CreateAgentModalDraft({
 
           <div className="space-y-2.5">
             <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-end gap-3">
               <button
                 type="button"
                 aria-label="Upload avatar"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                className="group relative flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
+                  上传
+                </span>
               </button>
               <input
                 ref={fileInputRef}
@@ -636,6 +639,7 @@ export function CreateAgentModalDraft({
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
+              <div aria-hidden="true" className="h-[50px] w-px bg-[var(--border-default)]" />
               <button
                 type="button"
                 aria-label="Random preset avatar"
