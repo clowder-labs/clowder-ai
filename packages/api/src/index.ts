@@ -4,7 +4,7 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, catRegistry } from '@cat-cafe/shared';
+import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import cors from '@fastify/cors';
@@ -162,6 +162,7 @@ import {
   workspaceEditRoutes,
   workspaceGitRoutes,
   workspaceRoutes,
+  versionRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { previewRoutes } from './routes/preview.js';
@@ -176,6 +177,7 @@ import {
 } from './utils/jiuwenclaw-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
+import { isSeedCat } from './config/cat-account-binding.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);
 const HOST = process.env.API_SERVER_HOST ?? '127.0.0.1';
@@ -547,9 +549,20 @@ async function main(): Promise<void> {
     agentRegistry.reset();
     for (const [id, config] of Object.entries(configs)) {
       const catId = config.id;
+      const embeddedRuntimeKind = resolveEmbeddedRuntimeKind({
+        id,
+        provider: config.provider,
+        source: isSeedCat(resolveActiveProjectRoot(process.cwd()), id) ? 'seed' : 'runtime',
+      });
       // F32-b P1 fix: do NOT pass model here — let constructors resolve via
       // getCatModel(catId) which respects env override (CAT_*_MODEL > config > fallback)
       let service: AgentService;
+      if (embeddedRuntimeKind === 'agentteams_acp') {
+        const { ACPAgentService } = await import('./domains/cats/services/agents/providers/ACPAgentService.js');
+        service = new ACPAgentService({ catId });
+        agentRegistry.register(id, service);
+        continue;
+      }
       switch (config.provider) {
         case 'anthropic':
           service = new ClaudeAgentService({ catId });
@@ -940,6 +953,7 @@ async function main(): Promise<void> {
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(authRoutes);
+  await app.register(versionRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);
   await app.register(workspaceRoutes, {

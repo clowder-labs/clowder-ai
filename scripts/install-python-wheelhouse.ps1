@@ -69,28 +69,18 @@ function ConvertTo-WheelhouseArray {
     return @($Value)
 }
 
-function ConvertFrom-WheelhouseJson {
-    param([string]$JsonText)
-
-    $convertFromJson = Get-Command ConvertFrom-Json -ErrorAction Stop
-    if ($convertFromJson.Parameters.ContainsKey("Depth")) {
-        return $JsonText | ConvertFrom-Json -Depth 100
-    }
-    return $JsonText | ConvertFrom-Json
-}
-
 function Get-WheelhouseSelectedGroups {
     param(
         $Manifest,
         [string[]]$RequestedGroups
     )
 
-    $groups = @(ConvertTo-WheelhouseArray $Manifest.groups)
-    if ($groups.Length -eq 0) {
+    $groups = ConvertTo-WheelhouseArray $Manifest.groups
+    if ($groups.Count -eq 0) {
         throw "wheelhouse manifest contains no groups"
     }
 
-    if (-not $RequestedGroups -or @($RequestedGroups).Length -eq 0) {
+    if (-not $RequestedGroups -or $RequestedGroups.Count -eq 0) {
         return $groups
     }
 
@@ -124,8 +114,8 @@ function Invoke-WheelhouseInstallGroup {
         throw "wheelhouse directory not found for group $($Group.id): $wheelDir"
     }
 
-    $wheelFiles = @(ConvertTo-WheelhouseArray $Group.wheelFiles)
-    if ($wheelFiles.Length -eq 0) {
+    $wheelFiles = ConvertTo-WheelhouseArray $Group.wheelFiles
+    if ($wheelFiles.Count -eq 0) {
         throw "wheelhouse group $($Group.id) has no wheel files"
     }
 
@@ -186,7 +176,7 @@ if (-not (Test-Path $resolvedPythonExe)) {
 }
 
 $manifestRaw = Get-Content -Path $resolvedManifestPath -Raw -Encoding UTF8
-$manifest = ConvertFrom-WheelhouseJson -JsonText $manifestRaw
+$manifest = $manifestRaw | ConvertFrom-Json -Depth 100
 $manifestDir = Split-Path -Parent $resolvedManifestPath
 $selectedGroups = Get-WheelhouseSelectedGroups -Manifest $manifest -RequestedGroups $Group
 

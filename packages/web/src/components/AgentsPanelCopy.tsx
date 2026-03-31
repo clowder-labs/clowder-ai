@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SVGProps } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
+import { AgentManagementIcon } from './AgentManagementIcon';
 import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import { MarkdownContent } from './MarkdownContent';
@@ -12,7 +13,8 @@ type AgentTabKey = 'persona' | 'collab' | 'skills';
 type EditableTabKey = 'persona' | 'collab';
 type PanelMode = 'preview' | 'edit';
 type EditableDrafts = Record<EditableTabKey, string>;
-type IconComponent = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+type IconProps = { className?: string };
+type IconComponent = (props: IconProps) => JSX.Element;
 type ActionMenuPosition = { top: number; left: number };
 type TemplateBubblePosition = { top: number; left: number; tailLeft: number };
 
@@ -147,92 +149,40 @@ function SearchIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function PersonaIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <rect x="6" y="4" width="12" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="12" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M8.8 16.2C9.7 14.8 10.8 14 12 14C13.2 14 14.3 14.8 15.2 16.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+function PersonaIcon(props: IconProps) {
+  return <AgentManagementIcon name="persona" className={props.className} />;
 }
 
-function CollaborateIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <circle cx="8" cy="9" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="16" cy="9" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M4.5 18C5.2 15.8 6.8 14.8 8.5 14.8C10.2 14.8 11.8 15.8 12.5 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M11.5 18C12.2 15.8 13.8 14.8 15.5 14.8C17.2 14.8 18.8 15.8 19.5 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+function CollaborateIcon(props: IconProps) {
+  return <AgentManagementIcon name="collab" className={props.className} />;
 }
 
-function SkillsIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M12 4L13.8 8.2L18 10L13.8 11.8L12 16L10.2 11.8L6 10L10.2 8.2L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M18.5 4.5L19 6L20.5 6.5L19 7L18.5 8.5L18 7L16.5 6.5L18 6L18.5 4.5Z" fill="currentColor" />
-    </svg>
-  );
+function SkillsIcon(props: IconProps) {
+  return <AgentManagementIcon name="skills" className={props.className} />;
 }
 
-function TemplateIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <rect x="4" y="5" width="16" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M8 10H16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M8 14H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+function TemplateIcon(props: IconProps) {
+  return <AgentManagementIcon name="template" className={props.className} />;
 }
 
-function EditIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M4 20H8L18 10C18.8 9.2 18.8 7.9 18 7.1L16.9 6C16.1 5.2 14.8 5.2 14 6L4 16V20Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M12.8 7.2L16.8 11.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+function EditIcon(props: IconProps) {
+  return <AgentManagementIcon name="edit" className={props.className} />;
 }
 
-function CloseIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+function CloseIcon(props: IconProps) {
+  return <AgentManagementIcon name="close" className={props.className} />;
 }
 
-function CheckIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M5 12.5L9.2 16.5L19 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+function CheckIcon(props: IconProps) {
+  return <AgentManagementIcon name="check" className={props.className} />;
 }
 
-function MoreVerticalIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
-      <circle cx="12" cy="5.5" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="12" cy="18.5" r="1.6" />
-    </svg>
-  );
+function MoreVerticalIcon(props: IconProps) {
+  return <AgentManagementIcon name="more" className={props.className} />;
 }
 
-function TrashIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path d="M5 7H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M9 7V5.5C9 4.7 9.7 4 10.5 4H13.5C14.3 4 15 4.7 15 5.5V7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M8 9.5V18C8 19.1 8.9 20 10 20H14C15.1 20 16 19.1 16 18V9.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      <path d="M10 11.5V16.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M14 11.5V16.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+function TrashIcon(props: IconProps) {
+  return <AgentManagementIcon name="delete" className={props.className} />;
 }
 
 function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
@@ -254,7 +204,6 @@ function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
 const AGENT_TABS: TabDefinition[] = [
   { id: 'persona', label: '灵魂配置', icon: PersonaIcon, editable: true },
   { id: 'collab', label: '协作配置', icon: CollaborateIcon, editable: true },
-  { id: 'skills', label: '技能配置', icon: SkillsIcon, editable: false },
 ];
 
 function isEditableTab(tab: AgentTabKey): tab is EditableTabKey {
@@ -379,6 +328,10 @@ export function AgentsPanel() {
   const selectedCat = useMemo(
     () => cats.find((cat) => cat.id === selectedCatId) ?? filteredCats[0] ?? cats[0] ?? null,
     [cats, filteredCats, selectedCatId],
+  );
+  const actionMenuCat = useMemo(
+    () => cats.find((cat) => cat.id === openActionMenuCatId) ?? null,
+    [cats, openActionMenuCatId],
   );
 
   const selectedSavedDrafts = selectedCat
@@ -641,6 +594,31 @@ export function AgentsPanel() {
     await refresh();
   }, [refresh]);
 
+  const handleDeleteMember = useCallback(
+    async (catId: string) => {
+      const cat = cats.find((item) => item.id === catId);
+      if (!cat || cat.source !== 'runtime') return;
+
+      setOpenActionMenuCatId(null);
+      setActionMenuPosition(null);
+      setSaveError(null);
+
+      try {
+        const res = await apiFetch(`/api/cats/${cat.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          setSaveError(payload.error ?? `删除失败 (${res.status})`);
+          return;
+        }
+
+        await refresh();
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : '删除失败');
+      }
+    },
+    [cats, refresh],
+  );
+
   const handleStartEdit = useCallback(() => {
     if (!selectedCat || !canEditActiveTab || !isEditableTab(activeTab)) return;
     setSaveError(null);
@@ -743,7 +721,7 @@ export function AgentsPanel() {
       disabled={!canEditActiveTab}
       className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
         canEditActiveTab
-          ? 'bg-[#F5F7FA] text-[#445066] hover:bg-[#ECEFF4]'
+          ? 'bg-white text-[#445066]'
           : 'cursor-not-allowed bg-[#F5F7FA] text-[#B1B8C4]'
       }`}
     >
@@ -756,7 +734,7 @@ export function AgentsPanel() {
     const showTemplateButton = activeTab === 'persona';
 
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         {showTemplateButton ? (
           <button
             type="button"
@@ -765,8 +743,8 @@ export function AgentsPanel() {
               setTemplateModalOpen(true);
             }}
             disabled={isSavingEdit}
-            className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
-              isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#445066] hover:text-[#2F3A4D]'
+            className={`inline-flex items-center justify-center gap-1 text-[12px] font-semibold transition w-[44px] h-[18px] ${
+              isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#191919]'
             }`}
           >
             <TemplateIcon className="h-3.5 w-3.5" />
@@ -777,8 +755,8 @@ export function AgentsPanel() {
           type="button"
           onClick={handleCancelEdit}
           disabled={isSavingEdit}
-          className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
-            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#5E6775] hover:text-[#2F3A4D]'
+          className={`inline-flex items-center justify-center gap-1 text-[12px] font-semibold transition w-[44px] h-[18px] ${
+            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#191919]'
           }`}
         >
           <CloseIcon className="h-3.5 w-3.5" />
@@ -788,8 +766,8 @@ export function AgentsPanel() {
           type="button"
           onClick={handleSaveEdit}
           disabled={isSavingEdit}
-          className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
-            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#1F2633] hover:text-[#111827]'
+          className={`inline-flex items-center justify-center gap-1 text-[12px] font-semibold transition w-[44px] h-[18px] ${
+            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#191919]'
           }`}
         >
           <CheckIcon className="h-3.5 w-3.5" />
@@ -1015,6 +993,16 @@ export function AgentsPanel() {
     <div className="flex h-full min-h-0 flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="ui-page-title">智能体管理</h1>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            data-testid="create-agent-button"
+            onClick={openAddMember}
+            className="rounded-[999px] border border-[#595959] bg-[#1F2633] px-6 py-[5px] text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
+          >
+            新建智能体
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
@@ -1039,13 +1027,14 @@ export function AgentsPanel() {
                 return (
                   <div
                     key={cat.id}
-                    className={`relative rounded-[12px] border px-3 py-2 transition ${
+                    data-testid={`agent-card-${cat.id}`}
+                    className={`relative h-[76px] rounded-[8px] border px-3 py-2 transition ${
                       isSelected
-                        ? 'border-[#86B1FF] bg-[#F7FBFF] shadow-[0_0_0_1px_rgba(134,177,255,0.18)]'
+                        ? 'border-[#1476FF] bg-white'
                         : 'border-[#ECEFF3] bg-[#FAFBFC] hover:border-[#DCE5EF] hover:bg-white'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex h-full items-center gap-3">
                       <button
                         type="button"
                         onClick={() => {
@@ -1053,7 +1042,7 @@ export function AgentsPanel() {
                           setOpenActionMenuCatId(null);
                           setMode('preview');
                         }}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        className="flex h-full min-w-0 flex-1 items-center gap-3 pr-10 text-left"
                       >
                         <span className="shrink-0">{renderAvatar(cat)}</span>
                         <span className="min-w-0">
@@ -1066,8 +1055,9 @@ export function AgentsPanel() {
                         </span>
                       </button>
 
-                      <div className="relative shrink-0">
+                      <div className="absolute bottom-2 right-2">
                         <button
+                          data-testid={`agent-card-menu-${cat.id}`}
                           ref={openActionMenuCatId === cat.id ? actionMenuTriggerRef : null}
                           type="button"
                           onClick={(event) => {
@@ -1087,10 +1077,10 @@ export function AgentsPanel() {
                             actionMenuTriggerRef.current = event.currentTarget;
                             setOpenActionMenuCatId(cat.id);
                           }}
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] transition ${
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-[6px] transition ${
                             openActionMenuCatId === cat.id
-                              ? 'bg-[#EEF2F7] text-[#6A7280]'
-                              : 'text-[#AAB2BF] hover:bg-[#EEF2F7] hover:text-[#6A7280]'
+                              ? 'bg-[#EEF2F7] text-[#1F2329]'
+                              : 'text-[#1F2329] hover:bg-[#EEF2F7] hover:text-[#1F2329]'
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
                           aria-expanded={openActionMenuCatId === cat.id}
@@ -1105,7 +1095,7 @@ export function AgentsPanel() {
               })}
 
               {filteredCats.length === 0 ? (
-                <div className="rounded-[12px] border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
+                <div className="rounded-[8px] border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
                   没有匹配的智能体
                 </div>
               ) : null}
@@ -1121,6 +1111,7 @@ export function AgentsPanel() {
                 <button
                   type="button"
                   role="menuitem"
+                  data-testid="agent-edit-menu-item"
                   onClick={() => {
                     setSelectedCatId(openActionMenuCatId);
                     setOpenActionMenuCatId(null);
@@ -1135,13 +1126,21 @@ export function AgentsPanel() {
                 <button
                   type="button"
                   role="menuitem"
+                  data-testid="agent-delete-menu-item"
+                  disabled={actionMenuCat?.source !== 'runtime'}
                   onClick={() => {
-                    setOpenActionMenuCatId(null);
-                    setActionMenuPosition(null);
+                    if (actionMenuCat?.source !== 'runtime') return;
+                    void handleDeleteMember(actionMenuCat.id);
                   }}
-                  className="flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium text-[#1F2329] transition hover:bg-[#F4F7FB]"
+                  className={`flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition ${
+                    actionMenuCat?.source === 'runtime'
+                      ? 'text-[#1F2329] hover:bg-[#F4F7FB]'
+                      : 'cursor-not-allowed text-[#AAB2BF] opacity-60'
+                  }`}
                 >
-                  <TrashIcon className="h-3.5 w-3.5 text-[#1F2329]" />
+                  <TrashIcon
+                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-[#1F2329]' : 'text-[#AAB2BF]'}`}
+                  />
                   <span>删除</span>
                 </button>
               </div>
@@ -1177,22 +1176,6 @@ export function AgentsPanel() {
                 })}
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setConnectThirdPartyModalOpen(true)}
-                  className="rounded-[10px] bg-[#F5F7FA] px-3 py-1.5 text-[12px] font-semibold text-[#445066] transition hover:bg-[#ECEFF4]"
-                >
-                  连接三方智能体
-                </button>
-                <button
-                  type="button"
-                  onClick={openAddMember}
-                  className="rounded-[10px] bg-[#1F2633] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
-                >
-                  新建智能体
-                </button>
-              </div>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">

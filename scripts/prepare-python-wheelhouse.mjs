@@ -196,17 +196,6 @@ function toPosixRelative(fromDir, targetPath) {
   return relative(fromDir, targetPath).split('\\').join('/');
 }
 
-function resolveLocalProjectPath(projectPath, configDir) {
-  const requestedPath = String(projectPath ?? '').trim();
-  if (!requestedPath) {
-    throw new Error('Local project path is empty');
-  }
-  if (requestedPath.startsWith('.') || requestedPath.startsWith('..')) {
-    return resolve(configDir, requestedPath);
-  }
-  return resolve(repoRoot, requestedPath);
-}
-
 function sanitizeGroupSelection(configGroups, selectedIds) {
   if (selectedIds.length === 0) {
     return configGroups;
@@ -291,7 +280,7 @@ function main() {
 
     const localProjects = [];
     for (const project of group.localProjects ?? []) {
-      const projectPath = resolveLocalProjectPath(project.path, configDir);
+      const projectPath = resolve(configDir, project.path);
       if (!existsSync(projectPath)) {
         throw new Error(`Local project not found for group ${group.id}: ${project.path}`);
       }

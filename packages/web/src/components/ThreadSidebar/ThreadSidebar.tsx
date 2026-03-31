@@ -22,6 +22,7 @@ interface ThreadSidebarProps {
   onBootcampClick?: () => void;
   onHubClick?: () => void;
   onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills') => void;
+  onNewChatClick?: () => void;
   activeMenu?: 'models' | 'agents' | 'channels' | 'skills';
 }
 
@@ -31,6 +32,7 @@ export function ThreadSidebar({
   onBootcampClick,
   onHubClick,
   onMenuClick,
+  onNewChatClick,
   activeMenu,
 }: ThreadSidebarProps) {
   const router = useRouter();
@@ -38,6 +40,7 @@ export function ThreadSidebar({
     threads,
     currentThreadId,
     setThreads,
+    setCurrentThread,
     setCurrentProject,
     isLoadingThreads,
     setLoadingThreads,
@@ -421,7 +424,7 @@ export function ThreadSidebar({
     searchQuery: normalizedQuery,
     currentThreadId,
   });
-  const isChatMenu = !activeMenu;
+  const isChatMenu = !activeMenu && currentThreadId === 'default';
   const menuItemBase = 'ui-menu-item flex w-full items-center gap-1.5 px-2.5 transition-colors';
   const menuItemActive = 'ui-menu-item-active';
   const menuItemInactive = 'ui-menu-item-inactive';
@@ -471,7 +474,18 @@ export function ThreadSidebar({
           <div className="flex flex-col gap-1.5 items-start">
             <button
               type="button"
-              onClick={() => setShowPicker(true)}
+              onClick={() => {
+                if (onNewChatClick) {
+                  onNewChatClick();
+                } else {
+                  setCurrentThread('default');
+                  setCurrentProject('default');
+                  navigateToThread('default');
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    onClose?.();
+                  }
+                }
+              }}
               className={`${menuItemBase} ${isChatMenu ? menuItemActive : menuItemInactive} text-cafe-black`}
             >
               <img src="/icons/menu/new-chat.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
@@ -725,7 +739,6 @@ export function ThreadSidebar({
           <div className="mx-4 w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold text-gray-900 mb-2">确认删除对话</h3>
             <p className="text-sm text-gray-600 mb-1">即将删除「{deleteTarget.title ?? '未命名对话'}」</p>
-            <p className="text-xs text-gray-500 mb-4">对话将移入回收站，30 天后自动清理。你可以随时从回收站恢复。</p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
@@ -737,7 +750,7 @@ export function ThreadSidebar({
                 onClick={handleDeleteConfirm}
                 className="rounded-lg bg-orange-500 px-3 py-1.5 text-sm text-white transition-colors hover:bg-orange-600"
               >
-                移入回收站
+                确定
               </button>
             </div>
           </div>

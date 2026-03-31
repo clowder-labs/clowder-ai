@@ -1,8 +1,8 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiFetch } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
+import { apiFetch } from '@/utils/api-client';
 import { TagEditor } from './hub-tag-editor';
 
 const ADD_MODEL = '添加模型';
@@ -12,7 +12,8 @@ const LOADING_TEXT = '加载中...';
 const EMPTY_TEXT = '暂无模型信息';
 const NO_RESULTS_TEXT = '未找到匹配模型';
 const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
-const DEFAULT_DESC = '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
+const DEFAULT_DESC =
+  '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
 const DEFAULT_ICON = '/avatars/assistant.svg';
@@ -22,6 +23,8 @@ const CREATE_MODEL_LABEL = '\u521b\u5efa\u6a21\u578b';
 const CREATE_MODEL_MODAL_TITLE = '\u521b\u5efa\u6a21\u578b';
 const CREATE_MODEL_CANCEL_LABEL = '\u53d6\u6d88';
 const CREATE_MODEL_CONFIRM_LABEL = '\u786e\u5b9a';
+const DELETE_MODEL_LABEL = '\u5220\u9664';
+const DELETE_MODEL_CONFIRM_TEXT = '\u786e\u8ba4\u5220\u9664\uff1f';
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -95,7 +98,8 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     ([key, value]) => typeof value === 'string' && key !== 'id' && key !== 'object',
   ) as Array<[string, string]>;
 
-  const inferredName = nameFromKnownFields ?? genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ?? '';
+  const inferredName =
+    nameFromKnownFields ?? genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ?? '';
 
   const inferredDescription =
     pickStringField(item, ['description', 'desc', '描述']) ??
@@ -177,11 +181,16 @@ export function ModelsPanel() {
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const [modelHeadersInput, setModelHeadersInput] = useState('');
+  const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const openHub = useChatStore((s) => s.openHub);
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
 
   const canConfirmCreateModel =
-    modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0 && modelDisplayNameInput?.trim().length > 0;
+    modelNameInput?.trim().length > 0 &&
+    modelUrlInput?.trim().length > 0 &&
+    modelApiKeyInput?.trim().length > 0 &&
+    modelDisplayNameInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -200,7 +209,11 @@ export function ModelsPanel() {
         setCards([]);
         return;
       }
-      const json = (await res.json()) as { projectPath?: string; list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
+      const json = (await res.json()) as {
+        projectPath?: string;
+        list?: MassModelResponseItem[];
+        models?: MassModelResponseItem[];
+      };
       const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
       setCards(source.map(normalizeModel));
       setResolvedProjectPath(typeof json.projectPath === 'string' ? json.projectPath : null);
@@ -210,6 +223,42 @@ export function ModelsPanel() {
       setLoading(false);
     }
   }, [buildModelsUrl]);
+
+  const handleDeleteModel = useCallback(
+    async (cardId: string) => {
+      if (deletingModelId) return;
+      setDeletingModelId(cardId);
+      try {
+        // cardId format: model_config:{sourceId}:{modelName} or model_config:{sourceId}
+        // extract sourceId (the part after "model_config:" and before the last ":")
+        let sourceId = cardId;
+        if (cardId.startsWith('model_config:')) {
+          const parts = cardId.split(':');
+          if (parts.length >= 2) {
+            sourceId = parts[1];
+          }
+        }
+        const query = new URLSearchParams();
+        if (currentProjectPath && currentProjectPath !== 'default') {
+          query.set('projectPath', currentProjectPath);
+        }
+        const queryText = query.toString();
+        const url = `/api/model-config-profiles/${encodeURIComponent(sourceId)}${queryText ? `?${queryText}` : ''}`;
+        const res = await apiFetch(url, { method: 'DELETE' });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `删除失败 (${res.status})`);
+        }
+        setDeleteConfirmId(null);
+        await fetchModels();
+      } catch (error) {
+        console.error('Delete model failed:', error);
+      } finally {
+        setDeletingModelId(null);
+      }
+    },
+    [deletingModelId, currentProjectPath, fetchModels],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -221,7 +270,11 @@ export function ModelsPanel() {
           if (!cancelled) setCards([]);
           return;
         }
-        const json = (await res.json()) as { projectPath?: string; list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
+        const json = (await res.json()) as {
+          projectPath?: string;
+          list?: MassModelResponseItem[];
+          models?: MassModelResponseItem[];
+        };
         const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
         if (!cancelled) {
           setCards(source.map(normalizeModel));
@@ -305,8 +358,8 @@ export function ModelsPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-0 pb-2">
-          <section className='flex justify-between gap-2'>
+        <div className="space-y-4 pb-2">
+          <section className="flex justify-between gap-2">
             <div className="relative flex-1 mr-2">
               <input
                 type="search"
@@ -366,35 +419,69 @@ export function ModelsPanel() {
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => (
-                    <article
-                      key={card.id}
-                      className="ui-card group flex min-h-[194px] flex-col gap-4 p-5"
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={card.icon || DEFAULT_ICON}
-                          alt={`${card.name} icon`}
-                          width={48}
-                          height={48}
-                          className="h-12 w-12 shrink-0 rounded-[10px] border border-[var(--border-soft)] bg-[var(--accent-soft)] object-cover p-1.5"
-                          data-testid={`model-card-icon-${card.id}`}
-                        />
+                    <article key={card.id} className="ui-card px-4 py-4 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start gap-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={card.icon || DEFAULT_ICON}
+                            alt={`${card.name} icon`}
+                            width={48}
+                            height={48}
+                            className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
+                            data-testid={`model-card-icon-${card.id}`}
+                          />
 
-                        <div className="min-w-0 flex-1">
-                          <h4 className="truncate text-base font-semibold text-[var(--text-primary)]">
-                            {card.name}
-                          </h4>
-                          {card.labels.length > 0 ? (
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-                              {card.labels.map((label, index) => (
-                                <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
-                                  {label}
-                                </span>
-                              ))}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
+                                {card.name}
+                              </h4>
+                              {card.protocol !== 'huawei_maas' && (
+                                <button
+                                  type="button"
+                                  disabled={deletingModelId === card.id}
+                                  onClick={() => {
+                                    if (deleteConfirmId === card.id) {
+                                      void handleDeleteModel(card.id);
+                                    } else {
+                                      setDeleteConfirmId(card.id);
+                                    }
+                                  }}
+                                  onBlur={() => setDeleteConfirmId(null)}
+                                  data-testid={`model-card-delete-${card.id}`}
+                                  className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50"
+                                  style={{
+                                    color: deleteConfirmId === card.id ? '#DC2626' : '#8B95A5',
+                                    backgroundColor: deleteConfirmId === card.id ? '#FEF2F2' : 'transparent',
+                                  }}
+                                >
+                                  {deletingModelId === card.id
+                                    ? '\u5220\u9664\u4e2d...'
+                                    : deleteConfirmId === card.id
+                                      ? DELETE_MODEL_CONFIRM_TEXT
+                                      : DELETE_MODEL_LABEL}
+                                </button>
+                              )}
                             </div>
-                          ) : null}
+                            {card.labels.length > 0 ? (
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {card.labels.map((label, index) => (
+                                  <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
+
+                        <p
+                          className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden"
+                          title={card.description}
+                        >
+                          {card.description}
+                        </p>
                       </div>
 
                       <p
@@ -514,7 +601,9 @@ export function ModelsPanel() {
                   />
                 </div>
               </div>
-              {createModelError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p> : null}
+              {createModelError ? (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
+              ) : null}
 
               <div className="flex items-center justify-end gap-2">
                 <button
@@ -625,10 +714,7 @@ function ModelsCreateModelConfigSource({
   const [busy, setBusy] = useState(false);
 
   const canCreate =
-    displayName.trim().length > 0 &&
-    baseUrl.trim().length > 0 &&
-    apiKey.trim().length > 0 &&
-    models.length > 0;
+    displayName.trim().length > 0 && baseUrl.trim().length > 0 && apiKey.trim().length > 0 && models.length > 0;
 
   const reset = () => {
     setSourceId(generateModelConfigSourceId());

@@ -256,20 +256,6 @@ Section "Install"
   DetailPrint "正在初始化配置..."
   nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'
   Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "初始化配置失败，安装已中止。"
-    Abort
-  ${EndIf}
-
-  ; Rebuild Python launchers with the user's installed runtime so console_scripts
-  ; like agent-teams.exe do not retain the build machine's absolute Python path.
-  DetailPrint "正在安装 Python 运行时依赖..."
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\install-python-wheelhouse.ps1" -ProjectRoot "$INSTDIR" -ManifestPath "$INSTDIR\installer-seed\python-wheelhouse-manifest.json" -PythonExe "$INSTDIR\tools\python\python.exe" -ForceReinstall'
-  Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "Python 运行时依赖安装失败，安装已中止。"
-    Abort
-  ${EndIf}
 
   ; Add firewall rules so Windows does not prompt user when node.exe listens on a port
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="${APP_NAME} Node.js"'
