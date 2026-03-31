@@ -11,13 +11,14 @@ import { abortGame, godAction, submitAction } from '@/hooks/useGameApi';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
-import { useSendMessage } from '@/hooks/useSendMessage';
+import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 import { useVadInterrupt } from '@/hooks/useVadInterrupt';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
 import { useWorkspaceNavigate } from '@/hooks/useWorkspaceNavigate';
+import type { DeliveryMode } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useTaskStore } from '@/stores/taskStore';
@@ -39,6 +40,7 @@ import { HubListModal } from './HubListModal';
 import { MessageActions } from './MessageActions';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { ModelsPanel } from './ModelsPanel';
+import { NewThreadContainer } from './NewThreadContainer';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
@@ -51,11 +53,27 @@ import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
-interface ChatContainerProps {
-  threadId: string;
+const SIDEBAR_DEFAULT = 240;
+
+type ChatContainerProps =
+  | {
+      mode: 'new';
+      threadId?: never;
+    }
+  | {
+      mode?: 'thread';
+      threadId: string;
+    };
+
+export function ChatContainer(props: ChatContainerProps) {
+  if (props.mode === 'new') {
+    return <NewThreadContainer />;
+  }
+
+  return <ThreadModeChatContainer threadId={props.threadId} />;
 }
 
-export function ChatContainer({ threadId }: ChatContainerProps) {
+function ThreadModeChatContainer({ threadId }: { threadId: string }) {
   const {
     messages,
     hasActiveInvocation,
@@ -69,6 +87,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     clearUnread,
     confirmUnreadAck,
     armUnreadSuppression,
+    consumePendingNewThreadSend,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
@@ -131,7 +150,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, []);
   // F063: resizable split pane, chatBasis as percentage (20-80), persisted
   // F063 Gap 6: sidebar width in px, persisted
-  const SIDEBAR_DEFAULT = 240;
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
     'cat-cafe:sidebarWidth',
     SIDEBAR_DEFAULT,
@@ -154,12 +172,22 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
   const { handleScroll, scrollContainerRef, messagesEndRef, isLoadingHistory, hasMore } = useChatHistory(threadId);
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
+  const consumedPendingRequestIdsRef = useRef(new Set<string>());
   const {
     pending: authPending,
     respond: authRespond,
     handleAuthRequest,
     handleAuthResponse,
   } = useAuthorization(threadId);
+
+  useEffect(() => {
+    const pending = consumePendingNewThreadSend(threadId);
+    if (!pending) return;
+    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
+
+    consumedPendingRequestIdsRef.current.add(pending.requestId);
+    handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
+  }, [consumePendingNewThreadSend, handleSend, threadId]);
 
   // F096: Listen for interactive block send events
   useEffect(() => {
@@ -456,6 +484,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
             threadId={threadId}
             authPendingCount={authPending.length}
+            targetCats={targetCats}
             viewMode={viewMode}
             onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
             onOpenMobileStatus={() => setMobileStatusOpen(true)}
@@ -468,7 +497,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         <div className="flex-1 relative overflow-hidden">
           {sidebarMenu !== 'chat' && (
-            <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
+            <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
               {sidebarMenu === 'agents' && <AgentsRootPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}

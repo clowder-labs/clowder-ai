@@ -16,6 +16,7 @@ import {
   type CodexRuntimeSettings,
   DEFAULT_ANTIGRAVITY_COMMAND_ARGS,
   filterAccounts,
+  hasEmbeddedAcpRuntime,
   type HubCatEditorDraft,
   type HubCatEditorFormState,
   initialState,
@@ -24,7 +25,7 @@ import {
   toCodexRuntimeSettings,
   toStrategyForm,
 } from './hub-cat-editor.model';
-import { AccountSection, IdentitySection, RoutingSection } from './hub-cat-editor.sections';
+import { AccountSection, EmbeddedAcpConfigSection, IdentitySection, RoutingSection } from './hub-cat-editor.sections';
 import { AdvancedRuntimeSection } from './hub-cat-editor-advanced';
 import { PersistenceBanner } from './hub-cat-editor-fields';
 import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
@@ -43,13 +44,20 @@ interface HubCatEditorProps {
 function resolveEditorCat(cat?: CatData | null, configCat?: ConfigData['cats'][string]): CatData | null | undefined {
   if (!cat) return cat;
   if (!configCat) return cat;
+  const embeddedAcpRuntime = hasEmbeddedAcpRuntime(cat);
   return {
     ...cat,
     displayName: configCat.displayName || cat.displayName,
-    accountRef: configCat.accountRef || configCat.providerProfileId || cat.accountRef || cat.providerProfileId,
-    providerProfileId: configCat.providerProfileId || configCat.accountRef || cat.providerProfileId || cat.accountRef,
+    accountRef: embeddedAcpRuntime
+      ? cat.accountRef || cat.providerProfileId
+      : configCat.accountRef || configCat.providerProfileId || cat.accountRef || cat.providerProfileId,
+    providerProfileId: embeddedAcpRuntime
+      ? cat.providerProfileId || cat.accountRef
+      : configCat.providerProfileId || configCat.accountRef || cat.providerProfileId || cat.accountRef,
     provider: configCat.provider || cat.provider,
     defaultModel: configCat.model || cat.defaultModel,
+    embeddedAcpConfig: configCat.embeddedAcpConfig || cat.embeddedAcpConfig,
+    embeddedAcpExecutablePath: configCat.embeddedAcpExecutablePath || cat.embeddedAcpExecutablePath,
   };
 }
 
@@ -77,13 +85,25 @@ function mergeAcpProfiles(baseProfiles: ProfileItem[], providerProfiles: Profile
   return nextProfiles;
 }
 
+function mergeProfilesById(baseProfiles: ProfileItem[], extraProfiles: ProfileItem[]): ProfileItem[] {
+  const nextProfiles = [...baseProfiles];
+  const seen = new Set(baseProfiles.map((profile) => profile.id));
+  for (const profile of extraProfiles) {
+    if (seen.has(profile.id)) continue;
+    nextProfiles.push(profile);
+    seen.add(profile.id);
+  }
+  return nextProfiles;
+}
+
 async function loadProfilesForClient(
   projectPath: string | null | undefined,
   client: ClientValue,
+  options?: { embeddedAcpRuntime?: boolean },
 ): Promise<ProfileItem[]> {
   const modelConfigUrl = '/api/model-config-profiles';
   const providerProfilesUrl = buildProjectScopedUrl('/api/provider-profiles', projectPath);
-  const needsAcpProfiles = client === 'acp';
+  const needsAcpProfiles = client === 'acp' && !options?.embeddedAcpRuntime;
 
   async function readProviderProfiles(): Promise<ProfileItem[]> {
     const providerProfilesRes = await apiFetch(providerProfilesUrl);
@@ -97,15 +117,23 @@ async function loadProfilesForClient(
     modelConfigRes = await apiFetch(modelConfigUrl);
   } catch {
     const providerProfiles = await readProviderProfiles();
+    if (options?.embeddedAcpRuntime) return providerProfiles;
     return needsAcpProfiles ? providerProfiles.filter((profile) => profile.kind === 'acp') : providerProfiles;
   }
 
   if (!modelConfigRes.ok) {
-    if (modelConfigRes.status === 404) return [];
+    if (modelConfigRes.status === 404) {
+      if (options?.embeddedAcpRuntime) return readProviderProfiles();
+      return [];
+    }
     throw new Error(`模型配置加载失败 (${modelConfigRes.status})`);
   }
 
   const body = (await modelConfigRes.json()) as ModelConfigProfilesResponse;
+  if (options?.embeddedAcpRuntime) {
+    const providerProfiles = await readProviderProfiles();
+    return mergeProfilesById(body.providers, providerProfiles);
+  }
   if (body.exists) {
     if (!needsAcpProfiles) return body.providers;
     return mergeAcpProfiles(body.providers, await readProviderProfiles());
@@ -145,21 +173,26 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
   const [strategyBaselineHasOverride, setStrategyBaselineHasOverride] = useState(false);
   const [codexSettings, setCodexSettings] = useState<CodexRuntimeSettings | null>(null);
   const [codexSettingsBaseline, setCodexSettingsBaseline] = useState<CodexRuntimeSettings | null>(null);
+  const embeddedAcpRuntime = useMemo(() => hasEmbeddedAcpRuntime(resolvedCat), [resolvedCat]);
 
-  const availableProfiles = useMemo(() => filterAccounts(form.client, profiles), [form.client, profiles]);
+  const availableProfiles = useMemo(
+    () => filterAccounts(form.client, profiles, { embeddedAcpRuntime }),
+    [embeddedAcpRuntime, form.client, profiles],
+  );
   const selectedProfile = useMemo(
     () => availableProfiles.find((profile) => profile.id === form.accountRef) ?? null,
     [availableProfiles, form.accountRef],
   );
   const modelOptions = useMemo(() => {
-    if (form.client === 'antigravity' || form.client === 'acp') return [];
+    if (form.client === 'antigravity') return [];
+    if (form.client === 'acp' && !embeddedAcpRuntime) return [];
     const currentModel = form.defaultModel.trim();
     const profileModels = selectedProfile?.models ?? [];
     if (currentModel && !profileModels.includes(currentModel)) {
       return [currentModel, ...profileModels];
     }
     return profileModels;
-  }, [form.client, form.defaultModel, selectedProfile]);
+  }, [embeddedAcpRuntime, form.client, form.defaultModel, selectedProfile]);
   const showCodexSettings = form.client === 'openai';
   const codexSettingsEditable = !showCodexSettings || codexSettingsBaseline !== null;
 
@@ -180,7 +213,7 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
     let cancelled = false;
     setLoadingProfiles(true);
     Promise.resolve()
-      .then(() => loadProfilesForClient(currentProjectPath, form.client))
+      .then(() => loadProfilesForClient(currentProjectPath, form.client, { embeddedAcpRuntime }))
       .then((nextProfiles) => {
         if (!cancelled) setProfiles(nextProfiles);
       })
@@ -193,7 +226,7 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
     return () => {
       cancelled = true;
     };
-  }, [currentProjectPath, form.client, open]);
+  }, [currentProjectPath, embeddedAcpRuntime, form.client, open]);
 
   useEffect(() => {
     if (!open || !resolvedCat) {
@@ -592,11 +625,13 @@ export function HubCatEditor({ cat, configCat, draft, open, onClose, onSaved }: 
             hasError={fieldErrors.account}
             modelOptions={modelOptions}
             availableProfiles={availableProfiles}
+            embeddedAcpRuntime={embeddedAcpRuntime}
             loadingProfiles={loadingProfiles}
             availableClientIds={availableClientIds.size > 0 ? availableClientIds : undefined}
             clientLabels={Object.keys(clientLabels).length > 0 ? clientLabels : undefined}
             onChange={patchForm}
           />
+          {embeddedAcpRuntime ? <EmbeddedAcpConfigSection form={form} onChange={patchForm} /> : null}
           <RoutingSection form={form} hasError={fieldErrors.routing} onChange={patchForm} />
           <AdvancedRuntimeSection
             cat={cat}
