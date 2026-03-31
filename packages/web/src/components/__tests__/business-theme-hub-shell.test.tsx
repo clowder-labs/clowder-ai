@@ -122,7 +122,8 @@ describe('business theme hub shell', () => {
     });
     await flushEffects();
 
-    expect(container.querySelector('select')).toBeNull();
+    expect(container.querySelector('select[aria-label="项目"]')).toBeNull();
+    expect(container.querySelector('select[aria-label="筛选来源"]')).not.toBeNull();
     expect(container.textContent).not.toContain('项目:');
     expect(container.querySelector('[data-testid="capability-card-skill-ops-skill"]')?.className).toContain('ui-card');
     expect(container.textContent).toContain('来源：官方');

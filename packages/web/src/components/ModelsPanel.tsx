@@ -1,9 +1,10 @@
-﻿'use client';
+﻿﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { TagEditor } from './hub-tag-editor';
+import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
@@ -24,7 +25,6 @@ const CREATE_MODEL_MODAL_TITLE = '\u521b\u5efa\u6a21\u578b';
 const CREATE_MODEL_CANCEL_LABEL = '\u53d6\u6d88';
 const CREATE_MODEL_CONFIRM_LABEL = '\u786e\u5b9a';
 const DELETE_MODEL_LABEL = '\u5220\u9664';
-const DELETE_MODEL_CONFIRM_TEXT = '\u786e\u8ba4\u5220\u9664\uff1f';
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -182,9 +182,9 @@ export function ModelsPanel() {
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const [modelHeadersInput, setModelHeadersInput] = useState('');
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const openHub = useChatStore((s) => s.openHub);
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
+  const confirm = useConfirm();
 
   const canConfirmCreateModel =
     modelNameInput?.trim().length > 0 &&
@@ -225,8 +225,16 @@ export function ModelsPanel() {
   }, [buildModelsUrl]);
 
   const handleDeleteModel = useCallback(
-    async (cardId: string) => {
+    async (cardId: string, cardName: string) => {
       if (deletingModelId) return;
+      const ok = await confirm({
+        title: '删除模型',
+        message: `确认删除模型“${cardName || cardId}”？此操作不可恢复。`,
+        confirmLabel: '删除',
+        cancelLabel: '取消',
+        variant: 'danger',
+      });
+      if (!ok) return;
       setDeletingModelId(cardId);
       try {
         // cardId format: model_config:{sourceId}:{modelName} or model_config:{sourceId}
@@ -249,7 +257,6 @@ export function ModelsPanel() {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(body.error ?? `删除失败 (${res.status})`);
         }
-        setDeleteConfirmId(null);
         await fetchModels();
       } catch (error) {
         console.error('Delete model failed:', error);
@@ -257,7 +264,7 @@ export function ModelsPanel() {
         setDeletingModelId(null);
       }
     },
-    [deletingModelId, currentProjectPath, fetchModels],
+    [confirm, deletingModelId, currentProjectPath, fetchModels],
   );
 
   useEffect(() => {
@@ -419,7 +426,7 @@ export function ModelsPanel() {
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => (
-                    <article key={card.id} className="ui-card px-4 py-4 flex flex-col justify-between">
+                    <article key={card.id} className="ui-card group flex min-h-[194px] flex-col gap-4 p-5">
                       <div>
                         <div className="flex items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -437,32 +444,6 @@ export function ModelsPanel() {
                               <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
                                 {card.name}
                               </h4>
-                              {card.protocol !== 'huawei_maas' && (
-                                <button
-                                  type="button"
-                                  disabled={deletingModelId === card.id}
-                                  onClick={() => {
-                                    if (deleteConfirmId === card.id) {
-                                      void handleDeleteModel(card.id);
-                                    } else {
-                                      setDeleteConfirmId(card.id);
-                                    }
-                                  }}
-                                  onBlur={() => setDeleteConfirmId(null)}
-                                  data-testid={`model-card-delete-${card.id}`}
-                                  className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50"
-                                  style={{
-                                    color: deleteConfirmId === card.id ? '#DC2626' : '#8B95A5',
-                                    backgroundColor: deleteConfirmId === card.id ? '#FEF2F2' : 'transparent',
-                                  }}
-                                >
-                                  {deletingModelId === card.id
-                                    ? '\u5220\u9664\u4e2d...'
-                                    : deleteConfirmId === card.id
-                                      ? DELETE_MODEL_CONFIRM_TEXT
-                                      : DELETE_MODEL_LABEL}
-                                </button>
-                              )}
                             </div>
                             {card.labels.length > 0 ? (
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -475,17 +456,10 @@ export function ModelsPanel() {
                             ) : null}
                           </div>
                         </div>
-
-                        <p
-                          className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden"
-                          title={card.description}
-                        >
-                          {card.description}
-                        </p>
                       </div>
 
                       <p
-                        className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]"
+                        className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden"
                         title={card.description}
                       >
                         {card.description}
@@ -493,17 +467,44 @@ export function ModelsPanel() {
 
                       <div className="mt-auto flex items-end justify-between gap-3">
                         <div className="min-h-5 text-xs leading-5">
-                          <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={card.icon || DEFAULT_ICON}
-                              alt={`${card.developer} icon`}
-                              width={16}
-                              height={16}
-                              className="h-4 w-4 rounded-sm object-cover"
-                            />
-                            <span>{card.developer}</span>
-                          </span>
+                          {card.protocol !== 'huawei_maas' ? (
+                            <div className="relative">
+                              <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={card.icon || DEFAULT_ICON}
+                                  alt={`${card.developer} icon`}
+                                  width={16}
+                                  height={16}
+                                  className="h-4 w-4 rounded-sm object-cover"
+                                />
+                                <span>{card.developer}</span>
+                              </span>
+                              <button
+                                type="button"
+                                disabled={deletingModelId === card.id}
+                                onClick={() => {
+                                  void handleDeleteModel(card.id, card.name);
+                                }}
+                                data-testid={`model-card-delete-${card.id}`}
+                                className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100 disabled:opacity-50"
+                              >
+                                {deletingModelId === card.id ? '\u5220\u9664\u4e2d...' : DELETE_MODEL_LABEL}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={card.icon || DEFAULT_ICON}
+                                alt={`${card.developer} icon`}
+                                width={16}
+                                height={16}
+                                className="h-4 w-4 rounded-sm object-cover"
+                              />
+                              <span>{card.developer}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </article>
