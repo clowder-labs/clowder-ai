@@ -55,7 +55,7 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className="transition-transform duration-150 flex-shrink-0"
-      style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+      style={{ transform: expanded ? 'rotate(-90deg)' : 'rotate(90deg)' }}
     >
       <polyline points="9 18 15 12 9 6" />
     </svg>
@@ -70,7 +70,7 @@ function WrenchIcon({ color }: { color?: string }) {
       height="11"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={color || '#E2E8F0'}
+      stroke={color || 'rgb(89, 89, 89)'}
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -204,10 +204,8 @@ function ToolRow({
       data-testid={`tool-row-${event.id}`}
       className="w-full text-left cursor-pointer rounded  text-[11px] flex items-center gap-2"
       style={{
-        padding: '5px 8px',
+        padding: '5px 0',
         borderRadius: 4,
-        backgroundColor: isActive ? hexToRgba(accent, 0.2) : undefined,
-        borderLeft: isActive ? `2px solid ${accent}` : undefined,
       }}
       onClick={() => {
         setRowExpanded((v) => !v);
@@ -217,11 +215,11 @@ function ToolRow({
       <div className="flex items-center gap-2 min-w-0 flex-1">
         {/* Status icon */}
         {isActive ? <LoaderIcon color={accentLight} /> : hasResult ? <CheckIcon /> : null}
-        {/* Wrench icon — design: #E2E8F0 normal, #F5F3FF active */}
-        <WrenchIcon color={isActive ? accentVeryLight : '#E2E8F0'} />
+        {/* Wrench icon — design: rgb(89, 89, 89) normal, #F5F3FF active */}
+        <WrenchIcon color={isActive ? 'rgb(89, 89, 89)' : 'rgb(89, 89, 89)'} />
         {/* Tool label (full) */}
-        <span className="truncate" style={{ color: isActive ? accentVeryLight : '#E2E8F0' }}>
-          <span className="font-medium">{event.label?.split(' ')[0]}</span>
+        <span className="truncate" style={{ color: isActive ? 'rgb(89, 89, 89)' : 'rgb(89, 89, 89)' }}>
+          <span className="font-[12px]">{event.label?.split(' ')[0]}</span>
           {event.label?.includes(' ') && (
             <span
               style={{ color: isActive ? accentLight : '#64748B' }}
@@ -276,11 +274,11 @@ function ToolsSection({
   const toolSummary = `${toolUses.length} tool${toolUses.length > 1 ? 's' : ''}`;
 
   return (
-    <div style={{ padding: '4px 12px' }}>
+    <div style={{ padding: '4px 0' }}>
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px]  rounded transition-colors"
+        className="w-full flex items-center gap-1.5 py-1.5 text-[12px] rounded transition-colors"
         style={{ color: '#94A3B8' }}
         onClick={() => {
           toolsUserInteracted.current = true;
@@ -288,8 +286,8 @@ function ToolsSection({
           onUserInteract();
         }}
       >
-        <ChevronIcon expanded={toolsExpanded} />
         <span>{toolsExpanded ? toolSummary : `${toolSummary} (collapsed)`}</span>
+        <ChevronIcon expanded={toolsExpanded} />
       </button>
       {toolsExpanded && (
         <div className="space-y-0.5">
@@ -376,19 +374,21 @@ export function CliOutputBlock({
   };
 
   return (
-    <div className="test-123 mt-2 mb-1 overflow-hidden">
+    <div className="cli-output-container mt-2 mb-1 overflow-hidden">
       {/* Header — design: chevron(accent) + summary(slate-400) + paw chip */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 text-[11px]  transition-colors"
-        style={{ padding: '8px 12px' }}
+        className="cli-output-button w-full flex items-center gap-2 text-[14px] transition-colors"
+        style={{ padding: '8px 0' }}
       >
+        { status === 'done' && <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5287" width="20" height="20"><path d="M512 0C228.430769 0 0 228.430769 0 512s228.430769 512 512 512 512-228.430769 512-512S795.569231 0 512 0z m256 413.538462l-271.753846 271.753846c-7.876923 7.876923-19.692308 11.815385-31.507692 11.815384-11.815385 0-23.630769-3.938462-31.507693-11.815384l-169.353846-169.353846c-15.753846-15.753846-15.753846-47.261538 0-63.015385 15.753846-15.753846 47.261538-15.753846 63.015385 0l137.846154 137.846154 240.246153-240.246154c15.753846-15.753846 47.261538-15.753846 63.015385 0 19.692308 15.753846 19.692308 47.261538 0 63.015385z" fill="#94C86C" p-id="5288"></path></svg>
+        }
+        <span className="font-[14px]">{summary}</span>
         <span style={{ color: 'rgb(31, 31, 31)' }}>
           <ChevronIcon expanded={expanded} />
         </span>
-        <span className="font-medium">{summary}</span>
-        <span className="ml-auto flex items-center gap-1" style={{ color: '#64748B', fontSize: 10 }}>
+        <span className="ml-auto hidden items-center gap-1" style={{ color: '#64748B', fontSize: 10 }}>
           {thinkingMode === 'debug' ? (
             <>
               <PawPrint />
@@ -402,7 +402,7 @@ export function CliOutputBlock({
 
       {/* Expanded body */}
       {expanded && (
-        <div data-testid="cli-output-body test-123">
+        <div data-testid="cli-output-body">
           {toolUses.length > 0 && (
             <ToolsSection
               toolUses={toolUses}
@@ -419,13 +419,14 @@ export function CliOutputBlock({
             <>
               {toolUses.length > 0 && (
                 <>
-                  <div style={{ height: 1, backgroundColor: DIVIDER }} />
+                  <div style={{ height: 1, backgroundColor: 'rgb(240, 240, 240)', margin: '8px 0' }} />
                   <div
                     style={{
                       padding: '8px 12px 4px 12px',
                       fontFamily: 'JetBrains Mono, monospace',
                       fontSize: 10,
                       color: '#475569',
+                      display: 'none',
                     }}
                   >
                     ─── stdout ───
@@ -433,7 +434,7 @@ export function CliOutputBlock({
                 </>
               )}
               <div
-                style={{ padding: '8px 12px 10px 12px' }}
+                style={{ padding: '8px 0 10px 0' }}
                 className=" text-[11px] leading-relaxed cli-output-md"
               >
                 <span>
