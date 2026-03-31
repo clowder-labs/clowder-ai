@@ -178,11 +178,6 @@ function listWheelFiles(targetDir) {
     .sort((left, right) => left.localeCompare(right));
 }
 
-function diffWheelFiles(beforeFiles, afterFiles) {
-  const before = new Set(beforeFiles);
-  return afterFiles.filter((entry) => !before.has(entry));
-}
-
 function resolvePythonTarget(config) {
   const target = config.pythonTarget ?? {};
   const platform = String(target.platform ?? 'win_amd64').trim();
@@ -199,17 +194,6 @@ function resolvePythonTarget(config) {
 
 function toPosixRelative(fromDir, targetPath) {
   return relative(fromDir, targetPath).split('\\').join('/');
-}
-
-function resolveLocalProjectPath(projectPath, configDir) {
-  const requestedPath = String(projectPath ?? '').trim();
-  if (!requestedPath) {
-    throw new Error('Local project path is empty');
-  }
-  if (requestedPath.startsWith('.') || requestedPath.startsWith('..')) {
-    return resolve(configDir, requestedPath);
-  }
-  return resolve(repoRoot, requestedPath);
 }
 
 function sanitizeGroupSelection(configGroups, selectedIds) {
@@ -296,24 +280,17 @@ function main() {
 
     const localProjects = [];
     for (const project of group.localProjects ?? []) {
-      const projectPath = resolveLocalProjectPath(project.path, configDir);
+      const projectPath = resolve(configDir, project.path);
       if (!existsSync(projectPath)) {
         throw new Error(`Local project not found for group ${group.id}: ${project.path}`);
       }
       const wheelArgs = project.wheelArgs
         ? normalizeStringArray(project.wheelArgs, `groups.${group.id}.localProjects.${project.path}.wheelArgs`)
         : [];
-      const wheelFilesBefore = listWheelFiles(groupDir);
       run(python.command, [...python.args, ...buildWheelArgs(groupDir, projectPath, wheelArgs)]);
-      const wheelFilesAfter = listWheelFiles(groupDir);
-      const builtWheelFiles = diffWheelFiles(wheelFilesBefore, wheelFilesAfter);
-      if (builtWheelFiles.length === 0) {
-        throw new Error(`Local project wheel build produced no new wheels for group ${group.id}: ${project.path}`);
-      }
       localProjects.push({
         path: toPosixRelative(repoRoot, projectPath),
         wheelArgs,
-        wheelFiles: builtWheelFiles,
       });
     }
 
