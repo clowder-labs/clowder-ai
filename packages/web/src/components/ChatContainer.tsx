@@ -496,7 +496,7 @@ function ThreadModeChatContainer({ threadId }: { threadId: string }) {
 
         <div className="flex-1 relative overflow-hidden">
           {sidebarMenu !== 'chat' && (
-            <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
+            <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
               {sidebarMenu === 'agents' && <AgentsRootPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}

@@ -39,7 +39,7 @@ export function SkillsPanel() {
         }}
       />
 
-      <div className="ui-page-header-inline items-start">
+      <div className="ui-page-header-inline items-start border-b">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-5">
             <button
