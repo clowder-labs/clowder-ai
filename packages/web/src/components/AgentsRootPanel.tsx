@@ -23,7 +23,7 @@ export function AgentsRootPanel() {
               data-testid={`agents-root-tab-${tab.id}`}
               aria-pressed={isActive}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative pb-2 text-[13px] transition ${
+              className={`relative pb-2 text-[14px] transition ${
                 isActive ? 'font-semibold text-[#1F2329]' : 'font-medium text-[#8A94A6] hover:text-[#445066]'
               }`}
             >
