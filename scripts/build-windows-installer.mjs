@@ -222,7 +222,6 @@ function parseArgs(argv) {
     skipPython: false,
     launcherOnly: false,
     nsisOnly: false,
-    modelarts: false,
     outputDir: resolve(repoRoot, 'dist', 'windows'),
     cacheDir: null,
     nodeVersion: normalizeNodeVersion(process.env.CLOWDER_WINDOWS_NODE_VERSION ?? process.versions.node),
@@ -346,7 +345,6 @@ Options:
   --skip-python         Skip Python embed download + pip install (reuse existing tools/python in bundle)
   --launcher-only       Rebuild only the C# desktop launcher into existing bundle, then stop
   --nsis-only           Skip bundle, only repackage existing bundle into exe
-  --modelarts           Include modelarts-preset.json and cat-template.json in the bundle
   --output-dir <path>   Override dist/windows output root
   --cache-dir <path>    Override download cache directory
   --node-version <ver>  Override bundled Windows Node version
@@ -504,10 +502,16 @@ function createIcoFromPng(pngPath, icoPath) {
   writeFileSync(icoPath, Buffer.concat([header, png]));
 }
 
-function copyTopLevelProject(bundleDir, options) {
-  const baseEntries = ['cat-cafe-skills', 'LICENSE', '.env.example', 'pnpm-workspace.yaml'];
-  const modelartsEntries = ['cat-template.json', 'modelarts-preset.json'];
-  const entries = options.modelarts ? [...baseEntries, ...modelartsEntries] : baseEntries;
+function copyTopLevelProject(bundleDir) {
+  // playground 分支：始终打包 ModelArts 相关预设文件
+  const entries = [
+    'cat-cafe-skills',
+    'LICENSE',
+    '.env.example',
+    'cat-template.json',
+    'modelarts-preset.json',
+    'pnpm-workspace.yaml',
+  ];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
     if (!existsSync(source)) {
@@ -1429,7 +1433,7 @@ async function main() {
   ensureBuildArtifacts(options);
 
   logStep('Copying project sources');
-  copyTopLevelProject(bundleDir, options);
+  copyTopLevelProject(bundleDir);
 
   let pythonWheelhouse = null;
   if (!options.skipPython) {
