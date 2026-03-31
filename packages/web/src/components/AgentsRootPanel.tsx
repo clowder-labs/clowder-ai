@@ -28,12 +28,6 @@ export function AgentsRootPanel() {
               }`}
             >
               {tab.label}
-              <span
-                aria-hidden="true"
-                className={`absolute inset-x-0 bottom-0 h-[2px] rounded-full ${
-                  isActive ? 'bg-[#1F2329]' : 'bg-transparent'
-                }`}
-              />
             </button>
           );
         })}
