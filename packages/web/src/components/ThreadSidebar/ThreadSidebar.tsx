@@ -475,9 +475,7 @@ export function ThreadSidebar({
               onClick={() => setShowPicker(true)}
               className={`flex items-center gap-1.5 text-sm font-semibold transition-colors w-full px-2.5 py-1 text-cafe-black hover:text-cocreator-primary`}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
+              <img src="/icons/menu/new-chat.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
               新建会话
             </button>
             <button
@@ -485,9 +483,7 @@ export function ThreadSidebar({
               onClick={() => onMenuClick?.('models')}
               className={`${menuItemBase} ${activeMenu === 'models' ? menuItemActive : menuItemInactive} text-cafe-black hover:text-cocreator-primary`}
             >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
+              <img src="/icons/menu/models.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
               模型
             </button>
             <button
@@ -495,13 +491,7 @@ export function ThreadSidebar({
               onClick={() => onMenuClick?.('agents')}
               className={`${menuItemBase} ${activeMenu === 'agents' ? menuItemActive : menuItemInactive} text-cafe-black hover:text-cocreator-primary`}
             >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3" />
-                <circle cx="19" cy="12" r="2" />
-                <circle cx="5" cy="12" r="2" />
-                <circle cx="12" cy="5" r="2" />
-                <circle cx="12" cy="19" r="2" />
-              </svg>
+              <img src="/icons/menu/agents.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
               智能体
             </button>
             <button
@@ -509,10 +499,7 @@ export function ThreadSidebar({
               onClick={() => onMenuClick?.('channels')}
               className={`${menuItemBase} ${activeMenu === 'channels' ? menuItemActive : menuItemInactive} text-cafe-black hover:text-cocreator-primary`}
             >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                <path d="M8 9h8M8 13h6" />
-              </svg>
+              <img src="/icons/menu/channels.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
               渠道
             </button>
             <button
@@ -520,9 +507,7 @@ export function ThreadSidebar({
               onClick={() => onMenuClick?.('skills')}
               className={`${menuItemBase} ${activeMenu === 'skills' ? menuItemActive : menuItemInactive} text-cafe-black hover:text-cocreator-primary`}
             >
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.064 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-              </svg>
+              <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
               技能
             </button>
           </div>
