@@ -159,7 +159,7 @@ describe('business theme secondary surfaces', () => {
     ).toBe(true);
     const buttons = Array.from(container.querySelectorAll('button'));
     expect(buttons.some((button) => button.textContent?.includes('安装'))).toBe(true);
-    expect(buttons.some((button) => button.className.includes('ui-button-secondary'))).toBe(true);
+    expect(buttons.some((button) => button.textContent?.includes('导入'))).toBe(false);
   });
 
   it('renders HubConnectorConfigTab with tokenized cards and form controls', async () => {

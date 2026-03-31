@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { UploadSkillModal } from './UploadSkillModal';
 import styles from './HubSkillsTab.module.css';
 
 interface SearchSkill {
@@ -36,14 +35,12 @@ const SEARCH_FAILED_LABEL = '搜索失败';
 const NETWORK_ERROR_LABEL = '网络错误';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索 SkillHub 技能';
-const IMPORT_LABEL = '导入';
 const LOADING_LABEL = '加载中...';
 const SILL_SQUARE_LABEL = '技能广场';
 const PAGE_LABEL_PREFIX = '第 ';
 const PAGE_LABEL_SUFFIX = ' 页';
 const LOAD_MORE_PREFIX = '加载更多（';
 const LOAD_MORE_SUFFIX = '）';
-const UPLOAD_SUCCESS_LABEL = '技能上传成功';
 
 function getSkillCategory(skill: SearchSkill): string {
   const primaryTag = skill.tags.find((tag) => tag.trim().length > 0);
@@ -187,7 +184,6 @@ export function HubSkillsTab() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [trendingResults, setTrendingResults] = useState<SearchResult | null>(null);
   const [trendingLoading, setTrendingLoading] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
   const [installStatus, setInstallStatus] = useState<Map<string, InstallStatus>>(new Map());
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -362,14 +358,6 @@ export function HubSkillsTab() {
         </div>
       )}
 
-      <UploadSkillModal
-        open={showUpload}
-        onClose={() => setShowUpload(false)}
-        onSuccess={() => {
-          showToast(UPLOAD_SUCCESS_LABEL, 'success');
-        }}
-      />
-
       <section className="space-y-[var(--space-6)]">
         <div className="space-y-4">
           <p className="text-[20px] font-semibold">
@@ -387,13 +375,6 @@ export function HubSkillsTab() {
               placeholder={SEARCH_PLACEHOLDER}
               className="ui-field min-h-[var(--control-height-touch)] flex-1 px-4 py-2 text-sm sm:min-h-[var(--control-height-sm)]"
             />
-            <button
-              type="button"
-              onClick={() => setShowUpload(true)}
-              className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
-            >
-              {IMPORT_LABEL}
-            </button>
           </div>
           {searchError && <p className="text-[11px] text-[var(--state-error-text)]">{searchError}</p>}
           {displayResults ? (
