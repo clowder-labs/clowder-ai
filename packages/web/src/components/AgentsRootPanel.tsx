@@ -23,17 +23,11 @@ export function AgentsRootPanel() {
               data-testid={`agents-root-tab-${tab.id}`}
               aria-pressed={isActive}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative pb-2 text-[13px] transition ${
+              className={`relative pb-2 text-[14px] transition ${
                 isActive ? 'font-semibold text-[#1F2329]' : 'font-medium text-[#8A94A6] hover:text-[#445066]'
               }`}
             >
               {tab.label}
-              <span
-                aria-hidden="true"
-                className={`absolute inset-x-0 bottom-0 h-[2px] rounded-full ${
-                  isActive ? 'bg-[#1F2329]' : 'bg-transparent'
-                }`}
-              />
             </button>
           );
         })}

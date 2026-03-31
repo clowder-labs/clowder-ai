@@ -134,7 +134,7 @@
   --spacing-unit: var(--space-3);
 
   --connector-tab-radius: 8px;
-  --connector-tab-bg-default: var(--surface-card-muted);
+  --connector-tab-bg-default: #fafafa;
   --connector-tab-border-default: var(--border-default);
   --connector-tab-bg-selected: var(--surface-panel);
   --connector-tab-border-selected: var(--border-accent);

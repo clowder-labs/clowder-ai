@@ -1029,11 +1029,15 @@ export function AgentsPanel() {
                   <div
                     key={cat.id}
                     data-testid={`agent-card-${cat.id}`}
-                    className={`relative h-[76px] rounded-[8px] border px-3 py-2 transition ${
-                      isSelected
-                        ? 'border-[#1476FF] bg-white'
-                        : 'border-[#ECEFF3] bg-[#FAFBFC] hover:border-[#DCE5EF] hover:bg-white'
-                    }`}
+                    className="relative h-[76px] border px-3 py-2 transition-colors [border-radius:var(--connector-tab-radius)]"
+                    style={{
+                      borderColor: isSelected
+                        ? 'var(--connector-tab-border-selected)'
+                        : 'var(--connector-tab-border-default)',
+                      backgroundColor: isSelected
+                        ? 'var(--connector-tab-bg-selected)'
+                        : 'var(--connector-tab-bg-default)',
+                    }}
                   >
                     <div className="flex h-full items-center gap-3">
                       <button
