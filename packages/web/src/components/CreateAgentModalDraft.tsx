@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent
 import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { initialState, type ClientValue, type HubCatEditorDraft, type HubCatEditorFormState } from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
@@ -64,12 +65,7 @@ const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
 
 function CloseIcon() {
-  return (
-    <svg className="h-6 w-6 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+  return <AgentManagementIcon name="close" className="h-6 w-6" />;
 }
 
 function SparklesIcon() {
@@ -515,24 +511,25 @@ export function CreateAgentModalDraft({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
       <div
-        className="ui-panel relative flex h-[642px] w-[550px] flex-col overflow-hidden rounded-[var(--radius-2xl)] bg-[var(--surface-panel)] shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex h-[642px] w-[550px] flex-col gap-4 overflow-hidden rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
         data-testid="create-agent-modal"
       >
-        <div data-testid="create-agent-modal-header" className="flex items-center justify-between px-6 py-6">
+        <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
           <h2 className="text-[18px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
           <button type="button" onClick={onClose} className="ui-icon-button h-10 w-10 rounded-full">
             <CloseIcon />
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-6 pb-6 pt-6">
+        <div data-testid="create-agent-modal-body" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto text-[12px]">
+          <div data-testid="create-agent-modal-form" className="flex flex-col gap-4">
           <div className="space-y-2.5">
             <div className="text-[12px] font-semibold text-[var(--text-primary)]">名称</div>
             <input
               aria-label="Name"
               value={draftName}
               onChange={(event) => setDraftName(event.target.value)}
-              className="ui-field h-[28px] w-full px-4 text-base"
+              className="ui-field h-[28px] w-full rounded-[6px] px-4 text-[12px]"
             />
           </div>
 
@@ -545,9 +542,9 @@ export function CreateAgentModalDraft({
                 onChange={(event) => setDraftDescription(event.target.value)}
                 placeholder="请输入描述"
                 maxLength={1000}
-                className="h-[84px] min-h-[84px] w-full resize-y border-0 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                className="h-[84px] min-h-[84px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
               />
-              <div className="pointer-events-none absolute bottom-3 right-10 text-xs text-[var(--text-muted)]">
+              <div className="pointer-events-none absolute bottom-3 right-10 text-[12px] text-[var(--text-muted)]">
                 {draftDescription.length}/1000
               </div>
             </div>
@@ -582,7 +579,7 @@ export function CreateAgentModalDraft({
                 <SparklesIcon />
               </button>
             </div>
-            <div className="text-xs text-[var(--text-muted)]">
+            <div className="text-[12px] text-[var(--text-muted)]">
               {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
             </div>
           </div>
@@ -598,7 +595,7 @@ export function CreateAgentModalDraft({
                   aria-haspopup="listbox"
                   aria-expanded={modelMenuOpen}
                   onClick={() => setModelMenuOpen((current) => !current)}
-                  className="ui-field flex h-[44px] w-full items-center justify-between rounded-[var(--radius-xs)] bg-[var(--surface-panel)] px-[10px] text-left"
+                  className="ui-field flex h-[28px] w-full items-center justify-between rounded-[6px] bg-[var(--surface-panel)] px-[10px] text-left text-[12px]"
                 >
                   <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
                   <ModelSelectTriggerIcon />
@@ -621,18 +618,19 @@ export function CreateAgentModalDraft({
                 ) : null}
               </>
             ) : (
-              <div className="ui-field flex h-[44px] w-full items-center px-4 text-sm text-[var(--text-muted)]">
+              <div className="ui-field flex h-[28px] w-full items-center rounded-[6px] px-4 text-[12px] text-[var(--text-muted)]">
                 {loadingModels ? '加载模型中...' : '暂无可用模型'}
               </div>
             )}
           </div>
 
-          {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</div> : null}
+          </div>
+          {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div> : null}
         </div>
 
         <div
           data-testid="create-agent-modal-footer"
-          className="flex shrink-0 justify-end gap-3 bg-[var(--surface-panel)] px-6 py-4"
+          className="flex shrink-0 justify-end gap-3"
         >
           <button
             type="button"
