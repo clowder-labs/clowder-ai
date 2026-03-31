@@ -77,10 +77,12 @@ export function buildCatPayload(form: HubCatEditorFormState, cat?: CatData | nul
         : {};
   const mcpSupportPatch =
     cat && form.client !== cat.provider ? { mcpSupport: defaultMcpSupportForClient(form.client) } : {};
-  const embeddedAcpEnv = parseProviderEnvText(form.embeddedAcpEnvText);
+  const embeddedAcpEnv = parseProviderEnvText(form.embeddedAcpEnvText ?? '');
   const embeddedAcpConfigValue = {
     ...(trimText(form.embeddedAcpExecutablePath) ? { executablePath: trimText(form.embeddedAcpExecutablePath) } : {}),
-    ...(splitCommandArgs(form.embeddedAcpArgs).length > 0 ? { args: splitCommandArgs(form.embeddedAcpArgs) } : {}),
+    ...(splitCommandArgs(form.embeddedAcpArgs ?? '').length > 0
+      ? { args: splitCommandArgs(form.embeddedAcpArgs ?? '') }
+      : {}),
     ...(trimText(form.embeddedAcpCwd) ? { cwd: trimText(form.embeddedAcpCwd) } : {}),
     ...(embeddedAcpEnv ? { env: embeddedAcpEnv } : {}),
   };

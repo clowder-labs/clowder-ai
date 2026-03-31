@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -14,17 +14,18 @@ interface UserProfileProps {
 const THEME_OPTIONS: Array<{
   id: ThemeType;
   label: string;
-  swatchClassName: string;
+  swatchBackground: string;
 }> = [
   {
     id: 'business',
     label: '灰白浅色',
-    swatchClassName: 'border border-[#D9DEE5] bg-[#F4F6F8]',
+    swatchBackground:
+      'linear-gradient(-50.71deg, rgba(237, 244, 246, 1), rgba(235, 235, 235, 1) 100%)',
   },
   {
     id: 'warm',
     label: '橙白浅色',
-    swatchClassName: 'border border-[#E9CDBE] bg-[#F8E4D9]',
+    swatchBackground: '#f6d7c6',
   },
 ];
 
@@ -34,7 +35,10 @@ export function UserProfile({ className }: UserProfileProps) {
   const [showVersionUpdate, setShowVersionUpdate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
+  const [themePopoverTop, setThemePopoverTop] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
+  const panelScrollRef = useRef<HTMLDivElement>(null);
+  const themeAnchorRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const userId = getUserId();
   const { theme, setTheme } = useTheme();
@@ -47,6 +51,14 @@ export function UserProfile({ className }: UserProfileProps) {
 
   const userName = getUserName();
   const avatarLetter = userName.charAt(0).toUpperCase();
+
+  const updateThemePopoverPosition = () => {
+    if (!panelRef.current || !themeAnchorRef.current) return;
+
+    const rootRect = panelRef.current.getBoundingClientRect();
+    const anchorRect = themeAnchorRef.current.getBoundingClientRect();
+    setThemePopoverTop(anchorRect.top - rootRect.top);
+  };
 
   const handleTogglePanel = () => {
     setShowPanel((prev) => {
@@ -118,6 +130,25 @@ export function UserProfile({ className }: UserProfileProps) {
   }, [showPanel, showThemePanel]);
 
   useEffect(() => {
+    if (!showPanel || !showThemePanel) return;
+
+    updateThemePopoverPosition();
+
+    const handlePositionChange = () => {
+      updateThemePopoverPosition();
+    };
+
+    const scrollElement = panelScrollRef.current;
+    window.addEventListener('resize', handlePositionChange);
+    scrollElement?.addEventListener('scroll', handlePositionChange, { passive: true });
+
+    return () => {
+      window.removeEventListener('resize', handlePositionChange);
+      scrollElement?.removeEventListener('scroll', handlePositionChange);
+    };
+  }, [showPanel, showThemePanel]);
+
+  useEffect(() => {
     setIsSkipAuth(getIsSkipAuth());
   }, []);
 
@@ -151,8 +182,11 @@ export function UserProfile({ className }: UserProfileProps) {
       </button>
 
       {showPanel && (
-        <div className="absolute bottom-full left-3 right-3 z-50 mb-2 h-[320px] rounded-3xl border border-gray-200 bg-white shadow-lg">
-          <div className="h-full overflow-y-auto p-5">
+        <div
+          className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-3xl border border-gray-200 bg-white shadow-lg"
+          data-testid="user-profile-panel"
+        >
+          <div className="p-5" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
             <div className="mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cocreator-primary">
@@ -165,76 +199,37 @@ export function UserProfile({ className }: UserProfileProps) {
               </div>
             </div>
 
-            <div className="mb-4 border-t border-gray-200"></div>
+            <div className="mb-3 border-t border-gray-200" />
 
-            <div className="space-y-4">
+            <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                className="hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
                 onClick={handleOpenVersionUpdate}
               >
-                <svg className="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+                <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 版本更新
               </button>
 
-              <div className="relative" data-testid="user-profile-theme-anchor">
+              <div className="relative" data-testid="user-profile-theme-anchor" ref={themeAnchorRef}>
                 <button
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
                   onClick={handleToggleThemePanel}
                   data-testid="user-profile-theme-trigger"
                 >
-                  <svg className="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M8 8h8M8 12h8M8 16h8" />
-                  </svg>
+                  <img src="/icons/userprofile/theme.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                   主题模式
                 </button>
-
-                {showThemePanel && (
-                  <div
-                    className="absolute left-full top-1/2 z-[60] ml-3 -translate-y-1/2 rounded-3xl border border-gray-200 bg-white shadow-lg"
-                    data-testid="user-theme-popover"
-                  >
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-4" data-testid="user-theme-options">
-                        {THEME_OPTIONS.map((option) => {
-                          const isActive = theme === option.id;
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => handleSelectTheme(option.id)}
-                              className={`flex min-w-[88px] flex-col items-center gap-2 rounded-2xl px-3 py-2 text-center transition-colors ${
-                                isActive ? 'bg-[#F7F8FA]' : 'hover:bg-[#F7F8FA]'
-                              }`}
-                              data-testid={`user-theme-option-${option.id}`}
-                            >
-                              <div
-                                className={`h-9 w-9 rounded-full ${option.swatchClassName} ${isActive ? 'ring-2 ring-[#101317] ring-offset-2' : ''}`}
-                                data-testid={`user-theme-swatch-${option.id}`}
-                              />
-                              <span className="text-xs font-medium text-[#2E3440]">{option.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50">
-                <svg className="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <button className="hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50">
+                <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 帮助
               </button>
             </div>
 
             {!isSkipAuth && (
               <>
-                <div className="mt-4 border-t border-gray-200"></div>
+                <div className="mt-3 border-t border-gray-200" />
                 <button
                   onClick={handleLogout}
                   disabled={isLoading}
@@ -244,6 +239,40 @@ export function UserProfile({ className }: UserProfileProps) {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {showPanel && showThemePanel && (
+        <div
+          className="absolute left-[calc(100%-12px)] z-[60] -translate-y-1/2 rounded-3xl border border-gray-200 bg-white shadow-lg"
+          data-testid="user-theme-popover"
+          style={{ top: `${themePopoverTop}px` }}
+        >
+          <div className="p-4">
+            <div className="flex items-start justify-between gap-4" data-testid="user-theme-options">
+              {THEME_OPTIONS.map((option) => {
+                const isActive = theme === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleSelectTheme(option.id)}
+                    className={`flex min-w-[88px] flex-col items-center gap-2 rounded-2xl px-3 py-2 text-center transition-colors ${
+                      isActive ? 'bg-[#F7F8FA]' : 'hover:bg-[#F7F8FA]'
+                    }`}
+                    data-testid={`user-theme-option-${option.id}`}
+                  >
+                    <div
+                      className={`h-9 w-9 rounded-full`}
+                      data-testid={`user-theme-swatch-${option.id}`}
+                      style={{ background: option.swatchBackground }}
+                    />
+                    <span className="text-[12px] font-medium leading-[18px] text-[#2E3440]">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

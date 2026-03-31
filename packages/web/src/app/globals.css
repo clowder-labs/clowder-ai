@@ -134,7 +134,7 @@
   --spacing-unit: var(--space-3);
 
   --connector-tab-radius: 8px;
-  --connector-tab-bg-default: var(--surface-card-muted);
+  --connector-tab-bg-default: #fafafa;
   --connector-tab-border-default: var(--border-default);
   --connector-tab-bg-selected: var(--surface-panel);
   --connector-tab-border-selected: var(--border-accent);
@@ -280,7 +280,7 @@ body {
     min-height: var(--control-height-xs);
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-pill);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: var(--font-weight-medium);
     padding: 5px 24px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
