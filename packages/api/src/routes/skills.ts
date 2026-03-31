@@ -206,7 +206,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         const meta = manifestMeta.get(name);
 
         let trigger = '';
-        let category = entry?.category ?? '未分类';
+        let category = entry?.category ?? '其他';
         let source: 'local' | 'skillhub' = 'local';
         let skillhubUrl: string | undefined;
 

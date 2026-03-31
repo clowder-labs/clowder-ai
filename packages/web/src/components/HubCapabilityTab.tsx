@@ -2,23 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import type {
-  CapabilityBoardItem,
-  CapabilityBoardResponse,
-  CatFamily,
-  ToggleHandler,
-} from './capability-board-ui';
-import {
-  CapabilitySection,
-  SectionIconSkill,
-  StatusDot,
-} from './capability-board-ui';
+import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
+import { CapabilitySection, SectionIconSkill, StatusDot } from './capability-board-ui';
 import { CreateApiKeyProfileSection } from './hub-provider-profiles.sections';
 import { useConfirm } from './useConfirm';
 import { useProviderProfilesState } from './useProviderProfilesState';
 
 const ALL_CATEGORY = '全部';
-const UNCATEGORIZED = '未分类';
+const UNCATEGORIZED = '其他';
 const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const IMPORT_LABEL = '导入';
@@ -164,14 +155,7 @@ export function HubCapabilityTab({
     if (!normalizedSearchQuery) return displayedSkillItems;
     return displayedSkillItems.filter((item) => {
       const sourceLabel = item.source === 'cat-cafe' ? '官方' : item.source === 'external' ? '三方' : '未知';
-      const haystack = [
-        item.id,
-        item.description ?? '',
-        item.category ?? '',
-        sourceLabel,
-      ]
-        .join(' ')
-        .toLowerCase();
+      const haystack = [item.id, item.description ?? '', item.category ?? '', sourceLabel].join(' ').toLowerCase();
       return haystack.includes(normalizedSearchQuery);
     });
   }, [displayedSkillItems, normalizedSearchQuery]);
@@ -221,7 +205,7 @@ export function HubCapabilityTab({
             </button>
           ) : undefined
         }
-        headerSlot={(
+        headerSlot={
           <input
             type="search"
             aria-label={SKILL_SEARCH_ARIA_LABEL}
@@ -230,7 +214,7 @@ export function HubCapabilityTab({
             placeholder={SKILL_SEARCH_PLACEHOLDER}
             className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
           />
-        )}
+        }
         items={filteredDisplayedSkillItems}
         catFamilies={catFamilies}
         toggling={toggling}
