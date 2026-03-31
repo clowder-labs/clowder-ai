@@ -34,6 +34,7 @@ interface CreateModelOption extends DraftModelOption {
   accountRef: string;
   client: ClientValue;
   model: string;
+  modelLabel: string;
   groupId: ModelGroupId;
 }
 
@@ -180,22 +181,30 @@ function parseAccountRefFromModelItem(item: MaaSModelResponseItem): string | nul
 function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
   if (item.enabled === false) return null;
   const normalized = item as Record<string, unknown>;
-  const model = pickStringField(normalized, ['name']);
+  const modelLabel = pickStringField(normalized, ['name']);
   const accountRef = parseAccountRefFromModelItem(item);
-  if (!model || !accountRef) return null;
+  if (!modelLabel || !accountRef) return null;
 
   const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
   const groupId: ModelGroupId = providerLabel === HUAWEI_GROUP_LABEL ? 'huawei-maas' : 'third-party';
-  const rawId = typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${model}`;
+  const rawId =
+    typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;
+  const model =
+    groupId === 'huawei-maas'
+      ? rawId
+      : rawId.startsWith('model_config:')
+        ? rawId.slice(`model_config:${accountRef}:`.length) || modelLabel
+        : modelLabel;
 
   return {
     id: rawId,
-    name: model,
+    name: modelLabel,
     icon: pickStringField(normalized, ['icon', 'logo', 'image', 'avatar']),
     providerGroup: providerLabel,
     accountRef,
     client: RELAYCLAW_CLIENT,
     model,
+    modelLabel,
     groupId,
   };
 }
@@ -210,6 +219,7 @@ function buildFallbackSelectedOption(selectionHint: SelectionHint): CreateModelO
     accountRef: selectionHint.accountRef,
     client: RELAYCLAW_CLIENT,
     model: selectionHint.model,
+    modelLabel: selectionHint.model,
     groupId: isHuawei ? 'huawei-maas' : 'third-party',
   };
 }
@@ -508,7 +518,7 @@ export function CreateAgentModalDraft({
         className="ui-panel relative flex h-[642px] w-[550px] flex-col overflow-hidden rounded-[var(--radius-2xl)] bg-[var(--surface-panel)] shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
         data-testid="create-agent-modal"
       >
-        <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-6 py-6">
+        <div data-testid="create-agent-modal-header" className="flex items-center justify-between px-6 py-6">
           <h2 className="text-[18px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
           <button type="button" onClick={onClose} className="ui-icon-button h-10 w-10 rounded-full">
             <CloseIcon />
@@ -620,7 +630,10 @@ export function CreateAgentModalDraft({
           {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</div> : null}
         </div>
 
-        <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--border-soft)] bg-[var(--surface-panel)] px-6 py-4">
+        <div
+          data-testid="create-agent-modal-footer"
+          className="flex shrink-0 justify-end gap-3 bg-[var(--surface-panel)] px-6 py-4"
+        >
           <button
             type="button"
             aria-label="Cancel"

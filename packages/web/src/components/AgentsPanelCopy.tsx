@@ -380,6 +380,10 @@ export function AgentsPanel() {
     () => cats.find((cat) => cat.id === selectedCatId) ?? filteredCats[0] ?? cats[0] ?? null,
     [cats, filteredCats, selectedCatId],
   );
+  const actionMenuCat = useMemo(
+    () => cats.find((cat) => cat.id === openActionMenuCatId) ?? null,
+    [cats, openActionMenuCatId],
+  );
 
   const selectedSavedDrafts = selectedCat
     ? savedDraftsByCatId[selectedCat.id] ?? buildEditableDrafts(selectedCat)
@@ -640,6 +644,31 @@ export function AgentsPanel() {
   const handleEditorSaved = useCallback(async () => {
     await refresh();
   }, [refresh]);
+
+  const handleDeleteMember = useCallback(
+    async (catId: string) => {
+      const cat = cats.find((item) => item.id === catId);
+      if (!cat || cat.source !== 'runtime') return;
+
+      setOpenActionMenuCatId(null);
+      setActionMenuPosition(null);
+      setSaveError(null);
+
+      try {
+        const res = await apiFetch(`/api/cats/${cat.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          setSaveError(payload.error ?? `删除失败 (${res.status})`);
+          return;
+        }
+
+        await refresh();
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : '删除失败');
+      }
+    },
+    [cats, refresh],
+  );
 
   const handleStartEdit = useCallback(() => {
     if (!selectedCat || !canEditActiveTab || !isEditableTab(activeTab)) return;
@@ -1015,6 +1044,24 @@ export function AgentsPanel() {
     <div className="flex h-full min-h-0 flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="ui-page-title">智能体管理</h1>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            data-testid="connect-third-party-agent-button"
+            onClick={() => setConnectThirdPartyModalOpen(true)}
+            className="rounded-[999px] border border-[#595959] bg-[#F5F7FA] px-6 py-[5px] text-[12px] font-semibold text-[#445066] transition hover:bg-[#ECEFF4]"
+          >
+            连接三方智能体
+          </button>
+          <button
+            type="button"
+            data-testid="create-agent-button"
+            onClick={openAddMember}
+            className="rounded-[999px] border border-[#595959] bg-[#1F2633] px-6 py-[5px] text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
+          >
+            新建智能体
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
@@ -1039,13 +1086,14 @@ export function AgentsPanel() {
                 return (
                   <div
                     key={cat.id}
-                    className={`relative rounded-[12px] border px-3 py-2 transition ${
+                    data-testid={`agent-card-${cat.id}`}
+                    className={`relative h-[76px] rounded-[8px] border px-3 py-2 transition ${
                       isSelected
-                        ? 'border-[#86B1FF] bg-[#F7FBFF] shadow-[0_0_0_1px_rgba(134,177,255,0.18)]'
+                        ? 'border-[#1476FF] bg-white'
                         : 'border-[#ECEFF3] bg-[#FAFBFC] hover:border-[#DCE5EF] hover:bg-white'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex h-full items-center gap-3">
                       <button
                         type="button"
                         onClick={() => {
@@ -1053,7 +1101,7 @@ export function AgentsPanel() {
                           setOpenActionMenuCatId(null);
                           setMode('preview');
                         }}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        className="flex h-full min-w-0 flex-1 items-center gap-3 pr-10 text-left"
                       >
                         <span className="shrink-0">{renderAvatar(cat)}</span>
                         <span className="min-w-0">
@@ -1066,8 +1114,9 @@ export function AgentsPanel() {
                         </span>
                       </button>
 
-                      <div className="relative shrink-0">
+                      <div className="absolute bottom-2 right-2">
                         <button
+                          data-testid={`agent-card-menu-${cat.id}`}
                           ref={openActionMenuCatId === cat.id ? actionMenuTriggerRef : null}
                           type="button"
                           onClick={(event) => {
@@ -1087,10 +1136,10 @@ export function AgentsPanel() {
                             actionMenuTriggerRef.current = event.currentTarget;
                             setOpenActionMenuCatId(cat.id);
                           }}
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-[10px] transition ${
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-[6px] transition ${
                             openActionMenuCatId === cat.id
-                              ? 'bg-[#EEF2F7] text-[#6A7280]'
-                              : 'text-[#AAB2BF] hover:bg-[#EEF2F7] hover:text-[#6A7280]'
+                              ? 'bg-[#EEF2F7] text-[#1F2329]'
+                              : 'text-[#1F2329] hover:bg-[#EEF2F7] hover:text-[#1F2329]'
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
                           aria-expanded={openActionMenuCatId === cat.id}
@@ -1105,7 +1154,7 @@ export function AgentsPanel() {
               })}
 
               {filteredCats.length === 0 ? (
-                <div className="rounded-[12px] border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
+                <div className="rounded-[8px] border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
                   没有匹配的智能体
                 </div>
               ) : null}
@@ -1121,6 +1170,7 @@ export function AgentsPanel() {
                 <button
                   type="button"
                   role="menuitem"
+                  data-testid="agent-edit-menu-item"
                   onClick={() => {
                     setSelectedCatId(openActionMenuCatId);
                     setOpenActionMenuCatId(null);
@@ -1135,13 +1185,21 @@ export function AgentsPanel() {
                 <button
                   type="button"
                   role="menuitem"
+                  data-testid="agent-delete-menu-item"
+                  disabled={actionMenuCat?.source !== 'runtime'}
                   onClick={() => {
-                    setOpenActionMenuCatId(null);
-                    setActionMenuPosition(null);
+                    if (actionMenuCat?.source !== 'runtime') return;
+                    void handleDeleteMember(actionMenuCat.id);
                   }}
-                  className="flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium text-[#1F2329] transition hover:bg-[#F4F7FB]"
+                  className={`flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition ${
+                    actionMenuCat?.source === 'runtime'
+                      ? 'text-[#1F2329] hover:bg-[#F4F7FB]'
+                      : 'cursor-not-allowed text-[#AAB2BF] opacity-60'
+                  }`}
                 >
-                  <TrashIcon className="h-3.5 w-3.5 text-[#1F2329]" />
+                  <TrashIcon
+                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-[#1F2329]' : 'text-[#AAB2BF]'}`}
+                  />
                   <span>删除</span>
                 </button>
               </div>
@@ -1177,22 +1235,6 @@ export function AgentsPanel() {
                 })}
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setConnectThirdPartyModalOpen(true)}
-                  className="rounded-[10px] bg-[#F5F7FA] px-3 py-1.5 text-[12px] font-semibold text-[#445066] transition hover:bg-[#ECEFF4]"
-                >
-                  连接三方智能体
-                </button>
-                <button
-                  type="button"
-                  onClick={openAddMember}
-                  className="rounded-[10px] bg-[#1F2633] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
-                >
-                  新建智能体
-                </button>
-              </div>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
