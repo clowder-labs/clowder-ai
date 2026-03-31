@@ -36,55 +36,12 @@
   },
   "breeds": [
     {
-      "id": "office",
-      "catId": "office",
-      "name": "九问Office",
-      "displayName": "九问Office",
-      "nickname": "小九",
-      "avatar": "/avatars/office.svg",
-      "color": {
-        "primary": "#2B5797",
-        "secondary": "#C0D0E8"
-      },
-      "mentionPatterns": ["@office", "@小九"],
-      "roleDescription": "商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析",
-      "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
-      "caution": null,
-      "defaultVariantId": "office-default",
-      "variants": [
-        {
-          "id": "office-default",
-          "provider": "relayclaw",
-          "defaultModel": "glm-5",
-          "mcpSupport": true,
-          "cli": {
-            "command": "jiuwenclaw-app",
-            "outputFormat": "json"
-          },
-          "personality": "专业干练，逻辑清晰，善于结构化输出和流程优化",
-          "strengths": ["document-writing", "meeting-notes", "project-management", "data-analysis"],
-          "contextBudget": {
-            "maxPromptTokens": 180000,
-            "maxContextTokens": 160000,
-            "maxMessages": 200,
-            "maxContentLengthPerMsg": 10000
-          },
-          "accountRef": "huawei-maas",
-          "roleDescription": "商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析",
-          "providerProfileId": "huawei-maas",
-          "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
-          "caution": null,
-          "sessionChain": true
-        }
-      ]
-    },
-    {
       "id": "assistant",
       "catId": "assistant",
-      "name": "九问助理",
-      "displayName": "九问助理",
+      "name": "通用智能体",
+      "displayName": "通用智能体",
       "nickname": "小理",
-      "avatar": "/avatars/assistant.svg",
+      "avatar": "/avatars/agent-avatar-1.png",
       "color": {
         "primary": "#E8913A",
         "secondary": "#FFF0DD"
@@ -113,6 +70,49 @@
             "maxContentLengthPerMsg": 10000
           },
           "accountRef": "huawei-maas",
+          "roleDescription": "商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析",
+          "providerProfileId": "huawei-maas",
+          "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
+          "caution": null,
+          "sessionChain": true
+        }
+      ]
+    },
+    {
+      "id": "office",
+      "catId": "office",
+      "name": "办公智能体",
+      "displayName": "办公智能体",
+      "nickname": "小九",
+      "avatar": "/avatars/agent-avatar-2.png",
+      "color": {
+        "primary": "#2B5797",
+        "secondary": "#C0D0E8"
+      },
+      "mentionPatterns": ["@office", "@小九"],
+      "roleDescription": "商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析",
+      "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
+      "caution": null,
+      "defaultVariantId": "office-default",
+      "variants": [
+        {
+          "id": "office-default",
+          "provider": "relayclaw",
+          "defaultModel": "gpt-5.4",
+          "mcpSupport": true,
+          "cli": {
+            "command": "jiuwenclaw-app",
+            "outputFormat": "json"
+          },
+          "personality": "专业干练，逻辑清晰，善于结构化输出和流程优化",
+          "strengths": ["document-writing", "meeting-notes", "project-management", "data-analysis"],
+          "contextBudget": {
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
+          },
+          "accountRef": "huawei-maas",
           "roleDescription": "个人助理，擅长日常问答、信息整理、创意写作和生活建议",
           "providerProfileId": "huawei-maas",
           "teamStrengths": "日常问答、信息整理、创意写作、生活建议",
@@ -121,18 +121,19 @@
         }
       ]
     },
+    
     {
       "id": "agentteams",
       "catId": "agentteams",
-      "name": "协作引擎",
-      "displayName": "协作引擎",
-      "nickname": "小协",
-      "avatar": "/avatars/agentteams.png",
+      "name": "编码智能体",
+      "displayName": "编码智能体",
+      "nickname": "小码",
+      "avatar": "/avatars/agent-avatar-3.png",
       "color": {
         "primary": "#4CAF50",
         "secondary": "#E8F5E9"
       },
-      "mentionPatterns": ["@agentteams", "@协作引擎", "@小协", "@agent-teams"],
+      "mentionPatterns": ["@agentteams", "@协作引擎", "@小码", "@agent-teams"],
       "roleDescription": "多智能体协作引擎，擅长复杂任务拆解、多步骤编排和工具链调度",
       "teamStrengths": "复杂任务分解、多步骤编排、工具链调度",
       "caution": null,

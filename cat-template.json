@@ -38,8 +38,8 @@
     {
       "id": "office",
       "catId": "office",
-      "name": "九问Office",
-      "displayName": "九问Office",
+      "name": "办公智能体",
+      "displayName": "办公智能体",
       "nickname": "小九",
       "avatar": "/avatars/office.svg",
       "color": {
@@ -81,8 +81,8 @@
     {
       "id": "assistant",
       "catId": "assistant",
-      "name": "九问助理",
-      "displayName": "九问助理",
+      "name": "通用智能体",
+      "displayName": "通用智能体",
       "nickname": "小理",
       "avatar": "/avatars/assistant.svg",
       "color": {
@@ -124,8 +124,8 @@
     {
       "id": "agentteams",
       "catId": "agentteams",
-      "name": "协作引擎",
-      "displayName": "协作引擎",
+      "name": "编码智能体",
+      "displayName": "编码智能体",
       "nickname": "小协",
       "avatar": "/avatars/agentteams.png",
       "color": {

@@ -12,7 +12,14 @@ const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '其他';
 const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
+const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
 const IMPORT_LABEL = '导入';
+
+function sourceToLabel(source: string): string {
+  if (source === 'cat-cafe') return '官方';
+  if (source === 'external') return '三方';
+  return '未知';
+}
 
 export function HubCapabilityTab({
   hideSkillMountStatus,
@@ -29,6 +36,7 @@ export function HubCapabilityTab({
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSource, setActiveSource] = useState(ALL_SOURCES);
   const [toggling, setToggling] = useState<string | null>(null);
 
   const { providerCreateSectionProps } = useProviderProfilesState();
@@ -150,15 +158,23 @@ export function HubCapabilityTab({
     if (activeCategory === ALL_CATEGORY) return skillItems;
     return skillItems.filter((item) => (item.category?.trim() || UNCATEGORIZED) === activeCategory);
   }, [activeCategory, skillItems]);
+  const sourceOptions = useMemo(() => {
+    const options = Array.from(new Set(skillItems.map((item) => item.source).filter(Boolean)));
+    return [ALL_SOURCES, ...options];
+  }, [skillItems]);
+  const sourceFilteredItems = useMemo(() => {
+    if (activeSource === ALL_SOURCES) return displayedSkillItems;
+    return displayedSkillItems.filter((item) => item.source === activeSource);
+  }, [activeSource, displayedSkillItems]);
   const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
   const filteredDisplayedSkillItems = useMemo(() => {
-    if (!normalizedSearchQuery) return displayedSkillItems;
-    return displayedSkillItems.filter((item) => {
+    if (!normalizedSearchQuery) return sourceFilteredItems;
+    return sourceFilteredItems.filter((item) => {
       const sourceLabel = item.source === 'cat-cafe' ? '官方' : item.source === 'external' ? '三方' : '未知';
       const haystack = [item.id, item.description ?? '', item.category ?? '', sourceLabel].join(' ').toLowerCase();
       return haystack.includes(normalizedSearchQuery);
     });
-  }, [displayedSkillItems, normalizedSearchQuery]);
+  }, [sourceFilteredItems, normalizedSearchQuery]);
 
   useEffect(() => {
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
@@ -172,19 +188,21 @@ export function HubCapabilityTab({
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-4">
-          {categoryTabs.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => setActiveCategory(category)}
-              className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
-                activeCategory === category
-                  ? 'font-semibold text-[var(--text-primary)]'
-                  : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-              }`}
-            >
-              {category}
-            </button>
+          {categoryTabs.map((category, index) => (
+            <div key={category} className="flex items-center">
+              {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
+              <button
+                type="button"
+                onClick={() => setActiveCategory(category)}
+                className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
+                  activeCategory === category
+                    ? 'font-semibold text-[var(--text-primary)]'
+                    : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                }`}
+              >
+                {category}
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -205,16 +223,30 @@ export function HubCapabilityTab({
             </button>
           ) : undefined
         }
-        headerSlot={
-          <input
-            type="search"
-            aria-label={SKILL_SEARCH_ARIA_LABEL}
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={SKILL_SEARCH_PLACEHOLDER}
-            className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
-          />
-        }
+        headerSlot={(
+          <div className="flex items-center gap-2">
+            <select
+              aria-label={SOURCE_FILTER_ARIA_LABEL}
+              value={activeSource}
+              onChange={(event) => setActiveSource(event.target.value)}
+              className="ui-field h-[28px] min-h-[28px] w-[200px] shrink-0 px-3 py-0 pr-8 text-xs"
+            >
+              {sourceOptions.map((source) => (
+                <option key={source} value={source}>
+                  {source === ALL_SOURCES ? '全部来源' : sourceToLabel(source)}
+                </option>
+              ))}
+            </select>
+            <input
+              type="search"
+              aria-label={SKILL_SEARCH_ARIA_LABEL}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={SKILL_SEARCH_PLACEHOLDER}
+              className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+            />
+          </div>
+        )}
         items={filteredDisplayedSkillItems}
         catFamilies={catFamilies}
         toggling={toggling}

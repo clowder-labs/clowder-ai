@@ -5,6 +5,7 @@ import type { CatData } from '@/hooks/useCatData';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import {
@@ -302,6 +303,10 @@ export function buildDefaultCreateForm(
     commandArgs: '',
     cliConfigArgs: [],
     ocProviderName: '',
+    embeddedAcpExecutablePath: '',
+    embeddedAcpArgs: '',
+    embeddedAcpCwd: '',
+    embeddedAcpEnvText: '',
     sessionChain: 'true',
     maxPromptTokens: '',
     maxContextTokens: '',
@@ -345,6 +350,7 @@ export function CreateAgentModalDraft({
   onClose,
   onSaved,
 }: CreateAgentModalDraftProps) {
+  const [isSkipAuth, setIsSkipAuth] = useState(false);
   const { clients: detectedClients, clientLabels } = useAvailableClients();
   const [draftName, setDraftName] = useState(name);
   const [draftDescription, setDraftDescription] = useState(description);
@@ -378,6 +384,10 @@ export function CreateAgentModalDraft({
   );
 
   useEffect(() => {
+    setIsSkipAuth(getIsSkipAuth());
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     setDraftName(name || cat?.name || cat?.displayName || 'BOT');
     setDraftDescription(description || cat?.roleDescription || '');
@@ -388,13 +398,21 @@ export function CreateAgentModalDraft({
       setDraftAvatar(getRandomPresetAvatar());
     }
     const incomingClient = (draft?.client ?? cat?.provider ?? RELAYCLAW_CLIENT) as ClientValue;
+    if (isSkipAuth) {
+      setSelectedClient(RELAYCLAW_CLIENT);
+      setSelectedOptionId(null);
+      setModelMenuOpen(false);
+      setOpenAbove(false);
+      setError(null);
+      return;
+    }
     const nextClient = HUB_CLIENT_OPTIONS.some((option) => option.value === incomingClient) ? incomingClient : RELAYCLAW_CLIENT;
     setSelectedClient(nextClient);
     setSelectedOptionId(null);
     setModelMenuOpen(false);
     setOpenAbove(false);
     setError(null);
-  }, [cat, description, draft?.client, name, open]);
+  }, [cat, description, draft?.client, isSkipAuth, name, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -618,15 +636,18 @@ export function CreateAgentModalDraft({
 
           <div className="space-y-2.5">
             <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-end gap-3">
               <button
                 type="button"
                 aria-label="Upload avatar"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                className="group relative flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
+                  上传
+                </span>
               </button>
               <input
                 ref={fileInputRef}
@@ -636,6 +657,7 @@ export function CreateAgentModalDraft({
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
+              <div aria-hidden="true" className="h-[50px] w-px bg-[var(--border-default)]" />
               <button
                 type="button"
                 aria-label="Random preset avatar"
@@ -651,21 +673,23 @@ export function CreateAgentModalDraft({
             </div>
           </div>
 
-          <div className="space-y-2.5">
-            <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
-            <select
-              aria-label="Client"
-              value={selectedClient}
-              onChange={(event) => setSelectedClient(event.target.value as ClientValue)}
-              className="ui-field h-[28px] w-full rounded-[6px] px-3 text-[12px]"
-            >
-              {clientOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isSkipAuth ? (
+            <div className="space-y-2.5">
+              <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
+              <select
+                aria-label="Client"
+                value={selectedClient}
+                onChange={(event) => setSelectedClient(event.target.value as ClientValue)}
+                className="ui-field h-[28px] w-full rounded-[6px] px-3 text-[12px]"
+              >
+                {clientOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           <div className="relative space-y-2.5">
             <div className="text-[12px] font-semibold text-[var(--text-primary)]">模型</div>
