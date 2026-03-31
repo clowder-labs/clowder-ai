@@ -21,8 +21,6 @@ internal static class Program
     [DllImport("shcore.dll", SetLastError = true)]
     private static extern int SetProcessDpiAwareness(int awareness);
 
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
@@ -52,22 +50,32 @@ internal static class Program
 
     private static void ActivateExistingInstance()
     {
-        var hWnd = FindWindow(null, "OfficeClaw");
-        if (hWnd == IntPtr.Zero)
+        var currentProcess = Process.GetCurrentProcess();
+        foreach (var process in Process.GetProcessesByName(currentProcess.ProcessName))
         {
+            if (process.Id == currentProcess.Id)
+            {
+                continue;
+            }
+
+            var hWnd = process.MainWindowHandle;
+            if (hWnd == IntPtr.Zero)
+            {
+                continue;
+            }
+
+            if (IsIconic(hWnd))
+            {
+                ShowWindow(hWnd, SW_RESTORE);
+            }
+            else
+            {
+                ShowWindow(hWnd, SW_SHOW);
+            }
+
+            SetForegroundWindow(hWnd);
             return;
         }
-
-        if (IsIconic(hWnd))
-        {
-            ShowWindow(hWnd, SW_RESTORE);
-        }
-        else
-        {
-            ShowWindow(hWnd, SW_SHOW);
-        }
-
-        SetForegroundWindow(hWnd);
     }
 
     [STAThread]
@@ -119,7 +127,8 @@ internal sealed class LauncherForm : Form
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
-        Text = "OfficeClaw";
+        Text = string.Empty;
+        ShowIcon = false;
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
