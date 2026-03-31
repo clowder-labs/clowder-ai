@@ -21,11 +21,6 @@
     background-color 200ms ease;
 }
 
-.card:hover {
-  border-color: var(--border-accent);
-  box-shadow: var(--shadow-card-hover);
-}
-
 .header {
   display: flex;
   align-items: flex-start;

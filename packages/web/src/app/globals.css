@@ -280,7 +280,7 @@ body {
     min-height: var(--control-height-xs);
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-pill);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: var(--font-weight-medium);
     padding: 5px 24px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;

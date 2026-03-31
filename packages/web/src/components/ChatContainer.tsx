@@ -467,6 +467,7 @@ function ThreadModeChatContainer({ threadId }: { threadId: string }) {
               className="w-full"
               onBootcampClick={() => setShowBootcampList(true)}
               onHubClick={() => setShowHubList(true)}
+              onThreadSelect={() => setSidebarMenu('chat')}
               onMenuClick={(menu) => setSidebarMenu(menu)}
               activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
             />
