@@ -154,8 +154,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
 
     if (userId) {
       // 删除 session
-      sessions.delete(userInfo.userId);
+      sessions.delete(userId);
       secureConfig.delete(userId);
+      secureConfig.delete(`${userId}-new`);
       return { success: true, message: '退出登录成功' };
     }
 
