@@ -11,6 +11,7 @@ import { AgentsRootPanel } from './AgentsRootPanel';
 import { ChannelsPanel } from './ChannelsPanel';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
+import { DirectoryBrowserModal } from './DirectoryBrowserModal';
 import { ModelsPanel } from './ModelsPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { ThreadSidebar } from './ThreadSidebar';
@@ -18,6 +19,12 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 
 const HOME_DRAFT_THREAD_ID = '__new__';
 const SIDEBAR_DEFAULT = 240;
+
+function getFolderNameFromPath(path: string): string {
+  const normalized = path.replace(/[\\/]+$/, '');
+  const segments = normalized.split(/[/\\]/).filter(Boolean);
+  return segments[segments.length - 1] ?? normalized;
+}
 
 function getCreateThreadErrorMessage(status: number, detail?: unknown): string {
   if (typeof detail === 'string' && detail.trim()) return detail;
@@ -34,10 +41,38 @@ export function NewThreadContainer() {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>('chat');
+  const [isFolderBrowserOpen, setIsFolderBrowserOpen] = useState(false);
+  const [cwdPath, setCwdPath] = useState<string | null>(null);
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
+  const [selectedFolderName, setSelectedFolderName] = useState<string | null>(null);
+  const [selectedFolderTitle, setSelectedFolderTitle] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
     'cat-cafe:sidebarWidth',
     SIDEBAR_DEFAULT,
   );
+
+  const handleFolderSelect = useCallback((path: string) => {
+    setSelectedFolderPath(path);
+    setSelectedFolderName(getFolderNameFromPath(path));
+    setSelectedFolderTitle(path);
+    setIsFolderBrowserOpen(false);
+  }, []);
+
+  const handleOpenFolderPicker = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/projects/cwd');
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data?.path === 'string' && data.path.trim()) {
+          setCwdPath(data.path);
+        }
+      }
+    } catch {
+      // Best-effort only. Fall back to the previous initial path.
+    } finally {
+      setIsFolderBrowserOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
@@ -68,10 +103,11 @@ export function NewThreadContainer() {
       });
 
       try {
+        const createThreadPayload = selectedFolderPath ? { projectPath: selectedFolderPath } : {};
         const response = await apiFetch('/api/threads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          body: JSON.stringify(createThreadPayload),
         });
 
         if (!response.ok) {
@@ -92,7 +128,14 @@ export function NewThreadContainer() {
         setIsCreatingThread(false);
       }
     },
-    [attachPendingNewThreadTarget, clearPendingNewThreadSend, isCreatingThread, router, setPendingNewThreadSend],
+    [
+      attachPendingNewThreadTarget,
+      clearPendingNewThreadSend,
+      isCreatingThread,
+      router,
+      selectedFolderPath,
+      setPendingNewThreadSend,
+    ],
   );
 
   return (
@@ -149,9 +192,28 @@ export function NewThreadContainer() {
         </div>
 
         {sidebarMenu === 'chat' && (
-          <ChatInput threadId={HOME_DRAFT_THREAD_ID} onSend={handleSend} disabled={isCreatingThread} />
+          <ChatInput
+            threadId={HOME_DRAFT_THREAD_ID}
+            onSend={handleSend}
+            disabled={isCreatingThread}
+            folderSelectionEnabled
+            selectedFolderName={selectedFolderName}
+            selectedFolderTitle={selectedFolderTitle}
+            onOpenFolderPicker={() => {
+              void handleOpenFolderPicker();
+            }}
+          />
         )}
       </div>
+
+      <DirectoryBrowserModal
+        open={isFolderBrowserOpen}
+        title="选择文件夹"
+        initialPath={cwdPath ?? selectedFolderPath ?? undefined}
+        activeProjectPath={cwdPath ?? undefined}
+        onSelect={handleFolderSelect}
+        onClose={() => setIsFolderBrowserOpen(false)}
+      />
     </div>
   );
 }

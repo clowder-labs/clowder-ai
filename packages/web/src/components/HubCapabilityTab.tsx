@@ -10,6 +10,7 @@ import { useProviderProfilesState } from './useProviderProfilesState';
 
 const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '其他';
+const ALL_SOURCES = 'all';
 const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const SOURCE_FILTER_ARIA_LABEL = '筛选来源';

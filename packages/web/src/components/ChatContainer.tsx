@@ -55,6 +55,13 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
 
+function getFolderNameFromPath(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const normalized = path.replace(/[\\/]+$/, '');
+  const segments = normalized.split(/[/\\]/).filter(Boolean);
+  return segments[segments.length - 1] ?? normalized ?? null;
+}
+
 type ChatContainerProps =
   | {
       mode: 'new';
@@ -326,6 +333,14 @@ function ThreadModeChatContainer({
   const setCurrentProject = useChatStore((s) => s.setCurrentProject);
   const storeThreads = useChatStore((s) => s.threads);
   const prevThreadRef = useRef(threadId);
+  const currentThreadProjectPath = useMemo(
+    () => storeThreads?.find((thread) => thread.id === threadId)?.projectPath ?? null,
+    [storeThreads, threadId],
+  );
+  const currentThreadProjectName = useMemo(
+    () => getFolderNameFromPath(currentThreadProjectPath),
+    [currentThreadProjectPath],
+  );
   useEffect(() => {
     if (prevThreadRef.current !== threadId) {
       // Thread switch: store saves/restores per-thread state automatically
@@ -640,6 +655,9 @@ function ThreadModeChatContainer({
             }
             onStop={handleStop}
             disabled={false}
+            folderSelectionEnabled={false}
+            selectedFolderName={currentThreadProjectName}
+            selectedFolderTitle={currentThreadProjectPath}
             hasActiveInvocation={hasActiveInvocation}
             uploadStatus={uploadStatus}
             uploadError={uploadError}

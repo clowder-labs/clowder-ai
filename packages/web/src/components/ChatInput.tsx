@@ -32,6 +32,18 @@ import { PathCompletionMenu } from './PathCompletionMenu';
 /** Module-level draft storage — survives component unmount/remount across thread switches */
 export const threadDrafts = new Map<string, string>();
 
+function FolderBadgeIcon({ className }: { className?: string }) {
+  return (
+    <img
+      data-testid="folder-select-icon"
+      aria-hidden="true"
+      className={className}
+      src="/icons/chart/folder.svg"
+      alt=""
+    />
+  );
+}
+
 interface ChatInputProps {
   /** Thread ID for draft persistence — drafts are saved per-thread */
   threadId?: string;
@@ -41,6 +53,10 @@ interface ChatInputProps {
   hasActiveInvocation?: boolean;
   uploadStatus?: UploadStatus;
   uploadError?: string | null;
+  folderSelectionEnabled?: boolean;
+  selectedFolderName?: string | null;
+  selectedFolderTitle?: string | null;
+  onOpenFolderPicker?: () => void;
 }
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
@@ -54,6 +70,10 @@ export function ChatInput({
   hasActiveInvocation,
   uploadStatus = 'idle',
   uploadError = null,
+  folderSelectionEnabled = false,
+  selectedFolderName = null,
+  selectedFolderTitle = null,
+  onOpenFolderPicker,
 }: ChatInputProps) {
   const { cats } = useCatData();
   const catOptions = useMemo(() => buildCatOptions(cats), [cats]);
@@ -88,6 +108,7 @@ export function ChatInput({
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
   const [mobileToolbar, setMobileToolbar] = useState(false);
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
+  const [isFolderTooltipVisible, setIsFolderTooltipVisible] = useState(false);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
   const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
@@ -97,6 +118,9 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
   const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
+  const folderButtonLabel = selectedFolderName?.trim() || '选择文件夹';
+  const isFolderButtonDisabled = disabled || !folderSelectionEnabled;
+  const shouldShowFolderTooltip = Boolean(selectedFolderTitle?.trim());
 
   // F63-AC15: consume pendingChatInsert from workspace (thread-guarded)
   const pendingChatInsert = useChatStore((s) => s.pendingChatInsert);
@@ -668,7 +692,7 @@ export function ChatInput({
         </button>
 
         <div className="flex-1">
-          <div className="mx-auto w-[80%]">
+          <div>
             <div className="mb-2 hidden flex-wrap gap-2">
               {QUICK_ACTIONS.map((action) => (
                 <button
@@ -692,11 +716,7 @@ export function ChatInput({
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 placeholder="描述你想研究的主题或@助手协助工作"
-                className={`block h-[100px] w-full resize-none rounded-2xl border p-3 pr-24 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
-                  whisperMode
-                    ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
-                    : 'border-cocreator-light bg-white focus:ring-cocreator-primary'
-                }`}
+                className={`block h-[100px] w-full resize-none rounded-2xl border p-3 pr-24 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400`}
                 style={{ borderColor: 'rgba(219,219,219,0.8)' }}
                 rows={1}
                 disabled={disabled}
@@ -713,6 +733,37 @@ export function ChatInput({
                 </div>
               )}
               <div className="absolute bottom-2 right-2 hidden items-center gap-2 md:flex">
+                <div
+                  data-testid="folder-select-trigger"
+                  className="relative"
+                  onMouseOver={() => shouldShowFolderTooltip && setIsFolderTooltipVisible(true)}
+                  onMouseOut={() => setIsFolderTooltipVisible(false)}
+                >
+                  {isFolderTooltipVisible && shouldShowFolderTooltip && (
+                    <div
+                      data-testid="folder-select-tooltip"
+                      className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2"
+                    >
+                      <div className="relative w-max rounded-lg bg-white px-3 py-2 text-xs leading-5 text-[#222222] shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)] whitespace-nowrap">
+                        <span>{selectedFolderTitle}</span>
+                        <span
+                          className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[6px] border-x-transparent border-t-white"
+                          aria-hidden="true"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="folder-select-button"
+                    onClick={onOpenFolderPicker}
+                    disabled={isFolderButtonDisabled}
+                    className="ui-button-secondary inline-flex h-7 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <FolderBadgeIcon className="h-6 w-6 shrink-0" />
+                    <span className="truncate">{folderButtonLabel}</span>
+                  </button>
+                </div>
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
