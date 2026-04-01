@@ -54,6 +54,10 @@ interface LocalPresentationFile {
   path: string;
 }
 
+interface LocalPresentationFileMeta {
+  generatedAt: number;
+}
+
 const PRESENTATION_PATH_PATTERNS = [
   /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.pptx?)/gi,
   /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?(\/[^\r\n`'"]+?\.pptx?)/gi,
@@ -72,6 +76,12 @@ function normalizePresentationPath(rawPath: string): string {
 function fileNameFromPath(path: string): string {
   const normalized = path.replace(/\\/g, '/');
   return normalized.slice(normalized.lastIndexOf('/') + 1);
+}
+
+function formatGeneratedDate(timestamp: number | null): string {
+  if (timestamp == null || Number.isNaN(timestamp)) return '生成时间获取中...';
+  const date = new Date(timestamp);
+  return `生成时间：${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 function extractLocalPresentationFile(events: CliEvent[]): LocalPresentationFile | null {
@@ -242,6 +252,33 @@ function PawPrint() {
 
 function PptAttachmentCard({ file }: { file: LocalPresentationFile }) {
   const [isOpening, setIsOpening] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMeta(): Promise<void> {
+      try {
+        const response = await apiFetch('/api/workspace/local-file-meta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: file.path }),
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as LocalPresentationFileMeta;
+        if (!cancelled && typeof payload.generatedAt === 'number') {
+          setGeneratedAt(payload.generatedAt);
+        }
+      } catch {
+        if (!cancelled) setGeneratedAt(null);
+      }
+    }
+
+    void loadMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, [file.path]);
 
   async function handleOpen(): Promise<void> {
     if (isOpening) return;
@@ -272,8 +309,7 @@ function PptAttachmentCard({ file }: { file: LocalPresentationFile }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-[#1F2937]">{file.name}</div>
-        <div className="truncate text-xs text-[#8C8C8C]">本地 PowerPoint 文件</div>
-        <div className="mt-1 break-all text-[11px] leading-4 text-[#9A8F84]">{file.path}</div>
+        <div className="mt-1 break-all text-[11px] leading-4 text-[#9A8F84]">{formatGeneratedDate(generatedAt)}</div>
       </div>
       <button
         type="button"

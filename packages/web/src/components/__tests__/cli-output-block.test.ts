@@ -34,6 +34,15 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   mockApiFetch.mockClear();
+  mockApiFetch.mockImplementation(async (path) => {
+    if (path === '/api/workspace/local-file-meta') {
+      return {
+        ok: true,
+        json: async () => ({ generatedAt: Date.parse('2026-03-24T08:00:00.000Z') }),
+      } as Response;
+    }
+    return { ok: true, json: async () => ({}) } as Response;
+  });
 });
 afterEach(() => {
   act(() => root.unmount());
@@ -411,16 +420,18 @@ describe('CliOutputBlock', () => {
       },
     ];
 
-    act(() => {
+    await act(async () => {
       root.render(
         React.createElement(CliOutputBlock, {
           events: pptEvents,
           status: 'done',
         }),
       );
+      await Promise.resolve();
     });
 
     expect(container.textContent).toContain('demo-deck.pptx');
+    expect(container.textContent).toContain('生成时间：2026年3月24日');
     const openButton = container.querySelector('[data-testid="cli-output-ppt-open"]') as HTMLButtonElement | null;
     expect(openButton).toBeTruthy();
 
@@ -429,7 +440,8 @@ describe('CliOutputBlock', () => {
     });
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/workspace/open-local', expect.objectContaining({ method: 'POST' }));
-    const [, init] = mockApiFetch.mock.calls[0] ?? [];
+    const openLocalCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/open-local');
+    const [, init] = openLocalCall ?? [];
     expect(JSON.parse(String(init?.body))).toEqual({
       path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
     });

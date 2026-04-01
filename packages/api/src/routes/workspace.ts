@@ -788,6 +788,53 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
   });
 
   app.post<{
+    Body: { path?: string };
+  }>('/api/workspace/local-file-meta', async (request, reply) => {
+    const { path: filePath } = request.body ?? {};
+    if (!filePath) {
+      reply.status(400);
+      return { error: 'path required' };
+    }
+    if (!isAbsolute(filePath)) {
+      reply.status(400);
+      return { error: 'path must be an absolute path' };
+    }
+
+    const resolved = resolve(filePath);
+    const extension = extname(resolved).toLowerCase();
+    if (!LOCAL_AGENT_PRESENTATION_EXTS.has(extension)) {
+      reply.status(400);
+      return { error: 'Only PPT/PPTX files are supported' };
+    }
+    if (!isPathWithinRoot(LOCAL_AGENT_ROOT, resolved)) {
+      reply.status(403);
+      return { error: `Only files inside ${LOCAL_AGENT_ROOT} are supported` };
+    }
+
+    try {
+      const targetStat = await stat(resolved);
+      if (!targetStat.isFile()) {
+        reply.status(400);
+        return { error: 'path must point to a file' };
+      }
+
+      return {
+        path: resolved,
+        fileName: basename(resolved),
+        size: targetStat.size,
+        generatedAt: Math.trunc(targetStat.mtimeMs),
+      };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'File not found' };
+      }
+      reply.status(500);
+      return { error: 'Failed to read local file metadata' };
+    }
+  });
+
+  app.post<{
     Body: { worktreeId?: string; path?: string; action?: 'reveal' | 'open'; line?: number; threadId?: string };
   }>('/api/workspace/navigate', async (request, reply) => {
     const { worktreeId, path: filePath, action = 'reveal', line, threadId } = request.body ?? {};
