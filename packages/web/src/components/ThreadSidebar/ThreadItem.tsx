@@ -24,6 +24,7 @@ export interface ThreadItemProps {
   indented?: boolean;
   preferredCats?: string[];
   isHubThread?: boolean;
+  sourceLabel?: string;
 }
 
 export function ThreadItem({
@@ -39,33 +40,30 @@ export function ThreadItem({
   onToggleFavorite,
   isPinned,
   isFavorited,
+  threadState,
   indented,
   isHubThread,
+  sourceLabel,
 }: ThreadItemProps) {
   const { getCatById } = useCatData();
+  const unreadCount = Math.max(0, threadState?.unreadCount ?? 0);
+  const showUnreadBadge = unreadCount > 0;
+  const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
   const canDelete = id !== 'default' && onDelete;
   const canRename = id !== 'default' && onRename;
   const canPin = id !== 'default' && onTogglePin;
   const canFavorite = id !== 'default' && onToggleFavorite;
 
-  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title ?? '');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
-  const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const isComposingRef = useRef(false);
 
   useEffect(() => {
-    if (!isEditing) setDraftTitle(title ?? '');
-  }, [title, isEditing]);
-
-  useEffect(() => {
-    if (!isEditing) return;
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, [isEditing]);
+    if (!showRenameDialog) setDraftTitle(title ?? '');
+  }, [title, showRenameDialog]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -94,18 +92,18 @@ export function ThreadItem({
     const next = draftTitle.trim();
     if (!next) {
       setDraftTitle(title ?? '');
-      setIsEditing(false);
+      setShowRenameDialog(false);
       return;
     }
     if (next === (title ?? '')) {
-      setIsEditing(false);
+      setShowRenameDialog(false);
       return;
     }
 
     setIsSaving(true);
     try {
       await onRename(id, next);
-      setIsEditing(false);
+      setShowRenameDialog(false);
     } finally {
       setIsSaving(false);
     }
@@ -124,7 +122,7 @@ export function ThreadItem({
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
         indented ? 'pl-7' : ''
-      } mx-4 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
+      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
       onClick={() => onSelect(id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -134,7 +132,7 @@ export function ThreadItem({
       title={tooltip}
     >
       <div className="flex items-center gap-2">
-        <div className="shrink-0">
+        <div className="relative shrink-0">
           {participants.length > 0 ? (
             <CatAvatar catId={participants[0]!} size={32} />
           ) : (
@@ -142,50 +140,31 @@ export function ThreadItem({
               <PawIcon className="h-4 w-4" />
             </div>
           )}
+          {showUnreadBadge && (
+            <span
+              className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF3B30] px-1 text-[10px] font-medium leading-none text-white"
+              aria-label={`未读消息 ${unreadCount}`}
+            >
+              {unreadLabel}
+            </span>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
-          {isEditing ? (
-            <input
-              ref={inputRef}
-              value={draftTitle}
-              onChange={(e) => setDraftTitle(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onCompositionStart={() => {
-                isComposingRef.current = true;
-              }}
-              onCompositionEnd={() => {
-                isComposingRef.current = false;
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !isComposingRef.current) {
-                  e.preventDefault();
-                  void submitRename();
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  setDraftTitle(title ?? '');
-                  setIsEditing(false);
-                }
-              }}
-              onBlur={() => {
-                void submitRename();
-              }}
-              disabled={isSaving}
-              maxLength={200}
-              className="ui-field w-full px-2 py-1 text-[13px] disabled:opacity-70"
-            />
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <span className="ui-thread-title block min-w-0 flex-1 truncate">{displayTitle}</span>
-              </div>
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="block min-w-0 flex-1 truncate text-[12px] text-[var(--text-muted)]">{description}</span>
-                <span className="ui-thread-meta shrink-0">{formatRelativeTime(lastActiveAt, true)}</span>
-              </div>
-            </>
-          )}
+          <div className="flex items-center justify-between gap-2">
+            <span className="ui-thread-title block min-w-0 flex-1 truncate">{displayTitle}</span>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="block min-w-0 flex-1 truncate text-[12px] text-[var(--text-muted)]">{description}</span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {sourceLabel && (
+                <span className="rounded-full bg-[rgba(20,118,255,0.1)] px-2 py-[1px] text-[10px] leading-4 text-[rgba(20,118,255,1)]">
+                  {sourceLabel}
+                </span>
+              )}
+              <span className="ui-thread-meta shrink-0">{formatRelativeTime(lastActiveAt, true)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -196,12 +175,13 @@ export function ThreadItem({
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          {canRename && !isEditing && (
+          {canRename && (
             <button
               type="button"
               onClick={() => {
                 setContextMenu(null);
-                setIsEditing(true);
+                setDraftTitle(title ?? '');
+                setShowRenameDialog(true);
               }}
               className="block whitespace-nowrap rounded px-2 py-1.5 text-left text-xs hover:bg-[var(--accent-soft)]"
             >
@@ -260,6 +240,62 @@ export function ThreadItem({
               删除对话
             </button>
           )}
+        </div>
+      )}
+
+      {showRenameDialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 p-4"
+          onClick={() => setShowRenameDialog(false)}
+        >
+          <div
+            className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[16px] font-bold text-gray-900">编辑会话名称</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowRenameDialog(false)}
+                  aria-label="close"
+                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <input
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void submitRename();
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setShowRenameDialog(false);
+                  }
+                }}
+                autoFocus
+                maxLength={200}
+                disabled={isSaving}
+                className="ui-field h-7 w-full px-3 text-sm"
+              />
+
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-secondary">
+                  取消
+                </button>
+                <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
+                  确定
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

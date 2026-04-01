@@ -7,7 +7,7 @@ import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { AgentsRootPanel } from './AgentsRootPanel';
+import { AgentsPanelCopy } from './AgentsPanelCopy';
 import { ChannelsPanel } from './ChannelsPanel';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
@@ -78,6 +78,15 @@ export function NewThreadContainer() {
     if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
       setSidebarOpen(true);
     }
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const menu = (event as CustomEvent<{ menu?: 'skills' }>).detail?.menu;
+      if (menu === 'skills') setSidebarMenu('skills');
+    };
+    window.addEventListener('cat-cafe:open-sidebar-menu', handler);
+    return () => window.removeEventListener('cat-cafe:open-sidebar-menu', handler);
   }, []);
 
   const handleSidebarResize = useCallback(
@@ -173,7 +182,7 @@ export function NewThreadContainer() {
           {sidebarMenu !== 'chat' && (
             <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
-              {sidebarMenu === 'agents' && <AgentsRootPanel />}
+              {sidebarMenu === 'agents' && <AgentsPanelCopy />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
               {sidebarMenu === 'skills' && <SkillsPanel />}
             </div>
