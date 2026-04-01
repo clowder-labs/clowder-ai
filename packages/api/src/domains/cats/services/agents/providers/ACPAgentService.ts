@@ -210,6 +210,24 @@ function buildSessionParams(
   };
 }
 
+export function summarizeACPSessionParamsForLog(
+  sessionParams: Record<string, unknown>,
+  initializeResult: Record<string, unknown> | undefined,
+): {
+  cwd?: string;
+  mcpServersCount: number;
+  hasModelProfileOverride: boolean;
+  mcpTransport: ReturnType<typeof resolveACPMcpTransportFromInitializeResult>;
+} {
+  return {
+    ...(typeof sessionParams.cwd === 'string' ? { cwd: sessionParams.cwd } : {}),
+    mcpServersCount: Array.isArray(sessionParams.mcpServers) ? sessionParams.mcpServers.length : 0,
+    hasModelProfileOverride:
+      sessionParams.modelProfileOverride !== undefined && sessionParams.modelProfileOverride !== null,
+    mcpTransport: resolveACPMcpTransportFromInitializeResult(initializeResult),
+  };
+}
+
 export async function runACPProviderProbe(input: {
   providerProfile: RuntimeProviderProfile;
   workingDirectory?: string;
@@ -321,7 +339,7 @@ export class ACPAgentService implements AgentService {
         initializeResult,
         options,
       );
-      acpLog.info({ initializeResult, sessionParams }, 'ACP session params');
+      acpLog.info({ session: summarizeACPSessionParamsForLog(sessionParams, initializeResult) }, 'ACP session params');
       const sessionMcpServers = Array.isArray(sessionParams.mcpServers)
         ? (sessionParams.mcpServers as Array<Record<string, unknown>>)
         : [];
