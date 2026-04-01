@@ -517,113 +517,107 @@ export function ModelsPanel() {
 
       {showCreateModelModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
-          onClick={closeCreateModelModal}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           data-testid="models-create-model-modal"
         >
-          <div
-            className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold">{CREATE_MODEL_LABEL}</h3>
-                <button
-                  type="button"
-                  onClick={closeCreateModelModal}
-                  aria-label="close"
-                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+          <div className="flex w-[500px] flex-col gap-5 rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[16px] font-bold">{CREATE_MODEL_LABEL}</h3>
+              <button
+                type="button"
+                onClick={closeCreateModelModal}
+                aria-label="close"
+                className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u540d\u79f0'}</p>
-                  <input
-                    data-testid="models-create-model-name-input"
-                    value={modelNameInput}
-                    onChange={(event) => setModelNameInput(event.target.value)}
-                    placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u540d\u79f0'}
-                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
-                    style={{ height: '28px' }}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u5c55\u793a\u540d\u79f0'}</p>
-                  <input
-                    data-testid="models-create-model-display-name-input"
-                    value={modelDisplayNameInput}
-                    onChange={(event) => setModelDisplayNameInput(event.target.value)}
-                    placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u5c55\u793a\u540d\u79f0'}
-                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
-                    style={{ height: '28px' }}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u8bbf\u95eeURL'}</p>
-                  <input
-                    data-testid="models-create-model-url-input"
-                    value={modelUrlInput}
-                    onChange={(event) => setModelUrlInput(event.target.value)}
-                    placeholder={'\u8bf7\u8f93\u5165\u8bbf\u95eeURL'}
-                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
-                    style={{ height: '28px' }}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
-                  <input
-                    data-testid="models-create-model-api-key-input"
-                    type="password"
-                    value={modelApiKeyInput}
-                    onChange={(event) => setModelApiKeyInput(event.target.value)}
-                    placeholder={'\u8bf7\u8f93\u5165API Key'}
-                    className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
-                    style={{ height: '28px' }}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头(可选)'}</p>
-                  <textarea
-                    data-testid="models-create-model-headers-textarea"
-                    value={modelHeadersInput}
-                    onChange={(event) => setModelHeadersInput(event.target.value)}
-                    rows={4}
-                    placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-                    className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
-                  />
-                </div>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u540d\u79f0'}</p>
+                <input
+                  data-testid="models-create-model-name-input"
+                  value={modelNameInput}
+                  onChange={(event) => setModelNameInput(event.target.value)}
+                  placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u540d\u79f0'}
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  style={{ height: '28px' }}
+                  required
+                />
               </div>
-              {createModelError ? (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
-              ) : null}
+              <div className="space-y-1">
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u5c55\u793a\u540d\u79f0'}</p>
+                <input
+                  data-testid="models-create-model-display-name-input"
+                  value={modelDisplayNameInput}
+                  onChange={(event) => setModelDisplayNameInput(event.target.value)}
+                  placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u5c55\u793a\u540d\u79f0'}
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  style={{ height: '28px' }}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u8bbf\u95eeURL'}</p>
+                <input
+                  data-testid="models-create-model-url-input"
+                  value={modelUrlInput}
+                  onChange={(event) => setModelUrlInput(event.target.value)}
+                  placeholder={'\u8bf7\u8f93\u5165\u8bbf\u95eeURL'}
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  style={{ height: '28px' }}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
+                <input
+                  data-testid="models-create-model-api-key-input"
+                  type="password"
+                  value={modelApiKeyInput}
+                  onChange={(event) => setModelApiKeyInput(event.target.value)}
+                  placeholder={'\u8bf7\u8f93\u5165API Key'}
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  style={{ height: '28px' }}
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头(可选)'}</p>
+                <textarea
+                  data-testid="models-create-model-headers-textarea"
+                  value={modelHeadersInput}
+                  onChange={(event) => setModelHeadersInput(event.target.value)}
+                  rows={4}
+                  placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
+                  className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+                />
+              </div>
+            </div>
+            {createModelError ? (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
+            ) : null}
 
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={closeCreateModelModal}
-                  className="ui-button-secondary"
-                >
-                  {CREATE_MODEL_CANCEL_LABEL}
-                </button>
-                <button
-                  type="button"
-                  disabled={!canConfirmCreateModel || createModelBusy}
-                  onClick={handleCreateModel}
-                  data-testid="models-create-model-confirm"
-                  className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {createModelBusy ? '\u521b\u5efa\u4e2d...' : CREATE_MODEL_CONFIRM_LABEL}
-                </button>
-              </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeCreateModelModal}
+                className="ui-button-secondary"
+              >
+                {CREATE_MODEL_CANCEL_LABEL}
+              </button>
+              <button
+                type="button"
+                disabled={!canConfirmCreateModel || createModelBusy}
+                onClick={handleCreateModel}
+                data-testid="models-create-model-confirm"
+                className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {createModelBusy ? '\u521b\u5efa\u4e2d...' : CREATE_MODEL_CONFIRM_LABEL}
+              </button>
             </div>
           </div>
         </div>
