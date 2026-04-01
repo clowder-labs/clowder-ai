@@ -40,6 +40,8 @@ const EMPTY_EDITABLE_DRAFTS: EditableDrafts = {
 };
 
 const TEMPLATE_PAGE_SIZE = 4;
+const ACTION_MENU_ITEM_CLASS =
+  'flex h-8 w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-left text-[12px] font-medium transition';
 
 const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
   {
@@ -275,10 +277,12 @@ function renderAvatar(cat: CatData) {
 function PlaceholderPanel({ title, description, label }: { title: string; description: string; label: string }) {
   return (
     <div className="px-6 pb-6">
-      <div className="rounded-[18px] border border-dashed border-[#DCE3EC] bg-[#FCFDFE] p-6">
-        <span className="inline-flex rounded-full bg-[#F3F5F8] px-3 py-1 text-[11px] font-semibold text-[#7A8495]">{label}</span>
-        <h3 className="mt-4 text-[18px] font-semibold text-[#1F2329]">{title}</h3>
-        <p className="mt-2 max-w-[560px] text-[13px] leading-6 text-[#6F7785]">{description}</p>
+      <div className="rounded-[var(--radius-xl)] border border-dashed border-[var(--border-strong)] bg-[var(--surface-card-muted)] p-6">
+        <span className="inline-flex rounded-full bg-[var(--surface-panel)] px-3 py-1 text-[11px] font-semibold text-[var(--text-muted)]">
+          {label}
+        </span>
+        <h3 className="mt-4 text-[18px] font-semibold text-[var(--text-primary)]">{title}</h3>
+        <p className="mt-2 max-w-[560px] text-[13px] leading-6 text-[var(--text-secondary)]">{description}</p>
       </div>
     </div>
   );
@@ -719,10 +723,10 @@ export function AgentsPanel() {
       type="button"
       onClick={handleStartEdit}
       disabled={!canEditActiveTab}
-      className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-semibold transition ${
+      className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-normal transition ${
         canEditActiveTab
-          ? 'bg-white text-[#445066]'
-          : 'cursor-not-allowed bg-[#F5F7FA] text-[#B1B8C4]'
+          ? 'bg-[var(--surface-panel)] text-[var(--text-secondary)] hover:bg-[var(--surface-card-muted)]'
+          : 'cursor-not-allowed bg-[var(--surface-card-muted)] text-[var(--text-subtle)]'
       }`}
     >
       <EditIcon className="h-3.5 w-3.5" />
@@ -743,8 +747,8 @@ export function AgentsPanel() {
               setTemplateModalOpen(true);
             }}
             disabled={isSavingEdit}
-            className={`inline-flex items-center justify-center gap-1 text-[12px] font-semibold transition w-[44px] h-[18px] ${
-              isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#191919]'
+            className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
+              isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
             }`}
           >
             <TemplateIcon className="h-3.5 w-3.5" />
@@ -755,8 +759,8 @@ export function AgentsPanel() {
           type="button"
           onClick={handleCancelEdit}
           disabled={isSavingEdit}
-          className={`inline-flex items-center justify-center gap-1 text-[12px] font-semibold transition w-[44px] h-[18px] ${
-            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#191919]'
+          className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
+            isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
           }`}
         >
           <CloseIcon className="h-3.5 w-3.5" />
@@ -766,8 +770,8 @@ export function AgentsPanel() {
           type="button"
           onClick={handleSaveEdit}
           disabled={isSavingEdit}
-          className={`inline-flex items-center justify-center gap-1 text-[12px] font-semibold transition w-[44px] h-[18px] ${
-            isSavingEdit ? 'cursor-not-allowed text-[#B1B8C4]' : 'text-[#191919]'
+          className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
+            isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
           }`}
         >
           <CheckIcon className="h-3.5 w-3.5" />
@@ -779,16 +783,17 @@ export function AgentsPanel() {
 
   const renderEmptyEditablePreview = (message: string) => (
     <div className="px-6 pb-6">
-      <div className="rounded-[18px] border border-dashed border-[#DCE3EC] bg-[#FCFDFE] p-6">
-        <h3 className="text-[16px] font-semibold text-[#1F2329]">{currentTab.label}</h3>
-        <p className="mt-2 max-w-[560px] text-[13px] leading-6 text-[#6F7785]">{message}</p>
+      <div className="rounded-[var(--radius-xl)] border border-dashed border-[var(--border-strong)] bg-[var(--surface-card-muted)] p-6">
+        <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">{currentTab.label}</h3>
+        <p className="mt-2 max-w-[560px] text-[13px] leading-6 text-[var(--text-secondary)]">{message}</p>
       </div>
     </div>
   );
 
   const renderMarkdownPreview = (content: string) => {
     if (!content.trim()) {
-      return renderEmptyEditablePreview('当前页签还没有内容，点击右上角“编辑”后即可开始填写。');
+      const emptyText = activeTab === 'persona' ? '暂无灵魂配置' : '暂无团队协作配置';
+      return <p className="px-6 pb-6 text-[13px] text-[var(--text-muted)]">{emptyText}</p>;
     }
 
     return (
@@ -796,7 +801,7 @@ export function AgentsPanel() {
         <div className="h-full overflow-auto">
           <MarkdownContent
             content={content}
-            className="text-[13px] leading-7 text-[#445066] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[#2A303C] [&_h3]:mb-3 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-[#2A303C] [&_p]:text-[#445066] [&_ul]:mb-4 [&_li]:text-[#445066]"
+            className="text-[13px] leading-7 text-[var(--text-secondary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-secondary)] [&_ul]:mb-4 [&_li]:text-[var(--text-secondary)]"
             disableCommandPrefix
           />
         </div>
@@ -818,7 +823,7 @@ export function AgentsPanel() {
               ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
               : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
           }
-          className="h-full w-full resize-none border-0 bg-transparent text-[12px] leading-7 text-[#445066] outline-none placeholder:text-[#A0A8B6]"
+          className="h-full w-full resize-none border-0 bg-transparent text-[12px] leading-7 text-[var(--text-secondary)] outline-none placeholder:text-[var(--text-muted)]"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -827,12 +832,12 @@ export function AgentsPanel() {
 
   const renderPersonaEmptyEditor = () => (
     <div className="relative flex h-full min-h-0 flex-col">
-      <p className="px-6 pb-1 text-[12px] text-[#9AA2B0]">
+      <p className="px-6 pb-1 text-[12px] text-[var(--text-muted)]">
         请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
       </p>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6 pt-4">
         <div className="mt-auto mx-auto w-full max-w-[1328px]">
-          <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[#A0A8B6]">
+          <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
             {templatePageCount > 1 ? (
               <div className="flex items-center gap-2">
@@ -840,7 +845,7 @@ export function AgentsPanel() {
                   type="button"
                   onClick={() => setTemplatePage((current) => Math.max(0, current - 1))}
                   disabled={templatePage === 0}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[#8F98A8] transition enabled:hover:bg-[#F3F5F8] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="上一页模板"
                 >
                   <ChevronLeftIcon className="h-3.5 w-3.5" />
@@ -849,7 +854,7 @@ export function AgentsPanel() {
                   type="button"
                   onClick={() => setTemplatePage((current) => Math.min(templatePageCount - 1, current + 1))}
                   disabled={templatePage >= templatePageCount - 1}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[#8F98A8] transition enabled:hover:bg-[#F3F5F8] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition enabled:hover:bg-[var(--surface-card-muted)] disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label="下一页模板"
                 >
                   <ChevronRightIcon className="h-3.5 w-3.5" />
@@ -894,14 +899,14 @@ export function AgentsPanel() {
                     onClick={() => setActiveTemplateId(template.id)}
                     className={`min-h-[128px] w-full rounded-[8px] border px-4 py-4 text-left transition ${
                       isHovered
-                        ? 'border-[#D8E1EC] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)]'
+                        ? 'border-[var(--border-accent)] bg-[var(--surface-selected)] shadow-[var(--shadow-card-soft)]'
                         : isActive
-                          ? 'border-[#D8E1EC] bg-white'
-                        : 'border-[#E8ECF2] bg-white hover:border-[#D8E1EC] hover:bg-white'
+                          ? 'border-[var(--border-accent)] bg-[var(--surface-panel)]'
+                        : 'border-[var(--border-default)] bg-[var(--surface-panel)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card-muted)]'
                     }`}
                   >
-                    <div className="text-[13px] font-semibold text-[#3A4352]">{template.title}</div>
-                    <div className="mt-2 text-[11px] leading-5 text-[#9AA2AF]">{template.description}</div>
+                    <div className="text-[13px] font-semibold text-[var(--text-primary)]">{template.title}</div>
+                    <div className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">{template.description}</div>
                   </button>
                 </div>
               );
@@ -925,16 +930,16 @@ export function AgentsPanel() {
               }}
               onMouseLeave={scheduleTemplateHoverClear}
             >
-              <div className="relative rounded-[18px] border border-[#E7ECF3] bg-white px-4 py-4 shadow-[0_12px_32px_rgba(15,23,42,0.10)]">
-                <div className="text-[13px] font-semibold text-[#2F3746]">{hoveredTemplatePreview.title}</div>
-                <div className="mt-4 text-[12px] font-semibold text-[#374151]">人格定义 (Persona)</div>
-                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+              <div className="relative rounded-[18px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 shadow-[var(--shadow-card-hover)]">
+                <div className="text-[13px] font-semibold text-[var(--text-primary)]">{hoveredTemplatePreview.title}</div>
+                <div className="mt-4 text-[12px] font-semibold text-[var(--text-primary)]">人格定义 (Persona)</div>
+                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
                   {hoveredTemplatePreview.persona.map((line) => (
                     <li key={line}>• {line}</li>
                   ))}
                 </ul>
-                <div className="mt-4 text-[12px] font-semibold text-[#374151]">行为准则 (Behavior)</div>
-                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[#5C6C84]">
+                <div className="mt-4 text-[12px] font-semibold text-[var(--text-primary)]">行为准则 (Behavior)</div>
+                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
                   {hoveredTemplatePreview.behavior.map((line) => (
                     <li key={line}>• {line}</li>
                   ))}
@@ -943,13 +948,13 @@ export function AgentsPanel() {
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
-                    className="rounded-full bg-[#1F2633] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#171D28]"
+                    className="ui-button-primary px-4 py-2 text-[11px]"
                   >
                     插入模板
                   </button>
                 </div>
                 <div
-                  className="absolute top-[calc(100%-7px)] h-[14px] w-[14px] rotate-45 border-b border-r border-[#E7ECF3] bg-white"
+                  className="absolute top-[calc(100%-7px)] h-[14px] w-[14px] rotate-45 border-b border-r border-[var(--border-default)] bg-[var(--surface-panel)]"
                   style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
                 />
               </div>
@@ -998,23 +1003,23 @@ export function AgentsPanel() {
             type="button"
             data-testid="create-agent-button"
             onClick={openAddMember}
-            className="rounded-[999px] border border-[#595959] bg-[#1F2633] px-6 py-[5px] text-[12px] font-semibold text-white transition hover:bg-[#171D28]"
+            className="ui-button-primary h-[28px] min-h-[28px] px-6 py-[5px] text-[12px] font-normal"
           >
             新建智能体
           </button>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#E6EAF0] bg-white">
+      <div className="ui-panel min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0">
-          <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[#ECEFF3] bg-white px-4 py-6">
-            <label className="mb-3 flex h-7 items-center gap-2 rounded-[10px] border border-[#E3E8EF] bg-white px-3 text-[#A4ADBA]">
+          <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[var(--border-soft)] bg-[var(--surface-panel)] px-4 py-6">
+            <label className="mb-3 mr-1 flex h-[28px] min-h-[28px] w-full items-center gap-2 rounded-[6px] border border-[rgba(194,194,194,1)] bg-[var(--surface-panel)] px-3 text-[var(--text-muted)]">
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索智能体"
-                className="w-full border-0 bg-transparent text-[12px] text-[#2E3440] outline-none placeholder:text-[#A4ADBA]"
+                className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
               />
             </label>
 
@@ -1052,16 +1057,16 @@ export function AgentsPanel() {
                         <span className="shrink-0">{renderAvatar(cat)}</span>
                         <span className="min-w-0">
                           <span className="flex min-w-0 items-center gap-1">
-                            <span className="block truncate text-[13px] font-semibold text-[#2A303C]">
+                            <span className="block truncate text-[13px] font-semibold text-[var(--text-primary)]">
                               {cat.displayName}
                             </span>
                             {isPlatformPreset ? (
-                              <span className="inline-flex h-[18px] shrink-0 items-center rounded-[2px] bg-[rgba(230,230,230,1)] px-1 text-[12px] text-[rgba(25,25,25,1)]">
+                              <span className="ui-badge-muted inline-flex h-[18px] shrink-0 items-center rounded-[4px] text-[11px] text-[var(--agent-preset-badge-text)] bg-[var(--agent-preset-badge-bg)]">
                                 平台预置
                               </span>
                             ) : null}
                           </span>
-                          <span className="mt-1 block truncate text-[11px] text-[#9AA2B0]">
+                          <span className="mt-1 block truncate text-[11px] text-[var(--text-muted)]">
                             {modelText} | {budgetText}
                           </span>
                         </span>
@@ -1091,8 +1096,8 @@ export function AgentsPanel() {
                           }}
                           className={`inline-flex h-6 w-6 items-center justify-center rounded-[6px] transition ${
                             openActionMenuCatId === cat.id
-                              ? 'bg-[#EEF2F7] text-[#1F2329]'
-                              : 'text-[#1F2329] hover:bg-[#EEF2F7] hover:text-[#1F2329]'
+                              ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]'
+                              : 'text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-accent)]'
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
                           aria-expanded={openActionMenuCatId === cat.id}
@@ -1107,7 +1112,7 @@ export function AgentsPanel() {
               })}
 
               {filteredCats.length === 0 ? (
-                <div className="rounded-[8px] border border-dashed border-[#D6DFEA] px-3 py-4 text-[12px] text-[#98A0AD]">
+                <div className="rounded-[var(--radius-md)] border border-dashed border-[var(--border-strong)] px-3 py-4 text-[12px] text-[var(--text-muted)]">
                   没有匹配的智能体
                 </div>
               ) : null}
@@ -1117,7 +1122,7 @@ export function AgentsPanel() {
               <div
                 ref={actionMenuRef}
                 role="menu"
-                className="fixed z-40 w-[80px] rounded-[6px] border border-[#E7EBF2] bg-white p-1.5 shadow-[0_2px_12px_rgba(0,0,0,0.16)]"
+                className="fixed z-40 w-[80px] rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-1.5 shadow-[var(--shadow-card-soft)]"
                 style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
               >
                 <button
@@ -1130,9 +1135,9 @@ export function AgentsPanel() {
                     setActionMenuPosition(null);
                     openEditMember(openActionMenuCatId);
                   }}
-                  className="flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium text-[#1F2329] transition hover:bg-[#F4F7FB]"
+                  className={`${ACTION_MENU_ITEM_CLASS} text-[var(--text-primary)] hover:bg-[var(--surface-card-muted)]`}
                 >
-                  <EditIcon className="h-3.5 w-3.5 text-[#1F2329]" />
+                  <EditIcon className="h-3.5 w-3.5 text-[var(--text-primary)]" />
                   <span>编辑</span>
                 </button>
                 <button
@@ -1144,14 +1149,14 @@ export function AgentsPanel() {
                     if (actionMenuCat?.source !== 'runtime') return;
                     void handleDeleteMember(actionMenuCat.id);
                   }}
-                  className={`flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition ${
+                  className={`${ACTION_MENU_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'text-[#1F2329] hover:bg-[#F4F7FB]'
-                      : 'cursor-not-allowed text-[#AAB2BF] opacity-60'
+                      ? 'text-[var(--state-error-text)] hover:bg-[var(--state-error-surface)]'
+                      : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
                   <TrashIcon
-                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-[#1F2329]' : 'text-[#AAB2BF]'}`}
+                    className={`h-3.5 w-3.5 ${actionMenuCat?.source === 'runtime' ? 'text-[var(--state-error-text)]' : 'text-[var(--text-subtle)]'}`}
                   />
                   <span>删除</span>
                 </button>
@@ -1159,8 +1164,8 @@ export function AgentsPanel() {
             ) : null}
           </aside>
 
-          <section className="relative z-0 flex min-w-0 flex-1 flex-col bg-white">
-            <div className="flex items-center justify-between gap-4 border-b border-[#EEF2F7] px-4 py-3">
+          <section className="relative z-0 flex min-w-0 flex-1 flex-col bg-[var(--surface-panel)]">
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-4 py-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {AGENT_TABS.map((tab) => {
                   const TabIcon = tab.icon;
@@ -1174,9 +1179,9 @@ export function AgentsPanel() {
                         setActiveTab(tab.id);
                         setMode('preview');
                       }}
-                      className={`inline-flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] transition ${
+                      className={`inline-flex items-center gap-1.5 rounded-[8px] border border-transparent px-3 py-1.5 text-[12px] transition ${
                         isActive
-                          ? 'bg-[rgba(230,230,230,1)] font-semibold text-[#445066]'
+                          ? 'bg-[rgba(230,230,230,1)] text-[#445066]'
                           : 'text-[#6F7785] hover:bg-[#F8FAFC]'
                       }`}
                       data-testid={`agent-tab-${tab.id}`}
@@ -1192,11 +1197,11 @@ export function AgentsPanel() {
 
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center justify-between gap-4 px-6 pb-4 pt-6">
-                <h2 className="text-[18px] font-bold text-[#1F2329]">{currentTab.label}</h2>
+                <h2 className="text-[14px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
                 {currentTab.editable ? (mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()) : null}
               </div>
 
-              {saveError ? <div className="px-6 pb-3 text-[12px] text-[#D16B6B]">{saveError}</div> : null}
+              {saveError ? <div className="ui-status-error mx-6 mb-3 rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{saveError}</div> : null}
 
               <div className="min-h-0 flex-1 overflow-hidden">{renderDetailBody()}</div>
             </div>

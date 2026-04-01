@@ -636,7 +636,7 @@ export function CreateAgentModalDraft({
 
           <div className="space-y-2.5">
             <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
-            <div className="flex items-end gap-3">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 aria-label="Upload avatar"
@@ -657,13 +657,13 @@ export function CreateAgentModalDraft({
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
-              <div aria-hidden="true" className="h-[50px] w-px bg-[var(--border-default)]" />
+              <div aria-hidden="true" className="h-[12px] w-px bg-[var(--border-default)]" />
               <button
                 type="button"
                 aria-label="Random preset avatar"
                 onClick={() => setDraftAvatar(getRandomPresetAvatar())}
                 title="换一换"
-                className="ui-button-secondary h-[34px] w-[34px] rounded-[var(--radius-sm)] p-0"
+                className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
               >
                 <SparklesIcon />
               </button>
