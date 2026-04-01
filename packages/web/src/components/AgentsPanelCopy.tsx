@@ -288,7 +288,7 @@ function PlaceholderPanel({ title, description, label }: { title: string; descri
   );
 }
 
-export function AgentsPanel() {
+export function AgentsPanelCopy() {
   const { cats, refresh } = useCatData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
@@ -910,7 +910,7 @@ export function AgentsPanel() {
           {hoveredTemplatePreview ? (
             <div
               ref={templateBubbleRef}
-              className="fixed z-40 w-[400px] max-h-[300px] overflow-y-auto"
+              className="fixed z-40 w-[400px] h-[300px] flex flex-col"
               style={{
                 top: templateBubblePosition?.top ?? 0,
                 left: templateBubblePosition?.left ?? 0,
@@ -924,21 +924,35 @@ export function AgentsPanel() {
               }}
               onMouseLeave={scheduleTemplateHoverClear}
             >
-              <div className="relative rounded-[18px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 shadow-[var(--shadow-card-hover)]">
-                <MarkdownContent
-                  content={buildTemplateMarkdown(hoveredTemplatePreview)}
-                  className="text-[11px] leading-[1.55] text-[var(--text-secondary)] [&_h2]:mb-3 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-2 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_ul]:mb-3 [&_ul]:space-y-1.5"
-                  disableCommandPrefix
-                />
-                <div className="mt-4 flex justify-end">
+              <div className="relative flex flex-col h-full bg-[var(--surface-panel)] rounded-2 border border-[var(--border-default)] shadow-[var(--shadow-card-hover)] overflow-hidden p-4">
+                {/* 顶部标题 - 固定 */}
+                <div className="shrink-0  pb-3">
+                  <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">
+                    {hoveredTemplatePreview.title}
+                  </h3>
+                </div>
+
+                {/* 中间内容 - 可滚动 */}
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <MarkdownContent
+                    content={buildTemplateMarkdown(hoveredTemplatePreview)}
+                    className="text-[11px] leading-[1.55] text-[var(--text-secondary)] [&_h2]:hidden [&_h3]:mb-2 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_ul]:mb-3 [&_ul]:space-y-1.5"
+                    disableCommandPrefix
+                  />
+                </div>
+
+                {/* 底部按钮 - 固定 */}
+                <div className="shrink-0 flex justify-end">
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
-                    className="ui-button-primary px-4 py-2 text-[11px]"
+                    className="ui-button-primary h-[24px] w-[80px] px-4 py-1 text-[11px] rounded-[999px] flex items-center justify-center"
                   >
                     插入模板
                   </button>
                 </div>
+
+                {/* 气泡箭头 */}
                 <div
                   className="absolute top-[calc(100%-7px)] h-[14px] w-[14px] rotate-45 border-b border-r border-[var(--border-default)] bg-[var(--surface-panel)]"
                   style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
