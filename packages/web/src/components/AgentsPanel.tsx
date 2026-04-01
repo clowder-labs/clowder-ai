@@ -40,7 +40,7 @@ const TEMPLATE_MODAL_SOURCE = '灵魂模板';
 const TEMPLATE_MODAL_CREATOR = '官方预置';
 const TEMPLATE_MODAL_CREATED_AT = '2025-09-12 17:22:30';
 
-const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
+const FALLBACK_TEMPLATES: InspirationTemplate[] = [
   {
     id: 'customer-service',
     name: '专业客服助手',
@@ -51,10 +51,7 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
         '性格：耐心克制、语气专业、表达清晰。',
         '行为：先确认诉求，再给步骤方案，必要时主动引导升级处理。',
       ],
-      behavior: [
-        '精准识别用户诉求与情绪波动，先安抚再给处理路径。',
-        '优先提供标准流程与升级建议，避免模糊表述。',
-      ],
+      behavior: ['精准识别用户诉求与情绪波动，先安抚再给处理路径。', '优先提供标准流程与升级建议，避免模糊表述。'],
     },
   },
   {
@@ -67,10 +64,7 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
         '性格：创意灵活、语气温和、结构清晰。',
         '行为：聚焦目标、突出重点，给出可执行建议。',
       ],
-      behavior: [
-        '先明确目标受众、平台与语气，再组织内容结构。',
-        '输出可直接使用的文案方案，并附带优化建议。',
-      ],
+      behavior: ['先明确目标受众、平台与语气，再组织内容结构。', '输出可直接使用的文案方案，并附带优化建议。'],
     },
   },
   {
@@ -83,10 +77,7 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
         '性格：理性克制、客观中立、注重依据。',
         '行为：先定义问题边界，再逐层解释并给出结论与风险提示。',
       ],
-      behavior: [
-        '先确认问题边界与上下文，再给出条理化解释。',
-        '需要时补充风险、适用范围与可执行建议。',
-      ],
+      behavior: ['先确认问题边界与上下文，再给出条理化解释。', '需要时补充风险、适用范围与可执行建议。'],
     },
   },
   {
@@ -99,10 +90,7 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
         '性格：简洁务实、节奏明确、结果导向。',
         '行为：优先给行动清单，再补充沟通模板与复盘建议。',
       ],
-      behavior: [
-        '优先沉淀行动项、责任人和时间节点。',
-        '补充可复用的汇报、纪要和复盘模板。',
-      ],
+      behavior: ['优先沉淀行动项、责任人和时间节点。', '补充可复用的汇报、纪要和复盘模板。'],
     },
   },
   {
@@ -115,10 +103,7 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
         '性格：稳健清晰、节奏明确、关注依赖关系。',
         '行为：先明确目标与边界，再拆解任务、识别风险并推动闭环。',
       ],
-      behavior: [
-        '拆解目标、建立里程碑并持续跟踪风险。',
-        '围绕依赖关系和优先级推动项目闭环。',
-      ],
+      behavior: ['拆解目标、建立里程碑并持续跟踪风险。', '围绕依赖关系和优先级推动项目闭环。'],
     },
   },
   {
@@ -131,10 +116,7 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
         '性格：严谨客观、表达简洁、重视证据。',
         '行为：先确认分析目标，再整理数据、解释异常并输出结论建议。',
       ],
-      behavior: [
-        '先确认指标口径与样本范围，再给出分析过程。',
-        '输出结论时同步说明依据、异常点和建议动作。',
-      ],
+      behavior: ['先确认指标口径与样本范围，再给出分析过程。', '输出结论时同步说明依据、异常点和建议动作。'],
     },
   },
 ];
@@ -161,12 +143,14 @@ function buildTemplateInsertText(template: InspirationTemplate): string {
     .join('\n\n');
 }
 
-function buildCollabDraft(cat: {
-  teamStrengths?: string;
-  strengths?: string[];
-  caution?: string | null;
-  sessionChain?: boolean;
-} | null): string {
+function buildCollabDraft(
+  cat: {
+    teamStrengths?: string;
+    strengths?: string[];
+    caution?: string | null;
+    sessionChain?: boolean;
+  } | null,
+): string {
   if (!cat) return '';
 
   const lines: string[] = [];
@@ -284,6 +268,8 @@ export function AgentsPanel() {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templatePage, setTemplatePage] = useState(0);
+  const [inspirationTemplates, setInspirationTemplates] = useState<InspirationTemplate[]>(FALLBACK_TEMPLATES);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
   const hoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const templatePreviewLayerRef = useRef<HTMLDivElement | null>(null);
@@ -317,6 +303,30 @@ export function AgentsPanel() {
     void fetchData();
   }, [fetchData]);
 
+  // 从后端加载灵魂模板
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/api/soul-templates')
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`加载失败 (${res.status})`);
+        const data = (await res.json()) as { templates?: InspirationTemplate[] };
+        if (!cancelled && data.templates) {
+          setInspirationTemplates(data.templates);
+        }
+      })
+      .catch((err) => {
+        console.warn('[AgentsPanel] 模板加载失败，使用降级数据', err);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setTemplatesLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const openAddMember = useCallback(() => {
     setEditingCatId(null);
     setEditorOpen(true);
@@ -338,16 +348,16 @@ export function AgentsPanel() {
 
   const editingCat = editingCatId ? cats.find((c) => c.id === editingCatId) : null;
   const selectedCat = useMemo(
-    () => (selectedCatId ? cats.find((cat) => cat.id === selectedCatId) ?? null : cats[0] ?? null),
+    () => (selectedCatId ? (cats.find((cat) => cat.id === selectedCatId) ?? null) : (cats[0] ?? null)),
     [cats, selectedCatId],
   );
   const hoveredTemplate = useMemo(
-    () => INSPIRATION_TEMPLATES.find((template) => template.id === hoveredTemplateId) ?? null,
+    () => inspirationTemplates.find((template) => template.id === hoveredTemplateId) ?? null,
     [hoveredTemplateId],
   );
   const promptSelectionItems = useMemo(
     () =>
-      INSPIRATION_TEMPLATES.map((template) => ({
+      inspirationTemplates.map((template) => ({
         id: template.id,
         title: template.name,
         category: TEMPLATE_MODAL_CATEGORY,
@@ -367,16 +377,16 @@ export function AgentsPanel() {
         ],
         content: buildTemplateInsertText(template),
       })),
-    [],
+    [inspirationTemplates],
   );
-  const templatePageCount = Math.max(1, Math.ceil(INSPIRATION_TEMPLATES.length / TEMPLATE_PAGE_SIZE));
+  const templatePageCount = Math.max(1, Math.ceil(inspirationTemplates.length / TEMPLATE_PAGE_SIZE));
   const visibleTemplates = useMemo(
     () =>
-      INSPIRATION_TEMPLATES.slice(
+      inspirationTemplates.slice(
         templatePage * TEMPLATE_PAGE_SIZE,
         templatePage * TEMPLATE_PAGE_SIZE + TEMPLATE_PAGE_SIZE,
       ),
-    [templatePage],
+    [templatePage, inspirationTemplates],
   );
   const activeDraft = tabDrafts[activeTab] ?? '';
   const isPersonaTab = activeTab === 'persona';
@@ -534,20 +544,23 @@ export function AgentsPanel() {
     });
   }, []);
 
-  const handleTemplateHoverStart = useCallback((templateId: string, triggerElement?: HTMLElement | null) => {
-    if (hoverClearTimerRef.current) {
-      clearTimeout(hoverClearTimerRef.current);
-      hoverClearTimerRef.current = null;
-    }
+  const handleTemplateHoverStart = useCallback(
+    (templateId: string, triggerElement?: HTMLElement | null) => {
+      if (hoverClearTimerRef.current) {
+        clearTimeout(hoverClearTimerRef.current);
+        hoverClearTimerRef.current = null;
+      }
 
-    const resolvedTrigger = triggerElement ?? hoveredTemplateTriggerRef.current;
-    if (resolvedTrigger) {
-      hoveredTemplateTriggerRef.current = resolvedTrigger;
-      positionTemplatePreview(resolvedTrigger);
-    }
+      const resolvedTrigger = triggerElement ?? hoveredTemplateTriggerRef.current;
+      if (resolvedTrigger) {
+        hoveredTemplateTriggerRef.current = resolvedTrigger;
+        positionTemplatePreview(resolvedTrigger);
+      }
 
-    setHoveredTemplateId(templateId);
-  }, [positionTemplatePreview]);
+      setHoveredTemplateId(templateId);
+    },
+    [positionTemplatePreview],
+  );
 
   const handleTemplateHoverEnd = useCallback((templateId: string) => {
     hoverClearTimerRef.current = setTimeout(() => {
@@ -561,20 +574,23 @@ export function AgentsPanel() {
     }, 100);
   }, []);
 
-  const handleTemplateApply = useCallback((template: InspirationTemplate) => {
-    const templateText = buildTemplateInsertText(template);
-    setTabDrafts((current) => {
-      const activeDraft = current[activeTab];
-      return {
-        ...current,
-        [activeTab]: activeDraft.trim() ? `${activeDraft.trimEnd()}\n\n${templateText}` : templateText,
-      };
-    });
-    personaTextareaRef.current?.focus();
-  }, [activeTab]);
+  const handleTemplateApply = useCallback(
+    (template: InspirationTemplate) => {
+      const templateText = buildTemplateInsertText(template);
+      setTabDrafts((current) => {
+        const activeDraft = current[activeTab];
+        return {
+          ...current,
+          [activeTab]: activeDraft.trim() ? `${activeDraft.trimEnd()}\n\n${templateText}` : templateText,
+        };
+      });
+      personaTextareaRef.current?.focus();
+    },
+    [activeTab],
+  );
   const handleTemplateModalConfirm = useCallback(
     (item: { id: string }) => {
-      const template = INSPIRATION_TEMPLATES.find((entry) => entry.id === item.id);
+      const template = inspirationTemplates.find((entry) => entry.id === item.id);
       if (!template) return;
       handleTemplateApply(template);
       setTemplateModalOpen(false);
@@ -694,6 +710,7 @@ export function AgentsPanel() {
                 const budgetText = formatBudgetLabel(cat.contextBudget?.maxContextTokens);
                 const avatar = cat.avatar?.trim() ?? '';
                 const avatarLooksLikeUrl = /^(https?:\/\/|\/)/.test(avatar);
+                const isPlatformPreset = cat.source !== 'runtime';
 
                 return (
                   <div
@@ -710,7 +727,9 @@ export function AgentsPanel() {
                         className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-semibold text-white"
                         style={{ backgroundColor: cat.color?.primary ?? '#7AAEFF' }}
                       >
-                        <span>{avatarLooksLikeUrl ? catInitial(cat.displayName) : avatar || catInitial(cat.displayName)}</span>
+                        <span>
+                          {avatarLooksLikeUrl ? catInitial(cat.displayName) : avatar || catInitial(cat.displayName)}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -721,7 +740,16 @@ export function AgentsPanel() {
                         }}
                         className="min-w-0 flex-1 text-left"
                       >
-                        <div className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{cat.displayName}</div>
+                        <div className="flex min-w-0 items-center gap-1">
+                          <span className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                            {cat.displayName}
+                          </span>
+                          {isPlatformPreset ? (
+                            <span className="inline-flex h-[18px] shrink-0 items-center rounded-[2px] bg-[rgba(230,230,230,1)] px-1 text-[12px] text-[rgba(25,25,25,1)]">
+                              平台预置
+                            </span>
+                          ) : null}
+                        </div>
                         <div className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
                           {modelText} · {budgetText}
                         </div>
@@ -799,19 +827,18 @@ export function AgentsPanel() {
                   }}
                   data-testid={`agent-tab-${tab.id}`}
                   className={`ui-chip rounded-[var(--radius-sm)] px-3 py-1.5 text-xs transition ${
-                    activeTab === tab.id
-                      ? 'ui-chip-active font-semibold'
-                      : 'hover:bg-[var(--surface-card-muted)]'
+                    activeTab === tab.id ? 'ui-chip-active font-semibold' : 'hover:bg-[var(--surface-card-muted)]'
                   }`}
                 >
                   {tab.label}
                 </button>
               ))}
               <div className="flex-1" />
- 
             </div>
 
-            {fetchError ? <p className="ui-status-error mb-2 rounded-[var(--radius-md)] px-3 py-2 text-sm">{fetchError}</p> : null}
+            {fetchError ? (
+              <p className="ui-status-error mb-2 rounded-[var(--radius-md)] px-3 py-2 text-sm">{fetchError}</p>
+            ) : null}
 
             <div className="min-h-0 flex-1 overflow-hidden rounded-[var(--radius-lg)] bg-[var(--surface-panel)] flex flex-col">
               <div className="flex w-full justify-end gap-2">
@@ -839,7 +866,11 @@ export function AgentsPanel() {
                   </button>
                 ) : null}
               </div>
-              <div ref={templatePreviewLayerRef} data-testid="template-preview-layer" className="relative flex h-full flex-col">
+              <div
+                ref={templatePreviewLayerRef}
+                data-testid="template-preview-layer"
+                className="relative flex h-full flex-col"
+              >
                 <div className="flex min-h-0 flex-1 overflow-hidden px-12 py-1">
                   <div className="border-none ui-input-shell flex w-full flex-1 rounded-[var(--radius-xl)] px-4 py-3">
                     <textarea
@@ -861,7 +892,9 @@ export function AgentsPanel() {
                 {showTemplateUI ? (
                   <div className="shrink-0 px-6 pb-2 pt-3">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <div data-testid="agent-template-section-title" className="text-xs text-[var(--text-muted)]">灵魂模板</div>
+                      <div data-testid="agent-template-section-title" className="text-xs text-[var(--text-muted)]">
+                        灵魂模板
+                      </div>
                       {templatePageCount > 1 ? (
                         <div className="flex items-center gap-2 text-[var(--text-muted)]">
                           <button
@@ -909,7 +942,9 @@ export function AgentsPanel() {
                             }`}
                           >
                             <div className="text-[13px] font-semibold text-[var(--text-primary)]">{template.name}</div>
-                            <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--text-muted)]">{template.description}</div>
+                            <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--text-muted)]">
+                              {template.description}
+                            </div>
                           </button>
                         );
                       })}
@@ -934,7 +969,9 @@ export function AgentsPanel() {
                         <h3 className="text-[14px] font-semibold leading-tight text-[var(--text-primary)]">
                           {selectedCat?.displayName ?? '九问Office'}
                         </h3>
-                        <div className="mt-6 text-[14px] font-semibold leading-none text-[var(--text-secondary)]">人格定义 (Persona)</div>
+                        <div className="mt-6 text-[14px] font-semibold leading-none text-[var(--text-secondary)]">
+                          人格定义 (Persona)
+                        </div>
                         <ul className="mt-6 space-y-4 text-[12px] leading-[1.45] text-[var(--text-secondary)]">
                           {hoveredTemplate.soulTemplate.persona.map((item) => (
                             <li key={item}>• {item}</li>
@@ -970,7 +1007,9 @@ export function AgentsPanel() {
         name={editingCat?.name ?? editingCat?.displayName}
         description={editingCat?.roleDescription}
         selectedModelId={
-          editingCat?.accountRef && editingCat.defaultModel ? `${editingCat.accountRef}::${editingCat.defaultModel}` : null
+          editingCat?.accountRef && editingCat.defaultModel
+            ? `${editingCat.accountRef}::${editingCat.defaultModel}`
+            : null
         }
         title={editingCatId ? '编辑智能体' : '创建智能体'}
         onClose={closeEditor}

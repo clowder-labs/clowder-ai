@@ -57,14 +57,6 @@ export type {
   ThreadPhase,
   UpdateBacklogDispatchProgressInput,
 } from './backlog.js';
-// Brake types (F085 Phase 4 — 平台级健康守护)
-export type {
-  BrakeCheckinRequest,
-  BrakeCheckinResponse,
-  BrakeEvent,
-  BrakeSettings,
-  BrakeState,
-} from './brake.js';
 // Capability types (F041 统一能力模型)
 export type {
   BootstrapAction,
@@ -93,6 +85,7 @@ export type {
   CatColor,
   CatConfig,
   CatProvider,
+  EmbeddedRuntimeKind,
   KnownCatProvider,
   CatState,
   CatStatus,
@@ -101,6 +94,8 @@ export {
   CAT_CONFIGS,
   findCatByMention,
   getAllCatIds,
+  resolveEmbeddedRuntimeKind,
+  usesEmbeddedAcpRuntime,
 } from './cat.js';
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
@@ -111,6 +106,7 @@ export type {
   CatFeatures,
   CatVariant,
   CliConfig,
+  EmbeddedAcpConfig,
   // F067: Co-Creator config for @ mention routing
   CoCreatorConfig,
   ContextBudget,

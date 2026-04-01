@@ -2,26 +2,27 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { CatData } from '@/hooks/useCatData';
+import { useAvailableClients } from '@/hooks/useAvailableClients';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { getIsSkipAuth } from '@/utils/userId';
+import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
-import { builtinAccountIdForClient } from './hub-cat-editor.model';
-import { initialState, type ClientValue, type HubCatEditorDraft, type HubCatEditorFormState } from './hub-cat-editor.model';
+import {
+  CLIENT_OPTIONS as HUB_CLIENT_OPTIONS,
+  initialState,
+  type ClientValue,
+  type HubCatEditorDraft,
+  type HubCatEditorFormState,
+} from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
 import {
   ModelSelectDropdownDraft,
   ModelSelectTriggerIcon,
   ModelSelectValueDraft,
   type DraftModelOption,
+  type DraftModelOptionGroup,
 } from './ModelSelectDropdownDraft';
-import type { ProfileItem, ProviderProfilesResponse } from './hub-provider-profiles.types';
-
-interface MassModelResponseItem {
-  id?: string | number;
-  object?: string;
-  name?: string;
-  description?: string;
-  [key: string]: unknown;
-}
 
 interface CreateAgentModalDraftProps {
   open: boolean;
@@ -36,70 +37,66 @@ interface CreateAgentModalDraftProps {
   onSaved?: () => Promise<void> | void;
 }
 
+type ModelGroupId = 'huawei-maas' | 'third-party';
+
 interface CreateModelOption extends DraftModelOption {
-  profileId?: string;
+  accountRef: string;
   client: ClientValue;
   model: string;
-  authType?: string;
-  providerName?: string;
+  modelLabel: string;
+  groupId: ModelGroupId;
 }
 
-interface MassModelDescriptor {
-  name: string;
+interface MaaSModelResponseItem {
+  id?: string | number;
+  name?: string;
+  provider?: string;
   protocol?: string;
+  icon?: string;
+  logo?: string;
+  image?: string;
+  avatar?: string;
+  enabled?: boolean;
+  kind?: string;
+  [key: string]: unknown;
+}
+
+interface SelectionHint {
+  model: string | null;
+  accountRef: string | null;
 }
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
+const HUAWEI_GROUP_LABEL = 'Huawei MaaS';
+const THIRD_PARTY_GROUP_LABEL = '第三方模型';
+const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
+const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
+  'anthropic',
+  'openai',
+  'google',
+  'dare',
+  'opencode',
+  'relayclaw',
+  'antigravity',
+  'acp',
+]);
 
-function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
-  for (const key of candidates) {
-    const value = item[key];
-    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
-  }
-  return undefined;
-}
-
-function normalizeMassModelName(item: MassModelResponseItem): string {
-  const nameFromKnownFields = pickStringField(item, ['name', 'modelName', 'model_name', 'displayName', 'display_name', '名称']);
-  if (nameFromKnownFields) return nameFromKnownFields;
-
-  const genericStringEntries = Object.entries(item).filter(
-    ([key, value]) => typeof value === 'string' && key !== 'id' && key !== 'object',
-  ) as Array<[string, string]>;
-  return genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ?? '';
-}
-
-function chooseProfileForModel(
-  modelName: string,
-  profiles: ProfileItem[],
-  preferredProfileIds: string[],
-  activeProfileId: string | null,
-): ProfileItem | null {
-  const matches = profiles.filter((profile) => (profile.models ?? []).includes(modelName));
-  if (matches.length === 0) return null;
-
-  for (const profileId of preferredProfileIds) {
-    const matched = matches.find((profile) => profile.id === profileId);
-    if (matched) return matched;
-  }
-
-  if (activeProfileId) {
-    const activeMatch = matches.find((profile) => profile.id === activeProfileId);
-    if (activeMatch) return activeMatch;
-  }
-
-  return matches[0] ?? null;
-}
+// 预设头像列表
+const PRESET_AVATARS = [
+  '/avatars/agent-avatar-1.png',
+  '/avatars/agent-avatar-2.png',
+  '/avatars/agent-avatar-3.png',
+  '/avatars/agent-avatar-4.png',
+  '/avatars/agent-avatar-5.png',
+  '/avatars/agent-avatar-6.png',
+  '/avatars/agent-avatar-7.png',
+  '/avatars/agent-avatar-8.png',
+  '/avatars/agent-avatar-9.png',
+];
 
 function CloseIcon() {
-  return (
-    <svg className="h-6 w-6 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+  return <AgentManagementIcon name="close" className="h-6 w-6" />;
 }
 
 function SparklesIcon() {
@@ -125,46 +122,26 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
-function resolveProfileClient(profile: ProfileItem): ClientValue | null {
-  if (profile.client) return profile.client;
-  if (profile.oauthLikeClient === 'dare' || profile.oauthLikeClient === 'opencode') return profile.oauthLikeClient;
-
-  const normalized = `${profile.id} ${profile.provider ?? ''} ${profile.displayName} ${profile.name}`.toLowerCase();
-  if (normalized.includes('claude')) return 'anthropic';
-  if (normalized.includes('codex')) return 'openai';
-  if (normalized.includes('gemini')) return 'google';
-  if (normalized.includes('dare')) return 'dare';
-  if (normalized.includes('opencode')) return 'opencode';
-  if (normalized.includes('jiuwen') || normalized.includes('relayclaw')) return 'relayclaw';
-
-  switch (profile.protocol) {
-    case 'anthropic':
-      return 'anthropic';
-    case 'openai':
-      return 'openai';
-    case 'google':
-      return 'google';
-    default:
-      return null;
-  }
+/**
+ * 从预设头像中随机选择一个
+ */
+function getRandomPresetAvatar(): string {
+  const randomIndex = Math.floor(Math.random() * PRESET_AVATARS.length);
+  return PRESET_AVATARS[randomIndex];
 }
 
-function inferClientFromModelName(modelName: string): ClientValue {
-  const normalized = modelName.toLowerCase();
-  if (normalized.includes('claude')) return 'anthropic';
-  if (normalized.includes('gpt')) return 'openai';
-  if (normalized.includes('gemini')) return 'google';
-  if (normalized.includes('qwen') || normalized.includes('deepseek') || normalized.includes('glm') || normalized.includes('kimi')) {
-    return 'dare';
-  }
-  return 'dare';
+function buildProjectScopedUrl(path: string, projectPath: string | null | undefined): string {
+  if (!projectPath || projectPath === 'default') return path;
+  const query = new URLSearchParams({ projectPath });
+  return `${path}?${query.toString()}`;
 }
 
-function defaultProfileIdForModel(client: ClientValue, descriptor?: MassModelDescriptor): string {
-  if (descriptor?.protocol === 'huawei_maas' && client === 'dare') {
-    return HUAWEI_MAAS_MODEL_SOURCE_ID;
+function pickStringField(item: Record<string, unknown>, candidates: string[]): string | undefined {
+  for (const key of candidates) {
+    const value = item[key];
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
   }
-  return builtinAccountIdForClient(client) ?? '';
+  return undefined;
 }
 
 function avatarSeed(name: string): string {
@@ -199,10 +176,109 @@ function resolveInitialAvatar(cat: CatData | null): string {
   return cat?.avatar?.trim() ?? '';
 }
 
+function parseModelIdSelection(value: string | null): SelectionHint {
+  if (!value?.trim()) return { model: null, accountRef: null };
+  const trimmed = value.trim();
+  const parts = trimmed.split('::');
+  if (parts.length >= 2) {
+    return {
+      accountRef: parts[0]?.trim() || null,
+      model: parts.slice(1).join('::').trim() || null,
+    };
+  }
+  return { model: trimmed, accountRef: null };
+}
+
+function resolveSelectionHint(
+  cat: CatData | null,
+  draft: HubCatEditorDraft | null,
+  selectedModelId: string | null,
+): SelectionHint {
+  const parsed = parseModelIdSelection(selectedModelId);
+  return {
+    model: parsed.model ?? draft?.defaultModel ?? cat?.defaultModel ?? null,
+    accountRef: parsed.accountRef ?? draft?.accountRef ?? draft?.providerProfileId ?? cat?.accountRef ?? cat?.providerProfileId ?? null,
+  };
+}
+
+function parseAccountRefFromModelItem(item: MaaSModelResponseItem): string | null {
+  if (item.provider === HUAWEI_GROUP_LABEL) return 'huawei-maas';
+  const rawId = typeof item.id === 'string' ? item.id.trim() : '';
+  if (!rawId) return null;
+  if (rawId.startsWith('model_config:')) {
+    const rest = rawId.slice('model_config:'.length);
+    const splitIndex = rest.indexOf(':');
+    return splitIndex >= 0 ? rest.slice(0, splitIndex) : null;
+  }
+  return null;
+}
+
+function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
+  if (item.enabled === false) return null;
+  const normalized = item as Record<string, unknown>;
+  const modelLabel = pickStringField(normalized, ['name']);
+  const accountRef = parseAccountRefFromModelItem(item);
+  if (!modelLabel || !accountRef) return null;
+
+  const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
+  const groupId: ModelGroupId = providerLabel === HUAWEI_GROUP_LABEL ? 'huawei-maas' : 'third-party';
+  const rawId =
+    typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;
+  const model =
+    groupId === 'huawei-maas'
+      ? rawId
+      : rawId.startsWith('model_config:')
+        ? rawId.slice(`model_config:${accountRef}:`.length) || modelLabel
+        : modelLabel;
+
+  return {
+    id: rawId,
+    name: modelLabel,
+    icon: pickStringField(normalized, ['icon', 'logo', 'image', 'avatar']),
+    providerGroup: providerLabel,
+    accountRef,
+    client: RELAYCLAW_CLIENT,
+    model,
+    modelLabel,
+    groupId,
+  };
+}
+
+function buildFallbackSelectedOption(selectionHint: SelectionHint): CreateModelOption | null {
+  if (!selectionHint.model || !selectionHint.accountRef) return null;
+  const isHuawei = selectionHint.accountRef === 'huawei-maas';
+  return {
+    id: `${selectionHint.accountRef}::${selectionHint.model}`,
+    name: selectionHint.model,
+    providerGroup: isHuawei ? HUAWEI_GROUP_LABEL : THIRD_PARTY_GROUP_LABEL,
+    accountRef: selectionHint.accountRef,
+    client: RELAYCLAW_CLIENT,
+    model: selectionHint.model,
+    modelLabel: selectionHint.model,
+    groupId: isHuawei ? 'huawei-maas' : 'third-party',
+  };
+}
+
+function groupModelOptions(items: CreateModelOption[]): DraftModelOptionGroup[] {
+  const huaweiItems = items.filter((item) => item.groupId === 'huawei-maas');
+  const thirdPartyItems = items.filter((item) => item.groupId === 'third-party');
+  const groups: DraftModelOptionGroup[] = [];
+
+  if (huaweiItems.length > 0) {
+    groups.push({ id: 'huawei-maas', label: HUAWEI_GROUP_LABEL, items: huaweiItems });
+  }
+  if (thirdPartyItems.length > 0) {
+    groups.push({ id: 'third-party', label: THIRD_PARTY_GROUP_LABEL, items: thirdPartyItems });
+  }
+
+  return groups;
+}
+
 export function buildDefaultCreateForm(
   name: string,
   description: string,
   avatar: string,
+  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const safeName = name.trim();
@@ -221,15 +297,16 @@ export function buildDefaultCreateForm(
     teamStrengths: '',
     caution: '',
     strengths: '',
-    client: selectedModel?.client ?? 'anthropic',
-    accountRef: selectedModel?.profileId ?? '',
+    client: selectedClient,
+    accountRef: selectedModel?.accountRef ?? '',
     defaultModel: selectedModel?.model ?? '',
     commandArgs: '',
     cliConfigArgs: [],
-    ocProviderName:
-      selectedModel?.client === 'opencode' && selectedModel.authType === 'api_key'
-        ? selectedModel.providerName ?? ''
-        : '',
+    ocProviderName: '',
+    embeddedAcpExecutablePath: '',
+    embeddedAcpArgs: '',
+    embeddedAcpCwd: '',
+    embeddedAcpEnvText: '',
     sessionChain: 'true',
     maxPromptTokens: '',
     maxContextTokens: '',
@@ -243,6 +320,7 @@ function buildEditForm(
   name: string,
   description: string,
   avatar: string,
+  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const base = initialState(cat, null);
@@ -253,24 +331,11 @@ function buildEditForm(
     displayName: safeName,
     avatar,
     roleDescription: description.trim() || base.roleDescription,
-    client: selectedModel?.client ?? base.client,
-    accountRef: selectedModel?.profileId ?? base.accountRef,
+    client: selectedClient,
+    accountRef: selectedModel?.accountRef ?? base.accountRef,
     defaultModel: selectedModel?.model ?? base.defaultModel,
-    ocProviderName:
-      selectedModel?.client === 'opencode' && selectedModel.authType === 'api_key'
-        ? selectedModel.providerName ?? ''
-        : '',
+    ocProviderName: '',
   };
-}
-
-function resolveInitialModelId(cat: CatData | null, draft: HubCatEditorDraft | null, selectedModelId: string | null): string | null {
-  if (selectedModelId) {
-    const [maybeProfileId, maybeModel] = selectedModelId.split('::');
-    return maybeModel ?? maybeProfileId ?? null;
-  }
-  if (cat?.defaultModel) return cat.defaultModel;
-  if (draft?.defaultModel) return draft.defaultModel;
-  return null;
 }
 
 export function CreateAgentModalDraft({
@@ -285,13 +350,16 @@ export function CreateAgentModalDraft({
   onClose,
   onSaved,
 }: CreateAgentModalDraftProps) {
+  const [isSkipAuth, setIsSkipAuth] = useState(false);
+  const { clients: detectedClients, clientLabels } = useAvailableClients();
   const [draftName, setDraftName] = useState(name);
   const [draftDescription, setDraftDescription] = useState(description);
   const [draftAvatar, setDraftAvatar] = useState('');
-  const [draftModelId, setDraftModelId] = useState<string | null>(selectedModelId);
+  const [selectedClient, setSelectedClient] = useState<ClientValue>(RELAYCLAW_CLIENT);
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
-  const [availableModels, setAvailableModels] = useState<CreateModelOption[]>([]);
+  const [marketplaceModels, setMarketplaceModels] = useState<MaaSModelResponseItem[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -299,27 +367,58 @@ export function CreateAgentModalDraft({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const currentProjectPath = useChatStore((state) => state.currentProjectPath);
+  const clientOptions = useMemo(() => {
+    const normalized = detectedClients
+      .filter((client) => KNOWN_CLIENT_VALUES.has(client.id as ClientValue))
+      .map((client) => ({
+        value: client.id as ClientValue,
+        label: clientLabels[client.id] ?? client.label,
+      }));
+    return normalized.length > 0 ? normalized : HUB_CLIENT_OPTIONS;
+  }, [clientLabels, detectedClients]);
+
+  const selectionHint = useMemo(
+    () => resolveSelectionHint(cat, draft, selectedModelId),
+    [cat, draft, selectedModelId],
+  );
+
+  useEffect(() => {
+    setIsSkipAuth(getIsSkipAuth());
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     setDraftName(name || cat?.name || cat?.displayName || 'BOT');
     setDraftDescription(description || cat?.roleDescription || '');
-    setDraftAvatar(resolveInitialAvatar(cat));
-    setDraftModelId(resolveInitialModelId(cat, draft, selectedModelId));
+    // 如果是新建智能体且没有头像，则随机选择一个预设头像；否则使用已有头像
+    if (cat) {
+      setDraftAvatar(resolveInitialAvatar(cat));
+    } else {
+      setDraftAvatar(getRandomPresetAvatar());
+    }
+    const incomingClient = (draft?.client ?? cat?.provider ?? RELAYCLAW_CLIENT) as ClientValue;
+    if (isSkipAuth) {
+      setSelectedClient(RELAYCLAW_CLIENT);
+      setSelectedOptionId(null);
+      setModelMenuOpen(false);
+      setOpenAbove(false);
+      setError(null);
+      return;
+    }
+    const nextClient = HUB_CLIENT_OPTIONS.some((option) => option.value === incomingClient) ? incomingClient : RELAYCLAW_CLIENT;
+    setSelectedClient(nextClient);
+    setSelectedOptionId(null);
     setModelMenuOpen(false);
     setOpenAbove(false);
     setError(null);
-  }, [cat, description, draft, name, open, selectedModelId]);
+  }, [cat, description, draft?.client, isSkipAuth, name, open]);
 
-  useLayoutEffect(() => {
-    if (!modelMenuOpen || !modelTriggerRef.current) return;
-
-    const rect = modelTriggerRef.current.getBoundingClientRect();
-    const estimatedMenuHeight =
-      modelMenuRef.current?.offsetHeight ?? Math.min(Math.max(availableModels.length, 1) * 34 + 52, MODEL_MENU_MAX_HEIGHT);
-    const spaceBelow = window.innerHeight - rect.bottom;
-    setOpenAbove(spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET);
-  }, [availableModels.length, modelMenuOpen]);
+  useEffect(() => {
+    if (!open) return;
+    if (clientOptions.some((option) => option.value === selectedClient)) return;
+    setSelectedClient(clientOptions[0]?.value ?? RELAYCLAW_CLIENT);
+  }, [clientOptions, open, selectedClient]);
 
   useEffect(() => {
     if (!modelMenuOpen) return;
@@ -349,79 +448,90 @@ export function CreateAgentModalDraft({
     let cancelled = false;
     setLoadingModels(true);
 
-    Promise.all([apiFetch('/api/mass-models'), apiFetch('/api/provider-profiles')])
-      .then(async ([massModelsRes, profilesRes]) => {
-        if (!massModelsRes.ok) throw new Error(`模型列表加载失败 (${massModelsRes.status})`);
-        if (!profilesRes.ok) throw new Error(`模型配置加载失败 (${profilesRes.status})`);
-
-        const massModelsBody = (await massModelsRes.json()) as { list?: MassModelResponseItem[]; models?: MassModelResponseItem[] };
-        const profilesBody = (await profilesRes.json()) as ProviderProfilesResponse;
-        if (cancelled) return;
-
-        const source = Array.isArray(massModelsBody.list)
-          ? massModelsBody.list
-          : Array.isArray(massModelsBody.models)
-            ? massModelsBody.models
-            : [];
-        const preferredProfileIds = [cat?.accountRef, draft?.accountRef].filter((value): value is string => Boolean(value));
-        const modelDescriptors = new Map<string, MassModelDescriptor>();
-        for (const item of source) {
-          const modelName = normalizeMassModelName(item);
-          if (!modelName || modelDescriptors.has(modelName)) continue;
-          modelDescriptors.set(modelName, {
-            name: modelName,
-            protocol: typeof item.protocol === 'string' ? item.protocol : undefined,
-          });
+    void (async () => {
+      try {
+        const response = await apiFetch(buildProjectScopedUrl('/api/maas-models', currentProjectPath));
+        if (!response.ok) {
+          throw new Error(`模型广场加载失败 (${response.status})`);
         }
-        for (const modelName of [cat?.defaultModel ?? '', draft?.defaultModel ?? '']) {
-          if (!modelName || modelDescriptors.has(modelName)) continue;
-          modelDescriptors.set(modelName, { name: modelName });
+        const body = (await response.json()) as { list?: MaaSModelResponseItem[]; models?: MaaSModelResponseItem[] };
+        const source = Array.isArray(body.list) ? body.list : Array.isArray(body.models) ? body.models : [];
+        if (!cancelled) {
+          setMarketplaceModels(source);
         }
-        const uniqueModelNames = [...modelDescriptors.keys()];
-
-        const nextModels = uniqueModelNames.map<CreateModelOption>((modelName) => {
-          const profile = chooseProfileForModel(modelName, profilesBody.providers, preferredProfileIds, profilesBody.activeProfileId);
-          const resolvedClient = profile ? resolveProfileClient(profile) : null;
-          const client = resolvedClient ?? inferClientFromModelName(modelName);
-
-          return {
-            id: modelName,
-            name: modelName,
-            profileId: profile?.id ?? defaultProfileIdForModel(client, modelDescriptors.get(modelName)),
-            client,
-            model: modelName,
-            authType: profile?.authType,
-            providerName: profile?.provider,
-            providerGroup: profile?.displayName || profile?.name || profile?.provider || undefined,
-            statusText: profile ? (profile.hasApiKey || profile.authType !== 'api_key' ? '已开通' : '未配置') : undefined,
-            rightLabel: modelName.toLowerCase().includes('deepseek-v3.2') ? '工具' : undefined,
-          };
-        });
-
-        setAvailableModels(nextModels);
-        setDraftModelId((current) => current ?? nextModels[0]?.id ?? null);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (cancelled) return;
-        setAvailableModels([]);
-        setError(err instanceof Error ? err.message : '模型列表加载失败');
-      })
-      .finally(() => {
+        setMarketplaceModels([]);
+        setError(err instanceof Error ? err.message : '模型广场加载失败');
+      } finally {
         if (!cancelled) setLoadingModels(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [open, cat?.accountRef, cat?.defaultModel, draft?.accountRef, draft?.defaultModel]);
+  }, [currentProjectPath, open]);
 
-  const selectedModel = useMemo(
-    () => availableModels.find((item) => item.id === draftModelId) ?? availableModels[0] ?? null,
-    [availableModels, draftModelId],
-  );
+  const availableModels = useMemo(() => {
+    const items = marketplaceModels
+      .map((item) => toModelOption(item))
+      .filter((item): item is CreateModelOption => item !== null);
+
+    const deduped = new Map<string, CreateModelOption>();
+    for (const item of items) {
+      deduped.set(item.id, item);
+    }
+    return Array.from(deduped.values());
+  }, [marketplaceModels]);
+
+  const fallbackSelectedOption = useMemo(() => buildFallbackSelectedOption(selectionHint), [selectionHint]);
+
+  const selectedModel = useMemo(() => {
+    if (selectedOptionId) {
+      const matchedById = availableModels.find((item) => item.id === selectedOptionId);
+      if (matchedById) return matchedById;
+    }
+
+    if (selectionHint.accountRef && selectionHint.model) {
+      const matchedByPair = availableModels.find(
+        (item) => item.accountRef === selectionHint.accountRef && item.model === selectionHint.model,
+      );
+      if (matchedByPair) return matchedByPair;
+    }
+
+    if (selectionHint.model) {
+      const matchedByModel = availableModels.find((item) => item.model === selectionHint.model);
+      if (matchedByModel) return matchedByModel;
+    }
+
+    return fallbackSelectedOption ?? availableModels[0] ?? null;
+  }, [availableModels, fallbackSelectedOption, selectedOptionId, selectionHint]);
+
+  useEffect(() => {
+    if (!open || !selectedModel) return;
+    if (selectedOptionId === selectedModel.id) return;
+    setSelectedOptionId(selectedModel.id);
+  }, [open, selectedModel, selectedOptionId]);
+
+  const modelGroups = useMemo(() => groupModelOptions(availableModels), [availableModels]);
+
+  useLayoutEffect(() => {
+    if (!modelMenuOpen || !modelTriggerRef.current) return;
+
+    const itemCount = modelGroups.reduce((total, group) => total + group.items.length, 0);
+    const groupCount = modelGroups.length;
+    const rect = modelTriggerRef.current.getBoundingClientRect();
+    const estimatedMenuHeight =
+      modelMenuRef.current?.offsetHeight ??
+      Math.min(Math.max(itemCount, 1) * 36 + groupCount * 22 + 54, MODEL_MENU_MAX_HEIGHT);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setOpenAbove(spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET);
+  }, [modelGroups, modelMenuOpen]);
 
   const modalTitle = title ?? (cat ? '编辑智能体' : '创建智能体');
   const primaryButtonText = saving ? (cat ? '保存中...' : '创建中...') : cat ? '保存' : '确定';
+  // 优先使用 draftAvatar，如果为空则使用生成的默认头像（用于显示名称首字母）
   const displayAvatar = draftAvatar || buildGeneratedAvatarDataUrl(draftName);
 
   if (!open) return null;
@@ -458,13 +568,13 @@ export function CreateAgentModalDraft({
     setError(null);
     try {
       const formState = cat
-        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel)
-        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedModel);
+        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel)
+        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel);
       const payload = buildCatPayload(formState, cat);
       const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
         method: cat ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({...payload, client: 'relayclaw', "accountRef": "huawei-maas", "provider": "relayclaw"}),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -485,53 +595,59 @@ export function CreateAgentModalDraft({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
       <div
-        className="ui-panel relative flex w-[860px] flex-col overflow-visible rounded-[var(--radius-2xl)] bg-[var(--surface-panel)] shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex h-[642px] w-[550px] flex-col gap-4 overflow-hidden rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
         data-testid="create-agent-modal"
       >
-        <div className="flex h-[72px] items-center justify-between border-b border-[var(--border-soft)] px-6">
-          <h2 className="text-[28px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
+        <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
+          <h2 className="text-[18px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
           <button type="button" onClick={onClose} className="ui-icon-button h-10 w-10 rounded-full">
             <CloseIcon />
           </button>
         </div>
 
-        <div className="flex flex-col gap-[18px] px-6 pb-[22px] pt-5">
+        <div data-testid="create-agent-modal-body" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto text-[12px]">
+          <div data-testid="create-agent-modal-form" className="flex flex-col gap-4">
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">名称</div>
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">名称</div>
             <input
               aria-label="Name"
               value={draftName}
               onChange={(event) => setDraftName(event.target.value)}
-              className="ui-field h-[52px] w-full px-4 text-base"
+              className="ui-field h-[28px] w-full rounded-[6px] px-4 text-[12px]"
             />
           </div>
 
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">描述（可选）</div>
-            <div className="ui-field bg-[var(--surface-panel)] px-4 py-3">
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">描述（可选）</div>
+            <div className="ui-field relative bg-[var(--surface-panel)] px-4 py-3">
               <textarea
                 aria-label="Description"
                 value={draftDescription}
                 onChange={(event) => setDraftDescription(event.target.value)}
                 placeholder="请输入描述"
                 maxLength={1000}
-                className="h-[72px] w-full resize-none border-0 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                className="h-[84px] min-h-[84px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
               />
-              <div className="text-right text-xs text-[var(--text-muted)]">{draftDescription.length}/1000</div>
+              <div className="pointer-events-none absolute bottom-3 right-10 text-[12px] text-[var(--text-muted)]">
+                {draftDescription.length}/1000
+              </div>
             </div>
           </div>
 
           <div className="space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">图标</div>
-            <div className="flex items-center gap-3">
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
+            <div className="flex items-end gap-3">
               <button
                 type="button"
                 aria-label="Upload avatar"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                className="group relative flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
+                  上传
+                </span>
               </button>
               <input
                 ref={fileInputRef}
@@ -541,73 +657,105 @@ export function CreateAgentModalDraft({
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
+              <div aria-hidden="true" className="h-[50px] w-px bg-[var(--border-default)]" />
               <button
                 type="button"
-                aria-label="Auto generate avatar"
-                onClick={() => setDraftAvatar(buildGeneratedAvatarDataUrl(draftName))}
+                aria-label="Random preset avatar"
+                onClick={() => setDraftAvatar(getRandomPresetAvatar())}
+                title="换一换"
                 className="ui-button-secondary h-[34px] w-[34px] rounded-[var(--radius-sm)] p-0"
               >
                 <SparklesIcon />
               </button>
             </div>
-            <div className="text-xs text-[var(--text-muted)]">
+            <div className="text-[12px] text-[var(--text-muted)]">
               {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
             </div>
           </div>
 
-          <div className="relative space-y-2.5">
-            <div className="text-sm font-semibold text-[var(--text-primary)]">模型</div>
-            <button
-              ref={modelTriggerRef}
-              type="button"
-              aria-label="Model"
-              aria-haspopup="listbox"
-              aria-expanded={modelMenuOpen}
-              onClick={() => setModelMenuOpen((current) => !current)}
-              className="ui-field flex h-8 w-full items-center justify-between rounded-[var(--radius-xs)] bg-[var(--surface-panel)] px-[10px] text-left"
-            >
-              <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
-              <ModelSelectTriggerIcon />
-            </button>
-
-            {modelMenuOpen ? (
-              <div
-                ref={modelMenuRef}
-                className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-32px)] mb-2' : 'top-full mt-2'}`}
+          {isSkipAuth ? (
+            <div className="space-y-2.5">
+              <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
+              <select
+                aria-label="Client"
+                value={selectedClient}
+                onChange={(event) => setSelectedClient(event.target.value as ClientValue)}
+                className="ui-field h-[28px] w-full rounded-[6px] px-3 text-[12px]"
               >
-                <ModelSelectDropdownDraft
-                  items={availableModels}
-                  selectedId={draftModelId}
-                  onSelect={(item) => {
-                    setDraftModelId(item.id);
-                    setModelMenuOpen(false);
-                  }}
-                />
+                {clientOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <div className="relative space-y-2.5">
+            <div className="text-[12px] font-semibold text-[var(--text-primary)]">模型</div>
+            {availableModels.length > 0 || selectedModel ? (
+              <>
+                <button
+                  ref={modelTriggerRef}
+                  type="button"
+                  aria-label="Model"
+                  aria-haspopup="listbox"
+                  aria-expanded={modelMenuOpen}
+                  onClick={() => setModelMenuOpen((current) => !current)}
+                  className="ui-field flex h-[28px] w-full items-center justify-between rounded-[6px] bg-[var(--surface-panel)] px-[10px] text-left text-[12px]"
+                >
+                  <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
+                  <ModelSelectTriggerIcon />
+                </button>
+
+                {modelMenuOpen ? (
+                  <div
+                    ref={modelMenuRef}
+                    className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-28px)] mb-2' : 'top-full mt-2'}`}
+                  >
+                    <ModelSelectDropdownDraft
+                      groups={modelGroups}
+                      selectedId={selectedModel?.id ?? selectedOptionId}
+                      onSelect={(item) => {
+                        setSelectedOptionId(item.id);
+                        setModelMenuOpen(false);
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="ui-field flex h-[28px] w-full items-center rounded-[6px] px-4 text-[12px] text-[var(--text-muted)]">
+                {loadingModels ? '加载模型中...' : '暂无可用模型'}
               </div>
-            ) : null}
+            )}
           </div>
 
-          {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</div> : null}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              aria-label="Cancel"
-              onClick={onClose}
-              className="ui-button-secondary h-[42px] min-w-[112px] px-6 text-base"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              aria-label="Create"
-              onClick={handleSave}
-              disabled={saving}
-              className="ui-button-primary h-[42px] min-w-[112px] px-6 text-base font-semibold disabled:opacity-50"
-            >
-              {primaryButtonText}
-            </button>
           </div>
+          {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div> : null}
+        </div>
+
+        <div
+          data-testid="create-agent-modal-footer"
+          className="flex shrink-0 justify-end gap-3"
+        >
+          <button
+            type="button"
+            aria-label="Cancel"
+            onClick={onClose}
+            className="ui-button-secondary h-[32px] w-[96px] px-0 text-[14px]"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            aria-label="Create"
+            onClick={handleSave}
+            disabled={saving}
+            className="ui-button-primary h-[32px] w-[96px] px-0 text-[14px] font-semibold disabled:opacity-50"
+          >
+            {primaryButtonText}
+          </button>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
-import { readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import type { ProviderProfileProtocol, ProviderProfileView } from './provider-profiles.types.js';
 import { resolveProviderProfilesRootSync } from './provider-profiles-root.js';
 
@@ -14,6 +14,15 @@ export interface ModelConfigBinding {
 }
 export const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
 export const MODEL_CONFIG_FALLBACK_ENV = 'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED';
+
+export interface CreateProjectModelConfigSourceInput {
+  id: string;
+  displayName?: string;
+  baseUrl: string;
+  apiKey: string;
+  headers?: Record<string, string>;
+  models: string[];
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -43,6 +52,10 @@ function normalizeHeaderMap(value: unknown): Record<string, string> | undefined 
     .filter((entry): entry is readonly [string, string] => entry !== null);
   if (entries.length === 0) return undefined;
   return Object.fromEntries(entries);
+}
+function normalizeModelConfigRecord(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) return {};
+  return { ...value };
 }
 function inferProtocol(profileId: string): ProviderProfileProtocol | undefined {
   if (profileId.trim().toLowerCase() === HUAWEI_MAAS_MODEL_SOURCE_ID) return 'huawei_maas';
@@ -109,7 +122,7 @@ export function isModelConfigProviderFallbackEnabled(): boolean {
   return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
 
-export async function readProjectModelConfigBindings(projectRoot: string): Promise<ModelConfigBinding[] | null> {
+export async function readProjectModelConfigDocument(projectRoot: string): Promise<Record<string, unknown> | null> {
   const filePath = resolveProjectModelConfigPath(projectRoot);
   let raw: string;
   try {
@@ -120,10 +133,13 @@ export async function readProjectModelConfigBindings(projectRoot: string): Promi
   }
 
   const trimmed = raw.trim();
-  if (!trimmed) return [];
+  if (!trimmed) return {};
+  return normalizeModelConfigRecord(JSON.parse(trimmed) as unknown);
+}
 
-  const parsedRaw = JSON.parse(trimmed) as unknown;
-  if (!isRecord(parsedRaw)) return [];
+export async function readProjectModelConfigBindings(projectRoot: string): Promise<ModelConfigBinding[] | null> {
+  const parsedRaw = await readProjectModelConfigDocument(projectRoot);
+  if (!parsedRaw) return null;
 
   return Object.entries(parsedRaw)
     .map(([id, value]) => {
@@ -134,6 +150,63 @@ export async function readProjectModelConfigBindings(projectRoot: string): Promi
     .filter((entry): entry is ModelConfigBinding => entry !== null);
 }
 
+export async function createProjectModelConfigSource(
+  projectRoot: string,
+  input: CreateProjectModelConfigSourceInput,
+): Promise<ModelConfigBinding> {
+  const trimmedId = input.id.trim();
+  if (!trimmedId) {
+    throw new Error('model config source id is required');
+  }
+  if (trimmedId === HUAWEI_MAAS_MODEL_SOURCE_ID) {
+    throw new Error(`model config source "${HUAWEI_MAAS_MODEL_SOURCE_ID}" is reserved`);
+  }
+
+  const existingDocument = (await readProjectModelConfigDocument(projectRoot)) ?? {};
+  if (existingDocument[trimmedId] !== undefined) {
+    throw new Error(`model config source "${trimmedId}" already exists`);
+  }
+
+  const models = Array.from(new Set(input.models.map((model) => model.trim()).filter(Boolean)));
+  if (models.length === 0) {
+    throw new Error('at least one model is required');
+  }
+
+  const baseUrl = input.baseUrl.trim();
+  const apiKey = input.apiKey.trim();
+  if (!baseUrl || !apiKey) {
+    throw new Error('baseUrl and apiKey are required');
+  }
+
+  const displayName = input.displayName?.trim();
+  const headers = normalizeHeaderMap(input.headers);
+  const nextDocument: Record<string, unknown> = {
+    ...existingDocument,
+    [trimmedId]: {
+      protocol: 'openai',
+      ...(displayName ? { displayName } : {}),
+      baseUrl,
+      apiKey,
+      ...(headers ? { headers } : {}),
+      models: models.map((model) => ({ id: model })),
+    },
+  };
+
+  const filePath = resolveProjectModelConfigPath(projectRoot);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(nextDocument, null, 2)}\n`, 'utf-8');
+
+  return {
+    id: trimmedId,
+    protocol: 'openai',
+    ...(displayName ? { displayName } : {}),
+    baseUrl,
+    apiKey,
+    ...(headers ? { headers } : {}),
+    models,
+  } satisfies ModelConfigBinding;
+}
+
 export async function findProjectModelConfigBinding(
   projectRoot: string,
   accountRef: string,
@@ -142,6 +215,27 @@ export async function findProjectModelConfigBinding(
   if (!bindings) return null;
   const trimmedRef = accountRef.trim();
   return bindings.find((binding) => binding.id === trimmedRef) ?? null;
+}
+
+export async function deleteProjectModelConfigSource(projectRoot: string, sourceId: string): Promise<boolean> {
+  const trimmedId = sourceId.trim();
+  if (!trimmedId) {
+    throw new Error('model config source id is required');
+  }
+  if (trimmedId === HUAWEI_MAAS_MODEL_SOURCE_ID) {
+    throw new Error(`model config source "${HUAWEI_MAAS_MODEL_SOURCE_ID}" cannot be deleted`);
+  }
+
+  const existingDocument = await readProjectModelConfigDocument(projectRoot);
+  if (!existingDocument || existingDocument[trimmedId] === undefined) {
+    return false;
+  }
+
+  delete existingDocument[trimmedId];
+  const filePath = resolveProjectModelConfigPath(projectRoot);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(existingDocument, null, 2)}\n`, 'utf-8');
+  return true;
 }
 
 export async function readProjectModelConfigProfileViews(projectRoot: string): Promise<ProviderProfileView[] | null> {

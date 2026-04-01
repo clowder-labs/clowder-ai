@@ -71,6 +71,70 @@ describe('supportsACPStdioMcpFromInitializeResult', () => {
   });
 });
 
+describe('summarizeACPSessionParamsForLog', () => {
+  it('emits only a safe ACP session summary without model profile details', async () => {
+    const { summarizeACPSessionParamsForLog } = await import(
+      '../dist/domains/cats/services/agents/providers/ACPAgentService.js'
+    );
+
+    const summary = summarizeACPSessionParamsForLog(
+      {
+        cwd: '/opt/workspace/hello',
+        mcpServers: [{ id: 'cat-cafe', transport: 'acp' }],
+        modelProfileOverride: {
+          name: 'default',
+          model: 'glm-5',
+          baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+          apiKey: 'secret',
+        },
+      },
+      {
+        agentCapabilities: {
+          mcpCapabilities: {
+            acp: true,
+          },
+        },
+      },
+    );
+
+    assert.deepEqual(summary, {
+      cwd: '/opt/workspace/hello',
+      mcpServersCount: 1,
+      hasModelProfileOverride: true,
+      mcpTransport: 'acp',
+    });
+    assert.equal('modelProfileOverride' in summary, false);
+    assert.equal('initializeResult' in summary, false);
+  });
+
+  it('handles sessions without model overrides or supported MCP transport', async () => {
+    const { summarizeACPSessionParamsForLog } = await import(
+      '../dist/domains/cats/services/agents/providers/ACPAgentService.js'
+    );
+
+    assert.deepEqual(
+      summarizeACPSessionParamsForLog(
+        {
+          mcpServers: [],
+        },
+        {
+          agentCapabilities: {
+            mcpCapabilities: {
+              http: true,
+              sse: true,
+            },
+          },
+        },
+      ),
+      {
+        mcpServersCount: 0,
+        hasModelProfileOverride: false,
+        mcpTransport: null,
+      },
+    );
+  });
+});
+
 describe('resolveACPMcpTransportFromInitializeResult', () => {
   it('prefers ACP transport when the ACP agent advertises MCP-over-ACP support', async () => {
     const { resolveACPMcpTransportFromInitializeResult } = await import(

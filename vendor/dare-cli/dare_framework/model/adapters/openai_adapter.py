@@ -309,9 +309,18 @@ class OpenAIModelAdapter(IModelAdapter):
                 if delta is None:
                     continue
 
-                content_text = _coerce_text(getattr(delta, "content", None))
-                if content_text:
-                    content_parts.append(content_text)
+                # Preserve raw str content (including newlines) — _coerce_text
+                # strips whitespace per-chunk which destroys structural line
+                # breaks.  For non-str payloads (list/dict content blocks)
+                # fall back to _coerce_text so we don't lose structured data.
+                raw_content = getattr(delta, "content", None)
+                if isinstance(raw_content, str):
+                    if raw_content:
+                        content_parts.append(raw_content)
+                else:
+                    coerced = _coerce_text(raw_content)
+                    if coerced:
+                        content_parts.append(coerced)
 
                 thinking_text = _extract_delta_thinking_text(delta)
                 if thinking_text:
@@ -320,7 +329,7 @@ class OpenAIModelAdapter(IModelAdapter):
                 _accumulate_openai_sdk_tool_calls(tool_call_chunks, getattr(delta, "tool_calls", None))
 
         return ModelResponse(
-            content="".join(content_parts),
+            content="".join(content_parts).strip(),
             tool_calls=_finalize_langchain_tool_calls(tool_call_chunks),
             usage=usage,
             thinking_content=_join_stream_text_parts(thinking_parts),
@@ -335,9 +344,18 @@ class OpenAIModelAdapter(IModelAdapter):
         async for chunk in client.astream(messages):
             usage = _merge_usage(usage, _extract_chunk_usage(chunk))
 
-            content_text = _coerce_text(getattr(chunk, "content", None))
-            if content_text:
-                content_parts.append(content_text)
+            # Preserve raw str content (including newlines) — _coerce_text
+            # strips whitespace per-chunk which destroys structural line
+            # breaks.  For non-str payloads (list/dict content blocks)
+            # fall back to _coerce_text so we don't lose structured data.
+            raw_content = getattr(chunk, "content", None)
+            if isinstance(raw_content, str):
+                if raw_content:
+                    content_parts.append(raw_content)
+            else:
+                coerced = _coerce_text(raw_content)
+                if coerced:
+                    content_parts.append(coerced)
 
             thinking_text = self._extract_thinking_content(chunk) or _extract_reasoning_from_content_blocks(chunk)
             if thinking_text:
@@ -346,7 +364,7 @@ class OpenAIModelAdapter(IModelAdapter):
             _accumulate_langchain_tool_call_chunks(tool_call_chunks, getattr(chunk, "tool_call_chunks", None))
 
         return ModelResponse(
-            content="".join(content_parts),
+            content="".join(content_parts).strip(),
             tool_calls=_finalize_langchain_tool_calls(tool_call_chunks),
             usage=usage,
             thinking_content=_join_stream_text_parts(thinking_parts),
