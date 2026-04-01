@@ -184,11 +184,11 @@ export function PromptSelectionModal({
       data-testid="prompt-selection-modal"
     >
       <div
-        className="flex w-full max-w-[900px] flex-col overflow-hidden rounded-[14px] bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.16)]"
+        className="flex w-full max-w-[900px] flex-col overflow-hidden rounded-2 bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.16)]"
         style={{ width: MODAL_WIDTH, height: MODAL_HEIGHT }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-[20px] font-semibold leading-none text-[#1F2329]">{title}</h2>
+          <h2 className="text-[18px] font-semibold leading-none text-[#1F2329]">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -201,7 +201,7 @@ export function PromptSelectionModal({
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col">
           <div className="flex items-center gap-3">
-            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#D9E0EA] bg-white px-3">
+            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[6px] border border-[#D9E0EA] bg-white px-3">
               <SearchIcon />
               <input
                 value={query}
@@ -214,7 +214,7 @@ export function PromptSelectionModal({
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-[#D9E0EA] bg-white transition hover:bg-[#F7F9FC]"
+              className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-[#D9E0EA] bg-white transition hover:bg-[#F7F9FC]"
               aria-label="刷新模板"
             >
               <RefreshIcon />
@@ -223,7 +223,7 @@ export function PromptSelectionModal({
 
           <div className="mt-4 flex min-h-0 gap-4" style={{ height: CONTENT_HEIGHT }}>
             <aside
-              className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto rounded-[10px] border border-[#E6EAF0] bg-white p-0.5"
+              className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto rounded-[10px]  bg-white p-0.5"
               style={{ width: LIST_WIDTH, height: CONTENT_HEIGHT }}
             >
               {filteredItems.length === 0 ? (
@@ -238,10 +238,10 @@ export function PromptSelectionModal({
                       key={item.id}
                       type="button"
                       onClick={() => setSelectedId(item.id)}
-                      className={`block h-[68px] min-h-[68px] w-full shrink-0 overflow-hidden rounded-[10px] px-4 py-[10px] text-left transition ${
+                      className={`block h-[68px] min-h-[68px] w-full shrink-0 overflow-hidden rounded-[8px] p-3 text-left transition ${
                         isSelected
-                          ? 'border border-[#86B1FF] bg-white shadow-[0_4px_12px_rgba(134,177,255,0.12)]'
-                          : 'border border-[#EDF1F6] bg-[#fafafa] hover:bg-white'
+                          ? 'border border-[#1476ff] bg-white shadow-[0_4px_12px_rgba(134,177,255,0.12)]'
+                          : 'border border-[#f0f0f0] bg-[#fafafa] hover:bg-white'
                       }`}
                       data-testid={`prompt-list-item-${item.id}`}
                     >

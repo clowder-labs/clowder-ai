@@ -1196,7 +1196,7 @@ export function AgentsPanel() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center justify-between gap-4 px-6 pb-4 pt-6">
+              <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4">
                 <h2 className="text-[14px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
                 {currentTab.editable ? (mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()) : null}
               </div>
