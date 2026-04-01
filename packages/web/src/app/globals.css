@@ -242,7 +242,7 @@ body {
 
   .ui-card {
     border: var(--border-width-default) solid var(--border-default);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     background: var(--surface-card);
   }
 

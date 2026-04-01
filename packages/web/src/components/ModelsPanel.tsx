@@ -18,6 +18,7 @@ const DEFAULT_DESC =
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
 const DEFAULT_ICON = '/avatars/assistant.svg';
+const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '\u521b\u5efa\u6a21\u578b';
@@ -472,7 +473,7 @@ export function ModelsPanel() {
                               <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={card.icon || DEFAULT_ICON}
+                                  src={VENDOR_ICON}
                                   alt={`${card.developer} icon`}
                                   width={16}
                                   height={16}
@@ -496,7 +497,7 @@ export function ModelsPanel() {
                             <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
-                                src={card.icon || DEFAULT_ICON}
+                                src={VENDOR_ICON}
                                 alt={`${card.developer} icon`}
                                 width={16}
                                 height={16}
