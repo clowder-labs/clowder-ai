@@ -41,7 +41,7 @@ const EMPTY_EDITABLE_DRAFTS: EditableDrafts = {
 
 const TEMPLATE_PAGE_SIZE = 4;
 const ACTION_MENU_ITEM_CLASS =
-  'flex h-8 w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-left text-[12px] font-medium transition';
+  'flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition text-black';
 
 const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
   {
@@ -788,8 +788,22 @@ export function AgentsPanelCopy() {
 
   const renderMarkdownPreview = (content: string) => {
     if (!content.trim()) {
-      const emptyText = activeTab === 'persona' ? '暂无灵魂配置' : '暂无团队协作配置';
-      return <p className="px-8 pb-6 text-[13px] text-[var(--text-muted)]">{emptyText}</p>;
+      return (
+        <div className="flex h-full min-h-0 flex-col items-center justify-center px-8 pb-6">
+          <div className="text-center">
+            <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">暂无内容</h3>
+            <p className="text-[12px] text-[var(--text-secondary)] mt-1" >当前暂无内容，您可以填写后获取数据。</p>
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              disabled={!canEditActiveTab}
+              className={`ui-button-secondary font-normal mt-4 ${!canEditActiveTab ? 'cursor-not-allowed opacity-50' : ''}`}
+            >
+              编辑
+            </button>
+          </div>
+        </div>
+      );
     }
 
     return (
@@ -1137,7 +1151,7 @@ export function AgentsPanelCopy() {
                     setActionMenuPosition(null);
                     openEditMember(openActionMenuCatId);
                   }}
-                  className={`${ACTION_MENU_ITEM_CLASS} text-[var(--text-primary)] hover:bg-[var(--surface-card-muted)]`}
+                  className={`${ACTION_MENU_ITEM_CLASS} hover:bg-[var(--surface-card-muted)]`}
                 >
                   <EditIcon className="h-3.5 w-3.5 text-[var(--text-primary)]" />
                   <span>编辑</span>
@@ -1156,7 +1170,7 @@ export function AgentsPanelCopy() {
                   }}
                   className={`${ACTION_MENU_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'text-[var(--state-error-text)] hover:bg-[var(--state-error-surface)]'
+                      ? 'hover:bg-[var(--state-error-surface)]'
                       : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
@@ -1298,7 +1312,7 @@ export function AgentsPanelCopy() {
                     setDeleteConfirmModalOpen(false);
                     setCatToDelete(null);
                   }}
-                  className="ui-button-secondary"
+                  className="ui-button-secondary font-normal"
                 >
                   取消
                 </button>
@@ -1311,7 +1325,7 @@ export function AgentsPanelCopy() {
                     setDeleteConfirmModalOpen(false);
                     setCatToDelete(null);
                   }}
-                  className="ui-button-primary"
+                  className="ui-button-primary font-normal"
                 >
                   删除
                 </button>
