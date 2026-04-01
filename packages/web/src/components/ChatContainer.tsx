@@ -18,6 +18,7 @@ import { useVadInterrupt } from '@/hooks/useVadInterrupt';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
 import { useWorkspaceNavigate } from '@/hooks/useWorkspaceNavigate';
+import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
@@ -142,6 +143,7 @@ function ThreadModeChatContainer({
 }) {
   const {
     messages,
+    isLoading,
     hasActiveInvocation,
     intentMode,
     targetCats,
@@ -189,6 +191,10 @@ function ThreadModeChatContainer({
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
+  const [stoppedIntentRecognition, setStoppedIntentRecognition] = useState<{
+    timestamp: number;
+    catId: string;
+  } | null>(null);
   const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>(
     initialSidebarMenu,
   );
@@ -410,6 +416,70 @@ function ThreadModeChatContainer({
     return items;
   }, [messages]);
 
+  const pendingIntentRecognitionTimestamp = useMemo(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.type !== 'user' || lastMessage.catId) return null;
+    if (!isLoading || !hasActiveInvocation) return null;
+    if (intentMode === null) return lastMessage.timestamp;
+
+    const hasAssistantResponseStarted = messages.some(
+      (message) =>
+        message.type === 'assistant' &&
+        message.timestamp >= lastMessage.timestamp &&
+        (
+          message.isStreaming ||
+          message.content.trim().length > 0 ||
+          Boolean(message.thinking) ||
+          Boolean(message.toolEvents?.length) ||
+          Boolean(message.contentBlocks?.length) ||
+          Boolean(message.extra?.rich?.blocks?.length)
+        ),
+    );
+
+    if (!hasAssistantResponseStarted) return lastMessage.timestamp;
+    return null;
+  }, [hasActiveInvocation, intentMode, isLoading, messages]);
+
+  const pendingIntentRecognitionCatId = useMemo(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.type !== 'user' || lastMessage.catId) return 'jiuwenclaw';
+
+    const mentionMatches = Array.from(lastMessage.content.matchAll(getMentionRe()))
+      .map((match) => getMentionToCat()[match[1]?.toLowerCase() ?? ''])
+      .filter((catId): catId is string => Boolean(catId) && catId !== '__co-creator__');
+
+    if (mentionMatches.length > 0) return mentionMatches[0];
+    if (targetCats.length > 0) return targetCats[0];
+    return 'jiuwenclaw';
+  }, [messages, targetCats]);
+
+  useEffect(() => {
+    if (!stoppedIntentRecognition) return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) {
+      setStoppedIntentRecognition(null);
+      return;
+    }
+
+    if (
+      pendingIntentRecognitionTimestamp != null &&
+      pendingIntentRecognitionTimestamp !== stoppedIntentRecognition.timestamp
+    ) {
+      setStoppedIntentRecognition(null);
+      return;
+    }
+
+    if (pendingIntentRecognitionTimestamp == null && lastMessage.timestamp !== stoppedIntentRecognition.timestamp) {
+      setStoppedIntentRecognition(null);
+    }
+  }, [messages, pendingIntentRecognitionTimestamp, stoppedIntentRecognition]);
+
+  const showThinkingIndicator =
+    sidebarMenu === 'chat' &&
+    intentMode === 'execute' &&
+    pendingIntentRecognitionTimestamp == null;
+
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
       <MessageActions key={msg.id} message={msg} threadId={threadId}>
@@ -476,9 +546,15 @@ function ThreadModeChatContainer({
   const handleStop = useCallback(
     (overrideThreadId?: unknown) => {
       const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;
+      if (targetThreadId === threadId && pendingIntentRecognitionTimestamp != null) {
+        setStoppedIntentRecognition({
+          timestamp: pendingIntentRecognitionTimestamp,
+          catId: pendingIntentRecognitionCatId,
+        });
+      }
       stopHandler(cancelInvocation, targetThreadId);
     },
-    [stopHandler, cancelInvocation, threadId],
+    [stopHandler, cancelInvocation, pendingIntentRecognitionCatId, pendingIntentRecognitionTimestamp, threadId],
   );
 
   const router = useRouter();
@@ -570,7 +646,7 @@ function ThreadModeChatContainer({
         )}
 
         {sidebarMenu === 'chat' && intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
-        {sidebarMenu === 'chat' && intentMode === 'execute' && <ThinkingIndicator onCancel={cancelInvocation} />}
+        {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
 
         <div className="flex-1 relative overflow-hidden">
           {sidebarMenu !== 'chat' && (
@@ -612,6 +688,25 @@ function ThreadModeChatContainer({
                   ),
                 )
               )}
+              {pendingIntentRecognitionTimestamp != null &&
+                renderSingleMessage({
+                  id: `intent-recognition-${pendingIntentRecognitionTimestamp}`,
+                  type: 'assistant',
+                  catId: pendingIntentRecognitionCatId,
+                  content: '',
+                  timestamp: pendingIntentRecognitionTimestamp,
+                  variant: 'intent_recognition',
+                } as ChatMessageData)}
+              {pendingIntentRecognitionTimestamp == null &&
+                stoppedIntentRecognition != null &&
+                renderSingleMessage({
+                  id: `intent-recognition-stopped-${stoppedIntentRecognition.timestamp}`,
+                  type: 'assistant',
+                  catId: stoppedIntentRecognition.catId,
+                  content: 'stopped',
+                  timestamp: stoppedIntentRecognition.timestamp,
+                  variant: 'intent_recognition',
+                } as ChatMessageData)}
               <div ref={messagesEndRef} />
               {sidebarMenu === 'chat' && (
                 <ScrollToBottomButton

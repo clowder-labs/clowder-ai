@@ -213,8 +213,15 @@ export interface ConnectorSourceData {
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'summary' | 'connector';
-  /** Visual variant for system messages */
-  variant?: 'error' | 'info' | 'tool' | 'evidence' | 'a2a_followup' | 'governance_blocked';
+  /** Visual variant for system messages and special UI-only placeholders */
+  variant?:
+    | 'error'
+    | 'info'
+    | 'tool'
+    | 'evidence'
+    | 'a2a_followup'
+    | 'governance_blocked'
+    | 'intent_recognition';
   catId?: string;
   content: string;
   /** F97: External connector source. Present when type='connector' */
