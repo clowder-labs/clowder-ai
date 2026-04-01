@@ -1,27 +1,27 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import type { CatData } from '@/hooks/useCatData';
+import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
+import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import {
-  CLIENT_OPTIONS as HUB_CLIENT_OPTIONS,
-  initialState,
   type ClientValue,
+  CLIENT_OPTIONS as HUB_CLIENT_OPTIONS,
   type HubCatEditorDraft,
   type HubCatEditorFormState,
+  initialState,
 } from './hub-cat-editor.model';
 import { buildCatPayload } from './hub-cat-editor.payload';
 import {
+  type DraftModelOption,
+  type DraftModelOptionGroup,
   ModelSelectDropdownDraft,
   ModelSelectTriggerIcon,
   ModelSelectValueDraft,
-  type DraftModelOption,
-  type DraftModelOptionGroup,
 } from './ModelSelectDropdownDraft';
 
 interface CreateAgentModalDraftProps {
@@ -197,7 +197,13 @@ function resolveSelectionHint(
   const parsed = parseModelIdSelection(selectedModelId);
   return {
     model: parsed.model ?? draft?.defaultModel ?? cat?.defaultModel ?? null,
-    accountRef: parsed.accountRef ?? draft?.accountRef ?? draft?.providerProfileId ?? cat?.accountRef ?? cat?.providerProfileId ?? null,
+    accountRef:
+      parsed.accountRef ??
+      draft?.accountRef ??
+      draft?.providerProfileId ??
+      cat?.accountRef ??
+      cat?.providerProfileId ??
+      null,
   };
 }
 
@@ -378,10 +384,7 @@ export function CreateAgentModalDraft({
     return normalized.length > 0 ? normalized : HUB_CLIENT_OPTIONS;
   }, [clientLabels, detectedClients]);
 
-  const selectionHint = useMemo(
-    () => resolveSelectionHint(cat, draft, selectedModelId),
-    [cat, draft, selectedModelId],
-  );
+  const selectionHint = useMemo(() => resolveSelectionHint(cat, draft, selectedModelId), [cat, draft, selectedModelId]);
 
   useEffect(() => {
     setIsSkipAuth(getIsSkipAuth());
@@ -406,7 +409,9 @@ export function CreateAgentModalDraft({
       setError(null);
       return;
     }
-    const nextClient = HUB_CLIENT_OPTIONS.some((option) => option.value === incomingClient) ? incomingClient : RELAYCLAW_CLIENT;
+    const nextClient = HUB_CLIENT_OPTIONS.some((option) => option.value === incomingClient)
+      ? incomingClient
+      : RELAYCLAW_CLIENT;
     setSelectedClient(nextClient);
     setSelectedOptionId(null);
     setModelMenuOpen(false);
@@ -605,140 +610,162 @@ export function CreateAgentModalDraft({
           </button>
         </div>
 
-        <div data-testid="create-agent-modal-body" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto text-[12px]">
+        <div
+          data-testid="create-agent-modal-body"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto text-[12px]"
+        >
           <div data-testid="create-agent-modal-form" className="flex flex-col gap-4">
-          <div className="space-y-2.5">
-            <div className="text-[12px] font-semibold text-[var(--text-primary)]">名称</div>
-            <input
-              aria-label="Name"
-              value={draftName}
-              onChange={(event) => setDraftName(event.target.value)}
-              className="ui-field h-[28px] w-full rounded-[6px] px-4 text-[12px]"
-            />
-          </div>
-
-          <div className="space-y-2.5">
-            <div className="text-[12px] font-semibold text-[var(--text-primary)]">描述（可选）</div>
-            <div className="ui-field relative bg-[var(--surface-panel)] px-4 py-3">
-              <textarea
-                aria-label="Description"
-                value={draftDescription}
-                onChange={(event) => setDraftDescription(event.target.value)}
-                placeholder="请输入描述"
-                maxLength={1000}
-                className="h-[84px] min-h-[84px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
-              />
-              <div className="pointer-events-none absolute bottom-3 right-10 text-[12px] text-[var(--text-muted)]">
-                {draftDescription.length}/1000
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                aria-label="Upload avatar"
-                onClick={() => fileInputRef.current?.click()}
-                className="group relative flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
-                <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
-                  上传
-                </span>
-              </button>
-              <input
-                ref={fileInputRef}
-                aria-label="Avatar file input"
-                type="file"
-                accept="image/png,image/jpeg,image/gif,image/jpg"
-                onChange={handleAvatarUpload}
-                className="hidden"
-              />
-              <div aria-hidden="true" className="h-[12px] w-px bg-[var(--border-default)]" />
-              <button
-                type="button"
-                aria-label="Random preset avatar"
-                onClick={() => setDraftAvatar(getRandomPresetAvatar())}
-                title="换一换"
-                className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
-              >
-                <SparklesIcon />
-              </button>
-            </div>
-            <div className="text-[12px] text-[var(--text-muted)]">
-              {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
-            </div>
-          </div>
-
-          {isSkipAuth ? (
             <div className="space-y-2.5">
-              <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
-              <select
-                aria-label="Client"
-                value={selectedClient}
-                onChange={(event) => setSelectedClient(event.target.value as ClientValue)}
-                className="ui-field h-[28px] w-full rounded-[6px] px-3 text-[12px]"
-              >
-                {clientOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <div className="text-[12px] font-semibold text-[var(--text-primary)]">名称</div>
+              <input
+                aria-label="Name"
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                className="ui-field h-[28px] w-full rounded-[6px] px-4 text-[12px]"
+              />
             </div>
-          ) : null}
 
-          <div className="relative space-y-2.5">
-            <div className="text-[12px] font-semibold text-[var(--text-primary)]">模型</div>
-            {availableModels.length > 0 || selectedModel ? (
-              <>
-                <button
-                  ref={modelTriggerRef}
-                  type="button"
-                  aria-label="Model"
-                  aria-haspopup="listbox"
-                  aria-expanded={modelMenuOpen}
-                  onClick={() => setModelMenuOpen((current) => !current)}
-                  className="ui-field flex h-[28px] w-full items-center justify-between rounded-[6px] bg-[var(--surface-panel)] px-[10px] text-left text-[12px]"
-                >
-                  <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
-                  <ModelSelectTriggerIcon />
-                </button>
-
-                {modelMenuOpen ? (
-                  <div
-                    ref={modelMenuRef}
-                    className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-28px)] mb-2' : 'top-full mt-2'}`}
-                  >
-                    <ModelSelectDropdownDraft
-                      groups={modelGroups}
-                      selectedId={selectedModel?.id ?? selectedOptionId}
-                      onSelect={(item) => {
-                        setSelectedOptionId(item.id);
-                        setModelMenuOpen(false);
-                      }}
-                    />
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="ui-field flex h-[28px] w-full items-center rounded-[6px] px-4 text-[12px] text-[var(--text-muted)]">
-                {loadingModels ? '加载模型中...' : '暂无可用模型'}
+            <div className="space-y-2.5">
+              <div className="text-[12px] font-semibold text-[var(--text-primary)]">描述（可选）</div>
+              <div className="ui-field relative bg-[var(--surface-panel)] px-4 py-3">
+                <textarea
+                  aria-label="Description"
+                  value={draftDescription}
+                  onChange={(event) => setDraftDescription(event.target.value)}
+                  placeholder="请输入描述"
+                  maxLength={1000}
+                  className="h-[84px] min-h-[84px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                />
+                <div className="pointer-events-none absolute bottom-3 right-10 text-[12px] text-[var(--text-muted)]">
+                  {draftDescription.length}/1000
+                </div>
               </div>
-            )}
-          </div>
+            </div>
 
+            <div className="space-y-2.5">
+              <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  aria-label="Upload avatar"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="group relative flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
+                    上传
+                  </span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  aria-label="Avatar file input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/jpg"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+                <div className="h-[50px] pt-[28px]">
+                  <div aria-hidden="true" className="h-[16px] w-px bg-[var(--border-default)]" />
+                </div>
+                <div  className="h-[50px] pt-[22px]">
+                              <button
+                  type="button"
+                  aria-label="Random preset avatar"
+                  onClick={() => setDraftAvatar(getRandomPresetAvatar())}
+                  title="换一换"
+                  className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
+                >
+                  <SparklesIcon />
+                </button>
+                </div>
+    
+              </div>
+              <div className="text-[12px] text-[var(--text-muted)]">
+                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+              </div>
+            </div>
+
+            {isSkipAuth ? (
+              <div className="space-y-2.5">
+                <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
+                <div className="ui-field relative flex h-[28px] w-full items-center rounded-[6px] bg-[var(--surface-panel)] pr-3">
+                  <select
+                    aria-label="Client"
+                    value={selectedClient}
+                    onChange={(event) => setSelectedClient(event.target.value as ClientValue)}
+                    className="h-full w-full appearance-none bg-transparent px-3 text-[12px] text-[var(--text-primary)] outline-none"
+                  >
+                    {clientOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--text-muted)]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M7 10L12 15L17 10"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="relative space-y-2.5">
+              <div className="text-[12px] font-semibold text-[var(--text-primary)]">模型</div>
+              {availableModels.length > 0 || selectedModel ? (
+                <>
+                  <button
+                    ref={modelTriggerRef}
+                    type="button"
+                    aria-label="Model"
+                    aria-haspopup="listbox"
+                    aria-expanded={modelMenuOpen}
+                    onClick={() => setModelMenuOpen((current) => !current)}
+                    className="ui-field flex h-[28px] w-full items-center justify-between rounded-[6px] bg-[var(--surface-panel)] px-[10px] text-left text-[12px]"
+                  >
+                    <ModelSelectValueDraft item={selectedModel} loading={loadingModels} />
+                    <ModelSelectTriggerIcon />
+                  </button>
+
+                  {modelMenuOpen ? (
+                    <div
+                      ref={modelMenuRef}
+                      className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-28px)] mb-2' : 'top-full mt-2'}`}
+                    >
+                      <ModelSelectDropdownDraft
+                        groups={modelGroups}
+                        selectedId={selectedModel?.id ?? selectedOptionId}
+                        onSelect={(item) => {
+                          setSelectedOptionId(item.id);
+                          setModelMenuOpen(false);
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="ui-field flex h-[28px] w-full items-center rounded-[6px] px-4 text-[12px] text-[var(--text-muted)]">
+                  {loadingModels ? '加载模型中...' : '暂无可用模型'}
+                </div>
+              )}
+            </div>
           </div>
-          {error ? <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div> : null}
+          {error ? (
+            <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div>
+          ) : null}
         </div>
 
-        <div
-          data-testid="create-agent-modal-footer"
-          className="flex shrink-0 justify-end gap-3"
-        >
+        <div data-testid="create-agent-modal-footer" className="flex shrink-0 justify-end gap-3">
           <button
             type="button"
             aria-label="Cancel"
