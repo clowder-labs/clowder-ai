@@ -793,15 +793,15 @@ export function AgentsPanel() {
   const renderMarkdownPreview = (content: string) => {
     if (!content.trim()) {
       const emptyText = activeTab === 'persona' ? '暂无灵魂配置' : '暂无团队协作配置';
-      return <p className="px-6 pb-6 text-[13px] text-[var(--text-muted)]">{emptyText}</p>;
+      return <p className="px-8 pb-6 text-[13px] text-[var(--text-muted)]">{emptyText}</p>;
     }
 
     return (
-      <div className="px-6 pb-6">
+      <div className="px-8 pb-6">
         <div className="h-full overflow-auto">
           <MarkdownContent
             content={content}
-            className="text-[13px] leading-7 text-[var(--text-secondary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-secondary)] [&_ul]:mb-4 [&_li]:text-[var(--text-secondary)]"
+            className="text-[13px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
             disableCommandPrefix
           />
         </div>
@@ -810,7 +810,7 @@ export function AgentsPanel() {
   };
 
   const renderMarkdownEditor = () => (
-    <div className="flex h-full min-h-0 flex-col px-6 pb-6">
+    <div className="flex h-full min-h-0 flex-col px-8 pb-6">
       <div className="min-h-0 flex-1 overflow-hidden">
         <textarea
           value={activeWorkingDraft}
@@ -823,7 +823,7 @@ export function AgentsPanel() {
               ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
               : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
           }
-          className="h-full w-full resize-none border-0 bg-transparent text-[12px] leading-7 text-[var(--text-secondary)] outline-none placeholder:text-[var(--text-muted)]"
+          className="h-full w-full resize-none border-0 bg-transparent text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -832,10 +832,10 @@ export function AgentsPanel() {
 
   const renderPersonaEmptyEditor = () => (
     <div className="relative flex h-full min-h-0 flex-col">
-      <p className="px-6 pb-1 text-[12px] text-[var(--text-muted)]">
+      <p className="px-8 pb-1 text-[12px] text-[var(--text-muted)]">
         请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
       </p>
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-6 pt-4">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6 pt-4">
         <div className="mt-auto mx-auto w-full max-w-[1328px]">
           <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
@@ -1013,7 +1013,7 @@ export function AgentsPanel() {
       <div className="ui-panel min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0">
           <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[var(--border-soft)] bg-[var(--surface-panel)] px-4 py-6">
-            <label className="mb-3 mr-1 flex h-[28px] min-h-[28px] w-full items-center gap-2 rounded-[6px] border border-[rgba(194,194,194,1)] bg-[var(--surface-panel)] px-3 text-[var(--text-muted)]">
+            <label className="mb-3 mr-1 flex h-[28px] min-h-[28px] w-[calc(100%-4px)] items-center gap-2 rounded-[6px] border border-[rgba(194,194,194,1)] bg-[var(--surface-panel)] px-3 text-[var(--text-muted)]">
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <input
                 value={searchQuery}
@@ -1196,7 +1196,7 @@ export function AgentsPanel() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4">
+              <div className="flex items-center justify-between gap-4 px-8 pb-6 pt-4">
                 <h2 className="text-[14px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
                 {currentTab.editable ? (mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()) : null}
               </div>
