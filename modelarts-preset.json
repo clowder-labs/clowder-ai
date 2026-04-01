@@ -2,7 +2,7 @@
   "$schema": "./cat-template.json",
   "_comment": "ModelArts 定制部署预设配置。修改此文件后重新运行 install 即可生效。",
   "sharedAccount": {
-    "profileId": "huawei-mass",
+    "profileId": "huawei-maas",
     "displayName": "ModelArts Shared",
     "baseUrl": "https://api.modelarts-maas.com/v2",
     "models": ["glm-5"],
