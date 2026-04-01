@@ -41,7 +41,7 @@
       "catId": "agentteams",
       "breedId": "agentteams",
       "nickname": "小协",
-      "displayName": "编码智能体",
+      "displayName": "协作智能体",
       "avatar": "/avatars/agent-avatar-3.png",
       "color": { "primary": "#4CAF50", "secondary": "#E8F5E9" },
       "mentionPatterns": ["@agentteams", "@协作引擎", "@小协", "@agent-teams"],
