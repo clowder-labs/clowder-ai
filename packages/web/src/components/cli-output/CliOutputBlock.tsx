@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import type { CliEvent, CliStatus } from '@/stores/chat-types';
+import { apiFetch } from '@/utils/api-client';
 import { LoadingSmall } from '../LoadingSmall';
 import { LoadingPointStyle } from '../LoadingPointStyle';
 
@@ -41,8 +42,70 @@ function lighten(hex: string, ratio: number): string {
 
 /* ── Divider stays neutral; surface colors are now breed-tinted (see buildSurface) ── */
 const DIVIDER = '#334155';
+const LOCAL_PPT_FILE = {
+  name: 'NVIDIA_GTC_2026_华为风.pptx',
+  path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\NVIDIA_GTC_2026_华为风.pptx',
+};
 
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
+
+interface LocalPresentationFile {
+  name: string;
+  path: string;
+}
+
+interface LocalPresentationFileMeta {
+  generatedAt: number;
+}
+
+const PRESENTATION_PATH_PATTERNS = [
+  /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.pptx?)/gi,
+  /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?(\/[^\r\n`'"]+?\.pptx?)/gi,
+  /([A-Za-z]:\\[^\r\n`'"]+?\.pptx?)/gi,
+  /(\/[^\r\n`'"]+?\.pptx?)/gi,
+];
+
+function isAbsolutePresentationPath(path: string): boolean {
+  return /^[A-Za-z]:\\/.test(path) || path.startsWith('/');
+}
+
+function normalizePresentationPath(rawPath: string): string {
+  return rawPath.trim().replace(/^['"`]+|['"`]+$/g, '').replace(/[)\].,;:!?]+$/g, '');
+}
+
+function fileNameFromPath(path: string): string {
+  const normalized = path.replace(/\\/g, '/');
+  return normalized.slice(normalized.lastIndexOf('/') + 1);
+}
+
+function formatGeneratedDate(timestamp: number | null): string {
+  if (timestamp == null || Number.isNaN(timestamp)) return '生成时间获取中...';
+  const date = new Date(timestamp);
+  return `生成时间：${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function extractLocalPresentationFile(events: CliEvent[]): LocalPresentationFile | null {
+  const searchSpace = events.flatMap((event) => [event.content, event.detail, event.label]).filter(Boolean) as string[];
+  const candidates: string[] = [];
+
+  for (const text of searchSpace) {
+    for (const pattern of PRESENTATION_PATH_PATTERNS) {
+      pattern.lastIndex = 0;
+      for (const match of text.matchAll(pattern)) {
+        const rawPath = match[1];
+        if (!rawPath) continue;
+        const normalized = normalizePresentationPath(rawPath);
+        if (isAbsolutePresentationPath(normalized)) {
+          candidates.push(normalized);
+        }
+      }
+    }
+  }
+
+  const path = candidates.at(-1);
+  if (!path) return null;
+  return { name: fileNameFromPath(path), path };
+}
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
@@ -186,6 +249,82 @@ function PawPrint() {
 }
 
 /* ── Status helpers ── */
+
+function PptAttachmentCard({ file }: { file: LocalPresentationFile }) {
+  const [isOpening, setIsOpening] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMeta(): Promise<void> {
+      try {
+        const response = await apiFetch('/api/workspace/local-file-meta', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: file.path }),
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as LocalPresentationFileMeta;
+        if (!cancelled && typeof payload.generatedAt === 'number') {
+          setGeneratedAt(payload.generatedAt);
+        }
+      } catch {
+        if (!cancelled) setGeneratedAt(null);
+      }
+    }
+
+    void loadMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, [file.path]);
+
+  async function handleOpen(): Promise<void> {
+    if (isOpening) return;
+    setIsOpening(true);
+    try {
+      await apiFetch('/api/workspace/open-local', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: file.path }),
+      });
+    } finally {
+      setIsOpening(false);
+    }
+  }
+
+  return (
+    <div
+      data-testid="cli-output-ppt-card"
+      className="mt-3 flex items-center gap-3 rounded-2xl border border-[#E9E5DF] bg-[#FBF9F6] px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
+    >
+      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
+          <rect id="文件格式/ppt" width="24.000000" height="24.000000" x="0.000000" y="0.000000" fill="rgb(255,255,255)" fill-opacity="0" />
+          <path id="矩形备份-23" d="M21.625 20.801L21.625 6.77597L15.8626 1.00098L4.575 1.00098C3.35997 1.00098 2.375 1.98595 2.375 3.20097L2.375 20.801C2.375 22.0159 3.35997 23.001 4.575 23.001L19.425 23.001C20.64 23.001 21.625 22.0159 21.625 20.801Z" fill="rgb(217,105,0)" fill-rule="evenodd" />
+          <path id="矩形备份-24" d="M15.8671 1.00098L21.625 6.78135L17.1071 6.78135C16.4128 6.78135 15.8671 6.2129 15.8671 5.5186L15.8671 1.00098Z" opacity="0.599999964" fill="rgb(255,255,255)" fill-rule="evenodd" />
+          <path id="矢量 62" d="M12.904 9.02646C13.1096 9.02646 13.3108 9.04714 13.5076 9.08877C13.6941 9.12852 13.8765 9.18599 14.0551 9.26279C14.407 9.41453 14.7187 9.62856 14.9902 9.9041C15.2604 10.1783 15.4698 10.492 15.6185 10.8462C15.6938 11.0259 15.7507 11.2101 15.7893 11.3973C15.8294 11.5925 15.8494 11.791 15.8494 11.9945C15.8494 12.3939 15.7721 12.7766 15.6176 13.1418C15.4686 13.4941 15.2584 13.8062 14.9868 14.0774C14.7152 14.3492 14.4032 14.5598 14.0508 14.7091C13.8832 14.7797 13.712 14.834 13.5373 14.8724C13.3311 14.9175 13.1201 14.9411 12.904 14.9411L10.4915 14.9411L10.4773 17.5657C10.4773 17.9422 10.1694 18.2465 9.79276 18.2465C9.4141 18.2465 9.10822 17.9393 9.10822 17.5606L9.12453 10.0437C9.12453 9.97231 9.13175 9.90276 9.14615 9.83428C9.15951 9.77063 9.17901 9.70833 9.20483 9.64736C9.23007 9.58774 9.26045 9.53054 9.29587 9.47764C9.33269 9.42231 9.37506 9.37075 9.42289 9.32295C9.47073 9.27515 9.52216 9.23298 9.57731 9.19619C9.63032 9.16074 9.68675 9.13013 9.7465 9.10488C9.80753 9.0791 9.8699 9.0603 9.93355 9.04688C10.0019 9.03264 10.0718 9.02539 10.1432 9.02539L12.904 9.02646ZM12.8715 10.3918L10.4915 10.3918L10.4915 13.5736L12.904 13.5736C13.1184 13.5736 13.3231 13.5328 13.5182 13.4501C13.707 13.3703 13.8743 13.2578 14.0201 13.1117C14.0995 13.0325 14.1692 12.946 14.2291 12.8539C14.2792 12.7768 14.3224 12.6949 14.3588 12.609C14.3937 12.5265 14.4212 12.4425 14.4414 12.3565C14.4688 12.2392 14.4826 12.1183 14.4826 11.9945C14.4826 11.7794 14.441 11.5734 14.358 11.3758C14.2774 11.1835 14.1637 11.0124 14.0168 10.8634C13.9271 10.7723 13.8295 10.6939 13.7241 10.6281C13.6572 10.5865 13.5871 10.5502 13.5139 10.5186C13.4217 10.4788 13.3275 10.4482 13.2313 10.4272C13.1247 10.4042 12.9831 10.3918 12.8715 10.3918Z" fill="rgb(255,255,255)" fill-rule="evenodd" />
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-semibold text-[#1F2937]">{file.name}</div>
+        <div className="mt-1 break-all text-[11px] leading-4 text-[#9A8F84]">{formatGeneratedDate(generatedAt)}</div>
+      </div>
+      <button
+        type="button"
+        data-testid="cli-output-ppt-open"
+        onClick={() => {
+          void handleOpen();
+        }}
+        disabled={isOpening}
+        className="inline-flex flex-shrink-0 items-center rounded-full border border-[#D2CDC4] bg-white px-4 py-1.5 text-xs font-medium text-[#3F3B37] transition-colors hover:bg-[#F4F1EC] disabled:cursor-not-allowed disabled:opacity-70"
+      >
+        打开
+      </button>
+    </div>
+  );
+}
 
 function buildSummary(events: CliEvent[], status: CliStatus): string {
   const toolCount = events.filter((e) => e.kind === 'tool_use').length;
@@ -381,6 +520,7 @@ export function CliOutputBlock({
   const toolResults = events.filter((e) => e.kind === 'tool_result');
   const textEvents = events.filter((e) => e.kind === 'text');
   const lastToolId = status === 'streaming' ? [...events].reverse().find((e) => e.kind === 'tool_use')?.id : undefined;
+  const localPresentationFile = useMemo(() => extractLocalPresentationFile(events), [events]);
   const accent = breedColor || '#7C3AED';
   // Breed-tinted dark surface: accent blended into dark base → visibly colored AND text-readable
   const surface = tintedDark(accent, 0.25);
@@ -401,7 +541,7 @@ export function CliOutputBlock({
         className="cli-output-button w-full flex items-center gap-2 text-[14px] transition-colors"
         style={{ padding: '8px 0' }}
       >
-        {status === 'streaming' && <LoadingPointStyle className="w-4 h-4 flex-shrink-0" />}
+        { status === 'streaming' && <LoadingPointStyle className="w-4 h-4 flex-shrink-0" /> }
         { status === 'done' && 
           <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none">
             <mask id="mask_5" width="16.000000" height="16.000008" x="0.000000" y="0.000000" maskUnits="userSpaceOnUse">
@@ -563,6 +703,7 @@ export function CliOutputBlock({
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
         </span>
       </div>
+      {localPresentationFile && <PptAttachmentCard file={localPresentationFile} />}
     </div>
   );
 }
