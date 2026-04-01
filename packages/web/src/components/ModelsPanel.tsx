@@ -21,11 +21,10 @@ const DEFAULT_ICON = '/avatars/assistant.svg';
 const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
-const CREATE_MODEL_LABEL = '\u521b\u5efa\u6a21\u578b';
-const CREATE_MODEL_MODAL_TITLE = '\u521b\u5efa\u6a21\u578b';
-const CREATE_MODEL_CANCEL_LABEL = '\u53d6\u6d88';
-const CREATE_MODEL_CONFIRM_LABEL = '\u786e\u5b9a';
-const DELETE_MODEL_LABEL = '\u5220\u9664';
+const CREATE_MODEL_LABEL = '创建模型';
+const CREATE_MODEL_CANCEL_LABEL = '取消';
+const CREATE_MODEL_CONFIRM_LABEL = '确定';
+const DELETE_MODEL_LABEL = '删除';
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -528,7 +527,7 @@ export function ModelsPanel() {
           >
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold">{CREATE_MODEL_MODAL_TITLE}</h3>
+                <h3 className="text-[16px] font-bold">{CREATE_MODEL_LABEL}</h3>
                 <button
                   type="button"
                   onClick={closeCreateModelModal}
