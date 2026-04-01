@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { NameInitialIcon } from './NameInitialIcon';
 import { TagEditor } from './hub-tag-editor';
 import { useConfirm } from './useConfirm';
 
@@ -17,7 +18,6 @@ const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
-const DEFAULT_ICON = '/avatars/assistant.svg';
 const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
@@ -45,9 +45,15 @@ interface ModelCardData {
   description: string;
   labels: string[];
   developer: string;
-  icon: string;
+  icon?: string;
   protocol: string;
   [key: string]: unknown;
+}
+
+function isImageIcon(icon?: string): boolean {
+  if (!icon) return false;
+  const trimmed = icon.trim();
+  return /^(https?:\/\/|\/|data:image)/i.test(trimmed);
 }
 
 interface ModelCardGroup {
@@ -111,7 +117,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
   const labels = normalizeStringArray(item.labels || []);
   const developer =
     pickStringField(item, ['developer', 'provider', 'vendor', 'publisher', 'company']) ?? DEFAULT_DEVELOPER;
-  const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']) ?? DEFAULT_ICON;
+  const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']);
   const protocol = pickStringField(item, ['protocol']) ?? UNKNOWN_PROTOCOL_LABEL;
 
   return {
@@ -430,14 +436,18 @@ export function ModelsPanel() {
                       <div>
                         <div className="flex items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={card.icon || DEFAULT_ICON}
-                            alt={`${card.name} icon`}
-                            width={48}
-                            height={48}
-                            className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
-                            data-testid={`model-card-icon-${card.id}`}
-                          />
+                          {isImageIcon(card.icon) ? (
+                            <img
+                              src={card.icon}
+                              alt={`${card.name} icon`}
+                              width={48}
+                              height={48}
+                              className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
+                              data-testid={`model-card-icon-${card.id}`}
+                            />
+                          ) : (
+                            <NameInitialIcon name={card.name} dataTestId={`model-card-icon-${card.id}`} />
+                          )}
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
