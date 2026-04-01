@@ -4,7 +4,7 @@ import { Children, type ReactNode, useCallback, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
-import { getMentionColor, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
+import { getMentionColor, getMentionLabel, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { useChatStore } from '@/stores/chatStore';
 
 /* ── @mention highlighting ─────────────────────────────────── */
@@ -17,12 +17,14 @@ function highlightMentions(text: string): ReactNode[] {
   const re = getMentionRe();
   const toCat = getMentionToCat();
   const colorMap = getMentionColor();
+  const labelMap = getMentionLabel();
 
   re.lastIndex = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
     const catId = toCat[m[1].toLowerCase()] ?? 'opus';
     const catColor = colorMap[catId] ?? '#9B7EBD';
+    const label = labelMap[m[1].toLowerCase()] ?? m[0];
     const r = Number.parseInt(catColor.slice(1, 3), 16);
     const g = Number.parseInt(catColor.slice(3, 5), 16);
     const b = Number.parseInt(catColor.slice(5, 7), 16);
@@ -37,7 +39,7 @@ function highlightMentions(text: string): ReactNode[] {
           padding: '1px 5px',
         }}
       >
-        {m[0]}
+        {label}
       </span>,
     );
     lastIdx = re.lastIndex;

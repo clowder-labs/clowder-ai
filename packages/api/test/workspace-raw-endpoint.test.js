@@ -14,6 +14,7 @@
 
 import assert from 'node:assert/strict';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import Fastify from 'fastify';
@@ -218,5 +219,132 @@ describe('workspace reveal endpoint', () => {
     });
     // resolveWorkspacePath may return 403 or 404 depending on traversal detection
     assert.ok([403, 404].includes(res.statusCode));
+  });
+});
+
+describe('workspace download/open endpoints', () => {
+  let app;
+  let worktreeId;
+  const TEST_DIR = '__workspace_download_open_test__';
+
+  before(async () => {
+    const { workspaceRoutes } = await import('../dist/routes/workspace.js');
+    const { listWorktrees } = await import('../dist/domains/workspace/workspace-security.js');
+
+    const worktrees = await listWorktrees();
+    const wt = worktrees[0];
+    worktreeId = wt.id;
+
+    await mkdir(join(wt.root, TEST_DIR), { recursive: true });
+    await writeFile(join(wt.root, TEST_DIR, 'deck.pptx'), Buffer.from('pptx'));
+
+    app = Fastify();
+    await app.register(workspaceRoutes);
+    await app.ready();
+  });
+
+  after(async () => {
+    await app?.close();
+    const { listWorktrees } = await import('../dist/domains/workspace/workspace-security.js');
+    const worktrees = await listWorktrees();
+    const wt = worktrees[0];
+    await rm(join(wt.root, TEST_DIR), { recursive: true, force: true });
+  });
+
+  it('downloads workspace pptx with attachment headers', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/workspace/download?worktreeId=${worktreeId}&path=${TEST_DIR}/deck.pptx`,
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(
+      res.headers['content-type'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    );
+    assert.match(String(res.headers['content-disposition']), /attachment; filename="deck\.pptx"/);
+  });
+
+  it('rejects missing params for workspace open', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: `${TEST_DIR}/deck.pptx` }),
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+});
+
+describe('workspace open-local endpoint', () => {
+  let app;
+  const localAgentDir = join(homedir(), '.jiuwenclaw', 'agent');
+  const localDeckPath = join(localAgentDir, 'meta-test-deck.pptx');
+
+  before(async () => {
+    const { workspaceRoutes } = await import('../dist/routes/workspace.js');
+    await mkdir(localAgentDir, { recursive: true });
+    await writeFile(localDeckPath, Buffer.from('pptx-meta'));
+    app = Fastify();
+    await app.register(workspaceRoutes);
+    await app.ready();
+  });
+
+  after(async () => {
+    await app?.close();
+    await rm(localDeckPath, { force: true });
+  });
+
+  it('rejects missing path', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({}),
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('rejects paths outside the allowed local agent root', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: join(homedir(), 'Desktop', 'deck.pptx') }),
+    });
+
+    assert.equal(res.statusCode, 403);
+  });
+
+  it('returns 404 for missing pptx inside the allowed local agent root', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open-local',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: join(homedir(), '.jiuwenclaw', 'agent', 'missing-deck.pptx') }),
+    });
+
+    assert.equal(res.statusCode, 404);
+  });
+
+  it('returns local ppt metadata with generatedAt', async () => {
+    await mkdir(localAgentDir, { recursive: true });
+    await writeFile(localDeckPath, Buffer.from('pptx-meta'));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/local-file-meta',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: localDeckPath }),
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.fileName, 'meta-test-deck.pptx');
+    assert.equal(body.path, localDeckPath);
+    assert.ok(typeof body.generatedAt === 'number');
+    assert.ok(body.generatedAt > 0);
   });
 });
