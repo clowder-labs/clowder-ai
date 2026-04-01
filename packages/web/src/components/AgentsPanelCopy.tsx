@@ -306,6 +306,8 @@ export function AgentsPanelCopy() {
   const [hoveredTemplateId, setHoveredTemplateId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [deleteConfirmModalOpen, setDeleteConfirmModalOpen] = useState(false);
+  const [catToDelete, setCatToDelete] = useState<string | null>(null);
   const [actionMenuPosition, setActionMenuPosition] = useState<ActionMenuPosition | null>(null);
   const [templateBubblePosition, setTemplateBubblePosition] = useState<TemplateBubblePosition | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1147,7 +1149,10 @@ export function AgentsPanelCopy() {
                   disabled={actionMenuCat?.source !== 'runtime'}
                   onClick={() => {
                     if (actionMenuCat?.source !== 'runtime') return;
-                    void handleDeleteMember(actionMenuCat.id);
+                    setCatToDelete(actionMenuCat.id);
+                    setDeleteConfirmModalOpen(true);
+                    setOpenActionMenuCatId(null);
+                    setActionMenuPosition(null);
                   }}
                   className={`${ACTION_MENU_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
@@ -1248,6 +1253,73 @@ export function AgentsPanelCopy() {
         onClose={() => setTemplateModalOpen(false)}
         onConfirm={(item) => handleApplyTemplate(item.id)}
       />
+
+      {/* 删除确认弹窗 */}
+      {deleteConfirmModalOpen && catToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => {
+            setDeleteConfirmModalOpen(false);
+            setCatToDelete(null);
+          }}
+        >
+          <div
+            className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[16px] font-bold text-gray-900">确认删除</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteConfirmModalOpen(false);
+                    setCatToDelete(null);
+                  }}
+                  aria-label="close"
+                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">
+                  确认删除「{cats.find(cat => cat.id === catToDelete)?.displayName ?? '未命名智能体'}」吗？此操作不可逆。
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteConfirmModalOpen(false);
+                    setCatToDelete(null);
+                  }}
+                  className="ui-button-secondary"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (catToDelete) {
+                      await handleDeleteMember(catToDelete);
+                    }
+                    setDeleteConfirmModalOpen(false);
+                    setCatToDelete(null);
+                  }}
+                  className="ui-button-primary"
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
