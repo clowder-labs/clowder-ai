@@ -26,6 +26,16 @@ async function flushEffects() {
   });
 }
 
+async function changeInputValue(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 const sampleCat = {
   id: 'office',
   displayName: 'Office',
@@ -66,8 +76,17 @@ describe('business theme secondary surfaces', () => {
                 repo: { githubOwner: 'openai', githubRepoName: 'skills' },
                 isInstalled: false,
               },
+              {
+                id: 'alpha-helper',
+                slug: 'alpha-helper',
+                name: 'alpha-helper',
+                description: 'alpha helper',
+                tags: ['alpha'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
             ],
-            total: 1,
+            total: 2,
             page: 1,
             hasMore: false,
           }),
@@ -159,7 +178,26 @@ describe('business theme secondary surfaces', () => {
     ).toBe(true);
     const buttons = Array.from(container.querySelectorAll('button'));
     expect(buttons.some((button) => button.textContent?.includes('安装'))).toBe(true);
-    expect(buttons.some((button) => button.className.includes('ui-button-secondary'))).toBe(true);
+    expect(buttons.some((button) => button.textContent?.includes('导入'))).toBe(false);
+  });
+
+  it('filters in-memory skill list and does not call search endpoint', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索 SkillHub 技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'alpha');
+    await flushEffects();
+
+    expect(container.textContent).toContain('alpha-helper');
+    expect(container.textContent).not.toContain('skill-1');
+
+    const calledSearchEndpoint = mockApiFetch.mock.calls.some(([input]) => String(input).startsWith('/api/skills/search'));
+    expect(calledSearchEndpoint).toBe(false);
   });
 
   it('renders HubConnectorConfigTab with tokenized cards and form controls', async () => {
@@ -171,10 +209,10 @@ describe('business theme secondary surfaces', () => {
     const leftPane = container.querySelector('[data-testid="connector-left-pane"]');
     const rightPane = container.querySelector('[data-testid="connector-right-pane"]');
     expect(leftPane).not.toBeNull();
-    expect(rightPane?.className).toContain('ui-card');
+    expect(rightPane).not.toBeNull();
 
     const slackItem = container.querySelector('[data-testid="platform-item-slack"]');
-    expect(slackItem?.className).toContain('ui-card');
+    expect(slackItem?.className).toContain('[border-radius:var(--connector-tab-radius)]');
     await act(async () => {
       slackItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type MouseEvent } from 'react';
+import { AgentManagementIcon } from './AgentManagementIcon';
 
 interface ConnectThirdPartyAgentModalProps {
   open: boolean;
@@ -8,12 +9,7 @@ interface ConnectThirdPartyAgentModalProps {
 }
 
 function CloseIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#97A0AE]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+  return <AgentManagementIcon name="close" className="h-5 w-5" />;
 }
 
 function Field({

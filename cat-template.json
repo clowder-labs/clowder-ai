@@ -38,8 +38,8 @@
     {
       "id": "office",
       "catId": "office",
-      "name": "九问Office",
-      "displayName": "九问Office",
+      "name": "办公智能体",
+      "displayName": "办公智能体",
       "nickname": "小九",
       "avatar": "/avatars/office.svg",
       "color": {
@@ -55,7 +55,7 @@
         {
           "id": "office-default",
           "provider": "relayclaw",
-          "defaultModel": "gpt-5.4",
+          "defaultModel": "glm-5",
           "mcpSupport": true,
           "cli": {
             "command": "jiuwenclaw-app",
@@ -68,15 +68,21 @@
             "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
-          }
+          },
+          "accountRef": "huawei-maas",
+          "roleDescription": "商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析",
+          "providerProfileId": "huawei-maas",
+          "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
+          "caution": null,
+          "sessionChain": true
         }
       ]
     },
     {
       "id": "assistant",
       "catId": "assistant",
-      "name": "九问助理",
-      "displayName": "九问助理",
+      "name": "通用智能体",
+      "displayName": "通用智能体",
       "nickname": "小理",
       "avatar": "/avatars/assistant.svg",
       "color": {
@@ -105,15 +111,21 @@
             "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
-          }
+          },
+          "accountRef": "huawei-maas",
+          "roleDescription": "个人助理，擅长日常问答、信息整理、创意写作和生活建议",
+          "providerProfileId": "huawei-maas",
+          "teamStrengths": "日常问答、信息整理、创意写作、生活建议",
+          "caution": null,
+          "sessionChain": true
         }
       ]
     },
     {
       "id": "agentteams",
       "catId": "agentteams",
-      "name": "协作引擎",
-      "displayName": "协作引擎",
+      "name": "编码智能体",
+      "displayName": "编码智能体",
       "nickname": "小协",
       "avatar": "/avatars/agentteams.png",
       "color": {

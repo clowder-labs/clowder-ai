@@ -108,9 +108,9 @@ function SkillArtwork({ name }: { name: string }) {
   return (
     <div
       aria-hidden="true"
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[var(--border-soft)] bg-[var(--accent-soft)] shadow-sm"
+      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-soft)] shadow-sm"
     >
-      <span className="text-base font-bold text-[var(--text-accent)]">{initial}</span>
+      <span className="text-xl font-bold text-[var(--text-accent)]">{initial}</span>
     </div>
   );
 }
@@ -124,6 +124,9 @@ function getSourceLabel(source: CapabilityBoardItem['source']): string {
 export function CapabilitySection({
   title,
   subtitle: _subtitle,
+  headerSlot,
+  headerSlotClassName,
+  titleActionSlot,
   items,
   catFamilies,
   toggling,
@@ -134,6 +137,9 @@ export function CapabilitySection({
   icon: ReactNode;
   title: string;
   subtitle: string;
+  headerSlot?: ReactNode;
+  headerSlotClassName?: string;
+  titleActionSlot?: ReactNode;
   items: CapabilityBoardItem[];
   catFamilies: CatFamily[];
   toggling: string | null;
@@ -144,9 +150,13 @@ export function CapabilitySection({
   if (items.length === 0) return null;
 
   return (
-    <div className="mb-6">
-      <div className="mb-3 flex items-center gap-3 pl-1">
-        <p className="text-[20px] font-semibold">{title}</p>
+    <div className="mb-6 pt-6">
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[20px] font-semibold">{title}</p>
+          {titleActionSlot ? <div className="shrink-0">{titleActionSlot}</div> : null}
+        </div>
+        {headerSlot ? <div className={headerSlotClassName ?? 'mt-3'}>{headerSlot}</div> : null}
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
@@ -187,7 +197,7 @@ function CapabilityCard({
 
   return (
     <div
-      className="ui-card group flex min-h-[194px] flex-col gap-4 p-5 transition-colors hover:border-[var(--border-accent)]"
+      className="ui-card group flex min-h-[194px] flex-col gap-4 p-5"
       data-testid={`capability-card-${item.type}-${item.id}`}
     >
       <div className="flex items-start gap-3">
@@ -198,13 +208,15 @@ function CapabilityCard({
             {item.connectionStatus ? <StatusDot status={item.connectionStatus} /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-            <span className="ui-badge-muted">{item.category?.trim() || '未分类'}</span>
-            <span className="ui-badge-muted">{item.type === 'mcp' ? 'MCP' : 'Skill'}</span>
+            <span className="ui-badge-muted">{item.category?.trim() || '其他'}</span>
           </div>
         </div>
       </div>
 
-      <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]" title={resolvedDescription}>
+      <p
+        className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]"
+        title={resolvedDescription}
+      >
         {resolvedDescription}
       </p>
 
@@ -221,7 +233,7 @@ function CapabilityCard({
                   event.stopPropagation();
                   onUninstall?.(item.id);
                 }}
-                className="absolute left-0 top-0 opacity-0 text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
+                className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
               >
                 删除
               </button>
@@ -229,11 +241,6 @@ function CapabilityCard({
           ) : (
             <span className="text-[var(--text-muted)]">来源：{sourceLabel}</span>
           )}
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-          <span>启用状态</span>
-          <ToggleSwitch enabled={item.enabled} disabled={isToggling} onChange={(value) => onToggle(item.id, item.type, value)} />
         </div>
       </div>
     </div>
@@ -251,51 +258,6 @@ export function StatusDot({ status }: { status: 'connected' | 'disconnected' | '
   return <span className={`inline-block h-2 w-2 rounded-full ${color}`} title={label} />;
 }
 
-function ToggleSwitch({
-  enabled,
-  disabled,
-  size = 'md',
-  onChange,
-}: {
-  enabled: boolean;
-  disabled?: boolean;
-  size?: 'sm' | 'md';
-  onChange: (value: boolean) => void;
-}) {
-  const isSm = size === 'sm';
-  return (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        onChange(!enabled);
-      }}
-      disabled={disabled}
-      className={`relative box-content shrink-0 rounded-full border-[3px] border-transparent transition-[background-color,opacity] duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-accent)] focus-visible:ring-offset-2 ${
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:opacity-90'
-      } ${enabled ? 'bg-[var(--accent-primary)]' : 'bg-[var(--border-strong)]'} ${isSm ? 'h-3.5 w-7' : 'h-5 w-10'}`}
-    >
-      <span
-        className={`absolute top-0 flex items-center justify-center rounded-full bg-white ring-1 ring-black/5 transition-transform duration-300 ease-in-out ${
-          isSm ? 'h-3.5 w-3.5' : 'h-5 w-5'
-        } ${enabled ? (isSm ? 'translate-x-[14px]' : 'translate-x-[20px]') : 'translate-x-0'}`}
-      >
-        {enabled && !isSm && (
-          <svg className="h-2.5 w-2.5 text-[var(--text-accent)]" viewBox="0 0 12 12" fill="none">
-            <path
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3.5 6.5l2 2 3-4"
-            />
-          </svg>
-        )}
-      </span>
-    </button>
-  );
-}
-
 export function SkillHealthBanner({ health, items }: { health: SkillHealthSummary; items?: CapabilityBoardItem[] }) {
   const allGood = health.allMounted && health.registrationConsistent;
   const mountFailures = (items ?? [])
@@ -309,14 +271,20 @@ export function SkillHealthBanner({ health, items }: { health: SkillHealthSummar
     }));
 
   return (
-    <div className={`rounded-[var(--radius-md)] border px-3.5 py-2.5 text-xs ${allGood ? 'ui-status-success' : 'ui-status-warning'}`}>
+    <div
+      className={`rounded-[var(--radius-md)] border px-3.5 py-2.5 text-xs ${allGood ? 'ui-status-success' : 'ui-status-warning'}`}
+    >
       <div className="space-y-1">
         <div className="flex items-center gap-3">
           <span className={health.allMounted ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'}>
             {health.allMounted ? '全部挂载正常' : '部分挂载异常'}
           </span>
           <span className="text-[var(--text-subtle)]">/</span>
-          <span className={health.registrationConsistent ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'}>
+          <span
+            className={
+              health.registrationConsistent ? 'text-[var(--state-success-text)]' : 'text-[var(--state-warning-text)]'
+            }
+          >
             {health.registrationConsistent ? '注册一致' : '注册不一致'}
           </span>
         </div>
@@ -324,13 +292,20 @@ export function SkillHealthBanner({ health, items }: { health: SkillHealthSummar
           <div className="space-y-0.5 text-[var(--state-warning-text)]">
             {mountFailures.map((failure) => (
               <p key={failure.id}>
-                <code className="rounded-[var(--radius-xs)] bg-[var(--state-warning-surface)] px-1 text-[10px]">{failure.id}</code> — {failure.failed.join(', ')} 未挂载
+                <code className="rounded-[var(--radius-xs)] bg-[var(--state-warning-surface)] px-1 text-[10px]">
+                  {failure.id}
+                </code>{' '}
+                — {failure.failed.join(', ')} 未挂载
               </p>
             ))}
           </div>
         )}
-        {health.unregistered.length > 0 && <p className="text-[var(--state-warning-text)]">未注册: {health.unregistered.join(', ')}</p>}
-        {health.phantom.length > 0 && <p className="text-[var(--state-warning-text)]">幽灵项: {health.phantom.join(', ')}</p>}
+        {health.unregistered.length > 0 && (
+          <p className="text-[var(--state-warning-text)]">未注册: {health.unregistered.join(', ')}</p>
+        )}
+        {health.phantom.length > 0 && (
+          <p className="text-[var(--state-warning-text)]">幽灵项: {health.phantom.join(', ')}</p>
+        )}
       </div>
     </div>
   );
@@ -391,5 +366,3 @@ export function SectionIconExtension() {
     </div>
   );
 }
-
-

@@ -114,7 +114,6 @@ export function ThreadItem({
   const displayTitle = title ?? (id === 'default' ? '大厅' : '未命名对话');
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
-  const tag = isPinned ? '置顶' : '全部';
 
   const tooltipLines = [displayTitle];
   if (participantNames) tooltipLines.push(`参与: ${participantNames}`);
@@ -124,8 +123,8 @@ export function ThreadItem({
   return (
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
-        indented ? 'pl-7 pr-3' : 'px-3'
-      } mx-4 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px] hover:bg-[var(--accent-soft)]'}`}
+        indented ? 'pl-7' : ''
+      } mx-4 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
       onClick={() => onSelect(id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -180,13 +179,6 @@ export function ThreadItem({
             <>
               <div className="flex items-center justify-between gap-2">
                 <span className="ui-thread-title block min-w-0 flex-1 truncate">{displayTitle}</span>
-                <span
-                  className={`ui-thread-meta shrink-0 rounded px-1.5 py-0.5 ${
-                    isPinned ? 'bg-[#e8f3ff] text-[#1476ef]' : 'bg-[#f0f0f0] text-[#191919]'
-                  }`}
-                >
-                  {tag}
-                </span>
               </div>
               <div className="mt-1 flex items-center justify-between gap-2">
                 <span className="block min-w-0 flex-1 truncate text-[12px] text-[var(--text-muted)]">{description}</span>

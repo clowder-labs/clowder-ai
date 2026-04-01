@@ -452,6 +452,12 @@ export interface QueueEntry {
 /** F39: Message delivery mode — undefined = smart default, 'queue' = enqueue, 'force' = cancel + execute */
 export type DeliveryMode = 'queue' | 'force' | undefined;
 
+/** F35: Whisper options for private outbound user messages */
+export interface WhisperOptions {
+  visibility: 'whisper';
+  whisperTo: string[];
+}
+
 /** F101: Current game state in a thread */
 export type GameState = {
   gameId: string;

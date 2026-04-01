@@ -11,19 +11,20 @@ import { abortGame, godAction, submitAction } from '@/hooks/useGameApi';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { usePreviewAutoOpen } from '@/hooks/usePreviewAutoOpen';
-import { useSendMessage } from '@/hooks/useSendMessage';
+import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 import { useVadInterrupt } from '@/hooks/useVadInterrupt';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
 import { useWorkspaceNavigate } from '@/hooks/useWorkspaceNavigate';
+import type { DeliveryMode } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { getUserId } from '@/utils/userId';
+import { getUserId, setIsSkipAuth } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsRootPanel } from './AgentsRootPanel';
 import { AuthorizationCard } from './AuthorizationCard';
@@ -39,6 +40,7 @@ import { HubListModal } from './HubListModal';
 import { MessageActions } from './MessageActions';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { ModelsPanel } from './ModelsPanel';
+import { NewThreadContainer } from './NewThreadContainer';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
@@ -51,11 +53,93 @@ import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
-interface ChatContainerProps {
-  threadId: string;
+const SIDEBAR_DEFAULT = 240;
+
+function getFolderNameFromPath(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const normalized = path.replace(/[\\/]+$/, '');
+  const segments = normalized.split(/[/\\]/).filter(Boolean);
+  return segments[segments.length - 1] ?? normalized ?? null;
 }
 
-export function ChatContainer({ threadId }: ChatContainerProps) {
+type ChatContainerProps =
+  | {
+      mode: 'new';
+      requireLoginCheck?: boolean;
+      threadId?: never;
+      initialSidebarMenu?: never;
+    }
+  | {
+      mode?: 'thread';
+      threadId: string;
+      requireLoginCheck?: boolean;
+      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+    };
+
+export function ChatContainer(props: ChatContainerProps) {
+  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
+  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!props.requireLoginCheck) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiFetch('/api/islogin');
+        const data = await response.json();
+        if (cancelled) return;
+        setIsSkipAuth(Boolean(data?.isskip));
+        if (data?.islogin) {
+          setIsLoggedIn(true);
+        } else {
+          router.replace('/login');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('检查登录状态失败:', err);
+          router.replace('/login');
+        }
+      } finally {
+        if (!cancelled) setAuthChecked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.requireLoginCheck, router]);
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
+
+  if (props.mode === 'new') {
+    return <NewThreadContainer />;
+  }
+
+  return <ThreadModeChatContainer threadId={props.threadId} initialSidebarMenu={props.initialSidebarMenu} />;
+}
+
+function ThreadModeChatContainer({
+  threadId,
+  initialSidebarMenu = 'chat',
+}: {
+  threadId: string;
+  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+}) {
   const {
     messages,
     hasActiveInvocation,
@@ -69,6 +153,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     clearUnread,
     confirmUnreadAck,
     armUnreadSuppression,
+    consumePendingNewThreadSend,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
@@ -104,7 +189,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
-  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>('chat');
+  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>(
+    initialSidebarMenu,
+  );
   // F106: fetch bootcamp count independently of sidebar lifecycle
   // refreshKey increments only on modal close to avoid duplicate fetch on open
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -131,7 +218,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, []);
   // F063: resizable split pane, chatBasis as percentage (20-80), persisted
   // F063 Gap 6: sidebar width in px, persisted
-  const SIDEBAR_DEFAULT = 240;
   const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState(
     'cat-cafe:sidebarWidth',
     SIDEBAR_DEFAULT,
@@ -154,12 +240,22 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
   const { handleScroll, scrollContainerRef, messagesEndRef, isLoadingHistory, hasMore } = useChatHistory(threadId);
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
+  const consumedPendingRequestIdsRef = useRef(new Set<string>());
   const {
     pending: authPending,
     respond: authRespond,
     handleAuthRequest,
     handleAuthResponse,
   } = useAuthorization(threadId);
+
+  useEffect(() => {
+    const pending = consumePendingNewThreadSend(threadId);
+    if (!pending) return;
+    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
+
+    consumedPendingRequestIdsRef.current.add(pending.requestId);
+    handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
+  }, [consumePendingNewThreadSend, handleSend, threadId]);
 
   // F096: Listen for interactive block send events
   useEffect(() => {
@@ -237,6 +333,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const setCurrentProject = useChatStore((s) => s.setCurrentProject);
   const storeThreads = useChatStore((s) => s.threads);
   const prevThreadRef = useRef(threadId);
+  const currentThreadProjectPath = useMemo(
+    () => storeThreads?.find((thread) => thread.id === threadId)?.projectPath ?? null,
+    [storeThreads, threadId],
+  );
+  const currentThreadProjectName = useMemo(
+    () => getFolderNameFromPath(currentThreadProjectPath),
+    [currentThreadProjectPath],
+  );
   useEffect(() => {
     if (prevThreadRef.current !== threadId) {
       // Thread switch: store saves/restores per-thread state automatically
@@ -439,6 +543,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               className="w-full"
               onBootcampClick={() => setShowBootcampList(true)}
               onHubClick={() => setShowHubList(true)}
+              onThreadSelect={() => setSidebarMenu('chat')}
               onMenuClick={(menu) => setSidebarMenu(menu)}
               activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
             />
@@ -450,12 +555,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       )}
 
       <div className="flex flex-col min-w-0" style={{ flex: '1 1 0%' }}>
-        {sidebarMenu === 'chat' && (
+        {false && sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
             threadId={threadId}
             authPendingCount={authPending.length}
+            targetCats={targetCats}
             viewMode={viewMode}
             onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
             onOpenMobileStatus={() => setMobileStatusOpen(true)}
@@ -468,7 +574,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         <div className="flex-1 relative overflow-hidden">
           {sidebarMenu !== 'chat' && (
-            <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
+            <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
               {sidebarMenu === 'agents' && <AgentsRootPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
@@ -479,12 +585,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <main
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="ui-shell-surface h-full overflow-y-auto p-4"
+              className="ui-shell-surface h-full overflow-y-auto p-4 pt-[60px]"
               data-chat-container
             >
               {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
               {!hasMore && messages.length > 0 && (
-                <div className="text-center py-3 text-xs text-gray-300">没有更多消息...</div>
+                <div className="text-center py-3 text-xs text-gray-300 hidden">没有更多消息...</div>
               )}
               {messages.length === 0 && !isLoadingHistory ? (
                 <ChatEmptyState
@@ -549,6 +655,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             }
             onStop={handleStop}
             disabled={false}
+            folderSelectionEnabled={false}
+            selectedFolderName={currentThreadProjectName}
+            selectedFolderTitle={currentThreadProjectPath}
             hasActiveInvocation={hasActiveInvocation}
             uploadStatus={uploadStatus}
             uploadError={uploadError}

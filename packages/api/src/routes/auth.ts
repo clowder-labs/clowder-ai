@@ -3,7 +3,7 @@
  */
 
 import Conf from 'conf';
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 
 export interface AuthRoutesOptions {
   // 可以在这里添加认证相关的配置
@@ -87,8 +87,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
       return { islogin: false, hascode, isskip: false };
     }
     const userInfo: UserInfo = secureConfig.get(`${userId}-new`) as UserInfo;
-    const expiresAt = secureConfig.get(userId) || userInfo.expiresAt;
-    console.log(`Checking login for userId: ${userId}, expiresAt: ${expiresAt}`);
+    const expiresAt = secureConfig.get(userId) || userInfo?.expiresAt;
     if (!expiresAt || new Date(userInfo.expiresAt).getTime() < new Date().getTime()) {
       return { islogin: false, hascode, isskip: false };
     }
@@ -133,10 +132,12 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
 
     userInfo.userId = `${domainName}:${name ?? ''}`;
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
+    userInfo.token = tokenResult.token ?? '';
     userInfo.modelInfo = modelInfo ?? {};
     secureConfig.set(userInfo.userId, userInfo.expiresAt);
     secureConfig.set(`${userInfo.userId}-new`, userInfo);
     sessions.set(userInfo.userId, { ...userInfo });
+    await refreshMaaSModelsAfterLogin(request, userInfo.userId);
 
     // 创建session（简单实现，生产环境应该生成JWT token）
     const sessionId = `session-${Date.now()}-${Math.random()}`;
@@ -153,9 +154,9 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
 
     if (userId) {
       // 删除 session
-      sessions.delete(userInfo.userId);
+      sessions.delete(userId);
       secureConfig.delete(userId);
-      console.log(`Logged out user: ${userId}`);
+      secureConfig.delete(`${userId}-new`);
       return { success: true, message: '退出登录成功' };
     }
 
@@ -242,7 +243,6 @@ async function getSecuritytokens(token = ''): Promise<CredentialResult> {
 //开通客户端claw
 async function subscriptionClaw(token = '', promotionCode?: string): Promise<ModelInfoResult> {
   try {
-    console.log('开通客户端 Code:', secureConfig.get('lastPromotionCode'));
     const subResponse = await fetch(`https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-subscription`, {
       method: 'POST',
       headers: {
@@ -276,4 +276,24 @@ async function getErrorMessage(response: Response): Promise<{error_code: string,
     return { error_code: data.error_code, error_message: data.error_message || data.error_msg };
   }
   return { error_code: response.status.toString(), error_message: response.statusText };
+}
+
+async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: string) {
+  try {
+    const refreshResponse = await request.server.inject({
+      method: 'GET',
+      url: '/api/maas-models',
+      headers: {
+        'x-cat-cafe-user': userId,
+      },
+    });
+    if (refreshResponse.statusCode >= 400) {
+      request.log.warn(
+        { statusCode: refreshResponse.statusCode, userId },
+        'refresh maas models failed after login',
+      );
+    }
+  } catch (error) {
+    request.log.warn({ error, userId }, 'refresh maas models errored after login');
+  }
 }

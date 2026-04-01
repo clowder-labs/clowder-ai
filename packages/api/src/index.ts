@@ -162,6 +162,7 @@ import {
   workspaceEditRoutes,
   workspaceGitRoutes,
   workspaceRoutes,
+  versionRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { previewRoutes } from './routes/preview.js';
@@ -952,6 +953,7 @@ async function main(): Promise<void> {
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(authRoutes);
+  await app.register(versionRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);
   await app.register(workspaceRoutes, {

@@ -622,7 +622,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const provider = catConfig?.provider;
     const embeddedRuntimeKind = resolveEmbeddedRuntimeKind({ id: catId as string, provider });
     const embeddedAcpRuntime = embeddedRuntimeKind === 'agentteams_acp';
-    const embeddedAcpExecutablePath = catConfig?.embeddedAcpExecutablePath?.trim() || undefined;
+    const embeddedAcpExecutablePath =
+      catConfig?.embeddedAcpConfig?.executablePath?.trim() || catConfig?.embeddedAcpExecutablePath?.trim() || undefined;
+    const embeddedAcpConfig = catConfig?.embeddedAcpConfig;
     const builtinClient = provider ? resolveBuiltinClientForProvider(provider) : null;
     const defaultModel = catConfig?.defaultModel?.trim() || undefined;
     const configProjectRoot = resolveActiveProjectRoot(process.cwd());
@@ -886,6 +888,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       resolvedProviderProfileForService = buildEmbeddedAgentTeamsProviderProfile(
         configProjectRoot,
         embeddedAcpExecutablePath,
+        embeddedAcpConfig,
       );
       if (modelConfigBinding) {
         resolvedAcpModelProfile = buildEmbeddedAgentTeamsModelProfileFromBinding(
