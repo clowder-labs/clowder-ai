@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SVGProps } from 'react';
+import { type SVGProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 import { AgentManagementIcon } from './AgentManagementIcon';
@@ -324,10 +324,7 @@ export function AgentsPanel() {
     );
   }, [cats, searchQuery]);
 
-  const currentTab = useMemo(
-    () => AGENT_TABS.find((tab) => tab.id === activeTab) ?? AGENT_TABS[0],
-    [activeTab],
-  );
+  const currentTab = useMemo(() => AGENT_TABS.find((tab) => tab.id === activeTab) ?? AGENT_TABS[0], [activeTab]);
 
   const selectedCat = useMemo(
     () => cats.find((cat) => cat.id === selectedCatId) ?? filteredCats[0] ?? cats[0] ?? null,
@@ -339,11 +336,11 @@ export function AgentsPanel() {
   );
 
   const selectedSavedDrafts = selectedCat
-    ? savedDraftsByCatId[selectedCat.id] ?? buildEditableDrafts(selectedCat)
+    ? (savedDraftsByCatId[selectedCat.id] ?? buildEditableDrafts(selectedCat))
     : EMPTY_EDITABLE_DRAFTS;
 
   const selectedWorkingDrafts = selectedCat
-    ? workingDraftsByCatId[selectedCat.id] ?? selectedSavedDrafts
+    ? (workingDraftsByCatId[selectedCat.id] ?? selectedSavedDrafts)
     : EMPTY_EDITABLE_DRAFTS;
 
   const canEditActiveTab = currentTab.editable && isEditableTab(activeTab);
@@ -351,7 +348,7 @@ export function AgentsPanel() {
   const activeWorkingDraft = canEditActiveTab ? selectedWorkingDrafts[activeTab] : '';
   const showEmptyPersonaEditor = mode === 'edit' && activeTab === 'persona' && !activeWorkingDraft.trim();
 
-  const editingCat = editingCatId ? cats.find((cat) => cat.id === editingCatId) ?? null : null;
+  const editingCat = editingCatId ? (cats.find((cat) => cat.id === editingCatId) ?? null) : null;
 
   const promptSelectionItems = useMemo(
     () =>
@@ -418,10 +415,7 @@ export function AgentsPanel() {
     const left = Math.min(Math.max(desiredLeft, viewportPadding), maxLeft);
     const top = Math.max(viewportPadding, triggerRect.top - bubbleRect.height - gap);
     const triggerCenterX = triggerRect.left + triggerRect.width / 2;
-    const tailLeft = Math.min(
-      Math.max(triggerCenterX - left - 7, 18),
-      Math.max(18, bubbleRect.width - 18),
-    );
+    const tailLeft = Math.min(Math.max(triggerCenterX - left - 7, 18), Math.max(18, bubbleRect.width - 18));
 
     setTemplateBubblePosition({ top, left, tailLeft });
   }, []);
@@ -902,7 +896,7 @@ export function AgentsPanel() {
                         ? 'border-[var(--border-accent)] bg-[var(--surface-selected)] shadow-[var(--shadow-card-soft)]'
                         : isActive
                           ? 'border-[var(--border-accent)] bg-[var(--surface-panel)]'
-                        : 'border-[var(--border-default)] bg-[var(--surface-panel)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card-muted)]'
+                          : 'border-[var(--border-default)] bg-[var(--surface-panel)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card-muted)]'
                     }`}
                   >
                     <div className="text-[13px] font-semibold text-[var(--text-primary)]">{template.title}</div>
@@ -916,7 +910,7 @@ export function AgentsPanel() {
           {hoveredTemplatePreview ? (
             <div
               ref={templateBubbleRef}
-              className="fixed z-40 w-[304px]"
+              className="fixed z-40 w-[400px] max-h-[300px] overflow-y-auto"
               style={{
                 top: templateBubblePosition?.top ?? 0,
                 left: templateBubblePosition?.left ?? 0,
@@ -931,19 +925,11 @@ export function AgentsPanel() {
               onMouseLeave={scheduleTemplateHoverClear}
             >
               <div className="relative rounded-[18px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 shadow-[var(--shadow-card-hover)]">
-                <div className="text-[13px] font-semibold text-[var(--text-primary)]">{hoveredTemplatePreview.title}</div>
-                <div className="mt-4 text-[12px] font-semibold text-[var(--text-primary)]">人格定义 (Persona)</div>
-                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
-                  {hoveredTemplatePreview.persona.map((line) => (
-                    <li key={line}>• {line}</li>
-                  ))}
-                </ul>
-                <div className="mt-4 text-[12px] font-semibold text-[var(--text-primary)]">行为准则 (Behavior)</div>
-                <ul className="mt-2 space-y-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
-                  {hoveredTemplatePreview.behavior.map((line) => (
-                    <li key={line}>• {line}</li>
-                  ))}
-                </ul>
+                <MarkdownContent
+                  content={buildTemplateMarkdown(hoveredTemplatePreview)}
+                  className="text-[11px] leading-[1.55] text-[var(--text-secondary)] [&_h2]:mb-3 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-2 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_ul]:mb-3 [&_ul]:space-y-1.5"
+                  disableCommandPrefix
+                />
                 <div className="mt-4 flex justify-end">
                   <button
                     type="button"
@@ -1180,9 +1166,7 @@ export function AgentsPanel() {
                         setMode('preview');
                       }}
                       className={`inline-flex items-center gap-1.5 rounded-[8px] border border-transparent px-3 py-1.5 text-[12px] transition ${
-                        isActive
-                          ? 'bg-[rgba(230,230,230,1)] text-[#445066]'
-                          : 'text-[#6F7785] hover:bg-[#F8FAFC]'
+                        isActive ? 'bg-[rgba(230,230,230,1)] text-[#445066]' : 'text-[#6F7785] hover:bg-[#F8FAFC]'
                       }`}
                       data-testid={`agent-tab-${tab.id}`}
                     >
@@ -1192,16 +1176,23 @@ export function AgentsPanel() {
                   );
                 })}
               </div>
-
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center justify-between gap-4 px-8 pb-6 pt-4">
                 <h2 className="text-[14px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
-                {currentTab.editable ? (mode === 'edit' && canEditActiveTab ? renderEditActions() : renderPreviewActions()) : null}
+                {currentTab.editable
+                  ? mode === 'edit' && canEditActiveTab
+                    ? renderEditActions()
+                    : renderPreviewActions()
+                  : null}
               </div>
 
-              {saveError ? <div className="ui-status-error mx-6 mb-3 rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{saveError}</div> : null}
+              {saveError ? (
+                <div className="ui-status-error mx-6 mb-3 rounded-[var(--radius-md)] px-3 py-2 text-[12px]">
+                  {saveError}
+                </div>
+              ) : null}
 
               <div className="min-h-0 flex-1 overflow-hidden">{renderDetailBody()}</div>
             </div>
@@ -1215,7 +1206,9 @@ export function AgentsPanel() {
         name={editingCat?.name ?? editingCat?.displayName}
         description={editingCat?.roleDescription}
         selectedModelId={
-          editingCat?.accountRef && editingCat.defaultModel ? `${editingCat.accountRef}::${editingCat.defaultModel}` : null
+          editingCat?.accountRef && editingCat.defaultModel
+            ? `${editingCat.accountRef}::${editingCat.defaultModel}`
+            : null
         }
         title={editingCatId ? '编辑智能体' : '创建智能体'}
         onClose={() => {
