@@ -261,7 +261,7 @@ export function PromptSelectionModal({
 
             <section
               data-testid="prompt-detail-panel"
-              className="flex min-h-0 flex-col overflow-y-auto rounded-[10px] border border-[#E7ECF3] bg-white p-4"
+              className="flex min-h-0 flex-col overflow-y-auto rounded-[10px] border border-[#E7ECF3] bg-white p-4 flex-1"
               style={{ width: DETAIL_WIDTH, height: CONTENT_HEIGHT }}
             >
               {selectedItem ? (
