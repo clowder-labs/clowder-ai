@@ -1138,7 +1138,7 @@ export function AgentsPanelCopy() {
               <div
                 ref={actionMenuRef}
                 role="menu"
-                className="fixed z-40 w-[80px] rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-panel)] p-1.5 shadow-[var(--shadow-card-soft)]"
+                className="fixed z-40 w-[80px] rounded-[6px] border border-[var(--border-default)] bg-[var(--surface-panel)] p-1.5 shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
                 style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
               >
                 <button
@@ -1198,8 +1198,8 @@ export function AgentsPanelCopy() {
                         setActiveTab(tab.id);
                         setMode('preview');
                       }}
-                      className={`inline-flex items-center gap-1.5 rounded-[8px] border border-transparent px-3 py-1.5 text-[12px] transition ${
-                        isActive ? 'bg-[rgba(230,230,230,1)] text-[#445066]' : 'text-[#6F7785] hover:bg-[#F8FAFC]'
+                      className={`inline-flex items-center gap-1.5 rounded-[8px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919] transition ${
+                        isActive ? 'bg-[rgba(230,230,230,1)]' : ' hover:bg-[#F8FAFC]'
                       }`}
                       data-testid={`agent-tab-${tab.id}`}
                     >
@@ -1212,7 +1212,7 @@ export function AgentsPanelCopy() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center justify-between gap-4 px-8 pb-6 pt-4">
+              <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4">
                 <h2 className="text-[14px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
                 {currentTab.editable
                   ? mode === 'edit' && canEditActiveTab

@@ -184,7 +184,7 @@ export function PromptSelectionModal({
       data-testid="prompt-selection-modal"
     >
       <div
-        className="flex w-full max-w-[900px] flex-col overflow-hidden rounded-2 bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.16)]"
+        className="flex w-full max-w-[900px] flex-col overflow-hidden rounded-[8px] bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.16)]"
         style={{ width: MODAL_WIDTH, height: MODAL_HEIGHT }}
       >
         <div className="flex items-center justify-between">
@@ -221,7 +221,7 @@ export function PromptSelectionModal({
             </button>
           </div>
 
-          <div className="mt-4 flex min-h-0 gap-4" style={{ height: CONTENT_HEIGHT }}>
+          <div className="mt-4 flex min-h-0 " style={{ height: CONTENT_HEIGHT }}>
             <aside
               className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto rounded-[10px]  bg-white p-0.5"
               style={{ width: LIST_WIDTH, height: CONTENT_HEIGHT }}
@@ -261,7 +261,7 @@ export function PromptSelectionModal({
 
             <section
               data-testid="prompt-detail-panel"
-              className="flex min-h-0 flex-col overflow-y-auto rounded-[10px] border border-[#E7ECF3] bg-white p-5"
+              className="flex min-h-0 flex-col overflow-y-auto rounded-[10px] border border-[#E7ECF3] bg-white p-4"
               style={{ width: DETAIL_WIDTH, height: CONTENT_HEIGHT }}
             >
               {selectedItem ? (
@@ -276,7 +276,7 @@ export function PromptSelectionModal({
             <button
               type="button"
               onClick={onClose}
-              className="h-7 min-w-[84px] rounded-full border border-[#C9D1DC] bg-white px-4 text-[14px] font-medium text-[#202020] transition hover:bg-[#FAFAFA]"
+              className="h-7 min-w-[84px] rounded-full border border-[#C9D1DC] bg-white px-4 text-[14px] font-normal text-[#202020] transition hover:bg-[#FAFAFA]"
             >
               {cancelLabel}
             </button>
@@ -284,7 +284,7 @@ export function PromptSelectionModal({
               type="button"
               onClick={() => selectedItem && onConfirm(selectedItem)}
               disabled={!selectedItem}
-              className="h-7 min-w-[84px] rounded-full bg-[#1F2430] px-4 text-[14px] font-medium text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:bg-[#BFBFBF]"
+              className="h-7 min-w-[84px] rounded-full bg-[#1F2430] px-4 text-[14px] font-normal text-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:bg-[#BFBFBF]"
               data-testid="prompt-confirm-button"
             >
               {confirmLabel}
@@ -296,35 +296,3 @@ export function PromptSelectionModal({
   );
 }
 
-export const DEFAULT_PROMPT_SELECTION_ITEMS: PromptSelectionItem[] = [
-  {
-    id: 'product-copy',
-    title: '产品文案创意',
-    category: '文案创作',
-    source: '文案创作',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    summary: '聚焦产品价值提炼、卖点表达与场景化文案呈现。',
-    content: '你是一位专业的产品文案创意人员，需要围绕产品卖点、用户价值与场景化表达产出简洁有力的文案。',
-  },
-  {
-    id: 'tongue-twister',
-    title: '绕口令优化',
-    category: '文案创作',
-    source: '文案创作',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    summary: '优化节奏、押韵和传播性，提升趣味和朗读体验。',
-    content: '请对现有绕口令进行节奏、押韵和发音难度优化，并保留趣味性与传播性。',
-  },
-  {
-    id: 'pet-consultant',
-    title: '宠物行为咨询师',
-    category: '生活服务',
-    source: '生活服务',
-    creator: '官方预置',
-    createdAt: '2025-09-12 17:22:30',
-    summary: '结合宠物品种、年龄和具体表现，提供训练与安抚建议。',
-    content: '你将扮演宠物行为咨询师，结合宠物品种、年龄和具体表现，提供训练与安抚建议。',
-  },
-];
