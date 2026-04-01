@@ -16,6 +16,7 @@ import { toCliEvents } from './cli-output/toCliEvents';
 import { DirectionPill } from './DirectionPill';
 import { EvidencePanel } from './EvidencePanel';
 import { GovernanceBlockedCard } from './GovernanceBlockedCard';
+import { IntentRecognitionPlaceholder } from './IntentRecognitionPlaceholder';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { ReplyPill } from './ReplyPill';
@@ -98,6 +99,17 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       ? ('failed' as const)
       : ('done' as const);
   const thinkingLabel = cliStatus === 'done' ? '完成深度思考' : '深度思考中';
+
+  if (message.variant === 'intent_recognition') {
+    return (
+      <IntentRecognitionPlaceholder
+        catId={message.catId ?? 'jiuwenclaw'}
+        label={catStyle?.label ?? catData?.displayName ?? message.catId ?? '主智能体'}
+        timestamp={message.timestamp}
+        status={message.content === 'stopped' ? 'stopped' : 'pending'}
+      />
+    );
+  }
 
   if (isSummary && message.summary) {
     return (
@@ -363,7 +375,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           )}
         </div>
         <div style={{ display: 'none', height: 1, backgroundColor: 'rgb(240, 240, 240)', margin: '8px 0' }} />
-        {!message.isStreaming && message.metadata && <MetadataBadge metadata={message.metadata} />}
+        {false && !message.isStreaming && message.metadata && <MetadataBadge metadata={message.metadata} />}
       </div>
     </div>
   );
