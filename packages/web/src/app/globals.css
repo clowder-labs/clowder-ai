@@ -138,6 +138,9 @@
   --connector-tab-border-default: var(--border-default);
   --connector-tab-bg-selected: var(--surface-panel);
   --connector-tab-border-selected: var(--border-accent);
+
+  --agent-preset-badge-bg: var(--surface-card-muted);
+  --agent-preset-badge-text: var(--text-secondary);
 }
 
 [data-ui-theme="business"] {
@@ -185,6 +188,9 @@
   --connector-tab-border-default: #f0f0f0;
   --connector-tab-bg-selected: #ffffff;
   --connector-tab-border-selected: #1476ff;
+
+  --agent-preset-badge-bg: rgba(230, 230, 230, 1);
+  --agent-preset-badge-text: rgba(25, 25, 25, 1);
 }
 
 [data-theme="dark"] {
