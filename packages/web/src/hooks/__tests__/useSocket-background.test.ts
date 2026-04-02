@@ -896,6 +896,25 @@ describe('background thread socket handling', () => {
       expect(ts.messages[2]?.content).toContain('缅因猫 @了 opus');
     });
 
+    it('consumes processing_status system_info silently and updates background cat status', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'processing_status',
+          status: 'thinking',
+        }),
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(0);
+      expect(ts.catStatuses.codex).toBe('streaming');
+    });
+
     it('consumes invocation_usage system_info into thread invocation + message metadata (no raw JSON message)', () => {
       const now = Date.now();
       simulateBackgroundMessage({

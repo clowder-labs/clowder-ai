@@ -239,6 +239,13 @@ export function consumeBackgroundSystemInfo(
       const warningText = typeof parsed.message === 'string' ? parsed.message : '';
       sysContent = warningText ? `⚠️ ${warningText}` : '⚠️ Warning';
       sysVariant = 'info';
+    } else if (parsed?.type === 'processing_status') {
+      // RelayClaw processing heartbeat — keep background cat status fresh without a raw JSON bubble.
+      const processingStatus = parsed.status as string;
+      if (processingStatus !== 'idle') {
+        options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming');
+      }
+      consumed = true;
     } else if (parsed?.type === 'governance_blocked') {
       const projectPath = typeof parsed.projectPath === 'string' ? parsed.projectPath : '';
       const reasonKind = (parsed.reasonKind as string) ?? 'needs_bootstrap';
