@@ -411,13 +411,13 @@ export function AgentsPanelCopy() {
     const triggerRect = trigger.getBoundingClientRect();
     const bubbleRect = bubble.getBoundingClientRect();
     const viewportPadding = 12;
-    const gap = 16;
+    const gap = 10;
     const desiredLeft = triggerRect.left + triggerRect.width / 2 - bubbleRect.width / 2;
     const maxLeft = Math.max(viewportPadding, window.innerWidth - bubbleRect.width - viewportPadding);
     const left = Math.min(Math.max(desiredLeft, viewportPadding), maxLeft);
     const top = Math.max(viewportPadding, triggerRect.top - bubbleRect.height - gap);
     const triggerCenterX = triggerRect.left + triggerRect.width / 2;
-    const tailLeft = Math.min(Math.max(triggerCenterX - left - 7, 18), Math.max(18, bubbleRect.width - 18));
+    const tailLeft = Math.min(Math.max(triggerCenterX - left, 18), Math.max(18, bubbleRect.width - 18));
 
     setTemplateBubblePosition({ top, left, tailLeft });
   }, []);
@@ -907,7 +907,7 @@ export function AgentsPanelCopy() {
                   <button
                     type="button"
                     onClick={() => setActiveTemplateId(template.id)}
-                    className={`min-h-[128px] w-full rounded-[8px] border px-4 py-4 text-left transition ${
+                    className={`h-[98px] w-full rounded-[8px] border px-4 py-4 text-left transition ${
                       isHovered
                         ? 'border-[var(--border-accent)] bg-[var(--surface-selected)] shadow-[var(--shadow-card-soft)]'
                         : isActive
@@ -916,7 +916,7 @@ export function AgentsPanelCopy() {
                     }`}
                   >
                     <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
-                    <div className="mt-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.description}</div>
+                    <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.description}</div>
                   </button>
                 </div>
               );
@@ -926,7 +926,7 @@ export function AgentsPanelCopy() {
           {hoveredTemplatePreview ? (
             <div
               ref={templateBubbleRef}
-              className="fixed z-40 w-[400px] h-[300px] flex flex-col"
+              className="fixed z-40 w-[400px] h-[300px] flex flex-col shadow-[0_2px_12px_0_rgba(0,0,0,0.16)] rounded-[8px]"
               style={{
                 top: templateBubblePosition?.top ?? 0,
                 left: templateBubblePosition?.left ?? 0,
@@ -962,18 +962,22 @@ export function AgentsPanelCopy() {
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
-                    className="ui-button-primary h-[24px] w-[80px] px-4 py-1 text-[11px] rounded-[999px] flex items-center justify-center"
+                    className="ui-button-primary h-[24px] px-4 py-[3px] text-[12px] rounded-[999px] flex items-center justify-center font-normal"
                   >
                     插入模板
                   </button>
                 </div>
 
                 {/* 气泡箭头 */}
-                <div
-                  className="absolute top-[calc(100%-7px)] h-[14px] w-[14px] rotate-45 border-b border-r border-[var(--border-default)] bg-[var(--surface-panel)]"
-                  style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
-                />
               </div>
+              <div
+                className="pointer-events-none absolute top-full h-0 w-0 -translate-x-1/2 border-x-[7px] border-x-transparent border-t-[8px] border-t-[var(--border-default)]"
+                style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
+              />
+              <div
+                className="pointer-events-none absolute top-full mt-[-1px] h-0 w-0 -translate-x-1/2 border-x-[6px] border-x-transparent border-t-[7px] border-t-[var(--surface-panel)]"
+                style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
+              />
             </div>
           ) : null}
         </div>
@@ -1212,8 +1216,8 @@ export function AgentsPanelCopy() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4">
-                <h2 className="text-[14px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
+              <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4 h-14">
+                <h2 className="text-[14px] h-[22px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
                 {currentTab.editable
                   ? mode === 'edit' && canEditActiveTab
                     ? renderEditActions()
