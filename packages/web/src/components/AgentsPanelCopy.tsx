@@ -261,12 +261,12 @@ function renderAvatar(cat: CatData) {
   const isImageAvatar = /^(https?:\/\/|\/|data:image)/.test(avatar);
 
   if (isImageAvatar) {
-    return <img src={avatar} alt={cat.displayName} className="h-9 w-9 rounded-full object-cover" />;
+    return <img src={avatar} alt={cat.displayName} className="h-11 w-11 rounded-full object-cover" />;
   }
 
   return (
     <div
-      className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white"
+      className="flex h-11 w-11 items-center justify-center rounded-full text-[13px] font-semibold text-white"
       style={{ backgroundColor: cat.color?.primary ?? '#7AAEFF' }}
     >
       <span>{avatar || catInitial(cat.displayName)}</span>
@@ -719,9 +719,9 @@ export function AgentsPanelCopy() {
       type="button"
       onClick={handleStartEdit}
       disabled={!canEditActiveTab}
-      className={`inline-flex items-center gap-1.5 rounded-[10px] px-3 py-1.5 text-[12px] font-normal transition ${
+        className={`inline-flex items-center gap-1.5 rounded-full h-6 w-20 px-4 py-[3px] text-[12px] font-normal transition ${
         canEditActiveTab
-          ? 'bg-[var(--surface-panel)] text-[var(--text-secondary)] hover:bg-[var(--surface-card-muted)]'
+          ? 'bg-[var(--surface-panel)] text-black hover:bg-[var(--surface-card-muted)]'
           : 'cursor-not-allowed bg-[var(--surface-card-muted)] text-[var(--text-subtle)]'
       }`}
     >
@@ -847,7 +847,7 @@ export function AgentsPanelCopy() {
       </p>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6 pt-4">
         <div className="mt-auto mx-auto w-full max-w-[1328px]">
-          <div className="mb-2 flex items-center justify-between gap-3 text-[11px] text-[var(--text-muted)]">
+          <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
             {templatePageCount > 1 ? (
               <div className="flex items-center gap-2">
@@ -915,8 +915,8 @@ export function AgentsPanelCopy() {
                           : 'border-[var(--border-default)] bg-[var(--surface-panel)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card-muted)]'
                     }`}
                   >
-                    <div className="text-[13px] font-semibold text-[var(--text-primary)]">{template.title}</div>
-                    <div className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">{template.description}</div>
+                    <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
+                    <div className="mt-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.description}</div>
                   </button>
                 </div>
               );
@@ -940,7 +940,7 @@ export function AgentsPanelCopy() {
               }}
               onMouseLeave={scheduleTemplateHoverClear}
             >
-              <div className="relative flex flex-col h-full bg-[var(--surface-panel)] rounded-2 border border-[var(--border-default)] shadow-[var(--shadow-card-hover)] overflow-hidden p-4">
+              <div className="relative flex flex-col h-full bg-[var(--surface-panel)] rounded-[8px] border border-[var(--border-default)] shadow-[var(--shadow-card-hover)] overflow-hidden p-4">
                 {/* 顶部标题 - 固定 */}
                 <div className="shrink-0  pb-3">
                   <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">
@@ -952,7 +952,7 @@ export function AgentsPanelCopy() {
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   <MarkdownContent
                     content={buildTemplateMarkdown(hoveredTemplatePreview)}
-                    className="text-[11px] leading-[1.55] text-[var(--text-secondary)] [&_h2]:hidden [&_h3]:mb-2 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_ul]:mb-3 [&_ul]:space-y-1.5"
+                    className="text-[12px] leading-[1.55] text-[var(--text-secondary)] [&_h2]:hidden [&_h3]:mb-2 [&_h3]:text-[12px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_ul]:mb-3 [&_ul]:space-y-1.5"
                     disableCommandPrefix
                   />
                 </div>
@@ -1110,10 +1110,10 @@ export function AgentsPanelCopy() {
                             actionMenuTriggerRef.current = event.currentTarget;
                             setOpenActionMenuCatId(cat.id);
                           }}
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-[6px] transition ${
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition ${
                             openActionMenuCatId === cat.id
                               ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]'
-                              : 'text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-accent)]'
+                              : 'text-[var(--text-muted)] hover:bg-[#f5f5f5] hover:text-[var(--text-accent)]'
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
                           aria-expanded={openActionMenuCatId === cat.id}
@@ -1283,7 +1283,12 @@ export function AgentsPanelCopy() {
           >
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold text-gray-900">确认删除</h3>
+                <div className="flex items-center gap-2">
+                  <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
+                  </svg>
+                  <h3 className="text-[16px] font-bold text-gray-900">确认删除</h3>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
