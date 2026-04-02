@@ -166,7 +166,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         ? 'text-purple-700 bg-purple-50 border border-purple-200'
         : isError
           ? 'text-red-500 bg-red-50 rounded-full'
-          : 'text-blue-700 bg-blue-50';
+          : 'text-blue-700 bg-blue-50 hidden';
     return (
       <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${toneClass}`}>
@@ -365,6 +365,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               thinkingMode={currentThread?.thinkingMode}
               defaultExpanded={uiThinkingExpandedByDefault}
               breedColor={catData?.color.primary}
+              projectPath={currentThread?.projectPath}
             />
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (

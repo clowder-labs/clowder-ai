@@ -23,6 +23,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
+import { readProviderProfiles } from '../config/provider-profiles.js';
 import {
   addLinkedRoot,
   getLinkedRootsAsync,
@@ -94,6 +95,43 @@ function sha256(content: string): string {
 function isPathWithinRoot(root: string, target: string): boolean {
   const rel = relative(root, target);
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+function isPathWithinAnyRoot(roots: string[], target: string): boolean {
+  return roots.some((root) => isPathWithinRoot(root, target));
+}
+
+async function getAllowedLocalPresentationRoots(projectPath?: string): Promise<string[]> {
+  const [worktrees, linkedRoots] = await Promise.all([
+    listWorktrees().catch(() => []),
+    getLinkedRootsAsync().catch(() => []),
+  ]);
+
+  const roots = [LOCAL_AGENT_ROOT, ...worktrees.map((entry) => entry.root), ...linkedRoots.map((entry) => entry.root)];
+
+  if (projectPath) {
+    const resolvedProjectPath = resolve(projectPath);
+    try {
+      const projectStat = await stat(resolvedProjectPath);
+      if (projectStat.isDirectory()) {
+        roots.push(resolvedProjectPath);
+        try {
+          const profiles = await readProviderProfiles(resolvedProjectPath);
+          for (const profile of profiles.providers) {
+            if (typeof profile.cwd === 'string' && profile.cwd.trim()) {
+              roots.push(resolve(profile.cwd.trim()));
+            }
+          }
+        } catch {
+          // Best-effort only. Missing/invalid provider profile config should not block file access.
+        }
+      }
+    } catch {
+      // Ignore invalid projectPath here; the file path check below remains authoritative.
+    }
+  }
+
+  return [...new Set(roots)];
 }
 
 interface TreeNode {
@@ -739,9 +777,9 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
 
   // POST /api/workspace/navigate — F131: cat-initiated workspace panel navigation
   app.post<{
-    Body: { path?: string };
+    Body: { path?: string; projectPath?: string };
   }>('/api/workspace/open-local', async (request, reply) => {
-    const { path: filePath } = request.body ?? {};
+    const { path: filePath, projectPath } = request.body ?? {};
     if (!filePath) {
       reply.status(400);
       return { error: 'path required' };
@@ -757,9 +795,10 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       reply.status(400);
       return { error: 'Only PPT/PPTX files are supported' };
     }
-    if (!isPathWithinRoot(LOCAL_AGENT_ROOT, resolved)) {
+    const allowedRoots = await getAllowedLocalPresentationRoots(projectPath);
+    if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
       reply.status(403);
-      return { error: `Only files inside ${LOCAL_AGENT_ROOT} can be opened` };
+      return { error: 'Only files inside the local agent directory or a registered workspace can be opened' };
     }
 
     try {
@@ -788,9 +827,9 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
   });
 
   app.post<{
-    Body: { path?: string };
+    Body: { path?: string; projectPath?: string };
   }>('/api/workspace/local-file-meta', async (request, reply) => {
-    const { path: filePath } = request.body ?? {};
+    const { path: filePath, projectPath } = request.body ?? {};
     if (!filePath) {
       reply.status(400);
       return { error: 'path required' };
@@ -806,9 +845,10 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       reply.status(400);
       return { error: 'Only PPT/PPTX files are supported' };
     }
-    if (!isPathWithinRoot(LOCAL_AGENT_ROOT, resolved)) {
+    const allowedRoots = await getAllowedLocalPresentationRoots(projectPath);
+    if (!isPathWithinAnyRoot(allowedRoots, resolved)) {
       reply.status(403);
-      return { error: `Only files inside ${LOCAL_AGENT_ROOT} are supported` };
+      return { error: 'Only files inside the local agent directory or a registered workspace are supported' };
     }
 
     try {

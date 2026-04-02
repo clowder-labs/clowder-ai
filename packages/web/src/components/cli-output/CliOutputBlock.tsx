@@ -61,16 +61,68 @@ interface LocalPresentationFileMeta {
 const PRESENTATION_PATH_PATTERNS = [
   /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.pptx?)/gi,
   /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?(\/[^\r\n`'"]+?\.pptx?)/gi,
+  // 以下代码会导致页面卡死
+  // /(?:saved|output|exported|generated|final\s+artifact|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?((?:\.{1,2}[\\/])?[^:\r\n`'"]*[\\/][^\r\n`'"]+?\.pptx?)/gi,
+  // /((?:(?:\.{1,2}|~)?[\\/])?(?:[^:\s`'"]+[\\/])+[^:\s`'"]+?\.pptx?)/gi,
   /([A-Za-z]:\\[^\r\n`'"]+?\.pptx?)/gi,
   /(\/[^\r\n`'"]+?\.pptx?)/gi,
 ];
+const RELATIVE_PRESENTATION_PATH_TOKENS = /[^\s"'`<>]+\.pptx?\b/gi;
 
 function isAbsolutePresentationPath(path: string): boolean {
   return /^[A-Za-z]:\\/.test(path) || path.startsWith('/');
 }
 
+function normalizePathSeparators(path: string, separator: '\\' | '/'): string {
+  return separator === '\\' ? path.replace(/\//g, '\\') : path.replace(/\\/g, '/');
+}
+
+function joinPresentationPath(basePath: string, filePath: string): string {
+  const separator: '\\' | '/' = basePath.includes('\\') || /^[A-Za-z]:\\/.test(basePath) ? '\\' : '/';
+  const normalizedBase = normalizePathSeparators(basePath, separator).replace(/[\\/]+$/, '');
+  const normalizedFile = normalizePathSeparators(filePath, separator).replace(/^[.][\\/]/, '').replace(/^[\\/]+/, '');
+  return `${normalizedBase}${separator}${normalizedFile}`;
+}
+
+function resolvePresentationPath(rawPath: string, configuredProjectPath?: string | null, defaultProjectPath?: string | null): string | null {
+  if (isAbsolutePresentationPath(rawPath)) return rawPath;
+
+  const basePath =
+    configuredProjectPath && configuredProjectPath !== 'default'
+      ? configuredProjectPath
+      : defaultProjectPath && defaultProjectPath !== 'default'
+        ? defaultProjectPath
+        : null;
+
+  return basePath ? joinPresentationPath(basePath, rawPath) : null;
+}
+
 function normalizePresentationPath(rawPath: string): string {
-  return rawPath.trim().replace(/^['"`]+|['"`]+$/g, '').replace(/[)\].,;:!?]+$/g, '');
+  return rawPath
+    .trim()
+    .replace(/^[('"`\[{<]+/, '')
+    .replace(/['"`)\]}>.,;:!?]+$/g, '');
+}
+
+function isLikelyRelativePresentationPath(path: string): boolean {
+  if (isAbsolutePresentationPath(path)) return false;
+  if (!/[\\/]/.test(path)) return false;
+  if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:|\/\/|\\\\)/.test(path)) return false;
+  return /\.pptx?$/i.test(path);
+}
+
+function collectRelativePresentationCandidates(text: string): string[] {
+  const matches = text.match(RELATIVE_PRESENTATION_PATH_TOKENS) ?? [];
+  return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativePresentationPath(match));
+}
+
+function pushPresentationCandidate(candidates: string[], candidate: string): void {
+  const hasMoreSpecificCandidate = candidates.some(
+    (existing) => existing.length > candidate.length && existing.endsWith(candidate),
+  );
+  if (!hasMoreSpecificCandidate) {
+    candidates.push(candidate);
+  }
 }
 
 function fileNameFromPath(path: string): string {
@@ -94,11 +146,22 @@ function extractLocalPresentationFile(events: CliEvent[]): LocalPresentationFile
       for (const match of text.matchAll(pattern)) {
         const rawPath = match[1];
         if (!rawPath) continue;
+        const fullMatch = match[0] ?? '';
         const normalized = normalizePresentationPath(rawPath);
-        if (isAbsolutePresentationPath(normalized)) {
-          candidates.push(normalized);
+        if (normalized.startsWith('/') && typeof match.index === 'number') {
+          const pathStart = match.index + fullMatch.indexOf(rawPath);
+          const previousChar = pathStart > 0 ? text[pathStart - 1] : '';
+          // Guard against extracting "/foo.pptx" out of "output/foo.pptx".
+          if (previousChar && /[A-Za-z0-9_.-]/.test(previousChar)) {
+            continue;
+          }
         }
+        pushPresentationCandidate(candidates, normalized);
       }
+    }
+
+    for (const relativeCandidate of collectRelativePresentationCandidates(text)) {
+      pushPresentationCandidate(candidates, relativeCandidate);
     }
   }
 
@@ -250,19 +313,56 @@ function PawPrint() {
 
 /* ── Status helpers ── */
 
-function PptAttachmentCard({ file }: { file: LocalPresentationFile }) {
+function PptAttachmentCard({
+  file,
+  projectPath,
+}: {
+  file: LocalPresentationFile;
+  projectPath?: string | null;
+}) {
   const [isOpening, setIsOpening] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<number | null>(null);
+  const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
+  const resolvedPath = useMemo(
+    () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
+    [defaultProjectPath, file.path, projectPath],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDefaultProjectPath(): Promise<void> {
+      if (isAbsolutePresentationPath(file.path)) return;
+      if (projectPath && projectPath !== 'default') return;
+
+      try {
+        const response = await apiFetch('/api/projects/cwd');
+        if (!response.ok) return;
+        const payload = (await response.json()) as { path?: string };
+        if (!cancelled && typeof payload.path === 'string' && payload.path.trim()) {
+          setDefaultProjectPath(payload.path.trim());
+        }
+      } catch {
+        if (!cancelled) setDefaultProjectPath(null);
+      }
+    }
+
+    void loadDefaultProjectPath();
+    return () => {
+      cancelled = true;
+    };
+  }, [file.path, projectPath]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadMeta(): Promise<void> {
+      if (!resolvedPath) return;
       try {
         const response = await apiFetch('/api/workspace/local-file-meta', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: file.path }),
+          body: JSON.stringify({ path: resolvedPath, ...(projectPath ? { projectPath } : {}) }),
         });
         if (!response.ok) return;
         const payload = (await response.json()) as LocalPresentationFileMeta;
@@ -278,16 +378,16 @@ function PptAttachmentCard({ file }: { file: LocalPresentationFile }) {
     return () => {
       cancelled = true;
     };
-  }, [file.path]);
+  }, [resolvedPath]);
 
   async function handleOpen(): Promise<void> {
-    if (isOpening) return;
+    if (isOpening || !resolvedPath) return;
     setIsOpening(true);
     try {
       await apiFetch('/api/workspace/open-local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: file.path }),
+        body: JSON.stringify({ path: resolvedPath, ...(projectPath ? { projectPath } : {}) }),
       });
     } finally {
       setIsOpening(false);
@@ -317,7 +417,7 @@ function PptAttachmentCard({ file }: { file: LocalPresentationFile }) {
         onClick={() => {
           void handleOpen();
         }}
-        disabled={isOpening}
+        disabled={isOpening || !resolvedPath}
         className="inline-flex flex-shrink-0 items-center rounded-full border border-[#D2CDC4] bg-white px-4 py-1.5 text-xs font-medium text-[#3F3B37] transition-colors hover:bg-[#F4F1EC] disabled:cursor-not-allowed disabled:opacity-70"
       >
         打开
@@ -424,9 +524,11 @@ function ToolsSection({
     prevStatus.current = status;
   }, [status, isStreaming]);
 
-  if (isStreaming && !toolsExpanded) {
-    setToolsExpanded(true);
-  }
+  useEffect(() => {
+    if (isStreaming) {
+      setToolsExpanded(true);
+    }
+  }, [isStreaming]);
 
   const toolSummary = `${toolUses.length} tool${toolUses.length > 1 ? 's' : ''}`;
 
@@ -474,6 +576,7 @@ interface CliOutputBlockProps {
   thinkingMode?: 'debug' | 'play';
   defaultExpanded?: boolean;
   breedColor?: string;
+  projectPath?: string | null;
 }
 
 export function CliOutputBlock({
@@ -482,6 +585,7 @@ export function CliOutputBlock({
   thinkingMode,
   defaultExpanded = false,
   breedColor,
+  projectPath,
 }: CliOutputBlockProps) {
   const isExport =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
@@ -489,10 +593,6 @@ export function CliOutputBlock({
   const [expanded, setExpanded] = useState(forceExpanded || defaultExpanded);
   const userInteracted = useRef(false);
   const hasMounted = useRef(false);
-
-  if (forceExpanded && !expanded) {
-    setExpanded(true);
-  }
 
   const prevStatusRef = useRef(status);
   useEffect(() => {
@@ -503,6 +603,14 @@ export function CliOutputBlock({
   }, [status]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: expanded is intentional — dispatch on toggle
+  useEffect(() => {
+    if (forceExpanded) {
+      setExpanded(true);
+    }
+  }, [forceExpanded]);
+
+  const localPresentationFile = useMemo(() => extractLocalPresentationFile(events), [events]);
+
   useLayoutEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
@@ -520,7 +628,6 @@ export function CliOutputBlock({
   const toolResults = events.filter((e) => e.kind === 'tool_result');
   const textEvents = events.filter((e) => e.kind === 'text');
   const lastToolId = status === 'streaming' ? [...events].reverse().find((e) => e.kind === 'tool_use')?.id : undefined;
-  const localPresentationFile = useMemo(() => extractLocalPresentationFile(events), [events]);
   const accent = breedColor || '#7C3AED';
   // Breed-tinted dark surface: accent blended into dark base → visibly colored AND text-readable
   const surface = tintedDark(accent, 0.25);
@@ -703,7 +810,7 @@ export function CliOutputBlock({
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
         </span>
       </div>
-      {localPresentationFile && <PptAttachmentCard file={localPresentationFile} />}
+      {localPresentationFile && <PptAttachmentCard file={localPresentationFile} projectPath={projectPath} />}
     </div>
   );
 }
