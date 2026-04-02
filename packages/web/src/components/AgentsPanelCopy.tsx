@@ -21,10 +21,8 @@ type TemplateBubblePosition = { top: number; left: number; tailLeft: number };
 type InspirationTemplate = {
   id: string;
   title: string;
-  description: string;
-  category: string;
-  persona: string[];
-  behavior: string[];
+  dexcription: string;
+  content: string;
 };
 
 type TabDefinition = {
@@ -42,103 +40,96 @@ const EMPTY_EDITABLE_DRAFTS: EditableDrafts = {
 const TEMPLATE_PAGE_SIZE = 4;
 const ACTION_MENU_ITEM_CLASS =
   'flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition text-black';
+const ACTION_MENU_VIEWPORT_PADDING = 12;
+const ACTION_MENU_OFFSET_Y = 8;
+const ACTION_MENU_ALIGN_RIGHT_OFFSET = 24;
+const ACTION_MENU_FALLBACK_WIDTH = 136;
+const ACTION_MENU_FALLBACK_HEIGHT = 96;
 
 const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
   {
     id: 'customer-service',
     title: '专业客服助手',
-    description: '遵循服务规范，礼貌应答、流程引导、问题定位与转接支持，严格遵守业务边界。',
-    category: '客服支持',
-    persona: [
-      '身份：资深客服顾问，擅长复杂问题拆解与安抚沟通。',
-      '性格：耐心克制、语气专业、表达清晰。',
-      '边界：优先给流程和升级路径，不承诺超出权限范围的结果。',
-    ],
-    behavior: [
-      '精准识别用户诉求与情绪波动，先安抚再给处理路径。',
-      '优先提供标准流程与升级建议，避免模糊表述。',
-      '回复中同步标注下一步动作和责任归属，方便继续跟进。',
-    ],
+    dexcription: '遵循服务规范，礼貌应答、流程引导、问题定位与转接支持，严格遵守业务边界。',
+    content: `### 人格定义 (Persona)
+- 身份：资深客服顾问，擅长复杂问题拆解与安抚沟通。
+- 性格：耐心克制、语气专业、表达清晰。
+- 边界：优先给流程和升级路径，不承诺超出权限范围的结果。
+
+### 行为准则 (Behavior)
+- 精准识别用户诉求与情绪波动，先安抚再给处理路径。
+- 优先提供标准流程与升级建议，避免模糊表述。
+- 回复中同步标注下一步动作和责任归属，方便继续跟进。`,
   },
   {
     id: 'content-creation',
     title: '内容创作助手',
-    description: '支持文案策写、标题优化、脚本创作与风格适配，结构清晰，表达自然。',
-    category: '文案创作',
-    persona: [
-      '身份：资深内容创作者，擅长短视频脚本、公众号与朋友圈文案。',
-      '性格：创意灵活、洞察强，适配多平台风格。',
-      '边界：只提供创作思路和文案优化，不涉及侵权内容。',
-    ],
-    behavior: [
-      '先明确平台、受众、核心卖点与风格，再组织内容结构。',
-      '快速提供多版初稿，并标注亮点和适用场景。',
-      '根据反馈迭代修改，同时说明调整重点和原因。',
-    ],
+    dexcription: '支持文案策写、标题优化、脚本创作与风格适配，结构清晰，表达自然。',
+    content: `### 人格定义 (Persona)
+- 身份：资深内容创作者，擅长短视频脚本、公众号与朋友圈文案。
+- 性格：创意灵活、洞察强，适配多平台风格。
+- 边界：只提供创作思路和文案优化，不涉及侵权内容。
+
+### 行为准则 (Behavior)
+- 先明确平台、受众、核心卖点与风格，再组织内容结构。
+- 快速提供多版初稿，并标注亮点和适用场景。
+- 根据反馈迭代修改，同时说明调整重点和原因。`,
   },
   {
     id: 'knowledge-answering',
     title: '知识解答专家',
-    description: '以严谨准确为原则，科普概念、拆解原理、解释规则，输出可信且有条理。',
-    category: '知识解答',
-    persona: [
-      '身份：知识顾问，擅长多源信息整合与严谨解释。',
-      '性格：理性克制、客观中立、注重依据。',
-      '边界：不制造未经验证的结论，需要时先补充上下文。',
-    ],
-    behavior: [
-      '先确认问题边界和上下文，再给出结构化解释。',
-      '需要时补充适用范围、风险提醒和可执行建议。',
-      '输出以结论、依据、行动项三段式为主，便于快速吸收。',
-    ],
+    dexcription: '以严谨准确为原则，科普概念、拆解原理、解释规则，输出可信且有条理。',
+    content: `### 人格定义 (Persona)
+- 身份：知识顾问，擅长多源信息整合与严谨解释。
+- 性格：理性克制、客观中立、注重依据。
+- 边界：不制造未经验证的结论，需要时先补充上下文。
+
+### 行为准则 (Behavior)
+- 先确认问题边界和上下文，再给出结构化解释。
+- 需要时补充适用范围、风险提醒和可执行建议。
+- 输出以结论、依据、行动项三段式为主，便于快速吸收。`,
   },
   {
     id: 'work-efficiency',
     title: '职场效率助手',
-    description: '提供沟通话术、汇报提纲、流程梳理与决策辅助，帮助提升交付效率。',
-    category: '效率协作',
-    persona: [
-      '身份：项目协作教练，擅长流程梳理与任务推进。',
-      '性格：简洁务实、节奏明确、结果导向。',
-      '边界：优先提升沟通和推进效率，不替代最终业务判断。',
-    ],
-    behavior: [
-      '优先沉淀行动项、责任人和时间节点。',
-      '必要时给出沟通模板、纪要模板和复盘建议。',
-      '遇到阻塞时先拆原因，再提供可落地的替代方案。',
-    ],
+    dexcription: '提供沟通话术、汇报提纲、流程梳理与决策辅助，帮助提升交付效率。',
+    content: `### 人格定义 (Persona)
+- 身份：项目协作教练，擅长流程梳理与任务推进。
+- 性格：简洁务实、节奏明确、结果导向。
+- 边界：优先提升沟通和推进效率，不替代最终业务判断。
+
+### 行为准则 (Behavior)
+- 优先沉淀行动项、责任人和时间节点。
+- 必要时给出沟通模板、纪要模板和复盘建议。
+- 遇到阻塞时先拆原因，再提供可落地的替代方案。`,
   },
   {
     id: 'project-management',
     title: '项目管理助手',
-    description: '帮助拆解目标、制定里程碑、推动协作与风险跟踪，保持推进节奏清晰。',
-    category: '项目协同',
-    persona: [
-      '身份：项目经理与交付协调者，擅长推进计划落地。',
-      '性格：稳健清晰、节奏明确、关注依赖关系。',
-      '边界：聚焦项目推进与协作管理，不替代业务 owner 决策。',
-    ],
-    behavior: [
-      '先明确目标与边界，再拆解任务、识别风险并推动闭环。',
-      '围绕依赖关系和优先级安排里程碑与检查点。',
-      '产出默认带负责人、时间节点和跟踪建议。',
-    ],
+    dexcription: '帮助拆解目标、制定里程碑、推动协作与风险跟踪，保持推进节奏清晰。',
+    content: `### 人格定义 (Persona)
+- 身份：项目经理与交付协调者，擅长推进计划落地。
+- 性格：稳健清晰、节奏明确、关注依赖关系。
+- 边界：聚焦项目推进与协作管理，不替代业务 owner 决策。
+
+### 行为准则 (Behavior)
+- 先明确目标与边界，再拆解任务、识别风险并推动闭环。
+- 围绕依赖关系和优先级安排里程碑与检查点。
+- 产出默认带负责人、时间节点和跟踪建议。`,
   },
   {
     id: 'data-analysis',
     title: '数据分析助手',
-    description: '聚焦指标拆解、数据解读、洞察归纳与结论表达，适合业务分析场景。',
-    category: '数据分析',
-    persona: [
-      '身份：数据分析师，擅长从指标与样本中提炼业务洞察。',
-      '性格：严谨客观、表达简洁、重视证据。',
-      '边界：不在样本不足时输出确定性结论，会明确说明口径和限制。',
-    ],
-    behavior: [
-      '先确认指标口径与样本范围，再给出分析过程。',
-      '输出结论时同步说明依据、异常点和建议动作。',
-      '默认补充图表建议、后续验证方向和数据缺口。',
-    ],
+    dexcription: '聚焦指标拆解、数据解读、洞察归纳与结论表达，适合业务分析场景。',
+    content: `### 人格定义 (Persona)
+- 身份：数据分析师，擅长从指标与样本中提炼业务洞察。
+- 性格：严谨客观、表达简洁、重视证据。
+- 边界：不在样本不足时输出确定性结论，会明确说明口径和限制。
+
+### 行为准则 (Behavior)
+- 先确认指标口径与样本范围，再给出分析过程。
+- 输出结论时同步说明依据、异常点和建议动作。
+- 默认补充图表建议、后续验证方向和数据缺口。`,
   },
 ];
 
@@ -157,10 +148,6 @@ function PersonaIcon(props: IconProps) {
 
 function CollaborateIcon(props: IconProps) {
   return <AgentManagementIcon name="collab" className={props.className} />;
-}
-
-function SkillsIcon(props: IconProps) {
-  return <AgentManagementIcon name="skills" className={props.className} />;
 }
 
 function TemplateIcon(props: IconProps) {
@@ -232,17 +219,7 @@ function buildEditableSavePayload(tab: EditableTabKey, draft: string): Record<st
 }
 
 function buildTemplateMarkdown(template: InspirationTemplate): string {
-  return [
-    `## ${template.title}`,
-    '',
-    '### 人格定义 (Persona)',
-    '',
-    ...template.persona.map((line) => `- ${line}`),
-    '',
-    '### 行为准则 (Behavior)',
-    '',
-    ...template.behavior.map((line) => `- ${line}`),
-  ].join('\n');
+  return `## ${template.title}\n\n${template.content}`;
 }
 
 function formatBudgetLabel(value?: number): string {
@@ -357,15 +334,7 @@ export function AgentsPanelCopy() {
       INSPIRATION_TEMPLATES.map((template) => ({
         id: template.id,
         title: template.title,
-        category: template.category,
-        source: '灵魂模板',
-        creator: '官方预置',
-        createdAt: '2025-09-12 17:22:30',
-        summary: template.description,
-        sections: [
-          { title: '人格定义 (Persona)', lines: template.persona },
-          { title: '行为准则 (Behavior)', lines: template.behavior },
-        ],
+        dexcription: template.dexcription,
         content: buildTemplateMarkdown(template),
       })),
     [],
@@ -403,6 +372,25 @@ export function AgentsPanelCopy() {
     }, 90);
   }, []);
 
+  const computeActionMenuPosition = useCallback((triggerRect: DOMRect): ActionMenuPosition => {
+    const menuWidth = actionMenuRef.current?.offsetWidth ?? ACTION_MENU_FALLBACK_WIDTH;
+    const menuHeight = actionMenuRef.current?.offsetHeight ?? ACTION_MENU_FALLBACK_HEIGHT;
+
+    const minLeft = ACTION_MENU_VIEWPORT_PADDING;
+    const maxLeft = Math.max(minLeft, window.innerWidth - menuWidth - ACTION_MENU_VIEWPORT_PADDING);
+    const preferredLeft = triggerRect.right - ACTION_MENU_ALIGN_RIGHT_OFFSET;
+    const left = Math.min(Math.max(preferredLeft, minLeft), maxLeft);
+
+    const topBelow = triggerRect.bottom + ACTION_MENU_OFFSET_Y;
+    const canOpenBelow = topBelow + menuHeight <= window.innerHeight - ACTION_MENU_VIEWPORT_PADDING;
+    const preferredTop = canOpenBelow ? topBelow : triggerRect.top - menuHeight - ACTION_MENU_OFFSET_Y;
+    const minTop = ACTION_MENU_VIEWPORT_PADDING;
+    const maxTop = Math.max(minTop, window.innerHeight - menuHeight - ACTION_MENU_VIEWPORT_PADDING);
+    const top = Math.min(Math.max(preferredTop, minTop), maxTop);
+
+    return { top, left };
+  }, []);
+
   const positionTemplateBubble = useCallback(() => {
     const trigger = hoveredTemplateTriggerRef.current;
     const bubble = templateBubbleRef.current;
@@ -411,13 +399,13 @@ export function AgentsPanelCopy() {
     const triggerRect = trigger.getBoundingClientRect();
     const bubbleRect = bubble.getBoundingClientRect();
     const viewportPadding = 12;
-    const gap = 16;
+    const gap = 10;
     const desiredLeft = triggerRect.left + triggerRect.width / 2 - bubbleRect.width / 2;
     const maxLeft = Math.max(viewportPadding, window.innerWidth - bubbleRect.width - viewportPadding);
     const left = Math.min(Math.max(desiredLeft, viewportPadding), maxLeft);
     const top = Math.max(viewportPadding, triggerRect.top - bubbleRect.height - gap);
     const triggerCenterX = triggerRect.left + triggerRect.width / 2;
-    const tailLeft = Math.min(Math.max(triggerCenterX - left - 7, 18), Math.max(18, bubbleRect.width - 18));
+    const tailLeft = Math.min(Math.max(triggerCenterX - left, 18), Math.max(18, bubbleRect.width - 18));
 
     setTemplateBubblePosition({ top, left, tailLeft });
   }, []);
@@ -531,11 +519,7 @@ export function AgentsPanelCopy() {
       if (!trigger) return;
 
       const rect = trigger.getBoundingClientRect();
-      const menuWidth = 136;
-      const viewportPadding = 12;
-      const nextLeft = Math.min(rect.right - 24, window.innerWidth - menuWidth - viewportPadding);
-      const nextTop = rect.bottom + 8;
-      setActionMenuPosition({ top: nextTop, left: nextLeft });
+      setActionMenuPosition(computeActionMenuPosition(rect));
     };
 
     updateMenuPosition();
@@ -549,7 +533,7 @@ export function AgentsPanelCopy() {
       window.removeEventListener('resize', updateMenuPosition);
       document.removeEventListener('scroll', updateMenuPosition, true);
     };
-  }, [openActionMenuCatId]);
+  }, [computeActionMenuPosition, openActionMenuCatId]);
 
   useLayoutEffect(() => {
     if (!hoveredTemplateId) return;
@@ -797,7 +781,9 @@ export function AgentsPanelCopy() {
               type="button"
               onClick={handleStartEdit}
               disabled={!canEditActiveTab}
-              className={`ui-button-secondary font-normal mt-4 ${!canEditActiveTab ? 'cursor-not-allowed opacity-50' : ''}`}
+              className={`mt-4 inline-flex h-7 min-w-[72px] items-center justify-center rounded-full border border-black bg-[var(--surface-panel)] px-6 py-[5px] text-[12px] font-normal text-black transition ${
+                !canEditActiveTab ? 'cursor-not-allowed opacity-50' : 'hover:bg-black/5'
+              }`}
             >
               编辑
             </button>
@@ -811,7 +797,7 @@ export function AgentsPanelCopy() {
         <div className="h-full overflow-auto">
           <MarkdownContent
             content={content}
-            className="text-[13px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
+            className="text-[14px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
             disableCommandPrefix
           />
         </div>
@@ -846,7 +832,7 @@ export function AgentsPanelCopy() {
         请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
       </p>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6 pt-4">
-        <div className="mt-auto mx-auto w-full max-w-[1328px]">
+        <div className="mt-auto mx-auto w-full">
           <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
             {templatePageCount > 1 ? (
@@ -874,7 +860,6 @@ export function AgentsPanelCopy() {
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {visibleTemplates.map((template) => {
-              const isActive = activeTemplatePreview?.id === template.id;
               const isHovered = hoveredTemplatePreview?.id === template.id;
               return (
                 <div
@@ -907,16 +892,10 @@ export function AgentsPanelCopy() {
                   <button
                     type="button"
                     onClick={() => setActiveTemplateId(template.id)}
-                    className={`min-h-[128px] w-full rounded-[8px] border px-4 py-4 text-left transition ${
-                      isHovered
-                        ? 'border-[var(--border-accent)] bg-[var(--surface-selected)] shadow-[var(--shadow-card-soft)]'
-                        : isActive
-                          ? 'border-[var(--border-accent)] bg-[var(--surface-panel)]'
-                          : 'border-[var(--border-default)] bg-[var(--surface-panel)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card-muted)]'
-                    }`}
+                    className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
                   >
                     <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
-                    <div className="mt-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.description}</div>
+                    <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.dexcription}</div>
                   </button>
                 </div>
               );
@@ -926,7 +905,7 @@ export function AgentsPanelCopy() {
           {hoveredTemplatePreview ? (
             <div
               ref={templateBubbleRef}
-              className="fixed z-40 w-[400px] h-[300px] flex flex-col"
+              className="fixed z-40 w-[400px] h-[300px] flex flex-col shadow-[0_2px_12px_0_rgba(0,0,0,0.16)] rounded-[8px]"
               style={{
                 top: templateBubblePosition?.top ?? 0,
                 left: templateBubblePosition?.left ?? 0,
@@ -962,18 +941,22 @@ export function AgentsPanelCopy() {
                   <button
                     type="button"
                     onClick={() => handleApplyTemplate(hoveredTemplatePreview.id)}
-                    className="ui-button-primary h-[24px] w-[80px] px-4 py-1 text-[11px] rounded-[999px] flex items-center justify-center"
+                    className="ui-button-primary h-[24px] px-4 py-[3px] text-[12px] rounded-[999px] flex items-center justify-center font-normal"
                   >
                     插入模板
                   </button>
                 </div>
 
                 {/* 气泡箭头 */}
-                <div
-                  className="absolute top-[calc(100%-7px)] h-[14px] w-[14px] rotate-45 border-b border-r border-[var(--border-default)] bg-[var(--surface-panel)]"
-                  style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
-                />
               </div>
+              <div
+                className="pointer-events-none absolute top-full h-0 w-0 -translate-x-1/2 border-x-[7px] border-x-transparent border-t-[8px] border-t-[var(--border-default)]"
+                style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
+              />
+              <div
+                className="pointer-events-none absolute top-full mt-[-1px] h-0 w-0 -translate-x-1/2 border-x-[6px] border-x-transparent border-t-[7px] border-t-[var(--surface-panel)]"
+                style={{ left: templateBubblePosition?.tailLeft ?? 24 }}
+              />
             </div>
           ) : null}
         </div>
@@ -1103,16 +1086,13 @@ export function AgentsPanelCopy() {
                             }
 
                             const rect = event.currentTarget.getBoundingClientRect();
-                            const menuWidth = 136;
-                            const viewportPadding = 12;
-                            const nextLeft = Math.min(rect.right - 24, window.innerWidth - menuWidth - viewportPadding);
-                            setActionMenuPosition({ top: rect.bottom + 8, left: nextLeft });
+                            setActionMenuPosition(computeActionMenuPosition(rect));
                             actionMenuTriggerRef.current = event.currentTarget;
                             setOpenActionMenuCatId(cat.id);
                           }}
                           className={`inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition ${
                             openActionMenuCatId === cat.id
-                              ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]'
+                              ? 'bg-[#f5f5f5] text-[var(--text-accent)]'
                               : 'text-[var(--text-muted)] hover:bg-[#f5f5f5] hover:text-[var(--text-accent)]'
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
@@ -1212,8 +1192,8 @@ export function AgentsPanelCopy() {
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4">
-                <h2 className="text-[14px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
+              <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4 h-14">
+                <h2 className="text-[16px] h-[22px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
                 {currentTab.editable
                   ? mode === 'edit' && canEditActiveTab
                     ? renderEditActions()
@@ -1337,3 +1317,5 @@ export function AgentsPanelCopy() {
     </div>
   );
 }
+
+export { AgentsPanelCopy as AgentsPanel };
