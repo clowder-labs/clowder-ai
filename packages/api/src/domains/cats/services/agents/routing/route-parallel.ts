@@ -10,7 +10,11 @@ import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
-import type { InvocationContext } from '../../context/SystemPromptBuilder.js';
+import {
+  buildInvocationContext,
+  buildStaticIdentity,
+  type InvocationContext,
+} from '../../context/SystemPromptBuilder.js';
 import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.js';
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
 import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
@@ -118,7 +122,7 @@ export async function* routeParallel(
       // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only.
       // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
       const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
-      const staticIdentity = '';
+      const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
       // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
       const mcpInstructions = needsMcpInjection(mcpAvailable)
         ? buildMcpCallbackInstructions({
@@ -146,7 +150,19 @@ export async function* routeParallel(
           /* best-effort: signal lookup failure does not block invocation */
         }
       }
-      const invocationContext = '';
+      const invocationContext = buildInvocationContext({
+        catId,
+        mode: 'parallel',
+        teammates,
+        mcpAvailable,
+        ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+        ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
+        ...(routingPolicy ? { routingPolicy } : {}),
+        ...(sopStageHint ? { sopStageHint } : {}),
+        ...(activeSignals ? { activeSignals } : {}),
+        ...(voiceMode ? { voiceMode } : {}),
+        ...(bootcampState ? { bootcampState, threadId } : {}),
+      });
 
       const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);
       const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
