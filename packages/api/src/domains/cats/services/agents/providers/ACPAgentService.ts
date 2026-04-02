@@ -146,9 +146,10 @@ function recoverablePauseMessage(
 
 function isRecoverablePauseResult(result: unknown): boolean {
   if (!result || typeof result !== 'object') return false;
-  const runStatus = typeof (result as { runStatus?: unknown }).runStatus === 'string'
-    ? (result as { runStatus: string }).runStatus
-    : '';
+  const runStatus =
+    typeof (result as { runStatus?: unknown }).runStatus === 'string'
+      ? (result as { runStatus: string }).runStatus
+      : '';
   return runStatus === 'paused' && (result as { recoverable?: unknown }).recoverable === true;
 }
 
@@ -200,7 +201,7 @@ function buildSessionParams(
   options?: AgentServiceOptions,
 ): Record<string, unknown> {
   const resolvedWorkingDirectory = workingDirectory ?? providerProfile.cwd;
-  const mcpServers = buildAcpMcpServers(initializeResult, options);
+  const mcpServers = buildAcpMcpServers(initializeResult, resolvedWorkingDirectory, options);
   return {
     ...(resolvedWorkingDirectory ? { cwd: resolvedWorkingDirectory } : {}),
     mcpServers,
