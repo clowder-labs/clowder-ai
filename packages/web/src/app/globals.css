@@ -106,6 +106,7 @@
   --text-secondary: #666666;
   --text-muted: #8f8075;
   --text-subtle: #b59a88;
+  --text-disabled: #c2c2c2;
   --text-inverse: #ffffff;
   --text-accent: var(--color-cocreator-primary);
 
@@ -156,6 +157,7 @@
   --text-secondary: #666666;
   --text-muted: #595959;
   --text-subtle: #d0d0d0;
+  --text-disabled: #c2c2c2;
   --text-inverse: #ffffff;
   --text-accent: #1476ff;
 
@@ -318,8 +320,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-button-primary,
-  .ui-button-secondary,
-  .ui-button-danger {
+  .ui-button-secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -334,8 +335,7 @@ select:-webkit-autofill:focus {
 
   .ui-button:disabled,
   .ui-button-primary:disabled,
-  .ui-button-secondary:disabled,
-  .ui-button-danger:disabled {
+  .ui-button-secondary:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
@@ -358,15 +358,6 @@ select:-webkit-autofill:focus {
   .ui-button-secondary:hover {
     background: var(--surface-card-muted);
     color: var(--text-primary);
-  }
-
-  .ui-button-danger {
-    background: #ef4444;
-    color: #ffffff;
-  }
-
-  .ui-button-danger:hover {
-    background: #dc2626;
   }
 
   .ui-icon-button {
