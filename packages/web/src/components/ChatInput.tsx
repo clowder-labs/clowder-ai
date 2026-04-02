@@ -505,6 +505,23 @@ export function ChatInput({
       return;
     }
 
+    // Ctrl+Enter inserts newline instead of sending.
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      const ta = textareaRef.current;
+      const start = ta?.getSelectionStart() ?? input.length;
+      const end = ta?.getSelectionEnd() ?? input.length;
+      const next = `${input.slice(0, start)}\n${input.slice(end)}`;
+      setInput(next);
+      closeMenus();
+      pathCompletion.close();
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(start + 1, start + 1);
+      }, 0);
+      return;
+    }
+
     if (activeMenu) {
       if (activeOptionsCount === 0) {
         if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab' || e.key === 'Escape') {

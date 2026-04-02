@@ -42,10 +42,6 @@ type Segment =
   | { type: 'mention'; text: string }
   | { type: 'skill'; text: string; iconUrl?: string | null };
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function buildSegments(value: string, skillOptions: RichSkillOption[]): Segment[] {
   if (!value) return [{ type: 'text', text: '' }];
   const sortedSkills = [...skillOptions].sort((a, b) => b.name.length - a.name.length);
@@ -278,7 +274,22 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           onInput?.();
         }}
         onKeyDown={onKeyDown}
-        onPaste={onPaste}
+        onPaste={(e) => {
+          onPaste?.(e);
+          if (e.defaultPrevented) return;
+
+          e.preventDefault();
+          const root = rootRef.current;
+          if (!root) return;
+          const plain = (e.clipboardData?.getData('text/plain') ?? '').replace(/\r?\n+/g, ' ');
+
+          const start = getSelectionOffset(root, false);
+          const end = getSelectionOffset(root, true);
+          const next = `${value.slice(0, start)}${plain}${value.slice(end)}`;
+          const caret = start + plain.length;
+          onValueChange(next, caret, caret);
+          onInput?.();
+        }}
         onScroll={onScroll}
       />
     </div>
