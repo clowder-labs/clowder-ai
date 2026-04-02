@@ -50,7 +50,6 @@ import {
   MemoryGovernanceStore,
   OpenCodeAgentService,
 } from './domains/cats/services/index.js';
-import { AutoSummarizer } from './domains/cats/services/orchestration/AutoSummarizer.js';
 import { initPushNotificationService } from './domains/cats/services/push/PushNotificationService.js';
 import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
@@ -695,8 +694,6 @@ async function main(): Promise<void> {
     signalArticleLookup: createSignalArticleLookup({ transcriptReader }),
   });
 
-  const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
-
   // F39: Message queue delivery
   const invocationQueue = new InvocationQueue();
   const queueProcessor = new QueueProcessor({
@@ -762,7 +759,6 @@ async function main(): Promise<void> {
     threadStore,
     invocationTracker,
     invocationRecordStore,
-    autoSummarizer,
     summaryStore,
     draftStore,
     invocationQueue,
