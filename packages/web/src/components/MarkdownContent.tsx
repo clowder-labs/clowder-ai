@@ -34,7 +34,6 @@ function highlightMentions(text: string): ReactNode[] {
         className="font-semibold"
         style={{
           color: catColor,
-          backgroundColor: `rgba(${r}, ${g}, ${b}, 0.15)`,
           borderRadius: 4,
           padding: '1px 5px',
         }}
