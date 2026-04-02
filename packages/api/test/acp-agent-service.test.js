@@ -173,6 +173,200 @@ describe('resolveACPMcpTransportFromInitializeResult', () => {
   });
 });
 
+describe('buildAcpMcpServers', () => {
+  async function withTempMcpProject(mcpServers, testFn) {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-mcp-project-'));
+    try {
+      await writeFile(path.join(tempDir, '.mcp.json'), JSON.stringify({ mcpServers }, null, 2));
+      await testFn(tempDir);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  it('injects project .mcp.json stdio servers into ACP relay sessions', async () => {
+    await withTempMcpProject(
+      {
+        'cat-cafe-collab': {
+          command: 'node',
+          args: ['packages/mcp-server/dist/collab.js'],
+        },
+        'cat-cafe-signals': {
+          command: 'node',
+          args: ['packages/mcp-server/dist/signals.js'],
+        },
+        remote: {
+          type: 'streamableHttp',
+          url: 'https://example.com/mcp',
+        },
+      },
+      async (workingDirectory) => {
+        const { buildAcpMcpServers } = await import('../dist/domains/cats/services/agents/providers/acp-mcp-bridge.js');
+
+        assert.deepEqual(
+          buildAcpMcpServers(
+            {
+              agentCapabilities: {
+                mcpCapabilities: {
+                  acp: true,
+                },
+              },
+            },
+            { workingDirectory },
+          ),
+          [
+            { id: 'cat-cafe-collab', name: 'cat-cafe-collab', transport: 'acp', acpId: 'cat-cafe-collab' },
+            { id: 'cat-cafe-signals', name: 'cat-cafe-signals', transport: 'acp', acpId: 'cat-cafe-signals' },
+          ],
+        );
+      },
+    );
+  });
+
+  it('injects project .mcp.json servers directly for stdio MCP agents and preserves callback env', async () => {
+    await withTempMcpProject(
+      {
+        'cat-cafe-signals': {
+          command: 'node',
+          args: ['packages/mcp-server/dist/signals.js'],
+          env: {
+            EXISTING_FLAG: '1',
+            CAT_CAFE_API_URL: 'https://placeholder.invalid',
+          },
+        },
+        'chrome-devtools': {
+          command: 'npx',
+          args: ['-y', 'chrome-devtools-mcp@latest'],
+        },
+        remote: {
+          type: 'streamableHttp',
+          url: 'https://example.com/mcp',
+          headers: {
+            Authorization: 'Bearer demo',
+          },
+        },
+      },
+      async (workingDirectory) => {
+        const { buildAcpMcpServers } = await import('../dist/domains/cats/services/agents/providers/acp-mcp-bridge.js');
+
+        assert.deepEqual(
+          buildAcpMcpServers(
+            {
+              agentCapabilities: {
+                mcpCapabilities: {
+                  stdio: true,
+                },
+              },
+            },
+            {
+              workingDirectory,
+              callbackEnv: {
+                CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
+                CAT_CAFE_CALLBACK_TOKEN: 'secret-token',
+              },
+            },
+          ),
+          [
+            {
+              id: 'cat-cafe-signals',
+              name: 'cat-cafe-signals',
+              transport: 'stdio',
+              command: 'node',
+              args: ['packages/mcp-server/dist/signals.js'],
+              env: {
+                EXISTING_FLAG: '1',
+                CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
+                CAT_CAFE_CALLBACK_TOKEN: 'secret-token',
+              },
+            },
+            {
+              id: 'chrome-devtools',
+              name: 'chrome-devtools',
+              transport: 'stdio',
+              command: 'npx',
+              args: ['-y', 'chrome-devtools-mcp@latest'],
+            },
+            {
+              id: 'remote',
+              name: 'remote',
+              transport: 'streamableHttp',
+              type: 'http',
+              url: 'https://example.com/mcp',
+              headers: {
+                Authorization: 'Bearer demo',
+              },
+            },
+          ],
+        );
+      },
+    );
+  });
+});
+
+describe('ACPMcpBridge', () => {
+  it('accepts .mcp.json server ids for mcp/connect instead of only cat-cafe', async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-mcp-bridge-'));
+    const fakeServerFile = path.join(tempDir, 'fake-mcp-server.mjs');
+    const mcpConfigFile = path.join(tempDir, '.mcp.json');
+    const serverScript = `
+process.on('SIGTERM', () => process.exit(0));
+process.stdin.resume();
+setInterval(() => {}, 1000);
+`;
+    await writeFile(fakeServerFile, serverScript);
+    await writeFile(
+      mcpConfigFile,
+      JSON.stringify(
+        {
+          mcpServers: {
+            'cat-cafe-signals': {
+              command: process.execPath,
+              args: [fakeServerFile],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const { ACPMcpBridge } = await import('../dist/domains/cats/services/agents/providers/acp-mcp-bridge.js');
+    const bridge = new ACPMcpBridge({ workingDirectory: tempDir });
+    let sentResult = null;
+
+    try {
+      const handled = await bridge.handleInboundMessage(
+        {
+          async sendResult(_id, result) {
+            sentResult = result;
+          },
+          async sendError() {
+            throw new Error('unexpected sendError');
+          },
+        },
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'mcp/connect',
+          params: {
+            sessionId: 'sess-1',
+            acpId: 'cat-cafe-signals',
+          },
+        },
+        'sess-1',
+      );
+
+      assert.equal(handled, true);
+      assert.equal(sentResult?.serverId, 'cat-cafe-signals');
+      assert.equal(sentResult?.status, 'open');
+      assert.equal(typeof sentResult?.connectionId, 'string');
+    } finally {
+      await bridge.closeAll();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('buildACPMetadata', () => {
   it('uses the ACP provider id as the metadata model label', async () => {
     const { buildACPMetadata } = await import('../dist/domains/cats/services/agents/providers/acp-session-helpers.js');
