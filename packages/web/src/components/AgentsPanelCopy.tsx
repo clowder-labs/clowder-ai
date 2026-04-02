@@ -828,10 +828,19 @@ export function AgentsPanelCopy() {
 
   const renderPersonaEmptyEditor = () => (
     <div className="relative flex h-full min-h-0 flex-col">
-      <p className="px-8 pb-1 text-[12px] text-[var(--text-muted)]">
-        请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
-      </p>
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6 pt-4">
+      <div className="px-8 pb-3">
+        <textarea
+          value={activeWorkingDraft}
+          onChange={(event) => {
+            if (!isEditableTab(activeTab)) return;
+            updateWorkingDraft(activeTab, event.target.value);
+          }}
+          placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
+          className="h-[120px] w-full resize-none rounded-[8px]  bg-[var(--surface-panel)] px-4 py-3 text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          data-testid="agent-tab-textarea"
+        />
+      </div>
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6">
         <div className="mt-auto mx-auto w-full">
           <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
