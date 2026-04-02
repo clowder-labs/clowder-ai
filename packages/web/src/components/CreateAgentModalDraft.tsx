@@ -108,14 +108,16 @@ function CloseIcon() {
 
 function SparklesIcon() {
   return (
-    <svg className="h-[18px] w-[18px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="mx-auto block h-[16px] w-[16px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
-        d="M12 3L13.6 7.4L18 9L13.6 10.6L12 15L10.4 10.6L6 9L10.4 7.4L12 3Z"
+        d="M12 4.4L13.7 9.3L18.6 11L13.7 12.7L12 17.6L10.3 12.7L5.4 11L10.3 9.3L12 4.4Z"
         stroke="currentColor"
         strokeWidth="1.7"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M18.5 4.5L19 6L20.5 6.5L19 7L18.5 8.5L18 7L16.5 6.5L18 6L18.5 4.5Z" fill="currentColor" />
+      <path d="M17.8 5.7L18.2 6.8L19.3 7.2L18.2 7.6L17.8 8.7L17.4 7.6L16.3 7.2L17.4 6.8L17.8 5.7Z" fill="currentColor" />
+      <path d="M6.2 15.6L6.45 16.3L7.15 16.55L6.45 16.8L6.2 17.5L5.95 16.8L5.25 16.55L5.95 16.3L6.2 15.6Z" fill="currentColor" />
     </svg>
   );
 }
@@ -702,7 +704,7 @@ export function CreateAgentModalDraft({
             type="button"
             onClick={onClose}
             className="ui-icon-button h-10 w-10 rounded-full"
-            style={{ transform: 'translate(12px, -12px)' }}
+            style={{ transform: 'translate(16px, -16px)' }}
           >
             <CloseIcon />
           </button>
@@ -725,16 +727,16 @@ export function CreateAgentModalDraft({
 
             <div className="space-y-2.5">
               <div className="text-[12px] font-semibold text-[var(--text-primary)]">描述（可选）</div>
-              <div className="ui-field relative bg-[var(--surface-panel)] px-4 py-3">
+              <div className="ui-field relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
                 <textarea
                   aria-label="Description"
                   value={draftDescription}
                   onChange={(event) => setDraftDescription(event.target.value)}
                   placeholder="请输入描述"
                   maxLength={1000}
-                  className="h-[84px] min-h-[84px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                  className="pb-3 h-[60px] min-h-[60px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
                 />
-                <div className="pointer-events-none absolute bottom-3 right-10 text-[12px] text-[var(--text-muted)]">
+                <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
                   {draftDescription.length}/1000
                 </div>
               </div>

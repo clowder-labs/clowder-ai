@@ -940,7 +940,7 @@ export function AgentsPanelCopy() {
               }}
               onMouseLeave={scheduleTemplateHoverClear}
             >
-              <div className="relative flex flex-col h-full bg-[var(--surface-panel)] rounded-2 border border-[var(--border-default)] shadow-[var(--shadow-card-hover)] overflow-hidden p-4">
+              <div className="relative flex flex-col h-full bg-[var(--surface-panel)] rounded-[8px] border border-[var(--border-default)] shadow-[var(--shadow-card-hover)] overflow-hidden p-4">
                 {/* 顶部标题 - 固定 */}
                 <div className="shrink-0  pb-3">
                   <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">
