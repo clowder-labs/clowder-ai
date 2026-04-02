@@ -366,7 +366,7 @@ function buildEditForm(
 export function CreateAgentModalDraft({
   open,
   cat = null,
-  name = '',
+  name = 'BOT',
   description = '',
   selectedModelId = null,
   draft = null,
@@ -416,7 +416,7 @@ export function CreateAgentModalDraft({
 
   useEffect(() => {
     if (!open) return;
-    setDraftName(name || cat?.name || cat?.displayName || '');
+    setDraftName(name || cat?.name || cat?.displayName || 'BOT');
     setDraftDescription(description || cat?.roleDescription || '');
     // 如果是新建智能体且没有头像，则随机选择一个预设头像；否则使用已有头像
     if (cat) {
