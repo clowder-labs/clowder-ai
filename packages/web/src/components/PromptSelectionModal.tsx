@@ -71,7 +71,7 @@ function PromptDetailContent({ item }: { item: PromptSelectionItem }) {
     <div className="h-full overflow-y-auto">
       <MarkdownContent
         content={item.content}
-        className="text-[13px] leading-7 text-[#2E3542] [&_h1]:mb-3 [&_h1]:text-[18px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[14px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#555E6D] [&_p]:text-[#555E6D]"
+        className="text-[12px] leading-7 text-[#2E3542] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#555E6D] [&_p]:text-[#555E6D]"
         disableCommandPrefix
       />
     </div>

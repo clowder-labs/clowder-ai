@@ -832,7 +832,7 @@ export function AgentsPanelCopy() {
         请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成
       </p>
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden px-8 pb-6 pt-4">
-        <div className="mt-auto mx-auto w-full max-w-[1328px]">
+        <div className="mt-auto mx-auto w-full">
           <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[var(--text-muted)]">
             <span>灵魂模板</span>
             {templatePageCount > 1 ? (
@@ -1193,7 +1193,7 @@ export function AgentsPanelCopy() {
 
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="flex items-center justify-between gap-4 px-8 pb-4 pt-4 h-14">
-                <h2 className="text-[14px] h-[22px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
+                <h2 className="text-[16px] h-[22px] font-bold text-[var(--text-primary)]">{currentTab.label}</h2>
                 {currentTab.editable
                   ? mode === 'edit' && canEditActiveTab
                     ? renderEditActions()
