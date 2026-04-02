@@ -106,6 +106,7 @@
   --text-secondary: #666666;
   --text-muted: #8f8075;
   --text-subtle: #b59a88;
+  --text-disabled: #c2c2c2;
   --text-inverse: #ffffff;
   --text-accent: var(--color-cocreator-primary);
 
@@ -156,6 +157,7 @@
   --text-secondary: #666666;
   --text-muted: #595959;
   --text-subtle: #d0d0d0;
+  --text-disabled: #c2c2c2;
   --text-inverse: #ffffff;
   --text-accent: #1476ff;
 
