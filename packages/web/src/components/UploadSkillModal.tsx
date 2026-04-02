@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { AgentManagementIcon } from './AgentManagementIcon';
 
 interface UploadFile {
   path: string;
@@ -12,6 +13,10 @@ interface UploadSkillModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+}
+
+function CloseIcon() {
+  return <AgentManagementIcon name="close" className="h-4 w-4" />;
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -152,7 +157,17 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="upload-skill-overlay">
       <div role="dialog" aria-modal="true" className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-        <h3 className="text-sm font-bold mb-5">上传技能</h3>
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-sm font-bold">上传技能</h3>
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="close"
+            className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            <CloseIcon />
+          </button>
+        </div>
 
         {/* Name input */}
         <div className="mb-4">
