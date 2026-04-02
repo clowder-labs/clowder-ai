@@ -684,7 +684,7 @@ export function ModelsPanel() {
                                     void handleDeleteModel(card.id, card.name);
                                   }}
                                   data-testid={`model-card-delete-${card.id}`}
-                                  className="ml-6 whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
+                                  className="ml-3 whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
                                 >
                                   {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
                                 </button>
@@ -718,7 +718,7 @@ export function ModelsPanel() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
           data-testid="models-create-model-modal"
         >
-          <div className="flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl">
+          <div className="flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-[16px] font-bold">{isEditMode ? '编辑模型' : CREATE_MODEL_LABEL}</h3>
               <button
