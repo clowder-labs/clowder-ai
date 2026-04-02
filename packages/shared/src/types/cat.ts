@@ -44,6 +44,8 @@ export type EmbeddedRuntimeKind = 'agentteams_acp';
 
 const EMBEDDED_RUNTIME_SEEDS: Readonly<Record<string, { provider: string; kind: EmbeddedRuntimeKind }>> = {
   agentteams: { provider: 'acp', kind: 'agentteams_acp' },
+  office: { provider: 'acp', kind: 'agentteams_acp' },
+  assistant: { provider: 'acp', kind: 'agentteams_acp' },
 };
 
 export function resolveEmbeddedRuntimeKind(input: {
