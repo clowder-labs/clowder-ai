@@ -192,6 +192,15 @@ function buildACPSubprocessEnv(providerProfile: RuntimeProviderProfile): NodeJS.
   }
   return env;
 }
+
+function isAgentTeamsAcpRuntime(initializeResult: Record<string, unknown> | undefined): boolean {
+  const agentInfo =
+    initializeResult && typeof initializeResult === 'object' && initializeResult.agentInfo
+      ? (initializeResult.agentInfo as Record<string, unknown>)
+      : null;
+  return typeof agentInfo?.name === 'string' && agentInfo.name.trim().toLowerCase() === 'agent-teams';
+}
+
 function buildSessionParams(
   providerProfile: RuntimeProviderProfile,
   workingDirectory: string | undefined,
@@ -321,7 +330,7 @@ export class ACPAgentService implements AgentService {
       env: acpEnv,
     });
     let sessionId = options?.sessionId;
-    const loadedExistingSession = Boolean(sessionId);
+    let loadedExistingSession = false;
     let aborted = false;
     const mcpBridge = new ACPMcpBridge(options);
     const abortSignal = options?.signal;
@@ -347,11 +356,27 @@ export class ACPAgentService implements AgentService {
       const sessionMcpServers = Array.isArray(sessionParams.mcpServers)
         ? (sessionParams.mcpServers as Array<Record<string, unknown>>)
         : [];
-      if (sessionId) {
+      const shouldForceFreshSession =
+        Boolean(sessionId) &&
+        !options?.resumeSession &&
+        sessionMcpServers.length > 0 &&
+        resolveACPMcpTransportFromInitializeResult(initializeResult) === 'acp' &&
+        isAgentTeamsAcpRuntime(initializeResult);
+      if (shouldForceFreshSession) {
+        acpLog.info(
+          {
+            previousSessionId: sessionId,
+            mcpServersCount: sessionMcpServers.length,
+          },
+          'ACP session/load skipped to preserve MCP relay tools on agent-teams runtime',
+        );
+      }
+      if (sessionId && !shouldForceFreshSession) {
         const loaded = await client.call('session/load', { sessionId, ...sessionParams });
         if (typeof loaded.sessionId === 'string' && loaded.sessionId.trim()) {
           sessionId = loaded.sessionId.trim();
         }
+        loadedExistingSession = true;
       } else {
         const created = await client.call('session/new', sessionParams);
         if (typeof created.sessionId !== 'string' || !created.sessionId.trim()) {

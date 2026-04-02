@@ -21,7 +21,7 @@ import {
 } from '../../../../../utils/relayclaw-skills.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
 import type { AgentServiceOptions } from '../../types.js';
-import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './relayclaw-catcafe-mcp.js';
+import { buildCatCafeMcpEnv, resolveCatCafeMcpServer } from './project-mcp-servers.js';
 
 const log = createModuleLogger('relayclaw-sidecar');
 

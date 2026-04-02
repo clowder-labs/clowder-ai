@@ -9,9 +9,10 @@ import { execFile } from 'node:child_process';
 import { dareBundleAvailable } from '../domains/cats/services/agents/providers/DareAgentService.js';
 import { jiuwenClawBundleAvailable, resolveVendoredJiuwenClawExecutable } from './jiuwenclaw-paths.js';
 import {
-  bundledAgentTeamsRuntimeAvailable,
+  DEFAULT_GLOBAL_AGENT_TEAMS_ARGS,
   DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS,
-  resolveBundledAgentTeamsExecutable,
+  embeddedAgentTeamsRuntimeAvailable,
+  resolveEmbeddedAgentTeamsExecutable,
 } from './agent-teams-bundle.js';
 import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
 import { filterAllowedClients } from './client-visibility.js';
@@ -24,20 +25,22 @@ interface ClientInfo {
   command: string;
 }
 
-const CLIENT_COMMAND_MAP: ClientInfo[] = [
-  { id: 'anthropic', label: 'Claude', command: 'claude' },
-  { id: 'openai', label: 'Codex', command: 'codex' },
-  { id: 'google', label: 'Gemini', command: 'gemini' },
-  { id: 'dare', label: 'Office Agent', command: 'dare' },
-  { id: 'opencode', label: 'OpenCode', command: 'opencode' },
-  { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
-  { id: 'relayclaw', label: 'Assistant Agent', command: resolveVendoredJiuwenClawExecutable() },
-  {
-    id: 'acp',
-    label: 'ACP',
-    command: `${resolveBundledAgentTeamsExecutable(resolveCatCafeHostRoot(process.cwd()))} ${DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS.join(' ')}`,
-  },
-];
+function getClientCommandMap(): ClientInfo[] {
+  const projectRoot = resolveCatCafeHostRoot(process.cwd());
+  const acpCommand = resolveEmbeddedAgentTeamsExecutable(projectRoot);
+  const acpArgs = acpCommand === 'agent-teams' ? DEFAULT_GLOBAL_AGENT_TEAMS_ARGS : DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS;
+
+  return [
+    { id: 'anthropic', label: 'Claude', command: 'claude' },
+    { id: 'openai', label: 'Codex', command: 'codex' },
+    { id: 'google', label: 'Gemini', command: 'gemini' },
+    { id: 'dare', label: 'Office Agent', command: 'dare' },
+    { id: 'opencode', label: 'OpenCode', command: 'opencode' },
+    { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
+    { id: 'relayclaw', label: 'Assistant Agent', command: resolveVendoredJiuwenClawExecutable() },
+    { id: 'acp', label: 'ACP', command: `${acpCommand} ${acpArgs.join(' ')}` },
+  ];
+}
 
 export interface AvailableClient {
   id: ClientId;
@@ -58,7 +61,7 @@ function commandExists(command: string): Promise<boolean> {
 }
 
 async function acpRuntimeAvailable(): Promise<boolean> {
-  return bundledAgentTeamsRuntimeAvailable(resolveCatCafeHostRoot(process.cwd()));
+  return embeddedAgentTeamsRuntimeAvailable(resolveCatCafeHostRoot(process.cwd()));
 }
 
 function relayClawSidecarAvailable(): boolean {
@@ -72,7 +75,7 @@ function dareRuntimeAvailable(): boolean {
 /** Detect all clients and cache the result. */
 export async function detectAvailableClients(): Promise<AvailableClient[]> {
   const results = await Promise.all(
-    CLIENT_COMMAND_MAP.map(async (info) => {
+    getClientCommandMap().map(async (info) => {
       const available =
         info.id === 'relayclaw'
           ? relayClawSidecarAvailable()

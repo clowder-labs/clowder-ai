@@ -1,7 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import type { McpServerDescriptor } from '@cat-cafe/shared';
 import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { JSONRPCMessage, JSONRPCRequest } from '@modelcontextprotocol/sdk/types.js';
@@ -14,7 +11,12 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { AgentServiceOptions } from '../../types.js';
 import { ACPRequestError, ACPStdioClient } from './acp-transport.js';
-import { buildCatCafeMcpRequestConfig } from './relayclaw-catcafe-mcp.js';
+import {
+  buildCatCafeMcpRequestConfig,
+  buildProjectAcpRelayServers,
+  buildProjectMcpRequestConfigByName,
+  buildProjectMcpSessionServers,
+} from './project-mcp-servers.js';
 
 export type ACPMcpTransport = 'acp' | 'stdio';
 
@@ -43,6 +45,8 @@ export function buildAcpMcpServers(
   const transport = resolveACPMcpTransportFromInitializeResult(initializeResult);
   if (!transport) return [];
   if (transport === 'acp') {
+    const relayServers = buildProjectAcpRelayServers(options);
+    if (relayServers.length > 0) return relayServers;
     return [
       {
         id: 'cat-cafe',
@@ -52,7 +56,7 @@ export function buildAcpMcpServers(
       },
     ];
   }
-  const servers = readProjectMcpServers(options?.workingDirectory);
+  const servers = buildProjectMcpSessionServers(options);
   const catCafeMcp = buildCatCafeMcpRequestConfig(options);
   if (catCafeMcp) {
     servers.unshift({
@@ -63,63 +67,6 @@ export function buildAcpMcpServers(
     });
   }
   return servers;
-}
-
-function readProjectMcpServers(workingDirectory?: string): Array<Record<string, unknown>> {
-  if (!workingDirectory) return [];
-  const filePath = join(workingDirectory, '.mcp.json');
-  if (!existsSync(filePath)) return [];
-
-  try {
-    // Keep the ACP relay aligned with the project's Claude MCP config.
-    const raw = readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(raw);
-    const servers =
-      data && typeof data === 'object' && !Array.isArray(data) && data.mcpServers && typeof data.mcpServers === 'object'
-        ? data.mcpServers
-        : null;
-    if (!servers) return [];
-    return Object.entries(servers as Record<string, Record<string, unknown>>)
-      .map(([name, cfg]) => toLocalAcpMcpServer(name, cfg))
-      .filter((server): server is Record<string, unknown> => server !== null);
-  } catch {
-    return [];
-  }
-}
-
-function toLocalAcpMcpServer(name: string, cfg: Record<string, unknown>): Record<string, unknown> | null {
-  const descriptor = toClaudeDescriptor(name, cfg);
-  if (descriptor.transport === 'streamableHttp') return null;
-  if (!descriptor.command.trim()) return null;
-  if (descriptor.name === 'cat-cafe') return null;
-  return {
-    id: descriptor.name,
-    name: descriptor.name,
-    transport: 'stdio',
-    command: descriptor.command,
-    args: descriptor.args,
-    ...(descriptor.workingDir ? { cwd: descriptor.workingDir } : {}),
-    ...(descriptor.env ? { env: descriptor.env } : {}),
-  };
-}
-
-function toClaudeDescriptor(name: string, cfg: Record<string, unknown>): McpServerDescriptor {
-  const isHttp = cfg.type === 'streamableHttp' || cfg.type === 'http';
-  const descriptor: McpServerDescriptor = {
-    name,
-    command: typeof cfg.command === 'string' ? cfg.command : '',
-    args: Array.isArray(cfg.args) ? cfg.args.filter((value): value is string => typeof value === 'string') : [],
-    enabled: true,
-    source: 'external',
-  };
-  if (isHttp) descriptor.transport = 'streamableHttp';
-  if (typeof cfg.cwd === 'string' && cfg.cwd) descriptor.workingDir = cfg.cwd;
-  if (cfg.env && typeof cfg.env === 'object' && !Array.isArray(cfg.env)) {
-    descriptor.env = Object.fromEntries(
-      Object.entries(cfg.env as Record<string, unknown>).map(([key, value]) => [key, String(value)]),
-    );
-  }
-  return descriptor;
 }
 
 type JsonRpcId = number | string;
@@ -139,6 +86,20 @@ interface MCPConnectionRecord {
 interface RawMcpPendingRequest {
   resolve: (value: Record<string, unknown>) => void;
   reject: (error: Error) => void;
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isInactiveLocalMcpConnectionError(error: unknown): boolean {
+  const message = toErrorMessage(error).trim().toLowerCase();
+  return (
+    message === 'not connected' ||
+    message.includes('local mcp subprocess closed') ||
+    message.includes('acp subprocess is not running') ||
+    message.includes('exited before reply')
+  );
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -387,7 +348,9 @@ export class ACPMcpBridge {
           ? params.serverId.trim()
           : '';
     if (!serverId) throw new ACPRequestError(-32602, 'ACP MCP connect requires acpId or serverId');
-    if (serverId !== 'cat-cafe') throw new ACPRequestError(-32602, `Unknown ACP MCP serverId: ${serverId}`);
+    if (!buildProjectMcpRequestConfigByName(serverId, this.options)) {
+      throw new ACPRequestError(-32602, `Unknown ACP MCP serverId: ${serverId}`);
+    }
 
     const connectionId = randomUUID();
     await this.createLocalConnection(sessionId, serverId, connectionId);
@@ -402,15 +365,28 @@ export class ACPMcpBridge {
     params: Record<string, unknown> | null,
     isNotification: boolean,
   ): Promise<Record<string, unknown>> {
-    const connection = this.getConnection(params);
+    const connectionId =
+      typeof params?.connectionId === 'string' && params.connectionId.trim() ? params.connectionId.trim() : '';
+    if (!connectionId) throw new ACPRequestError(-32602, 'ACP MCP message requires connectionId');
+    let connection = this.getConnection(params);
     const method = typeof params?.method === 'string' && params.method.trim() ? params.method.trim() : '';
     if (!method) throw new ACPRequestError(-32602, 'ACP MCP message requires method');
     const messageParams = asObject(params?.params) ?? {};
-    if (isNotification) {
-      await connection.client.notify(method, messageParams);
-      return {};
+    try {
+      if (isNotification) {
+        await connection.client.notify(method, messageParams);
+        return {};
+      }
+      return await connection.client.call(method, messageParams);
+    } catch (error) {
+      if (!isInactiveLocalMcpConnectionError(error)) throw error;
+      connection = await this.reconnectConnection(connectionId, connection);
+      if (isNotification) {
+        await connection.client.notify(method, messageParams);
+        return {};
+      }
+      return await connection.client.call(method, messageParams);
     }
-    return await connection.client.call(method, messageParams);
   }
 
   private async closeConnection(params: Record<string, unknown> | null): Promise<Record<string, unknown>> {
@@ -447,9 +423,22 @@ export class ACPMcpBridge {
     return connection;
   }
 
+  private async reconnectConnection(
+    connectionId: string,
+    connection: MCPConnectionRecord,
+  ): Promise<MCPConnectionRecord> {
+    await this.closeConnection({ sessionId: connection.sessionId, connectionId });
+    await this.createLocalConnection(connection.sessionId, connection.serverId, connectionId);
+    const recreated = this.connections.get(connectionId);
+    if (!recreated) {
+      throw new ACPRequestError(-32000, `Failed to reconnect ACP MCP connection: ${connection.serverId}`);
+    }
+    return recreated;
+  }
+
   private async createLocalConnection(sessionId: string, serverId: string, connectionId: string): Promise<void> {
-    const resolved = buildCatCafeMcpRequestConfig(this.options);
-    if (!resolved) throw new ACPRequestError(-32602, 'Cat Cafe MCP server is unavailable');
+    const resolved = buildProjectMcpRequestConfigByName(serverId, this.options);
+    if (!resolved) throw new ACPRequestError(-32602, `ACP MCP server is unavailable: ${serverId}`);
 
     const existingConnectionId = this.sessionServers.get(sessionId)?.get(serverId);
     if (existingConnectionId) {

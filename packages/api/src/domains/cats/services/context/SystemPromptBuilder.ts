@@ -197,6 +197,7 @@ const PROVIDER_LABELS: Record<string, string> = {
  */
 const MCP_TOOLS_SECTION = `
 MCP 工具用于异步汇报等场景（token 有效期有限）：
+说明：下面列的是能力标签。在某些运行时（如 agent-teams / ACP），实际可调用函数名会带 server 前缀；以函数列表中的名字为准，例如 \`cat-cafe-collab_cat_cafe_post_message\`、\`cat-cafe-memory_cat_cafe_search_evidence\`、\`cat-cafe-signals_signal_list_inbox\`。
 
 **记忆工具（先搜后问）：**
 - cat_cafe_search_evidence: 首选入口，搜项目知识库
@@ -440,7 +441,7 @@ export function buildInvocationContext(context: InvocationContext): string {
   } else if (context.mode === 'parallel') {
     lines.push('当前模式：独立思考。你和队友各自独立回答同一问题，给出你自己的观点。', '');
   } else {
-    lines.push('当前模式：独立回答。', '');
+    lines.push('当前模式：独立回答。即使当前只有你被直接唤起，如需队友接手，仍可发起协作。', '');
   }
 
   // A2A: Exit check reminder — prevents "chain termination blind spot" where cats finish output
@@ -448,6 +449,13 @@ export function buildInvocationContext(context: InvocationContext): string {
   if (context.mode !== 'parallel' && context.a2aEnabled) {
     lines.push(
       'A2A 出口检查：回复前问"到我这里结束了吗？"不是 → 谁需要动 → 末尾另起一行行首写 @句柄（句中 @ 无效）。',
+      ...(context.mcpAvailable
+        ? [
+            '若需要队友在当前线程实际行动，优先用协作发消息工具；如果函数列表里是带 server 前缀的实际名字（如 `cat-cafe-collab_cat_cafe_post_message`），直接调用那个名字。不要替队友直接写结论，也不要空口说工具不可用。',
+            '同线程交接时，直接调用 post_message 类工具并传 `content` 与 `targetCats`；仅跨线程时才补 `threadId`。',
+            '已列出的 MCP 工具直接调用；不要先用 grep/read/shell 查工具名再决定是否调用。若函数列表中的名字带 server 前缀，以函数列表为准。不要用 `chrome-devtools_*`、`webfetch`、`shell` 去模拟另一个 MCP 工具调用。',
+          ]
+        : []),
       '',
     );
   }

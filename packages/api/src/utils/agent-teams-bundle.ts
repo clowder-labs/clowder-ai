@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import type { EmbeddedAcpConfig } from '@cat-cafe/shared';
@@ -8,9 +9,20 @@ import { resolveHuaweiMaaSRuntimeConfig } from '../integrations/huawei-maas.js';
 
 const BUNDLED_AGENT_TEAMS_PATH_SEGMENTS = ['tools', 'python', 'python.exe'] as const;
 export const DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS = ['-m', 'agent_teams', 'gateway', 'acp', 'stdio'] as const;
+export const DEFAULT_GLOBAL_AGENT_TEAMS_ARGS = ['gateway', 'acp', 'stdio'] as const;
 
 export function resolveBundledAgentTeamsExecutable(projectRoot: string): string {
   return resolve(projectRoot, ...BUNDLED_AGENT_TEAMS_PATH_SEGMENTS);
+}
+
+function commandExistsOnPath(command: string): boolean {
+  const locator = process.platform === 'win32' ? 'where' : 'which';
+  return spawnSync(locator, [command], { stdio: 'ignore' }).status === 0;
+}
+
+function resolveDefaultEmbeddedAgentTeamsCommand(projectRoot: string): string {
+  const bundled = resolveBundledAgentTeamsExecutable(projectRoot);
+  return existsSync(bundled) ? bundled : 'agent-teams';
 }
 
 export function resolveEmbeddedAgentTeamsExecutable(
@@ -19,7 +31,7 @@ export function resolveEmbeddedAgentTeamsExecutable(
 ): string {
   const trimmedOverride = executablePathOverride?.trim();
   if (!trimmedOverride) {
-    return resolveBundledAgentTeamsExecutable(projectRoot);
+    return resolveDefaultEmbeddedAgentTeamsCommand(projectRoot);
   }
   return isAbsolute(trimmedOverride) ? trimmedOverride : resolve(projectRoot, trimmedOverride);
 }
@@ -29,7 +41,15 @@ export function bundledAgentTeamsRuntimeAvailable(projectRoot: string): boolean 
 }
 
 export function embeddedAgentTeamsRuntimeAvailable(projectRoot: string, executablePathOverride?: string | null): boolean {
+  const trimmedOverride = executablePathOverride?.trim();
+  if (!trimmedOverride) {
+    return bundledAgentTeamsRuntimeAvailable(projectRoot) || commandExistsOnPath('agent-teams');
+  }
   return existsSync(resolveEmbeddedAgentTeamsExecutable(projectRoot, executablePathOverride));
+}
+
+function resolveDefaultEmbeddedAgentTeamsArgs(command: string): string[] {
+  return command === 'agent-teams' ? [...DEFAULT_GLOBAL_AGENT_TEAMS_ARGS] : [...DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS];
 }
 
 export function buildEmbeddedAgentTeamsProviderProfile(
@@ -38,7 +58,7 @@ export function buildEmbeddedAgentTeamsProviderProfile(
   config?: EmbeddedAcpConfig,
 ): RuntimeProviderProfile {
   const command = resolveEmbeddedAgentTeamsExecutable(projectRoot, config?.executablePath ?? executablePathOverride);
-  const args = config?.args?.filter((value) => value.trim().length > 0) ?? [...DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS];
+  const args = config?.args?.filter((value) => value.trim().length > 0) ?? resolveDefaultEmbeddedAgentTeamsArgs(command);
   return {
     id: 'embedded-agentteams-runtime',
     kind: 'acp',

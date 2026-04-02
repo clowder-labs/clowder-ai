@@ -7,8 +7,12 @@ import test from 'node:test';
 test('embedded Agent Teams binding ignores legacy ACP profiles and accepts openai api_key profiles', async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), 'embedded-agentteams-binding-'));
   try {
-    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
-    const { resolveEmbeddedAgentTeamsBinding } = await import('../dist/utils/embedded-runtime-bindings.js');
+    const { createProviderProfile, setBootstrapBinding } = await import('../dist/config/provider-profiles.js');
+    const { createAcpModelProfile } = await import('../dist/config/acp-model-profiles.js');
+    const {
+      resolveEmbeddedAgentTeamsBinding,
+      resolveEmbeddedAgentTeamsLegacyModelProfile,
+    } = await import('../dist/utils/embedded-runtime-bindings.js');
 
     const legacyAcpProfile = await createProviderProfile(projectRoot, {
       kind: 'acp',
@@ -40,6 +44,41 @@ test('embedded Agent Teams binding ignores legacy ACP profiles and accepts opena
     assert.equal(binding.accountRef, openAiProfile.id);
     assert.equal(binding.profile.protocol, 'openai');
     assert.equal(binding.profile.authType, 'api_key');
+
+    const glmProfile = await createAcpModelProfile(projectRoot, {
+      displayName: 'GLM 5',
+      provider: 'openai_compatible',
+      model: 'glm-5',
+      baseUrl: 'https://glm.example/v1',
+      apiKey: 'glm-secret',
+    });
+    const legacyEmbeddedProfile = await createProviderProfile(projectRoot, {
+      kind: 'acp',
+      displayName: 'Legacy Embedded Agent Teams',
+      command: 'agent-teams',
+      args: ['gateway', 'acp', 'stdio'],
+      protocol: 'acp',
+      authType: 'none',
+      modelAccessMode: 'clowder_default_profile',
+      defaultModelProfileRef: glmProfile.id,
+    });
+
+    const legacyModelProfile = await resolveEmbeddedAgentTeamsLegacyModelProfile(projectRoot, legacyEmbeddedProfile.id);
+    assert.ok(legacyModelProfile, 'expected legacy embedded Agent Teams ACP profile to resolve');
+    assert.equal(legacyModelProfile.id, glmProfile.id);
+    assert.equal(legacyModelProfile.model, 'glm-5');
+
+    await setBootstrapBinding(projectRoot, 'openai', {
+      enabled: true,
+      mode: 'api_key',
+      accountRef: openAiProfile.id,
+    });
+
+    const inheritedBinding = await resolveEmbeddedAgentTeamsBinding(projectRoot);
+    assert.ok(inheritedBinding, 'expected embedded Agent Teams to inherit the openai bootstrap binding');
+    assert.equal(inheritedBinding.accountRef, openAiProfile.id);
+    assert.equal(inheritedBinding.profile.protocol, 'openai');
+    assert.equal(inheritedBinding.profile.authType, 'api_key');
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

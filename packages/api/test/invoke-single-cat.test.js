@@ -18,6 +18,16 @@ async function collect(iterable) {
   return msgs;
 }
 
+const rootCatTemplatePath = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
+
+function buildSyntheticCatConfig(baseConfig, overrides = {}) {
+  return {
+    ...baseConfig,
+    ...overrides,
+    mentionPatterns: overrides.mentionPatterns ?? [`@${overrides.id ?? baseConfig.id}`],
+  };
+}
+
 // Shared temp dir — singleton EventAuditLog only initializes once
 let tempDir;
 let invokeSingleCat;
@@ -1302,8 +1312,23 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   async function withSanitizedOpencodeConfig(run) {
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const registrySnapshot = catRegistry.getAllConfigs();
-    const baselineConfigs = toAllCatConfigs(loadCatConfig(join(process.cwd(), '..', '..', 'cat-template.json')));
-    const baselineOpencodeConfig = baselineConfigs.opencode;
+    const baselineConfigs = toAllCatConfigs(loadCatConfig(rootCatTemplatePath));
+    const fallbackConfig = baselineConfigs.assistant ?? baselineConfigs.office ?? baselineConfigs.agentteams;
+    const baselineOpencodeConfig =
+      baselineConfigs.opencode ??
+      (fallbackConfig
+        ? buildSyntheticCatConfig(fallbackConfig, {
+            id: 'opencode',
+            name: 'OpenCode',
+            displayName: 'OpenCode',
+            nickname: 'OpenCode',
+            provider: 'opencode',
+            defaultModel: 'claude-opus-4-6',
+            ocProviderName: 'anthropic',
+            accountRef: undefined,
+            providerProfileId: undefined,
+          })
+        : undefined);
     assert.ok(baselineOpencodeConfig, 'opencode config should exist in baseline catalog');
 
     const {
@@ -2419,6 +2444,30 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
+    assert.ok(
+      promptsSeen[0].includes('ACP collaboration rule: if the user asks another cat/role/engine to continue, review, or evaluate in this thread, call the exact post-message tool from the function list directly'),
+      'ACP hint should steer direct cross-role handoff behavior',
+    );
+    assert.ok(
+      promptsSeen[0].includes('ACP MCP naming rule: in agent-teams, callable MCP function names are usually server-prefixed.'),
+      'ACP hint should explain prefixed MCP function names',
+    );
+    assert.ok(
+      promptsSeen[0].includes('cat-cafe-collab_cat_cafe_post_message'),
+      'ACP hint should include a prefixed collaboration tool example',
+    );
+    assert.ok(
+      promptsSeen[0].includes('For same-thread handoff, call it immediately with content plus targetCats'),
+      'ACP hint should include the direct post_message argument shape',
+    );
+    assert.ok(
+      promptsSeen[0].includes('Do not use repo grep/read/shell to look up cat_cafe_post_message'),
+      'ACP hint should forbid tool-name lookup detours before direct MCP calls',
+    );
+    assert.ok(
+      promptsSeen[0].includes('Never use chrome-devtools, webfetch, shell, or repo tools to inspect, simulate, or proxy an MCP call'),
+      'ACP hint should forbid simulating MCP calls through other tools',
+    );
     assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
     assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
     assert.ok(
@@ -2650,6 +2699,115 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       assert.deepEqual(acpModelProfile?.headers, {
         Authorization: 'Basic YXBwLWtleTphcHAtc2VjcmV0',
       });
+    } finally {
+      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
+      else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('ACP: reuses legacy embedded Agent Teams ACP profiles via default model profile refs', async () => {
+    const { createAcpModelProfile } = await import('../dist/config/acp-model-profiles.js');
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const root = await mkdtemp(join(tmpdir(), 'embedded-agentteams-legacy-acp-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await mkdir(join(root, 'tools', 'python'), { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+    await writeFile(join(root, 'tools', 'python', 'python.exe'), '', 'utf-8');
+
+    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
+
+    try {
+      const glmProfile = await createAcpModelProfile(root, {
+        displayName: 'GLM 5',
+        provider: 'openai_compatible',
+        model: 'glm-5',
+        baseUrl: 'https://glm.example/v1',
+        apiKey: 'sk-glm5',
+      });
+      const legacyProfile = await createProviderProfile(root, {
+        kind: 'acp',
+        displayName: 'Legacy Embedded Agent Teams',
+        command: 'agent-teams',
+        args: ['gateway', 'acp', 'stdio'],
+        protocol: 'acp',
+        authType: 'none',
+        modelAccessMode: 'clowder_default_profile',
+        defaultModelProfileRef: glmProfile.id,
+      });
+
+      const registrySnapshot = catRegistry.getAllConfigs();
+      const originalConfig = catRegistry.tryGet('agentteams')?.config;
+      assert.ok(originalConfig, 'agentteams config should exist in registry');
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        if (id === 'agentteams') continue;
+        catRegistry.register(id, config);
+      }
+      catRegistry.register('agentteams', {
+        ...originalConfig,
+        provider: 'acp',
+        accountRef: legacyProfile.id,
+        defaultModel: 'agent-teams',
+        embeddedAcpConfig: {
+          executablePath: 'tools/python/python.exe',
+          args: ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio'],
+          cwd: '/tmp/custom-agent-teams',
+          env: {
+            ACP_TRACE_STDIO: '1',
+            AGENT_TEAMS_LOG_LEVEL: 'debug',
+          },
+        },
+      });
+
+      const optionsSeen = [];
+      const service = {
+        async *invoke(_prompt, options) {
+          optionsSeen.push(options ?? {});
+          yield { type: 'done', catId: 'agentteams', timestamp: Date.now() };
+        },
+      };
+
+      const deps = makeDeps();
+      const previousCwd = process.cwd();
+      try {
+        process.chdir(apiDir);
+        const messages = await collect(
+          invokeSingleCat(deps, {
+            catId: 'agentteams',
+            service,
+            prompt: 'test',
+            userId: 'user-agentteams-legacy-acp',
+            threadId: 'thread-agentteams-legacy-acp',
+            isLastCat: true,
+          }),
+        );
+        assert.ok(messages.some((m) => m.type === 'done'));
+      } finally {
+        process.chdir(previousCwd);
+        catRegistry.reset();
+        for (const [id, config] of Object.entries(registrySnapshot)) {
+          catRegistry.register(id, config);
+        }
+      }
+
+      const providerProfile = optionsSeen[0]?.providerProfile ?? null;
+      const acpModelProfile = optionsSeen[0]?.acpModelProfile ?? null;
+      assert.equal(providerProfile?.kind, 'acp');
+      assert.match(String(providerProfile?.command ?? ''), /python\.exe$/i);
+      assert.deepEqual(providerProfile?.args, ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio']);
+      assert.equal(acpModelProfile?.id, glmProfile.id);
+      assert.equal(acpModelProfile?.provider, 'openai_compatible');
+      assert.equal(acpModelProfile?.model, 'glm-5');
+      assert.equal(acpModelProfile?.baseUrl, 'https://glm.example/v1');
+      assert.equal(acpModelProfile?.apiKey, 'sk-glm5');
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
@@ -2976,8 +3134,53 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    const templateRaw = await readFile(join(process.cwd(), '..', '..', 'cat-template.json'), 'utf-8');
-    await writeFile(join(root, 'cat-template.json'), templateRaw, 'utf-8');
+    const templateJson = JSON.parse(await readFile(rootCatTemplatePath, 'utf-8'));
+    if (!templateJson.roster?.codex) {
+      const rosterFallback = templateJson.roster?.assistant ?? templateJson.roster?.office ?? {
+        family: 'coding',
+        roles: ['coding'],
+        lead: false,
+        available: true,
+        evaluation: 'Synthetic Codex seed for bootstrap binding tests',
+      };
+      templateJson.roster = {
+        ...templateJson.roster,
+        codex: {
+          ...rosterFallback,
+          family: 'coding',
+          roles: ['coding'],
+          evaluation: 'Synthetic Codex seed for bootstrap binding tests',
+        },
+      };
+    }
+    if (!templateJson.breeds?.some((breed) => breed.catId === 'codex')) {
+      const breedFallback = templateJson.breeds?.find((breed) => breed.catId === 'assistant')
+        ?? templateJson.breeds?.find((breed) => breed.catId === 'office')
+        ?? templateJson.breeds?.[0];
+      assert.ok(breedFallback, 'expected at least one baseline breed to clone for codex seed');
+      templateJson.breeds.push({
+        ...breedFallback,
+        id: 'codex',
+        catId: 'codex',
+        name: 'Codex',
+        displayName: 'Codex',
+        nickname: 'Codex',
+        mentionPatterns: ['@codex'],
+        defaultVariantId: 'codex-default',
+        variants: [
+          {
+            ...(breedFallback.variants?.[0] ?? {}),
+            id: 'codex-default',
+            provider: 'openai',
+            defaultModel: 'gpt-5.4',
+            accountRef: 'codex',
+            providerProfileId: 'codex',
+            cli: undefined,
+          },
+        ],
+      });
+    }
+    await writeFile(join(root, 'cat-template.json'), JSON.stringify(templateJson, null, 2), 'utf-8');
     const prevGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
 

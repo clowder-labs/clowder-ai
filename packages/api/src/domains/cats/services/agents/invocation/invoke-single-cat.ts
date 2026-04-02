@@ -45,7 +45,10 @@ import {
   embeddedAgentTeamsRuntimeAvailable,
   resolveEmbeddedAgentTeamsExecutable,
 } from '../../../../../utils/agent-teams-bundle.js';
-import { resolveEmbeddedAgentTeamsBinding } from '../../../../../utils/embedded-runtime-bindings.js';
+import {
+  resolveEmbeddedAgentTeamsBinding,
+  resolveEmbeddedAgentTeamsLegacyModelProfile,
+} from '../../../../../utils/embedded-runtime-bindings.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
@@ -629,11 +632,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const defaultModel = catConfig?.defaultModel?.trim() || undefined;
     const configProjectRoot = resolveActiveProjectRoot(process.cwd());
     const rawBoundAccountRef = resolveBoundAccountRefForCat(configProjectRoot, catId, catConfig);
-    const embeddedAgentTeamsBinding = embeddedAcpRuntime
+    const explicitEmbeddedAgentTeamsBinding = embeddedAcpRuntime
       ? await resolveEmbeddedAgentTeamsBinding(configProjectRoot, rawBoundAccountRef)
       : null;
+    const embeddedLegacyAcpModelProfile = embeddedAcpRuntime
+      ? await resolveEmbeddedAgentTeamsLegacyModelProfile(configProjectRoot, rawBoundAccountRef)
+      : null;
+    const embeddedAgentTeamsBinding =
+      explicitEmbeddedAgentTeamsBinding ??
+      (embeddedAcpRuntime && !embeddedLegacyAcpModelProfile
+        ? await resolveEmbeddedAgentTeamsBinding(configProjectRoot)
+        : null);
     const embeddedModelConfigBinding =
-      embeddedAcpRuntime && rawBoundAccountRef && !embeddedAgentTeamsBinding
+      embeddedAcpRuntime && rawBoundAccountRef && !embeddedAgentTeamsBinding && !embeddedLegacyAcpModelProfile
         ? await findProjectModelConfigBinding(configProjectRoot, rawBoundAccountRef)
         : null;
     const boundAccountRef = embeddedAcpRuntime
@@ -896,6 +907,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           defaultModel ?? '',
           userId,
         );
+      } else if (embeddedLegacyAcpModelProfile) {
+        resolvedAcpModelProfile = embeddedLegacyAcpModelProfile;
       } else {
         if (!resolvedAccount) {
           throw new Error(
@@ -938,7 +951,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // before diving into repository search for planning/TDD/collab/worktree requests.
     const acpRuntimeSkillHint =
       provider === 'acp' || embeddedAcpRuntime
-        ? 'ACP skill rule: planning/TDD/compare-options/decision/worktree tasks use cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read. If a close match appears, call cat_cafe_load_skill immediately before other tools. Map: implementation plan -> writing-plans; failed tests/minimal implementation/refactor -> tdd; compare/recommend/decision -> collaborative-thinking; branch isolation -> worktree. If empty, retry once with a likely exact skill name.'
+        ? 'ACP skill rule: planning/TDD/compare-options/decision/worktree tasks use cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read. If a close match appears, call cat_cafe_load_skill immediately before other tools. Map: implementation plan -> writing-plans; failed tests/minimal implementation/refactor -> tdd; compare/recommend/decision -> collaborative-thinking; branch isolation -> worktree. ACP MCP naming rule: in agent-teams, callable MCP function names are usually server-prefixed. Use the exact name from the function list, for example cat-cafe-collab_cat_cafe_post_message, cat-cafe-memory_cat_cafe_search_evidence, cat-cafe-signals_signal_list_inbox, or chrome-devtools_list_pages. The bare names in these instructions are capability labels, not the exact callable name when a prefixed variant is shown. ACP collaboration rule: if the user asks another cat/role/engine to continue, review, or evaluate in this thread, call the exact post-message tool from the function list directly using the teammate handle from the roster or active participants. Prefer the collab server variant when present, such as cat-cafe-collab_cat_cafe_post_message. For same-thread handoff, call it immediately with content plus targetCats (for example {"content":"请 @criticteams 评价上一条诗作","targetCats":["criticteams"]}); only include threadId when handing off into a different thread. Never use chrome-devtools, webfetch, shell, or repo tools to inspect, simulate, or proxy an MCP call that already exists in the function list. Do not use repo grep/read/shell to look up cat_cafe_post_message or other listed MCP tools before calling them, and only say a tool is unavailable after an actual tool-call failure. If empty, retry once with a likely exact skill name.'
         : '';
 
     // Prepend staticIdentity to prompt when injection is needed

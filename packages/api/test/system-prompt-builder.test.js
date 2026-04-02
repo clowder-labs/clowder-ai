@@ -128,6 +128,25 @@ describe('SystemPromptBuilder', () => {
     assert.ok(prompt.includes('cat_cafe_get_thread_context'));
   });
 
+  test('teaches cross-role handoff via post_message when mcpAvailable is true', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: true,
+      a2aEnabled: true,
+    });
+    assert.ok(prompt.includes('即使当前只有你被直接唤起，如需队友接手，仍可发起协作'));
+    assert.ok(prompt.includes('若需要队友在当前线程实际行动，优先用协作发消息工具'));
+    assert.ok(prompt.includes('cat-cafe-collab_cat_cafe_post_message'));
+    assert.ok(prompt.includes('不要替队友直接写结论，也不要空口说工具不可用'));
+    assert.ok(prompt.includes('同线程交接时，直接调用 post_message 类工具并传 `content` 与 `targetCats`'));
+    assert.ok(prompt.includes('不要先用 grep/read/shell 查工具名再决定是否调用'));
+    assert.ok(prompt.includes('不要用 `chrome-devtools_*`、`webfetch`、`shell` 去模拟另一个 MCP 工具调用'));
+    assert.ok(prompt.includes('若函数列表中的名字带 server 前缀，以函数列表为准'));
+  });
+
   test('contains runtime skill trigger guidance when mcpAvailable is true', async () => {
     const build = await getBuilder();
     const prompt = build({
@@ -188,7 +207,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
       promptTags: ['critique'],
     });
-    assert.ok(prompt.length < 3350, `Prompt is ${prompt.length} chars, expected < 3350`);
+    assert.ok(prompt.length < 3550, `Prompt is ${prompt.length} chars, expected < 3550`);
   });
 
   test('returns empty string for unknown catId', async () => {
@@ -461,7 +480,7 @@ describe('SystemPromptBuilder', () => {
         mcpAvailable: true,
         promptTags: ['critique'],
       });
-      assert.ok(prompt.length < 4250, `Full runtime prompt is ${prompt.length} chars, expected < 4250`);
+      assert.ok(prompt.length < 4700, `Full runtime prompt is ${prompt.length} chars, expected < 4700`);
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {
@@ -724,7 +743,7 @@ describe('SystemPromptBuilder', () => {
         { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
       ],
     });
-    assert.ok(prompt.length < 3400, `Prompt with activity is ${prompt.length} chars, expected < 3400`);
+    assert.ok(prompt.length < 3550, `Prompt with activity is ${prompt.length} chars, expected < 3550`);
   });
 
   // --- F042: pinned identity constant + direct-message reply target ---
@@ -924,7 +943,7 @@ describe('SystemPromptBuilder', () => {
         featureId: 'F073',
       },
     });
-    assert.ok(prompt.length < 3450, `Prompt with SOP hint is ${prompt.length} chars, expected < 3450`);
+    assert.ok(prompt.length < 3625, `Prompt with SOP hint is ${prompt.length} chars, expected < 3625`);
   });
 
   // --- F092: Voice Mode prompt injection ---
@@ -971,7 +990,7 @@ describe('SystemPromptBuilder', () => {
       },
       voiceMode: true,
     });
-    assert.ok(prompt.length < 3600, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 3600`);
+    assert.ok(prompt.length < 3750, `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 3750`);
   });
 
   test('buildInvocationContext injects bootcamp mode when bootcampState provided', async () => {
