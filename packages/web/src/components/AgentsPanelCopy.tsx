@@ -42,6 +42,11 @@ const EMPTY_EDITABLE_DRAFTS: EditableDrafts = {
 const TEMPLATE_PAGE_SIZE = 4;
 const ACTION_MENU_ITEM_CLASS =
   'flex h-8 w-full items-center gap-2 rounded-[6px] px-2.5 text-left text-[12px] font-medium transition text-black';
+const ACTION_MENU_VIEWPORT_PADDING = 12;
+const ACTION_MENU_OFFSET_Y = 8;
+const ACTION_MENU_ALIGN_RIGHT_OFFSET = 24;
+const ACTION_MENU_FALLBACK_WIDTH = 136;
+const ACTION_MENU_FALLBACK_HEIGHT = 96;
 
 const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
   {
@@ -403,6 +408,25 @@ export function AgentsPanelCopy() {
     }, 90);
   }, []);
 
+  const computeActionMenuPosition = useCallback((triggerRect: DOMRect): ActionMenuPosition => {
+    const menuWidth = actionMenuRef.current?.offsetWidth ?? ACTION_MENU_FALLBACK_WIDTH;
+    const menuHeight = actionMenuRef.current?.offsetHeight ?? ACTION_MENU_FALLBACK_HEIGHT;
+
+    const minLeft = ACTION_MENU_VIEWPORT_PADDING;
+    const maxLeft = Math.max(minLeft, window.innerWidth - menuWidth - ACTION_MENU_VIEWPORT_PADDING);
+    const preferredLeft = triggerRect.right - ACTION_MENU_ALIGN_RIGHT_OFFSET;
+    const left = Math.min(Math.max(preferredLeft, minLeft), maxLeft);
+
+    const topBelow = triggerRect.bottom + ACTION_MENU_OFFSET_Y;
+    const canOpenBelow = topBelow + menuHeight <= window.innerHeight - ACTION_MENU_VIEWPORT_PADDING;
+    const preferredTop = canOpenBelow ? topBelow : triggerRect.top - menuHeight - ACTION_MENU_OFFSET_Y;
+    const minTop = ACTION_MENU_VIEWPORT_PADDING;
+    const maxTop = Math.max(minTop, window.innerHeight - menuHeight - ACTION_MENU_VIEWPORT_PADDING);
+    const top = Math.min(Math.max(preferredTop, minTop), maxTop);
+
+    return { top, left };
+  }, []);
+
   const positionTemplateBubble = useCallback(() => {
     const trigger = hoveredTemplateTriggerRef.current;
     const bubble = templateBubbleRef.current;
@@ -531,11 +555,7 @@ export function AgentsPanelCopy() {
       if (!trigger) return;
 
       const rect = trigger.getBoundingClientRect();
-      const menuWidth = 136;
-      const viewportPadding = 12;
-      const nextLeft = Math.min(rect.right - 24, window.innerWidth - menuWidth - viewportPadding);
-      const nextTop = rect.bottom + 8;
-      setActionMenuPosition({ top: nextTop, left: nextLeft });
+      setActionMenuPosition(computeActionMenuPosition(rect));
     };
 
     updateMenuPosition();
@@ -549,7 +569,7 @@ export function AgentsPanelCopy() {
       window.removeEventListener('resize', updateMenuPosition);
       document.removeEventListener('scroll', updateMenuPosition, true);
     };
-  }, [openActionMenuCatId]);
+  }, [computeActionMenuPosition, openActionMenuCatId]);
 
   useLayoutEffect(() => {
     if (!hoveredTemplateId) return;
@@ -797,7 +817,9 @@ export function AgentsPanelCopy() {
               type="button"
               onClick={handleStartEdit}
               disabled={!canEditActiveTab}
-              className={`ui-button-secondary font-normal mt-4 ${!canEditActiveTab ? 'cursor-not-allowed opacity-50' : ''}`}
+              className={`mt-4 inline-flex h-7 min-w-[72px] items-center justify-center rounded-full border border-black bg-[var(--surface-panel)] px-6 py-[5px] text-[12px] font-normal text-black transition ${
+                !canEditActiveTab ? 'cursor-not-allowed opacity-50' : 'hover:bg-black/5'
+              }`}
             >
               编辑
             </button>
@@ -811,7 +833,7 @@ export function AgentsPanelCopy() {
         <div className="h-full overflow-auto">
           <MarkdownContent
             content={content}
-            className="text-[13px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
+            className="text-[14px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
             disableCommandPrefix
           />
         </div>
@@ -874,7 +896,6 @@ export function AgentsPanelCopy() {
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {visibleTemplates.map((template) => {
-              const isActive = activeTemplatePreview?.id === template.id;
               const isHovered = hoveredTemplatePreview?.id === template.id;
               return (
                 <div
@@ -907,13 +928,7 @@ export function AgentsPanelCopy() {
                   <button
                     type="button"
                     onClick={() => setActiveTemplateId(template.id)}
-                    className={`h-[98px] w-full rounded-[8px] border px-4 py-4 text-left transition ${
-                      isHovered
-                        ? 'border-[var(--border-accent)] bg-[var(--surface-selected)] shadow-[var(--shadow-card-soft)]'
-                        : isActive
-                          ? 'border-[var(--border-accent)] bg-[var(--surface-panel)]'
-                          : 'border-[var(--border-default)] bg-[var(--surface-panel)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-card-muted)]'
-                    }`}
+                    className="h-[98px] w-full rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-left transition hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
                   >
                     <div className="text-[14px] font-semibold text-[var(--text-primary)]">{template.title}</div>
                     <div className="mt-2 line-clamp-2 text-[12px] leading-5 text-[var(--text-muted)]">{template.description}</div>
@@ -1107,16 +1122,13 @@ export function AgentsPanelCopy() {
                             }
 
                             const rect = event.currentTarget.getBoundingClientRect();
-                            const menuWidth = 136;
-                            const viewportPadding = 12;
-                            const nextLeft = Math.min(rect.right - 24, window.innerWidth - menuWidth - viewportPadding);
-                            setActionMenuPosition({ top: rect.bottom + 8, left: nextLeft });
+                            setActionMenuPosition(computeActionMenuPosition(rect));
                             actionMenuTriggerRef.current = event.currentTarget;
                             setOpenActionMenuCatId(cat.id);
                           }}
                           className={`inline-flex h-6 w-6 items-center justify-center rounded-[4px] transition ${
                             openActionMenuCatId === cat.id
-                              ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]'
+                              ? 'bg-[#f5f5f5] text-[var(--text-accent)]'
                               : 'text-[var(--text-muted)] hover:bg-[#f5f5f5] hover:text-[var(--text-accent)]'
                           }`}
                           aria-label={`操作 ${cat.displayName}`}
