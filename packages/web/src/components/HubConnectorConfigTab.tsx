@@ -224,8 +224,7 @@ export function HubConnectorConfigTab() {
               }}
             >
               <span
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
-                style={{ backgroundColor: v.iconBg, color: v.iconColor }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center"
               >
                 {v.icon}
               </span>
