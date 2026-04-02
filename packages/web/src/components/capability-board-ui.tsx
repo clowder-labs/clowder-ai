@@ -109,6 +109,8 @@ export function CapabilitySection({
   headerSlot,
   headerSlotClassName,
   titleActionSlot,
+  showWhenEmpty,
+  emptyState,
   items,
   catFamilies,
   toggling,
@@ -122,6 +124,8 @@ export function CapabilitySection({
   headerSlot?: ReactNode;
   headerSlotClassName?: string;
   titleActionSlot?: ReactNode;
+  showWhenEmpty?: boolean;
+  emptyState?: ReactNode;
   items: CapabilityBoardItem[];
   catFamilies: CatFamily[];
   toggling: string | null;
@@ -129,7 +133,7 @@ export function CapabilitySection({
   onUninstall?: (id: string) => void;
   hideSkillMountStatus?: boolean;
 }) {
-  if (items.length === 0) return null;
+  if (items.length === 0 && !showWhenEmpty) return null;
 
   return (
     <div className="mb-6 pt-6">
@@ -140,19 +144,23 @@ export function CapabilitySection({
         </div>
         {headerSlot ? <div className={headerSlotClassName ?? 'mt-3'}>{headerSlot}</div> : null}
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {items.map((item) => (
-          <CapabilityCard
-            key={`${item.type}:${item.id}`}
-            item={item}
-            catFamilies={catFamilies}
-            toggling={toggling}
-            onToggle={onToggle}
-            onUninstall={onUninstall}
-            hideSkillMountStatus={_hideSkillMountStatus}
-          />
-        ))}
-      </div>
+      {items.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {items.map((item) => (
+            <CapabilityCard
+              key={`${item.type}:${item.id}`}
+              item={item}
+              catFamilies={catFamilies}
+              toggling={toggling}
+              onToggle={onToggle}
+              onUninstall={onUninstall}
+              hideSkillMountStatus={_hideSkillMountStatus}
+            />
+          ))}
+        </div>
+      ) : (
+        emptyState ?? null
+      )}
     </div>
   );
 }
