@@ -348,6 +348,7 @@ describe('Project-scoped threads: create and list by project', () => {
     const tempRepo = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-workspace-missing-'));
     const previousCwd = process.cwd();
     writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    mkdirSync(join(tempRepo, 'cat-cafe-skills'), { recursive: true });
 
     try {
       process.chdir(tempRepo);
@@ -363,6 +364,8 @@ describe('Project-scoped threads: create and list by project', () => {
       const workspaceDir = join(tempRepo, 'workspace');
       assert.equal(thread.projectPath, workspaceDir);
       assert.equal(existsSync(workspaceDir), true);
+      assert.equal(existsSync(join(workspaceDir, 'AGENTS.md')), true);
+      assert.equal(existsSync(join(workspaceDir, '.cat-cafe', 'governance-bootstrap-report.json')), true);
     } finally {
       process.chdir(previousCwd);
       rmSync(tempRepo, { recursive: true, force: true });
@@ -374,6 +377,7 @@ describe('Project-scoped threads: create and list by project', () => {
     const previousCwd = process.cwd();
     const missingProjectPath = join(tempRepo, 'missing-project');
     writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    mkdirSync(join(tempRepo, 'cat-cafe-skills'), { recursive: true });
 
     try {
       process.chdir(tempRepo);
@@ -390,6 +394,36 @@ describe('Project-scoped threads: create and list by project', () => {
       assert.equal(thread.projectPath, workspaceDir);
       assert.equal(existsSync(workspaceDir), true);
       assert.equal(existsSync(missingProjectPath), false);
+      assert.equal(existsSync(join(workspaceDir, 'AGENTS.md')), true);
+      assert.equal(existsSync(join(workspaceDir, '.cat-cafe', 'governance-bootstrap-report.json')), true);
+    } finally {
+      process.chdir(previousCwd);
+      rmSync(tempRepo, { recursive: true, force: true });
+    }
+  });
+
+  it('bootstraps governance for an existing workspace that was not governed yet', async () => {
+    const tempRepo = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-workspace-existing-'));
+    const previousCwd = process.cwd();
+    const workspaceDir = join(tempRepo, 'workspace');
+    writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+    mkdirSync(join(tempRepo, 'cat-cafe-skills'), { recursive: true });
+    mkdirSync(workspaceDir, { recursive: true });
+
+    try {
+      process.chdir(tempRepo);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/threads',
+        payload: { userId: 'alice', title: 'Existing workspace governance' },
+      });
+
+      assert.equal(res.statusCode, 201);
+      const thread = JSON.parse(res.body);
+      assert.equal(thread.projectPath, workspaceDir);
+      assert.equal(existsSync(join(workspaceDir, 'AGENTS.md')), true);
+      assert.equal(existsSync(join(workspaceDir, '.cat-cafe', 'governance-bootstrap-report.json')), true);
     } finally {
       process.chdir(previousCwd);
       rmSync(tempRepo, { recursive: true, force: true });

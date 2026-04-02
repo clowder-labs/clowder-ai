@@ -13,6 +13,7 @@ import { mkdir, realpath, stat } from 'node:fs/promises';
 import { relative, resolve, win32 } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { GovernanceBootstrapService } from '../config/governance/governance-bootstrap.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
@@ -133,10 +134,22 @@ function isPathWithinRoot(absPath: string, root: string): boolean {
   return !rel.startsWith('..') && !rel.startsWith('/') && !rel.startsWith('\\');
 }
 
-async function resolveThreadProjectPath(projectPath?: string): Promise<string> {
+interface ResolvedThreadProjectPath {
+  projectPath: string;
+  monorepoRoot: string;
+  usedDefaultWorkspace: boolean;
+}
+
+async function resolveThreadProjectPath(projectPath?: string): Promise<ResolvedThreadProjectPath> {
   if (projectPath && projectPath !== 'default') {
     const validated = await validateProjectPath(projectPath);
-    if (validated) return validated;
+    if (validated) {
+      return {
+        projectPath: validated,
+        monorepoRoot: findMonorepoRoot(process.cwd()),
+        usedDefaultWorkspace: false,
+      };
+    }
     log.warn({ projectPath }, 'Invalid projectPath for thread creation, falling back to workspace');
   }
 
@@ -154,7 +167,22 @@ async function resolveThreadProjectPath(projectPath?: string): Promise<string> {
     throw new Error(`Workspace path is not a directory: ${resolvedWorkspacePath}`);
   }
 
-  return resolvedWorkspacePath;
+  return {
+    projectPath: resolvedWorkspacePath,
+    monorepoRoot: resolvedMonorepoRoot,
+    usedDefaultWorkspace: true,
+  };
+}
+
+async function shouldBootstrapGovernance(projectPath: string, monorepoRoot: string): Promise<boolean> {
+  const service = new GovernanceBootstrapService(monorepoRoot);
+  const entry = await service.getRegistry().get(projectPath);
+  return !entry?.confirmedByUser;
+}
+
+async function bootstrapGovernanceForProject(projectPath: string, monorepoRoot: string): Promise<void> {
+  const service = new GovernanceBootstrapService(monorepoRoot);
+  await service.bootstrap(projectPath, { dryRun: false });
 }
 
 const threadRoutingRuleSchema = z
@@ -236,8 +264,14 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
 
     let thread;
     try {
-      const resolvedProjectPath = await resolveThreadProjectPath(projectPath);
-      thread = await threadStore.create(userId, title, resolvedProjectPath);
+      const resolvedProject = await resolveThreadProjectPath(projectPath);
+      if (
+        resolvedProject.usedDefaultWorkspace &&
+        (await shouldBootstrapGovernance(resolvedProject.projectPath, resolvedProject.monorepoRoot))
+      ) {
+        await bootstrapGovernanceForProject(resolvedProject.projectPath, resolvedProject.monorepoRoot);
+      }
+      thread = await threadStore.create(userId, title, resolvedProject.projectPath);
     } catch (error) {
       log.error({ err: error, projectPath }, 'Failed to resolve projectPath for thread creation');
       reply.status(500);
