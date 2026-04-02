@@ -100,10 +100,10 @@ describe('Skills Route', () => {
       return;
     }
 
-    // Skills with a category (from BOOTSTRAP) should come before '未分类'
+    // Skills with a category (from BOOTSTRAP) should come before '其他'
     let seenUnregistered = false;
     for (const skill of body.skills) {
-      if (skill.category === '未分类') {
+      if (skill.category === '其他') {
         seenUnregistered = true;
       } else if (seenUnregistered) {
         assert.fail(`Registered skill "${skill.name}" appeared after unregistered skill — ordering violated`);

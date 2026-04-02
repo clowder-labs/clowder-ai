@@ -1,14 +1,13 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CreateAgentModalDraft } from '@/components/CreateAgentModalDraft';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({
-  apiFetch: vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))),
+  apiFetch: vi.fn(),
 }));
-
-import { CreateAgentModalDraft } from '@/components/CreateAgentModalDraft';
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -34,109 +33,63 @@ describe('CreateAgentModalDraft', () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   });
 
-  afterAll(() => {
-    delete (globalThis as { React?: typeof React }).React;
-    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
-  });
-
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    mockApiFetch.mockReset();
+    localStorage.clear();
     useChatStore.getState().setCurrentProject('/tmp/project');
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
-    vi.clearAllMocks();
+    mockApiFetch.mockReset();
   });
 
-  it('renders client and auth selects and saves the selected binding', async () => {
-    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
-      if (path === '/api/model-config-profiles') {
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  it('saves Huawei system models from /api/maas-models using accountRef + bare model name', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
         return Promise.resolve(
           jsonResponse({
-            projectPath: 'global',
-            exists: false,
-            fallbackToProviderProfiles: true,
-            providers: [],
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
           }),
         );
       }
-      if (String(path).startsWith('/api/provider-profiles')) {
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
         return Promise.resolve(
           jsonResponse({
-            projectPath: '/tmp/project',
-            activeProfileId: 'codex',
-            providers: [
+            list: [
               {
-                id: 'claude',
-                provider: 'claude',
-                displayName: 'Claude (OAuth)',
-                name: 'Claude (OAuth)',
-                authType: 'oauth',
-                kind: 'builtin',
-                builtin: true,
-                client: 'anthropic',
-                protocol: 'anthropic',
-                models: ['claude-sonnet-4-6'],
-                hasApiKey: false,
-                createdAt: '2026-03-28T00:00:00.000Z',
-                updatedAt: '2026-03-28T00:00:00.000Z',
-              },
-              {
-                id: 'codex',
-                provider: 'codex',
-                displayName: 'Codex (OAuth)',
-                name: 'Codex (OAuth)',
-                authType: 'oauth',
-                kind: 'builtin',
-                builtin: true,
-                client: 'openai',
-                protocol: 'openai',
-                models: ['gpt-5.4'],
-                hasApiKey: false,
-                createdAt: '2026-03-28T00:00:00.000Z',
-                updatedAt: '2026-03-28T00:00:00.000Z',
-              },
-              {
-                id: 'codex-sponsor',
-                provider: 'codex-sponsor',
-                displayName: 'Codex Sponsor',
-                name: 'Codex Sponsor',
-                authType: 'api_key',
-                kind: 'api_key',
-                builtin: false,
-                mode: 'api_key',
-                protocol: 'openai',
-                models: ['gpt-5.4-mini'],
-                hasApiKey: true,
-                createdAt: '2026-03-28T00:00:00.000Z',
-                updatedAt: '2026-03-28T00:00:00.000Z',
+                id: 'model_config:huawei-maas:glm-5',
+                name: 'GLM-5',
+                provider: 'Huawei MaaS',
+                accountRef: 'huawei-maas',
+                protocol: 'huawei_maas',
+                enabled: true,
               },
             ],
           }),
         );
       }
-      if (path === '/api/cats' && init?.method === 'POST') {
-        return Promise.resolve(jsonResponse({ cat: { id: 'agent-1' } }, 201));
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'huawei-bot' } }, 201));
       }
-      throw new Error(`Unexpected apiFetch path: ${path}`);
+      throw new Error(`Unexpected apiFetch path: ${url}`);
     });
 
     await act(async () => {
       root.render(
         React.createElement(CreateAgentModalDraft, {
           open: true,
-          name: '测试智能体',
-          description: 'desc',
-          draft: {
-            client: 'openai',
-            accountRef: 'codex-sponsor',
-            defaultModel: 'gpt-5.4-mini',
-          },
+          name: 'Huawei Bot',
+          description: 'ACP header bridge',
           onClose: vi.fn(),
           onSaved: vi.fn(),
         }),
@@ -145,27 +98,18 @@ describe('CreateAgentModalDraft', () => {
     await flushEffects();
     await flushEffects();
 
-    const clientSelect = container.querySelector('select[aria-label="Client"]') as HTMLSelectElement | null;
-    const accountSelect = container.querySelector('select[aria-label="认证信息"]') as HTMLSelectElement | null;
-    const modelButton = container.querySelector('button[aria-label="Model"]') as HTMLButtonElement | null;
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(createButton).toBeTruthy();
 
-    expect(clientSelect).not.toBeNull();
-    expect(accountSelect).not.toBeNull();
-    expect(clientSelect?.value).toBe('openai');
-    expect(accountSelect?.value).toBe('codex-sponsor');
-    expect(modelButton?.textContent).toContain('gpt-5.4-mini');
-
-    const saveButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
     await act(async () => {
-      saveButton?.click();
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushEffects();
 
-    const createCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
-    expect(createCall).toBeTruthy();
-    const payload = JSON.parse(String(createCall?.[1]?.body)) as Record<string, unknown>;
-    expect(payload.client).toBe('openai');
-    expect(payload.accountRef).toBe('codex-sponsor');
-    expect(payload.defaultModel).toBe('gpt-5.4-mini');
+    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.accountRef).toBe('huawei-maas');
+    expect(payload.defaultModel).toBe('glm-5');
   });
 });

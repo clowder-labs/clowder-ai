@@ -71,6 +71,70 @@ describe('supportsACPStdioMcpFromInitializeResult', () => {
   });
 });
 
+describe('summarizeACPSessionParamsForLog', () => {
+  it('emits only a safe ACP session summary without model profile details', async () => {
+    const { summarizeACPSessionParamsForLog } = await import(
+      '../dist/domains/cats/services/agents/providers/ACPAgentService.js'
+    );
+
+    const summary = summarizeACPSessionParamsForLog(
+      {
+        cwd: '/opt/workspace/hello',
+        mcpServers: [{ id: 'cat-cafe', transport: 'acp' }],
+        modelProfileOverride: {
+          name: 'default',
+          model: 'glm-5',
+          baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+          apiKey: 'secret',
+        },
+      },
+      {
+        agentCapabilities: {
+          mcpCapabilities: {
+            acp: true,
+          },
+        },
+      },
+    );
+
+    assert.deepEqual(summary, {
+      cwd: '/opt/workspace/hello',
+      mcpServersCount: 1,
+      hasModelProfileOverride: true,
+      mcpTransport: 'acp',
+    });
+    assert.equal('modelProfileOverride' in summary, false);
+    assert.equal('initializeResult' in summary, false);
+  });
+
+  it('handles sessions without model overrides or supported MCP transport', async () => {
+    const { summarizeACPSessionParamsForLog } = await import(
+      '../dist/domains/cats/services/agents/providers/ACPAgentService.js'
+    );
+
+    assert.deepEqual(
+      summarizeACPSessionParamsForLog(
+        {
+          mcpServers: [],
+        },
+        {
+          agentCapabilities: {
+            mcpCapabilities: {
+              http: true,
+              sse: true,
+            },
+          },
+        },
+      ),
+      {
+        mcpServersCount: 0,
+        hasModelProfileOverride: false,
+        mcpTransport: null,
+      },
+    );
+  });
+});
+
 describe('resolveACPMcpTransportFromInitializeResult', () => {
   it('prefers ACP transport when the ACP agent advertises MCP-over-ACP support', async () => {
     const { resolveACPMcpTransportFromInitializeResult } = await import(
@@ -927,6 +991,38 @@ describe('buildACPModelProfileOverridePayload', () => {
         model: 'gpt-5.3-codex',
         baseUrl: 'https://api.example.com/v1',
         apiKey: 'sk-test',
+      },
+    );
+  });
+
+  it('includes headers when the runtime ACP model profile defines them', async () => {
+    const { buildACPModelProfileOverridePayload } = await import(
+      '../dist/domains/cats/services/agents/providers/acp-model-profile-override.js'
+    );
+
+    assert.deepEqual(
+      buildACPModelProfileOverridePayload({
+        id: 'huawei-default',
+        displayName: 'Huawei Default',
+        provider: 'openai_compatible',
+        model: 'glm-5',
+        baseUrl: 'https://api.modelarts-maas.com/v2',
+        apiKey: 'huawei-maas-session',
+        headers: {
+          Authorization: 'Basic abc123',
+        },
+        createdAt: '2026-03-27T00:00:00.000Z',
+        updatedAt: '2026-03-27T00:00:00.000Z',
+      }),
+      {
+        name: 'default',
+        provider: 'openai_compatible',
+        model: 'glm-5',
+        baseUrl: 'https://api.modelarts-maas.com/v2',
+        apiKey: 'huawei-maas-session',
+        headers: {
+          Authorization: 'Basic abc123',
+        },
       },
     );
   });

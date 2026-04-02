@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { setUserId } from '@/utils/userId';
+import { setIsSkipAuth, setUserId } from '@/utils/userId';
 
 export default function LoginPage() {
   const [userType, setUserType] = useState<'huawei' | 'iam'>('huawei'); // 默认华为云用户
@@ -25,6 +25,7 @@ export default function LoginPage() {
       try {
         const response = await apiFetch('/api/islogin');
         const data = await response.json();
+        setIsSkipAuth(Boolean(data?.isskip));
         setHasCode(Boolean(data?.hascode));
 
         if (data.islogin) {

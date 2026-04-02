@@ -710,6 +710,7 @@ export function AgentsPanel() {
                 const budgetText = formatBudgetLabel(cat.contextBudget?.maxContextTokens);
                 const avatar = cat.avatar?.trim() ?? '';
                 const avatarLooksLikeUrl = /^(https?:\/\/|\/)/.test(avatar);
+                const isPlatformPreset = cat.source !== 'runtime';
 
                 return (
                   <div
@@ -739,8 +740,15 @@ export function AgentsPanel() {
                         }}
                         className="min-w-0 flex-1 text-left"
                       >
-                        <div className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
-                          {cat.displayName}
+                        <div className="flex min-w-0 items-center gap-1">
+                          <span className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                            {cat.displayName}
+                          </span>
+                          {isPlatformPreset ? (
+                            <span className="inline-flex h-[18px] shrink-0 items-center rounded-[2px] bg-[rgba(230,230,230,1)] px-1 text-[12px] text-[rgba(25,25,25,1)]">
+                              平台预置
+                            </span>
+                          ) : null}
                         </div>
                         <div className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
                           {modelText} · {budgetText}

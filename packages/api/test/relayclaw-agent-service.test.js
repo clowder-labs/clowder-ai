@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 const { RelayClawAgentService, __relayClawInternals } = await import(
   '../dist/domains/cats/services/agents/providers/RelayClawAgentService.js'
 );
-const { resolveRelayClawWebSocketCtor } = await import(
+const { RelayClawConnectionManager, resolveRelayClawWebSocketCtor } = await import(
   '../dist/domains/cats/services/agents/providers/relayclaw-connection.js'
 );
 const {
@@ -41,6 +41,60 @@ describe('RelayClawAgentService', () => {
     try {
       delete global.WebSocket;
       assert.equal(resolveRelayClawWebSocketCtor(), NodeWebSocket);
+    } finally {
+      global.WebSocket = savedWebSocket;
+    }
+  });
+
+  it('connects and sends without a global WebSocket when using the fallback constructor', async () => {
+    const savedWebSocket = global.WebSocket;
+    const sent = [];
+
+    class FakeFallbackWebSocket {
+      static OPEN = 1;
+
+      constructor(url) {
+        this.url = url;
+        this.readyState = FakeFallbackWebSocket.OPEN;
+        this.listeners = new Map();
+        queueMicrotask(() => {
+          this.dispatch('message', {
+            data: JSON.stringify({ type: 'event', event: 'connection.ack' }),
+          });
+        });
+      }
+
+      addEventListener(type, handler) {
+        const handlers = this.listeners.get(type) ?? [];
+        handlers.push(handler);
+        this.listeners.set(type, handlers);
+      }
+
+      send(raw) {
+        sent.push(raw);
+      }
+
+      close() {
+        this.readyState = 3;
+      }
+
+      dispatch(type, event) {
+        for (const handler of this.listeners.get(type) ?? []) handler(event);
+      }
+    }
+
+    try {
+      delete global.WebSocket;
+      const manager = new RelayClawConnectionManager({
+        requestQueues: new Map(),
+        wsFactory: (url) => new FakeFallbackWebSocket(url),
+      });
+
+      await manager.ensureConnected('ws://fallback.test');
+      assert.equal(manager.isOpen(), true);
+
+      manager.send({ hello: 'world' });
+      assert.deepEqual(sent, ['{"hello":"world"}']);
     } finally {
       global.WebSocket = savedWebSocket;
     }

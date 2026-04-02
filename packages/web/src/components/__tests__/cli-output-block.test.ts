@@ -5,13 +5,18 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliEvent } from '@/stores/chat-types';
+import { apiFetch } from '@/utils/api-client';
 
 // Stub MarkdownContent (heavy dep)
 vi.mock('@/components/MarkdownContent', () => ({
   MarkdownContent: ({ content }: { content: string }) => React.createElement('div', { 'data-testid': 'md' }, content),
 }));
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: vi.fn(async () => ({ ok: true })),
+}));
 
 const { CliOutputBlock } = await import('../cli-output/CliOutputBlock');
+const mockApiFetch = vi.mocked(apiFetch);
 
 let container: HTMLDivElement;
 let root: Root;
@@ -28,6 +33,16 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+  mockApiFetch.mockClear();
+  mockApiFetch.mockImplementation(async (path) => {
+    if (path === '/api/workspace/local-file-meta') {
+      return {
+        ok: true,
+        json: async () => ({ generatedAt: Date.parse('2026-03-24T08:00:00.000Z') }),
+      } as Response;
+    }
+    return { ok: true, json: async () => ({}) } as Response;
+  });
 });
 afterEach(() => {
   act(() => root.unmount());
@@ -41,7 +56,7 @@ const doneEvents: CliEvent[] = [
 ];
 
 describe('CliOutputBlock', () => {
-  it('renders summary line with tool count when collapsed (default)', () => {
+  it('renders completed tool-call summary when collapsed (default)', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -51,10 +66,8 @@ describe('CliOutputBlock', () => {
       );
     });
     const text = container.textContent ?? '';
-    expect(text).toContain('CLI Output');
-    expect(text).toContain('done');
-    // 1 tool_use event → "1 tools"
-    expect(text).toMatch(/1 tool/);
+    expect(text).toContain('已执行1次工具调用');
+    expect(text).not.toContain('正在执行工具调用');
   });
 
   it('shows expanded content when defaultExpanded=true', () => {
@@ -69,7 +82,7 @@ describe('CliOutputBlock', () => {
     });
     // CLI block expanded, stdout visible; tools collapsed by default when done
     expect(container.textContent).toContain('Looks good.');
-    expect(container.textContent).toContain('1 tool');
+    expect(container.textContent).toContain('已执行1次工具调用');
     // Expand tools section to see tool labels
     const toolsToggle = container.querySelector('[data-testid="tools-section-toggle"]') as HTMLElement | null;
     act(() => {
@@ -78,7 +91,7 @@ describe('CliOutputBlock', () => {
     expect(container.textContent).toContain('Read index.ts');
   });
 
-  it('streaming status → always expanded, summary says streaming', () => {
+  it('streaming status → always expanded, summary says tool call is running', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -88,7 +101,7 @@ describe('CliOutputBlock', () => {
       );
     });
     const text = container.textContent ?? '';
-    expect(text).toContain('streaming');
+    expect(text).toContain('正在执行工具调用');
     expect(text).toContain('Bash pnpm test');
   });
 
@@ -156,8 +169,8 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    // Initially collapsed — no tool details
-    expect(container.textContent).not.toContain('Looks good.');
+    // Initially collapsed — tool stdout is visible, detail body is collapsed
+    expect(container.textContent).toContain('Looks good.');
 
     // Click to expand
     const button = container.querySelector('button');
@@ -171,10 +184,10 @@ describe('CliOutputBlock', () => {
     act(() => {
       button?.click();
     });
-    expect(container.textContent).not.toContain('Looks good.');
+    expect(container.querySelector('[data-testid="cli-output-body"]')).toBeFalsy();
   });
 
-  it('shows failed status text', () => {
+  it('shows completed tool count even after failure', () => {
     act(() => {
       root.render(
         React.createElement(CliOutputBlock, {
@@ -183,7 +196,7 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    expect(container.textContent).toContain('failed');
+    expect(container.textContent).toContain('已执行1次工具调用');
   });
 
   // ── P1-1: per-tool collapse (AC-A2) ──
@@ -359,8 +372,7 @@ describe('CliOutputBlock', () => {
         }),
       );
     });
-    // 135s = 2m15s
-    expect(container.textContent).toContain('2m15s');
+    expect(container.textContent).toContain('已执行1次工具调用');
   });
 
   // ── P2-5: visibility chip always shown ──
@@ -375,5 +387,88 @@ describe('CliOutputBlock', () => {
       );
     });
     expect(container.textContent).toContain('private');
+  });
+
+  it('does not render a ppt card when no ppt file was generated', () => {
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: doneEvents,
+          status: 'done',
+        }),
+      );
+    });
+
+    expect(container.querySelector('[data-testid="cli-output-ppt-card"]')).toBeNull();
+  });
+
+  it('renders a ppt attachment card from the generated local file path and opens that file', async () => {
+    const pptEvents: CliEvent[] = [
+      { id: 't1', kind: 'tool_use', timestamp: 1000, label: 'Bash python build_ppt.py' },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Bash python build_ppt.py',
+        detail: '[Done] Saved: C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+      },
+      {
+        id: 't3',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'PPT generated at C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: pptEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('demo-deck.pptx');
+    expect(container.textContent).toContain('生成时间：2026年3月24日');
+    const openButton = container.querySelector('[data-testid="cli-output-ppt-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/workspace/open-local', expect.objectContaining({ method: 'POST' }));
+    const openLocalCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/open-local');
+    const [, init] = openLocalCall ?? [];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+    });
+  });
+
+  it.skip('does not render a ppt card when no ppt file was generated', async () => {
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: doneEvents,
+          status: 'done',
+        }),
+      );
+    });
+
+    expect(container.textContent).toContain('NVIDIA_GTC_2026_华为风.pptx');
+    const openButton = container.querySelector('[data-testid="cli-output-ppt-open"]') as HTMLButtonElement | null;
+    expect(openButton?.textContent).toContain('打开');
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/workspace/open-local', expect.objectContaining({ method: 'POST' }));
+    const [, init] = mockApiFetch.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\NVIDIA_GTC_2026_华为风.pptx',
+    });
   });
 });

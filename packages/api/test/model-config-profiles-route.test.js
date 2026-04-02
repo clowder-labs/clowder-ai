@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, beforeEach, describe, it } from 'node:test';
@@ -82,5 +82,45 @@ describe('model config profiles routes', () => {
     assert.ok(Array.isArray(listBody.list));
     assert.ok(listBody.list.some((item) => item.id === 'model_config:my-openai-proxy:gpt-4o-mini'));
     assert.ok(listBody.list.some((item) => item.name === 'deepseek-chat' && item.provider === 'My OpenAI Proxy'));
+  });
+
+  it('GET /api/maas-models returns Huawei system models as explicit model_config sources', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { maasModelsRoutes } = await import('../dist/routes/maas-models.js');
+
+    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.cat-cafe', 'model.json'),
+      `${JSON.stringify({ 'huawei-maas': [{ id: 'glm-5' }, { id: 'qwen3-32b' }] }, null, 2)}\n`,
+    );
+
+    const app = Fastify();
+    await app.register(maasModelsRoutes);
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: `/api/maas-models?projectPath=${encodeURIComponent(projectRoot)}`,
+    });
+
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    assert.ok(Array.isArray(listBody.list));
+    assert.ok(
+      listBody.list.some(
+        (item) =>
+          item.id === 'model_config:huawei-maas:glm-5' &&
+          item.accountRef === 'huawei-maas' &&
+          item.protocol === 'huawei_maas',
+      ),
+    );
+    assert.ok(
+      listBody.list.some(
+        (item) =>
+          item.id === 'model_config:huawei-maas:qwen3-32b' &&
+          item.accountRef === 'huawei-maas' &&
+          item.provider === 'Huawei MaaS',
+      ),
+    );
   });
 });

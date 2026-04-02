@@ -251,6 +251,7 @@ interface DareLaunchSpec {
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
 const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
 const DARE_ADAPTER_OVERRIDE_ENV = 'CAT_CAFE_DARE_ADAPTER';
+const DARE_SSL_VERIFY_ENV = 'DARE_SSL_VERIFY';
 
 const ADAPTER_KEY_ENV: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
@@ -572,7 +573,12 @@ export class DareAgentService implements AgentService {
       systemPrompt: options?.systemPrompt,
       mcpServerPath: mcpPathForDare,
     });
-    const childEnv = this.buildEnv(options?.callbackEnv, cliModel, effectiveAdapter);
+    const childEnv = this.buildEnv(
+      options?.callbackEnv,
+      cliModel,
+      effectiveAdapter,
+      options?.acpModelProfile?.sslVerify,
+    );
     const metadata: MessageMetadata = { provider: 'dare', model: metadataModel };
     let sessionInitEmitted = false;
 
@@ -752,6 +758,7 @@ export class DareAgentService implements AgentService {
     callbackEnv?: Record<string, string>,
     model?: string,
     adapter?: string,
+    sslVerify?: boolean | null,
   ): Record<string, string | null> {
     const env: Record<string, string | null> = { ...callbackEnv };
     const apiKeyEnvName = adapter ? ADAPTER_KEY_ENV[adapter] : undefined;
@@ -789,6 +796,14 @@ export class DareAgentService implements AgentService {
         const inputBudget = Math.floor(ctxWindow * 0.7);
         env.DARE_CONTEXT_WINDOW_TOKENS = String(inputBudget);
       }
+    }
+
+    if (callbackEnv?.[DARE_SSL_VERIFY_ENV] !== undefined) {
+      env[DARE_SSL_VERIFY_ENV] = callbackEnv[DARE_SSL_VERIFY_ENV];
+    } else if (sslVerify !== undefined && sslVerify !== null) {
+      env[DARE_SSL_VERIFY_ENV] = sslVerify ? '1' : '0';
+    } else {
+      env[DARE_SSL_VERIFY_ENV] = '0';
     }
 
     return env;

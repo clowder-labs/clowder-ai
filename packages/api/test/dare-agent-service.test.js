@@ -192,6 +192,30 @@ describe('DareAgentService', () => {
     assert.ok(args.includes('-m') && args.includes('client'), `expected -m client in args: ${args}`);
   });
 
+  test('defaults DARE_SSL_VERIFY to 0 in child env', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
+    const promise = collect(service.invoke('Test prompt'));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const opts = spawnFn.mock.calls[0].arguments[2];
+    assert.strictEqual(opts.env.DARE_SSL_VERIFY, '0');
+  });
+
+  test('maps acpModelProfile.sslVerify=true to DARE_SSL_VERIFY=1', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
+    const promise = collect(service.invoke('Test prompt', { acpModelProfile: { sslVerify: true } }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const opts = spawnFn.mock.calls[0].arguments[2];
+    assert.strictEqual(opts.env.DARE_SSL_VERIFY, '1');
+  });
+
   test('omits --adapter and --model when no explicit override is provided', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);

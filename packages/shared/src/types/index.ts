@@ -85,6 +85,7 @@ export type {
   CatColor,
   CatConfig,
   CatProvider,
+  EmbeddedRuntimeKind,
   KnownCatProvider,
   CatState,
   CatStatus,
@@ -93,6 +94,8 @@ export {
   CAT_CONFIGS,
   findCatByMention,
   getAllCatIds,
+  resolveEmbeddedRuntimeKind,
+  usesEmbeddedAcpRuntime,
 } from './cat.js';
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
@@ -103,6 +106,7 @@ export type {
   CatFeatures,
   CatVariant,
   CliConfig,
+  EmbeddedAcpConfig,
   // F067: Co-Creator config for @ mention routing
   CoCreatorConfig,
   ContextBudget,
