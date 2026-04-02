@@ -266,6 +266,7 @@ export async function* routeParallel(
         ...(signal ? { signal } : {}),
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
         ...(options.resumeCatId === catId ? { resumeSession: true } : {}),
+        ...(options.latencyTrace ? { latencyTrace: options.latencyTrace } : {}),
         isLastCat: false,
       });
     }),

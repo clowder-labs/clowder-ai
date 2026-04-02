@@ -82,6 +82,34 @@ export interface MessageMetadata {
   modelVerified?: boolean;
 }
 
+export interface InvocationLatencyTrace {
+  clientSentAt?: number;
+  serverReceivedAt?: number;
+  officeReceivedAt?: number;
+}
+
+export function latencyDelta(from?: number, to?: number): number | undefined {
+  if (typeof from !== 'number' || typeof to !== 'number') return undefined;
+  return to - from;
+}
+
+export function buildLatencyCheckpoint(
+  latencyStage: string,
+  stageAt: number,
+  trace?: InvocationLatencyTrace,
+): Record<string, number | string> {
+  return {
+    latencyStage,
+    stageAt,
+    ...(typeof trace?.clientSentAt === 'number' ? { clientSentAt: trace.clientSentAt } : {}),
+    ...(typeof trace?.serverReceivedAt === 'number' ? { serverReceivedAt: trace.serverReceivedAt } : {}),
+    ...(typeof trace?.officeReceivedAt === 'number' ? { officeReceivedAt: trace.officeReceivedAt } : {}),
+    ...(typeof trace?.clientSentAt === 'number' ? { clientToStageMs: stageAt - trace.clientSentAt } : {}),
+    ...(typeof trace?.serverReceivedAt === 'number' ? { serverToStageMs: stageAt - trace.serverReceivedAt } : {}),
+    ...(typeof trace?.officeReceivedAt === 'number' ? { officeToStageMs: stageAt - trace.officeReceivedAt } : {}),
+  };
+}
+
 /**
  * Correlation fields used by audit pipelines to connect service-level events.
  */
@@ -161,6 +189,8 @@ export interface AgentServiceOptions {
   sessionId?: string;
   /** When true, providers that support it should resume the active interrupted run instead of prompting anew. */
   resumeSession?: boolean;
+  /** Parent InvocationRecord ID for correlating provider timings with request lifecycle logs. */
+  parentInvocationId?: string;
   /** Working directory for the agent */
   workingDirectory?: string;
   /** Env vars to pass to CLI process for MCP callback auth */
@@ -181,6 +211,8 @@ export interface AgentServiceOptions {
   invocationId?: string;
   /** F118: CLI session ID for diagnostic enrichment of __cliTimeout */
   cliSessionId?: string;
+  /** End-to-end latency checkpoints propagated from the request entrypoint. */
+  latencyTrace?: InvocationLatencyTrace;
   /** F118 Phase B: Liveness probe config (undefined = disabled) */
   livenessProbe?: {
     sampleIntervalMs?: number;

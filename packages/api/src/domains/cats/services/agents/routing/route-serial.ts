@@ -353,6 +353,7 @@ export async function* routeSerial(
         ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
         ...(options.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
         ...(options.resumeCatId === catId ? { resumeSession: true } : {}),
+        ...(options.latencyTrace ? { latencyTrace: options.latencyTrace } : {}),
         // F121: Pass A2A trigger message ID for auto-replyTo threading
         ...(worklistEntry.a2aTriggerMessageId.get(catId)
           ? { a2aTriggerMessageId: worklistEntry.a2aTriggerMessageId.get(catId) }

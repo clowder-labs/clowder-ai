@@ -63,7 +63,7 @@ import type { ISessionSealer } from '../../session/SessionSealer.js';
 import type { TranscriptSessionInfo, TranscriptWriter } from '../../session/TranscriptWriter.js';
 import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
-import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
+import type { AgentMessage, AgentService, AgentServiceOptions, InvocationLatencyTrace } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import type { ResumeFailureKind } from './invoke-helpers.js';
 import {
@@ -204,6 +204,8 @@ export interface InvocationParams {
   readonly uploadDir?: string;
   readonly signal?: AbortSignal;
   readonly isLastCat: boolean;
+  /** End-to-end latency timestamps propagated from the request entrypoint. */
+  readonly latencyTrace?: InvocationLatencyTrace;
   /** Use protocol-native resume for interrupted sessions when supported by the provider. */
   readonly resumeSession?: boolean;
   /** Static identity prompt — prepended to prompt on new sessions (gated by F-BLOAT logic) */
@@ -983,7 +985,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(signal ? { signal } : {}),
       ...(spawnCliOverride ? { spawnCliOverride } : {}),
       invocationId,
+      ...(params.parentInvocationId ? { parentInvocationId: params.parentInvocationId } : {}),
       ...(sessionId ? { cliSessionId: sessionId } : {}),
+      ...(params.latencyTrace ? { latencyTrace: params.latencyTrace } : {}),
       ...(params.resumeSession ? { resumeSession: true } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
       livenessProbe: {},

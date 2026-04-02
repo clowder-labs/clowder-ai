@@ -243,6 +243,75 @@ describe('RelayClawAgentService', () => {
     assert.equal(messages[1].content, 'OK');
   });
 
+  it('emits a generated session id and reuses it in the WS request', async () => {
+    let capturedRequest = null;
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          capturedRequest = request;
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Reply with exactly: OK')) {
+      messages.push(msg);
+    }
+
+    assert.equal(typeof messages[0].sessionId, 'string');
+    assert.ok(messages[0].sessionId);
+    assert.equal(capturedRequest.session_id, messages[0].sessionId);
+  });
+
+  it('reuses the provided session id in session_init and the WS request', async () => {
+    let capturedRequest = null;
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          capturedRequest = request;
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('Continue the conversation', { sessionId: 'relayclaw-session-123' })) {
+      messages.push(msg);
+    }
+
+    assert.equal(messages[0].sessionId, 'relayclaw-session-123');
+    assert.equal(capturedRequest.session_id, 'relayclaw-session-123');
+  });
+
   it('treats llm_reasoning deltas as thinking and still emits the final answer', async () => {
     const service = new RelayClawAgentService(
       {
