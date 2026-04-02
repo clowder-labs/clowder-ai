@@ -113,7 +113,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
   const handleSubmit = useCallback(async () => {
     if (!name.trim()) {
-      setError('请输入 Skill 名称');
+      setError('请输入技能名称');
       return;
     }
     if (files.length === 0) {
@@ -152,11 +152,11 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="upload-skill-overlay">
       <div role="dialog" aria-modal="true" className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-        <h3 className="text-sm font-bold mb-5">上传 Skill</h3>
+        <h3 className="text-sm font-bold mb-5">上传技能</h3>
 
         {/* Name input */}
         <div className="mb-4">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Skill 名称</label>
+          <label className="block text-xs font-medium text-gray-600 mb-1">技能名称</label>
           <input
             type="text"
             value={name}

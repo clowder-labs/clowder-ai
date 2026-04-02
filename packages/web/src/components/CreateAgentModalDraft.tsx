@@ -788,7 +788,7 @@ export function CreateAgentModalDraft({
 
             {isSkipAuth ? (
               <div className="space-y-2.5">
-                <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
+                <div className="text-[12px] font-semibold text-[var(--text-primary)]">Agent 客户端</div>
                 <button
                   ref={clientTriggerRef}
                   type="button"
