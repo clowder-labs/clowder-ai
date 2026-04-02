@@ -248,6 +248,7 @@ describe('background thread socket handling', () => {
         content: 'callback note',
         origin: 'callback',
         messageId: 'msg-callback-1',
+        invocationId: 'inv-bg-1',
         timestamp: Date.now(),
       });
 
@@ -255,6 +256,7 @@ describe('background thread socket handling', () => {
       expect(ts.messages).toHaveLength(1);
       expect(ts.messages[0]?.id).toBe('msg-callback-1');
       expect(ts.messages[0]?.origin).toBe('callback');
+      expect(ts.messages[0]?.extra).toEqual({ stream: { invocationId: 'inv-bg-1' } });
     });
 
     it('callback-origin text replaces overlapping background stream bubble from the same invocation', () => {

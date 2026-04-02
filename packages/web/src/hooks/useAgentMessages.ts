@@ -446,7 +446,14 @@ export function useAgentMessages() {
               origin: 'callback',
               isStreaming: false,
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(msg.extra?.crossPost || invocationId
+                ? {
+                    extra: {
+                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+                      ...(invocationId ? { stream: { invocationId } } : {}),
+                    },
+                  }
+                : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
@@ -468,7 +475,14 @@ export function useAgentMessages() {
               content: msg.content,
               origin: 'callback',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+              ...(msg.extra?.crossPost || invocationId
+                ? {
+                    extra: {
+                      ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
+                      ...(invocationId ? { stream: { invocationId } } : {}),
+                    },
+                  }
+                : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
               ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
