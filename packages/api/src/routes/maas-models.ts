@@ -27,6 +27,7 @@ export interface MassModelInfo {
   id: string;
   name: string;
   provider: string;
+  accountRef?: string;
   kind: 'provider' | 'acp';
   protocol?: string;
   enabled: boolean;
@@ -201,18 +202,19 @@ function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[
     const rawId = item.id;
     const rawName = item.name;
     const rawDescription = item.description ?? item.descriptionssss ?? item.desc;
-    const id = typeof rawId === 'string' && rawId.trim() ? rawId.trim() : `maas:${index}`;
+    const modelId = typeof rawId === 'string' && rawId.trim() ? rawId.trim() : `maas:${index}`;
     const name =
       typeof rawName === 'string' && rawName.trim()
         ? rawName.trim()
         : typeof rawId === 'string' && rawId.trim()
           ? rawId.trim()
-          : id;
+          : modelId;
     return {
       ...item,
-      id,
+      id: `model_config:${HUAWEI_MAAS_MODEL_SOURCE_ID}:${modelId}`,
       name,
       provider: 'Huawei MaaS',
+      accountRef: HUAWEI_MAAS_MODEL_SOURCE_ID,
       kind: 'provider',
       protocol: 'huawei_maas',
       enabled: true,
@@ -237,6 +239,7 @@ function toConfiguredModelList(
       id: `model_config:${binding.id}:${modelName}`,
       name: modelName,
       provider: binding.protocol === 'huawei_maas' ? 'Huawei MaaS' : binding.displayName?.trim() || binding.id,
+      accountRef: binding.id,
       kind: 'provider' as const,
       ...(binding.protocol ? { protocol: binding.protocol } : {}),
       enabled: true,

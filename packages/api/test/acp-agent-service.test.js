@@ -994,4 +994,36 @@ describe('buildACPModelProfileOverridePayload', () => {
       },
     );
   });
+
+  it('includes headers when the runtime ACP model profile defines them', async () => {
+    const { buildACPModelProfileOverridePayload } = await import(
+      '../dist/domains/cats/services/agents/providers/acp-model-profile-override.js'
+    );
+
+    assert.deepEqual(
+      buildACPModelProfileOverridePayload({
+        id: 'huawei-default',
+        displayName: 'Huawei Default',
+        provider: 'openai_compatible',
+        model: 'glm-5',
+        baseUrl: 'https://api.modelarts-maas.com/v2',
+        apiKey: 'huawei-maas-session',
+        headers: {
+          Authorization: 'Basic abc123',
+        },
+        createdAt: '2026-03-27T00:00:00.000Z',
+        updatedAt: '2026-03-27T00:00:00.000Z',
+      }),
+      {
+        name: 'default',
+        provider: 'openai_compatible',
+        model: 'glm-5',
+        baseUrl: 'https://api.modelarts-maas.com/v2',
+        apiKey: 'huawei-maas-session',
+        headers: {
+          Authorization: 'Basic abc123',
+        },
+      },
+    );
+  });
 });

@@ -51,6 +51,7 @@ interface MaaSModelResponseItem {
   id?: string | number;
   name?: string;
   provider?: string;
+  accountRef?: string;
   protocol?: string;
   icon?: string;
   logo?: string;
@@ -208,6 +209,9 @@ function resolveSelectionHint(
 }
 
 function parseAccountRefFromModelItem(item: MaaSModelResponseItem): string | null {
+  if (typeof item.accountRef === 'string' && item.accountRef.trim().length > 0) {
+    return item.accountRef.trim();
+  }
   if (item.provider === HUAWEI_GROUP_LABEL) return 'huawei-maas';
   const rawId = typeof item.id === 'string' ? item.id.trim() : '';
   if (!rawId) return null;
@@ -219,6 +223,13 @@ function parseAccountRefFromModelItem(item: MaaSModelResponseItem): string | nul
   return null;
 }
 
+function parseModelNameFromModelItemId(rawId: string, accountRef: string, fallbackName: string): string {
+  if (!rawId.startsWith('model_config:')) return fallbackName;
+  const prefix = `model_config:${accountRef}:`;
+  if (!rawId.startsWith(prefix)) return fallbackName;
+  return rawId.slice(prefix.length) || fallbackName;
+}
+
 function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
   if (item.enabled === false) return null;
   const normalized = item as Record<string, unknown>;
@@ -227,15 +238,12 @@ function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
   if (!modelLabel || !accountRef) return null;
 
   const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
-  const groupId: ModelGroupId = providerLabel === HUAWEI_GROUP_LABEL ? 'huawei-maas' : 'third-party';
+  const protocol = pickStringField(normalized, ['protocol']);
+  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_GROUP_LABEL;
+  const groupId: ModelGroupId = isHuawei ? 'huawei-maas' : 'third-party';
   const rawId =
     typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;
-  const model =
-    groupId === 'huawei-maas'
-      ? rawId
-      : rawId.startsWith('model_config:')
-        ? rawId.slice(`model_config:${accountRef}:`.length) || modelLabel
-        : modelLabel;
+  const model = parseModelNameFromModelItemId(rawId, accountRef, modelLabel);
 
   return {
     id: rawId,
