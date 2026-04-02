@@ -602,9 +602,11 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       // Determine source: check capabilities.json first, then installed records
+      // Only treat as external if from SkillHub (source === 'skillhub'), not local uploads
       const isExternalCap = capabilityEntry?.source === 'external';
-      const isRemote = installedRecords.some((r) => r.name === skillName) || isExternalCap;
       const installedRecord = installedRecords.find((r) => r.name === skillName);
+      const isSkillhubInstalled = installedRecord?.source === 'skillhub';
+      const isRemote = isSkillhubInstalled || isExternalCap;
       const source: 'cat-cafe' | 'external' = isRemote ? 'external' : 'cat-cafe';
 
       // Get category
@@ -694,6 +696,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     if (filePath.includes('..') || filePath.startsWith('/')) {
       reply.status(400);
       return { error: 'Invalid file path' };
+    }
+
+    // Security: prevent reading hidden files (consistent with directory tree behavior)
+    const fileName = filePath.split(/[/\\]/).pop() ?? '';
+    if (fileName.startsWith('.')) {
+      reply.status(403);
+      return { error: 'Cannot read hidden files' };
     }
 
     const skillDir = join(CAT_CAFE_SKILLS_SRC, skillName);
