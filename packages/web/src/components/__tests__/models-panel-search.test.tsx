@@ -73,6 +73,15 @@ describe('ModelsPanel search', () => {
                 developer: 'DeepSeek',
                 icon: '/images/deepseek.svg',
               },
+              {
+                id: 'alpha-custom',
+                object: 'model',
+                name: 'alpha-custom',
+                description: 'custom model without icon',
+                protocol: 'openai',
+                labels: ['proxy'],
+                developer: 'OpenAI',
+              },
             ],
           }),
         );
@@ -181,5 +190,16 @@ describe('ModelsPanel search', () => {
     expect(mockApiFetch).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('deepseek-r1');
     expect(container.textContent).not.toContain('gpt-5');
+  });
+
+  it('falls back to unified initial icon when model icon is missing', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const fallbackIcon = container.querySelector('[data-testid="model-card-icon-alpha-custom"]');
+    expect(fallbackIcon).not.toBeNull();
+    expect(fallbackIcon?.textContent).toContain('A');
   });
 });

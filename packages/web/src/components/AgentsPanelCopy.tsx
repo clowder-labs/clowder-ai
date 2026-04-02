@@ -1077,7 +1077,7 @@ export function AgentsPanelCopy() {
                               {cat.displayName}
                             </span>
                             {isPlatformPreset ? (
-                              <span className="ui-badge-muted inline-flex h-[18px] shrink-0 items-center rounded-[4px] text-[11px] text-[var(--agent-preset-badge-text)] bg-[var(--agent-preset-badge-bg)]">
+                              <span className="ui-badge-muted inline-flex h-[18px] shrink-0 items-center rounded-[4px] text-[12px] text-[var(--agent-preset-badge-text)] bg-[var(--agent-preset-badge-bg)]">
                                 平台预置
                               </span>
                             ) : null}

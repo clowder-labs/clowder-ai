@@ -213,6 +213,46 @@ body {
   background: var(--surface-app);
 }
 
+/* Normalize browser autofill style (remove default blue/yellow background) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-panel) inset;
+  box-shadow: 0 0 0 1000px var(--surface-panel) inset;
+  transition: background-color 99999s ease-in-out 0s;
+}
+
+/* Global scrollbar style: thumb color #DBDBDB (from rgba(219,219,219,1)),
+   effective thumb width 4px with 2px side padding */
+* {
+  scrollbar-color: #dbdbdb transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #dbdbdb;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
 @layer components {
   .ui-page-shell {
     @apply flex h-full min-h-0 flex-col;
@@ -248,7 +288,7 @@ body {
 
   .ui-card {
     border: var(--border-width-default) solid var(--border-default);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     background: var(--surface-card);
   }
 

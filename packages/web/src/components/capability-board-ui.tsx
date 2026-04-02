@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { type ReactNode } from 'react';
+import { NameInitialIcon } from './NameInitialIcon';
 
 export interface CapabilityBoardItem {
   id: string;
@@ -96,25 +97,6 @@ export function ExtensionIcon({ className }: { className?: string }) {
   );
 }
 
-function getSkillInitial(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return '?';
-  const [initial] = Array.from(trimmed);
-  return /[a-z]/i.test(initial) ? initial.toUpperCase() : initial;
-}
-
-function SkillArtwork({ name }: { name: string }) {
-  const initial = getSkillInitial(name);
-  return (
-    <div
-      aria-hidden="true"
-      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-soft)] shadow-sm"
-    >
-      <span className="text-xl font-bold text-[var(--text-accent)]">{initial}</span>
-    </div>
-  );
-}
-
 function getSourceLabel(source: CapabilityBoardItem['source']): string {
   if (source === 'cat-cafe') return '官方';
   if (source === 'external') return '三方';
@@ -201,7 +183,7 @@ function CapabilityCard({
       data-testid={`capability-card-${item.type}-${item.id}`}
     >
       <div className="flex items-start gap-3">
-        <SkillArtwork name={item.id} />
+        <NameInitialIcon name={item.id} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <h3 className="truncate text-base font-semibold text-[var(--text-primary)]">{item.id}</h3>
