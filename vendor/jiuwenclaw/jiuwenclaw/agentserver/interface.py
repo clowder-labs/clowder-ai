@@ -268,7 +268,7 @@ class JiuWenClaw:
         agent_config = self._load_react_config(config_base)
 
         sysop_card_id: str | None = None
-        project_workspace_dir = get_project_workspace_dir()
+        project_workspace_dir = get_agent_root_dir()
         try:
             sysop_card = SysOperationCard(
                 mode=OperationMode.LOCAL,
