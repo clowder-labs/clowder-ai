@@ -744,7 +744,7 @@ export function CreateAgentModalDraft({
 
             <div className="space-y-2.5">
               <div className="text-[12px] text-[var(--text-primary)]">描述（可选）</div>
-              <div className="ui-field relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
+              <div className="ui-field relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1 focus-within:border-[#1476FF]">
                 <textarea
                   aria-label="Description"
                   value={draftDescription}
