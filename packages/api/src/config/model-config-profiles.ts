@@ -24,6 +24,14 @@ export interface CreateProjectModelConfigSourceInput {
   models: string[];
 }
 
+export interface UpdateProjectModelConfigSourceInput {
+  displayName?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+  models?: string[];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -236,6 +244,77 @@ export async function deleteProjectModelConfigSource(projectRoot: string, source
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, `${JSON.stringify(existingDocument, null, 2)}\n`, 'utf-8');
   return true;
+}
+
+export async function updateProjectModelConfigSource(
+  projectRoot: string,
+  sourceId: string,
+  input: UpdateProjectModelConfigSourceInput,
+): Promise<ModelConfigBinding> {
+  const trimmedId = sourceId.trim();
+  if (!trimmedId) {
+    throw new Error('model config source id is required');
+  }
+  if (trimmedId === HUAWEI_MAAS_MODEL_SOURCE_ID) {
+    throw new Error(`model config source "${HUAWEI_MAAS_MODEL_SOURCE_ID}" cannot be updated`);
+  }
+
+  const existingDocument = await readProjectModelConfigDocument(projectRoot);
+  if (!existingDocument || existingDocument[trimmedId] === undefined) {
+    throw new Error(`model config source "${trimmedId}" not found`);
+  }
+
+  const existingValue = existingDocument[trimmedId];
+  if (!isRecord(existingValue)) {
+    throw new Error(`model config source "${trimmedId}" has invalid format`);
+  }
+
+  const existing = normalizeOpenAiBinding(trimmedId, existingValue);
+  if (!existing) {
+    throw new Error(`model config source "${trimmedId}" is not an editable openai source`);
+  }
+
+  const displayName =
+    input.displayName !== undefined ? input.displayName.trim() || existing.displayName : existing.displayName;
+  const baseUrl = input.baseUrl !== undefined ? input.baseUrl.trim() : existing.baseUrl;
+  const apiKey = input.apiKey !== undefined ? input.apiKey.trim() : existing.apiKey;
+  const headers =
+    input.headers !== undefined ? normalizeHeaderMap(input.headers) : normalizeHeaderMap(existingValue.headers);
+  const models =
+    input.models !== undefined
+      ? Array.from(new Set(input.models.map((model) => model.trim()).filter(Boolean)))
+      : existing.models;
+
+  if (!baseUrl || !apiKey) {
+    throw new Error('baseUrl and apiKey are required');
+  }
+  if (models.length === 0) {
+    throw new Error('at least one model is required');
+  }
+
+  const updatedRecord: Record<string, unknown> = {
+    protocol: 'openai',
+    ...(displayName ? { displayName } : {}),
+    baseUrl,
+    apiKey,
+    ...(headers ? { headers } : {}),
+    models: models.map((model) => ({ id: model })),
+  };
+
+  existingDocument[trimmedId] = updatedRecord;
+  const filePath = resolveProjectModelConfigPath(projectRoot);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(existingDocument, null, 2)}\n`, 'utf-8');
+
+  return {
+    id: trimmedId,
+    protocol: 'openai',
+    ...(displayName ? { displayName } : {}),
+    baseUrl,
+    apiKey,
+    ...(headers ? { headers } : {}),
+    models,
+  } satisfies ModelConfigBinding;
 }
 
 export async function readProjectModelConfigProfileViews(projectRoot: string): Promise<ProviderProfileView[] | null> {
