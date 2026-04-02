@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { AgentManagementIcon } from './AgentManagementIcon';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -14,6 +15,10 @@ interface ConfirmDialogProps {
   variant?: 'danger' | 'default';
   onConfirm: () => void;
   onCancel: () => void;
+}
+
+function CloseIcon() {
+  return <AgentManagementIcon name="close" className="h-4 w-4" />;
 }
 
 export function ConfirmDialog({
@@ -53,7 +58,17 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
       <div className="bg-white rounded-[8px] shadow-xl p-6 max-w-sm w-full mx-4">
-        <h3 className="text-base font-semibold mb-2">{title}</h3>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-base font-semibold">{title}</h3>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="close"
+            className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            <CloseIcon />
+          </button>
+        </div>
         <p className="text-sm text-gray-600 mb-4 whitespace-pre-wrap">{message}</p>
         {requireInput && (
           <input
