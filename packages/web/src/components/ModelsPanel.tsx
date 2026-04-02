@@ -25,6 +25,23 @@ const CREATE_MODEL_LABEL = '新建模型';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
 const CREATE_MODEL_CONFIRM_LABEL = '确定';
 const DELETE_MODEL_LABEL = '删除';
+const MODEL_ICON_PLACEHOLDER = '/avatars/assistant.svg';
+
+function SparklesIcon() {
+  return (
+    <svg className="mx-auto block h-[16px] w-[16px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 4.4L13.7 9.3L18.6 11L13.7 12.7L12 17.6L10.3 12.7L5.4 11L10.3 9.3L12 4.4Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M17.8 5.7L18.2 6.8L19.3 7.2L18.2 7.6L17.8 8.7L17.4 7.6L16.3 7.2L17.4 6.8L17.8 5.7Z" fill="currentColor" />
+      <path d="M6.2 15.6L6.45 16.3L7.15 16.55L6.45 16.8L6.2 17.5L5.95 16.8L5.25 16.55L5.95 16.3L6.2 15.6Z" fill="currentColor" />
+    </svg>
+  );
+}
 
 interface MassModelResponseItem {
   id?: string | number;
@@ -183,6 +200,7 @@ export function ModelsPanel() {
   const [createModelError, setCreateModelError] = useState<string | null>(null);
   const [createModelBusy, setCreateModelBusy] = useState(false);
   const [modelNameInput, setModelNameInput] = useState('');
+  const [modelDescriptionInput, setModelDescriptionInput] = useState('');
   const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
@@ -195,8 +213,7 @@ export function ModelsPanel() {
   const canConfirmCreateModel =
     modelNameInput?.trim().length > 0 &&
     modelUrlInput?.trim().length > 0 &&
-    modelApiKeyInput?.trim().length > 0 &&
-    modelDisplayNameInput?.trim().length > 0;
+    modelApiKeyInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -324,6 +341,7 @@ export function ModelsPanel() {
 
   const resetCreateModelForm = () => {
     setModelNameInput('');
+    setModelDescriptionInput('');
     setModelDisplayNameInput('');
     setModelUrlInput('');
     setModelApiKeyInput('');
@@ -336,9 +354,12 @@ export function ModelsPanel() {
     setCreateModelBusy(true);
     try {
       const headers = parseHeadersJson(modelHeadersInput);
+      const description = modelDescriptionInput.trim();
+      const displayName = modelDisplayNameInput.trim();
       const payload = {
         sourceId: generateModelConfigSourceId(),
-        displayName: modelDisplayNameInput.trim(),
+        ...(displayName ? { displayName } : {}),
+        ...(description ? { description } : {}),
         baseUrl: modelUrlInput.trim(),
         apiKey: modelApiKeyInput.trim(),
         ...(headers ? { headers } : {}),
@@ -530,7 +551,7 @@ export function ModelsPanel() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
           data-testid="models-create-model-modal"
         >
-          <div className="flex w-[500px] flex-col gap-5 rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl">
+          <div className="flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-[16px] font-bold">{CREATE_MODEL_LABEL}</h3>
               <button
@@ -545,7 +566,7 @@ export function ModelsPanel() {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div className="space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型名称'}</p>
                 <input
@@ -558,7 +579,23 @@ export function ModelsPanel() {
                   required
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2.5">
+                <div className="text-[12px] text-[var(--text-primary)]">模型描述（可选）</div>
+                <div className="ui-field relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
+                  <textarea
+                    data-testid="models-create-model-description-textarea"
+                    value={modelDescriptionInput}
+                    onChange={(event) => setModelDescriptionInput(event.target.value)}
+                    placeholder="请输入描述"
+                    maxLength={500}
+                    className="pb-3 h-[60px] min-h-[60px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                  />
+                  <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
+                    {modelDescriptionInput.length}/500
+                  </div>
+                </div>
+              </div>
+              <div className="hidden space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型展示名称'}</p>
                 <input
                   data-testid="models-create-model-display-name-input"
@@ -569,6 +606,35 @@ export function ModelsPanel() {
                   style={{ height: '28px' }}
                   required
                 />
+              </div>
+              <div className="space-y-2.5">
+                <div className="text-[12px] text-[var(--text-primary)]">图标</div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label="Upload model icon"
+                    className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={MODEL_ICON_PLACEHOLDER} alt="Model icon preview" className="h-full w-full object-cover" />
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
+                      上传
+                    </span>
+                  </button>
+                  <div className="h-11 pt-[22px]">
+                    <div aria-hidden="true" className="h-[16px] w-px bg-[var(--border-default)]" />
+                  </div>
+                  <div className="h-11 pt-[16px]">
+                    <button
+                      type="button"
+                      aria-label="Random model icon"
+                      className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
+                    >
+                      <SparklesIcon />
+                    </button>
+                  </div>
+                </div>
+                <div className="text-[12px] text-[var(--text-muted)]">支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内</div>
               </div>
               <div className="space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'访问URL'}</p>
@@ -606,10 +672,10 @@ export function ModelsPanel() {
                   className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
                 />
               </div>
+              {createModelError ? (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
+              ) : null}
             </div>
-            {createModelError ? (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
-            ) : null}
 
             <div className="flex items-center justify-end gap-2">
               <button

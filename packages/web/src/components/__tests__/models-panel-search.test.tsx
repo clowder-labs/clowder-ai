@@ -34,6 +34,23 @@ async function changeInputValue(input: HTMLInputElement, value: string) {
   });
 }
 
+async function changeTextareaValue(input: HTMLTextAreaElement, value: string) {
+  await act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
+async function clickButton(button: HTMLElement) {
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 describe('ModelsPanel search', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -201,5 +218,53 @@ describe('ModelsPanel search', () => {
     const fallbackIcon = container.querySelector('[data-testid="model-card-icon-alpha-custom"]');
     expect(fallbackIcon).not.toBeNull();
     expect(fallbackIcon?.textContent).toContain('A');
+  });
+
+  it('submits create-model description to backend', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+
+    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
+    const descriptionInput = container.querySelector(
+      '[data-testid="models-create-model-description-textarea"]',
+    ) as HTMLTextAreaElement | null;
+    const displayNameInput = container.querySelector(
+      '[data-testid="models-create-model-display-name-input"]',
+    ) as HTMLInputElement | null;
+    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
+    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+
+    expect(nameInput).not.toBeNull();
+    expect(descriptionInput).not.toBeNull();
+    expect(displayNameInput).not.toBeNull();
+    expect(urlInput).not.toBeNull();
+    expect(apiKeyInput).not.toBeNull();
+    expect(submitButton).not.toBeNull();
+
+    await changeInputValue(nameInput!, 'gpt-custom');
+    await changeTextareaValue(descriptionInput!, '  custom description for test  ');
+    await changeInputValue(displayNameInput!, 'My Custom Proxy');
+    await changeInputValue(urlInput!, 'https://proxy.example.com/v1');
+    await changeInputValue(apiKeyInput!, 'sk-test');
+    await clickButton(submitButton!);
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(
+      ([input, init]) =>
+        String(input) === '/api/model-config-profiles' &&
+        typeof init === 'object' &&
+        init !== null &&
+        (init as RequestInit).method === 'POST',
+    );
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    expect(payload.description).toBe('custom description for test');
   });
 });
