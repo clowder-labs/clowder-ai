@@ -1,4 +1,4 @@
-﻿'use client';
+﻿﻿'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
@@ -101,16 +101,18 @@ interface ModelCardData {
   [key: string]: unknown;
 }
 
-function isImageIcon(icon?: string): boolean {
-  if (!icon) return false;
-  const trimmed = icon.trim();
-  return /^(https?:\/\/|\/|data:image)/i.test(trimmed);
-}
-
 interface ModelCardGroup {
   key: string;
   label: string;
   items: ModelCardData[];
+}
+
+interface ModelConfigProviderItem {
+  id: string;
+  displayName?: string;
+  description?: string;
+  icon?: string;
+  models?: string[];
 }
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
@@ -242,15 +244,19 @@ export function ModelsPanel() {
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const [modelHeadersInput, setModelHeadersInput] = useState('');
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
+  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
+  const [editingOriginalModelName, setEditingOriginalModelName] = useState<string | null>(null);
+  const [editingSourceModels, setEditingSourceModels] = useState<string[]>([]);
+  const [editModelBusy, setEditModelBusy] = useState(false);
   const modelIconFileInputRef = useRef<HTMLInputElement | null>(null);
   const openHub = useChatStore((s) => s.openHub);
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
   const confirm = useConfirm();
 
-  const canConfirmCreateModel =
-    modelNameInput?.trim().length > 0 &&
-    modelUrlInput?.trim().length > 0 &&
-    modelApiKeyInput?.trim().length > 0;
+  const isEditMode = Boolean(editingSourceId);
+  const canConfirmCreateModel = isEditMode
+    ? modelNameInput?.trim().length > 0
+    : modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -371,9 +377,23 @@ export function ModelsPanel() {
   const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
   const showGroups = !loading && groupedCards.length > 0;
 
+  const resolveModelConfigSourceId = (cardId: string): string | null => {
+    if (!cardId.startsWith('model_config:')) return null;
+    const parts = cardId.split(':');
+    if (parts.length < 3) return null;
+    const sourceId = parts[1]?.trim();
+    return sourceId ? sourceId : null;
+  };
+
+  const resolveProjectPathForPayload = () =>
+    resolvedProjectPath || (currentProjectPath && currentProjectPath !== 'default' ? currentProjectPath : undefined);
+
   const closeCreateModelModal = () => {
     setShowCreateModelModal(false);
     setCreateModelError(null);
+    setEditingSourceId(null);
+    setEditingOriginalModelName(null);
+    setEditingSourceModels([]);
   };
 
   const resetCreateModelForm = () => {
@@ -386,6 +406,50 @@ export function ModelsPanel() {
     setModelHeadersInput('');
   };
 
+  const handleOpenCreateModelModal = () => {
+    resetCreateModelForm();
+    setEditingSourceId(null);
+    setEditingOriginalModelName(null);
+    setEditingSourceModels([]);
+    setCreateModelError(null);
+    setShowCreateModelModal(true);
+  };
+
+  const handleOpenEditModelModal = async (card: ModelCardData) => {
+    const sourceId = resolveModelConfigSourceId(card.id);
+    if (!sourceId || editModelBusy) return;
+
+    resetCreateModelForm();
+    setCreateModelError(null);
+    setEditModelBusy(true);
+    try {
+      const projectPath = resolveProjectPathForPayload();
+      const query = new URLSearchParams();
+      if (projectPath) query.set('projectPath', projectPath);
+      const queryText = query.toString();
+      const url = `/api/model-config-profiles${queryText ? `?${queryText}` : ''}`;
+      const res = await apiFetch(url);
+      const body = (await res.json().catch(() => ({}))) as { providers?: ModelConfigProviderItem[]; error?: string };
+      if (!res.ok) {
+        throw new Error(body.error ?? `请求失败 (${res.status})`);
+      }
+      const provider = (body.providers ?? []).find((item) => item.id === sourceId);
+
+      setEditingSourceId(sourceId);
+      setEditingOriginalModelName(card.name);
+      setEditingSourceModels(Array.isArray(provider?.models) ? provider.models : [card.name]);
+      setModelNameInput(card.name);
+      setModelDescriptionInput(provider?.description ?? card.description ?? '');
+      setModelDisplayNameInput(provider?.displayName ?? '');
+      setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || EMPTY_MODEL_ICON_DATA_URL);
+      setShowCreateModelModal(true);
+    } catch (error) {
+      setCreateModelError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setEditModelBusy(false);
+    }
+  };
+
   const handleCreateModel = async () => {
     if (!canConfirmCreateModel || createModelBusy) return;
     setCreateModelError(null);
@@ -395,19 +459,47 @@ export function ModelsPanel() {
       const description = modelDescriptionInput.trim();
       const displayName = modelDisplayNameInput.trim();
       const icon = modelIconInput.trim();
-      const payload = {
-        sourceId: generateModelConfigSourceId(),
-        ...(displayName ? { displayName } : {}),
-        ...(description ? { description } : {}),
-        ...(icon ? { icon } : {}),
-        baseUrl: modelUrlInput.trim(),
-        apiKey: modelApiKeyInput.trim(),
-        ...(headers ? { headers } : {}),
-        models: [modelNameInput.trim()],
-        ...(resolvedProjectPath ? { projectPath: resolvedProjectPath } : {}),
-      };
-      const res = await apiFetch('/api/model-config-profiles', {
-        method: 'POST',
+      const projectPath = resolveProjectPathForPayload();
+      let method: 'POST' | 'PUT' = 'POST';
+      let url = '/api/model-config-profiles';
+      let payload: Record<string, unknown>;
+
+      if (editingSourceId) {
+        method = 'PUT';
+        url = `/api/model-config-profiles/${encodeURIComponent(editingSourceId)}`;
+        const nextModel = modelNameInput.trim();
+        const previousModel = editingOriginalModelName?.trim() || '';
+        const sourceModels = editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
+        const replacedModels = sourceModels.map((name) => (name === previousModel ? nextModel : name));
+        const mergedModels = Array.from(
+          new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)),
+        );
+        payload = {
+          ...(displayName ? { displayName } : {}),
+          description: description || null,
+          icon: icon || null,
+          ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
+          ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
+          ...(headers ? { headers } : {}),
+          models: mergedModels,
+          ...(projectPath ? { projectPath } : {}),
+        };
+      } else {
+        payload = {
+          sourceId: generateModelConfigSourceId(),
+          ...(displayName ? { displayName } : {}),
+          ...(description ? { description } : {}),
+          ...(icon ? { icon } : {}),
+          baseUrl: modelUrlInput.trim(),
+          apiKey: modelApiKeyInput.trim(),
+          ...(headers ? { headers } : {}),
+          models: [modelNameInput.trim()],
+          ...(projectPath ? { projectPath } : {}),
+        };
+      }
+
+      const res = await apiFetch(url, {
+        method,
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -483,7 +575,7 @@ export function ModelsPanel() {
               </button>
               <button
                 type="button"
-                onClick={() => setShowCreateModelModal(true)}
+                onClick={handleOpenCreateModelModal}
                 data-testid="models-open-create-model-modal"
                 className="ui-button-primary"
               >
@@ -519,7 +611,7 @@ export function ModelsPanel() {
                       <div>
                         <div className="flex items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {isImageIcon(card.icon) ? (
+                          {card.icon ? (
                             <img
                               src={card.icon}
                               alt={`${card.name} icon`}
@@ -573,17 +665,30 @@ export function ModelsPanel() {
                                 />
                                 <span>{card.developer}</span>
                               </span>
-                              <button
-                                type="button"
-                                disabled={deletingModelId === card.id}
-                                onClick={() => {
-                                  void handleDeleteModel(card.id, card.name);
-                                }}
-                                data-testid={`model-card-delete-${card.id}`}
-                                className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100 disabled:opacity-50"
-                              >
-                                {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
-                              </button>
+                              <div className="absolute left-0 top-0 flex items-center whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                <button
+                                  type="button"
+                                  data-testid={`model-card-edit-${card.id}`}
+                                  disabled={editModelBusy}
+                                  onClick={() => {
+                                    void handleOpenEditModelModal(card);
+                                  }}
+                                  className="whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline"
+                                >
+                                  编辑
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={deletingModelId === card.id}
+                                  onClick={() => {
+                                    void handleDeleteModel(card.id, card.name);
+                                  }}
+                                  data-testid={`model-card-delete-${card.id}`}
+                                  className="ml-6 whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
+                                >
+                                  {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
@@ -615,7 +720,7 @@ export function ModelsPanel() {
         >
           <div className="flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-bold">{CREATE_MODEL_LABEL}</h3>
+              <h3 className="text-[16px] font-bold">{isEditMode ? '编辑模型' : CREATE_MODEL_LABEL}</h3>
               <button
                 type="button"
                 onClick={closeCreateModelModal}
@@ -739,7 +844,7 @@ export function ModelsPanel() {
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头(可选)'}</p>
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头（可选）'}</p>
                 <textarea
                   data-testid="models-create-model-headers-textarea"
                   value={modelHeadersInput}
@@ -764,7 +869,7 @@ export function ModelsPanel() {
               </button>
               <button
                 type="button"
-                disabled={!canConfirmCreateModel || createModelBusy || modelIconUploading}
+                disabled={!canConfirmCreateModel || createModelBusy || modelIconUploading || editModelBusy}
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
                 className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
