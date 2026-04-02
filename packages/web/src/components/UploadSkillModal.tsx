@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
 interface UploadFile {
@@ -49,6 +49,18 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     reset();
     onClose();
   }, [reset, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, handleClose]);
 
   const readFiles = useCallback(async (fileList: FileList) => {
     const newEntries: UploadFile[] = [];
@@ -138,8 +150,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="upload-skill-overlay">
+      <div role="dialog" aria-modal="true" className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
         <h3 className="text-sm font-bold mb-5">上传 Skill</h3>
 
         {/* Name input */}
