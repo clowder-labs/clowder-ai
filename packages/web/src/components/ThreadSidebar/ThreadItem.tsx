@@ -27,6 +27,14 @@ export interface ThreadItemProps {
   sourceLabel?: string;
 }
 
+type ContextMenuState = {
+  x: number;
+  y: number;
+  anchorX: number;
+  anchorY: number;
+  arrowY: number;
+};
+
 export function ThreadItem({
   id,
   title,
@@ -57,7 +65,7 @@ export function ThreadItem({
   const [isSaving, setIsSaving] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title ?? '');
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -90,13 +98,44 @@ export function ThreadItem({
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return;
     const viewportPadding = 8;
+    const anchorGap = 10;
     const rect = menuRef.current.getBoundingClientRect();
     const maxX = window.innerWidth - rect.width - viewportPadding;
-    const maxY = window.innerHeight - rect.height - viewportPadding;
-    const nextX = Math.min(Math.max(contextMenu.x, viewportPadding), Math.max(viewportPadding, maxX));
-    const nextY = Math.min(Math.max(contextMenu.y, viewportPadding), Math.max(viewportPadding, maxY));
-    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
-      setContextMenu({ x: nextX, y: nextY });
+    const nextX = Math.min(
+      Math.max(contextMenu.anchorX + anchorGap, viewportPadding),
+      Math.max(viewportPadding, maxX),
+    );
+
+    const topBoundY = viewportPadding;
+    const bottomBoundY = Math.max(viewportPadding, window.innerHeight - rect.height - viewportPadding);
+    const oneFifthOffset = rect.height * 0.2;
+    const fourFifthsOffset = rect.height * 0.8;
+    const arrowMargin = 18;
+    const clampedOneFifth = Math.min(
+      Math.max(oneFifthOffset, arrowMargin),
+      Math.max(arrowMargin, rect.height - arrowMargin),
+    );
+    const clampedFourFifths = Math.min(
+      Math.max(fourFifthsOffset, arrowMargin),
+      Math.max(arrowMargin, rect.height - arrowMargin),
+    );
+
+    const oneFifthRawY = contextMenu.anchorY - clampedOneFifth;
+    const fourFifthsRawY = contextMenu.anchorY - clampedFourFifths;
+    const oneFifthWouldOverflowBottom = oneFifthRawY + rect.height > window.innerHeight - viewportPadding;
+    const useOneFifth = !oneFifthWouldOverflowBottom;
+    const targetRawY = useOneFifth ? oneFifthRawY : fourFifthsRawY;
+    const nextArrowY = useOneFifth ? clampedOneFifth : clampedFourFifths;
+    const nextY = Math.min(Math.max(targetRawY, topBoundY), bottomBoundY);
+
+    if (nextX !== contextMenu.x || nextY !== contextMenu.y || nextArrowY !== contextMenu.arrowY) {
+      setContextMenu({
+        x: nextX,
+        y: nextY,
+        anchorX: contextMenu.anchorX,
+        anchorY: contextMenu.anchorY,
+        arrowY: nextArrowY,
+      });
     }
   }, [contextMenu]);
 
@@ -130,17 +169,30 @@ export function ThreadItem({
   if (participantNames) tooltipLines.push(`参与: ${participantNames}`);
   tooltipLines.push(formatRelativeTime(lastActiveAt, false));
   const tooltip = tooltipLines.join('\n');
+  const contextMenuItemClass =
+    'block w-full whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none';
 
   return (
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
         indented ? 'pl-7' : ''
-      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
+      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${
+        isActive
+          ? 'ui-thread-item-active bg-white rounded-[8px]'
+          : `ui-thread-item-inactive rounded-[8px] ${contextMenu ? 'bg-[var(--accent-soft)]' : ''}`
+      }`}
       onClick={() => onSelect(id)}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setContextMenu({ x: e.clientX, y: e.clientY });
+        const itemRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+        setContextMenu({
+          x: e.clientX + 10,
+          y: e.clientY + 10,
+          anchorX: e.clientX,
+          anchorY: itemRect.top + itemRect.height / 2,
+          arrowY: 16,
+        });
       }}
       title={tooltip}
     >
@@ -184,10 +236,24 @@ export function ThreadItem({
       {contextMenu && (
         <div
           ref={menuRef}
-          className="fixed z-50 inline-block rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-1 shadow-xl"
+          className="fixed z-50 inline-block w-[100px] rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-xl"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-[6px] h-0 w-0 border-y-[6px] border-y-transparent border-r-[6px] border-r-[var(--border-default)]"
+            style={{ top: contextMenu.arrowY - 6 }}
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-[5px] h-0 w-0 border-y-[5px] border-y-transparent border-r-[5px] border-r-[var(--surface-panel)]"
+            style={{ top: contextMenu.arrowY - 5 }}
+          />
           {canRename && (
             <button
               type="button"
@@ -196,7 +262,7 @@ export function ThreadItem({
                 setDraftTitle(title ?? '');
                 setShowRenameDialog(true);
               }}
-              className="block whitespace-nowrap rounded px-2 py-1.5 text-left text-xs hover:bg-[var(--accent-soft)]"
+              className={contextMenuItemClass}
             >
               重命名
             </button>
@@ -209,7 +275,7 @@ export function ThreadItem({
                 setContextMenu(null);
                 void onTogglePin?.(id, !isPinned);
               }}
-              className="block whitespace-nowrap rounded px-2 py-1.5 text-left text-xs hover:bg-[var(--accent-soft)]"
+              className={contextMenuItemClass}
             >
               {isPinned ? '取消置顶' : '置顶'}
             </button>
@@ -222,7 +288,7 @@ export function ThreadItem({
                 setContextMenu(null);
                 void onToggleFavorite?.(id, !isFavorited);
               }}
-              className="block whitespace-nowrap rounded px-2 py-1.5 text-left text-xs hover:bg-[var(--accent-soft)]"
+              className={contextMenuItemClass}
             >
               {isFavorited ? '取消收藏' : '收藏'}
             </button>
@@ -235,7 +301,7 @@ export function ThreadItem({
                 setContextMenu(null);
                 window.open(`${API_URL}/api/export/thread/${id}?format=md`);
               }}
-              className="block whitespace-nowrap rounded px-2 py-1.5 text-left text-xs hover:bg-[var(--accent-soft)]"
+              className={contextMenuItemClass}
             >
               导出对话
             </button>
@@ -248,7 +314,7 @@ export function ThreadItem({
                 setContextMenu(null);
                 onDelete?.(id);
               }}
-              className="block whitespace-nowrap rounded px-2 py-1.5 text-left text-xs hover:bg-[var(--accent-soft)]"
+              className={contextMenuItemClass}
             >
               删除对话
             </button>
