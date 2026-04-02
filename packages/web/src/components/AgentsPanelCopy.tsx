@@ -1283,7 +1283,12 @@ export function AgentsPanelCopy() {
           >
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold text-gray-900">确认删除</h3>
+                <div className="flex items-center gap-2">
+                  <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
+                  </svg>
+                  <h3 className="text-[16px] font-bold text-gray-900">确认删除</h3>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
