@@ -1252,14 +1252,9 @@ export function AgentsPanelCopy() {
       {deleteConfirmModalOpen && catToDelete && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => {
-            setDeleteConfirmModalOpen(false);
-            setCatToDelete(null);
-          }}
         >
           <div
             className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between">

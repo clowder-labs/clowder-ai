@@ -1,6 +1,5 @@
 'use client';
 
-import type { MouseEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
@@ -154,14 +153,9 @@ export function PromptSelectionModal({
 
   if (!open) return null;
 
-  const handleBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) onClose();
-  };
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-6 py-8"
-      onClick={handleBackdropClick}
       data-testid="prompt-selection-modal"
     >
       <div

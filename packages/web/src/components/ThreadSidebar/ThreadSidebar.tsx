@@ -854,11 +854,9 @@ export function ThreadSidebar({
       {deleteTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
-          onClick={() => setDeleteTarget(null)}
         >
           <div
             className="w-[400px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-between">
