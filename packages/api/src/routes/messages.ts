@@ -40,7 +40,12 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
+import {
+  buildLatencyCheckpoint,
+  mergeTokenUsage,
+  type InvocationLatencyTrace,
+  type TokenUsage,
+} from '../domains/cats/services/types.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
 
@@ -171,11 +176,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
+    const serverReceivedAt = Date.now();
     let content: string;
     let legacyUserId: string | undefined;
     let threadId: string | undefined;
     let contentBlocks: MessageContent[] | undefined;
     let idempotencyKey: string | undefined;
+    let clientSentAt: number | undefined;
     let resumeCatId: CatId | undefined;
     // F35: Whisper fields
     let whisperVisibility: 'whisper' | undefined;
@@ -194,6 +201,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       ({ content, userId: legacyUserId, threadId, contentBlocks } = parsed);
       if ('idempotencyKey' in parsed && parsed.idempotencyKey) {
         idempotencyKey = parsed.idempotencyKey;
+      }
+      if ('clientSentAt' in parsed && typeof parsed.clientSentAt === 'number') {
+        clientSentAt = parsed.clientSentAt;
       }
       if ('resumeCatId' in parsed && parsed.resumeCatId) {
         resumeCatId = parsed.resumeCatId as CatId;
@@ -214,7 +224,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         reply.status(400);
         return { error: 'Invalid request body', details: parseResult.error.issues };
       }
-      ({ content, userId: legacyUserId, threadId, idempotencyKey } = parseResult.data);
+      ({ content, userId: legacyUserId, threadId, idempotencyKey, clientSentAt } = parseResult.data);
       deliveryMode = parseResult.data.deliveryMode;
       resumeCatId = parseResult.data.resumeCatId as CatId | undefined;
       // F35: Extract whisper fields from parsed body
@@ -652,6 +662,22 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         await opts.invocationRecordStore.update(createResult.invocationId, {
           userMessageId: storedUserMessage.id,
         });
+
+        const latencyTrace: InvocationLatencyTrace = {
+          ...(typeof clientSentAt === 'number' ? { clientSentAt } : {}),
+          serverReceivedAt,
+        };
+        log.info(
+          {
+            ...buildLatencyCheckpoint('user_message_received', serverReceivedAt, latencyTrace),
+            parentInvocationId: createResult.invocationId,
+            threadId: resolvedThreadId,
+            userId,
+            userMessageId: storedUserMessage.id,
+            targetCats,
+          },
+          'Invocation latency checkpoint',
+        );
       } catch (preExecErr) {
         // Release slot — we haven't entered background coroutine yet
         opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
@@ -751,6 +777,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               cursorBoundaries,
               persistenceContext,
               parentInvocationId: createResult.invocationId,
+              latencyTrace: {
+                ...(typeof clientSentAt === 'number' ? { clientSentAt } : {}),
+                serverReceivedAt,
+              },
               ...(resumeCatId ? { resumeCatId } : {}),
             },
           )) {

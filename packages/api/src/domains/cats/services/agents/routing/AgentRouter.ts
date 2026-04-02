@@ -37,7 +37,7 @@ import type { ITaskStore } from '../../stores/ports/TaskStore.js';
 import type { IThreadStore, ThreadRoutingPolicyV1, ThreadRoutingScope } from '../../stores/ports/ThreadStore.js';
 import { DEFAULT_THREAD_ID } from '../../stores/ports/ThreadStore.js';
 import type { IWorkflowSopStore } from '../../stores/ports/WorkflowSopStore.js';
-import type { AgentMessage, AgentService } from '../../types.js';
+import { buildLatencyCheckpoint, type AgentMessage, type AgentService, type InvocationLatencyTrace } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import type { TaskProgressStore } from '../invocation/TaskProgressStore.js';
 import type { AgentRegistry } from '../registry/AgentRegistry.js';
@@ -743,9 +743,27 @@ export class AgentRouter {
       parentInvocationId?: string;
       /** Explicit interrupted-session resume target for provider integrations that support resume semantics. */
       resumeCatId?: CatId;
+      /** End-to-end latency timestamps propagated from the request entrypoint. */
+      latencyTrace?: InvocationLatencyTrace;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
+    const officeReceivedAt = Date.now();
+    const latencyTrace: InvocationLatencyTrace = {
+      ...(options?.latencyTrace ?? {}),
+      officeReceivedAt,
+    };
+
+    log.info(
+      {
+        ...buildLatencyCheckpoint('office_received', officeReceivedAt, latencyTrace),
+        parentInvocationId: options?.parentInvocationId,
+        threadId,
+        userId,
+        targetCats,
+      },
+      'Invocation latency checkpoint',
+    );
 
     // Fetch thread for thinkingMode + update lastActive
     // Default to play mode when no threadStore is available: stream thinking stays isolated.
@@ -772,6 +790,7 @@ export class AgentRouter {
       ...(options?.persistenceContext ? { persistenceContext: options.persistenceContext } : {}),
       ...(options?.parentInvocationId ? { parentInvocationId: options.parentInvocationId } : {}),
       ...(options?.resumeCatId ? { resumeCatId: options.resumeCatId } : {}),
+      latencyTrace,
     };
 
     if (intent.intent === 'ideate' && targetCats.length > 1) {

@@ -11,7 +11,14 @@ import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
-import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import {
+  buildLatencyCheckpoint,
+  latencyDelta,
+  type AgentMessage,
+  type AgentService,
+  type AgentServiceOptions,
+} from '../../types.js';
 import { appendLocalImagePathHints } from './image-cli-bridge.js';
 import { extractImagePaths } from './image-paths.js';
 import { FrameQueue, RelayClawConnectionManager, type RelayClawConnectionFactory } from './relayclaw-connection.js';
@@ -25,6 +32,7 @@ import {
 import { transformRelayClawChunk } from './relayclaw-event-transform.js';
 
 const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
+const log = createModuleLogger('relayclaw-agent');
 
 export interface RelayClawAgentServiceOptions {
   catId?: CatId;
@@ -42,6 +50,12 @@ export interface RelayClawAgentServiceDeps {
 
 function agentMsg(type: AgentMessage['type'], catId: CatId, content?: string): AgentMessage {
   return { type, catId, content, timestamp: Date.now() };
+}
+
+function resolveRelayClawSessionId(channelId: string, options?: AgentServiceOptions): string {
+  const requestedSessionId = options?.sessionId?.trim() || options?.cliSessionId?.trim();
+  if (requestedSessionId) return requestedSessionId;
+  return `${channelId}_${Date.now().toString(16)}_${randomUUID().slice(0, 12)}`;
 }
 
 function buildRelayClawFilesPayload(
@@ -79,7 +93,9 @@ export class RelayClawAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const signal = buildSignal(this.config.timeoutMs ?? DEFAULT_RELAYCLAW_TIMEOUT_MS, options?.signal);
-    yield agentMsg('session_init', this.catId);
+    const channelId = this.config.channelId ?? 'catcafe';
+    const sessionId = resolveRelayClawSessionId(channelId, options);
+    yield { type: 'session_init', catId: this.catId, sessionId, timestamp: Date.now() };
 
     try {
       await this.ensureConnected(signal, options);
@@ -98,14 +114,52 @@ export class RelayClawAgentService implements AgentService {
     this.requestQueues.set(requestId, queue);
     const onAbort = () => queue.abort();
     signal.addEventListener('abort', onAbort, { once: true });
+    let agentForwardedAt: number | undefined;
 
     try {
-      this.connection.send(buildRequest(requestId, this.config.channelId ?? 'catcafe', prompt, options));
-      yield* this.consumeFrames(queue, signal, options?.signal);
+      agentForwardedAt = Date.now();
+      log.info(
+        {
+          ...buildLatencyCheckpoint('agent_forwarded', agentForwardedAt, options?.latencyTrace),
+          invocationId: options?.invocationId,
+          parentInvocationId: options?.parentInvocationId,
+          threadId: options?.auditContext?.threadId,
+          userId: options?.auditContext?.userId,
+          catId: this.catId,
+          channelId,
+          sessionId,
+          reqMethod: 'chat.send',
+        },
+        'RelayClaw latency checkpoint',
+      );
+      this.connection.send(buildRequest(requestId, channelId, sessionId, prompt, options));
+      yield* this.consumeFrames(queue, signal, options, {
+        agentForwardedAt,
+        channelId,
+        sessionId,
+      });
     } catch (err) {
       if (options?.signal?.aborted) {
         yield agentMsg('done', this.catId);
       } else {
+        const failedAt = Date.now();
+        log.info(
+          {
+            ...buildLatencyCheckpoint('agent_reply_completed', failedAt, options?.latencyTrace),
+            invocationId: options?.invocationId,
+            parentInvocationId: options?.parentInvocationId,
+            threadId: options?.auditContext?.threadId,
+            userId: options?.auditContext?.userId,
+            catId: this.catId,
+            channelId,
+            sessionId,
+            agentForwardedAt,
+            forwardedToCompletedMs: latencyDelta(agentForwardedAt, failedAt),
+            outcome: 'error',
+            error: err instanceof Error ? err.message : String(err),
+          },
+          'RelayClaw latency checkpoint',
+        );
         yield {
           type: 'error',
           catId: this.catId,
@@ -131,10 +185,38 @@ export class RelayClawAgentService implements AgentService {
   private async *consumeFrames(
     queue: FrameQueue,
     signal: AbortSignal,
-    callerSignal?: AbortSignal,
+    options?: AgentServiceOptions,
+    trace?: {
+      agentForwardedAt?: number;
+      channelId: string;
+      sessionId: string;
+    },
   ): AsyncIterable<AgentMessage> {
     let sawError = false;
     let streamedText = '';
+    let firstReplyAt: number | undefined;
+
+    const logFirstReply = (responseType: string, via?: string): void => {
+      if (firstReplyAt !== undefined) return;
+      firstReplyAt = Date.now();
+      log.info(
+        {
+          ...buildLatencyCheckpoint('agent_first_reply', firstReplyAt, options?.latencyTrace),
+          invocationId: options?.invocationId,
+          parentInvocationId: options?.parentInvocationId,
+          threadId: options?.auditContext?.threadId,
+          userId: options?.auditContext?.userId,
+          catId: this.catId,
+          channelId: trace?.channelId,
+          sessionId: trace?.sessionId,
+          agentForwardedAt: trace?.agentForwardedAt,
+          forwardedToFirstReplyMs: latencyDelta(trace?.agentForwardedAt, firstReplyAt),
+          responseType,
+          ...(via ? { via } : {}),
+        },
+        'RelayClaw latency checkpoint',
+      );
+    };
 
     while (!signal.aborted) {
       const frame = await queue.take();
@@ -143,6 +225,9 @@ export class RelayClawAgentService implements AgentService {
       const payload = frame.payload;
       const message = transformRelayClawChunk(frame, this.catId);
       if (message) {
+        if (message.type !== 'session_init' && message.type !== 'done') {
+          logFirstReply(message.type);
+        }
         yield message;
         if (message.type === 'text' && message.content) streamedText += message.content;
         if (message.type === 'error') {
@@ -153,6 +238,7 @@ export class RelayClawAgentService implements AgentService {
         const finalText = normalizeRelayClawFinalContent(payload.content);
         const deltaToEmit = computeFinalTextDelta(streamedText, finalText);
         if (deltaToEmit) {
+          logFirstReply('text', 'chat.final');
           streamedText += deltaToEmit;
           yield agentMsg('text', this.catId, deltaToEmit);
         }
@@ -161,7 +247,7 @@ export class RelayClawAgentService implements AgentService {
       if (frame.is_complete === true || payload?.is_complete === true) break;
     }
 
-    if (!sawError && signal.aborted && !callerSignal?.aborted) {
+    if (!sawError && signal.aborted && !options?.signal?.aborted) {
       sawError = true;
       yield {
         type: 'error',
@@ -170,6 +256,27 @@ export class RelayClawAgentService implements AgentService {
         timestamp: Date.now(),
       };
     }
+
+    const agentCompletedAt = Date.now();
+    log.info(
+      {
+        ...buildLatencyCheckpoint('agent_reply_completed', agentCompletedAt, options?.latencyTrace),
+        invocationId: options?.invocationId,
+        parentInvocationId: options?.parentInvocationId,
+        threadId: options?.auditContext?.threadId,
+        userId: options?.auditContext?.userId,
+        catId: this.catId,
+        channelId: trace?.channelId,
+        sessionId: trace?.sessionId,
+        agentForwardedAt: trace?.agentForwardedAt,
+        agentFirstReplyAt: firstReplyAt,
+        forwardedToFirstReplyMs: latencyDelta(trace?.agentForwardedAt, firstReplyAt),
+        forwardedToCompletedMs: latencyDelta(trace?.agentForwardedAt, agentCompletedAt),
+        firstReplyToCompletedMs: latencyDelta(firstReplyAt, agentCompletedAt),
+        outcome: sawError ? 'error' : signal.aborted ? 'timeout' : 'completed',
+      },
+      'RelayClaw latency checkpoint',
+    );
 
     if (!sawError) yield agentMsg('done', this.catId);
     else yield agentMsg('done', this.catId);
@@ -238,6 +345,7 @@ function computeFinalTextDelta(streamedText: string, finalText: string): string 
 function buildRequest(
   requestId: string,
   channelId: string,
+  sessionId: string,
   prompt: string,
   options?: AgentServiceOptions,
 ): Record<string, unknown> {
@@ -245,7 +353,7 @@ function buildRequest(
   return {
     request_id: requestId,
     channel_id: channelId,
-    session_id: `${channelId}_${Date.now().toString(16)}_${randomUUID().slice(0, 12)}`,
+    session_id: sessionId,
     req_method: 'chat.send',
     params: {
       query: appendLocalImagePathHints(prompt, imagePaths),

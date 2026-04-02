@@ -20,6 +20,8 @@ export const sendMessageSchema = z
     threadId: z.string().min(1).max(100).optional(),
     /** Client-provided idempotency key (UUID). Optional — server generates one if absent. */
     idempotencyKey: z.string().uuid().optional(),
+    /** Optional client-side send timestamp (epoch ms) for end-to-end latency tracing. */
+    clientSentAt: z.coerce.number().int().positive().optional(),
     /** Explicit per-cat resume hint for interrupted sessions. */
     resumeCatId: catIdSchema().optional(),
     /** F35: Message visibility. Default 'public'. 'whisper' requires whisperTo. */

@@ -76,13 +76,14 @@ export function useSendMessage(activeThreadId?: string) {
 
       const clientMessageId = createClientId();
       const optimisticMessageId = `user-${clientMessageId}`;
+      const clientSentAt = Date.now();
 
       // Create user message
       const userMsg: ChatMessageData = {
         id: optimisticMessageId,
         type: 'user',
         content,
-        timestamp: Date.now(),
+        timestamp: clientSentAt,
         ...(whisper ? { visibility: whisper.visibility, whisperTo: whisper.whisperTo } : {}),
       };
       if (images && images.length > 0) {
@@ -148,6 +149,7 @@ export function useSendMessage(activeThreadId?: string) {
           formData.append('content', content);
           formData.append('threadId', threadId);
           formData.append('idempotencyKey', clientMessageId);
+          formData.append('clientSentAt', String(clientSentAt));
           if (deliveryMode) formData.append('deliveryMode', deliveryMode);
           if (sendOptions?.resumeCatId) formData.append('resumeCatId', sendOptions.resumeCatId);
           if (whisper) {
@@ -179,6 +181,7 @@ export function useSendMessage(activeThreadId?: string) {
               content,
               threadId,
               idempotencyKey: clientMessageId,
+              clientSentAt,
               ...(whisper ? { visibility: whisper.visibility, whisperTo: whisper.whisperTo } : {}),
               ...deliveryModePayload,
               ...(sendOptions?.resumeCatId ? { resumeCatId: sendOptions.resumeCatId } : {}),

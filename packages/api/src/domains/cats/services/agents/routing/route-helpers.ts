@@ -12,7 +12,7 @@ import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
 import type { IDraftStore } from '../../stores/ports/DraftStore.js';
 import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import { canViewMessage } from '../../stores/visibility.js';
-import type { AgentMessage, AgentService } from '../../types.js';
+import type { AgentMessage, AgentService, InvocationLatencyTrace } from '../../types.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
 
 /** Minimal broadcast interface — avoids coupling routing layer to SocketManager concrete class */
@@ -78,6 +78,8 @@ export interface RouteOptions {
   parentInvocationId?: string | undefined;
   /** Explicit interrupted-session resume target for provider integrations that support resume semantics. */
   resumeCatId?: CatId | undefined;
+  /** End-to-end latency timestamps propagated from the request entrypoint. */
+  latencyTrace?: InvocationLatencyTrace | undefined;
 }
 
 export interface IncrementalContextResult {
