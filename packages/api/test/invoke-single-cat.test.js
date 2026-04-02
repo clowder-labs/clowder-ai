@@ -2659,6 +2659,115 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
+  it('ACP: reuses legacy embedded Agent Teams ACP profiles via default model profile refs', async () => {
+    const { createAcpModelProfile } = await import('../dist/config/acp-model-profiles.js');
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const root = await mkdtemp(join(tmpdir(), 'embedded-agentteams-legacy-acp-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await mkdir(join(root, 'tools', 'python'), { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+    await writeFile(join(root, 'tools', 'python', 'python.exe'), '', 'utf-8');
+
+    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
+
+    try {
+      const glmProfile = await createAcpModelProfile(root, {
+        displayName: 'GLM 5',
+        provider: 'openai_compatible',
+        model: 'glm-5',
+        baseUrl: 'https://glm.example/v1',
+        apiKey: 'sk-glm5',
+      });
+      const legacyProfile = await createProviderProfile(root, {
+        kind: 'acp',
+        displayName: 'Legacy Embedded Agent Teams',
+        command: 'agent-teams',
+        args: ['gateway', 'acp', 'stdio'],
+        protocol: 'acp',
+        authType: 'none',
+        modelAccessMode: 'clowder_default_profile',
+        defaultModelProfileRef: glmProfile.id,
+      });
+
+      const registrySnapshot = catRegistry.getAllConfigs();
+      const originalConfig = catRegistry.tryGet('agentteams')?.config;
+      assert.ok(originalConfig, 'agentteams config should exist in registry');
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(registrySnapshot)) {
+        if (id === 'agentteams') continue;
+        catRegistry.register(id, config);
+      }
+      catRegistry.register('agentteams', {
+        ...originalConfig,
+        provider: 'acp',
+        accountRef: legacyProfile.id,
+        defaultModel: 'agent-teams',
+        embeddedAcpConfig: {
+          executablePath: 'tools/python/python.exe',
+          args: ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio'],
+          cwd: '/tmp/custom-agent-teams',
+          env: {
+            ACP_TRACE_STDIO: '1',
+            AGENT_TEAMS_LOG_LEVEL: 'debug',
+          },
+        },
+      });
+
+      const optionsSeen = [];
+      const service = {
+        async *invoke(_prompt, options) {
+          optionsSeen.push(options ?? {});
+          yield { type: 'done', catId: 'agentteams', timestamp: Date.now() };
+        },
+      };
+
+      const deps = makeDeps();
+      const previousCwd = process.cwd();
+      try {
+        process.chdir(apiDir);
+        const messages = await collect(
+          invokeSingleCat(deps, {
+            catId: 'agentteams',
+            service,
+            prompt: 'test',
+            userId: 'user-agentteams-legacy-acp',
+            threadId: 'thread-agentteams-legacy-acp',
+            isLastCat: true,
+          }),
+        );
+        assert.ok(messages.some((m) => m.type === 'done'));
+      } finally {
+        process.chdir(previousCwd);
+        catRegistry.reset();
+        for (const [id, config] of Object.entries(registrySnapshot)) {
+          catRegistry.register(id, config);
+        }
+      }
+
+      const providerProfile = optionsSeen[0]?.providerProfile ?? null;
+      const acpModelProfile = optionsSeen[0]?.acpModelProfile ?? null;
+      assert.equal(providerProfile?.kind, 'acp');
+      assert.match(String(providerProfile?.command ?? ''), /python\.exe$/i);
+      assert.deepEqual(providerProfile?.args, ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio']);
+      assert.equal(acpModelProfile?.id, glmProfile.id);
+      assert.equal(acpModelProfile?.provider, 'openai_compatible');
+      assert.equal(acpModelProfile?.model, 'glm-5');
+      assert.equal(acpModelProfile?.baseUrl, 'https://glm.example/v1');
+      assert.equal(acpModelProfile?.apiKey, 'sk-glm5');
+    } finally {
+      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
+      else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {
     const promptsSeen = [];
     const service = {

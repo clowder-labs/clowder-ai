@@ -45,7 +45,10 @@ import {
   embeddedAgentTeamsRuntimeAvailable,
   resolveEmbeddedAgentTeamsExecutable,
 } from '../../../../../utils/agent-teams-bundle.js';
-import { resolveEmbeddedAgentTeamsBinding } from '../../../../../utils/embedded-runtime-bindings.js';
+import {
+  resolveEmbeddedAgentTeamsBinding,
+  resolveEmbeddedAgentTeamsLegacyModelProfile,
+} from '../../../../../utils/embedded-runtime-bindings.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
@@ -629,11 +632,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const defaultModel = catConfig?.defaultModel?.trim() || undefined;
     const configProjectRoot = resolveActiveProjectRoot(process.cwd());
     const rawBoundAccountRef = resolveBoundAccountRefForCat(configProjectRoot, catId, catConfig);
-    const embeddedAgentTeamsBinding = embeddedAcpRuntime
+    const explicitEmbeddedAgentTeamsBinding = embeddedAcpRuntime
       ? await resolveEmbeddedAgentTeamsBinding(configProjectRoot, rawBoundAccountRef)
       : null;
+    const embeddedLegacyAcpModelProfile = embeddedAcpRuntime
+      ? await resolveEmbeddedAgentTeamsLegacyModelProfile(configProjectRoot, rawBoundAccountRef)
+      : null;
+    const embeddedAgentTeamsBinding =
+      explicitEmbeddedAgentTeamsBinding ??
+      (embeddedAcpRuntime && !embeddedLegacyAcpModelProfile
+        ? await resolveEmbeddedAgentTeamsBinding(configProjectRoot)
+        : null);
     const embeddedModelConfigBinding =
-      embeddedAcpRuntime && rawBoundAccountRef && !embeddedAgentTeamsBinding
+      embeddedAcpRuntime && rawBoundAccountRef && !embeddedAgentTeamsBinding && !embeddedLegacyAcpModelProfile
         ? await findProjectModelConfigBinding(configProjectRoot, rawBoundAccountRef)
         : null;
     const boundAccountRef = embeddedAcpRuntime
@@ -896,6 +907,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           defaultModel ?? '',
           userId,
         );
+      } else if (embeddedLegacyAcpModelProfile) {
+        resolvedAcpModelProfile = embeddedLegacyAcpModelProfile;
       } else {
         if (!resolvedAccount) {
           throw new Error(
