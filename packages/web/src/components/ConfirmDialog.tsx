@@ -26,7 +26,6 @@ export function ConfirmDialog({
   inputPlaceholder,
   confirmLabel = '确认',
   cancelLabel = '取消',
-  variant = 'default',
   disableBackdropClose = false,
   onConfirm,
   onCancel,
@@ -53,7 +52,6 @@ export function ConfirmDialog({
   if (!open) return null;
 
   const canConfirm = requireInput ? inputValue === requireInput : true;
-  const isDanger = variant === 'danger';
 
   return (
     <div
@@ -61,7 +59,7 @@ export function ConfirmDialog({
       onClick={disableBackdropClose ? undefined : onCancel}
     >
       <div
-        className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4"
+        className="bg-white rounded-[8px] shadow-xl p-6 max-w-sm w-full mx-4"
         onClick={disableBackdropClose ? undefined : (e) => e.stopPropagation()}
       >
         <h3 className="text-base font-semibold mb-2">{title}</h3>
@@ -86,7 +84,7 @@ export function ConfirmDialog({
           <button
             onClick={onConfirm}
             disabled={!canConfirm}
-            className={isDanger ? 'ui-button-danger' : 'ui-button-primary'}
+            className="ui-button-primary"
           >
             {confirmLabel}
           </button>

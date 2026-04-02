@@ -318,8 +318,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-button-primary,
-  .ui-button-secondary,
-  .ui-button-danger {
+  .ui-button-secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -334,8 +333,7 @@ select:-webkit-autofill:focus {
 
   .ui-button:disabled,
   .ui-button-primary:disabled,
-  .ui-button-secondary:disabled,
-  .ui-button-danger:disabled {
+  .ui-button-secondary:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
@@ -358,15 +356,6 @@ select:-webkit-autofill:focus {
   .ui-button-secondary:hover {
     background: var(--surface-card-muted);
     color: var(--text-primary);
-  }
-
-  .ui-button-danger {
-    background: #ef4444;
-    color: #ffffff;
-  }
-
-  .ui-button-danger:hover {
-    background: #dc2626;
   }
 
   .ui-icon-button {
