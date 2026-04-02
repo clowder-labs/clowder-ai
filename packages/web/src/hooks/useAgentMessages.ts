@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
+import { parseSystemInfoContent } from './parse-system-info';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -659,7 +660,8 @@ export function useAgentMessages() {
         let sysVariant: 'info' | 'a2a_followup' = 'info';
         let consumed = false;
         try {
-          const parsed = JSON.parse(sysContent);
+          const parsed = parseSystemInfoContent(sysContent);
+          if (!parsed) throw new Error('not parseable system_info');
           if (parsed?.type === 'a2a_followup_available') {
             const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
