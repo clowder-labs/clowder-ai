@@ -29,8 +29,7 @@ export function parseSystemInfoContent(raw: string): ParsedSystemInfo | null {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') return parsed as ParsedSystemInfo;
   } catch {
-    // Fall through to tolerate pseudo-object diagnostics from provider streams,
-    // for example: type: thinking, catId: office, text: 流程
+    // Fall through to tolerate pseudo-object diagnostics from provider streams.
   }
 
   const type = extractPseudoField(raw, 'type');
