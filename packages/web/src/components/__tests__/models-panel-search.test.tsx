@@ -220,7 +220,7 @@ describe('ModelsPanel search', () => {
     expect(fallbackIcon?.textContent).toContain('A');
   });
 
-  it('submits create-model description to backend', async () => {
+  it('submits create-model description and icon to backend', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -266,5 +266,7 @@ describe('ModelsPanel search', () => {
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
     expect(payload.description).toBe('custom description for test');
+    expect(typeof payload.icon).toBe('string');
+    expect(payload.icon.startsWith('data:image/svg+xml')).toBe(true);
   });
 });

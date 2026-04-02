@@ -1,10 +1,12 @@
-﻿﻿'use client';
+﻿'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { getNameInitial } from '@/lib/name-initial-icon';
 import { NameInitialIcon } from './NameInitialIcon';
 import { TagEditor } from './hub-tag-editor';
+import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
@@ -25,7 +27,37 @@ const CREATE_MODEL_LABEL = '新建模型';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
 const CREATE_MODEL_CONFIRM_LABEL = '确定';
 const DELETE_MODEL_LABEL = '删除';
-const MODEL_ICON_PLACEHOLDER = '/avatars/assistant.svg';
+const MODEL_ICON_MAX_BYTES = 200 * 1024;
+
+function stableHash(input: string): number {
+  let hash = 0;
+  for (const ch of input) {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return hash;
+}
+
+function generateModelIconDataUrl(name: string, variant = 0): string {
+  const seed = `${name.trim().toLowerCase() || 'model'}#${variant}`;
+  const baseHue = stableHash(seed) % 360;
+  const accentHue = (baseHue + 34) % 360;
+  const haloHue = (baseHue + 68) % 360;
+  const label = getNameInitial(name || 'M');
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="hsl(${baseHue} 68% 55%)" />
+          <stop offset="100%" stop-color="hsl(${accentHue} 62% 48%)" />
+        </linearGradient>
+      </defs>
+      <rect width="96" height="96" rx="48" fill="url(#g)" />
+      <circle cx="48" cy="48" r="38" fill="hsl(${haloHue} 80% 92% / 0.25)" />
+      <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="38" font-weight="700" fill="#FFFFFF">${label}</text>
+    </svg>
+  `.trim();
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
 
 function SparklesIcon() {
   return (
@@ -201,11 +233,16 @@ export function ModelsPanel() {
   const [createModelBusy, setCreateModelBusy] = useState(false);
   const [modelNameInput, setModelNameInput] = useState('');
   const [modelDescriptionInput, setModelDescriptionInput] = useState('');
+  const [modelIconInput, setModelIconInput] = useState(() => generateModelIconDataUrl(''));
+  const [modelIconVariant, setModelIconVariant] = useState(0);
+  const [modelIconCustomized, setModelIconCustomized] = useState(false);
+  const [modelIconUploading, setModelIconUploading] = useState(false);
   const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const [modelHeadersInput, setModelHeadersInput] = useState('');
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
+  const modelIconFileInputRef = useRef<HTMLInputElement | null>(null);
   const openHub = useChatStore((s) => s.openHub);
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
   const confirm = useConfirm();
@@ -334,6 +371,11 @@ export function ModelsPanel() {
   const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
   const showGroups = !loading && groupedCards.length > 0;
 
+  useEffect(() => {
+    if (modelIconCustomized) return;
+    setModelIconInput(generateModelIconDataUrl(modelNameInput, modelIconVariant));
+  }, [modelIconCustomized, modelIconVariant, modelNameInput]);
+
   const closeCreateModelModal = () => {
     setShowCreateModelModal(false);
     setCreateModelError(null);
@@ -342,6 +384,9 @@ export function ModelsPanel() {
   const resetCreateModelForm = () => {
     setModelNameInput('');
     setModelDescriptionInput('');
+    setModelIconVariant(0);
+    setModelIconCustomized(false);
+    setModelIconInput(generateModelIconDataUrl(''));
     setModelDisplayNameInput('');
     setModelUrlInput('');
     setModelApiKeyInput('');
@@ -356,10 +401,12 @@ export function ModelsPanel() {
       const headers = parseHeadersJson(modelHeadersInput);
       const description = modelDescriptionInput.trim();
       const displayName = modelDisplayNameInput.trim();
+      const icon = modelIconInput.trim();
       const payload = {
         sourceId: generateModelConfigSourceId(),
         ...(displayName ? { displayName } : {}),
         ...(description ? { description } : {}),
+        ...(icon ? { icon } : {}),
         baseUrl: modelUrlInput.trim(),
         apiKey: modelApiKeyInput.trim(),
         ...(headers ? { headers } : {}),
@@ -382,6 +429,29 @@ export function ModelsPanel() {
       setCreateModelError(error instanceof Error ? error.message : String(error));
     } finally {
       setCreateModelBusy(false);
+    }
+  };
+
+  const handleModelIconUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > MODEL_ICON_MAX_BYTES) {
+      setCreateModelError('图标文件大小不能超过 200KB');
+      event.target.value = '';
+      return;
+    }
+
+    setCreateModelError(null);
+    setModelIconUploading(true);
+    try {
+      const uploaded = await uploadAvatarAsset(file);
+      setModelIconInput(uploaded);
+      setModelIconCustomized(true);
+    } catch (error) {
+      setCreateModelError(error instanceof Error ? error.message : '图标上传失败');
+    } finally {
+      setModelIconUploading(false);
+      event.target.value = '';
     }
   };
 
@@ -608,19 +678,28 @@ export function ModelsPanel() {
                 />
               </div>
               <div className="space-y-2.5">
-                <div className="text-[12px] text-[var(--text-primary)]">图标</div>
+                <div className="text-[12px] text-[var(--text-primary)]">图标（可选）</div>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     aria-label="Upload model icon"
+                    onClick={() => modelIconFileInputRef.current?.click()}
                     className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={MODEL_ICON_PLACEHOLDER} alt="Model icon preview" className="h-full w-full object-cover" />
+                    <img src={modelIconInput} alt="Model icon preview" className="h-full w-full object-cover" />
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
                       上传
                     </span>
                   </button>
+                  <input
+                    ref={modelIconFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/jpg"
+                    onChange={handleModelIconUpload}
+                    className="hidden"
+                    data-testid="models-create-model-icon-file-input"
+                  />
                   <div className="h-11 pt-[22px]">
                     <div aria-hidden="true" className="h-[16px] w-px bg-[var(--border-default)]" />
                   </div>
@@ -628,13 +707,21 @@ export function ModelsPanel() {
                     <button
                       type="button"
                       aria-label="Random model icon"
+                      onClick={() => {
+                        const nextVariant = Math.floor(Math.random() * 10_000);
+                        setModelIconVariant(nextVariant);
+                        setModelIconCustomized(true);
+                        setModelIconInput(generateModelIconDataUrl(modelNameInput, nextVariant));
+                      }}
                       className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
                     >
                       <SparklesIcon />
                     </button>
                   </div>
                 </div>
-                <div className="text-[12px] text-[var(--text-muted)]">支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内</div>
+                <div className="text-[12px] text-[var(--text-muted)]">
+                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+                </div>
               </div>
               <div className="space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'访问URL'}</p>
@@ -687,7 +774,7 @@ export function ModelsPanel() {
               </button>
               <button
                 type="button"
-                disabled={!canConfirmCreateModel || createModelBusy}
+                disabled={!canConfirmCreateModel || createModelBusy || modelIconUploading}
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
                 className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
