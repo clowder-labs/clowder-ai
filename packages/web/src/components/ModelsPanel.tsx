@@ -527,7 +527,7 @@ export function ModelsPanel() {
 
       {showCreateModelModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
           data-testid="models-create-model-modal"
         >
           <div className="flex w-[500px] flex-col gap-5 rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl">
@@ -636,13 +636,9 @@ export function ModelsPanel() {
       {showAddModelModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
-          onClick={() => setShowAddModelModal(false)}
           data-testid="models-add-model-modal"
         >
-          <div
-            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[#E5EAF0] bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-semibold text-[#2E3440]">{ADD_MODEL}</h3>
               <button
