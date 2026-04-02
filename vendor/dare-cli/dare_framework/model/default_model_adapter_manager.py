@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from dare_framework.config.types import Config, LLMConfig
@@ -95,13 +96,39 @@ def _http_client_options_from_proxy(llm: LLMConfig) -> dict[str, Any]:
     if proxy.disabled:
         options["trust_env"] = False
         options["proxy"] = None
-        return options
-    if proxy.use_system_proxy:
-        options["trust_env"] = True
-    if proxy.http or proxy.https:
-        options["proxy"] = proxy.https or proxy.http
-        options.setdefault("trust_env", False)
+    else:
+        if proxy.use_system_proxy:
+            options["trust_env"] = True
+        if proxy.http or proxy.https:
+            options["proxy"] = proxy.https or proxy.http
+            options.setdefault("trust_env", False)
+    ssl_verify = _resolve_ssl_verify_option(llm)
+    if ssl_verify is not None:
+        options["verify"] = ssl_verify
     return options
+
+
+def _resolve_ssl_verify_option(llm: LLMConfig) -> bool | None:
+    env_value = _parse_bool(os.getenv("DARE_SSL_VERIFY"))
+    if env_value is not None:
+        return env_value
+    for key in ("ssl_verify", "sslVerify"):
+        value = _parse_bool(llm.extra.get(key))
+        if value is not None:
+            return value
+    return False
+
+
+def _parse_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return None
 
 
 __all__ = ["DefaultModelAdapterManager"]
