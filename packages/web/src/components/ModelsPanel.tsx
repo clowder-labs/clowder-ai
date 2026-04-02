@@ -741,7 +741,7 @@ export function ModelsPanel() {
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
                   placeholder={'请输入模型名称'}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
                   style={{ height: '28px' }}
                   required
                 />
@@ -769,7 +769,7 @@ export function ModelsPanel() {
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
                   style={{ height: '28px' }}
                   required
                 />
@@ -822,10 +822,15 @@ export function ModelsPanel() {
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'访问URL'}</p>
                 <input
                   data-testid="models-create-model-url-input"
+                  name="cc_model_base_url"
                   value={modelUrlInput}
                   onChange={(event) => setModelUrlInput(event.target.value)}
                   placeholder={'请输入访问URL'}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
                   style={{ height: '28px' }}
                   required
                 />
@@ -834,11 +839,16 @@ export function ModelsPanel() {
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
                 <input
                   data-testid="models-create-model-api-key-input"
+                  name="cc_model_api_key"
                   type="password"
                   value={modelApiKeyInput}
                   onChange={(event) => setModelApiKeyInput(event.target.value)}
                   placeholder={'请输入API Key'}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
                   style={{ height: '28px' }}
                   required
                 />
@@ -851,7 +861,7 @@ export function ModelsPanel() {
                   onChange={(event) => setModelHeadersInput(event.target.value)}
                   rows={4}
                   placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-                  className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+                  className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD] focus:border-[#1476FF] focus:outline-none focus:ring-0"
                 />
               </div>
               {createModelError ? (
