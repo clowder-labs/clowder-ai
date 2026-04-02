@@ -84,6 +84,20 @@ interface SkillOption {
   iconUrl?: string | null;
 }
 
+function normalizeMentionsForSend(input: string, catOptions: CatOption[]): string {
+  let output = input;
+  for (const option of catOptions) {
+    const routeToken = option.insert.trim();
+    if (!routeToken.startsWith('@')) continue;
+    const displayMentionBase = option.label.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const displayMention = displayMentionBase.startsWith('@') ? displayMentionBase : `@${displayMentionBase}`;
+    if (!displayMention || displayMention.toLowerCase() === routeToken.toLowerCase()) continue;
+    const re = new RegExp(`(^|\\s)${escapeRegExp(displayMention)}(?=\\s|$)`, 'gi');
+    output = output.replace(re, `$1${routeToken}`);
+  }
+  return output;
+}
+
 function getSkillInitial(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return '?';
@@ -194,6 +208,7 @@ export function ChatInput({
   const menuRef = useRef<HTMLDivElement>(null);
   const gameBtnRef = useRef<HTMLButtonElement>(null);
   const skillBtnRef = useRef<HTMLButtonElement>(null);
+  const skillOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
   const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
@@ -280,7 +295,7 @@ export function ChatInput({
       if (sendTemporarilyDisabled) return;
       if (whisperMode && whisperTargets.size === 0) return;
       const trimmed = input.trim();
-      const payload = trimmed;
+      const payload = normalizeMentionsForSend(trimmed, catOptions);
       if (payload && !disabled) {
         addHistoryEntry(payload);
         const whisper =
@@ -697,6 +712,13 @@ export function ChatInput({
     setSelectedIdx((i) => Math.min(i, Math.max(0, filteredSkillOptions.length - 1)));
   }, [filteredSkillOptions, showSkillMenu]);
 
+  useEffect(() => {
+    if (!showSkillMenu) return;
+    const el = skillOptionRefs.current[selectedIdx];
+    if (!el) return;
+    el.scrollIntoView({ block: 'nearest' });
+  }, [selectedIdx, showSkillMenu]);
+
   // Reconcile whisperTargets: remove invalid ids + remove newly-active cats (B10)
   useEffect(() => {
     if (!whisperMode) return;
@@ -721,6 +743,7 @@ export function ChatInput({
     setShowGameMenu(false);
     setShowSkillMenu((prev) => !prev);
     setSelectedIdx(0);
+    setTimeout(() => textareaRef.current?.focus(), 0);
   }, []);
 
   const handleWhisperToggle = useCallback(() => {
@@ -995,12 +1018,41 @@ export function ChatInput({
                                   setSkillFilter(e.target.value);
                                   setSelectedIdx(0);
                                 }}
+                                onKeyDown={(e) => {
+                                  if (filteredSkillOptions.length === 0) {
+                                    if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      closeMenus();
+                                    }
+                                    return;
+                                  }
+                                  if (e.key === 'ArrowDown') {
+                                    e.preventDefault();
+                                    setSelectedIdx((idx) => (idx + 1) % filteredSkillOptions.length);
+                                    return;
+                                  }
+                                  if (e.key === 'ArrowUp') {
+                                    e.preventDefault();
+                                    setSelectedIdx((idx) => (idx - 1 + filteredSkillOptions.length) % filteredSkillOptions.length);
+                                    return;
+                                  }
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const skill = filteredSkillOptions[selectedIdx];
+                                    if (skill) insertSkill(skill.name);
+                                    return;
+                                  }
+                                  if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    closeMenus();
+                                  }
+                                }}
                                 placeholder="请输入关键字搜索"
                                 className="w-full border-0 border-b border-gray-300 bg-transparent py-1 pl-6 pr-0 text-sm text-[#191919] outline-none focus:border-[#191919]"
                               />
                             </div>
                           </div>
-                          <div className="max-h-[220px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0">
+                          <div className="max-h-[254px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0">
                             {skillOptionsLoading &&
                               Array.from({ length: 5 }).map((_, i) => (
                                 <div
@@ -1017,9 +1069,11 @@ export function ChatInput({
                                 <button
                                   key={skill.name}
                                   type="button"
+                                  ref={(node) => {
+                                    skillOptionRefs.current[i] = node;
+                                  }}
                                   className={`flex h-[34px] w-full items-center gap-2 rounded-[6px] p-2 text-left text-[12px] font-normal text-[#191919] transition-colors ${i === selectedIdx ? 'bg-[rgba(240,247,255,1)]' : 'hover:bg-[rgba(240,247,255,0.1)]'
                                     }`}
-                                  onMouseEnter={() => setSelectedIdx(i)}
                                   onMouseDown={(e) => {
                                     e.preventDefault();
                                     insertSkill(skill.name);

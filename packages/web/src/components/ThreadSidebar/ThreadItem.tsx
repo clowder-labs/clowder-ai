@@ -87,6 +87,19 @@ export function ThreadItem({
     };
   }, [contextMenu]);
 
+  useEffect(() => {
+    if (!contextMenu || !menuRef.current) return;
+    const viewportPadding = 8;
+    const rect = menuRef.current.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width - viewportPadding;
+    const maxY = window.innerHeight - rect.height - viewportPadding;
+    const nextX = Math.min(Math.max(contextMenu.x, viewportPadding), Math.max(viewportPadding, maxX));
+    const nextY = Math.min(Math.max(contextMenu.y, viewportPadding), Math.max(viewportPadding, maxY));
+    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
+      setContextMenu({ x: nextX, y: nextY });
+    }
+  }, [contextMenu]);
+
   const submitRename = useCallback(async () => {
     if (!onRename) return;
     const next = draftTitle.trim();

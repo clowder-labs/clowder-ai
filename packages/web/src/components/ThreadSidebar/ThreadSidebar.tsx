@@ -81,6 +81,8 @@ export function ThreadSidebar({
   const [isLoadingTrash, setIsLoadingTrash] = useState(false);
   // F070: governance health by project path
   const [govHealth, setGovHealth] = useState<Record<string, string>>({});
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+  const filterToggleRef = useRef<HTMLButtonElement>(null);
 
   // Shared seq maps 鈥?created once, cross-referenced between pin/fav toggle instances
   const pinSeqMap = useRef(new Map<string, number>());
@@ -137,6 +139,19 @@ export function ThreadSidebar({
   useEffect(() => {
     void loadThreads();
   }, [loadThreads]);
+
+  useEffect(() => {
+    if (!showFilter) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (filterPanelRef.current?.contains(target)) return;
+      if (filterToggleRef.current?.contains(target)) return;
+      setShowFilter(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [showFilter]);
 
   // F070: Fetch governance health for all registered external projects
   useEffect(() => {
@@ -565,8 +580,9 @@ export function ThreadSidebar({
             <span className="text-xs font-semibold text-[var(--text-secondary)]">会话消息</span>
             <div className="flex items-center gap-1">
               <button
+                ref={filterToggleRef}
                 type="button"
-                onClick={() => setShowFilter((prev) => !prev)}
+                onClick={() => {setShowFilter((prev) => !prev); setIsSearchOpen(false);}}
                 className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[rgba(20,115,255,1)]' : 'text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-accent)]'}`}
                 title="筛选会话"
                 data-testid="thread-filter-toggle"
@@ -590,7 +606,7 @@ export function ThreadSidebar({
             </div>
           </div>
           {(isSearchOpen || normalizedQuery.length > 0) && (
-            <div className="relative mt-4">
+            <div className="relative mt-2">
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -612,7 +628,10 @@ export function ThreadSidebar({
           )}
 
           {showFilter && (
-            <div className="absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] bg-white p-4 shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]">
+            <div
+              ref={filterPanelRef}
+              className="absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] bg-white p-4 shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
+            >
               <div className="text-[12px] font-[400] leading-[18px] text-[#808080]">会话时间</div>
               <div className="mt-3 flex flex-col">
                 {[
