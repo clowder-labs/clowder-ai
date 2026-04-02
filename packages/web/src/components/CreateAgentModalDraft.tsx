@@ -1,6 +1,7 @@
 'use client';
 
-import { type ChangeEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
 import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
@@ -64,6 +65,12 @@ interface MaaSModelResponseItem {
 interface SelectionHint {
   model: string | null;
   accountRef: string | null;
+}
+
+interface ModelMenuPosition {
+  top: number;
+  left: number;
+  width: number;
 }
 
 const MODEL_MENU_MAX_HEIGHT = 335;
@@ -365,6 +372,7 @@ export function CreateAgentModalDraft({
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
+  const [modelMenuPosition, setModelMenuPosition] = useState<ModelMenuPosition | null>(null);
   const [marketplaceModels, setMarketplaceModels] = useState<MaaSModelResponseItem[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -521,9 +529,8 @@ export function CreateAgentModalDraft({
 
   const modelGroups = useMemo(() => groupModelOptions(availableModels), [availableModels]);
 
-  useLayoutEffect(() => {
+  const updateModelMenuPosition = useCallback(() => {
     if (!modelMenuOpen || !modelTriggerRef.current) return;
-
     const itemCount = modelGroups.reduce((total, group) => total + group.items.length, 0);
     const groupCount = modelGroups.length;
     const rect = modelTriggerRef.current.getBoundingClientRect();
@@ -531,8 +538,34 @@ export function CreateAgentModalDraft({
       modelMenuRef.current?.offsetHeight ??
       Math.min(Math.max(itemCount, 1) * 36 + groupCount * 22 + 54, MODEL_MENU_MAX_HEIGHT);
     const spaceBelow = window.innerHeight - rect.bottom;
-    setOpenAbove(spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET);
+    const nextOpenAbove = spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET;
+    setOpenAbove(nextOpenAbove);
+    setModelMenuPosition({
+      top: nextOpenAbove ? rect.top - MODEL_MENU_OFFSET : rect.bottom + MODEL_MENU_OFFSET,
+      left: rect.left,
+      width: rect.width,
+    });
   }, [modelGroups, modelMenuOpen]);
+
+  useLayoutEffect(() => {
+    if (!modelMenuOpen) {
+      setModelMenuPosition(null);
+      return;
+    }
+    updateModelMenuPosition();
+  }, [modelMenuOpen, updateModelMenuPosition]);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+
+    const handleViewportChange = () => updateModelMenuPosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [modelMenuOpen, updateModelMenuPosition]);
 
   const modalTitle = title ?? (cat ? '编辑智能体' : '创建智能体');
   const primaryButtonText = saving ? (cat ? '保存中...' : '创建中...') : cat ? '保存' : '确定';
@@ -605,7 +638,12 @@ export function CreateAgentModalDraft({
       >
         <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
           <h2 className="text-[18px] font-bold text-[var(--text-primary)]">{modalTitle}</h2>
-          <button type="button" onClick={onClose} className="ui-icon-button h-10 w-10 rounded-full">
+          <button
+            type="button"
+            onClick={onClose}
+            className="ui-icon-button h-10 w-10 rounded-full"
+            style={{ transform: 'translate(12px, -12px)' }}
+          >
             <CloseIcon />
           </button>
         </div>
@@ -649,7 +687,7 @@ export function CreateAgentModalDraft({
                   type="button"
                   aria-label="Upload avatar"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative flex h-[50px] w-[50px] items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                  className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
@@ -665,10 +703,10 @@ export function CreateAgentModalDraft({
                   onChange={handleAvatarUpload}
                   className="hidden"
                 />
-                <div className="h-[50px] pt-[28px]">
+                <div className="h-11 pt-[22px]">
                   <div aria-hidden="true" className="h-[16px] w-px bg-[var(--border-default)]" />
                 </div>
-                <div  className="h-[50px] pt-[22px]">
+                <div  className="h-11 pt-[16px]">
                               <button
                   type="button"
                   aria-label="Random preset avatar"
@@ -737,21 +775,30 @@ export function CreateAgentModalDraft({
                     <ModelSelectTriggerIcon />
                   </button>
 
-                  {modelMenuOpen ? (
-                    <div
-                      ref={modelMenuRef}
-                      className={`absolute left-0 z-20 ${openAbove ? 'bottom-[calc(100%-28px)] mb-2' : 'top-full mt-2'}`}
-                    >
-                      <ModelSelectDropdownDraft
-                        groups={modelGroups}
-                        selectedId={selectedModel?.id ?? selectedOptionId}
-                        onSelect={(item) => {
-                          setSelectedOptionId(item.id);
-                          setModelMenuOpen(false);
-                        }}
-                      />
-                    </div>
-                  ) : null}
+                  {modelMenuOpen && modelMenuPosition
+                    ? createPortal(
+                        <div
+                          ref={modelMenuRef}
+                          className="fixed z-[70]"
+                          style={{
+                            top: modelMenuPosition.top,
+                            left: modelMenuPosition.left,
+                            width: modelMenuPosition.width,
+                            transform: openAbove ? 'translateY(-100%)' : undefined,
+                          }}
+                        >
+                          <ModelSelectDropdownDraft
+                            groups={modelGroups}
+                            selectedId={selectedModel?.id ?? selectedOptionId}
+                            onSelect={(item) => {
+                              setSelectedOptionId(item.id);
+                              setModelMenuOpen(false);
+                            }}
+                          />
+                        </div>,
+                        document.body,
+                      )
+                    : null}
                 </>
               ) : (
                 <div className="ui-field flex h-[28px] w-full items-center rounded-[6px] px-4 text-[12px] text-[var(--text-muted)]">
