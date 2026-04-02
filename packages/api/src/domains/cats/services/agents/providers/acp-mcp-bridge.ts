@@ -38,7 +38,6 @@ export function resolveACPMcpTransportFromInitializeResult(
 
 export function buildAcpMcpServers(
   initializeResult: Record<string, unknown> | undefined,
-  workingDirectory?: string,
   options?: AgentServiceOptions,
 ): Array<Record<string, unknown>> {
   const transport = resolveACPMcpTransportFromInitializeResult(initializeResult);
@@ -53,7 +52,7 @@ export function buildAcpMcpServers(
       },
     ];
   }
-  const servers = readProjectMcpServers(workingDirectory);
+  const servers = readProjectMcpServers(options?.workingDirectory);
   const catCafeMcp = buildCatCafeMcpRequestConfig(options);
   if (catCafeMcp) {
     servers.unshift({
