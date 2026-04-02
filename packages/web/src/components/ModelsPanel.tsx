@@ -28,6 +28,8 @@ const CREATE_MODEL_CANCEL_LABEL = '取消';
 const CREATE_MODEL_CONFIRM_LABEL = '确定';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
+const EMPTY_MODEL_ICON_DATA_URL =
+  'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2296%22%20height%3D%2296%22%20viewBox%3D%220%200%2096%2096%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2290%22%20height%3D%2290%22%20rx%3D%2245%22%20fill%3D%22%23F8FAFC%22%20stroke%3D%22%23CBD5E1%22%20stroke-width%3D%223%22%20stroke-dasharray%3D%226%206%22/%3E%3Cpath%20d%3D%22M48%2034v28M34%2048h28%22%20stroke%3D%22%2394A3B8%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E';
 
 function stableHash(input: string): number {
   let hash = 0;
@@ -233,9 +235,7 @@ export function ModelsPanel() {
   const [createModelBusy, setCreateModelBusy] = useState(false);
   const [modelNameInput, setModelNameInput] = useState('');
   const [modelDescriptionInput, setModelDescriptionInput] = useState('');
-  const [modelIconInput, setModelIconInput] = useState(() => generateModelIconDataUrl(''));
-  const [modelIconVariant, setModelIconVariant] = useState(0);
-  const [modelIconCustomized, setModelIconCustomized] = useState(false);
+  const [modelIconInput, setModelIconInput] = useState(EMPTY_MODEL_ICON_DATA_URL);
   const [modelIconUploading, setModelIconUploading] = useState(false);
   const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
   const [modelUrlInput, setModelUrlInput] = useState('');
@@ -371,11 +371,6 @@ export function ModelsPanel() {
   const showNoResults = !loading && cards.length > 0 && hasSearchQuery && groupedCards.length === 0;
   const showGroups = !loading && groupedCards.length > 0;
 
-  useEffect(() => {
-    if (modelIconCustomized) return;
-    setModelIconInput(generateModelIconDataUrl(modelNameInput, modelIconVariant));
-  }, [modelIconCustomized, modelIconVariant, modelNameInput]);
-
   const closeCreateModelModal = () => {
     setShowCreateModelModal(false);
     setCreateModelError(null);
@@ -384,9 +379,7 @@ export function ModelsPanel() {
   const resetCreateModelForm = () => {
     setModelNameInput('');
     setModelDescriptionInput('');
-    setModelIconVariant(0);
-    setModelIconCustomized(false);
-    setModelIconInput(generateModelIconDataUrl(''));
+    setModelIconInput(EMPTY_MODEL_ICON_DATA_URL);
     setModelDisplayNameInput('');
     setModelUrlInput('');
     setModelApiKeyInput('');
@@ -446,7 +439,6 @@ export function ModelsPanel() {
     try {
       const uploaded = await uploadAvatarAsset(file);
       setModelIconInput(uploaded);
-      setModelIconCustomized(true);
     } catch (error) {
       setCreateModelError(error instanceof Error ? error.message : '图标上传失败');
     } finally {
@@ -709,8 +701,6 @@ export function ModelsPanel() {
                       aria-label="Random model icon"
                       onClick={() => {
                         const nextVariant = Math.floor(Math.random() * 10_000);
-                        setModelIconVariant(nextVariant);
-                        setModelIconCustomized(true);
                         setModelIconInput(generateModelIconDataUrl(modelNameInput, nextVariant));
                       }}
                       className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
