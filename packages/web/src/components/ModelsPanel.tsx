@@ -82,7 +82,7 @@ function normalizeStringArray(value: unknown): string[] {
 
   if (typeof value === 'string' && value.trim()) {
     return value
-      .split(/[,\uff0c/|]/)
+      .split(/[,，/|]/)
       .map((entry) => entry.trim())
       .filter(Boolean);
   }
@@ -352,7 +352,7 @@ export function ModelsPanel() {
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        throw new Error(body.error ?? `璇锋眰澶辫触 (${res.status})`);
+        throw new Error(body.error ?? `请求失败 (${res.status})`);
       }
       resetCreateModelForm();
       closeCreateModelModal();
@@ -499,7 +499,7 @@ export function ModelsPanel() {
                                 data-testid={`model-card-delete-${card.id}`}
                                 className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100 disabled:opacity-50"
                               >
-                                {deletingModelId === card.id ? '\u5220\u9664\u4e2d...' : DELETE_MODEL_LABEL}
+                                {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
                               </button>
                             </div>
                           ) : (
@@ -547,36 +547,36 @@ export function ModelsPanel() {
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u540d\u79f0'}</p>
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型名称'}</p>
                 <input
                   data-testid="models-create-model-name-input"
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
-                  placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u540d\u79f0'}
+                  placeholder={'请输入模型名称'}
                   className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u6a21\u578b\u5c55\u793a\u540d\u79f0'}</p>
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型展示名称'}</p>
                 <input
                   data-testid="models-create-model-display-name-input"
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
-                  placeholder={'\u8bf7\u8f93\u5165\u6a21\u578b\u5c55\u793a\u540d\u79f0'}
+                  placeholder={'请输入模型展示名称'}
                   className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
               </div>
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'\u8bbf\u95eeURL'}</p>
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'访问URL'}</p>
                 <input
                   data-testid="models-create-model-url-input"
                   value={modelUrlInput}
                   onChange={(event) => setModelUrlInput(event.target.value)}
-                  placeholder={'\u8bf7\u8f93\u5165\u8bbf\u95eeURL'}
+                  placeholder={'请输入访问URL'}
                   className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
@@ -589,7 +589,7 @@ export function ModelsPanel() {
                   type="password"
                   value={modelApiKeyInput}
                   onChange={(event) => setModelApiKeyInput(event.target.value)}
-                  placeholder={'\u8bf7\u8f93\u5165API Key'}
+                  placeholder={'请输入API Key'}
                   className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
@@ -626,7 +626,7 @@ export function ModelsPanel() {
                 data-testid="models-create-model-confirm"
                 className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {createModelBusy ? '\u521b\u5efa\u4e2d...' : CREATE_MODEL_CONFIRM_LABEL}
+                {createModelBusy ? '创建中...' : CREATE_MODEL_CONFIRM_LABEL}
               </button>
             </div>
           </div>
