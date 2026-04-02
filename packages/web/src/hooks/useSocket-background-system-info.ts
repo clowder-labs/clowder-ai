@@ -4,6 +4,7 @@ import type {
   BackgroundStreamRef,
   HandleBackgroundMessageOptions,
 } from './useSocket-background.types';
+import { parseSystemInfoContent } from './parse-system-info';
 
 interface SystemInfoConsumeResult {
   consumed: boolean;
@@ -40,7 +41,8 @@ export function consumeBackgroundSystemInfo(
   let consumed = false;
 
   try {
-    const parsed = JSON.parse(sysContent);
+    const parsed = parseSystemInfoContent(sysContent);
+    if (!parsed) throw new Error('not parseable system_info');
     if (parsed?.type === 'invocation_created') {
       const targetCatId = parsed.catId ?? msg.catId;
       const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;

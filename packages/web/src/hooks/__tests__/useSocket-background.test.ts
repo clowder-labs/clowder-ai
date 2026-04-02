@@ -915,6 +915,23 @@ describe('background thread socket handling', () => {
       expect(ts.catStatuses.codex).toBe('streaming');
     });
 
+    it('consumes pseudo-object thinking system_info silently in background threads', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'office',
+        threadId: 'thread-bg',
+        content: 'type: thinking, catId: office, text: 流程',
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.type).toBe('assistant');
+      expect(ts.messages[0]?.thinking).toBe('流程');
+    });
+
     it('consumes invocation_usage system_info into thread invocation + message metadata (no raw JSON message)', () => {
       const now = Date.now();
       simulateBackgroundMessage({
