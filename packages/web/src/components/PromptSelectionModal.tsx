@@ -1,20 +1,13 @@
 'use client';
 
 import type { MouseEvent } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { MarkdownContent } from './MarkdownContent';
 
 export interface PromptSelectionItem {
   id: string;
   title: string;
-  category: string;
-  source: string;
-  creator: string;
-  createdAt: string;
-  summary?: string;
-  sections?: Array<{
-    title: string;
-    lines: string[];
-  }>;
+  dexcription: string;
   content: string;
 }
 
@@ -33,7 +26,6 @@ interface PromptSelectionModalProps {
 const MODAL_WIDTH = 900;
 const MODAL_HEIGHT = 564;
 const CONTENT_HEIGHT = 380;
-const CARD_HEIGHT = 68;
 const LIST_WIDTH = 240;
 const DETAIL_WIDTH = 596;
 
@@ -74,43 +66,36 @@ function normalizeSearch(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function buildFallbackSections(item: PromptSelectionItem): Array<{ title: string; lines: string[] }> {
-  if (item.sections?.length) return item.sections;
-  return [{ title: item.category, lines: item.content.split('\n').filter(Boolean) }];
+function PromptDetailContent({ item }: { item: PromptSelectionItem }) {
+  return (
+    <div className="h-full overflow-y-auto">
+      <MarkdownContent
+        content={item.content}
+        className="text-[12px] leading-7 text-[#2E3542] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#555E6D] [&_p]:text-[#555E6D]"
+        disableCommandPrefix
+      />
+    </div>
+  );
 }
 
-function PromptDetailContent({
-  item,
-  compact = false,
-  titleTestId,
-}: {
-  item: PromptSelectionItem;
-  compact?: boolean;
-  titleTestId?: string;
-}) {
-  const titleClass = compact ? 'text-[15px]' : 'text-[18px]';
-  const sectionTitleClass = compact ? 'text-[13px]' : 'text-[14px]';
-  const bodyClass = compact ? 'text-[11px] leading-6' : 'text-[13px] leading-7';
+function buildItemSummary(item: PromptSelectionItem): string {
+  const summary = item.dexcription.trim();
+  if (summary) return summary;
 
-  return (
-    <>
-      <h3 data-testid={titleTestId} className={`font-semibold leading-none text-[#2E3542] ${titleClass}`}>
-        {item.title}
-      </h3>
-      <div className={compact ? 'mt-4 space-y-4' : 'mt-6 space-y-5'}>
-        {buildFallbackSections(item).map((section) => (
-          <section key={section.title}>
-            <h4 className={`font-semibold text-[#3F4654] ${sectionTitleClass}`}>{section.title}</h4>
-            <ul className={`mt-2 space-y-1 text-[#555E6D] ${bodyClass}`}>
-              {section.lines.map((line) => (
-                <li key={line}>• {line}</li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-    </>
-  );
+  return item.content
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/[*_`>#-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildSearchFields(item: PromptSelectionItem): string[] {
+  return [item.id, item.title, item.dexcription, item.content];
+}
+
+function promptItemMatchesQuery(item: PromptSelectionItem, query: string): boolean {
+  const lowered = query.toLowerCase();
+  return buildSearchFields(item).some((field) => field.toLowerCase().includes(lowered));
 }
 
 export function PromptSelectionModal({
@@ -148,11 +133,7 @@ export function PromptSelectionModal({
     const normalized = normalizeSearch(query);
     if (!normalized) return items;
 
-    return items.filter((item) =>
-      [item.title, item.category, item.source, item.creator, item.summary ?? '', item.content].some((field) =>
-        field.toLowerCase().includes(normalized),
-      ),
-    );
+    return items.filter((item) => promptItemMatchesQuery(item, normalized));
   }, [items, query]);
 
   const selectedItem = useMemo(() => {
@@ -250,7 +231,7 @@ export function PromptSelectionModal({
                           {item.title}
                         </div>
                         <div className="mt-1 h-[18px] w-full truncate overflow-hidden text-[12px] leading-[18px] text-[#969EAA]">
-                          {item.summary ?? item.content}
+                          {buildItemSummary(item)}
                         </div>
                       </div>
                     </button>
@@ -261,11 +242,11 @@ export function PromptSelectionModal({
 
             <section
               data-testid="prompt-detail-panel"
-              className="flex min-h-0 flex-col overflow-y-auto rounded-[10px] border border-[#E7ECF3] bg-white p-4 flex-1"
+              className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-[#E7ECF3] bg-white p-4 flex-1"
               style={{ width: DETAIL_WIDTH, height: CONTENT_HEIGHT }}
             >
               {selectedItem ? (
-                <PromptDetailContent item={selectedItem} titleTestId="prompt-selected-title" />
+                <PromptDetailContent item={selectedItem} />
               ) : (
                 <div className="flex h-full items-center justify-center text-[13px] text-[#8C8C8C]">请选择左侧提示词</div>
               )}
