@@ -600,6 +600,16 @@ process.stdin.on('data', (chunk) => {
 });
 
 describe('ACPAgentService resume dispatch', () => {
+  async function withTempMcpProject(mcpServers, testFn) {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-agent-mcp-project-'));
+    try {
+      await writeFile(path.join(tempDir, '.mcp.json'), JSON.stringify({ mcpServers }, null, 2));
+      await testFn(tempDir);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
   async function withFakeACPAgent(testFn) {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), 'acp-agent-service-'));
     const logFile = path.join(tempDir, 'methods.json');
@@ -761,6 +771,128 @@ process.stdin.on('data', (chunk) => {
 
       assert.deepEqual(methods, ['initialize', 'session/load', 'session/prompt']);
     });
+  });
+
+  it('starts a fresh session for agent-teams ACP relays when project MCP servers are present', async () => {
+    await withTempMcpProject(
+      {
+        'cat-cafe-collab': {
+          command: 'node',
+          args: ['packages/mcp-server/dist/collab.js'],
+        },
+      },
+      async (workingDirectory) => {
+        await withFakeACPAgent(async ({ logFile, scriptFile }) => {
+          const script = `
+import { appendFileSync } from 'node:fs';
+
+const logFile = process.env.ACP_TEST_LOG_FILE;
+let buffer = '';
+
+function write(message) {
+  const payload = Buffer.from(JSON.stringify(message), 'utf8');
+  process.stdout.write(\`Content-Length: \${payload.length}\\r\\n\\r\\n\`);
+  process.stdout.write(payload);
+}
+
+function handle(message) {
+  if (!message || typeof message !== 'object' || typeof message.method !== 'string') return;
+  appendFileSync(logFile, \`\${JSON.stringify(message.method)}\\n\`);
+  const params = message.params && typeof message.params === 'object' ? message.params : {};
+  if (message.method === 'initialize') {
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          promptCapabilities: { audio: false, embeddedContext: false, image: false },
+          mcpCapabilities: { acp: true },
+        },
+        agentInfo: { name: 'agent-teams', version: '0.1.0' },
+      },
+    });
+    return;
+  }
+  if (message.method === 'session/new' || message.method === 'session/load') {
+    write({ jsonrpc: '2.0', id: message.id, result: { sessionId: params.sessionId || 'sess-test' } });
+    return;
+  }
+  if (message.method === 'mcp/connect') {
+    write({ jsonrpc: '2.0', id: message.id, result: { connectionId: 'conn-1' } });
+    return;
+  }
+  if (message.method === 'mcp/disconnect') {
+    write({ jsonrpc: '2.0', id: message.id, result: {} });
+    return;
+  }
+  if (message.method === 'session/prompt') {
+    write({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { stopReason: 'end_turn', runStatus: 'completed', recoverable: false },
+    });
+    return;
+  }
+  write({ jsonrpc: '2.0', id: message.id, result: {} });
+}
+
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const headerEnd = buffer.indexOf('\\r\\n\\r\\n');
+    if (headerEnd === -1) break;
+    const header = buffer.slice(0, headerEnd);
+    const match = header.match(/Content-Length:\\s*(\\d+)/i);
+    if (!match) {
+      buffer = buffer.slice(headerEnd + 4);
+      continue;
+    }
+    const length = Number.parseInt(match[1], 10);
+    const bodyStart = headerEnd + 4;
+    if (buffer.length < bodyStart + length) break;
+    const body = buffer.slice(bodyStart, bodyStart + length);
+    buffer = buffer.slice(bodyStart + length);
+    handle(JSON.parse(body));
+  }
+});
+`;
+          await writeFile(scriptFile, script);
+
+          const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
+          const service = new ACPAgentService({ catId: 'codex' });
+          const providerProfile = {
+            id: 'agent-teams-test',
+            kind: 'acp',
+            protocol: 'acp',
+            authType: 'none',
+            modelAccessMode: 'bring_your_own_key',
+            command: process.execPath,
+            args: [scriptFile],
+            cwd: process.cwd(),
+            env: { ACP_TEST_LOG_FILE: logFile },
+          };
+
+          for await (const _msg of service.invoke('handoff prompt', {
+            providerProfile,
+            sessionId: 'sess-existing',
+            workingDirectory,
+          })) {
+            // exhaust stream
+          }
+
+          const methods = (await readFile(logFile, 'utf8'))
+            .trim()
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => JSON.parse(line));
+
+          assert.deepEqual(methods, ['initialize', 'session/new', 'mcp/connect', 'session/prompt', 'mcp/disconnect']);
+        });
+      },
+    );
   });
 
   it('maps paused-run prompt rejection into recoverable pause system info', async () => {

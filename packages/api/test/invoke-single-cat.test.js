@@ -18,6 +18,16 @@ async function collect(iterable) {
   return msgs;
 }
 
+const rootCatTemplatePath = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
+
+function buildSyntheticCatConfig(baseConfig, overrides = {}) {
+  return {
+    ...baseConfig,
+    ...overrides,
+    mentionPatterns: overrides.mentionPatterns ?? [`@${overrides.id ?? baseConfig.id}`],
+  };
+}
+
 // Shared temp dir — singleton EventAuditLog only initializes once
 let tempDir;
 let invokeSingleCat;
@@ -1302,8 +1312,23 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   async function withSanitizedOpencodeConfig(run) {
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const registrySnapshot = catRegistry.getAllConfigs();
-    const baselineConfigs = toAllCatConfigs(loadCatConfig(join(process.cwd(), '..', '..', 'cat-template.json')));
-    const baselineOpencodeConfig = baselineConfigs.opencode;
+    const baselineConfigs = toAllCatConfigs(loadCatConfig(rootCatTemplatePath));
+    const fallbackConfig = baselineConfigs.assistant ?? baselineConfigs.office ?? baselineConfigs.agentteams;
+    const baselineOpencodeConfig =
+      baselineConfigs.opencode ??
+      (fallbackConfig
+        ? buildSyntheticCatConfig(fallbackConfig, {
+            id: 'opencode',
+            name: 'OpenCode',
+            displayName: 'OpenCode',
+            nickname: 'OpenCode',
+            provider: 'opencode',
+            defaultModel: 'claude-opus-4-6',
+            ocProviderName: 'anthropic',
+            accountRef: undefined,
+            providerProfileId: undefined,
+          })
+        : undefined);
     assert.ok(baselineOpencodeConfig, 'opencode config should exist in baseline catalog');
 
     const {
@@ -2419,6 +2444,30 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
+    assert.ok(
+      promptsSeen[0].includes('ACP collaboration rule: if the user asks another cat/role/engine to continue, review, or evaluate in this thread, call the exact post-message tool from the function list directly'),
+      'ACP hint should steer direct cross-role handoff behavior',
+    );
+    assert.ok(
+      promptsSeen[0].includes('ACP MCP naming rule: in agent-teams, callable MCP function names are usually server-prefixed.'),
+      'ACP hint should explain prefixed MCP function names',
+    );
+    assert.ok(
+      promptsSeen[0].includes('cat-cafe-collab_cat_cafe_post_message'),
+      'ACP hint should include a prefixed collaboration tool example',
+    );
+    assert.ok(
+      promptsSeen[0].includes('For same-thread handoff, call it immediately with content plus targetCats'),
+      'ACP hint should include the direct post_message argument shape',
+    );
+    assert.ok(
+      promptsSeen[0].includes('Do not use repo grep/read/shell to look up cat_cafe_post_message'),
+      'ACP hint should forbid tool-name lookup detours before direct MCP calls',
+    );
+    assert.ok(
+      promptsSeen[0].includes('Never use chrome-devtools, webfetch, shell, or repo tools to inspect, simulate, or proxy an MCP call'),
+      'ACP hint should forbid simulating MCP calls through other tools',
+    );
     assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
     assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
     assert.ok(
@@ -3085,8 +3134,53 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    const templateRaw = await readFile(join(process.cwd(), '..', '..', 'cat-template.json'), 'utf-8');
-    await writeFile(join(root, 'cat-template.json'), templateRaw, 'utf-8');
+    const templateJson = JSON.parse(await readFile(rootCatTemplatePath, 'utf-8'));
+    if (!templateJson.roster?.codex) {
+      const rosterFallback = templateJson.roster?.assistant ?? templateJson.roster?.office ?? {
+        family: 'coding',
+        roles: ['coding'],
+        lead: false,
+        available: true,
+        evaluation: 'Synthetic Codex seed for bootstrap binding tests',
+      };
+      templateJson.roster = {
+        ...templateJson.roster,
+        codex: {
+          ...rosterFallback,
+          family: 'coding',
+          roles: ['coding'],
+          evaluation: 'Synthetic Codex seed for bootstrap binding tests',
+        },
+      };
+    }
+    if (!templateJson.breeds?.some((breed) => breed.catId === 'codex')) {
+      const breedFallback = templateJson.breeds?.find((breed) => breed.catId === 'assistant')
+        ?? templateJson.breeds?.find((breed) => breed.catId === 'office')
+        ?? templateJson.breeds?.[0];
+      assert.ok(breedFallback, 'expected at least one baseline breed to clone for codex seed');
+      templateJson.breeds.push({
+        ...breedFallback,
+        id: 'codex',
+        catId: 'codex',
+        name: 'Codex',
+        displayName: 'Codex',
+        nickname: 'Codex',
+        mentionPatterns: ['@codex'],
+        defaultVariantId: 'codex-default',
+        variants: [
+          {
+            ...(breedFallback.variants?.[0] ?? {}),
+            id: 'codex-default',
+            provider: 'openai',
+            defaultModel: 'gpt-5.4',
+            accountRef: 'codex',
+            providerProfileId: 'codex',
+            cli: undefined,
+          },
+        ],
+      });
+    }
+    await writeFile(join(root, 'cat-template.json'), JSON.stringify(templateJson, null, 2), 'utf-8');
     const prevGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
     process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
 

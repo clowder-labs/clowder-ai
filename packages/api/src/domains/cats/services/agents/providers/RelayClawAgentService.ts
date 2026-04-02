@@ -15,7 +15,7 @@ import type { AgentMessage, AgentService, AgentServiceOptions } from '../../type
 import { appendLocalImagePathHints } from './image-cli-bridge.js';
 import { extractImagePaths } from './image-paths.js';
 import { FrameQueue, RelayClawConnectionManager, type RelayClawConnectionFactory } from './relayclaw-connection.js';
-import { buildCatCafeMcpRequestConfig } from './relayclaw-catcafe-mcp.js';
+import { buildCatCafeMcpRequestConfig } from './project-mcp-servers.js';
 import {
   DefaultRelayClawSidecarController,
   isSidecarReady,

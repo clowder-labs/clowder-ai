@@ -16,7 +16,7 @@ import {
   buildProjectAcpRelayServers,
   buildProjectMcpRequestConfigByName,
   buildProjectMcpSessionServers,
-} from './relayclaw-catcafe-mcp.js';
+} from './project-mcp-servers.js';
 
 export type ACPMcpTransport = 'acp' | 'stdio';
 
@@ -86,6 +86,20 @@ interface MCPConnectionRecord {
 interface RawMcpPendingRequest {
   resolve: (value: Record<string, unknown>) => void;
   reject: (error: Error) => void;
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isInactiveLocalMcpConnectionError(error: unknown): boolean {
+  const message = toErrorMessage(error).trim().toLowerCase();
+  return (
+    message === 'not connected' ||
+    message.includes('local mcp subprocess closed') ||
+    message.includes('acp subprocess is not running') ||
+    message.includes('exited before reply')
+  );
 }
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -351,15 +365,28 @@ export class ACPMcpBridge {
     params: Record<string, unknown> | null,
     isNotification: boolean,
   ): Promise<Record<string, unknown>> {
-    const connection = this.getConnection(params);
+    const connectionId =
+      typeof params?.connectionId === 'string' && params.connectionId.trim() ? params.connectionId.trim() : '';
+    if (!connectionId) throw new ACPRequestError(-32602, 'ACP MCP message requires connectionId');
+    let connection = this.getConnection(params);
     const method = typeof params?.method === 'string' && params.method.trim() ? params.method.trim() : '';
     if (!method) throw new ACPRequestError(-32602, 'ACP MCP message requires method');
     const messageParams = asObject(params?.params) ?? {};
-    if (isNotification) {
-      await connection.client.notify(method, messageParams);
-      return {};
+    try {
+      if (isNotification) {
+        await connection.client.notify(method, messageParams);
+        return {};
+      }
+      return await connection.client.call(method, messageParams);
+    } catch (error) {
+      if (!isInactiveLocalMcpConnectionError(error)) throw error;
+      connection = await this.reconnectConnection(connectionId, connection);
+      if (isNotification) {
+        await connection.client.notify(method, messageParams);
+        return {};
+      }
+      return await connection.client.call(method, messageParams);
     }
-    return await connection.client.call(method, messageParams);
   }
 
   private async closeConnection(params: Record<string, unknown> | null): Promise<Record<string, unknown>> {
@@ -394,6 +421,19 @@ export class ACPMcpBridge {
     const connection = this.connections.get(connectionId);
     if (!connection) throw new ACPRequestError(-32602, `Unknown ACP MCP connectionId: ${connectionId}`);
     return connection;
+  }
+
+  private async reconnectConnection(
+    connectionId: string,
+    connection: MCPConnectionRecord,
+  ): Promise<MCPConnectionRecord> {
+    await this.closeConnection({ sessionId: connection.sessionId, connectionId });
+    await this.createLocalConnection(connection.sessionId, connection.serverId, connectionId);
+    const recreated = this.connections.get(connectionId);
+    if (!recreated) {
+      throw new ACPRequestError(-32000, `Failed to reconnect ACP MCP connection: ${connection.serverId}`);
+    }
+    return recreated;
   }
 
   private async createLocalConnection(sessionId: string, serverId: string, connectionId: string): Promise<void> {

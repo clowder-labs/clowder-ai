@@ -13,7 +13,7 @@ const CAT_CAFE_MCP_CALLBACK_ENV_KEYS = [
   'CAT_CAFE_SIGNAL_USER',
 ] as const;
 
-export interface RelayClawCatCafeMcpServer {
+export interface ResolvedLocalMcpServer {
   command: string;
   args: string[];
   serverPath: string;
@@ -65,7 +65,7 @@ function readProjectMcpConfig(workingDirectory?: string): Record<string, unknown
 
 export function resolveCatCafeMcpServer(
   workingDirectory?: string,
-): RelayClawCatCafeMcpServer | null {
+): ResolvedLocalMcpServer | null {
   for (const repoRoot of collectCandidateRoots(workingDirectory)) {
     const distServerPath = resolve(repoRoot, 'packages/mcp-server/dist/index.js');
     if (existsSync(distServerPath)) {
