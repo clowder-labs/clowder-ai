@@ -370,6 +370,9 @@ export function CreateAgentModalDraft({
   const [draftAvatar, setDraftAvatar] = useState('');
   const [selectedClient, setSelectedClient] = useState<ClientValue>(RELAYCLAW_CLIENT);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [clientMenuOpen, setClientMenuOpen] = useState(false);
+  const [clientOpenAbove, setClientOpenAbove] = useState(false);
+  const [clientMenuPosition, setClientMenuPosition] = useState<ModelMenuPosition | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [openAbove, setOpenAbove] = useState(false);
   const [modelMenuPosition, setModelMenuPosition] = useState<ModelMenuPosition | null>(null);
@@ -379,6 +382,8 @@ export function CreateAgentModalDraft({
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const clientMenuRef = useRef<HTMLDivElement | null>(null);
+  const clientTriggerRef = useRef<HTMLButtonElement | null>(null);
   const modelMenuRef = useRef<HTMLDivElement | null>(null);
   const modelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const currentProjectPath = useChatStore((state) => state.currentProjectPath);
@@ -412,8 +417,12 @@ export function CreateAgentModalDraft({
     if (isSkipAuth) {
       setSelectedClient(RELAYCLAW_CLIENT);
       setSelectedOptionId(null);
+      setClientMenuOpen(false);
+      setClientOpenAbove(false);
+      setClientMenuPosition(null);
       setModelMenuOpen(false);
       setOpenAbove(false);
+      setModelMenuPosition(null);
       setError(null);
       return;
     }
@@ -422,8 +431,12 @@ export function CreateAgentModalDraft({
       : RELAYCLAW_CLIENT;
     setSelectedClient(nextClient);
     setSelectedOptionId(null);
+    setClientMenuOpen(false);
+    setClientOpenAbove(false);
+    setClientMenuPosition(null);
     setModelMenuOpen(false);
     setOpenAbove(false);
+    setModelMenuPosition(null);
     setError(null);
   }, [cat, description, draft?.client, isSkipAuth, name, open]);
 
@@ -434,18 +447,27 @@ export function CreateAgentModalDraft({
   }, [clientOptions, open, selectedClient]);
 
   useEffect(() => {
-    if (!modelMenuOpen) return;
+    if (!modelMenuOpen && !clientMenuOpen) return;
 
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
       if (modelMenuRef.current?.contains(target) || modelTriggerRef.current?.contains(target)) return;
+      if (clientMenuRef.current?.contains(target) || clientTriggerRef.current?.contains(target)) return;
       setModelMenuOpen(false);
+      setClientMenuOpen(false);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      setModelMenuOpen(false);
-      modelTriggerRef.current?.focus();
+      if (modelMenuOpen) {
+        setModelMenuOpen(false);
+        modelTriggerRef.current?.focus();
+        return;
+      }
+      if (clientMenuOpen) {
+        setClientMenuOpen(false);
+        clientTriggerRef.current?.focus();
+      }
     };
 
     document.addEventListener('mousedown', handlePointerDown);
@@ -454,7 +476,7 @@ export function CreateAgentModalDraft({
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [modelMenuOpen]);
+  }, [clientMenuOpen, modelMenuOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -528,6 +550,24 @@ export function CreateAgentModalDraft({
   }, [open, selectedModel, selectedOptionId]);
 
   const modelGroups = useMemo(() => groupModelOptions(availableModels), [availableModels]);
+  const selectedClientLabel = useMemo(
+    () => clientOptions.find((option) => option.value === selectedClient)?.label ?? selectedClient,
+    [clientOptions, selectedClient],
+  );
+
+  const updateClientMenuPosition = useCallback(() => {
+    if (!clientMenuOpen || !clientTriggerRef.current) return;
+    const rect = clientTriggerRef.current.getBoundingClientRect();
+    const estimatedMenuHeight = clientMenuRef.current?.offsetHeight ?? Math.min(Math.max(clientOptions.length, 1) * 34 + 8, 220);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const nextOpenAbove = spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET;
+    setClientOpenAbove(nextOpenAbove);
+    setClientMenuPosition({
+      top: nextOpenAbove ? rect.top - MODEL_MENU_OFFSET : rect.bottom + MODEL_MENU_OFFSET,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, [clientMenuOpen, clientOptions.length]);
 
   const updateModelMenuPosition = useCallback(() => {
     if (!modelMenuOpen || !modelTriggerRef.current) return;
@@ -548,12 +588,32 @@ export function CreateAgentModalDraft({
   }, [modelGroups, modelMenuOpen]);
 
   useLayoutEffect(() => {
+    if (!clientMenuOpen) {
+      setClientMenuPosition(null);
+      return;
+    }
+    updateClientMenuPosition();
+  }, [clientMenuOpen, updateClientMenuPosition]);
+
+  useLayoutEffect(() => {
     if (!modelMenuOpen) {
       setModelMenuPosition(null);
       return;
     }
     updateModelMenuPosition();
   }, [modelMenuOpen, updateModelMenuPosition]);
+
+  useEffect(() => {
+    if (!clientMenuOpen) return;
+
+    const handleViewportChange = () => updateClientMenuPosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [clientMenuOpen, updateClientMenuPosition]);
 
   useEffect(() => {
     if (!modelMenuOpen) return;
@@ -727,34 +787,64 @@ export function CreateAgentModalDraft({
             {isSkipAuth ? (
               <div className="space-y-2.5">
                 <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
-                <div className="ui-field relative flex h-[28px] w-full items-center rounded-[6px] bg-[var(--surface-panel)] pr-3">
-                  <select
-                    aria-label="Client"
-                    value={selectedClient}
-                    onChange={(event) => setSelectedClient(event.target.value as ClientValue)}
-                    className="h-full w-full appearance-none bg-transparent px-3 text-[12px] text-[var(--text-primary)] outline-none"
-                  >
-                    {clientOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <svg
-                    className="pointer-events-none absolute right-3 h-4 w-4 text-[var(--text-muted)]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M7 10L12 15L17 10"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
+                <button
+                  ref={clientTriggerRef}
+                  type="button"
+                  aria-label="Client"
+                  aria-haspopup="listbox"
+                  aria-expanded={clientMenuOpen}
+                  onClick={() => {
+                    setModelMenuOpen(false);
+                    setClientMenuOpen((current) => !current);
+                  }}
+                  className="ui-field flex h-[28px] w-full items-center justify-between rounded-[6px] bg-[var(--surface-panel)] px-[10px] text-left text-[12px]"
+                >
+                  <span className="truncate text-[var(--text-primary)]">{selectedClientLabel}</span>
+                  <ModelSelectTriggerIcon />
+                </button>
+
+                {clientMenuOpen && clientMenuPosition
+                  ? createPortal(
+                      <div
+                        ref={clientMenuRef}
+                        className="fixed z-[70]"
+                        style={{
+                          top: clientMenuPosition.top,
+                          left: clientMenuPosition.left,
+                          width: clientMenuPosition.width,
+                          transform: clientOpenAbove ? 'translateY(-100%)' : undefined,
+                        }}
+                      >
+                        <div className="ui-panel flex max-h-[220px] w-full flex-col overflow-hidden rounded-[var(--radius-md)] bg-[var(--surface-panel)] shadow-[0_10px_24px_rgba(0,0,0,0.09)]">
+                          <div role="listbox" className="flex min-h-0 flex-1 flex-col overflow-y-auto py-1">
+                            {clientOptions.map((option) => {
+                              const isSelected = option.value === selectedClient;
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={isSelected}
+                                  onClick={() => {
+                                    setSelectedClient(option.value);
+                                    setClientMenuOpen(false);
+                                  }}
+                                  className={`flex min-h-[32px] w-full items-center px-3 text-left text-[12px] transition-colors ${
+                                    isSelected
+                                      ? 'bg-[var(--surface-selected)] font-medium text-[var(--text-accent)]'
+                                      : 'text-[var(--text-primary)] hover:bg-[rgb(245,245,245)]'
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>,
+                      document.body,
+                    )
+                  : null}
               </div>
             ) : null}
 
