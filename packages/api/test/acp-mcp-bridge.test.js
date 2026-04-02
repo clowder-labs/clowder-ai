@@ -32,7 +32,8 @@ test('buildAcpMcpServers includes project Claude MCP servers for stdio ACP agent
       }),
     );
 
-    const servers = buildAcpMcpServers({ agentCapabilities: { mcpCapabilities: { stdio: true } } }, workingDirectory, {
+    const servers = buildAcpMcpServers({ agentCapabilities: { mcpCapabilities: { stdio: true } } }, {
+      workingDirectory,
       callbackEnv: {
         CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
         CAT_CAFE_INVOCATION_ID: 'inv-test-1',
@@ -57,7 +58,7 @@ test('buildAcpMcpServers includes project Claude MCP servers for stdio ACP agent
 });
 
 test('buildAcpMcpServers ignores project MCP config for ACP-native transport', () => {
-  const servers = buildAcpMcpServers({ agentCapabilities: { mcpCapabilities: { acp: true } } }, process.cwd(), {});
+  const servers = buildAcpMcpServers({ agentCapabilities: { mcpCapabilities: { acp: true } } }, {});
 
   assert.deepEqual(servers, [
     {
