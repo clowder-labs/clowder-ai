@@ -61,11 +61,13 @@ interface LocalPresentationFileMeta {
 const PRESENTATION_PATH_PATTERNS = [
   /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?([A-Za-z]:\\[^\r\n`'"]+?\.pptx?)/gi,
   /(?:saved|output|exported|generated|final\s+artifact|文件路径|路径|产物|输出|保存)[^:\n\r]*[:：]\s*[`'"]?(\/[^\r\n`'"]+?\.pptx?)/gi,
+  // 以下代码会导致页面卡死
   // /(?:saved|output|exported|generated|final\s+artifact|æ–‡ä»¶è·¯å¾„|è·¯å¾„|äº§ç‰©|è¾“å‡º|ä¿å­˜)[^:\n\r]*[:ï¼š]\s*[`'"]?((?:\.{1,2}[\\/])?[^:\r\n`'"]*[\\/][^\r\n`'"]+?\.pptx?)/gi,
   // /((?:(?:\.{1,2}|~)?[\\/])?(?:[^:\s`'"]+[\\/])+[^:\s`'"]+?\.pptx?)/gi,
   /([A-Za-z]:\\[^\r\n`'"]+?\.pptx?)/gi,
   /(\/[^\r\n`'"]+?\.pptx?)/gi,
 ];
+const RELATIVE_PRESENTATION_PATH_TOKENS = /[^\s"'`<>]+\.pptx?\b/gi;
 
 function isAbsolutePresentationPath(path: string): boolean {
   return /^[A-Za-z]:\\/.test(path) || path.startsWith('/');
@@ -96,7 +98,31 @@ function resolvePresentationPath(rawPath: string, configuredProjectPath?: string
 }
 
 function normalizePresentationPath(rawPath: string): string {
-  return rawPath.trim().replace(/^['"`]+|['"`]+$/g, '').replace(/[)\].,;:!?]+$/g, '');
+  return rawPath
+    .trim()
+    .replace(/^[('"`\[{<]+/, '')
+    .replace(/['"`)\]}>.,;:!?]+$/g, '');
+}
+
+function isLikelyRelativePresentationPath(path: string): boolean {
+  if (isAbsolutePresentationPath(path)) return false;
+  if (!/[\\/]/.test(path)) return false;
+  if (/^(?:[A-Za-z][A-Za-z0-9+.-]*:|\/\/|\\\\)/.test(path)) return false;
+  return /\.pptx?$/i.test(path);
+}
+
+function collectRelativePresentationCandidates(text: string): string[] {
+  const matches = text.match(RELATIVE_PRESENTATION_PATH_TOKENS) ?? [];
+  return matches.map((match) => normalizePresentationPath(match)).filter((match) => isLikelyRelativePresentationPath(match));
+}
+
+function pushPresentationCandidate(candidates: string[], candidate: string): void {
+  const hasMoreSpecificCandidate = candidates.some(
+    (existing) => existing.length > candidate.length && existing.endsWith(candidate),
+  );
+  if (!hasMoreSpecificCandidate) {
+    candidates.push(candidate);
+  }
 }
 
 function fileNameFromPath(path: string): string {
@@ -130,13 +156,12 @@ function extractLocalPresentationFile(events: CliEvent[]): LocalPresentationFile
             continue;
           }
         }
-        const hasMoreSpecificCandidate = candidates.some(
-          (candidate) => candidate.length > normalized.length && candidate.endsWith(normalized),
-        );
-        if (!hasMoreSpecificCandidate) {
-          candidates.push(normalized);
-        }
+        pushPresentationCandidate(candidates, normalized);
       }
+    }
+
+    for (const relativeCandidate of collectRelativePresentationCandidates(text)) {
+      pushPresentationCandidate(candidates, relativeCandidate);
     }
   }
 
