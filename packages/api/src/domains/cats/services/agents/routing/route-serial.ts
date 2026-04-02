@@ -19,7 +19,11 @@ import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
-import type { InvocationContext } from '../../context/SystemPromptBuilder.js';
+import {
+  buildInvocationContext,
+  buildStaticIdentity,
+  type InvocationContext,
+} from '../../context/SystemPromptBuilder.js';
 import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
@@ -170,7 +174,7 @@ export async function* routeSerial(
       // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
       // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
       const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
-      const staticIdentity = '';
+      const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
       // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
       const mcpInstructions = needsMcpInjection(mcpAvailable)
         ? buildMcpCallbackInstructions({
@@ -199,7 +203,24 @@ export async function* routeSerial(
         }
       }
 
-      const invocationContext = '';
+      const invocationContext = buildInvocationContext({
+        catId,
+        mode: worklist.length > 1 ? 'serial' : 'independent',
+        chainIndex: index + 1,
+        chainTotal: worklist.length,
+        teammates,
+        mcpAvailable,
+        ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+        a2aEnabled: worklistEntry.a2aCount < maxDepth,
+        ...(directMessageFrom ? { directMessageFrom } : {}),
+        ...(mentionRoutingFeedback ? { mentionRoutingFeedback } : {}),
+        ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
+        ...(routingPolicy ? { routingPolicy } : {}),
+        ...(sopStageHint ? { sopStageHint } : {}),
+        ...(activeSignals ? { activeSignals } : {}),
+        ...(voiceMode ? { voiceMode } : {}),
+        ...(bootcampState ? { bootcampState, threadId } : {}),
+      });
 
       // F24 Phase E: Bootstrap context for Session #2+
       let bootstrapContext = '';
