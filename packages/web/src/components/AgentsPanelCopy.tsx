@@ -836,7 +836,7 @@ export function AgentsPanelCopy() {
             updateWorkingDraft(activeTab, event.target.value);
           }}
           placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
-          className="h-[120px] w-full resize-none rounded-[8px]  bg-[var(--surface-panel)] px-4 py-3 text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          className="h-[120px] w-full resize-none rounded-[8px]  bg-[var(--surface-panel)] text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           data-testid="agent-tab-textarea"
         />
       </div>
