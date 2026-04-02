@@ -132,6 +132,12 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
+function generateRandomCatId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 8);
+  return `cat-${timestamp}${random}`.slice(0, 64);
+}
+
 /**
  * 从预设头像中随机选择一个
  */
@@ -305,7 +311,8 @@ export function buildDefaultCreateForm(
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const safeName = name.trim();
-  const catId = autoSlug(safeName);
+  const catId = generateRandomCatId();
+  const mentionSeed = autoSlug(safeName) || catId;
   return {
     catId,
     name: safeName,
@@ -314,7 +321,7 @@ export function buildDefaultCreateForm(
     avatar,
     colorPrimary: '#9B7EBD',
     colorSecondary: '#E8DFF5',
-    mentionPatterns: catId ? `@${catId}` : '',
+    mentionPatterns: `@${mentionSeed}`,
     roleDescription: description.trim() || '通用智能体助手',
     personality: '',
     teamStrengths: '',
@@ -348,10 +355,13 @@ function buildEditForm(
 ): HubCatEditorFormState {
   const base = initialState(cat, null);
   const safeName = name.trim() || cat.name || cat.displayName;
+  const mentionSeed = autoSlug(safeName) || cat.id;
   return {
     ...base,
     name: safeName,
     displayName: safeName,
+    nickname: safeName,
+    mentionPatterns: `@${mentionSeed}`,
     avatar,
     roleDescription: description.trim() || base.roleDescription,
     client: selectedClient,
@@ -364,10 +374,9 @@ function buildEditForm(
 export function CreateAgentModalDraft({
   open,
   cat = null,
-  name = 'BOT',
+  name = '',
   description = '',
   selectedModelId = null,
-  models: _models,
   draft = null,
   title,
   onClose,
@@ -415,7 +424,7 @@ export function CreateAgentModalDraft({
 
   useEffect(() => {
     if (!open) return;
-    setDraftName(name || cat?.name || cat?.displayName || 'BOT');
+    setDraftName(name || cat?.name || cat?.displayName || '');
     setDraftDescription(description || cat?.roleDescription || '');
     // 如果是新建智能体且没有头像，则随机选择一个预设头像；否则使用已有头像
     if (cat) {
@@ -794,7 +803,7 @@ export function CreateAgentModalDraft({
               </div>
             </div>
 
-            {isSkipAuth ? (
+            {true ? (
               <div className="space-y-2.5">
                 <div className="text-[12px] font-semibold text-[var(--text-primary)]">agent客户端</div>
                 <button
