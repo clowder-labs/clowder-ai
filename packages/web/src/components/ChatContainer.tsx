@@ -55,6 +55,7 @@ import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
+const MAIN_PANEL_MIN_WIDTH = 900;
 
 function getFolderNameFromPath(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -187,7 +188,7 @@ function ThreadModeChatContainer({
   const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
   usePreviewAutoOpen(workspaceWorktreeId);
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarOpen = true;
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
@@ -235,13 +236,6 @@ function ThreadModeChatContainer({
     },
     [setSidebarWidth],
   );
-
-  // Desktop: auto-open sidebar on mount (mobile stays closed)
-  useEffect(() => {
-    if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
-      setSidebarOpen(true);
-    }
-  }, []);
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
   const { handleScroll, scrollContainerRef, messagesEndRef, isLoadingHistory, hasMore } = useChatHistory(threadId);
@@ -613,37 +607,26 @@ function ThreadModeChatContainer({
     );
   }
   return (
-    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh">
-      {sidebarOpen && (
-        <>
-          {/* Backdrop, mobile only */}
-          <div
-            className="fixed inset-0 bg-black/30 z-20 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
+    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+        <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
+          <ThreadSidebar
+            className="w-full"
+            onBootcampClick={() => setShowBootcampList(true)}
+            onHubClick={() => setShowHubList(true)}
+            onThreadSelect={() => setSidebarMenu('chat')}
+            onMenuClick={(menu) => setSidebarMenu(menu)}
+            activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
           />
-          <div className="fixed inset-y-0 left-0 z-30 flex-shrink-0 md:static md:z-auto" style={{ width: sidebarWidth }}>
-            <ThreadSidebar
-              onClose={() => setSidebarOpen(false)}
-              className="w-full"
-              onBootcampClick={() => setShowBootcampList(true)}
-              onHubClick={() => setShowHubList(true)}
-              onThreadSelect={() => setSidebarMenu('chat')}
-              onMenuClick={(menu) => setSidebarMenu(menu)}
-              activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
-            />
-          </div>
-          <div className="hidden md:flex items-center">
-            <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
-          </div>
-        </>
-      )}
-
-      <div className="flex min-h-0 flex-col min-w-0" style={{ flex: '1 1 0%' }}>
+        </div>
+        <div className="hidden md:flex items-center">
+          <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
+        </div>
+      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}
-            onToggleSidebar={() => setSidebarOpen((v) => !v)}
+            onToggleSidebar={() => {}}
             threadId={threadId}
             authPendingCount={authPending.length}
             targetCats={targetCats}
@@ -822,6 +805,7 @@ function ThreadModeChatContainer({
             }
           }}
         />
+        </div>
       </div>
 
       <MobileStatusSheet
