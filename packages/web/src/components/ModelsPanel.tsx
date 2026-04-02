@@ -741,14 +741,14 @@ export function ModelsPanel() {
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
                   placeholder={'请输入模型名称'}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
+                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
               </div>
               <div className="space-y-2.5">
                 <div className="text-[12px] text-[var(--text-primary)]">模型描述（可选）</div>
-                <div className="ui-field relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
+                <div className="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
                   <textarea
                     data-testid="models-create-model-description-textarea"
                     value={modelDescriptionInput}
@@ -769,7 +769,7 @@ export function ModelsPanel() {
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
+                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -830,7 +830,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
+                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -848,7 +848,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm focus:border-[#1476FF] focus:outline-none focus:ring-0"
+                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -861,7 +861,7 @@ export function ModelsPanel() {
                   onChange={(event) => setModelHeadersInput(event.target.value)}
                   rows={4}
                   placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-                  className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD] focus:border-[#1476FF] focus:outline-none focus:ring-0"
+                  className="ui-form-focus w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
                 />
               </div>
               {createModelError ? (
