@@ -31,7 +31,6 @@ import type { GameDriver } from '../domains/cats/services/game/GameDriver.js';
 import { GameOrchestrator } from '../domains/cats/services/game/GameOrchestrator.js';
 import { WerewolfLobby } from '../domains/cats/services/game/werewolf/WerewolfLobby.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
-import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import { getPushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
@@ -88,7 +87,6 @@ export interface MessagesRoutesOptions {
   uploadDir?: string;
   invocationTracker?: InvocationTracker;
   invocationRecordStore?: IInvocationRecordStore;
-  autoSummarizer?: AutoSummarizer;
   summaryStore?: ISummaryStore;
   /** #80: Streaming draft store for F5 recovery */
   draftStore?: IDraftStore;
@@ -914,20 +912,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
                 })
                 .catch(() => {
                   /* best-effort */
-                });
-            }
-
-            // Fire-and-forget: auto-summarize if threshold met (only on success)
-            if (opts.autoSummarizer) {
-              opts.autoSummarizer
-                .maybeSummarize(resolvedThreadId)
-                .then((summary) => {
-                  if (summary) {
-                    opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'thread_summary', summary);
-                  }
-                })
-                .catch(() => {
-                  /* ignore */
                 });
             }
 
