@@ -267,4 +267,202 @@ describe('model config profiles routes', () => {
     const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
     assert.equal(modelJson['to-delete'], undefined);
   });
+
+  // ─── description and icon field tests ────────────────────
+
+  it('POST /api/model-config-profiles creates source with description and icon', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
+
+    const app = Fastify();
+    await app.register(modelConfigProfilesRoutes);
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/model-config-profiles',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        sourceId: 'with-desc-icon',
+        displayName: 'Test Model',
+        description: 'A test model description',
+        icon: '/images/test.svg',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+        models: ['model-1'],
+      }),
+    });
+
+    assert.equal(createRes.statusCode, 201);
+    const createBody = JSON.parse(createRes.body);
+    assert.equal(createBody.provider.description, 'A test model description');
+    assert.equal(createBody.provider.icon, '/images/test.svg');
+
+    // Verify persisted in file
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    assert.equal(modelJson['with-desc-icon'].description, 'A test model description');
+    assert.equal(modelJson['with-desc-icon'].icon, '/images/test.svg');
+  });
+
+  it('POST /api/model-config-profiles creates source without displayName (uses id as fallback)', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
+
+    const app = Fastify();
+    await app.register(modelConfigProfilesRoutes);
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/model-config-profiles',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        sourceId: 'no-display-name',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+        models: ['model-1'],
+      }),
+    });
+
+    assert.equal(createRes.statusCode, 201);
+    const createBody = JSON.parse(createRes.body);
+    // displayName should fallback to id
+    assert.equal(createBody.provider.displayName, 'no-display-name');
+    assert.equal(createBody.provider.name, 'no-display-name');
+  });
+
+  it('PUT /api/model-config-profiles/:sourceId clears description and icon with null', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
+
+    const app = Fastify();
+    await app.register(modelConfigProfilesRoutes);
+
+    // Create with description and icon
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/model-config-profiles',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        sourceId: 'clear-fields',
+        displayName: 'Test',
+        description: 'Original description',
+        icon: '/images/original.svg',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+        models: ['model-1'],
+      }),
+    });
+    assert.equal(createRes.statusCode, 201);
+
+    // Clear description and icon
+    const updateRes = await app.inject({
+      method: 'PUT',
+      url: '/api/model-config-profiles/clear-fields',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        description: null,
+        icon: null,
+      }),
+    });
+
+    assert.equal(updateRes.statusCode, 200);
+    const updateBody = JSON.parse(updateRes.body);
+    assert.equal(updateBody.provider.description, undefined);
+    assert.equal(updateBody.provider.icon, undefined);
+
+    // Verify cleared in file
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    assert.equal(modelJson['clear-fields'].description, undefined);
+    assert.equal(modelJson['clear-fields'].icon, undefined);
+  });
+
+  it('PUT /api/model-config-profiles/:sourceId clears displayName to empty string (uses id as fallback)', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
+
+    const app = Fastify();
+    await app.register(modelConfigProfilesRoutes);
+
+    // Create with displayName
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/model-config-profiles',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        sourceId: 'clear-display',
+        displayName: 'Original Display Name',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+        models: ['model-1'],
+      }),
+    });
+    assert.equal(createRes.statusCode, 201);
+
+    // Clear displayName (empty string)
+    const updateRes = await app.inject({
+      method: 'PUT',
+      url: '/api/model-config-profiles/clear-display',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        displayName: '',
+      }),
+    });
+
+    assert.equal(updateRes.statusCode, 200);
+    const updateBody = JSON.parse(updateRes.body);
+    // displayName should fallback to id when cleared
+    assert.equal(updateBody.provider.displayName, 'clear-display');
+
+    // Verify in file - displayName should be set to id (fallback behavior)
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    assert.equal(modelJson['clear-display'].displayName, 'clear-display');
+  });
+
+  it('GET /api/model-config-profiles returns description and icon', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
+
+    const app = Fastify();
+    await app.register(modelConfigProfilesRoutes);
+
+    // Create with description and icon
+    await app.inject({
+      method: 'POST',
+      url: '/api/model-config-profiles',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        sourceId: 'get-test',
+        displayName: 'Get Test',
+        description: 'Test description for GET',
+        icon: '/images/get-test.svg',
+        baseUrl: 'https://api.example.com/v1',
+        apiKey: 'sk-test',
+        models: ['model-1'],
+      }),
+    });
+
+    // Get profiles
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/api/model-config-profiles?projectPath=${encodeURIComponent(projectRoot)}`,
+    });
+
+    assert.equal(getRes.statusCode, 200);
+    const getBody = JSON.parse(getRes.body);
+    const profile = getBody.providers.find((p) => p.id === 'get-test');
+    assert.ok(profile, 'profile should exist');
+    assert.equal(profile.description, 'Test description for GET');
+    assert.equal(profile.icon, '/images/get-test.svg');
+  });
 });
