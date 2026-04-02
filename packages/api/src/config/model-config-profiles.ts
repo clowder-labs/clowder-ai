@@ -290,8 +290,12 @@ export async function updateProjectModelConfigSource(
     throw new Error(`model config source "${trimmedId}" is not an editable openai source`);
   }
 
+  // Handle displayName: null/empty string means "clear" -> fall back to id
   const displayName =
-    input.displayName !== undefined ? input.displayName?.trim() || existing.displayName : existing.displayName;
+    input.displayName !== undefined
+      ? input.displayName?.trim() || trimmedId // null/empty -> use id as fallback
+      : existing.displayName;
+  // Handle description/icon: null/empty string means "clear" -> undefined
   const description =
     input.description !== undefined
       ? input.description?.trim() || undefined
