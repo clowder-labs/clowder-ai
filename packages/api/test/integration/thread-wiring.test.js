@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -342,6 +342,58 @@ describe('Project-scoped threads: create and list by project', () => {
     const allThreads = JSON.parse(resAll.body).threads;
     // Should include all 3 created + default (auto-created by list())
     assert.ok(allThreads.length >= 3);
+  });
+
+  it('falls back to repo workspace when projectPath is missing', async () => {
+    const tempRepo = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-workspace-missing-'));
+    const previousCwd = process.cwd();
+    writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+
+    try {
+      process.chdir(tempRepo);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/threads',
+        payload: { userId: 'alice', title: 'Fallback workspace' },
+      });
+
+      assert.equal(res.statusCode, 201);
+      const thread = JSON.parse(res.body);
+      const workspaceDir = join(tempRepo, 'workspace');
+      assert.equal(thread.projectPath, workspaceDir);
+      assert.equal(existsSync(workspaceDir), true);
+    } finally {
+      process.chdir(previousCwd);
+      rmSync(tempRepo, { recursive: true, force: true });
+    }
+  });
+
+  it('falls back to repo workspace and creates it when projectPath does not exist', async () => {
+    const tempRepo = mkdtempSync(join(tmpdir(), 'cat-cafe-thread-workspace-invalid-'));
+    const previousCwd = process.cwd();
+    const missingProjectPath = join(tempRepo, 'missing-project');
+    writeFileSync(join(tempRepo, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
+
+    try {
+      process.chdir(tempRepo);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/threads',
+        payload: { userId: 'alice', title: 'Fallback workspace', projectPath: missingProjectPath },
+      });
+
+      assert.equal(res.statusCode, 201);
+      const thread = JSON.parse(res.body);
+      const workspaceDir = join(tempRepo, 'workspace');
+      assert.equal(thread.projectPath, workspaceDir);
+      assert.equal(existsSync(workspaceDir), true);
+      assert.equal(existsSync(missingProjectPath), false);
+    } finally {
+      process.chdir(previousCwd);
+      rmSync(tempRepo, { recursive: true, force: true });
+    }
   });
 });
 

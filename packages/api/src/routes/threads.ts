@@ -9,6 +9,8 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import { catIdSchema } from '@cat-cafe/shared';
+import { mkdir, realpath, stat } from 'node:fs/promises';
+import { relative, resolve, win32 } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
@@ -27,6 +29,7 @@ import type {
   ThreadRoutingPolicyV1,
 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
@@ -123,6 +126,37 @@ function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean
   return undefined;
 }
 
+function isPathWithinRoot(absPath: string, root: string): boolean {
+  const rel = relative(root, absPath);
+  if (rel === '') return true;
+  if (process.platform === 'win32' && win32.isAbsolute(rel)) return false;
+  return !rel.startsWith('..') && !rel.startsWith('/') && !rel.startsWith('\\');
+}
+
+async function resolveThreadProjectPath(projectPath?: string): Promise<string> {
+  if (projectPath && projectPath !== 'default') {
+    const validated = await validateProjectPath(projectPath);
+    if (validated) return validated;
+    log.warn({ projectPath }, 'Invalid projectPath for thread creation, falling back to workspace');
+  }
+
+  const monorepoRoot = findMonorepoRoot(process.cwd());
+  const workspacePath = resolve(monorepoRoot, 'workspace');
+  await mkdir(workspacePath, { recursive: true });
+
+  const [resolvedWorkspacePath, resolvedMonorepoRoot] = await Promise.all([realpath(workspacePath), realpath(monorepoRoot)]);
+  if (!isPathWithinRoot(resolvedWorkspacePath, resolvedMonorepoRoot)) {
+    throw new Error(`Workspace path escapes monorepo root: ${resolvedWorkspacePath}`);
+  }
+
+  const info = await stat(resolvedWorkspacePath);
+  if (!info.isDirectory()) {
+    throw new Error(`Workspace path is not a directory: ${resolvedWorkspacePath}`);
+  }
+
+  return resolvedWorkspacePath;
+}
+
 const threadRoutingRuleSchema = z
   .object({
     avoidCats: z.array(catIdSchema()).max(10).optional(),
@@ -200,17 +234,14 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
     }
 
-    // Validate projectPath is a real directory under allowed roots
     let thread;
-    if (projectPath && projectPath !== 'default') {
-      const validated = await validateProjectPath(projectPath);
-      if (!validated) {
-        reply.status(400);
-        return { error: 'Invalid projectPath: must be an existing directory under allowed roots' };
-      }
-      thread = await threadStore.create(userId, title, validated);
-    } else {
-      thread = await threadStore.create(userId, title, projectPath);
+    try {
+      const resolvedProjectPath = await resolveThreadProjectPath(projectPath);
+      thread = await threadStore.create(userId, title, resolvedProjectPath);
+    } catch (error) {
+      log.error({ err: error, projectPath }, 'Failed to resolve projectPath for thread creation');
+      reply.status(500);
+      return { error: 'Failed to prepare workspace for thread creation' };
     }
 
     // F32-b Phase 2: Set preferred cats if provided at creation time
