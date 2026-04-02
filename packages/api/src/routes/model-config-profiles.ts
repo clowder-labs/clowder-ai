@@ -156,13 +156,23 @@ export const modelConfigProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoute
     }
 
     try {
-      const updated = await updateProjectModelConfigSource(projectRoot, params.data.sourceId, {
-        ...(parsed.data.displayName !== undefined ? { displayName: parsed.data.displayName } : {}),
-        ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),
-        ...(parsed.data.apiKey !== undefined ? { apiKey: parsed.data.apiKey } : {}),
-        ...(parsed.data.headers !== undefined ? { headers: parsed.data.headers } : {}),
-        ...(parsed.data.models !== undefined ? { models: parsed.data.models } : {}),
-      });
+      const updateInput: {
+        displayName?: string;
+        baseUrl?: string;
+        apiKey?: string;
+        headers?: Record<string, string>;
+        models?: string[];
+      } = {};
+
+      if (parsed.data.displayName !== undefined) updateInput.displayName = parsed.data.displayName;
+      if (parsed.data.baseUrl !== undefined) updateInput.baseUrl = parsed.data.baseUrl;
+      if (parsed.data.apiKey !== undefined && parsed.data.apiKey.length > 0) {
+        updateInput.apiKey = parsed.data.apiKey;
+      }
+      if (parsed.data.headers !== undefined) updateInput.headers = parsed.data.headers;
+      if (parsed.data.models !== undefined) updateInput.models = parsed.data.models;
+
+      const updated = await updateProjectModelConfigSource(projectRoot, params.data.sourceId, updateInput);
 
       return {
         provider: {
