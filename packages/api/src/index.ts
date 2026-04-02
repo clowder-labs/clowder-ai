@@ -10,7 +10,7 @@ import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
-import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
+import { orchestrate } from './config/capabilities/capability-orchestrator.js';
 import { resolveBoundAccountRefForCat } from './config/cat-account-binding.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import {
@@ -170,6 +170,7 @@ import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
+import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
 import {
   resolveJiuwenClawAppDir,
   resolveJiuwenClawExecutable,
@@ -1241,21 +1242,27 @@ async function main(): Promise<void> {
     app.log.warn(`[api] Audit log write failed (best-effort): ${String(err)}`);
   }
 
-  // Best-effort: regenerate CLI configs at startup so .gemini/settings.json
-  // always has the latest env placeholders (Gemini MCP env injection)
+  // Best-effort: bootstrap capabilities + regenerate CLI configs at startup so
+  // project-level MCP config files exist even before the Hub page is opened.
   try {
-    const root = process.cwd();
-    const capConfig = await readCapabilitiesConfig(root);
-    if (capConfig) {
-      await generateCliConfigs(capConfig, {
+    const root = resolveCatCafeHostRoot(process.cwd());
+    await orchestrate(
+      root,
+      {
+        claudeConfig: join(root, '.mcp.json'),
+        codexConfig: join(root, '.codex', 'config.toml'),
+        geminiConfig: join(root, '.gemini', 'settings.json'),
+      },
+      {
         anthropic: join(root, '.mcp.json'),
         openai: join(root, '.codex', 'config.toml'),
         google: join(root, '.gemini', 'settings.json'),
-      });
-      app.log.info('[api] CLI configs regenerated at startup');
-    }
+      },
+      { catCafeRepoRoot: root },
+    );
+    app.log.info('[api] capabilities bootstrapped and CLI configs regenerated at startup');
   } catch (err) {
-    app.log.warn(`[api] CLI config regeneration failed (best-effort): ${String(err)}`);
+    app.log.warn(`[api] capability bootstrap / CLI config regeneration failed (best-effort): ${String(err)}`);
   }
 
   // F101 Phase G: Recover auto-play loops for active games after restart.
