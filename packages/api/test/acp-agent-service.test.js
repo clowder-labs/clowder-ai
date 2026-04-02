@@ -249,55 +249,66 @@ describe('buildAcpMcpServers', () => {
       async (workingDirectory) => {
         const { buildAcpMcpServers } = await import('../dist/domains/cats/services/agents/providers/acp-mcp-bridge.js');
 
-        assert.deepEqual(
-          buildAcpMcpServers(
-            {
-              agentCapabilities: {
-                mcpCapabilities: {
-                  stdio: true,
-                },
+        const servers = buildAcpMcpServers(
+          {
+            agentCapabilities: {
+              mcpCapabilities: {
+                stdio: true,
               },
             },
-            {
-              workingDirectory,
-              callbackEnv: {
-                CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
-                CAT_CAFE_CALLBACK_TOKEN: 'secret-token',
-              },
+          },
+          {
+            workingDirectory,
+            callbackEnv: {
+              CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
+              CAT_CAFE_CALLBACK_TOKEN: 'secret-token',
             },
-          ),
-          [
-            {
-              id: 'cat-cafe-signals',
-              name: 'cat-cafe-signals',
-              transport: 'stdio',
-              command: 'node',
-              args: ['packages/mcp-server/dist/signals.js'],
-              env: {
-                EXISTING_FLAG: '1',
-                CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
-                CAT_CAFE_CALLBACK_TOKEN: 'secret-token',
-              },
-            },
-            {
-              id: 'chrome-devtools',
-              name: 'chrome-devtools',
-              transport: 'stdio',
-              command: 'npx',
-              args: ['-y', 'chrome-devtools-mcp@latest'],
-            },
-            {
-              id: 'remote',
-              name: 'remote',
-              transport: 'streamableHttp',
-              type: 'http',
-              url: 'https://example.com/mcp',
-              headers: {
-                Authorization: 'Bearer demo',
-              },
-            },
-          ],
+          },
         );
+
+        assert.deepEqual(servers[0], {
+          id: 'cat-cafe',
+          name: 'cat-cafe',
+          transport: 'stdio',
+          command: process.execPath,
+          args: [path.join(process.cwd(), 'packages/mcp-server/dist/index.js')],
+          cwd: process.cwd(),
+          env: {
+            CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
+            CAT_CAFE_CALLBACK_TOKEN: 'secret-token',
+          },
+        });
+        assert.deepEqual(servers.slice(1), [
+          {
+            id: 'cat-cafe-signals',
+            name: 'cat-cafe-signals',
+            transport: 'stdio',
+            command: 'node',
+            args: ['packages/mcp-server/dist/signals.js'],
+            env: {
+              EXISTING_FLAG: '1',
+              CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
+              CAT_CAFE_CALLBACK_TOKEN: 'secret-token',
+            },
+          },
+          {
+            id: 'chrome-devtools',
+            name: 'chrome-devtools',
+            transport: 'stdio',
+            command: 'npx',
+            args: ['-y', 'chrome-devtools-mcp@latest'],
+          },
+          {
+            id: 'remote',
+            name: 'remote',
+            transport: 'streamableHttp',
+            type: 'http',
+            url: 'https://example.com/mcp',
+            headers: {
+              Authorization: 'Bearer demo',
+            },
+          },
+        ]);
       },
     );
   });
