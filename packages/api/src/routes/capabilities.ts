@@ -450,28 +450,19 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     await generateCliConfigs(config, getCliConfigPaths(projectRoot));
 
     // 2. Discover skills (filesystem scan — separate from MCP)
-    // null = scan failed (readdir error); [] = directory exists but empty
+    // Only scan project-level directories. User directories (~/.claude/skills, etc.)
+    // are no longer scanned to avoid including unrelated skills.
     const projectSkillsDir = join(projectRoot, '.claude', 'skills');
-    const [claudeProjectSkills, claudeUserSkills, codexSkills, geminiSkills] = await Promise.all([
-      listSubdirs(projectSkillsDir),
-      listSubdirs(join(home, '.claude', 'skills')),
-      listSubdirs(join(home, '.codex', 'skills'), ['.system']),
-      listSubdirs(join(home, '.gemini', 'skills')),
-    ]);
+    const claudeProjectSkills = await listSubdirs(projectSkillsDir);
 
-    // F041 bug fix: Also scan cat-cafe-skills/ for project-level skill detection.
-    // User-level skills (e.g. ~/.claude/skills/feat-completion) are symlinks to
-    // {projectRoot}/cat-cafe-skills/feat-completion — listing cat-cafe-skills/
-    // captures them as project-owned regardless of symlink target.
+    // Scan cat-cafe-skills/ for official skills
     const catCafeSkillsDir = CAT_CAFE_SKILLS_SRC;
     const catCafeOwnSkills = await listSkillSubdirs(catCafeSkillsDir);
     const hasProjectCatCafeSkillsDir = existsSync(catCafeSkillsDir);
 
-    const allScansOk =
-      claudeProjectSkills !== null && claudeUserSkills !== null && codexSkills !== null && geminiSkills !== null;
+    const projectScanOk = claudeProjectSkills !== null;
 
-    // F041 re-open: Track project-level skills for source classification
-    // Includes both .claude/skills/ AND cat-cafe-skills/ entries
+    // Official skills come from cat-cafe-skills/ directory
     const projectSkillNames = new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? [])]);
 
     const catIds = catRegistry.getAllIds().map((id) => id as string);
@@ -485,9 +476,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const providerSkills: Record<string, string[]> = {
-      anthropic: [...new Set([...(claudeProjectSkills ?? []), ...(claudeUserSkills ?? [])])],
-      openai: codexSkills ?? [],
-      google: geminiSkills ?? [],
+      anthropic: [...new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? [])])],
       relayclaw: relayclawSkillNames,
     };
 
@@ -550,8 +539,8 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       }
     }
     // Prune stale skills no longer on filesystem.
-    // Guard: only prune when ALL provider scans succeeded (no null returns).
-    if (allScansOk) {
+    // Guard: only prune when project scan succeeded.
+    if (projectScanOk) {
       const before = config.capabilities.length;
       config.capabilities = config.capabilities.filter((c) => c.type !== 'skill' || allSkillNames.has(c.id));
       if (config.capabilities.length !== before) configDirty = true;
