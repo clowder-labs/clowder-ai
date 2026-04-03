@@ -23,7 +23,7 @@ const MAIN_PANEL_MIN_WIDTH = 900;
 
 function getFolderNameFromPath(path: string): string {
   const normalized = path.replace(/[\\/]+$/, '');
-  const segments = normalized.split(/[/\\]/).filter(Boolean);
+  const segments = normalized.split(/[\/\\]/).filter(Boolean);
   return segments[segments.length - 1] ?? normalized;
 }
 
@@ -122,6 +122,7 @@ export function NewThreadContainer() {
         if (!thread?.id) {
           throw new Error('Failed to create thread');
         }
+
         attachPendingNewThreadTarget(thread.id);
         router.push(`/thread/${thread.id}`);
       } catch (err) {
@@ -143,23 +144,23 @@ export function NewThreadContainer() {
 
   return (
     <div className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
-        <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
-          <ThreadSidebar
-            className="w-full"
-            onMenuClick={(menu) => setSidebarMenu(menu)}
-            onNewChatClick={() => {
-              setSidebarMenu('chat');
-              setCurrentThread('default');
-            }}
-            activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
-          />
-        </div>
-        <div className="hidden items-center md:flex">
-          <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
-        </div>
+      <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
+        <ThreadSidebar
+          className="w-full"
+          onMenuClick={(menu) => setSidebarMenu(menu)}
+          onNewChatClick={() => {
+            setSidebarMenu('chat');
+            setCurrentThread('default');
+          }}
+          activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
+        />
+      </div>
+      <div className="hidden items-center md:flex">
+        <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
+      </div>
 
-        <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
-          <div className="flex h-full min-w-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex h-full min-w-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
           <div className="relative flex-1 overflow-hidden">
             {sidebarMenu !== 'chat' && (
               <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
@@ -170,14 +171,16 @@ export function NewThreadContainer() {
               </div>
             )}
             {sidebarMenu === 'chat' && (
-              <main className="ui-shell-surface flex-1 overflow-y-auto p-4" data-testid="new-thread-main">
-                <ChatEmptyState
-                  bootcampCount={0}
-                  isCurrentBootcampThread={false}
-                  onOpenBootcampList={() => {}}
-                  onAgentsClick={() => setSidebarMenu('agents')}
-                  onChannelsClick={() => setSidebarMenu('channels')}
-                />
+              <main className="ui-shell-surface flex h-full flex-col overflow-y-auto p-4" data-testid="new-thread-main">
+                <div className="flex-1">
+                  <ChatEmptyState
+                    bootcampCount={0}
+                    isCurrentBootcampThread={false}
+                    onOpenBootcampList={() => {}}
+                    onAgentsClick={() => setSidebarMenu('agents')}
+                    onChannelsClick={() => setSidebarMenu('channels')}
+                  />
+                </div>
               </main>
             )}
           </div>
@@ -195,17 +198,17 @@ export function NewThreadContainer() {
               }}
             />
           )}
-          </div>
         </div>
+      </div>
 
-        <DirectoryBrowserModal
-          open={isFolderBrowserOpen}
-          title="选择文件夹"
-          initialPath={cwdPath ?? selectedFolderPath ?? undefined}
-          activeProjectPath={cwdPath ?? undefined}
-          onSelect={handleFolderSelect}
-          onClose={() => setIsFolderBrowserOpen(false)}
-        />
+      <DirectoryBrowserModal
+        open={isFolderBrowserOpen}
+        title="选择文件夹"
+        initialPath={cwdPath ?? selectedFolderPath ?? undefined}
+        activeProjectPath={cwdPath ?? undefined}
+        onSelect={handleFolderSelect}
+        onClose={() => setIsFolderBrowserOpen(false)}
+      />
     </div>
   );
 }

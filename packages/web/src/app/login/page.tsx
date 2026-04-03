@@ -152,7 +152,7 @@ export default function LoginPage() {
                     name="domainName"
                     type="text"
                     required
-                    className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
                     placeholder={userType === 'huawei' ? '华为云账号' : '租户名'}
                     value={domainName}
                     onChange={(e) => setDomainName(e.target.value)}
@@ -167,7 +167,7 @@ export default function LoginPage() {
                       name="userName"
                       type="text"
                       required
-                      className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
                       placeholder="IAM用户名"
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
@@ -182,7 +182,7 @@ export default function LoginPage() {
                     name="password"
                     type="password"
                     required
-                    className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
                     placeholder="密码"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -197,7 +197,7 @@ export default function LoginPage() {
                       name="promotionCode"
                       type="text"
                       required
-                      className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
                       placeholder="请输入邀请码"
                       value={promotionCode}
                       onChange={(e) => setPromotionCode(e.target.value)}

@@ -33,7 +33,7 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
-        className="h-11 w-full rounded-[12px] border border-[#E3E8EF] bg-white px-4 text-[13px] text-[#1F2329] outline-none transition placeholder:text-[#A0A8B6] focus:border-[#C7D1DE] focus:ring-4 focus:ring-[#EEF3F8]"
+        className="ui-input h-11 w-full rounded-[12px] px-4 text-[13px] transition"
       />
     </label>
   );

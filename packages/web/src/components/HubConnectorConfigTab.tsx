@@ -286,7 +286,7 @@ export function HubConnectorConfigTab() {
                           href={docsLink.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="ui-button-secondary ml-[26px] inline-flex items-center gap-1.5"
+                          className="ui-button-default ml-[26px] inline-flex items-center gap-1.5"
                         >
                           <ExternalLinkIcon />
                           <span>{docsLink.hostname} {'->'} 查看官方文档</span>
@@ -318,7 +318,7 @@ export function HubConnectorConfigTab() {
                             value={fieldValues[field.envName] ?? ''}
                             onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
                             autoComplete={field.sensitive ? 'off' : undefined}
-                            className="ui-field h-9 w-full px-3 text-[13px]"
+                            className="ui-input h-9 w-full px-3 text-[13px]"
                             data-testid={`field-${field.envName}`}
                           />
                         </div>
@@ -343,7 +343,7 @@ export function HubConnectorConfigTab() {
                     <div className="ml-[26px] flex items-center gap-2">
                       <button
                         type="button"
-                        className="ui-button-secondary inline-flex items-center gap-1.5"
+                        className="ui-button-default inline-flex items-center gap-1.5"
                         onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
                       >
                         <WifiIcon />

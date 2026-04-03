@@ -364,7 +364,7 @@ export function HubSkillsTab() {
                 }
               }}
               placeholder={SEARCH_PLACEHOLDER}
-              className="ui-field h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
+              className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
             />
           </div>
           {displayResults ? (

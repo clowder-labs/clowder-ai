@@ -1,7 +1,9 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
+import { getMentionLabel, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
+import { AppModal } from '../AppModal';
 import { CatAvatar } from '../CatAvatar';
 import { PawIcon } from '../icons/PawIcon';
 import { formatRelativeTime } from './thread-utils';
@@ -35,27 +37,61 @@ type ContextMenuState = {
   arrowY: number;
 };
 
-const MENTIONED_CAT_ID_RE = /@([A-Za-z0-9_-]+)/g;
-
-function getMentionedCatIdFromMessages(
+function getMentionedCatIdsFromMessages(
   messages: ThreadState['messages'] | undefined,
   getCatById: (id: string) => unknown,
-): string | null {
-  if (!messages?.length) return null;
+): string[] {
+  if (!messages?.length) return [];
+  const mentionToCat = getMentionToCat();
+  const mentionRe = getMentionRe();
+  const ids: string[] = [];
+  const seen = new Set<string>();
 
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = messages[messageIndex];
     if (!message?.content) continue;
 
-    const matches = [...message.content.matchAll(MENTIONED_CAT_ID_RE)];
+    mentionRe.lastIndex = 0;
+    const matches = [...message.content.matchAll(mentionRe)];
     for (const match of matches) {
-      const candidateId = match[1];
+      const alias = match[1]?.toLowerCase();
+      if (!alias) continue;
+      const candidateId = mentionToCat[alias] ?? match[1];
       if (!candidateId) continue;
-      if (getCatById(candidateId)) return candidateId;
+      if (!getCatById(candidateId)) continue;
+      if (seen.has(candidateId)) continue;
+      seen.add(candidateId);
+      ids.push(candidateId);
     }
   }
 
-  return null;
+  return ids;
+}
+
+function normalizeTitleMentions(
+  title: string,
+  cats: Array<{ id: string; displayName: string; mentionPatterns: string[] }>,
+): string {
+  const mentionLabel = getMentionLabel();
+  const aliasToLabel: Record<string, string> = { ...mentionLabel };
+
+  for (const cat of cats) {
+    const display = cat.displayName.trim();
+    if (!display) continue;
+    const label = display.startsWith('@') ? display : `@${display}`;
+    aliasToLabel[cat.id.toLowerCase()] = label;
+    aliasToLabel[display.replace(/^@/, '').toLowerCase()] = label;
+    for (const pattern of cat.mentionPatterns) {
+      const alias = pattern.replace(/^@/, '').trim().toLowerCase();
+      if (alias) aliasToLabel[alias] = label;
+    }
+  }
+
+  const tokenRe = /@([^\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]+)/g;
+  return title.replace(tokenRe, (fullMatch: string, alias: string) => {
+    const mapped = aliasToLabel[alias.toLowerCase()];
+    return mapped ?? fullMatch;
+  });
 }
 
 export function ThreadItem({
@@ -77,7 +113,7 @@ export function ThreadItem({
   isHubThread,
   sourceLabel,
 }: ThreadItemProps) {
-  const { getCatById } = useCatData();
+  const { cats, getCatById } = useCatData();
   const unreadCount = Math.max(0, threadState?.unreadCount ?? 0);
   const showUnreadBadge = unreadCount > 0;
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
@@ -185,12 +221,18 @@ export function ThreadItem({
     }
   }, [onRename, draftTitle, title, id]);
 
-  const displayTitle = title ?? (id === 'default' ? '大厅' : '未命名对话');
+  const rawTitle = title ?? (id === 'default' ? '大厅' : '未命名对话');
+  const displayTitle = normalizeTitleMentions(rawTitle, cats);
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
-  const mentionedCatId = getMentionedCatIdFromMessages(threadState?.messages, getCatById);
-  const avatarCatId = participants[0] ?? mentionedCatId ?? preferredCats?.[0] ?? threadState?.targetCats?.[0] ?? null;
-
+  const mentionedCatIds = getMentionedCatIdsFromMessages(threadState?.messages, getCatById);
+  const avatarCatIds = Array.from(
+    new Set(
+      [...participants, ...(threadState?.targetCats ?? []), ...(preferredCats ?? []), ...mentionedCatIds].filter(
+        (catId) => !!catId && !!getCatById(catId),
+      ),
+    ),
+  ).slice(0, 4);
   const tooltipLines = [displayTitle];
   if (participantNames) tooltipLines.push(`参与: ${participantNames}`);
   tooltipLines.push(formatRelativeTime(lastActiveAt, false));
@@ -202,11 +244,7 @@ export function ThreadItem({
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
         indented ? 'pl-7' : ''
-      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${
-        isActive
-          ? 'ui-thread-item-active bg-white rounded-[8px]'
-          : `ui-thread-item-inactive rounded-[8px] ${contextMenu ? 'bg-[var(--accent-soft)]' : ''}`
-      }`}
+      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
       onClick={() => onSelect(id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -222,13 +260,55 @@ export function ThreadItem({
       }}
       title={tooltip}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-[10px]">
         <div className="relative shrink-0">
-          {avatarCatId ? (
-            <CatAvatar catId={avatarCatId} size={32} />
+          {avatarCatIds.length === 1 ? (
+            <CatAvatar catId={avatarCatIds[0]!} size={32} showRing={false} />
+          ) : avatarCatIds.length > 1 ? (
+            <div className="relative h-8 w-8">
+              {avatarCatIds.length === 2 && (
+                <>
+                  <div className="absolute left-[1px] top-[6px] z-10">
+                    <CatAvatar catId={avatarCatIds[0]!} size={20} showRing={false} />
+                  </div>
+                  <div className="absolute left-[11px] top-[6px] z-0">
+                    <CatAvatar catId={avatarCatIds[1]!} size={20} showRing={false} />
+                  </div>
+                </>
+              )}
+              {avatarCatIds.length === 3 && (
+                <>
+                  <div className="absolute left-[8px] top-0">
+                    <CatAvatar catId={avatarCatIds[0]!} size={16} showRing={false} />
+                  </div>
+                  <div className="absolute left-0 top-[16px]">
+                    <CatAvatar catId={avatarCatIds[1]!} size={16} showRing={false} />
+                  </div>
+                  <div className="absolute left-[16px] top-[16px]">
+                    <CatAvatar catId={avatarCatIds[2]!} size={16} showRing={false} />
+                  </div>
+                </>
+              )}
+              {avatarCatIds.length >= 4 && (
+                <>
+                  <div className="absolute left-0 top-0">
+                    <CatAvatar catId={avatarCatIds[0]!} size={16} showRing={false} />
+                  </div>
+                  <div className="absolute left-[16px] top-0">
+                    <CatAvatar catId={avatarCatIds[1]!} size={16} showRing={false} />
+                  </div>
+                  <div className="absolute left-0 top-[16px]">
+                    <CatAvatar catId={avatarCatIds[2]!} size={16} showRing={false} />
+                  </div>
+                  <div className="absolute left-[16px] top-[16px]">
+                    <CatAvatar catId={avatarCatIds[3]!} size={16} showRing={false} />
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--text-muted)]">
-              <PawIcon className="h-4 w-4" />
+            <div className="ui-avatar-fallback-shell h-8 w-8">
+              <PawIcon className="ui-avatar-fallback-icon" />
             </div>
           )}
           {showUnreadBadge && (
@@ -243,7 +323,7 @@ export function ThreadItem({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="ui-thread-title block min-w-0 flex-1 truncate">{displayTitle}</span>
+            <span className="ui-thread-title block min-w-0 flex-1 truncate text-[#191919] font-semibold">{displayTitle}</span>
             {sourceLabel && (
               <span className="shrink-0 rounded-full bg-[rgba(20,118,255,0.1)] px-2 py-[1px] text-[10px] leading-4 text-[rgba(20,118,255,1)]">
                 {sourceLabel}
@@ -251,9 +331,9 @@ export function ThreadItem({
             )}
           </div>
           <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="block min-w-0 flex-1 truncate text-[12px] text-[var(--text-muted)]">{description}</span>
+            <span className="block min-w-0 flex-1 truncate text-[12px] text-[#808080]">{description}</span>
             <div className="flex shrink-0 items-center gap-1.5">
-              <span className="ui-thread-meta shrink-0">{formatRelativeTime(lastActiveAt, true)}</span>
+              <span className="ui-thread-meta shrink-0 text-[#808080]">{formatRelativeTime(lastActiveAt, true)}</span>
             </div>
           </div>
         </div>
@@ -348,59 +428,46 @@ export function ThreadItem({
         </div>
       )}
 
-      {showRenameDialog && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 p-4"
-        >
-          <div
-            className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-          >
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold text-gray-900">编辑会话名称</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowRenameDialog(false)}
-                  aria-label="close"
-                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      <AppModal
+        open={showRenameDialog}
+        onClose={() => setShowRenameDialog(false)}
+        title="编辑会话名称"
+        panelClassName="w-[500px]"
+        bodyClassName="pt-5"
+        zIndexClassName="z-[60]"
+        backdropTestId="thread-rename-modal"
+        panelTestId="thread-rename-modal-panel"
+      >
+        <div className="flex flex-col gap-5" data-testid="thread-rename-modal-content">
+          <input
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void submitRename();
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setShowRenameDialog(false);
+              }
+            }}
+            autoFocus
+            maxLength={200}
+            disabled={isSaving}
+            className="ui-input h-7 w-full px-3 text-sm"
+          />
 
-              <input
-                value={draftTitle}
-                onChange={(e) => setDraftTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    void submitRename();
-                  }
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setShowRenameDialog(false);
-                  }
-                }}
-                autoFocus
-                maxLength={200}
-                disabled={isSaving}
-                className="ui-field h-7 w-full px-3 text-sm"
-              />
-
-              <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-secondary">
-                  取消
-                </button>
-                <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
-                  确定
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default ui-modal-action-button">
+              取消
+            </button>
+            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary ui-modal-action-button">
+              确定
+            </button>
           </div>
         </div>
-      )}
+      </AppModal>
     </div>
   );
 }
