@@ -163,6 +163,7 @@ describe('business theme secondary surfaces', () => {
     const sections = Array.from(container.querySelectorAll('section'));
     expect(sections.some((section) => section.className.includes('ui-card-muted'))).toBe(true);
     expect(sections.some((section) => section.className.includes('ui-card'))).toBe(true);
+    expect(sections.some((section) => section.className.includes('ui-card-hover'))).toBe(true);
   });
 
   it('renders HubSkillsTab with tokenized cards, fields, and actions', async () => {
@@ -189,6 +190,8 @@ describe('business theme secondary surfaces', () => {
           (searchInput.compareDocumentPosition(firstSkillCard) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
       ),
     ).toBe(true);
+    expect(firstSkillCard?.className).toContain('ui-card');
+    expect(firstSkillCard?.className).toContain('ui-card-hover');
     const buttons = Array.from(container.querySelectorAll('button'));
     expect(buttons.some((button) => button.textContent?.includes('安装'))).toBe(true);
     expect(buttons.some((button) => button.textContent?.includes('导入'))).toBe(false);

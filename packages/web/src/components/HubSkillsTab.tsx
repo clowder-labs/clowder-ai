@@ -93,7 +93,7 @@ function SkillList({
           const resolvedDescription = skill.description.trim() || FALLBACK_DESCRIPTION;
 
           return (
-            <article key={skill.id} className={styles.card}>
+            <article key={skill.id} className={`ui-card ui-card-hover ${styles.card}`}>
               <div className={styles.header}>
                 <NameInitialIcon name={skill.name} />
                 <div className={styles.content}>
