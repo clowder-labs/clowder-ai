@@ -868,6 +868,7 @@ select:-webkit-autofill:focus {
   .ui-textarea-plain {
     border-color: transparent;
     background: transparent;
+    overflow: unset;
   }
 
   .ui-input-plain:focus,
