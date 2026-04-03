@@ -40,20 +40,18 @@ export function getProjectPaths(threads: Thread[]): string[] {
       if (t.lastActiveAt > current) activityMap.set(t.projectPath, t.lastActiveAt);
     }
   }
+
   return pathList.sort((a, b) => (activityMap.get(b) ?? 0) - (activityMap.get(a) ?? 0));
 }
 
-/** Thread group for sidebar rendering */
 export interface ThreadGroup {
   type: 'pinned' | 'recent' | 'project' | 'archived-container' | 'favorites';
   label: string;
   threads: Thread[];
   projectPath?: string;
-  /** For archived-container: nested project groups */
   archivedGroups?: ThreadGroup[];
 }
 
-/** Sort comparator: unread first, then by lastActiveAt descending. */
 function sortByUnreadThenActive(a: Thread, b: Thread, unreadIds?: Set<string>): number {
   if (unreadIds) {
     const aUnread = unreadIds.has(a.id) ? 1 : 0;
@@ -63,11 +61,6 @@ function sortByUnreadThenActive(a: Thread, b: Thread, unreadIds?: Set<string>): 
   return b.lastActiveAt - a.lastActiveAt;
 }
 
-/**
- * Sort and group threads into: pinned 鈫?project groups 鈫?favorites.
- * Excludes the "default" thread (lobby) which is rendered separately.
- * Within each group: unread threads first, then by lastActiveAt descending.
- */
 export function sortAndGroupThreads(threads: Thread[], unreadIds?: Set<string>): ThreadGroup[] {
   const groups: ThreadGroup[] = [];
 
@@ -76,7 +69,7 @@ export function sortAndGroupThreads(threads: Thread[], unreadIds?: Set<string>):
     .filter((t) => t.pinned && t.id !== 'default')
     .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   if (pinned.length > 0) {
-    groups.push({ type: 'pinned', label: '缃《', threads: pinned });
+    groups.push({ type: 'pinned', label: '置顶', threads: pinned });
   }
 
   // 2. Regular threads grouped by project (each group sorted)
@@ -96,7 +89,7 @@ export function sortAndGroupThreads(threads: Thread[], unreadIds?: Set<string>):
     .filter((t) => t.favorited && !t.pinned && t.id !== 'default')
     .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   if (favorited.length > 0) {
-    groups.push({ type: 'favorites', label: '鏀惰棌', threads: favorited });
+    groups.push({ type: 'favorites', label: '收藏', threads: favorited });
   }
 
   return groups;
@@ -112,10 +105,6 @@ const DEFAULT_CONFIG: WorkspaceConfig = {
   recentLimit: 8,
 };
 
-/**
- * Sort and group threads with active workspace layout:
- * pinned 鈫?recent 鈫?active projects 鈫?archived-container 鈫?favorites
- */
 export function sortAndGroupThreadsWithWorkspace(
   threads: Thread[],
   unreadIds: Set<string> | undefined,
@@ -125,25 +114,22 @@ export function sortAndGroupThreadsWithWorkspace(
 ): ThreadGroup[] {
   const groups: ThreadGroup[] = [];
 
-  // 1. Pinned threads
   const pinned = threads
-    .filter((t) => t.pinned && t.id !== 'default')
+    .filter((thread) => thread.pinned && thread.id !== 'default')
     .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   if (pinned.length > 0) {
-    groups.push({ type: 'pinned', label: '缃《', threads: pinned });
+    groups.push({ type: 'pinned', label: '置顶', threads: pinned });
   }
 
-  // 2. Recent threads (cross-project, excluding pinned/default)
   const recent = getRecentThreads(threads, config.recentLimit, now);
   if (recent.length > 0) {
     groups.push({ type: 'recent', label: '最近对话', threads: recent });
   }
 
-  // 3. Project groups split into active/archived
-  const regular = threads.filter((t) => !t.pinned && !t.favorited && t.id !== 'default');
+  const regular = threads.filter((thread) => !thread.pinned && !thread.favorited && thread.id !== 'default');
   const projectGroupEntries = groupByProject(regular, unreadIds);
   const allProjectGroups: ThreadGroup[] = projectGroupEntries.map(([projectPath, projectThreads]) => ({
-    type: 'project' as const,
+    type: 'project',
     label: projectDisplayName(projectPath),
     threads: projectThreads,
     projectPath,
@@ -157,26 +143,25 @@ export function sortAndGroupThreadsWithWorkspace(
     now,
   );
 
-  for (const g of active) {
-    groups.push(g);
+  for (const group of active) {
+    groups.push(group);
   }
 
   if (archived.length > 0) {
-    const allArchivedThreads = archived.flatMap((g) => g.threads);
+    const allArchivedThreads = archived.flatMap((group) => group.threads);
     groups.push({
       type: 'archived-container',
-      label: `鍏朵粬椤圭洰 (${archived.length})`,
+      label: `其他项目 (${archived.length})`,
       threads: allArchivedThreads,
       archivedGroups: archived,
     });
   }
 
-  // 4. Favorites
   const favorited = threads
-    .filter((t) => t.favorited && !t.pinned && t.id !== 'default')
+    .filter((thread) => thread.favorited && !thread.pinned && thread.id !== 'default')
     .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   if (favorited.length > 0) {
-    groups.push({ type: 'favorites', label: '鏀惰棌', threads: favorited });
+    groups.push({ type: 'favorites', label: '收藏', threads: favorited });
   }
 
   return groups;
@@ -189,14 +174,14 @@ function groupByProject(threads: Thread[], unreadIds?: Set<string>): [string, Th
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)?.push(thread);
   }
-  // Sort threads within each project group
+
   for (const [, projectThreads] of groups) {
     projectThreads.sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   }
+
   return [...groups.entries()].sort(([a], [b]) => {
     if (a === 'default') return 1;
     if (b === 'default') return -1;
     return a.localeCompare(b);
   });
 }
-

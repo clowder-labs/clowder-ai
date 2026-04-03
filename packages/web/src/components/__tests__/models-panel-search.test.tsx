@@ -220,7 +220,7 @@ describe('ModelsPanel search', () => {
     expect(fallbackIcon?.textContent).toContain('A');
   });
 
-  it('submits create-model description and icon to backend', async () => {
+  it('submits create-model description without icon when icon is not provided', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -266,6 +266,47 @@ describe('ModelsPanel search', () => {
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
     expect(payload.description).toBe('custom description for test');
+    expect(Object.prototype.hasOwnProperty.call(payload, 'icon')).toBe(false);
+  });
+
+  it('submits create-model icon when random icon is generated', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+
+    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
+    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
+    const randomIconButton = container.querySelector('[aria-label="Random model icon"]') as HTMLButtonElement | null;
+    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+
+    expect(nameInput).not.toBeNull();
+    expect(urlInput).not.toBeNull();
+    expect(apiKeyInput).not.toBeNull();
+    expect(randomIconButton).not.toBeNull();
+    expect(submitButton).not.toBeNull();
+
+    await changeInputValue(nameInput!, 'gpt-custom-with-icon');
+    await changeInputValue(urlInput!, 'https://proxy.example.com/v1');
+    await changeInputValue(apiKeyInput!, 'sk-test');
+    await clickButton(randomIconButton!);
+    await clickButton(submitButton!);
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(
+      ([input, init]) =>
+        String(input) === '/api/model-config-profiles' &&
+        typeof init === 'object' &&
+        init !== null &&
+        (init as RequestInit).method === 'POST',
+    );
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
     expect(typeof payload.icon).toBe('string');
     expect(payload.icon.startsWith('data:image/svg+xml')).toBe(true);
   });

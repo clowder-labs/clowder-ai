@@ -524,6 +524,66 @@ async function main(): Promise<void> {
     }
   }
 
+  // ── F139: Unified Scheduler (TaskRunnerV2) — additive, runs alongside V1 ──
+  // Hoist reference so invokeTrigger (created later) can be late-bound
+  let taskRunnerV2Ref: import('./infrastructure/scheduler/TaskRunnerV2.js').TaskRunnerV2 | null = null;
+  try {
+    const { TaskRunnerV2 } = await import('./infrastructure/scheduler/TaskRunnerV2.js');
+    const { RunLedger } = await import('./infrastructure/scheduler/RunLedger.js');
+    const { createActorResolver } = await import('./infrastructure/scheduler/ActorResolver.js');
+    const { getRoster } = await import('./config/cat-config-loader.js');
+    const schedulerDb = memoryServices.store.getDb();
+    const runLedger = new RunLedger(schedulerDb);
+    const actorResolver = createActorResolver(getRoster);
+
+    // Governance + Emission stores
+    const { GlobalControlStore } = await import('./infrastructure/scheduler/GlobalControlStore.js');
+    const { EmissionStore } = await import('./infrastructure/scheduler/EmissionStore.js');
+    const { PackTemplateStore } = await import('./infrastructure/scheduler/PackTemplateStore.js');
+    const globalControlStore = new GlobalControlStore(schedulerDb);
+    const emissionStore = new EmissionStore(schedulerDb);
+    const packTemplateStore = new PackTemplateStore(schedulerDb);
+
+    // Delivery + content fetch for template execution
+    const { createDeliverFn } = await import('./infrastructure/scheduler/delivery.js');
+    const { createFetchContentFn } = await import('./infrastructure/scheduler/content-fetcher.js');
+    const schedulerDeliver = createDeliverFn({ messageStore, socketManager: getSocketManager() });
+    const schedulerFetchContent = createFetchContentFn();
+
+    const taskRunnerV2 = new TaskRunnerV2({
+      logger: { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
+      ledger: runLedger,
+      actorResolver,
+      globalControlStore,
+      emissionStore,
+      deliver: schedulerDeliver,
+      fetchContent: schedulerFetchContent,
+    });
+
+    // Dynamic task store + template registry
+    const { DynamicTaskStore } = await import('./infrastructure/scheduler/DynamicTaskStore.js');
+    const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
+    const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
+
+    // Schedule panel API routes
+    const { scheduleRoutes } = await import('./routes/schedule.js');
+    await app.register(scheduleRoutes, {
+      taskRunner: taskRunnerV2,
+      dynamicTaskStore,
+      templateRegistry,
+      globalControlStore,
+      packTemplateStore,
+    });
+
+    // Hydrate persisted dynamic tasks + start
+    taskRunnerV2.hydrateDynamic(dynamicTaskStore, templateRegistry);
+    taskRunnerV2.start();
+    taskRunnerV2Ref = taskRunnerV2;
+    app.log.info(`[api] F139: TaskRunnerV2 started, tasks: [${taskRunnerV2.getRegisteredTasks().join(', ')}]`);
+  } catch (err) {
+    app.log.warn(`[api] F139: TaskRunnerV2 init failed (non-fatal): ${err}`);
+  }
+
   // ── F32-b/F127: Bootstrap runtime catalog, then populate CatRegistry (all variants) ──
   // Must happen BEFORE AgentRouter construction (parseMentions reads catRegistry)
   try {
@@ -1278,6 +1338,8 @@ async function main(): Promise<void> {
     }
   }
 
+  // F139 Phase 4b: late-bind invokeTrigger so scheduler templates can wake cats
+  // (TaskRunnerV2 is constructed before invokeTrigger exists; bind here after both are ready)
   // Phase 3b: connector invoke trigger (auto-invoke cat after review email routing)
   const frontendBaseUrl = resolveFrontendBaseUrl(process.env, app.log);
   const invokeTrigger = new ConnectorInvokeTrigger({
@@ -1298,6 +1360,12 @@ async function main(): Promise<void> {
     },
     log: app.log,
   });
+
+  // F139 Phase 4b: late-bind invokeTrigger so scheduler templates can wake cats
+  if (taskRunnerV2Ref) {
+    taskRunnerV2Ref.setInvokeTrigger(invokeTrigger);
+    app.log.info('[api] F139: invokeTrigger bound to TaskRunnerV2');
+  }
 
   // Start email watcher AFTER listen (non-blocking, best-effort)
   await startGithubReviewWatcher({
