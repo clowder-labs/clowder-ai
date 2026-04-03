@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getNameInitial } from '@/lib/name-initial-icon';
+import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
@@ -30,36 +30,6 @@ const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
 const EMPTY_MODEL_ICON_DATA_URL =
   'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2296%22%20height%3D%2296%22%20viewBox%3D%220%200%2096%2096%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2290%22%20height%3D%2290%22%20rx%3D%2245%22%20fill%3D%22%23F8FAFC%22%20stroke%3D%22%23CBD5E1%22%20stroke-width%3D%223%22%20stroke-dasharray%3D%226%206%22/%3E%3Cpath%20d%3D%22M48%2034v28M34%2048h28%22%20stroke%3D%22%2394A3B8%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E';
-
-function stableHash(input: string): number {
-  let hash = 0;
-  for (const ch of input) {
-    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  }
-  return hash;
-}
-
-function generateModelIconDataUrl(name: string, variant = 0): string {
-  const seed = `${name.trim().toLowerCase() || 'model'}#${variant}`;
-  const baseHue = stableHash(seed) % 360;
-  const accentHue = (baseHue + 34) % 360;
-  const haloHue = (baseHue + 68) % 360;
-  const label = getNameInitial(name || 'M');
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-      <defs>
-        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="hsl(${baseHue} 68% 55%)" />
-          <stop offset="100%" stop-color="hsl(${accentHue} 62% 48%)" />
-        </linearGradient>
-      </defs>
-      <rect width="96" height="96" rx="48" fill="url(#g)" />
-      <circle cx="48" cy="48" r="38" fill="hsl(${haloHue} 80% 92% / 0.25)" />
-      <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="38" font-weight="700" fill="#FFFFFF">${label}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
 
 function SparklesIcon() {
   return (
@@ -250,7 +220,7 @@ export function ModelsPanel() {
   const [createModelBusy, setCreateModelBusy] = useState(false);
   const [modelNameInput, setModelNameInput] = useState('');
   const [modelDescriptionInput, setModelDescriptionInput] = useState('');
-  const [modelIconInput, setModelIconInput] = useState(EMPTY_MODEL_ICON_DATA_URL);
+  const [modelIconInput, setModelIconInput] = useState('');
   const [modelIconUploading, setModelIconUploading] = useState(false);
   const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
   const [modelUrlInput, setModelUrlInput] = useState('');
@@ -412,7 +382,7 @@ export function ModelsPanel() {
   const resetCreateModelForm = () => {
     setModelNameInput('');
     setModelDescriptionInput('');
-    setModelIconInput(EMPTY_MODEL_ICON_DATA_URL);
+    setModelIconInput('');
     setModelDisplayNameInput('');
     setModelUrlInput('');
     setModelApiKeyInput('');
@@ -454,7 +424,7 @@ export function ModelsPanel() {
       setModelNameInput(card.name);
       setModelDescriptionInput(provider?.description ?? card.description ?? '');
       setModelDisplayNameInput(provider?.displayName ?? '');
-      setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || EMPTY_MODEL_ICON_DATA_URL);
+      setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || '');
       setModelUrlInput(provider?.baseUrl ?? '');
       setModelApiKeyInput(provider?.apiKey ?? '');
       setShowCreateModelModal(true);
@@ -495,7 +465,7 @@ export function ModelsPanel() {
         payload = {
           ...(displayName ? { displayName } : {}),
           description: description || null,
-          icon: icon || null,
+          ...(icon ? { icon } : {}),
           ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
           ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
           ...(headers ? { headers } : {}),
@@ -636,7 +606,13 @@ export function ModelsPanel() {
                               data-testid={`model-card-icon-${card.id}`}
                             />
                           ) : (
-                            <NameInitialIcon name={card.name} dataTestId={`model-card-icon-${card.id}`} />
+                            <div className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] p-1.5">
+                              <NameInitialIcon
+                                name={card.name}
+                                dataTestId={`model-card-icon-${card.id}`}
+                                className="h-full w-full rounded-[var(--radius-md)] border-0 shadow-none"
+                              />
+                            </div>
                           )}
 
                           <div className="min-w-0 flex-1">
@@ -796,10 +772,14 @@ export function ModelsPanel() {
                     type="button"
                     aria-label="Upload model icon"
                     onClick={() => modelIconFileInputRef.current?.click()}
-                    className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                    className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={modelIconInput} alt="Model icon preview" className="h-full w-full object-cover" />
+                    <img
+                      src={modelIconInput || EMPTY_MODEL_ICON_DATA_URL}
+                      alt="Model icon preview"
+                      className="h-full w-full object-cover"
+                    />
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
                       上传
                     </span>
@@ -821,7 +801,7 @@ export function ModelsPanel() {
                       aria-label="Random model icon"
                       onClick={() => {
                         const nextVariant = Math.floor(Math.random() * 10_000);
-                        setModelIconInput(generateModelIconDataUrl(modelNameInput, nextVariant));
+                        setModelIconInput(buildNameInitialIconDataUrl(modelNameInput, nextVariant));
                       }}
                       className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
                     >
