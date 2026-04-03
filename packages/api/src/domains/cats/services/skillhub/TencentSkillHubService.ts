@@ -179,6 +179,23 @@ export async function trendingSkills(): Promise<SkillHubSearchResponse> {
   };
 }
 
+export async function listAllSkills(options?: { page?: number; limit?: number }): Promise<SkillHubSearchResponse> {
+  const page = options?.page ?? 1;
+  const limit = options?.limit ?? 24;
+
+  const result = await tencentApiGet<{ skills: TencentSkill[]; total: number }>(
+    `/api/skills?page=${page}&pageSize=${limit}`,
+    `tencent:all:${page}:${limit}`,
+  );
+
+  return {
+    data: (result.skills ?? []).map(normalizeSkill),
+    total: result.total ?? 0,
+    page,
+    hasMore: page * limit < (result.total ?? 0),
+  };
+}
+
 export async function resolveSkills(task: string, limit = 3): Promise<SkillHubResolveResponse> {
   // Tencent doesn't have a resolve endpoint, fallback to search
   const searchResult = await searchSkills(task, { limit });
