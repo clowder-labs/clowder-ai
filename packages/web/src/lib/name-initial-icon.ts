@@ -42,7 +42,7 @@ export function buildNameInitialIconDataUrl(name: string, variant = 0): string {
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-      <rect width="96" height="96" rx="14" fill="${background}" />
+      <rect width="96" height="96" rx="10" fill="${background}" />
       <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="38" font-weight="700" fill="${textColor}">${label}</text>
     </svg>
   `.trim();
