@@ -135,7 +135,7 @@ internal sealed class LauncherForm : Form
     private bool _hasTrayRestorePlacement;
     private WINDOWPLACEMENT _trayRestorePlacement;
     private string _frontendUrl;
-    private string _statusText = "Preparing OfficeClaw...";
+    private string _statusText = "加载中...";
     private int _spinnerAngle;
     private WebView2 _webView;
     private Image _splashImage;
@@ -789,7 +789,7 @@ internal sealed class LauncherForm : Form
             return;
         }
 
-        _statusText = message;
+        _statusText = "加载中...";
         _statusPanel.Invalidate();
         AppendLog(message);
     }
