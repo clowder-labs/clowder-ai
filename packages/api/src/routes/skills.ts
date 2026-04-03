@@ -19,7 +19,12 @@ import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
-import { fetchSkillContent, searchSkills, trendingSkills } from '../domains/cats/services/skillhub/SkillHubService.js';
+import {
+  fetchSkillContent,
+  listAllSkills,
+  searchSkills,
+  trendingSkills,
+} from '../domains/cats/services/skillhub/SkillHubService.js';
 import {
   getInstalledRecords,
   installSkill,
@@ -434,6 +439,37 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     try {
       const result = await trendingSkills();
       const installedNames = new Set((await getInstalledRecords(CAT_CAFE_ROOT)).map((r) => r.name));
+      return {
+        skills: result.data.map((s) => ({ ...s, isInstalled: installedNames.has(s.slug) })),
+        total: result.total,
+        page: result.page,
+        hasMore: result.hasMore,
+      };
+    } catch (err) {
+      reply.status(502);
+      return { error: `SkillHub unavailable: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  });
+
+  // ────────────────────────────────────────────────────────
+  // GET /api/skills/all — 获取全部技能（分页）
+  // ────────────────────────────────────────────────────────
+  app.get('/api/skills/all', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const q = request.query as { page?: string; limit?: string };
+    const page = parseInt(q.page ?? '1', 10);
+    const limit = parseInt(q.limit ?? '24', 10);
+
+    try {
+      const result = await listAllSkills({ page, limit });
+      const installed = await getInstalledRecords(CAT_CAFE_ROOT);
+      const installedNames = new Set(installed.map((r) => r.name));
+
       return {
         skills: result.data.map((s) => ({ ...s, isInstalled: installedNames.has(s.slug) })),
         total: result.total,
