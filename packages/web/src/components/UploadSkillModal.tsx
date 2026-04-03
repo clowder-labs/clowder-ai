@@ -177,7 +177,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="my-custom-skill"
-            className="w-full text-xs px-3 py-2 rounded border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-300"
+            className="ui-input w-full text-xs px-3 py-2 rounded"
           />
         </div>
 
@@ -270,7 +270,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
           <button
             type="button"
             onClick={handleClose}
-            className="ui-button-secondary"
+            className="ui-button-default ui-modal-action-button"
           >
             取消
           </button>
@@ -278,7 +278,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             type="button"
             onClick={handleSubmit}
             disabled={uploading || !name.trim() || files.length === 0}
-            className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {uploading ? '上传中...' : '上传'}
           </button>

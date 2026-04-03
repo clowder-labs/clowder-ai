@@ -65,14 +65,29 @@ describe('UploadSkillModal', () => {
     const onClose = vi.fn();
     renderModal({ onClose });
 
-    const cancelButton = container.querySelector('button.ui-button-secondary') as HTMLButtonElement | null;
+    const cancelButton = container.querySelector('button.ui-button-default') as HTMLButtonElement | null;
     expect(cancelButton).toBeTruthy();
+    expect(cancelButton?.className).toContain('ui-modal-action-button');
 
     act(() => {
       cancelButton?.click();
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses shared footer button classes', () => {
+    renderModal();
+
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const cancelButton = buttons.find((button) => button.textContent?.includes('取消')) as HTMLButtonElement | undefined;
+    const confirmButton = buttons.find((button) => button.textContent?.includes('上传')) as HTMLButtonElement | undefined;
+
+    expect(cancelButton?.className).toContain('ui-button-default');
+    expect(cancelButton?.className).not.toContain('ui-button-secondary');
+    expect(cancelButton?.className).toContain('ui-modal-action-button');
+    expect(confirmButton?.className).toContain('ui-button-primary');
+    expect(confirmButton?.className).toContain('ui-modal-action-button');
   });
 
   it('closes from header close icon', () => {

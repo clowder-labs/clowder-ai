@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
@@ -372,14 +372,14 @@ export function ThreadItem({
             autoFocus
             maxLength={200}
             disabled={isSaving}
-            className="ui-field h-7 w-full px-3 text-sm"
+            className="ui-input h-7 w-full px-3 text-sm"
           />
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-secondary">
+            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default ui-modal-action-button">
               取消
             </button>
-            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
+            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary ui-modal-action-button">
               确定
             </button>
           </div>

@@ -109,6 +109,31 @@
   --accent-button-primary-hover: #3d7af0;
   --accent-button-danger: #ef4444;
   --accent-button-danger-hover: #dc2626;
+  --button-primary-bg: #111111;
+  --button-primary-text: #ffffff;
+  --button-primary-bg-hover: #0f0f0f;
+  --button-primary-text-hover: #ffffff;
+  --button-primary-bg-disabled: #111111;
+  --button-primary-text-disabled: #ffffff;
+  --button-default-bg: #ffffff;
+  --button-default-text: #666666;
+  --button-default-border: #e6e6e6;
+  --button-default-bg-hover: #f4f5f7;
+  --button-default-text-hover: #191919;
+  --button-default-border-hover: #e6e6e6;
+  --button-default-bg-disabled: #ffffff;
+  --button-default-text-disabled: #c2c2c2;
+  --button-default-border-disabled: #e6e6e6;
+  --button-danger-bg: #ef4444;
+  --button-danger-text: #ffffff;
+  --button-danger-bg-hover: #dc2626;
+  --button-danger-text-hover: #ffffff;
+  --button-danger-bg-disabled: #ef4444;
+  --button-danger-text-disabled: #ffffff;
+  --text-field: #191919;
+  --text-field-hover: #111111;
+  --text-field-disabled: #c2c2c2;
+  --text-field-placeholder: #8f8075;
   --accent-pill-text: rgba(20, 118, 255, 1);
   --accent-pill-surface: rgba(20, 118, 255, 0.1);
   --warning-glow-soft: rgba(245, 158, 11, 0.3);
@@ -168,6 +193,31 @@
 
   --agent-preset-badge-bg: var(--surface-card-muted);
   --agent-preset-badge-text: var(--text-secondary);
+  --button-primary-bg: var(--surface-inverse);
+  --button-primary-text: var(--text-inverse);
+  --button-primary-bg-hover: color-mix(in srgb, var(--surface-inverse) 96%, white);
+  --button-primary-text-hover: var(--text-inverse);
+  --button-primary-bg-disabled: var(--surface-inverse);
+  --button-primary-text-disabled: var(--text-inverse);
+  --button-default-bg: var(--surface-panel);
+  --button-default-text: var(--text-secondary);
+  --button-default-border: var(--border-default);
+  --button-default-bg-hover: var(--surface-card-muted);
+  --button-default-text-hover: var(--text-primary);
+  --button-default-border-hover: var(--border-default);
+  --button-default-bg-disabled: var(--surface-panel);
+  --button-default-text-disabled: var(--text-disabled);
+  --button-default-border-disabled: var(--border-default);
+  --button-danger-bg: var(--accent-button-danger);
+  --button-danger-text: var(--surface-neutral-white);
+  --button-danger-bg-hover: var(--accent-button-danger-hover);
+  --button-danger-text-hover: var(--surface-neutral-white);
+  --button-danger-bg-disabled: var(--accent-button-danger);
+  --button-danger-text-disabled: var(--surface-neutral-white);
+  --text-field: var(--text-primary);
+  --text-field-hover: var(--text-primary);
+  --text-field-disabled: var(--text-disabled);
+  --text-field-placeholder: var(--text-muted);
 }
 
 [data-ui-theme="business"] {
@@ -219,6 +269,31 @@
 
   --agent-preset-badge-bg: rgba(230, 230, 230, 1);
   --agent-preset-badge-text: rgba(25, 25, 25, 1);
+  --button-primary-bg: var(--surface-inverse);
+  --button-primary-text: var(--text-inverse);
+  --button-primary-bg-hover: color-mix(in srgb, var(--surface-inverse) 96%, white);
+  --button-primary-text-hover: var(--text-inverse);
+  --button-primary-bg-disabled: var(--surface-inverse);
+  --button-primary-text-disabled: var(--text-inverse);
+  --button-default-bg: var(--surface-panel);
+  --button-default-text: var(--text-secondary);
+  --button-default-border: var(--border-default);
+  --button-default-bg-hover: var(--surface-card-muted);
+  --button-default-text-hover: var(--text-primary);
+  --button-default-border-hover: var(--border-default);
+  --button-default-bg-disabled: var(--surface-panel);
+  --button-default-text-disabled: var(--text-disabled);
+  --button-default-border-disabled: var(--border-default);
+  --button-danger-bg: var(--accent-button-danger);
+  --button-danger-text: var(--surface-neutral-white);
+  --button-danger-bg-hover: var(--accent-button-danger-hover);
+  --button-danger-text-hover: var(--surface-neutral-white);
+  --button-danger-bg-disabled: var(--accent-button-danger);
+  --button-danger-text-disabled: var(--surface-neutral-white);
+  --text-field: var(--text-primary);
+  --text-field-hover: var(--text-primary);
+  --text-field-disabled: var(--text-disabled);
+  --text-field-placeholder: var(--text-muted);
 }
 
 [data-theme="dark"] {
@@ -251,8 +326,8 @@ textarea:-webkit-autofill:focus,
 select:-webkit-autofill,
 select:-webkit-autofill:hover,
 select:-webkit-autofill:focus {
-  -webkit-text-fill-color: var(--text-primary);
-  caret-color: var(--text-primary);
+  -webkit-text-fill-color: var(--text-field);
+  caret-color: var(--text-field);
   -webkit-box-shadow: 0 0 0 1000px var(--surface-panel) inset;
   box-shadow: 0 0 0 1000px var(--surface-panel) inset;
   transition: background-color 99999s ease-in-out 0s;
@@ -346,7 +421,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-button-primary,
-  .ui-button-secondary,
+  .ui-button-default,
   .ui-button-danger {
     display: inline-flex;
     align-items: center;
@@ -360,73 +435,58 @@ select:-webkit-autofill:focus {
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   }
 
-  .ui-button:disabled,
-  .ui-button-primary:disabled,
-  .ui-button-secondary:disabled,
-  .ui-button-danger:disabled {
+  .ui-button-primary {
+    background: var(--button-primary-bg);
+    color: var(--button-primary-text);
+  }
+
+  .ui-button-primary:hover {
+    background: var(--button-primary-bg-hover);
+    color: var(--button-primary-text-hover);
+  }
+
+  .ui-button-primary:disabled {
+    background: var(--button-primary-bg-disabled);
+    color: var(--button-primary-text-disabled);
     opacity: 0.4;
     cursor: not-allowed;
   }
 
-  .ui-button-primary {
-    background: var(--surface-inverse);
-    color: var(--text-inverse);
+  .ui-button-default {
+    border: var(--border-width-default) solid var(--button-default-border);
+    background: var(--button-default-bg);
+    color: var(--button-default-text);
   }
 
-  .ui-button-primary:hover {
-    filter: brightness(0.96);
+  .ui-button-default:hover {
+    border-color: var(--button-default-border-hover);
+    background: var(--button-default-bg-hover);
+    color: var(--button-default-text-hover);
   }
 
-  .ui-button-secondary {
-    border: var(--border-width-default) solid var(--border-default);
-    background: var(--surface-panel);
-    color: var(--text-secondary);
-  }
-
-  .ui-button-secondary:hover {
-    background: var(--surface-card-muted);
-    color: var(--text-primary);
+  .ui-button-default:disabled {
+    border-color: var(--button-default-border-disabled);
+    background: var(--button-default-bg-disabled);
+    color: var(--button-default-text-disabled);
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .ui-button-danger {
-    background: var(--accent-button-danger);
-    color: var(--surface-neutral-white);
+    background: var(--button-danger-bg);
+    color: var(--button-danger-text);
   }
 
   .ui-button-danger:hover {
-    background: var(--accent-button-danger-hover);
+    background: var(--button-danger-bg-hover);
+    color: var(--button-danger-text-hover);
   }
 
-  .ui-button-muted {
-    border: 1px solid var(--border-muted);
-    border-radius: 0.5rem;
-    padding: 0.375rem 1rem;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-tertiary);
-    transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
-  }
-
-  .ui-button-muted:hover {
-    background: var(--surface-hover-muted);
-  }
-
-  .ui-button-accent {
-    border-radius: 0.5rem;
-    background: var(--accent-button-primary);
-    padding: 0.375rem 1rem;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--surface-neutral-white);
-    transition: background-color 200ms ease, opacity 200ms ease;
-  }
-
-  .ui-button-accent:hover {
-    background: var(--accent-button-primary-hover);
-  }
-
-  .ui-button-accent:disabled {
+  .ui-button-danger:disabled {
+    background: var(--button-danger-bg-disabled);
+    color: var(--button-danger-text-disabled);
     opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .ui-icon-button {
@@ -690,21 +750,6 @@ select:-webkit-autofill:focus {
     color: var(--text-primary);
   }
 
-  .ui-form-input {
-    width: 100%;
-    border: 1px solid var(--border-muted);
-    border-radius: 0.5rem;
-    background: var(--surface-neutral-white);
-    padding: 0.5rem 0.75rem;
-    font-size: 14px;
-    color: var(--text-heading-strong);
-  }
-
-  .ui-form-input:focus {
-    border-color: var(--accent-button-primary);
-    outline: none;
-  }
-
   .ui-form-control-compact {
     height: 28px;
     width: 100%;
@@ -768,19 +813,156 @@ select:-webkit-autofill:focus {
     color: var(--text-muted);
   }
 
+  .ui-input,
+  .ui-textarea,
   .ui-field {
+    width: 100%;
     min-height: var(--control-height-sm);
     border: var(--border-width-default) solid var(--border-default);
     border-radius: var(--radius-sm);
-    color: var(--text-primary);
+    background: var(--surface-panel);
     font-size: 13px;
     transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  }
+
+  .ui-input {
+    color: var(--text-field);
+    caret-color: var(--text-field);
+  }
+
+  .ui-input:hover {
+    color: var(--text-field-hover);
+  }
+
+  .ui-input:disabled {
+    color: var(--text-field-disabled);
+    background: var(--surface-card-muted);
+    cursor: not-allowed;
+  }
+
+  .ui-input::placeholder {
+    color: var(--text-field-placeholder);
+  }
+
+  .ui-textarea {
+    color: var(--text-field);
+    caret-color: var(--text-field);
+    resize: vertical;
+  }
+
+  .ui-textarea:hover {
+    color: var(--text-field-hover);
+  }
+
+  .ui-textarea:disabled {
+    color: var(--text-field-disabled);
+    background: var(--surface-card-muted);
+    cursor: not-allowed;
+  }
+
+  .ui-textarea::placeholder {
+    color: var(--text-field-placeholder);
+  }
+
+  .ui-input-plain,
+  .ui-textarea-plain {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .ui-input-plain:focus,
+  .ui-textarea-plain:focus {
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .ui-input-underline {
+    border-width: 0 0 var(--border-width-default) 0;
+    border-radius: 0;
+    background: transparent;
+    padding-inline: 0;
+  }
+
+  .ui-input-underline:focus {
+    background: transparent;
+  }
+
+  .ui-input-soft,
+  .ui-textarea-soft {
+    border-color: var(--border-strong);
+    background: var(--surface-card-muted);
+  }
+
+  .ui-input-soft:focus,
+  .ui-textarea-soft:focus {
+    border-color: var(--border-accent);
+    background: var(--surface-card-muted);
+  }
+
+  .ui-input-success,
+  .ui-textarea-success {
+    border-color: #cfe5d5;
+    background: #e8f5e9;
+  }
+
+  .ui-input-success:focus,
+  .ui-textarea-success:focus {
+    border-color: #77a777;
+    background: #e8f5e9;
+    box-shadow: 0 0 0 2px #cfe5d5;
+  }
+
+  .ui-input-game {
+    border-color: transparent;
+    background: var(--ww-bg-surface);
+    color: var(--ww-text-main);
+  }
+
+  .ui-input-game::placeholder {
+    color: var(--ww-text-dim);
+  }
+
+  .ui-input-game:focus {
+    border-color: transparent;
+    background: var(--ww-bg-surface);
+  }
+
+  .ui-input-warning {
+    border-width: 1.5px;
+    border-color: #fcd34d;
+    background: #ffffff;
+  }
+
+  .ui-input-warning::placeholder {
+    color: #9ca3af;
+  }
+
+  .ui-input-warning:focus {
+    border-color: #f59e0b;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgb(245 158 11 / 0.3);
+  }
+
+  .dark .ui-input-warning {
+    border-color: #b45309;
+    background: #111827;
+  }
+
+  .dark .ui-input-warning:focus {
+    border-color: #f59e0b;
+    background: #111827;
+  }
+
+  .ui-field {
+    color: var(--text-primary);
   }
 
   .ui-field::placeholder {
     color: var(--text-muted);
   }
 
+  .ui-input:focus,
+  .ui-textarea:focus,
   .ui-field:focus {
     outline: none;
     border-color: var(--border-accent);

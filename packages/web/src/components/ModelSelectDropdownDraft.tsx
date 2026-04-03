@@ -120,7 +120,7 @@ export function ModelSelectDropdownDraft({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full border-0 bg-transparent text-[10px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            className="ui-input ui-input-plain w-full text-[10px]"
           />
         </label>
       </div>

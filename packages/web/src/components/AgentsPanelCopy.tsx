@@ -820,7 +820,7 @@ export function AgentsPanelCopy() {
               ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
               : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
           }
-          className="h-full w-full resize-none border-0 bg-transparent text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          className="ui-textarea ui-textarea-plain h-full w-full resize-none text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -837,7 +837,7 @@ export function AgentsPanelCopy() {
             updateWorkingDraft(activeTab, event.target.value);
           }}
           placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
-          className="h-[120px] w-full resize-none rounded-[8px]  bg-[var(--surface-panel)] text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          className="ui-textarea h-[120px] w-full resize-none rounded-[8px] text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -1028,7 +1028,7 @@ export function AgentsPanelCopy() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索智能体"
-                className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                className="ui-input ui-input-plain min-w-0 flex-1 text-[12px]"
               />
             </label>
 
@@ -1300,7 +1300,7 @@ export function AgentsPanelCopy() {
                     setDeleteConfirmModalOpen(false);
                     setCatToDelete(null);
                   }}
-                  className="ui-button-secondary font-normal"
+                  className="ui-button-default font-normal"
                 >
                   取消
                 </button>

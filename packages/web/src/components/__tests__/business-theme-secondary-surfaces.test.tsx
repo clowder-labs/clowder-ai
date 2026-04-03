@@ -174,7 +174,7 @@ describe('business theme secondary surfaces', () => {
     await flushEffects();
     await flushEffects();
 
-    expect(container.querySelector('input')?.className).toContain('ui-field');
+    expect(container.querySelector('input')?.className).toContain('ui-input');
     const plazaHeading = Array.from(container.querySelectorAll('p')).find((candidate) =>
       candidate.textContent?.includes('技能广场'),
     );
@@ -232,9 +232,9 @@ describe('business theme secondary surfaces', () => {
       slackItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(container.querySelector('input')?.className).toContain('ui-field');
+    expect(container.querySelector('input')?.className).toContain('ui-input');
     const buttons = Array.from(container.querySelectorAll('button'));
     expect(buttons.some((button) => button.className.includes('ui-button-primary'))).toBe(true);
-    expect(buttons.some((button) => button.className.includes('ui-button-secondary'))).toBe(true);
+    expect(buttons.some((button) => button.className.includes('ui-button-default'))).toBe(true);
   });
 });

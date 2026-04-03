@@ -1021,7 +1021,7 @@ export function ChatInput({
                                   }
                                 }}
                                 placeholder="请输入关键字搜索"
-                                className="w-full border-0 border-b border-gray-300 bg-transparent py-1 pl-6 pr-0 text-sm text-[#191919] outline-none focus:border-[#191919]"
+                                className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-sm"
                               />
                             </div>
                           </div>
@@ -1102,7 +1102,7 @@ export function ChatInput({
                           data-testid="folder-select-button"
                           onClick={onOpenFolderPicker}
                           disabled={isFolderButtonDisabled}
-                          className="ui-button-secondary inline-flex h-7 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                          className="ui-button-default inline-flex h-7 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           <FolderBadgeIcon className="h-6 w-6 shrink-0" />
                           <span className="truncate">{folderButtonLabel}</span>

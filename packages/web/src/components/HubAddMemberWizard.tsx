@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
@@ -325,7 +325,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
                 aria-label="CLI Command"
                 value={commandArgs}
                 onChange={(event) => setCommandArgs(event.target.value)}
-                className="w-full rounded-xl border border-[#E8DCCF] bg-[#F7F3F0] px-3 py-2.5 text-sm text-[#2D2118] outline-none transition focus:border-[#D49266] focus:ring-2 focus:ring-[#F5D2B8]"
+                className="ui-input ui-input-soft w-full rounded-xl px-3 py-2.5 text-sm transition"
               />
             </label>
           ) : loadingProfiles ? (
@@ -380,7 +380,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
                 aria-label="Model"
                 value={defaultModel}
                 onChange={(event) => setDefaultModel(event.target.value)}
-                className="w-full rounded-xl border border-[#E8DCCF] bg-[#F7F3F0] px-3 py-2.5 text-sm text-[#2D2118] outline-none transition focus:border-[#D49266] focus:ring-2 focus:ring-[#F5D2B8]"
+                className="ui-input ui-input-soft w-full rounded-xl px-3 py-2.5 text-sm transition"
               />
             </label>
           )}
@@ -398,7 +398,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
         <button
           type="button"
           onClick={onClose}
-          className="ui-modal-action-button rounded-xl bg-white text-sm text-[#6A5A50] transition hover:bg-[#F7EEE6]"
+          className="ui-button-default ui-modal-action-button"
         >
           取消
         </button>
@@ -407,11 +407,10 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
           type="button"
           onClick={handleComplete}
           disabled={!canFinish}
-          className="ui-modal-action-button rounded-xl bg-[#D49266] text-sm font-semibold text-white transition hover:bg-[#C88254] disabled:opacity-50"
+          className="ui-button-primary ui-modal-action-button disabled:opacity-50"
         >
-            创建后继续编辑
-          </button>
-        </div>
+          创建后继续编辑
+        </button>
       </div>
     </AppModal>
   );

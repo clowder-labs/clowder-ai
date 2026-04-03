@@ -70,7 +70,7 @@ function normalizeSearch(value: string): string {
 
 function PromptDetailContent({ item }: { item: PromptSelectionItem }) {
   return (
-    <div className="overflow-y-auto">
+    <div className="h-full overflow-y-auto">
       <MarkdownContent
         content={item.content}
         className="text-[12px] leading-7 text-[#2E3542] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#555E6D] [&_p]:text-[#555E6D]"
@@ -185,7 +185,7 @@ export function PromptSelectionModal({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={searchPlaceholder}
-                className="w-full border-0 bg-transparent text-[13px] text-[#262626] outline-none placeholder:text-[#A5ADBA]"
+                className="ui-input ui-input-plain w-full text-[13px]"
                 data-testid="prompt-search-input"
               />
             </label>

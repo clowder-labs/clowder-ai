@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -613,7 +613,7 @@ export function ThreadSidebar({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索对话"
                 autoComplete="off"
-                className="ui-field h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px] placeholder:text-[var(--text-muted)]"
+                className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
               />
               {searchQuery && (
                 <button
@@ -874,10 +874,10 @@ export function ThreadSidebar({
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-secondary">
+            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default ui-modal-action-button">
               取消
             </button>
-            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary">
+            <button type="button" onClick={handleDeleteConfirm} className="ui-button-danger ui-modal-action-button">
               移入回收站
             </button>
           </div>
@@ -886,4 +886,3 @@ export function ThreadSidebar({
     </>
   );
 }
-

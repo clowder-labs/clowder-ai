@@ -543,7 +543,7 @@ export function ModelsPanel() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={SEARCH_PLACEHOLDER}
-                className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+                className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -732,7 +732,7 @@ export function ModelsPanel() {
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
                   placeholder={'请输入模型名称'}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -746,7 +746,7 @@ export function ModelsPanel() {
                     onChange={(event) => setModelDescriptionInput(event.target.value)}
                     placeholder="请输入描述"
                     maxLength={500}
-                    className="pb-3 h-[60px] min-h-[60px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                    className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
                   />
                   <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
                     {modelDescriptionInput.length}/500
@@ -760,7 +760,7 @@ export function ModelsPanel() {
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -803,7 +803,7 @@ export function ModelsPanel() {
                         const nextVariant = Math.floor(Math.random() * 10_000);
                         setModelIconInput(buildNameInitialIconDataUrl(modelNameInput, nextVariant));
                       }}
-                      className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
+                      className="ui-button-default h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
                     >
                       <SparklesIcon />
                     </button>
@@ -825,7 +825,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -843,7 +843,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -856,7 +856,7 @@ export function ModelsPanel() {
                   onChange={(event) => setModelHeadersInput(event.target.value)}
                   rows={4}
                   placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-                  className="ui-form-focus w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+                  className="ui-textarea ui-form-focus w-full rounded px-3 py-2 text-sm"
                 />
               </div>
               {createModelError ? (
@@ -865,7 +865,7 @@ export function ModelsPanel() {
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={closeCreateModelModal} className="ui-button-secondary">
+              <button type="button" onClick={closeCreateModelModal} className="ui-button-default ui-modal-action-button">
                 {CREATE_MODEL_CANCEL_LABEL}
               </button>
               <button
@@ -873,7 +873,7 @@ export function ModelsPanel() {
                 disabled={!canConfirmCreateModel || createModelBusy || modelIconUploading || editModelBusy}
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
-                className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {createModelBusy ? '创建中...' : CREATE_MODEL_CONFIRM_LABEL}
               </button>
@@ -991,14 +991,14 @@ function ModelsCreateModelConfigSource({
         onChange={(event) => setDisplayName(event.target.value)}
         placeholder="显示名称，如 My OpenAI Proxy"
         autoComplete="off"
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-input w-full rounded px-3 py-2 text-sm"
       />
       <input
         value={baseUrl}
         onChange={(event) => setBaseUrl(event.target.value)}
         placeholder="Base URL，如 https://api.example.com/v1"
         autoComplete="off"
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-input w-full rounded px-3 py-2 text-sm"
       />
       <input
         type="password"
@@ -1006,14 +1006,14 @@ function ModelsCreateModelConfigSource({
         value={apiKey}
         onChange={(event) => setApiKey(event.target.value)}
         placeholder="API Key"
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-input w-full rounded px-3 py-2 text-sm"
       />
       <textarea
         value={headersText}
         onChange={(event) => setHeadersText(event.target.value)}
         rows={4}
         placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-textarea w-full rounded px-3 py-2 text-sm"
       />
       <div className="space-y-2">
         <p className="text-xs font-semibold text-[#6E7785]">可用模型 *</p>

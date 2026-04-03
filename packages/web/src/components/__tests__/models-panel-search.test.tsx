@@ -247,6 +247,8 @@ describe('ModelsPanel search', () => {
     expect(urlInput).not.toBeNull();
     expect(apiKeyInput).not.toBeNull();
     expect(submitButton).not.toBeNull();
+    expect(nameInput?.className).toContain('ui-input');
+    expect(descriptionInput?.className).toContain('ui-textarea');
 
     await changeInputValue(nameInput!, 'gpt-custom');
     await changeTextareaValue(descriptionInput!, '  custom description for test  ');
