@@ -8,6 +8,7 @@ import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModalDraft } from './CreateAgentModalDraft';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
+import { transform } from 'esbuild-wasm';
 
 type AgentTabKey = 'persona' | 'collab' | 'skills';
 type EditableTabKey = 'persona' | 'collab';
@@ -266,7 +267,7 @@ function PlaceholderPanel({ title, description, label }: { title: string; descri
 }
 
 export function AgentsPanelCopy() {
-  const { cats, refresh } = useCatData();
+  const { cats = [], refresh } = useCatData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
@@ -819,7 +820,7 @@ export function AgentsPanelCopy() {
               ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
               : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
           }
-          className="h-full w-full resize-none border-0 bg-transparent text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          className="ui-textarea ui-textarea-plain h-full w-full resize-none text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -836,7 +837,7 @@ export function AgentsPanelCopy() {
             updateWorkingDraft(activeTab, event.target.value);
           }}
           placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
-          className="h-[120px] w-full resize-none rounded-[8px]  bg-[var(--surface-panel)] text-[12px] leading-7 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+          className="ui-textarea h-[120px] w-full resize-none rounded-[8px] text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -1027,7 +1028,7 @@ export function AgentsPanelCopy() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索智能体"
-                className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                className="ui-input ui-input-plain min-w-0 flex-1 text-[12px]"
               />
             </label>
 
@@ -1263,15 +1264,12 @@ export function AgentsPanelCopy() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
         >
           <div
-            className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
+            className="w-[400px] rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl"
           >
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
-                  </svg>
-                  <h3 className="text-[16px] font-bold text-gray-900">确认删除</h3>
+                  <h3 className="text-[16px] font-bold text-gray-900">确认删除智能体</h3>
                 </div>
                 <button
                   type="button"
@@ -1281,6 +1279,7 @@ export function AgentsPanelCopy() {
                   }}
                   aria-label="close"
                   className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                 style={{ transform: 'translate(4px, -4px)' }}
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6L6 18M6 6l12 12" />
@@ -1290,7 +1289,7 @@ export function AgentsPanelCopy() {
 
               <div className="space-y-1">
                 <p className="text-sm text-gray-600">
-                  确认删除「{cats.find(cat => cat.id === catToDelete)?.displayName ?? '未命名智能体'}」吗？此操作不可逆。
+                  是否确认删除?删除后数据将不可恢复。
                 </p>
               </div>
 
@@ -1301,7 +1300,7 @@ export function AgentsPanelCopy() {
                     setDeleteConfirmModalOpen(false);
                     setCatToDelete(null);
                   }}
-                  className="ui-button-secondary font-normal"
+                  className="ui-button-default font-normal"
                 >
                   取消
                 </button>

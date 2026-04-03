@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { NameInitialIcon } from './NameInitialIcon';
 import styles from './HubSkillsTab.module.css';
+import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
   id: string;
@@ -63,7 +63,11 @@ function InstallButton({
     );
   }
   return (
-    <button type="button" onClick={() => onInstall(owner, repo, slug)} className={`${styles.installButton} ${styles.installButtonPrimary}`}>
+    <button
+      type="button"
+      onClick={() => onInstall(owner, repo, slug)}
+      className={`${styles.installButton} ${styles.installButtonPrimary}`}
+    >
       {INSTALL_LABEL}
     </button>
   );
@@ -149,9 +153,64 @@ export function HubSkillsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [allResults, setAllResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isSearching, setIsSearching] = useState(false);
   const [installStatus, setInstallStatus] = useState<Map<string, InstallStatus>>(new Map());
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+
+  const loadSkills = useCallback(async (page: number, isLoadMore = false) => {
+    const setLoadingFn = isLoadMore ? setLoadingMore : setLoading;
+    setLoadingFn(true);
+    try {
+      const url = `/api/skills/all?page=${page}&limit=24`;
+      const res = await apiFetch(url);
+      if (res.ok) {
+        const data = (await res.json()) as SearchResult;
+        setAllResults((prev) => {
+          if (isLoadMore && prev) {
+            return {
+              ...data,
+              skills: [...prev.skills, ...data.skills],
+            };
+          }
+          return data;
+        });
+        setCurrentPage(page);
+      }
+    } catch {
+      // ignore error
+    } finally {
+      setLoadingFn(false);
+    }
+  }, []);
+
+  const filteredSkills = useMemo(() => {
+    const source = allResults?.skills ?? [];
+    if (!normalizedSearch) return source;
+    const tokens = normalizedSearch.split(/\s+/).filter(Boolean);
+    return source.filter((skill) => {
+      const haystack = [
+        skill.id,
+        skill.slug,
+        skill.name,
+        ...skill.tags,
+        skill.repo.githubOwner,
+        skill.repo.githubRepoName,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return tokens.every((token) => haystack.includes(token));
+    });
+  }, [allResults, normalizedSearch]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !allResults?.hasMore) return;
+    loadSkills(currentPage + 1, true);
+  }, [currentPage, loadingMore, allResults, loadSkills]);
 
   const setInstallStatusWithTimer = useCallback((slug: string, status: InstallStatus) => {
     setInstallStatus((prev) => new Map(prev).set(slug, status));
@@ -211,33 +270,30 @@ export function HubSkillsTab() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    apiFetch('/api/skills/trending')
-      .then((res) => res.ok && res.json())
-      .then((data) => data && setAllResults(data as SearchResult))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    loadSkills(1);
   }, []);
 
-  const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
-  const filteredSkills = useMemo(() => {
-    const source = allResults?.skills ?? [];
-    if (!normalizedSearch) return source;
-    const tokens = normalizedSearch.split(/\s+/).filter(Boolean);
-    return source.filter((skill) => {
-      const haystack = [
-        skill.id,
-        skill.slug,
-        skill.name,
-        ...skill.tags,
-        skill.repo.githubOwner,
-        skill.repo.githubRepoName,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return tokens.every((token) => haystack.includes(token));
-    });
-  }, [allResults, normalizedSearch]);
+  const handleSearch = useCallback(async (query: string) => {
+    const isSearch = query.trim().length > 0;
+    setIsSearching(isSearch);
+    setCurrentPage(1);
+    setAllResults(null);
+    setLoading(true);
+    try {
+      const url = isSearch
+        ? `/api/skills/search?page=1&limit=24&keyword=${encodeURIComponent(query)}`
+        : '/api/skills/all?page=1&limit=24';
+      const res = await apiFetch(url);
+      if (res.ok) {
+        const data = (await res.json()) as SearchResult;
+        setAllResults(data);
+      }
+    } catch {
+      // ignore error
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleInstall = useCallback(
     async (owner: string, repo: string, skill: string) => {
@@ -251,7 +307,7 @@ export function HubSkillsTab() {
         if (res.ok) {
           clearInstallStatus(skill);
           markSkillInstalled(skill);
-          showToast(`“${skill}” 安装成功`, 'success');
+          showToast(`"${skill}" 安装成功`, 'success');
         } else {
           const payload = (await res.json().catch(() => ({}))) as { error?: string };
           const detail = payload.error ?? `HTTP ${res.status}`;
@@ -271,9 +327,9 @@ export function HubSkillsTab() {
     ? {
         ...allResults,
         skills: filteredSkills,
-        total: filteredSkills.length,
+        total: normalizedSearch ? filteredSkills.length : allResults.total,
         page: 1,
-        hasMore: false,
+        hasMore: normalizedSearch ? false : allResults.hasMore,
       }
     : null;
 
@@ -302,16 +358,31 @@ export function HubSkillsTab() {
               aria-label={SEARCH_ARIA_LABEL}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  handleSearch(event.currentTarget.value);
+                }
+              }}
               placeholder={SEARCH_PLACEHOLDER}
-              className="ui-field h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
+              className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
             />
           </div>
           {displayResults ? (
-            <SkillList
-              results={displayResults}
-              installStatus={installStatus}
-              onInstall={handleInstall}
-            />
+            <>
+              <SkillList results={displayResults} installStatus={installStatus} onInstall={handleInstall} />
+              {!normalizedSearch && allResults?.hasMore && (
+                <div className="flex justify-center py-4">
+                  <button
+                    type="button"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="ui-btn-secondary text-xs px-4 py-2"
+                  >
+                    {loadingMore ? '加载中...' : '加载更多'}
+                  </button>
+                </div>
+              )}
+            </>
           ) : loading ? (
             <p className="text-[11px] text-[var(--text-muted)]">{LOADING_LABEL}</p>
           ) : null}

@@ -228,7 +228,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
             <textarea
               value={dialog.editedContent}
               onChange={(e) => setDialog({ ...dialog, editedContent: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 h-32 resize-y focus:outline-none focus:ring-2 focus:ring-blue-300"
+              className="ui-textarea w-full rounded-lg px-3 py-2 text-sm mb-4 h-32"
             />
             <div className="flex justify-end gap-2">
               <button onClick={close} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">

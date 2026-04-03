@@ -223,7 +223,7 @@ export function HubCapabilityTab({
             <button
               type="button"
               onClick={onImport}
-              className="ui-button-secondary min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
+              className="ui-button-default min-h-[var(--control-height-touch)] shrink-0 sm:min-h-[var(--control-height-sm)]"
             >
               {IMPORT_LABEL}
             </button>
@@ -249,7 +249,7 @@ export function HubCapabilityTab({
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={SKILL_SEARCH_PLACEHOLDER}
-              className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+              className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
             />
           </div>
         )}

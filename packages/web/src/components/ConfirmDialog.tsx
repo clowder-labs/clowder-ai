@@ -29,6 +29,7 @@ export function ConfirmDialog({
   inputPlaceholder,
   confirmLabel = '确认',
   cancelLabel = '取消',
+  variant = 'default',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -54,6 +55,8 @@ export function ConfirmDialog({
   if (!open) return null;
 
   const canConfirm = requireInput ? inputValue === requireInput : true;
+  const confirmButtonClass =
+    variant === 'danger' ? 'ui-button-danger ui-modal-action-button' : 'ui-button-primary ui-modal-action-button';
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -77,20 +80,20 @@ export function ConfirmDialog({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={inputPlaceholder}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="ui-input w-full rounded-lg px-3 py-2 text-sm mb-4"
           />
         )}
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="ui-button-secondary"
+            className="ui-button-default ui-modal-action-button"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             disabled={!canConfirm}
-            className="ui-button-primary"
+            className={confirmButtonClass}
           >
             {confirmLabel}
           </button>

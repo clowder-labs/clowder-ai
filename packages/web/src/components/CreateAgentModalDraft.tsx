@@ -722,6 +722,7 @@ export function CreateAgentModalDraft({
             onClick={onClose}
             aria-label="close"
             className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            style={{ transform: 'translate(4px, -4px)' }}
           >
             <CloseIcon />
           </button>
@@ -738,7 +739,7 @@ export function CreateAgentModalDraft({
                 aria-label="Name"
                 value={draftName}
                 onChange={(event) => setDraftName(event.target.value)}
-                className="ui-field h-[28px] w-full rounded-[6px] px-4 text-[12px]"
+                className="ui-input h-[28px] w-full rounded-[6px] px-4 text-[12px]"
               />
             </div>
 
@@ -751,7 +752,7 @@ export function CreateAgentModalDraft({
                   onChange={(event) => setDraftDescription(event.target.value)}
                   placeholder="请输入描述"
                   maxLength={1000}
-                  className="pb-3 h-[60px] min-h-[60px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
                 />
                 <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
                   {draftDescription.length}/1000
@@ -791,7 +792,7 @@ export function CreateAgentModalDraft({
                   aria-label="Random preset avatar"
                   onClick={() => setDraftAvatar(getRandomPresetAvatar())}
                   title="换一换"
-                  className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
+                  className="ui-button-default h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
                 >
                   <SparklesIcon />
                 </button>
@@ -926,7 +927,7 @@ export function CreateAgentModalDraft({
             type="button"
             aria-label="Cancel"
             onClick={onClose}
-            className="ui-button-secondary h-[32px] w-[96px] px-0 text-[14px]"
+            className="ui-button-default ui-modal-action-button"
           >
             取消
           </button>
@@ -935,7 +936,7 @@ export function CreateAgentModalDraft({
             aria-label="Create"
             onClick={handleSave}
             disabled={saving}
-            className="ui-button-primary h-[32px] w-[96px] px-0 text-[14px] font-semibold disabled:opacity-50"
+            className="ui-button-primary ui-modal-action-button disabled:opacity-50"
           >
             {primaryButtonText}
           </button>

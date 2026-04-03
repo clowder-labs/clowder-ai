@@ -112,4 +112,44 @@ describe('CreateAgentModalDraft', () => {
     expect(payload.accountRef).toBe('huawei-maas');
     expect(payload.defaultModel).toBe('glm-5');
   });
+
+  it('uses shared footer button classes', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [] }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModalDraft, {
+          open: true,
+          name: 'Style Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const cancelButton = container.querySelector('button[aria-label=\"Cancel\"]') as HTMLButtonElement | null;
+    const confirmButton = container.querySelector('button[aria-label=\"Create\"]') as HTMLButtonElement | null;
+
+    expect(cancelButton?.className).toContain('ui-button-default');
+    expect(cancelButton?.className).not.toContain('ui-button-secondary');
+    expect(cancelButton?.className).toContain('ui-modal-action-button');
+    expect(confirmButton?.className).toContain('ui-button-primary');
+    expect(confirmButton?.className).toContain('ui-modal-action-button');
+  });
 });

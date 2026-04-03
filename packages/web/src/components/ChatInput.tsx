@@ -769,6 +769,16 @@ export function ChatInput({
 
   return (
     <div className="relative safe-area-bottom bg-transparent">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-0 left-1/2 z-0 h-[100px] -translate-x-1/2 opacity-[0.2] blur-[80px]"
+        style={{
+          borderRadius: '490px',
+          width: 'calc(80% - 80px)',
+          background:
+            'linear-gradient(90deg,rgba(255,246,190,1),rgba(253,159,112,1) 20%,rgba(239,131,250,1) 43%,rgba(128,134,254,1) 73%,rgba(160,244,255,1) 97%)',
+        }}
+      />
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
         <div className="px-4 pt-2 hidden items-center gap-2 mx-auto w-[80%]">
@@ -886,7 +896,7 @@ export function ChatInput({
         />
       )}
 
-      <div className="p-4 pt-2 mx-auto w-[80%]">
+      <div className="relative z-10 px-4 pt-2 pb-[44px] mx-auto w-[80%]">
         <div className="flex gap-2 items-end">
           {/* Mobile: + toggle button */}
           <button
@@ -924,14 +934,14 @@ export function ChatInput({
               </div>
 
               <div
-                className={`relative overflow-visible rounded-2xl border bg-white transition-colors ${
+                className={`relative min-h-[114px] overflow-visible rounded-[24px] border bg-white transition-colors ${
                   whisperMode
                     ? 'border-amber-300 bg-amber-50/50 focus-within:border-amber-400'
-                    : 'border-[rgba(219,219,219,0.8)] focus-within:border-[rgba(180,180,180,1)]'
+                    : 'border-[#dbdbdb] focus-within:border-[#dbdbdb]'
                 }`}
               >
                 <ImagePreview files={images} onRemove={handleRemoveImage} />
-                <div className="relative overflow-hidden rounded-t-2xl">
+                <div className="relative overflow-hidden rounded-t-[24px]">
                   <RichTextarea
                     ref={textareaRef}
                     value={input}
@@ -941,7 +951,7 @@ export function ChatInput({
                     onPaste={handlePaste}
                     onScroll={handleTextareaScroll}
                     placeholder={hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'}
-                    className="block min-h-[90px] w-full bg-transparent p-3 whitespace-pre-wrap break-words text-[16px] placeholder:text-gray-400 focus:outline-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
+                    className="block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
                     disabled={disabled}
                     skillOptions={skillOptions}
                   />
@@ -1021,7 +1031,7 @@ export function ChatInput({
                                   }
                                 }}
                                 placeholder="请输入关键字搜索"
-                                className="w-full border-0 border-b border-gray-300 bg-transparent py-1 pl-6 pr-0 text-sm text-[#191919] outline-none focus:border-[#191919]"
+                                className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-sm"
                               />
                             </div>
                           </div>
@@ -1102,7 +1112,7 @@ export function ChatInput({
                           data-testid="folder-select-button"
                           onClick={onOpenFolderPicker}
                           disabled={isFolderButtonDisabled}
-                          className="ui-button-secondary inline-flex h-7 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                          className="ui-button-default inline-flex h-7 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
                         >
                           <FolderBadgeIcon className="h-6 w-6 shrink-0" />
                           <span className="truncate">{folderButtonLabel}</span>

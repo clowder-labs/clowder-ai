@@ -1,15 +1,21 @@
 ﻿import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CatData } from '@/hooks/useCatData';
 import { HubConnectorConfigTab } from '@/components/HubConnectorConfigTab';
-import { HubCoCreatorOverviewCard, HubMemberOverviewCard, HubOverviewToolbar } from '@/components/HubMemberOverviewCard';
+import {
+  HubCoCreatorOverviewCard,
+  HubMemberOverviewCard,
+  HubOverviewToolbar,
+} from '@/components/HubMemberOverviewCard';
 import { HubSkillsTab } from '@/components/HubSkillsTab';
+import type { CatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
 vi.mock('@/components/UploadSkillModal', () => ({ UploadSkillModal: () => null }));
-vi.mock('@/components/WeixinQrPanel', () => ({ WeixinQrPanel: () => React.createElement('div', { 'data-testid': 'weixin-qr' }) }));
+vi.mock('@/components/WeixinQrPanel', () => ({
+  WeixinQrPanel: () => React.createElement('div', { 'data-testid': 'weixin-qr' }),
+}));
 
 const mockApiFetch = vi.mocked(apiFetch);
 
@@ -63,7 +69,7 @@ describe('business theme secondary surfaces', () => {
     root = createRoot(container);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === '/api/skills/trending') {
+      if (url.startsWith('/api/skills/all') || url.startsWith('/api/skills?')) {
         return Promise.resolve(
           jsonResponse({
             skills: [
@@ -127,7 +133,9 @@ describe('business theme secondary surfaces', () => {
   it('renders member surfaces with shared card and button tokens', async () => {
     await act(async () => {
       root.render(
-        React.createElement('div', null,
+        React.createElement(
+          'div',
+          null,
           React.createElement(HubOverviewToolbar, { onAddMember: vi.fn() }),
           React.createElement(HubCoCreatorOverviewCard, {
             coCreator: {
@@ -148,7 +156,9 @@ describe('business theme secondary surfaces', () => {
       );
     });
 
-    const button = Array.from(container.querySelectorAll('button')).find((candidate) => candidate.textContent?.includes('添加成员'));
+    const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
+      candidate.textContent?.includes('添加成员'),
+    );
     expect(button?.className).toContain('ui-button-primary');
     const sections = Array.from(container.querySelectorAll('section'));
     expect(sections.some((section) => section.className.includes('ui-card-muted'))).toBe(true);
@@ -160,8 +170,11 @@ describe('business theme secondary surfaces', () => {
       root.render(React.createElement(HubSkillsTab));
     });
     await flushEffects();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await flushEffects();
+    await flushEffects();
 
-    expect(container.querySelector('input')?.className).toContain('ui-field');
+    expect(container.querySelector('input')?.className).toContain('ui-input');
     const plazaHeading = Array.from(container.querySelectorAll('p')).find((candidate) =>
       candidate.textContent?.includes('技能广场'),
     );
@@ -196,7 +209,9 @@ describe('business theme secondary surfaces', () => {
     expect(container.textContent).toContain('alpha-helper');
     expect(container.textContent).not.toContain('skill-1');
 
-    const calledSearchEndpoint = mockApiFetch.mock.calls.some(([input]) => String(input).startsWith('/api/skills/search'));
+    const calledSearchEndpoint = mockApiFetch.mock.calls.some(([input]) =>
+      String(input).startsWith('/api/skills/search'),
+    );
     expect(calledSearchEndpoint).toBe(false);
   });
 
@@ -217,9 +232,9 @@ describe('business theme secondary surfaces', () => {
       slackItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(container.querySelector('input')?.className).toContain('ui-field');
+    expect(container.querySelector('input')?.className).toContain('ui-input');
     const buttons = Array.from(container.querySelectorAll('button'));
     expect(buttons.some((button) => button.className.includes('ui-button-primary'))).toBe(true);
-    expect(buttons.some((button) => button.className.includes('ui-button-secondary'))).toBe(true);
+    expect(buttons.some((button) => button.className.includes('ui-button-default'))).toBe(true);
   });
 });

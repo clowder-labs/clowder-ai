@@ -46,7 +46,7 @@ vi.mock('@/components/HubCapabilityTab', () => ({
       props.onImport
         ? React.createElement(
             'button',
-            { type: 'button', className: 'ui-button-secondary', onClick: props.onImport },
+            { type: 'button', className: 'ui-button-default', onClick: props.onImport },
             '导入',
           )
         : null,
@@ -178,7 +178,7 @@ describe('business theme panels', () => {
     const shell = container.firstElementChild as HTMLElement | null;
     expect(shell?.className).toContain('ui-page-shell');
     const importButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('导入'));
-    expect(importButton?.className).toContain('ui-button-secondary');
+    expect(importButton?.className).toContain('ui-button-default');
     expect(container.querySelector('[data-testid="capability-panel"]')?.className).toContain('ui-panel');
   });
 });

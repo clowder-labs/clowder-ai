@@ -156,7 +156,7 @@ describe('business theme hub shell', () => {
     const searchInput = container.querySelector('input[aria-label="搜索我的技能"]');
     const importButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('导入'));
     expect(searchInput).not.toBeNull();
-    expect(importButton?.className).toContain('ui-button-secondary');
+    expect(importButton?.className).toContain('ui-button-default');
     await act(async () => {
       importButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });

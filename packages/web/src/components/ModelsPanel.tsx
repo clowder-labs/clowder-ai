@@ -1,12 +1,12 @@
-﻿﻿'use client';
+﻿'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { getNameInitial } from '@/lib/name-initial-icon';
-import { NameInitialIcon } from './NameInitialIcon';
-import { TagEditor } from './hub-tag-editor';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
+import { TagEditor } from './hub-tag-editor';
+import { NameInitialIcon } from './NameInitialIcon';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
@@ -31,39 +31,14 @@ const MODEL_ICON_MAX_BYTES = 200 * 1024;
 const EMPTY_MODEL_ICON_DATA_URL =
   'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2296%22%20height%3D%2296%22%20viewBox%3D%220%200%2096%2096%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2290%22%20height%3D%2290%22%20rx%3D%2245%22%20fill%3D%22%23F8FAFC%22%20stroke%3D%22%23CBD5E1%22%20stroke-width%3D%223%22%20stroke-dasharray%3D%226%206%22/%3E%3Cpath%20d%3D%22M48%2034v28M34%2048h28%22%20stroke%3D%22%2394A3B8%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E';
 
-function stableHash(input: string): number {
-  let hash = 0;
-  for (const ch of input) {
-    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  }
-  return hash;
-}
-
-function generateModelIconDataUrl(name: string, variant = 0): string {
-  const seed = `${name.trim().toLowerCase() || 'model'}#${variant}`;
-  const baseHue = stableHash(seed) % 360;
-  const accentHue = (baseHue + 34) % 360;
-  const haloHue = (baseHue + 68) % 360;
-  const label = getNameInitial(name || 'M');
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-      <defs>
-        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="hsl(${baseHue} 68% 55%)" />
-          <stop offset="100%" stop-color="hsl(${accentHue} 62% 48%)" />
-        </linearGradient>
-      </defs>
-      <rect width="96" height="96" rx="48" fill="url(#g)" />
-      <circle cx="48" cy="48" r="38" fill="hsl(${haloHue} 80% 92% / 0.25)" />
-      <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="38" font-weight="700" fill="#FFFFFF">${label}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
 function SparklesIcon() {
   return (
-    <svg className="mx-auto block h-[16px] w-[16px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg
+      className="mx-auto block h-[16px] w-[16px] text-[var(--text-accent)]"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
       <path
         d="M12 4.4L13.7 9.3L18.6 11L13.7 12.7L12 17.6L10.3 12.7L5.4 11L10.3 9.3L12 4.4Z"
         stroke="currentColor"
@@ -71,8 +46,14 @@ function SparklesIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M17.8 5.7L18.2 6.8L19.3 7.2L18.2 7.6L17.8 8.7L17.4 7.6L16.3 7.2L17.4 6.8L17.8 5.7Z" fill="currentColor" />
-      <path d="M6.2 15.6L6.45 16.3L7.15 16.55L6.45 16.8L6.2 17.5L5.95 16.8L5.25 16.55L5.95 16.3L6.2 15.6Z" fill="currentColor" />
+      <path
+        d="M17.8 5.7L18.2 6.8L19.3 7.2L18.2 7.6L17.8 8.7L17.4 7.6L16.3 7.2L17.4 6.8L17.8 5.7Z"
+        fill="currentColor"
+      />
+      <path
+        d="M6.2 15.6L6.45 16.3L7.15 16.55L6.45 16.8L6.2 17.5L5.95 16.8L5.25 16.55L5.95 16.3L6.2 15.6Z"
+        fill="currentColor"
+      />
     </svg>
   );
 }
@@ -112,6 +93,8 @@ interface ModelConfigProviderItem {
   displayName?: string;
   description?: string;
   icon?: string;
+  baseUrl?: string;
+  apiKey?: string;
   models?: string[];
 }
 
@@ -237,7 +220,7 @@ export function ModelsPanel() {
   const [createModelBusy, setCreateModelBusy] = useState(false);
   const [modelNameInput, setModelNameInput] = useState('');
   const [modelDescriptionInput, setModelDescriptionInput] = useState('');
-  const [modelIconInput, setModelIconInput] = useState(EMPTY_MODEL_ICON_DATA_URL);
+  const [modelIconInput, setModelIconInput] = useState('');
   const [modelIconUploading, setModelIconUploading] = useState(false);
   const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
   const [modelUrlInput, setModelUrlInput] = useState('');
@@ -399,7 +382,7 @@ export function ModelsPanel() {
   const resetCreateModelForm = () => {
     setModelNameInput('');
     setModelDescriptionInput('');
-    setModelIconInput(EMPTY_MODEL_ICON_DATA_URL);
+    setModelIconInput('');
     setModelDisplayNameInput('');
     setModelUrlInput('');
     setModelApiKeyInput('');
@@ -441,7 +424,9 @@ export function ModelsPanel() {
       setModelNameInput(card.name);
       setModelDescriptionInput(provider?.description ?? card.description ?? '');
       setModelDisplayNameInput(provider?.displayName ?? '');
-      setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || EMPTY_MODEL_ICON_DATA_URL);
+      setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || '');
+      setModelUrlInput(provider?.baseUrl ?? '');
+      setModelApiKeyInput(provider?.apiKey ?? '');
       setShowCreateModelModal(true);
     } catch (error) {
       setCreateModelError(error instanceof Error ? error.message : String(error));
@@ -469,15 +454,18 @@ export function ModelsPanel() {
         url = `/api/model-config-profiles/${encodeURIComponent(editingSourceId)}`;
         const nextModel = modelNameInput.trim();
         const previousModel = editingOriginalModelName?.trim() || '';
-        const sourceModels = editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
+        const sourceModels =
+          editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
         const replacedModels = sourceModels.map((name) => (name === previousModel ? nextModel : name));
         const mergedModels = Array.from(
-          new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)),
+          new Set(
+            (replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean),
+          ),
         );
         payload = {
           ...(displayName ? { displayName } : {}),
           description: description || null,
-          icon: icon || null,
+          ...(icon ? { icon } : {}),
           ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
           ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
           ...(headers ? { headers } : {}),
@@ -555,7 +543,7 @@ export function ModelsPanel() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={SEARCH_PLACEHOLDER}
-                className="ui-field h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+                className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -598,10 +586,7 @@ export function ModelsPanel() {
           {showGroups &&
             groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3
-                  className="text-[14px] font-semibold text-[var(--text-primary)]"
-                  style={{ marginBlock: '24px' }}
-                >
+                <h3 className="text-[14px] font-semibold text-[var(--text-primary)]" style={{ marginBlock: '24px' }}>
                   {group.label} ({group.items.length})
                 </h3>
 
@@ -621,7 +606,13 @@ export function ModelsPanel() {
                               data-testid={`model-card-icon-${card.id}`}
                             />
                           ) : (
-                            <NameInitialIcon name={card.name} dataTestId={`model-card-icon-${card.id}`} />
+                            <div className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] p-1.5">
+                              <NameInitialIcon
+                                name={card.name}
+                                dataTestId={`model-card-icon-${card.id}`}
+                                className="h-full w-full rounded-[var(--radius-md)] border-0 shadow-none"
+                              />
+                            </div>
                           )}
 
                           <div className="min-w-0 flex-1">
@@ -741,7 +732,7 @@ export function ModelsPanel() {
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
                   placeholder={'请输入模型名称'}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -755,7 +746,7 @@ export function ModelsPanel() {
                     onChange={(event) => setModelDescriptionInput(event.target.value)}
                     placeholder="请输入描述"
                     maxLength={500}
-                    className="pb-3 h-[60px] min-h-[60px] w-full resize-y border-0 bg-transparent text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+                    className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
                   />
                   <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
                     {modelDescriptionInput.length}/500
@@ -769,7 +760,7 @@ export function ModelsPanel() {
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -781,10 +772,14 @@ export function ModelsPanel() {
                     type="button"
                     aria-label="Upload model icon"
                     onClick={() => modelIconFileInputRef.current?.click()}
-                    className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                    className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={modelIconInput} alt="Model icon preview" className="h-full w-full object-cover" />
+                    <img
+                      src={modelIconInput || EMPTY_MODEL_ICON_DATA_URL}
+                      alt="Model icon preview"
+                      className="h-full w-full object-cover"
+                    />
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
                       上传
                     </span>
@@ -806,9 +801,9 @@ export function ModelsPanel() {
                       aria-label="Random model icon"
                       onClick={() => {
                         const nextVariant = Math.floor(Math.random() * 10_000);
-                        setModelIconInput(generateModelIconDataUrl(modelNameInput, nextVariant));
+                        setModelIconInput(buildNameInitialIconDataUrl(modelNameInput, nextVariant));
                       }}
-                      className="ui-button-secondary h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
+                      className="ui-button-default h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
                     >
                       <SparklesIcon />
                     </button>
@@ -830,7 +825,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -848,7 +843,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-form-focus w-full rounded-[6px] border border-[rgb(194,194,194)] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
                   style={{ height: '28px' }}
                   required
                 />
@@ -861,7 +856,7 @@ export function ModelsPanel() {
                   onChange={(event) => setModelHeadersInput(event.target.value)}
                   rows={4}
                   placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-                  className="ui-form-focus w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+                  className="ui-textarea ui-form-focus w-full rounded px-3 py-2 text-sm"
                 />
               </div>
               {createModelError ? (
@@ -870,11 +865,7 @@ export function ModelsPanel() {
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeCreateModelModal}
-                className="ui-button-secondary"
-              >
+              <button type="button" onClick={closeCreateModelModal} className="ui-button-default ui-modal-action-button">
                 {CREATE_MODEL_CANCEL_LABEL}
               </button>
               <button
@@ -882,7 +873,7 @@ export function ModelsPanel() {
                 disabled={!canConfirmCreateModel || createModelBusy || modelIconUploading || editModelBusy}
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
-                className="ui-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {createModelBusy ? '创建中...' : CREATE_MODEL_CONFIRM_LABEL}
               </button>
@@ -1000,14 +991,14 @@ function ModelsCreateModelConfigSource({
         onChange={(event) => setDisplayName(event.target.value)}
         placeholder="显示名称，如 My OpenAI Proxy"
         autoComplete="off"
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-input w-full rounded px-3 py-2 text-sm"
       />
       <input
         value={baseUrl}
         onChange={(event) => setBaseUrl(event.target.value)}
         placeholder="Base URL，如 https://api.example.com/v1"
         autoComplete="off"
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-input w-full rounded px-3 py-2 text-sm"
       />
       <input
         type="password"
@@ -1015,14 +1006,14 @@ function ModelsCreateModelConfigSource({
         value={apiKey}
         onChange={(event) => setApiKey(event.target.value)}
         placeholder="API Key"
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-input w-full rounded px-3 py-2 text-sm"
       />
       <textarea
         value={headersText}
         onChange={(event) => setHeadersText(event.target.value)}
         rows={4}
         placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-        className="w-full rounded border border-[#DCE2EB] bg-white px-3 py-2 text-sm placeholder:text-[#A8B0BD]"
+        className="ui-textarea w-full rounded px-3 py-2 text-sm"
       />
       <div className="space-y-2">
         <p className="text-xs font-semibold text-[#6E7785]">可用模型 *</p>
