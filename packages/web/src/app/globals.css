@@ -920,13 +920,13 @@ select:-webkit-autofill:focus {
   .ui-input-plain,
   .ui-textarea-plain {
     border-color: transparent!important;
-    background: transparent;
+    background: transparent!important;
   }
 
   .ui-input-plain:focus,
   .ui-textarea-plain:focus {
     border-color: transparent!important;
-    background: transparent;
+    background: transparent!important;
   }
 
   .ui-input-underline {
