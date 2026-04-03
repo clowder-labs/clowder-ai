@@ -1,12 +1,12 @@
-﻿﻿'use client';
+﻿'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getNameInitial } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { getNameInitial } from '@/lib/name-initial-icon';
-import { NameInitialIcon } from './NameInitialIcon';
-import { TagEditor } from './hub-tag-editor';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
+import { TagEditor } from './hub-tag-editor';
+import { NameInitialIcon } from './NameInitialIcon';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
@@ -63,7 +63,12 @@ function generateModelIconDataUrl(name: string, variant = 0): string {
 
 function SparklesIcon() {
   return (
-    <svg className="mx-auto block h-[16px] w-[16px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg
+      className="mx-auto block h-[16px] w-[16px] text-[var(--text-accent)]"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
       <path
         d="M12 4.4L13.7 9.3L18.6 11L13.7 12.7L12 17.6L10.3 12.7L5.4 11L10.3 9.3L12 4.4Z"
         stroke="currentColor"
@@ -71,8 +76,14 @@ function SparklesIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M17.8 5.7L18.2 6.8L19.3 7.2L18.2 7.6L17.8 8.7L17.4 7.6L16.3 7.2L17.4 6.8L17.8 5.7Z" fill="currentColor" />
-      <path d="M6.2 15.6L6.45 16.3L7.15 16.55L6.45 16.8L6.2 17.5L5.95 16.8L5.25 16.55L5.95 16.3L6.2 15.6Z" fill="currentColor" />
+      <path
+        d="M17.8 5.7L18.2 6.8L19.3 7.2L18.2 7.6L17.8 8.7L17.4 7.6L16.3 7.2L17.4 6.8L17.8 5.7Z"
+        fill="currentColor"
+      />
+      <path
+        d="M6.2 15.6L6.45 16.3L7.15 16.55L6.45 16.8L6.2 17.5L5.95 16.8L5.25 16.55L5.95 16.3L6.2 15.6Z"
+        fill="currentColor"
+      />
     </svg>
   );
 }
@@ -112,6 +123,8 @@ interface ModelConfigProviderItem {
   displayName?: string;
   description?: string;
   icon?: string;
+  baseUrl?: string;
+  apiKey?: string;
   models?: string[];
 }
 
@@ -442,6 +455,8 @@ export function ModelsPanel() {
       setModelDescriptionInput(provider?.description ?? card.description ?? '');
       setModelDisplayNameInput(provider?.displayName ?? '');
       setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || EMPTY_MODEL_ICON_DATA_URL);
+      setModelUrlInput(provider?.baseUrl ?? '');
+      setModelApiKeyInput(provider?.apiKey ?? '');
       setShowCreateModelModal(true);
     } catch (error) {
       setCreateModelError(error instanceof Error ? error.message : String(error));
@@ -469,10 +484,13 @@ export function ModelsPanel() {
         url = `/api/model-config-profiles/${encodeURIComponent(editingSourceId)}`;
         const nextModel = modelNameInput.trim();
         const previousModel = editingOriginalModelName?.trim() || '';
-        const sourceModels = editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
+        const sourceModels =
+          editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
         const replacedModels = sourceModels.map((name) => (name === previousModel ? nextModel : name));
         const mergedModels = Array.from(
-          new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)),
+          new Set(
+            (replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean),
+          ),
         );
         payload = {
           ...(displayName ? { displayName } : {}),
@@ -598,10 +616,7 @@ export function ModelsPanel() {
           {showGroups &&
             groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3
-                  className="text-[14px] font-semibold text-[var(--text-primary)]"
-                  style={{ marginBlock: '24px' }}
-                >
+                <h3 className="text-[14px] font-semibold text-[var(--text-primary)]" style={{ marginBlock: '24px' }}>
                   {group.label} ({group.items.length})
                 </h3>
 
@@ -870,11 +885,7 @@ export function ModelsPanel() {
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeCreateModelModal}
-                className="ui-button-secondary"
-              >
+              <button type="button" onClick={closeCreateModelModal} className="ui-button-secondary">
                 {CREATE_MODEL_CANCEL_LABEL}
               </button>
               <button
