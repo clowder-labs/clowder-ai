@@ -2,6 +2,7 @@
 import { useCatData } from '@/hooks/useCatData';
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
+import { AppModal } from '../AppModal';
 import { CatAvatar } from '../CatAvatar';
 import { PawIcon } from '../icons/PawIcon';
 import { formatRelativeTime } from './thread-utils';
@@ -202,11 +203,7 @@ export function ThreadItem({
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
         indented ? 'pl-7' : ''
-      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${
-        isActive
-          ? 'ui-thread-item-active bg-white rounded-[8px]'
-          : `ui-thread-item-inactive rounded-[8px] ${contextMenu ? 'bg-[var(--accent-soft)]' : ''}`
-      }`}
+      } mx-4 mb-1 last:mb-0 border-0 border-b-0 ${isActive ? 'ui-thread-item-active bg-white rounded-[8px]' : 'ui-thread-item-inactive rounded-[8px]'}`}
       onClick={() => onSelect(id)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -227,8 +224,8 @@ export function ThreadItem({
           {avatarCatId ? (
             <CatAvatar catId={avatarCatId} size={32} />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--text-muted)]">
-              <PawIcon className="h-4 w-4" />
+            <div className="ui-avatar-fallback-shell h-8 w-8">
+              <PawIcon className="ui-avatar-fallback-icon" />
             </div>
           )}
           {showUnreadBadge && (
@@ -348,59 +345,46 @@ export function ThreadItem({
         </div>
       )}
 
-      {showRenameDialog && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 p-4"
-        >
-          <div
-            className="w-[500px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-          >
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-bold text-gray-900">编辑会话名称</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowRenameDialog(false)}
-                  aria-label="close"
-                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      <AppModal
+        open={showRenameDialog}
+        onClose={() => setShowRenameDialog(false)}
+        title="编辑会话名称"
+        panelClassName="w-[500px]"
+        bodyClassName="pt-5"
+        zIndexClassName="z-[60]"
+        backdropTestId="thread-rename-modal"
+        panelTestId="thread-rename-modal-panel"
+      >
+        <div className="flex flex-col gap-5" data-testid="thread-rename-modal-content">
+          <input
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void submitRename();
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setShowRenameDialog(false);
+              }
+            }}
+            autoFocus
+            maxLength={200}
+            disabled={isSaving}
+            className="ui-field h-7 w-full px-3 text-sm"
+          />
 
-              <input
-                value={draftTitle}
-                onChange={(e) => setDraftTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    void submitRename();
-                  }
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    setShowRenameDialog(false);
-                  }
-                }}
-                autoFocus
-                maxLength={200}
-                disabled={isSaving}
-                className="ui-field h-7 w-full px-3 text-sm"
-              />
-
-              <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-secondary">
-                  取消
-                </button>
-                <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
-                  确定
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-secondary">
+              取消
+            </button>
+            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
+              确定
+            </button>
           </div>
         </div>
-      )}
+      </AppModal>
     </div>
   );
 }

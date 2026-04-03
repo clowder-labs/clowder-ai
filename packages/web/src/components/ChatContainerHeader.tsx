@@ -7,7 +7,7 @@ interface ChatContainerHeaderProps {
   onToggleSidebar: () => void;
   threadId: string;
   authPendingCount: number;
-  targetCats: string[];
+  targetCats?: string[];
   viewMode: 'single' | 'split';
   onToggleViewMode: () => void;
   onOpenMobileStatus: () => void;
@@ -26,7 +26,7 @@ export function ChatContainerHeader({
   threadId: _threadId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   authPendingCount: _authPendingCount,
-  targetCats,
+  targetCats = [],
   // F099/OQ-4: viewMode toggle hidden - candidate for removal (KD-7)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   viewMode: _viewMode,

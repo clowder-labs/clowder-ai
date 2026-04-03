@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { AppModal } from '../AppModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
 import { TaskPanel } from '../TaskPanel';
@@ -850,56 +851,38 @@ export function ThreadSidebar({
         />
       )}
 
-      {/* I-1: Delete confirmation dialog */}
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
-        >
-          <div
-            className="w-[400px] rounded-2xl border border-[#E5EAF0] bg-white p-6 shadow-2xl"
-          >
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
-                  </svg>
-                  <h3 className="text-[16px] font-bold text-gray-900">确认删除对话</h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(null)}
-                  aria-label="close"
-                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      <AppModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title={
+          <div className="flex items-center gap-2">
+            <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
+            </svg>
+            <h3 className="text-[16px] font-bold text-gray-900">确认删除对话</h3>
+          </div>
+        }
+        panelClassName="w-[500px]"
+        bodyClassName="pt-5"
+        backdropTestId="thread-delete-modal"
+        panelTestId="thread-delete-modal-panel"
+      >
+        <div className="flex flex-col gap-5" data-testid="thread-delete-modal-content">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-gray-900">{deleteTarget?.title ?? '未命名对话'}</p>
+            <p className="text-sm text-gray-600">删除后，对话将移入回收站，你仍可在回收站中恢复该对话。</p>
+          </div>
 
-              <p className="text-sm text-gray-600">删除后，该会话及聊天记录将全部清空且不可恢复</p>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(null)}
-                  className="ui-button-secondary"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteConfirm}
-                  className="ui-button-primary"
-                >
-                  确认
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-secondary">
+              取消
+            </button>
+            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary">
+              移入回收站
+            </button>
           </div>
         </div>
-      )}
+      </AppModal>
     </>
   );
 }

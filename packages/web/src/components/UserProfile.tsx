@@ -25,7 +25,8 @@ const THEME_OPTIONS: Array<{
   {
     id: 'warm',
     label: '橙白浅色',
-    swatchBackground: '#f6d7c6',
+    swatchBackground:
+      'linear-gradient(-65.45deg, rgba(123, 72, 255, 1), rgba(200, 27, 181, 0.74) 24%, rgba(255, 100, 84, 0.44) 50%, rgba(255, 119, 49, 0.35) 72%, rgba(255, 92, 12, 1) 100%)',
   },
 ];
 
@@ -265,11 +266,29 @@ export function UserProfile({ className }: UserProfileProps) {
                     }`}
                     data-testid={`user-theme-option-${option.id}`}
                   >
-                    <div
-                      className={`h-9 w-9 rounded-full`}
-                      data-testid={`user-theme-swatch-${option.id}`}
-                      style={{ background: option.swatchBackground }}
-                    />
+                    <div className="relative">
+                      <div
+                        className="h-9 w-9 rounded-full"
+                        data-testid={`user-theme-swatch-${option.id}`}
+                        style={{ background: option.swatchBackground }}
+                      />
+                      {isActive && (
+                        <div
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white"
+                          data-testid={`user-theme-selected-badge-${option.id}`}
+                        >
+                          <svg className="h-2.5 w-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <path
+                              d="M4 8.25 6.5 10.75 12 5.25"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
                     <span className="text-[12px] font-medium leading-[18px] text-[#2E3440]">{option.label}</span>
                   </button>
                 );

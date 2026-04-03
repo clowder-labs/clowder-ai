@@ -266,7 +266,7 @@ function PlaceholderPanel({ title, description, label }: { title: string; descri
 }
 
 export function AgentsPanelCopy() {
-  const { cats, refresh } = useCatData();
+  const { cats = [], refresh } = useCatData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
