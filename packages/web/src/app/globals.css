@@ -403,6 +403,28 @@ select:-webkit-autofill:focus {
     background: var(--surface-panel);
   }
 
+  .ui-form-focus {
+    transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  }
+
+  .ui-form-focus:focus,
+  .ui-form-focus:focus-visible {
+    outline: none;
+    border-color: var(--border-accent);
+    background: var(--surface-panel);
+    box-shadow: none;
+  }
+
+  .ui-form-focus-within {
+    transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
+  }
+
+  .ui-form-focus-within:focus-within {
+    border-color: var(--border-accent);
+    background: var(--surface-panel);
+    box-shadow: none;
+  }
+
   .ui-status-success {
     background: var(--state-success-surface);
     color: var(--state-success-text);

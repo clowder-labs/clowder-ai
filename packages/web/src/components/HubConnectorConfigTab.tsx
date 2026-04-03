@@ -206,8 +206,8 @@ export function HubConnectorConfigTab() {
   const selectedPlatform = platforms.find((platform) => platform.id === selectedPlatformId) ?? platforms[0] ?? null;
 
   return (
-    <div className="ui-panel grid lg:grid-cols-[304px_minmax(0,1fr)] h-full">
-      <div className="space-y-2 px-4 py-6 h-full" data-testid="connector-left-pane">
+    <div className="ui-panel flex h-full min-h-0 overflow-hidden">
+      <div className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[var(--border-default)] px-4 py-6" data-testid="connector-left-pane">
         {platforms.map((platform) => {
           const isSelected = selectedPlatform?.id === platform.id;
           const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
@@ -245,7 +245,7 @@ export function HubConnectorConfigTab() {
         })}
       </div>
 
-      <div className="py-6 px-12 h-full overflow-auto border-l border-[#e5e7eb] flex flex-col gap-6" data-testid="connector-right-pane">
+      <div className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6" data-testid="connector-right-pane">
         <p className='text-[var(--text-primary)] font-semibold'>配置</p>
         {selectedPlatform && (() => {
           const platform = selectedPlatform;

@@ -733,7 +733,7 @@ export function CreateAgentModalDraft({
         >
           <div data-testid="create-agent-modal-form" className="flex flex-col gap-4">
             <div className="space-y-2.5">
-              <div className="text-[12px] font-semibold text-[var(--text-primary)]">名称</div>
+              <div className="text-[12px] text-[var(--text-primary)]">名称</div>
               <input
                 aria-label="Name"
                 value={draftName}
@@ -743,8 +743,8 @@ export function CreateAgentModalDraft({
             </div>
 
             <div className="space-y-2.5">
-              <div className="text-[12px] font-semibold text-[var(--text-primary)]">描述（可选）</div>
-              <div className="ui-field relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
+              <div className="text-[12px] text-[var(--text-primary)]">描述（可选）</div>
+              <div className="ui-field ui-form-focus-within relative bg-[var(--surface-panel)] pl-4 pt-2 pr-1">
                 <textarea
                   aria-label="Description"
                   value={draftDescription}
@@ -760,7 +760,7 @@ export function CreateAgentModalDraft({
             </div>
 
             <div className="space-y-2.5">
-              <div className="text-[12px] font-semibold text-[var(--text-primary)]">图标</div>
+              <div className="text-[12px] text-[var(--text-primary)]">图标</div>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -805,7 +805,7 @@ export function CreateAgentModalDraft({
 
             {true ? (
               <div className="space-y-2.5">
-                <div className="text-[12px] font-semibold text-[var(--text-primary)]">Agent 客户端</div>
+                <div className="text-[12px] text-[var(--text-primary)]">Agent 客户端</div>
                 <button
                   ref={clientTriggerRef}
                   type="button"
@@ -868,7 +868,7 @@ export function CreateAgentModalDraft({
             ) : null}
 
             <div className="relative space-y-2.5">
-              <div className="text-[12px] font-semibold text-[var(--text-primary)]">模型</div>
+              <div className="text-[12px] text-[var(--text-primary)]">模型</div>
               {availableModels.length > 0 || selectedModel ? (
                 <>
                   <button

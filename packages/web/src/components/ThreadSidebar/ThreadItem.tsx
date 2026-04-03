@@ -35,6 +35,29 @@ type ContextMenuState = {
   arrowY: number;
 };
 
+const MENTIONED_CAT_ID_RE = /@([A-Za-z0-9_-]+)/g;
+
+function getMentionedCatIdFromMessages(
+  messages: ThreadState['messages'] | undefined,
+  getCatById: (id: string) => unknown,
+): string | null {
+  if (!messages?.length) return null;
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (!message?.content) continue;
+
+    const matches = [...message.content.matchAll(MENTIONED_CAT_ID_RE)];
+    for (const match of matches) {
+      const candidateId = match[1];
+      if (!candidateId) continue;
+      if (getCatById(candidateId)) return candidateId;
+    }
+  }
+
+  return null;
+}
+
 export function ThreadItem({
   id,
   title,
@@ -50,6 +73,7 @@ export function ThreadItem({
   isFavorited,
   threadState,
   indented,
+  preferredCats,
   isHubThread,
   sourceLabel,
 }: ThreadItemProps) {
@@ -164,6 +188,8 @@ export function ThreadItem({
   const displayTitle = title ?? (id === 'default' ? '大厅' : '未命名对话');
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
+  const mentionedCatId = getMentionedCatIdFromMessages(threadState?.messages, getCatById);
+  const avatarCatId = participants[0] ?? mentionedCatId ?? preferredCats?.[0] ?? threadState?.targetCats?.[0] ?? null;
 
   const tooltipLines = [displayTitle];
   if (participantNames) tooltipLines.push(`参与: ${participantNames}`);
@@ -198,8 +224,8 @@ export function ThreadItem({
     >
       <div className="flex items-center gap-2">
         <div className="relative shrink-0">
-          {participants.length > 0 ? (
-            <CatAvatar catId={participants[0]!} size={32} />
+          {avatarCatId ? (
+            <CatAvatar catId={avatarCatId} size={32} />
           ) : (
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--text-muted)]">
               <PawIcon className="h-4 w-4" />

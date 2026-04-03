@@ -115,7 +115,7 @@ export function HubCapabilityTab({
   const handleUninstall = useCallback(
     async (skillId: string) => {
       const ok = await confirm({
-        title: '卸载 Skill',
+        title: '卸载技能',
         message: `确定要卸载 “${skillId}” 吗？此操作不可恢复。`,
         confirmLabel: '卸载',
         cancelLabel: '取消',

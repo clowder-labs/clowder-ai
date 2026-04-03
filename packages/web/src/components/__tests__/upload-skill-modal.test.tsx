@@ -74,5 +74,19 @@ describe('UploadSkillModal', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('closes from header close icon', () => {
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    const closeButton = container.querySelector('button[aria-label="close"]') as HTMLButtonElement | null;
+    expect(closeButton).toBeTruthy();
+
+    act(() => {
+      closeButton?.click();
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
 
