@@ -397,7 +397,7 @@ function PptAttachmentCard({
   return (
     <div
       data-testid="cli-output-ppt-card"
-      className="mt-3 flex items-center gap-3 rounded-2xl border border-[#E9E5DF] bg-[#FBF9F6] px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
+      className="mt-3 max-w-[392px] font-sans flex items-center gap-3 rounded-2xl border border-[#E9E5DF] bg-[#FBF9F6] px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
     >
       <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
