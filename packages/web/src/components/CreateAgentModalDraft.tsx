@@ -722,6 +722,7 @@ export function CreateAgentModalDraft({
             onClick={onClose}
             aria-label="close"
             className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            style={{ transform: 'translate(4px, -4px)' }}
           >
             <CloseIcon />
           </button>
