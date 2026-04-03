@@ -730,7 +730,7 @@ function ThreadModeChatContainer({
 
         {sidebarMenu === 'chat' && isResearchMode && (
           <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-            多猫研究模式 - 文章上下文已注入。请输入研究问题，猫猫会自动调用 multi_mention 邀请其他猫参与分析。
+            多智能体研究模式 - 文章上下文已注入。请输入研究问题，智能体会自动调用 multi_mention 邀请其他智能体参与分析。
           </div>
         )}
         {sidebarMenu === 'chat' && (
