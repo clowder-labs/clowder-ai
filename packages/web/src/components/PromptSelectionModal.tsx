@@ -23,9 +23,12 @@ interface PromptSelectionModalProps {
 }
 
 const MODAL_WIDTH = 900;
-const MODAL_HEIGHT = 564;
-const CONTENT_HEIGHT = 380;
+const MODAL_VIEWPORT_OFFSET = 150;
+const CARD_DETAIL_GAP = 16;
+const LIST_SCROLLBAR_SLOT = 8;
+const CONTENT_GAP = CARD_DETAIL_GAP - LIST_SCROLLBAR_SLOT;
 const LIST_WIDTH = 240;
+const LIST_SCROLL_CONTAINER_WIDTH = LIST_WIDTH + LIST_SCROLLBAR_SLOT;
 const DETAIL_WIDTH = 596;
 
 function SearchIcon() {
@@ -67,7 +70,7 @@ function normalizeSearch(value: string): string {
 
 function PromptDetailContent({ item }: { item: PromptSelectionItem }) {
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="overflow-y-auto">
       <MarkdownContent
         content={item.content}
         className="text-[12px] leading-7 text-[#2E3542] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#555E6D] [&_p]:text-[#555E6D]"
@@ -155,12 +158,12 @@ export function PromptSelectionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-6 py-8"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/35 px-6 pb-[50px] pt-[100px]"
       data-testid="prompt-selection-modal"
     >
       <div
-        className="flex w-full max-w-[900px] flex-col overflow-hidden rounded-[8px] bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.16)]"
-        style={{ width: MODAL_WIDTH, height: MODAL_HEIGHT }}
+        className="flex w-full max-w-[900px] flex-col overflow-y-auto rounded-[8px] bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.16)]"
+        style={{ width: MODAL_WIDTH, maxHeight: `calc(100vh - ${MODAL_VIEWPORT_OFFSET}px)` }}
       >
         <div className="flex items-center justify-between">
           <h2 className="text-[18px] font-semibold leading-none text-[#1F2329]">{title}</h2>
@@ -174,7 +177,7 @@ export function PromptSelectionModal({
           </button>
         </div>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col">
+        <div className="mt-4 flex min-h-0 flex-col">
           <div className="flex items-center gap-3">
             <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[6px] border border-[#D9E0EA] bg-white px-3">
               <SearchIcon />
@@ -196,13 +199,16 @@ export function PromptSelectionModal({
             </button>
           </div>
 
-          <div className="mt-4 flex min-h-0 " style={{ height: CONTENT_HEIGHT }}>
+          <div className="mt-4 flex min-h-0" style={{ gap: CONTENT_GAP }}>
             <aside
-              className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto rounded-[10px]  bg-white p-0.5"
-              style={{ width: LIST_WIDTH, height: CONTENT_HEIGHT }}
+              className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto bg-white pr-2"
+              style={{ width: LIST_SCROLL_CONTAINER_WIDTH }}
             >
               {filteredItems.length === 0 ? (
-                <div className="rounded-[10px] border border-[#EDF1F6] bg-[#fafafa] px-3 py-4 text-[12px] text-[#8C8C8C]">
+                <div
+                  className="rounded-[10px] border border-[#EDF1F6] bg-[#fafafa] px-3 py-4 text-[12px] text-[#8C8C8C]"
+                  style={{ width: LIST_WIDTH }}
+                >
                   没有匹配的提示词
                 </div>
               ) : (
@@ -213,7 +219,7 @@ export function PromptSelectionModal({
                       key={item.id}
                       type="button"
                       onClick={() => setSelectedId(item.id)}
-                      className={`block h-[68px] min-h-[68px] w-full shrink-0 overflow-hidden rounded-[8px] p-3 text-left transition ${
+                      className={`block h-[68px] min-h-[68px] shrink-0 overflow-hidden rounded-[8px] p-3 text-left transition ${
                         isSelected
                           ? 'border border-[#1476ff] bg-white shadow-[0_4px_12px_rgba(134,177,255,0.12)]'
                           : 'border border-[#f0f0f0] bg-[#fafafa] hover:bg-white'
@@ -237,7 +243,7 @@ export function PromptSelectionModal({
             <section
               data-testid="prompt-detail-panel"
               className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-[#E7ECF3] bg-white p-4 flex-1"
-              style={{ width: DETAIL_WIDTH, height: CONTENT_HEIGHT }}
+              style={{ width: DETAIL_WIDTH }}
             >
               {selectedItem ? (
                 <PromptDetailContent item={selectedItem} />
@@ -270,4 +276,3 @@ export function PromptSelectionModal({
     </div>
   );
 }
-
