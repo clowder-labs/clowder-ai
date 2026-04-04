@@ -8,12 +8,13 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -135,6 +136,38 @@ function writeReadme(stagingDir) {
   writeFileSync(readmePath, `${content}\n`, 'utf8');
 }
 
+function verifyNoExternalSymlinks(appRoot) {
+  const allowedPrefixes = ['/Applications'];
+  const violations = [];
+
+  function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        const target = readlinkSync(fullPath);
+        if (isAbsolute(target) && !allowedPrefixes.some((p) => target.startsWith(p))) {
+          violations.push({ path: fullPath.slice(appRoot.length), target });
+        }
+      } else if (entry.isDirectory()) {
+        walk(fullPath);
+      }
+    }
+  }
+
+  walk(appRoot);
+
+  if (violations.length > 0) {
+    const sample = violations
+      .slice(0, 10)
+      .map((v) => `  ${v.path} -> ${v.target}`)
+      .join('\n');
+    const suffix = violations.length > 10 ? `\n  ... and ${violations.length - 10} more` : '';
+    throw new Error(
+      `Found ${violations.length} symlink(s) with absolute targets inside staged .app (build-machine paths leaked into DMG):\n${sample}${suffix}`,
+    );
+  }
+}
+
 function createDmg(options) {
   if (!existsSync(options.appPath)) {
     throw new Error(`App bundle not found: ${options.appPath}`);
@@ -147,9 +180,13 @@ function createDmg(options) {
 
   try {
     logStep('Preparing dmg staging directory');
-    cpSync(options.appPath, join(stagingDir, `${appName}.app`), { recursive: true, force: true });
+    const stagedAppPath = join(stagingDir, `${appName}.app`);
+    cpSync(options.appPath, stagedAppPath, { recursive: true, force: true, verbatimSymlinks: true });
     createApplicationsAlias(stagingDir);
     writeReadme(stagingDir);
+
+    logStep('Verifying no external symlinks in staged .app');
+    verifyNoExternalSymlinks(stagedAppPath);
 
     logStep(`Creating unsigned dmg at ${dmgPath}`);
     rmSync(dmgPath, { force: true });
