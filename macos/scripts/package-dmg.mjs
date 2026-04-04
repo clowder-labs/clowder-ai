@@ -147,7 +147,7 @@ function createDmg(options) {
 
   try {
     logStep('Preparing dmg staging directory');
-    cpSync(options.appPath, join(stagingDir, `${appName}.app`), { recursive: true, force: true });
+    cpSync(options.appPath, join(stagingDir, `${appName}.app`), { recursive: true, force: true, verbatimSymlinks: true });
     createApplicationsAlias(stagingDir);
     writeReadme(stagingDir);
 

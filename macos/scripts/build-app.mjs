@@ -10,10 +10,11 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -257,7 +258,7 @@ function copyIfPresent(sourcePath, destinationPath) {
     return;
   }
   ensureDir(dirname(destinationPath));
-  cpSync(sourcePath, destinationPath, { recursive: true, force: true });
+  cpSync(sourcePath, destinationPath, { recursive: true, force: true, verbatimSymlinks: true });
 }
 
 function removePaths(rootDir, relativePaths) {
@@ -484,7 +485,7 @@ function stageStandaloneWebRuntime(targetRootDir) {
   }
 
   resetDir(targetDir);
-  cpSync(WEB_STANDALONE_APP_DIR, targetDir, { recursive: true, force: true });
+  cpSync(WEB_STANDALONE_APP_DIR, targetDir, { recursive: true, force: true, verbatimSymlinks: true });
   rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
   copyIfPresent(WEB_BUILD_STATIC_DIR, join(targetDir, '.next', 'static'));
   copyIfPresent(WEB_PUBLIC_DIR, join(targetDir, 'public'));
@@ -557,7 +558,7 @@ function materializeSharedDependency(stagePackagesDir, packageName) {
   }
 
   rmSync(sharedLinkPath, { recursive: true, force: true });
-  cpSync(join(stagePackagesDir, 'shared'), sharedLinkPath, { recursive: true, force: true });
+  cpSync(join(stagePackagesDir, 'shared'), sharedLinkPath, { recursive: true, force: true, verbatimSymlinks: true });
   pruneRuntimePackage(sharedLinkPath);
 }
 
@@ -575,7 +576,7 @@ function stageCurrentMacNode(runtimeRoot) {
   const nodeRoot = dirname(dirname(process.execPath));
   const targetDir = join(runtimeRoot, 'node');
   resetDir(targetDir);
-  cpSync(nodeRoot, targetDir, { recursive: true, force: true });
+  cpSync(nodeRoot, targetDir, { recursive: true, force: true, verbatimSymlinks: true });
   removePaths(targetDir, ['include', 'share']);
   return {
     version: process.version,
@@ -625,6 +626,38 @@ function verifyRuntimeLayout(runtimeRoot) {
     if (!existsSync(requiredPath)) {
       throw new Error(`Missing required runtime path: ${requiredPath}`);
     }
+  }
+}
+
+function verifyNoExternalSymlinks(appRoot) {
+  const allowedPrefixes = ['/Applications'];
+  const violations = [];
+
+  function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        const target = readlinkSync(fullPath);
+        if (isAbsolute(target) && !allowedPrefixes.some((p) => target.startsWith(p))) {
+          violations.push({ path: fullPath.slice(appRoot.length), target });
+        }
+      } else if (entry.isDirectory()) {
+        walk(fullPath);
+      }
+    }
+  }
+
+  walk(appRoot);
+
+  if (violations.length > 0) {
+    const sample = violations
+      .slice(0, 10)
+      .map((v) => `  ${v.path} -> ${v.target}`)
+      .join('\n');
+    const suffix = violations.length > 10 ? `\n  ... and ${violations.length - 10} more` : '';
+    throw new Error(
+      `Found ${violations.length} symlink(s) with absolute targets inside .app (build-machine paths leaked into bundle):\n${sample}${suffix}`,
+    );
   }
 }
 
@@ -681,6 +714,9 @@ function buildAppBundle(options) {
 
   logStep('Verifying runtime layout');
   verifyRuntimeLayout(runtimeRoot);
+
+  logStep('Verifying no external symlinks leaked into bundle');
+  verifyNoExternalSymlinks(appRoot);
 
   logStep(`macOS app scaffold ready at ${appRoot}`);
   return { appRoot, runtimeRoot };
