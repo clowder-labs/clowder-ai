@@ -14,6 +14,8 @@ class ReqMethod(Enum):
     CHAT_ANSWER = "chat.user_answer"
     HISTORY_GET = "history.get"
 
+    PERSONA_SET = "persona.set"
+
     CONFIG_GET = "config.get"
     CONFIG_SET = "config.set"
     CHANNEL_GET = "channel.get"

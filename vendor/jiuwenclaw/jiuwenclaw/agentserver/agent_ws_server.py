@@ -231,6 +231,9 @@ class AgentWebSocketServer:
         try:
             from jiuwenclaw.schema.message import ReqMethod
 
+            if request.req_method == ReqMethod.PERSONA_SET:
+                await self._handle_persona_set(ws, request, send_lock)
+                return
             if request.req_method == ReqMethod.HISTORY_GET:
                 if request.is_stream:
                     await self._handle_history_get_stream(ws, request, send_lock)
@@ -252,6 +255,72 @@ class AgentWebSocketServer:
                 channel_id=request.channel_id,
                 ok=False,
                 payload={"error": str(e)},
+            )
+            async with send_lock:
+                await ws.send(
+                    json.dumps(_response_to_payload(error_resp), ensure_ascii=False)
+                )
+
+    async def _handle_persona_set(self, ws: Any, request: AgentRequest, send_lock: asyncio.Lock) -> None:
+        """设置 AI 角色设定到 PERSONA.md，并重新加载 agent 配置."""
+        from jiuwenclaw.utils import get_agent_home_dir
+
+        params = request.params if isinstance(request.params, dict) else {}
+        prompt = params.get("prompt")
+
+        if not isinstance(prompt, str) or not prompt.strip():
+            error_resp = AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={"error": "prompt 必须是非空字符串"},
+            )
+            async with send_lock:
+                await ws.send(
+                    json.dumps(_response_to_payload(error_resp), ensure_ascii=False)
+                )
+            return
+
+        try:
+            # 写入 PERSONA.md
+            home_dir = get_agent_home_dir()
+            persona_file = home_dir / "PERSONA.md"
+            persona_file.parent.mkdir(parents=True, exist_ok=True)
+            persona_file.write_text(prompt.strip(), encoding="utf-8")
+
+            logger.info(
+                "[AgentWebSocketServer] PERSONA.md 已更新: %s",
+                persona_file,
+            )
+
+            # 重新加载 agent 配置
+            self._agent.reload_agent_config()
+
+            resp = AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=True,
+                payload={"message": "角色设定已更新"},
+            )
+            async with send_lock:
+                await ws.send(
+                    json.dumps(_response_to_payload(resp), ensure_ascii=False)
+                )
+            logger.info(
+                "[AgentWebSocketServer] persona.set 已处理: request_id=%s",
+                request.request_id,
+            )
+        except Exception as e:
+            logger.exception(
+                "[AgentWebSocketServer] persona.set 处理失败: request_id=%s: %s",
+                request.request_id,
+                e,
+            )
+            error_resp = AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={"error": f"设置失败: {e}"},
             )
             async with send_lock:
                 await ws.send(
