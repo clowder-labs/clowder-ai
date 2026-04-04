@@ -483,6 +483,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // 3. Sync discovered skills into capabilities.json
     const installedRegistry = await loadInstalledRegistry(dirname(CAT_CAFE_SKILLS_SRC));
     const remoteInstalledNames = new Set(installedRegistry.skills.map((s) => s.name));
+    const installedAtMap = new Map<string, string>();
+    for (const record of installedRegistry.skills) {
+      installedAtMap.set(record.name, record.installedAt);
+    }
     const allSkillNames = new Set<string>();
     for (const skills of Object.values(providerSkills)) {
       for (const s of skills) allSkillNames.add(s);
@@ -679,7 +683,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       if (meta?.description) skillItem.description = meta.description;
       if (meta?.triggers) skillItem.triggers = meta.triggers;
       const category = skillCategoryMap.get(cap.id);
-      skillItem.category = category ?? (remoteInstalledNames.has(cap.id) ? 'SkillHub' : '其他');
+      skillItem.category = category ?? (remoteInstalledNames.has(cap.id) ? 'Skill 扩展' : '其他');
+      if (installedAtMap.has(cap.id)) {
+        skillItem.installedAt = installedAtMap.get(cap.id);
+      }
       items.push(skillItem);
     }
 
@@ -777,6 +784,14 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       const registry = new GovernanceRegistry(catCafeRoot);
       governanceHealth = await registry.checkHealth(projectRoot);
     }
+
+    // Sort skills by installedAt descending (newest first), items without installedAt keep original order
+    items.sort((a, b) => {
+      if (a.type !== 'skill' || b.type !== 'skill') return 0;
+      const aTime = a.installedAt ? new Date(a.installedAt).getTime() : Infinity;
+      const bTime = b.installedAt ? new Date(b.installedAt).getTime() : Infinity;
+      return aTime - bTime;
+    });
 
     // 8. Build response with cat family + project metadata
     const response: CapabilityBoardResponse = {

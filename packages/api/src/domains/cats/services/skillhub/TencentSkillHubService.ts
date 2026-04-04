@@ -179,13 +179,28 @@ export async function trendingSkills(): Promise<SkillHubSearchResponse> {
   };
 }
 
-export async function listAllSkills(options?: { page?: number; limit?: number }): Promise<SkillHubSearchResponse> {
+export async function listAllSkills(options?: {
+  page?: number;
+  limit?: number;
+  category?: string;
+}): Promise<SkillHubSearchResponse> {
   const page = options?.page ?? 1;
   const limit = options?.limit ?? 24;
+  const category = options?.category;
+
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(limit),
+    sortBy: 'score',
+    order: 'desc',
+  });
+  if (category) {
+    params.set('category', category);
+  }
 
   const result = await tencentApiGet<{ skills: TencentSkill[]; total: number }>(
-    `/api/skills?page=${page}&pageSize=${limit}`,
-    `tencent:all:${page}:${limit}`,
+    `/api/skills?${params.toString()}`,
+    `tencent:all:${page}:${limit}:${category ?? 'all'}`,
   );
 
   return {
@@ -194,6 +209,18 @@ export async function listAllSkills(options?: { page?: number; limit?: number })
     page,
     hasMore: page * limit < (result.total ?? 0),
   };
+}
+
+export async function getSkillCategories(): Promise<string[]> {
+  return [
+    'ai-intelligence',
+    'developer-tools',
+    'productivity',
+    'content-creation',
+    'data-analysis',
+    'security-compliance',
+    'communication-collaboration',
+  ];
 }
 
 export async function resolveSkills(task: string, limit = 3): Promise<SkillHubResolveResponse> {
