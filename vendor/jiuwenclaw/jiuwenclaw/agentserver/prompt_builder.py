@@ -900,7 +900,12 @@ def build_system_prompt(mode: str, language: str, channel: str, workspace_dir: P
     """
     ws = Path(workspace_dir) if isinstance(workspace_dir, str) else workspace_dir
 
-    system_prompt = _start_prompt(language, workspace_dir=ws) + '\n'
+    # 检查 PERSONA.md，存在且非空时用它替换 _start_prompt 的输出
+    persona_content = _read_file(str(HOME_DIR / "PERSONA.md"))
+    if persona_content:
+        system_prompt = persona_content + '\n'
+    else:
+        system_prompt = _start_prompt(language, workspace_dir=ws) + '\n'
     # Inject current time so the model can reason about "now"
     system_prompt += _time_prompt(language) + '\n'
     system_prompt += _context_prompt(language) + '\n'
