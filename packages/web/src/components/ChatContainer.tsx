@@ -184,7 +184,7 @@ function ThreadModeChatContainer({
   // AC-6: research=multi hint from the Signal study button
   const isResearchMode = searchParams?.get('research') === 'multi';
   const { clearTasks } = useTaskStore();
-  const { getCatById } = useCatData();
+  const { cats, getCatById } = useCatData();
   const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
   usePreviewAutoOpen(workspaceWorktreeId);
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
@@ -633,7 +633,7 @@ function ThreadModeChatContainer({
             viewMode={viewMode}
             onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
             onOpenMobileStatus={() => setMobileStatusOpen(true)}
-            defaultCatId={targetCats[0] || 'jiuwenclaw'}
+            defaultCatId={targetCats[0] || cats[0]?.id || 'office'}
           />
         )}
 
