@@ -106,7 +106,9 @@ export function assembleContext(messages: StoredMessage[], options?: ContextAsse
   const maxTotalTokens = options?.maxTotalTokens ?? options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_TOKENS;
 
   // F117: exclude undelivered messages (queued/canceled) from prompt context
-  const deliveredMessages = messages.filter(isDelivered);
+  // Also exclude system-generated messages (userId='system') — these are display-only
+  // (e.g. persisted error badges) and must not re-enter the prompt as "铲屎官" messages.
+  const deliveredMessages = messages.filter((m) => isDelivered(m) && m.userId !== 'system');
 
   if (deliveredMessages.length === 0) {
     return { contextText: '', messageCount: 0, estimatedTokens: 0 };

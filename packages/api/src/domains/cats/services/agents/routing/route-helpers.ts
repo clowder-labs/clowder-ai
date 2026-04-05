@@ -3,7 +3,14 @@
  * Shared types, interfaces, and helper functions for route-serial and route-parallel.
  */
 
-import { CAT_CONFIGS, catRegistry, type CatId, type MessageContent, type RichBlock, type RichBlockBase } from '@cat-cafe/shared';
+import {
+  CAT_CONFIGS,
+  type CatId,
+  catRegistry,
+  type MessageContent,
+  type RichBlock,
+  type RichBlockBase,
+} from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
@@ -342,6 +349,10 @@ export async function assembleIncrementalContext(
   // Debug mode: cats see all whispers (full transparency). Play mode: cats only see their own whispers.
   const viewer = (thinkingMode ?? 'play') === 'play' ? { type: 'cat' as const, catId } : { type: 'user' as const };
   const relevant = unseen.filter((m) => {
+    // System-generated messages (persisted error badges) are display-only — never enter prompt
+    if (m.userId === 'system') return false;
+    // F148 Phase E: briefing messages are non-routing — never enter incremental context (AC-E2)
+    if (m.origin === 'briefing') return false;
     // F35: Exclude whispers not intended for this cat (play mode only)
     if (!canViewMessage(m, viewer)) return false;
     // Exclude own messages (only include user messages and other cats' messages)
@@ -466,3 +477,4 @@ export async function assembleIncrementalContext(
     degradation,
   };
 }
+

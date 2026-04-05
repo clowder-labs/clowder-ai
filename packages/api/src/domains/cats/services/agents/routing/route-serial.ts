@@ -348,7 +348,9 @@ export async function* routeSerial(
       let hadError = false;
       let sawUserFacingSystemInfo = false;
       // #267: track errors that happened BEFORE abort — only these are real provider failures
-      const hadProviderError = false;
+      let hadProviderError = false;
+      // Collect error text separately for system-message persistence (F5 reload)
+      let collectedErrorText = '';
       const collectedToolEvents: StoredToolEvent[] = [];
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
@@ -521,6 +523,11 @@ export async function* routeSerial(
 
         if (msg.type === 'error') {
           hadError = true;
+          // #267: errors before abort are real provider failures; errors after abort are cleanup
+          if (!signal?.aborted) hadProviderError = true;
+          if (msg.error) {
+            collectedErrorText += `${collectedErrorText ? '\n' : ''}${msg.error}`;
+          }
         }
         // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
         // state — mark hadError so we don't fall through to silent_completion.
@@ -992,9 +999,34 @@ export async function* routeSerial(
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
         }
+        // Update activity for error-only responses (no text/tools branch handles it)
+        if (deps.invocationDeps.threadStore) {
+          try {
+            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId, !hadProviderError);
+          } catch (activityErr) {
+            log.warn({ catId: catId as string, err: activityErr }, 'updateParticipantActivity failed');
+          }
+        }
       }
-      // hadError && textContent === '' && no toolEvents → skip persistence
-      // Error events were already yielded to frontend via the stream.
+
+      // Persist error as system message so it survives F5 reload.
+      // During streaming, errors render as red badges via ephemeral frontend state.
+      // Without persistence, they vanish on page refresh.
+      if (collectedErrorText) {
+        try {
+          await deps.messageStore.append({
+            userId: 'system',
+            catId: null,
+            content: `Error: ${collectedErrorText}`,
+            mentions: [],
+            origin: 'stream',
+            timestamp: Date.now(),
+            threadId,
+          });
+        } catch (err) {
+          log.error({ catId: catId as string, err }, 'messageStore.append (error system msg) failed');
+        }
+      }
 
       // Ack cursor regardless of hadError: messages were assembled into the prompt
       // and delivered to the cat. Not acking causes infinite re-delivery on subsequent

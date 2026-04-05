@@ -1287,9 +1287,12 @@ describe('routeSerial: CLI error without text should not persist empty message (
     const errorMsgs = messages.filter((m) => m.type === 'error');
     assert.ok(errorMsgs.length > 0, 'error message should be yielded to frontend');
 
-    // Error should no longer be persisted into assistant text content.
+    // Error-only response: no cat message, error persisted as system message
     const catAppends = appendCalls.filter((c) => c.catId === 'codex');
-    assert.equal(catAppends.length, 0, 'error-only responses should not persist raw error text as message content');
+    assert.equal(catAppends.length, 0, 'error-only should NOT persist as cat message');
+    const sysAppends = appendCalls.filter((c) => c.userId === 'system' && c.catId === null);
+    assert.equal(sysAppends.length, 1, 'error should be persisted as system message');
+    assert.ok(sysAppends[0].content.startsWith('Error:'), 'system error should start with Error: prefix');
 
     // Done should still be yielded
     const doneMsgs = messages.filter((m) => m.type === 'done');
@@ -1333,11 +1336,18 @@ describe('routeSerial: CLI error without text should not persist empty message (
     for await (const _ of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1')) {
     }
 
-    // Partial text should be preserved, but the raw error suffix should not be appended.
+    // Partial text persisted as cat message (clean, no [错误] contamination)
     const catAppends = appendCalls.filter((c) => c.catId === 'codex');
     assert.equal(catAppends.length, 1, 'partial response with text should still be persisted');
-    assert.ok(catAppends[0].content.startsWith('partial output before error'), 'should start with partial text');
-    assert.equal(catAppends[0].content, 'partial output before error');
+    assert.equal(
+      catAppends[0].content,
+      'partial output before error',
+      'cat content should be clean text without error suffix',
+    );
+    // Error persisted separately as system message
+    const sysAppends = appendCalls.filter((c) => c.userId === 'system' && c.catId === null);
+    assert.equal(sysAppends.length, 1, 'error should be persisted as separate system message');
+    assert.ok(sysAppends[0].content.includes('timeout'), 'system error should contain error text');
   });
 });
 
