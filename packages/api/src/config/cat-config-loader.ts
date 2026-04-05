@@ -272,6 +272,11 @@ function deepMergeConfig(base: Record<string, unknown>, overlay: Record<string, 
     const oVal = overlay[key];
     if (Array.isArray(oVal) && Array.isArray(bVal) && oVal.length > 0 && isIdArray(oVal) && isIdArray(bVal)) {
       merged[key] = mergeById(bVal as HasId[], oVal as HasId[]);
+    } else if (key === 'cli' && isPlainObject(oVal)) {
+      // CLI config is provider-specific. When the runtime catalog switches a cat
+      // from Claude ↔ Codex, preserving nested base fields like defaultArgs/effort
+      // revives the old provider's flags during default loads.
+      merged[key] = oVal;
     } else if (isPlainObject(oVal) && isPlainObject(bVal)) {
       merged[key] = deepMergeConfig(bVal as Record<string, unknown>, oVal as Record<string, unknown>);
     } else {
