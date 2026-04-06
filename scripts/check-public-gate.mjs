@@ -25,24 +25,21 @@ import { execSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
 
-// ─── 配置 ─────────────────────────────────────────────
+// ─── 配置（从外部 JSON 加载，可维护） ──────────────────
+
+const CONFIG_DIR = join(new URL('.', import.meta.url).pathname, 'public-gate');
+
+function loadJsonConfig(filename, fallback) {
+  const p = join(CONFIG_DIR, filename);
+  if (existsSync(p)) return JSON.parse(readFileSync(p, 'utf-8'));
+  return fallback;
+}
+
+const termsConfig = loadJsonConfig('terms.json', { terms: [] });
+const whitelistConfig = loadJsonConfig('soft-whitelist.json', { prefixes: [], nameContains: [], extensions: [] });
 
 /** 禁词词典（大小写不敏感） */
-const FORBIDDEN_TERMS = [
-  'OfficeClaw',
-  'officeclaw',
-  'Huawei',
-  'huawei',
-  'ModelArts',
-  'modelarts',
-  'lightmake\\.site',
-  'jiuwenclaw',
-  'maas-details',
-  'XiaoYi',
-  'xiaoyi',
-  'huawei_maas',
-  'HUAWEI_MAAS',
-];
+const FORBIDDEN_TERMS = termsConfig.terms;
 
 /** 组合成一个大正则（大小写不敏感） */
 const FORBIDDEN_REGEX = new RegExp(
@@ -54,7 +51,7 @@ const FORBIDDEN_REGEX = new RegExp(
 const HARD_GATE_EXTENSIONS = new Set([
   '.js', '.mjs', '.cjs',
   '.json',
-  '.ts', '.tsx',  // 仅用于 npm pack 产物中出现的类型声明
+  '.ts', '.tsx',
   '.css',
   '.html',
   '.svg',
@@ -66,26 +63,10 @@ const SOFT_GATE_EXTENSIONS = new Set([
 ]);
 
 /** Soft gate 白名单路径前缀（相对项目根） */
-const SOFT_GATE_WHITELIST_PREFIXES = [
-  'docs/',
-  'editions/',
-  'CLAUDE.md',
-  'AGENTS.md',
-  'GEMINI.md',
-  'BACKLOG.md',
-  '.claude/',
-  'node_modules/',
-  '.next/',
-  '.git/',
-  'dist/',
-  'clowder-ai-feature-list',
-];
+const SOFT_GATE_WHITELIST_PREFIXES = whitelistConfig.prefixes;
 
 /** Soft gate 白名单文件名模式 */
-const SOFT_GATE_WHITELIST_NAMES = [
-  'binary-core-product-line',
-  'check-public-gate',  // 本脚本自身
-];
+const SOFT_GATE_WHITELIST_NAMES = whitelistConfig.nameContains;
 
 /** 需要 npm pack 扫描的包目录 */
 const PACKAGES_TO_SCAN = [
@@ -106,8 +87,8 @@ function isWhitelisted(relPath) {
   for (const name of SOFT_GATE_WHITELIST_NAMES) {
     if (relPath.includes(name)) return true;
   }
-  // .md 文件在 soft gate 中豁免（文档合法引用）
-  if (extname(relPath) === '.md') return true;
+  // 白名单扩展名豁免（如 .md 文档合法引用）
+  if (whitelistConfig.extensions.includes(extname(relPath))) return true;
   return false;
 }
 

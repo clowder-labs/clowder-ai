@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Forbidden terms for Binary Core public artifact gate. Hard gate blocks releases, soft gate warns.",
+  "terms": [
+    "OfficeClaw",
+    "officeclaw",
+    "Huawei",
+    "huawei",
+    "ModelArts",
+    "modelarts",
+    "lightmake\\.site",
+    "jiuwenclaw",
+    "maas-details",
+    "XiaoYi",
+    "xiaoyi",
+    "huawei_maas",
+    "HUAWEI_MAAS"
+  ]
+}

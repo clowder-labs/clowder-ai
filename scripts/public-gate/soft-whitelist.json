@@ -1,0 +1,23 @@
+{
+  "description": "Paths excluded from soft gate scanning. Hard gate (npm pack output) is never whitelisted.",
+  "prefixes": [
+    "docs/",
+    "editions/",
+    ".claude/",
+    "node_modules/",
+    ".next/",
+    "dist/",
+    ".git/"
+  ],
+  "nameContains": [
+    "binary-core-product-line",
+    "check-public-gate",
+    "phase0-baseline-scan",
+    "phase0-sqlite-schema-audit",
+    "phase0-phase1-execution-pack",
+    "public-gate/terms"
+  ],
+  "extensions": [
+    ".md"
+  ]
+}
