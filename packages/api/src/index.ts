@@ -100,6 +100,7 @@ import {
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { loadEdition } from './edition/edition-loader.js';
+import { identityPlugin } from './identity/identity-plugin.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
@@ -276,6 +277,10 @@ async function main(): Promise<void> {
     },
   });
   app.log.info(`[api] Edition: ${editionConfig.edition} v${editionConfig.version}`);
+
+  // Identity resolution — decorates requests with resolvedIdentity
+  await app.register(identityPlugin, { config: editionConfig.identity });
+  app.log.info(`[api] Identity mode: ${editionConfig.identity.mode}`);
 
   // F102 KD-34: append listener placeholder (wired after memoryServices init)
   let appendListener: ((msg: { id: string; threadId: string; timestamp: number; content: string }) => void) | null =

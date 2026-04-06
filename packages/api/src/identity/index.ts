@@ -16,3 +16,6 @@ export type {
   ResolvedIdentity,
   TrustedHeaderConfig,
 } from './identity-resolver.js';
+
+export { identityPlugin } from './identity-plugin.js';
+export type { IdentityPluginOptions } from './identity-plugin.js';
