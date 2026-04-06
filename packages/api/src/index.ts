@@ -99,6 +99,7 @@ import {
   stopGithubCiPoller,
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
+import { loadEdition } from './edition/edition-loader.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
@@ -114,6 +115,8 @@ import {
   capabilitiesRoutes,
   catsRoutes,
   claudeRescueRoutes,
+  editionApiRoutes,
+  healthRoutes,
   commandsRoutes,
   configRoutes,
   connectorHubRoutes,
@@ -261,6 +264,18 @@ async function main(): Promise<void> {
   }
   const storageResult = assertStorageReady(!!redis);
   app.log.info(`[api] Storage mode: ${storageResult.mode}`);
+
+  // Edition bootstrap — load edition.json (or DEFAULT_EDITION for community mode)
+  const projectRoot = findMonorepoRoot();
+  const editionConfig = await loadEdition({
+    projectRoot,
+    logger: {
+      info: (msg) => app.log.info(`[edition] ${msg}`),
+      warn: (msg) => app.log.warn(`[edition] ${msg}`),
+      fatal: (msg) => app.log.error(`[edition] ${msg}`),
+    },
+  });
+  app.log.info(`[api] Edition: ${editionConfig.edition} v${editionConfig.version}`);
 
   // F102 KD-34: append listener placeholder (wired after memoryServices init)
   let appendListener: ((msg: { id: string; threadId: string; timestamp: number; content: string }) => void) | null =
@@ -1023,6 +1038,11 @@ async function main(): Promise<void> {
   await app.register(versionRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);
+
+  // Binary Core: Health probes + Edition API surface
+  await app.register(healthRoutes, { redis });
+  await app.register(editionApiRoutes, { editionConfig });
+
   await app.register(workspaceRoutes, {
     socketEmit: (event, data, room) => {
       socketManager?.broadcastToRoom(room, event, data);

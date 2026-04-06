@@ -13,8 +13,8 @@
  * [宪宪/Opus-46🐾] Phase 1 — Identity Boundary
  */
 
-import type { FastifyRequest } from 'fastify';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { FastifyRequest } from 'fastify';
 
 // ─── Types ────────────────────────────────────────────
 
@@ -76,9 +76,7 @@ export interface IdentityError {
   statusCode: 401 | 403;
 }
 
-export type IdentityResult =
-  | { ok: true; identity: ResolvedIdentity }
-  | { ok: false; error: IdentityError };
+export type IdentityResult = { ok: true; identity: ResolvedIdentity } | { ok: false; error: IdentityError };
 
 // ─── Nonce store interface (Redis-backed in production) ──
 
@@ -177,61 +175,33 @@ export class IdentityResolver {
     const nonce = stringHeader(request, nonceHeader);
 
     if (!signature || !timestamp || !nonce) {
-      return {
-        ok: false,
-        error: {
-          code: 'INVALID_SIGNATURE',
-          message: `Signed headers required: ${sigHeader}, ${tsHeader}, ${nonceHeader}`,
-          statusCode: 403,
-        },
-      };
+      return sigError(`Signed headers required: ${sigHeader}, ${tsHeader}, ${nonceHeader}`);
     }
 
     // Clock skew check
     const ts = Number.parseInt(timestamp, 10);
     if (Number.isNaN(ts) || Math.abs(Math.floor(Date.now() / 1000) - ts) > maxSkew) {
-      return {
-        ok: false,
-        error: { code: 'INVALID_SIGNATURE', message: 'Timestamp out of range', statusCode: 403 },
-      };
+      return sigError('Timestamp out of range');
     }
 
     // HMAC verification
     const secret = process.env[secretEnv];
-    if (!secret) {
-      return {
-        ok: false,
-        error: { code: 'INVALID_SIGNATURE', message: `Shared secret env ${secretEnv} not set`, statusCode: 403 },
-      };
-    }
+    if (!secret) return sigError(`Shared secret env ${secretEnv} not set`);
 
-    const expected = createHmac('sha256', secret)
-      .update(`${userId}.${timestamp}.${nonce}`)
-      .digest('hex');
-
+    const expected = createHmac('sha256', secret).update(`${userId}.${timestamp}.${nonce}`).digest('hex');
     if (!timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'))) {
-      return {
-        ok: false,
-        error: { code: 'INVALID_SIGNATURE', message: 'HMAC signature mismatch', statusCode: 403 },
-      };
+      return sigError('HMAC signature mismatch');
     }
 
     // Nonce replay check
     if (this.nonceStore) {
       const isReplay = await this.nonceStore.checkAndMark(nonce, maxSkew * 2);
       if (isReplay) {
-        return {
-          ok: false,
-          error: { code: 'REPLAY_DETECTED', message: 'Nonce already used', statusCode: 403 },
-        };
+        return { ok: false, error: { code: 'REPLAY_DETECTED', message: 'Nonce already used', statusCode: 403 } };
       }
     }
 
-    // Pass — signature is valid
-    return {
-      ok: true,
-      identity: { userId, mode: 'trusted-header', source: 'trusted-header' },
-    };
+    return { ok: true, identity: { userId, mode: 'trusted-header', source: 'trusted-header' } };
   }
 
   private async resolveJwt(_request: FastifyRequest): Promise<IdentityResult> {
@@ -251,4 +221,8 @@ function stringHeader(request: FastifyRequest, name: string): string | null {
   if (typeof val !== 'string') return null;
   const trimmed = val.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function sigError(message: string): IdentityResult {
+  return { ok: false, error: { code: 'INVALID_SIGNATURE', message, statusCode: 403 } };
 }
