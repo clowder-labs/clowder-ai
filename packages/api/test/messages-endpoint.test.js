@@ -69,6 +69,50 @@ describe('GET /api/messages', () => {
     assert.equal(body.messages[1].content, 'hi there');
   });
 
+  it('maps canonical system messages to type=system', async () => {
+    messageStore.append({
+      userId: 'system',
+      catId: 'system',
+      content: '🐺 狼人请睁眼',
+      mentions: [],
+      timestamp: 1000,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].type, 'system');
+    assert.equal(body.messages[0].catId, 'system');
+  });
+
+  it('returns persisted system error messages with catId=null as type=system', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'ping gemini',
+      mentions: ['gemini'],
+      timestamp: 1000,
+      threadId: 'thread-1',
+    });
+    messageStore.append({
+      userId: 'system',
+      catId: null,
+      content: 'Error: stream_idle_stall: Gemini stopped responding',
+      mentions: [],
+      timestamp: 2000,
+      threadId: 'thread-1',
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages?threadId=thread-1' });
+    const body = JSON.parse(res.body);
+
+    assert.equal(body.messages.length, 2);
+    assert.equal(body.messages[1].type, 'system');
+    assert.equal(body.messages[1].catId, null);
+    assert.match(body.messages[1].content, /^Error: stream_idle_stall/);
+  });
+
   it('respects limit parameter', async () => {
     for (let i = 0; i < 10; i++) {
       messageStore.append({
