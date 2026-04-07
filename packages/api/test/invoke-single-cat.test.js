@@ -2419,14 +2419,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
-    assert.ok(
-      promptsSeen[0].includes('retry once with a likely exact skill name'),
-      'ACP hint should mention retry guidance',
-    );
-    assert.ok(
-      promptsSeen[0].includes('cat_cafe_load_skill immediately'),
-      'ACP hint should mention immediate skill loading',
-    );
+    assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
+    assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
     assert.ok(
       promptsSeen[0].includes('before cat_cafe_search_evidence, repo grep, or read'),
       'ACP hint should prioritize skills ahead of other retrieval tools',
@@ -3308,7 +3302,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         callbackEnv.OPENAI_DEFAULT_HEADERS,
         JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
       );
-      assert.equal(callbackEnv.default_headers, JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }));
+      assert.equal(
+        callbackEnv.default_headers,
+        JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
+      );
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;

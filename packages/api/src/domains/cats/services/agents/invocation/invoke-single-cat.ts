@@ -637,7 +637,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ? await findProjectModelConfigBinding(configProjectRoot, rawBoundAccountRef)
         : null;
     const boundAccountRef = embeddedAcpRuntime
-      ? (embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id)
+      ? embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id
       : rawBoundAccountRef;
     const modelConfigBinding = embeddedAcpRuntime
       ? embeddedModelConfigBinding
@@ -652,9 +652,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         throw new Error(`unsupported model config source "${modelConfigBinding.id}"`);
       }
       if (!embeddedAcpRuntime && provider !== 'dare' && provider !== 'relayclaw') {
-        throw new Error(
-          `client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`,
-        );
+        throw new Error(`client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`);
       }
       if (defaultModel && modelConfigBinding.models.length && !modelConfigBinding.models.includes(defaultModel)) {
         throw new Error(`model "${defaultModel}" is not available on provider "${modelConfigBinding.id}"`);
@@ -730,7 +728,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const effectiveProtocol =
       resolvedAccount?.kind !== 'builtin' && resolvedAccount?.protocol
         ? resolvedAccount.protocol
-        : (modelConfigBinding?.protocol ?? (provider ? (defaultProtocolForProvider[provider] ?? null) : null));
+        : modelConfigBinding?.protocol ??
+          (provider ? (defaultProtocolForProvider[provider] ?? null) : null);
 
     // Pass protocol hint to CLI via callbackEnv (used by OpenCode/Claude for model prefix)
     if (effectiveProtocol) {
@@ -944,9 +943,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Prepend staticIdentity to prompt when injection is needed
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
-    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter(
-      (part) => typeof part === 'string' && part.trim(),
-    );
+    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter((part) => typeof part === 'string' && part.trim());
     const promptWithMission = promptParts.join('\n\n');
     const effectivePrompt =
       injectSystemPrompt && params.systemPrompt
