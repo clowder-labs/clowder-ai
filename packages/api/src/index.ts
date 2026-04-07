@@ -108,7 +108,6 @@ import { gameRoutes } from './routes/games.js';
 import {
   auditRoutes,
   authorizationRoutes,
-  authRoutes,
   availableClientsRoutes,
   backlogRoutes,
   bootcampRoutes,
@@ -1046,7 +1045,11 @@ async function main(): Promise<void> {
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
-  await app.register(authRoutes);
+  // Auth routes are Edition-specific — only load when identity mode ≠ 'no-auth'
+  if (editionConfig.identity.mode !== 'no-auth') {
+    const { authRoutes } = await import('./routes/auth.js');
+    await app.register(authRoutes);
+  }
   await app.register(versionRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);
