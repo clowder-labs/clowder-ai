@@ -32,6 +32,13 @@ async function flushEffects() {
   });
 }
 
+async function advanceTimers(ms: number) {
+  await act(async () => {
+    vi.advanceTimersByTime(ms);
+    await Promise.resolve();
+  });
+}
+
 async function changeInputValue(input: HTMLInputElement, value: string) {
   await act(async () => {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
@@ -64,6 +71,7 @@ describe('business theme secondary surfaces', () => {
   });
 
   beforeEach(() => {
+    vi.useFakeTimers();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -153,6 +161,8 @@ describe('business theme secondary surfaces', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
     mockApiFetch.mockReset();
   });
 
@@ -202,7 +212,6 @@ describe('business theme secondary surfaces', () => {
       root.render(React.createElement(HubSkillsTab));
     });
     await flushEffects();
-    await new Promise((resolve) => setTimeout(resolve, 100));
     await flushEffects();
     await flushEffects();
 
@@ -249,7 +258,7 @@ describe('business theme secondary surfaces', () => {
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('search helper');
   });
 
-  it('filters in-memory skill list and does not call search endpoint', async () => {
+  it('debounces input changes and uses remote plaza search', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
     });
@@ -260,28 +269,8 @@ describe('business theme secondary surfaces', () => {
 
     await changeInputValue(searchInput!, 'alpha');
     await flushEffects();
+    expect(mockApiFetch.mock.calls.some(([input]) => String(input).startsWith('/api/skills/search'))).toBe(false);
 
-    expect(container.textContent).toContain('alpha-helper');
-    expect(container.textContent).not.toContain('skill-1');
-
-    const calledSearchEndpoint = mockApiFetch.mock.calls.some(([input]) =>
-      String(input).startsWith('/api/skills/search'),
-    );
-    expect(calledSearchEndpoint).toBe(false);
-  });
-
-  it('uses the remote plaza search endpoint when pressing Enter in the search box', async () => {
-    await act(async () => {
-      root.render(React.createElement(HubSkillsTab));
-    });
-    await flushEffects();
-
-    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
-    expect(searchInput).not.toBeNull();
-
-    await changeInputValue(searchInput!, 'alpha');
-
-    mockApiFetch.mockClear();
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/skills/categories') {
@@ -324,15 +313,172 @@ describe('business theme secondary surfaces', () => {
       return Promise.resolve(jsonResponse({}));
     });
 
-    await act(async () => {
-      searchInput?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      await Promise.resolve();
-    });
+    await advanceTimers(300);
     await flushEffects();
     await flushEffects();
 
     expect(container.textContent).toContain('alpha-helper');
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?q=alpha&page=1&limit=24');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=1&limit=24&q=alpha', { signal: expect.any(AbortSignal) });
+  });
+
+  it('loads more search results using the search endpoint pagination', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'alpha');
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url.startsWith('/api/skills/all')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [],
+            total: 0,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/search?page=1&limit=24&q=alpha') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'alpha-1',
+                slug: 'alpha-1',
+                name: 'alpha-1',
+                description: 'alpha page 1',
+                tags: ['ai-intelligence'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 2,
+            page: 1,
+            hasMore: true,
+          }),
+        );
+      }
+      if (url === '/api/skills/search?page=2&limit=24&q=alpha') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'alpha-2',
+                slug: 'alpha-2',
+                name: 'alpha-2',
+                description: 'alpha page 2',
+                tags: ['ai-intelligence'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 2,
+            page: 2,
+            hasMore: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await advanceTimers(300);
+    await flushEffects();
+
+    const loadMoreButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('加载更多'),
+    );
+    expect(loadMoreButton).not.toBeUndefined();
+
+    await act(async () => {
+      loadMoreButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('alpha-1');
+    expect(container.textContent).toContain('alpha-2');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=2&limit=24&q=alpha', {
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  it('clearing the search box falls back to browse results after debounce', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url === '/api/skills/all?page=1&limit=24') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-1',
+                slug: 'skill-1',
+                name: 'skill-1',
+                description: 'search helper',
+                tags: ['developer-tools'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/search?page=1&limit=24&q=alpha') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'alpha-1',
+                slug: 'alpha-1',
+                name: 'alpha-1',
+                description: 'alpha page 1',
+                tags: ['ai-intelligence'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await changeInputValue(searchInput!, 'alpha');
+    await advanceTimers(300);
+    await flushEffects();
+    expect(container.textContent).toContain('alpha-1');
+
+    await changeInputValue(searchInput!, '');
+    await advanceTimers(300);
+    await flushEffects();
+
+    expect(container.textContent).toContain('skill-1');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/all?page=1&limit=24', { signal: expect.any(AbortSignal) });
   });
 
   it('uses the active category name as the plaza title', async () => {
