@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
 import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
-import { apiFetch } from '@/utils/api-client';
+import { API_URL, apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
@@ -25,7 +25,7 @@ import {
   ModelSelectValueDraft,
 } from './ModelSelectDropdownDraft';
 
-interface CreateAgentModalDraftProps {
+interface CreateAgentModalProps {
   open: boolean;
   cat?: CatData | null;
   name?: string;
@@ -35,7 +35,7 @@ interface CreateAgentModalDraftProps {
   draft?: HubCatEditorDraft | null;
   title?: string;
   onClose?: () => void;
-  onSaved?: () => Promise<void> | void;
+  onSaved?: (savedCatId?: string) => Promise<void> | void;
 }
 
 type ModelGroupId = 'huawei-maas' | 'third-party';
@@ -76,7 +76,8 @@ interface ModelMenuPosition {
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_GROUP_LABEL = 'Huawei MaaS';
+const HUAWEI_GROUP_LABEL = '华为云MaaS';
+const HUAWEI_PROVIDER_LABEL = 'Huawei MaaS';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
 const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
@@ -227,7 +228,7 @@ function parseAccountRefFromModelItem(item: MaaSModelResponseItem): string | nul
   if (typeof item.accountRef === 'string' && item.accountRef.trim().length > 0) {
     return item.accountRef.trim();
   }
-  if (item.provider === HUAWEI_GROUP_LABEL) return 'huawei-maas';
+  if (item.provider === HUAWEI_PROVIDER_LABEL) return 'huawei-maas';
   const rawId = typeof item.id === 'string' ? item.id.trim() : '';
   if (!rawId) return null;
   if (rawId.startsWith('model_config:')) {
@@ -254,7 +255,7 @@ function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
 
   const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
   const protocol = pickStringField(normalized, ['protocol']);
-  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_GROUP_LABEL;
+  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_PROVIDER_LABEL;
   const groupId: ModelGroupId = isHuawei ? 'huawei-maas' : 'third-party';
   const rawId =
     typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;
@@ -371,7 +372,7 @@ function buildEditForm(
   };
 }
 
-export function CreateAgentModalDraft({
+export function CreateAgentModal({
   open,
   cat = null,
   name = 'BOT',
@@ -381,7 +382,7 @@ export function CreateAgentModalDraft({
   title,
   onClose,
   onSaved,
-}: CreateAgentModalDraftProps) {
+}: CreateAgentModalProps) {
   const [isSkipAuth, setIsSkipAuth] = useState(false);
   const { clients: detectedClients, clientLabels } = useAvailableClients();
   const [draftName, setDraftName] = useState(name);
@@ -649,7 +650,10 @@ export function CreateAgentModalDraft({
   const modalTitle = title ?? (cat ? '编辑智能体' : '创建智能体');
   const primaryButtonText = saving ? (cat ? '保存中...' : '创建中...') : cat ? '保存' : '确定';
   // 优先使用 draftAvatar，如果为空则使用生成的默认头像（用于显示名称首字母）
-  const displayAvatar = draftAvatar || buildGeneratedAvatarDataUrl(draftName);
+  const displayAvatar =
+    draftAvatar && draftAvatar.startsWith('/uploads/')
+      ? `${API_URL}${draftAvatar}`
+      : draftAvatar || buildGeneratedAvatarDataUrl(draftName);
 
   if (!open) return null;
 
@@ -700,7 +704,10 @@ export function CreateAgentModalDraft({
         return;
       }
 
-      await onSaved?.();
+      const body = (await response.json().catch(() => ({}))) as {
+        cat?: { id?: string };
+      };
+      await onSaved?.(body.cat?.id);
       onClose?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : cat ? '保存失败' : '创建失败');

@@ -134,6 +134,73 @@ async function getAllowedLocalPresentationRoots(projectPath?: string): Promise<s
   return [...new Set(roots)];
 }
 
+function toTrimmedText(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (value instanceof Uint8Array) return Buffer.from(value).toString('utf8').trim();
+  return '';
+}
+
+function summarizeOpenError(err: unknown): string | undefined {
+  if (!err) return undefined;
+  const e = err as NodeJS.ErrnoException & { stdout?: unknown; stderr?: unknown };
+  const parts: string[] = [];
+  if (e instanceof Error && e.message.trim()) parts.push(e.message.trim());
+  const stderr = toTrimmedText(e.stderr);
+  const stdout = toTrimmedText(e.stdout);
+  if (stderr) parts.push(stderr);
+  if (stdout) parts.push(stdout);
+  const merged = parts.join(' | ').replace(/\s+/g, ' ').trim();
+  return merged ? merged.slice(0, 500) : undefined;
+}
+
+async function openInDefaultApp(resolvedPath: string): Promise<void> {
+  if (process.platform === 'darwin') {
+    await execFileAsync('open', [resolvedPath], { timeout: 5000 });
+    return;
+  }
+  if (process.platform === 'win32') {
+    const errors: string[] = [];
+    const opts = { timeout: 5000, windowsHide: true };
+
+    try {
+      const escaped = resolvedPath.replaceAll("'", "''");
+      await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', `Start-Process -FilePath '${escaped}'`],
+        opts,
+      );
+      return;
+    } catch (e) {
+      errors.push(`powershell: ${summarizeOpenError(e) ?? 'unknown error'}`);
+    }
+
+    try {
+      await execFileAsync('explorer.exe', [resolvedPath], opts);
+      return;
+    } catch (e) {
+      errors.push(`explorer: ${summarizeOpenError(e) ?? 'unknown error'}`);
+    }
+
+    try {
+      await execFileAsync('rundll32.exe', ['url.dll,FileProtocolHandler', resolvedPath], opts);
+      return;
+    } catch (e) {
+      errors.push(`rundll32: ${summarizeOpenError(e) ?? 'unknown error'}`);
+    }
+
+    try {
+      const quotedPath = `"${resolvedPath}"`;
+      await execFileAsync('cmd.exe', ['/d', '/s', '/c', 'start', '""', quotedPath], opts);
+      return;
+    } catch (e) {
+      errors.push(`cmd: ${summarizeOpenError(e) ?? 'unknown error'}`);
+    }
+
+    throw new Error(`All Windows open methods failed: ${errors.join(' | ')}`);
+  }
+  await execFileAsync('xdg-open', [resolvedPath], { timeout: 5000 });
+}
+
 interface TreeNode {
   name: string;
   path: string;
@@ -748,19 +815,11 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       reply.status(400);
       return { error: 'worktreeId and path required' };
     }
+    let resolved: string;
     try {
       const root = await getWorktreeRoot(worktreeId);
-      const resolved = await resolveWorkspacePath(root, filePath);
+      resolved = await resolveWorkspacePath(root, filePath);
       await stat(resolved);
-
-      if (process.platform === 'darwin') {
-        await execFileAsync('open', [resolved], { timeout: 5000 });
-      } else if (process.platform === 'win32') {
-        await execFileAsync('cmd', ['/c', 'start', '', resolved], { timeout: 5000 });
-      } else {
-        await execFileAsync('xdg-open', [resolved], { timeout: 5000 });
-      }
-      return { ok: true };
     } catch (e) {
       if (e instanceof WorkspaceSecurityError) {
         reply.status(e.code === 'NOT_FOUND' ? 404 : 403);
@@ -772,6 +831,14 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       }
       reply.status(500);
       return { error: 'Failed to open file' };
+    }
+
+    try {
+      await openInDefaultApp(resolved);
+      return { ok: true };
+    } catch (e) {
+      reply.status(500);
+      return { error: 'Failed to open file', details: summarizeOpenError(e) };
     }
   });
 
@@ -807,15 +874,6 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
         reply.status(400);
         return { error: 'path must point to a file' };
       }
-
-      if (process.platform === 'darwin') {
-        await execFileAsync('open', [resolved], { timeout: 5000 });
-      } else if (process.platform === 'win32') {
-        await execFileAsync('cmd', ['/c', 'start', '', resolved], { timeout: 5000 });
-      } else {
-        await execFileAsync('xdg-open', [resolved], { timeout: 5000 });
-      }
-      return { ok: true };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
         reply.status(404);
@@ -823,6 +881,14 @@ export const workspaceRoutes: FastifyPluginAsync<WorkspaceRouteOpts> = async (ap
       }
       reply.status(500);
       return { error: 'Failed to open local file' };
+    }
+
+    try {
+      await openInDefaultApp(resolved);
+      return { ok: true };
+    } catch (e) {
+      reply.status(500);
+      return { error: 'Failed to open local file', details: summarizeOpenError(e) };
     }
   });
 

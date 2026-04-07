@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { type ReactNode } from 'react';
+import { InfoTooltip } from './InfoTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 export interface CapabilityBoardItem {
@@ -15,6 +16,7 @@ export interface CapabilityBoardItem {
   mounts?: Record<string, boolean>;
   tools?: { name: string; description?: string }[];
   connectionStatus?: 'connected' | 'disconnected' | 'unknown';
+  installedAt?: string;
 }
 
 export interface CatFamily {
@@ -159,13 +161,13 @@ export function CapabilitySection({
           ))}
         </div>
       ) : (
-        emptyState ?? null
+        (emptyState ?? null)
       )}
     </div>
   );
 }
 
-function CapabilityCard({
+export function CapabilityCard({
   item,
   catFamilies: _catFamilies,
   toggling,
@@ -187,7 +189,7 @@ function CapabilityCard({
 
   return (
     <div
-      className="ui-card group flex min-h-[194px] flex-col gap-4 p-5"
+      className="ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5"
       data-testid={`capability-card-${item.type}-${item.id}`}
     >
       <div className="flex items-start gap-3">
@@ -203,12 +205,9 @@ function CapabilityCard({
         </div>
       </div>
 
-      <p
-        className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]"
-        title={resolvedDescription}
-      >
-        {resolvedDescription}
-      </p>
+      <InfoTooltip content={resolvedDescription} className="w-full">
+        <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">{resolvedDescription}</p>
+      </InfoTooltip>
 
       <div className="mt-auto flex items-end justify-between gap-3">
         <div className="min-h-5 text-xs leading-5">
@@ -225,7 +224,7 @@ function CapabilityCard({
                 }}
                 className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
               >
-                删除
+                卸载
               </button>
             </div>
           ) : (

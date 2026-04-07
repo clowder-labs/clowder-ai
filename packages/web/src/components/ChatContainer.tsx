@@ -27,7 +27,7 @@ import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId, setIsSkipAuth } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
-import { AgentsPanelCopy } from './AgentsPanelCopy';
+import { AgentsPanel } from './AgentsPanel';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -184,7 +184,11 @@ function ThreadModeChatContainer({
   // AC-6: research=multi hint from the Signal study button
   const isResearchMode = searchParams?.get('research') === 'multi';
   const { clearTasks } = useTaskStore();
-  const { getCatById } = useCatData();
+  const { cats, getCatById } = useCatData();
+  const firstAvailableCatId = useMemo(() => {
+    const firstAvailable = cats.find((cat) => cat.roster?.available !== false);
+    return firstAvailable?.id ?? cats[0]?.id ?? '';
+  }, [cats]);
   const workspaceWorktreeId = useChatStore((s) => s.workspaceWorktreeId);
   usePreviewAutoOpen(workspaceWorktreeId);
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
@@ -445,7 +449,7 @@ function ThreadModeChatContainer({
 
   const pendingIntentRecognitionCatId = useMemo(() => {
     const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || lastMessage.type !== 'user' || lastMessage.catId) return 'jiuwenclaw';
+    if (!lastMessage || lastMessage.type !== 'user' || lastMessage.catId) return firstAvailableCatId;
 
     const mentionMatches = Array.from(lastMessage.content.matchAll(getMentionRe()))
       .map((match) => getMentionToCat()[match[1]?.toLowerCase() ?? ''])
@@ -453,8 +457,8 @@ function ThreadModeChatContainer({
 
     if (mentionMatches.length > 0) return mentionMatches[0];
     if (targetCats.length > 0) return targetCats[0];
-    return 'jiuwenclaw';
-  }, [messages, targetCats]);
+    return firstAvailableCatId;
+  }, [firstAvailableCatId, messages, targetCats]);
 
   useEffect(() => {
     if (!stoppedIntentRecognition) return;
@@ -633,7 +637,7 @@ function ThreadModeChatContainer({
             viewMode={viewMode}
             onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
             onOpenMobileStatus={() => setMobileStatusOpen(true)}
-            defaultCatId={targetCats[0] || 'jiuwenclaw'}
+            defaultCatId={targetCats[0] || firstAvailableCatId}
           />
         )}
 
@@ -644,7 +648,7 @@ function ThreadModeChatContainer({
           {sidebarMenu !== 'chat' && (
             <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
-              {sidebarMenu === 'agents' && <AgentsPanelCopy />}
+              {sidebarMenu === 'agents' && <AgentsPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
               {sidebarMenu === 'skills' && <SkillsPanel />}
             </div>

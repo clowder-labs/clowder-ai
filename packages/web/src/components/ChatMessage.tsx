@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { CatData } from '@/hooks/useCatData';
+import { getCachedCats, type CatData } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { useTts } from '@/hooks/useTts';
 import { hexToRgba, tintedLight } from '@/lib/color-utils';
@@ -101,10 +101,20 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const thinkingLabel = cliStatus === 'done' ? '完成深度思考' : '深度思考中';
 
   if (message.variant === 'intent_recognition') {
+    const fallbackCatId =
+      getCachedCats().find((cat) => cat.roster?.available !== false)?.id ?? getCachedCats()[0]?.id ?? '';
+    const resolvedCatId = message.catId ?? fallbackCatId;
+    const resolvedCatData = message.catId ? catData : resolvedCatId ? getCatById(resolvedCatId) : undefined;
     return (
       <IntentRecognitionPlaceholder
-        catId={message.catId ?? 'jiuwenclaw'}
-        label={catStyle?.label ?? catData?.displayName ?? message.catId ?? '主智能体'}
+        catId={resolvedCatId}
+        label={
+          (message.catId ? catStyle?.label : undefined) ??
+          resolvedCatData?.displayName ??
+          message.catId ??
+          resolvedCatId ??
+          '主智能体'
+        }
         timestamp={message.timestamp}
         status={message.content === 'stopped' ? 'stopped' : 'pending'}
       />
