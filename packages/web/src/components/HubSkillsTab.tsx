@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
 import { CenteredLoadingState } from './CenteredLoadingState';
@@ -30,7 +31,6 @@ type ViewMode = 'browse' | 'search';
 
 const GENERAL_CATEGORY = '通用技能';
 const INSTALLING_LABEL = '安装中...';
-const INSTALL_FAILED_LABEL = '安装失败';
 const INSTALL_LABEL = '安装';
 const NO_RESULTS_LABEL = '未找到匹配的技能';
 const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
@@ -40,6 +40,8 @@ const SEARCH_ARIA_LABEL = '搜索技能';
 const ALL_CATEGORY = '全部';
 const PAGE_SIZE = 24;
 const SEARCH_DEBOUNCE_MS = 300;
+const INSTALL_SUCCESS_TITLE = '安装成功';
+const INSTALL_FAILURE_TITLE = '安装失败';
 
 const CATEGORY_MAP: Record<string, string> = {
   'ai-intelligence': 'AI 智能',
@@ -178,6 +180,7 @@ function SkillList({
 }
 
 export function HubSkillsTab() {
+  const addToast = useToastStore((s) => s.addToast);
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -186,7 +189,6 @@ export function HubSkillsTab() {
   const [viewMode, setViewMode] = useState<ViewMode>('browse');
   const [installStatus, setInstallStatus] = useState<Map<string, InstallStatus>>(new Map());
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [displayCategory, setDisplayCategory] = useState(ALL_CATEGORY);
   const [categories, setCategories] = useState<string[]>([]);
@@ -340,11 +342,6 @@ export function HubSkillsTab() {
     setResults((prev) => markInstalled(prev));
   }, []);
 
-  const showToast = useCallback((message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  }, []);
-
   useEffect(() => {
     const timers = statusTimers.current;
     return () => {
@@ -395,20 +392,34 @@ export function HubSkillsTab() {
         if (res.ok) {
           clearInstallStatus(skill);
           markSkillInstalled(skill);
-          showToast(`"${skill}" 安装成功`, 'success');
+          addToast({
+            type: 'success',
+            title: INSTALL_SUCCESS_TITLE,
+            message: `"${skill}" 安装成功`,
+            duration: 4000,
+          });
         } else {
           const payload = (await res.json().catch(() => ({}))) as { error?: string };
           const detail = payload.error ?? `HTTP ${res.status}`;
-          const message = `${INSTALL_FAILED_LABEL}：${detail}`;
           clearInstallStatus(skill);
-          showToast(message, 'error');
+          addToast({
+            type: 'error',
+            title: INSTALL_FAILURE_TITLE,
+            message: `安装失败：${detail}`,
+            duration: 4000,
+          });
         }
       } catch {
         clearInstallStatus(skill);
-        showToast(`${INSTALL_FAILED_LABEL}：网络错误，请重试`, 'error');
+        addToast({
+          type: 'error',
+          title: INSTALL_FAILURE_TITLE,
+          message: '安装失败：网络错误，请重试',
+          duration: 4000,
+        });
       }
     },
-    [clearInstallStatus, markSkillInstalled, setInstallStatusWithTimer, showToast],
+    [addToast, clearInstallStatus, markSkillInstalled, setInstallStatusWithTimer],
   );
 
   if (!results && loading) {
@@ -417,17 +428,6 @@ export function HubSkillsTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {toast && (
-        <div
-          aria-live="polite"
-          className={`shrink-0 rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium ${
-            toast.type === 'success' ? 'ui-status-success' : 'ui-status-error'
-          }`}
-        >
-          {toast.message}
-        </div>
-      )}
-
       <section className="flex h-full min-h-0 flex-col overflow-hidden">
         <div className="shrink-0" data-testid="hub-skills-fixed-header">
           {categories.length > 0 && (
