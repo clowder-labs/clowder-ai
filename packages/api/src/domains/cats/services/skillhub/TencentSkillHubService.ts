@@ -150,14 +150,20 @@ async function tencentApiGet<T>(path: string, cacheKey?: string): Promise<T> {
 
 export async function searchSkills(
   query: string,
-  options?: { tags?: string; sort?: string; page?: number; limit?: number },
+  options?: { tags?: string; sort?: string; page?: number; limit?: number; category?: string },
 ): Promise<SkillHubSearchResponse> {
   const page = options?.page ?? 1;
   const limit = options?.limit ?? 20;
+  const category = options?.category;
+
+  let apiPath = `/api/skills?page=${page}&pageSize=${limit}&keyword=${encodeURIComponent(query)}`;
+  if (category) {
+    apiPath += `&category=${encodeURIComponent(category)}`;
+  }
 
   const result = await tencentApiGet<{ skills: TencentSkill[]; total: number }>(
-    `/api/skills?page=${page}&pageSize=${limit}&keyword=${encodeURIComponent(query)}`,
-    `tencent:search:${query}:${page}:${limit}`,
+    apiPath,
+    `tencent:search:${query}:${page}:${limit}:${category ?? 'all'}`,
   );
 
   return {

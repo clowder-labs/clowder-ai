@@ -411,9 +411,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
     const page = Number((request.query as { page?: string }).page) || 1;
     const limit = Number((request.query as { limit?: string }).limit) || 20;
+    const category = (request.query as { category?: string }).category;
 
     try {
-      const result = await searchSkills(query, { page, limit });
+      const result = await searchSkills(query, { page, limit, category });
       const installedNames = new Set((await getInstalledRecords(CAT_CAFE_ROOT)).map((r) => r.name));
       return {
         skills: result.data.map((s) => ({ ...s, isInstalled: installedNames.has(s.slug) })),
