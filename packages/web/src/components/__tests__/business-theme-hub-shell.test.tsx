@@ -197,4 +197,21 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('ops-skill');
     expect(container.textContent).not.toContain('doc-skill');
   });
+
+  it('keeps search controls outside the scrolling card region', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const fixedHeader = container.querySelector('[data-testid="hub-capability-fixed-header"]') as HTMLDivElement | null;
+    const scrollRegion = container.querySelector('[data-testid="hub-capability-scroll-region"]') as HTMLDivElement | null;
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+
+    expect(fixedHeader).not.toBeNull();
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.contains(searchInput)).toBe(false);
+    expect(scrollRegion?.querySelector('[data-testid="capability-card-skill-ops-skill"]')).not.toBeNull();
+  });
 });

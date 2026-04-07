@@ -167,7 +167,7 @@ export function CapabilitySection({
   );
 }
 
-function CapabilityCard({
+export function CapabilityCard({
   item,
   catFamilies: _catFamilies,
   toggling,

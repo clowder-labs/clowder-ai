@@ -237,6 +237,26 @@ describe('business theme secondary surfaces', () => {
     expect(buttons.some((button) => button.textContent?.includes('导入'))).toBe(false);
   });
 
+  it('keeps plaza search controls outside the scrolling results region', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+    await flushEffects();
+
+    const fixedHeader = container.querySelector('[data-testid="hub-skills-fixed-header"]') as HTMLDivElement | null;
+    const scrollRegion = container.querySelector('[data-testid="hub-skills-scroll-region"]') as HTMLDivElement | null;
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
+
+    expect(fixedHeader).not.toBeNull();
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(fixedHeader?.contains(searchInput)).toBe(true);
+    expect(scrollRegion?.contains(searchInput)).toBe(false);
+    expect(scrollRegion?.querySelector('article')).not.toBeNull();
+  });
+
   it('uses the shared custom tooltip for plaza skill descriptions', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
@@ -288,7 +308,7 @@ describe('business theme secondary surfaces', () => {
       }
       if (url.startsWith('/api/skills/search')) {
         const parsed = new URL(url, 'https://example.test');
-        expect(parsed.searchParams.get('q')).toBe('alpha');
+        expect(parsed.searchParams.get('keyword')).toBe('alpha');
         expect(parsed.searchParams.get('page')).toBe('1');
         expect(parsed.searchParams.get('limit')).toBe('24');
         return Promise.resolve(
@@ -318,7 +338,9 @@ describe('business theme secondary surfaces', () => {
     await flushEffects();
 
     expect(container.textContent).toContain('alpha-helper');
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=1&limit=24&q=alpha', { signal: expect.any(AbortSignal) });
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=1&limit=24&keyword=alpha', {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('keeps the active category when searching from a category tab', async () => {
@@ -394,7 +416,7 @@ describe('business theme secondary surfaces', () => {
         if (
           parsed.searchParams.get('page') === '1' &&
           parsed.searchParams.get('limit') === '24' &&
-          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('keyword') === 'alpha' &&
           parsed.searchParams.get('category') === 'developer-tools'
         ) {
           return Promise.resolve(
@@ -440,7 +462,7 @@ describe('business theme secondary surfaces', () => {
         return (
           parsed.searchParams.get('page') === '1' &&
           parsed.searchParams.get('limit') === '24' &&
-          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('keyword') === 'alpha' &&
           parsed.searchParams.get('category') === 'developer-tools' &&
           init?.signal instanceof AbortSignal
         );
@@ -474,7 +496,7 @@ describe('business theme secondary surfaces', () => {
           }),
         );
       }
-      if (url === '/api/skills/search?page=1&limit=24&q=alpha') {
+      if (url === '/api/skills/search?page=1&limit=24&keyword=alpha') {
         return Promise.resolve(
           jsonResponse({
             skills: [
@@ -494,7 +516,7 @@ describe('business theme secondary surfaces', () => {
           }),
         );
       }
-      if (url === '/api/skills/search?page=2&limit=24&q=alpha') {
+      if (url === '/api/skills/search?page=2&limit=24&keyword=alpha') {
         return Promise.resolve(
           jsonResponse({
             skills: [
@@ -533,7 +555,7 @@ describe('business theme secondary surfaces', () => {
 
     expect(container.textContent).toContain('alpha-1');
     expect(container.textContent).toContain('alpha-2');
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=2&limit=24&q=alpha', {
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=2&limit=24&keyword=alpha', {
       signal: expect.any(AbortSignal),
     });
   });
@@ -591,7 +613,7 @@ describe('business theme secondary surfaces', () => {
         const parsed = new URL(url, 'https://example.test');
         if (
           parsed.searchParams.get('limit') === '24' &&
-          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('keyword') === 'alpha' &&
           parsed.searchParams.get('category') === 'developer-tools'
         ) {
           if (parsed.searchParams.get('page') === '1') {
@@ -670,7 +692,7 @@ describe('business theme secondary surfaces', () => {
         return (
           parsed.searchParams.get('page') === '2' &&
           parsed.searchParams.get('limit') === '24' &&
-          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('keyword') === 'alpha' &&
           parsed.searchParams.get('category') === 'developer-tools' &&
           init?.signal instanceof AbortSignal
         );
@@ -712,7 +734,7 @@ describe('business theme secondary surfaces', () => {
           }),
         );
       }
-      if (url === '/api/skills/search?page=1&limit=24&q=alpha') {
+      if (url === '/api/skills/search?page=1&limit=24&keyword=alpha') {
         return Promise.resolve(
           jsonResponse({
             skills: [

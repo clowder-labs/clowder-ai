@@ -405,11 +405,11 @@ export function HubSkillsTab() {
   );
 
   return (
-    <div className="space-y-[var(--space-9)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {toast && (
         <div
           aria-live="polite"
-          className={`rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium ${
+          className={`shrink-0 rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium ${
             toast.type === 'success' ? 'ui-status-success' : 'ui-status-error'
           }`}
         >
@@ -417,43 +417,48 @@ export function HubSkillsTab() {
         </div>
       )}
 
-      <section>
-        {categories.length > 0 && (
-          <div className="flex flex-wrap items-center gap-4 pb-6">
-            {[ALL_CATEGORY, ...categories].map((category, index) => (
-              <div key={category} className="flex items-center">
-                {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
-                <button
-                  type="button"
-                  onClick={() => handleCategoryChange(category)}
-                  className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
-                    activeCategory === category
-                      ? 'font-semibold text-[var(--text-primary)]'
-                      : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-                  }`}
-                >
-                  {category}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+      <section className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="shrink-0" data-testid="hub-skills-fixed-header">
+          {categories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-4 pb-6">
+              {[ALL_CATEGORY, ...categories].map((category, index) => (
+                <div key={category} className="flex items-center">
+                  {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
+                  <button
+                    type="button"
+                    onClick={() => handleCategoryChange(category)}
+                    className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
+                      activeCategory === category
+                        ? 'font-semibold text-[var(--text-primary)]'
+                        : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-        <div className="space-y-0">
-          <p className="text-[20px] font-semibold">
-            {activeCategory}
-            {results ? ` (${results.total})` : ''}
-          </p>
-          <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
-            <input
-              type="text"
-              aria-label={SEARCH_ARIA_LABEL}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={SEARCH_PLACEHOLDER}
-              className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
-            />
+          <div className="space-y-0">
+            <p className="text-[20px] font-semibold">
+              {activeCategory}
+              {results ? ` (${results.total})` : ''}
+            </p>
+            <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                aria-label={SEARCH_ARIA_LABEL}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={SEARCH_PLACEHOLDER}
+                className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
+              />
+            </div>
           </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-skills-scroll-region">
           {results ? (
             <>
               <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
