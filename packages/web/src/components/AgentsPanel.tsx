@@ -2,10 +2,10 @@
 
 import { type SVGProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
-import { apiFetch } from '@/utils/api-client';
+import { API_URL, apiFetch } from '@/utils/api-client';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
-import { CreateAgentModalDraft } from './CreateAgentModalDraft';
+import { CreateAgentModal } from './CreateAgentModal';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
 import { transform } from 'esbuild-wasm';
@@ -236,10 +236,11 @@ function catInitial(name?: string): string {
 
 function renderAvatar(cat: CatData) {
   const avatar = cat.avatar?.trim() ?? '';
-  const isImageAvatar = /^(https?:\/\/|\/|data:image)/.test(avatar);
+  const resolvedAvatar = avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar;
+  const isImageAvatar = /^(https?:\/\/|\/|data:image)/.test(resolvedAvatar);
 
   if (isImageAvatar) {
-    return <img src={avatar} alt={cat.displayName} className="h-11 w-11 rounded-full object-cover" />;
+    return <img src={resolvedAvatar} alt={cat.displayName} className="h-11 w-11 rounded-full object-cover" />;
   }
 
   return (
@@ -266,7 +267,7 @@ function PlaceholderPanel({ title, description, label }: { title: string; descri
   );
 }
 
-export function AgentsPanelCopy() {
+export function AgentsPanel() {
   const { cats = [], refresh } = useCatData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
@@ -1229,7 +1230,7 @@ export function AgentsPanelCopy() {
         </div>
       </div>
 
-      <CreateAgentModalDraft
+      <CreateAgentModal
         open={editorOpen}
         cat={editingCat ?? undefined}
         name={editingCat?.name ?? editingCat?.displayName}
@@ -1332,4 +1333,3 @@ export function AgentsPanelCopy() {
   );
 }
 
-export { AgentsPanelCopy as AgentsPanel };

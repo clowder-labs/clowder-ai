@@ -7,7 +7,7 @@ import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { AgentsPanelCopy } from './AgentsPanelCopy';
+import { AgentsPanel } from './AgentsPanel';
 import { ChannelsPanel } from './ChannelsPanel';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
@@ -165,7 +165,7 @@ export function NewThreadContainer() {
             {sidebarMenu !== 'chat' && (
               <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
                 {sidebarMenu === 'models' && <ModelsPanel />}
-                {sidebarMenu === 'agents' && <AgentsPanelCopy />}
+                {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
                 {sidebarMenu === 'skills' && <SkillsPanel />}
               </div>

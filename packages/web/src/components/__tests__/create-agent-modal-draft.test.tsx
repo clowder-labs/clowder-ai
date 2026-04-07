@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CreateAgentModalDraft } from '@/components/CreateAgentModalDraft';
+import { CreateAgentModal } from '@/components/CreateAgentModal';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
@@ -24,7 +24,7 @@ async function flushEffects() {
   });
 }
 
-describe('CreateAgentModalDraft', () => {
+describe('CreateAgentModal', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -86,7 +86,7 @@ describe('CreateAgentModalDraft', () => {
 
     await act(async () => {
       root.render(
-        React.createElement(CreateAgentModalDraft, {
+        React.createElement(CreateAgentModal, {
           open: true,
           name: 'Huawei Bot',
           description: 'ACP header bridge',
@@ -131,7 +131,7 @@ describe('CreateAgentModalDraft', () => {
 
     await act(async () => {
       root.render(
-        React.createElement(CreateAgentModalDraft, {
+        React.createElement(CreateAgentModal, {
           open: true,
           name: 'Style Bot',
           description: '',

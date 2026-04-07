@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useAvailableClients } from '@/hooks/useAvailableClients';
 import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
-import { apiFetch } from '@/utils/api-client';
+import { API_URL, apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth } from '@/utils/userId';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
@@ -25,7 +25,7 @@ import {
   ModelSelectValueDraft,
 } from './ModelSelectDropdownDraft';
 
-interface CreateAgentModalDraftProps {
+interface CreateAgentModalProps {
   open: boolean;
   cat?: CatData | null;
   name?: string;
@@ -372,7 +372,7 @@ function buildEditForm(
   };
 }
 
-export function CreateAgentModalDraft({
+export function CreateAgentModal({
   open,
   cat = null,
   name = 'BOT',
@@ -382,7 +382,7 @@ export function CreateAgentModalDraft({
   title,
   onClose,
   onSaved,
-}: CreateAgentModalDraftProps) {
+}: CreateAgentModalProps) {
   const [isSkipAuth, setIsSkipAuth] = useState(false);
   const { clients: detectedClients, clientLabels } = useAvailableClients();
   const [draftName, setDraftName] = useState(name);
@@ -650,7 +650,10 @@ export function CreateAgentModalDraft({
   const modalTitle = title ?? (cat ? '编辑智能体' : '创建智能体');
   const primaryButtonText = saving ? (cat ? '保存中...' : '创建中...') : cat ? '保存' : '确定';
   // 优先使用 draftAvatar，如果为空则使用生成的默认头像（用于显示名称首字母）
-  const displayAvatar = draftAvatar || buildGeneratedAvatarDataUrl(draftName);
+  const displayAvatar =
+    draftAvatar && draftAvatar.startsWith('/uploads/')
+      ? `${API_URL}${draftAvatar}`
+      : draftAvatar || buildGeneratedAvatarDataUrl(draftName);
 
   if (!open) return null;
 
