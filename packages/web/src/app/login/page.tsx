@@ -240,7 +240,7 @@ export default function LoginPage() {
               </div>
 
               {/* 分隔线 */}
-              <div className="mt-3 mb-3 hidden">
+              <div className="mt-3 mb-3">
                 <div className="relative">
                   <div className="inset-0 flex items-center">
                     <div className="w-full border-t border-gray-300"></div>
@@ -249,7 +249,7 @@ export default function LoginPage() {
               </div>
 
               {/* 用户类型切换链接 */}
-              <div className="text-center mb-2 hidden">
+              <div className="text-center mb-2">
                 <span className="text-sm text-gray-600">
                   {userType === 'huawei' ? (
                     <>
