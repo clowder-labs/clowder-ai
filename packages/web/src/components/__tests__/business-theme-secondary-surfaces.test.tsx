@@ -49,6 +49,17 @@ async function changeInputValue(input: HTMLInputElement, value: string) {
   });
 }
 
+function mockOverflow(node: Element, { clientWidth, scrollWidth }: { clientWidth: number; scrollWidth: number }) {
+  Object.defineProperty(node, 'clientWidth', {
+    configurable: true,
+    value: clientWidth,
+  });
+  Object.defineProperty(node, 'scrollWidth', {
+    configurable: true,
+    value: scrollWidth,
+  });
+}
+
 const sampleCat = {
   id: 'office',
   displayName: 'Office',
@@ -276,6 +287,57 @@ describe('business theme secondary surfaces', () => {
     });
 
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('search helper');
+  });
+
+  it('shows the full plaza skill title in a tooltip when the title is truncated', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools'] }));
+      }
+      if (url.startsWith('/api/skills/all')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-very-long-title',
+                slug: 'skill-very-long-title-that-should-show-in-tooltip',
+                name: 'skill-very-long-title-that-should-show-in-tooltip',
+                description: 'search helper',
+                tags: ['developer-tools'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const title = 'skill-very-long-title-that-should-show-in-tooltip';
+    const titleNode = Array.from(container.querySelectorAll('h3')).find((candidate) => candidate.textContent === title);
+    expect(titleNode).not.toBeNull();
+    expect(titleNode?.getAttribute('title')).toBeNull();
+    if (!titleNode) return;
+
+    mockOverflow(titleNode, { clientWidth: 120, scrollWidth: 320 });
+
+    await act(async () => {
+      titleNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(title);
   });
 
   it('debounces input changes and uses remote plaza search', async () => {
@@ -798,6 +860,100 @@ describe('business theme secondary surfaces', () => {
     );
     expect(updatedHeading?.textContent).toContain('开发工具 (1)');
     expect(updatedHeading?.textContent).not.toContain('技能广场');
+  });
+
+  it('keeps the previous heading count until the new category results arrive', async () => {
+    let resolveCategoryRequest: ((value: Response) => void) | null = null;
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url === '/api/skills/all?page=1&limit=24') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-1',
+                slug: 'skill-1',
+                name: 'skill-1',
+                description: 'search helper',
+                tags: ['developer-tools'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+              {
+                id: 'alpha-helper',
+                slug: 'alpha-helper',
+                name: 'alpha-helper',
+                description: 'alpha helper',
+                tags: ['ai-intelligence'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 2,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/all?page=1&limit=24&category=developer-tools') {
+        return new Promise<Response>((resolve) => {
+          resolveCategoryRequest = resolve;
+        });
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const developerTab = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('开发工具'),
+    );
+    expect(developerTab).not.toBeUndefined();
+
+    await act(async () => {
+      developerTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const headingDuringLoad = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('(2)'),
+    );
+    expect(headingDuringLoad?.textContent).toContain('全部 (2)');
+
+    await act(async () => {
+      resolveCategoryRequest?.(
+        jsonResponse({
+          skills: [
+            {
+              id: 'skill-1',
+              slug: 'skill-1',
+              name: 'skill-1',
+              description: 'search helper',
+              tags: ['developer-tools'],
+              repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+              isInstalled: false,
+            },
+          ],
+          total: 1,
+          page: 1,
+          hasMore: false,
+        }),
+      );
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    const headingAfterLoad = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('(1)'),
+    );
+    expect(headingAfterLoad?.textContent).toContain('开发工具 (1)');
   });
 
   it('renders HubConnectorConfigTab with tokenized cards and form controls', async () => {
