@@ -7,6 +7,7 @@ import { apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
+import { InfoTooltip } from './InfoTooltip';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
@@ -634,12 +635,11 @@ export function ModelsPanel() {
                         </div>
                       </div>
 
-                      <p
-                        className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden"
-                        title={card.description}
-                      >
-                        {card.description}
-                      </p>
+                      <InfoTooltip content={card.description} className="w-full">
+                        <p className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden">
+                          {card.description}
+                        </p>
+                      </InfoTooltip>
 
                       <div className="mt-auto flex items-end justify-between gap-3">
                         <div className="min-h-5 text-xs leading-5">

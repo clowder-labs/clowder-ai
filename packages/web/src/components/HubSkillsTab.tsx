@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
+import { InfoTooltip } from './InfoTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -130,9 +131,9 @@ function SkillList({
                 </div>
               </div>
 
-              <p className={styles.description} title={resolvedDescription}>
-                {resolvedDescription}
-              </p>
+              <InfoTooltip content={resolvedDescription} className="w-full">
+                <p className={styles.description}>{resolvedDescription}</p>
+              </InfoTooltip>
 
               <div className={styles.footer}>
                 {!skill.isInstalled ? (

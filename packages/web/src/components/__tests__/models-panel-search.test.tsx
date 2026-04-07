@@ -220,6 +220,26 @@ describe('ModelsPanel search', () => {
     expect(fallbackIcon?.textContent).toContain('A');
   });
 
+  it('shows a custom tooltip for model descriptions instead of the native title attribute', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const descriptionNode = Array.from(container.querySelectorAll('p')).find((node) =>
+      node.textContent?.includes('flagship model'),
+    );
+    expect(descriptionNode).not.toBeNull();
+    expect(descriptionNode?.getAttribute('title')).toBeNull();
+
+    await act(async () => {
+      descriptionNode?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('flagship model');
+  });
+
   it('submits create-model description without icon when icon is not provided', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));

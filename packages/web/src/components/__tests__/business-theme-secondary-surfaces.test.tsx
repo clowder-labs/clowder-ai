@@ -228,6 +228,27 @@ describe('business theme secondary surfaces', () => {
     expect(buttons.some((button) => button.textContent?.includes('导入'))).toBe(false);
   });
 
+  it('uses the shared custom tooltip for plaza skill descriptions', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const descriptionNode = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('search helper'),
+    );
+    expect(descriptionNode).not.toBeNull();
+    expect(descriptionNode?.getAttribute('title')).toBeNull();
+
+    await act(async () => {
+      descriptionNode?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('search helper');
+  });
+
   it('filters in-memory skill list and does not call search endpoint', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
