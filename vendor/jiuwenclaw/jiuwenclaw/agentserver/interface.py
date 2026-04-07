@@ -558,6 +558,7 @@ class JiuWenClaw:
             request_id: str | None,
             mode="plan",
             project_dir: str | None = None,
+            cat_cafe_mcp: dict[str, Any] | None = None,
     ) -> None:
         """Register per-request tools for current agent execution."""
         if self._instance is None:
@@ -729,6 +730,12 @@ class JiuWenClaw:
                 Runner.resource_mgr.add_tool(mcp_tool)
                 self._instance.ability_manager.add(mcp_tool.card)
             self._mcp_tools_registered = True
+
+        if cat_cafe_mcp:
+            try:
+                await self._tool_manager.register_request_scoped_cat_cafe_mcp(cat_cafe_mcp)
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] ensure request-scoped Cat Cafe MCP failed: %s", exc)
 
         config_base = get_config()
         self._instance._config.prompt_template = [{
@@ -1161,6 +1168,7 @@ class JiuWenClaw:
                     request.request_id,
                     request.params.get("mode", "plan"),
                     project_dir=request.params.get("project_dir"),
+                    cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 return await Runner.run_agent(agent=self._instance, inputs=inputs)
             except asyncio.CancelledError:
@@ -1311,6 +1319,7 @@ class JiuWenClaw:
                     request.request_id,
                     request.params.get("mode", "plan"),
                     project_dir=request.params.get("project_dir"),
+                    cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 async for chunk in Runner.run_agent_streaming(self._instance, inputs):
                     parsed = self._parse_stream_chunk(chunk)
