@@ -242,6 +242,7 @@ function buildRequest(
   options?: AgentServiceOptions,
 ): Record<string, unknown> {
   const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
+  const systemPrompt = typeof options?.systemPrompt === 'string' ? options.systemPrompt.trim() : '';
   return {
     request_id: requestId,
     channel_id: channelId,
@@ -249,6 +250,7 @@ function buildRequest(
     req_method: 'chat.send',
     params: {
       query: appendLocalImagePathHints(prompt, imagePaths),
+      ...(systemPrompt ? { system_prompt: systemPrompt } : {}),
       mode: 'agent',
       ...(options?.workingDirectory ? { project_dir: options.workingDirectory } : {}),
       ...(buildRelayClawFilesPayload(options?.contentBlocks, options?.uploadDir)

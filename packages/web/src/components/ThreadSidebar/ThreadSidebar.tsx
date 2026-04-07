@@ -142,6 +142,14 @@ export function ThreadSidebar({
   }, [loadThreads]);
 
   useEffect(() => {
+    const refresh = () => {
+      void loadThreads();
+    };
+    window.addEventListener('cat-cafe:threads-refresh', refresh);
+    return () => window.removeEventListener('cat-cafe:threads-refresh', refresh);
+  }, [loadThreads]);
+
+  useEffect(() => {
     if (!showFilter) return;
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node | null;
