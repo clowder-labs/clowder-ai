@@ -8,7 +8,9 @@
  * Update when new models are released or window sizes change.
  */
 
-export const CONTEXT_WINDOW_SIZES: Record<string, number> = {
+// Core-known context window sizes (open-source models only).
+// Edition can register additional sizes via registerContextWindowSizes().
+const CORE_CONTEXT_WINDOW_SIZES: Record<string, number> = {
   // Claude (exact values from CLI, these are fallback)
   'claude-opus-4-6': 200_000,
   'claude-sonnet-4-5': 200_000,
@@ -24,14 +26,22 @@ export const CONTEXT_WINDOW_SIZES: Record<string, number> = {
   'gemini-2.5-flash': 1_000_000,
   'gemini-3-pro': 1_000_000,
   'gemini-3.1-pro-preview': 1_000_000,
-  // Huawei ModelArts (GLM)
+  // GLM (commonly used via third-party providers)
   'glm-5': 196_608,
   'glm-4': 128_000,
 };
 
+// Merged table: core + edition-registered sizes
+export const CONTEXT_WINDOW_SIZES: Record<string, number> = { ...CORE_CONTEXT_WINDOW_SIZES };
+
+/** Edition calls this at startup to register vendor-specific model window sizes. */
+export function registerContextWindowSizes(sizes: Record<string, number>): void {
+  Object.assign(CONTEXT_WINDOW_SIZES, sizes);
+}
+
 export function getContextWindowFallback(model: string): number | undefined {
   if (CONTEXT_WINDOW_SIZES[model]) return CONTEXT_WINDOW_SIZES[model];
-  // Strip provider prefix (e.g. 'huawei-modelarts/glm-5' → 'glm-5', 'z-ai/glm-4.7' → 'glm-4.7')
+  // Strip provider prefix (e.g. 'provider/model-name' → 'model-name')
   const bare = model.includes('/') ? model.slice(model.lastIndexOf('/') + 1) : model;
   if (bare !== model && CONTEXT_WINDOW_SIZES[bare]) return CONTEXT_WINDOW_SIZES[bare];
   // Try prefix match (e.g. 'claude-opus-4-6-20260101' matches 'claude-opus-4-6',
