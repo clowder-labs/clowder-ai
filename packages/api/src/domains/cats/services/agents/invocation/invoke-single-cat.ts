@@ -953,54 +953,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
         : promptWithMission;
 
-    const testHook = (() => {
-      if (effectivePrompt.includes('__TEST_AGENT_TIMEOUT__')) {
-        return {
-          diagnostics: {
-            type: 'timeout_diagnostics',
-            catId,
-            silenceDurationMs: 30 * 60 * 1000,
-            processAlive: true,
-            lastEventType: 'tool.invoke',
-          },
-          error: `${catId} request timed out before completion`,
-        };
-      }
-      if (effectivePrompt.includes('__TEST_AGENT_EXIT__')) {
-        return { error: `${catId} CLI 异常退出 (code: 1, signal: none)` };
-      }
-      if (effectivePrompt.includes('__TEST_AGENT_CONNECTION__')) {
-        return { error: `${catId} connection failed: sidecar exited during startup` };
-      }
-      if (effectivePrompt.includes('__TEST_AGENT_CONFIG__')) {
-        return { error: `${catId} provider profile is not configured` };
-      }
-      return null;
-    })();
-
-    if (testHook) {
-      if (testHook.diagnostics) {
-        yield {
-          type: 'system_info',
-          catId,
-          content: JSON.stringify(testHook.diagnostics),
-          timestamp: Date.now(),
-        };
-      }
-      yield {
-        type: 'error',
-        catId,
-        error: testHook.error,
-        timestamp: Date.now(),
-      };
-      yield {
-        type: 'done',
-        catId,
-        timestamp: Date.now(),
-      };
-      return;
-    }
-
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
     if (deps.tmuxGateway && workingDirectory) {

@@ -97,57 +97,6 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(catError[0].data.error.includes('CLI'), 'cat_error should contain error message');
   });
 
-  it('triggers unified timeout test hook before provider invoke', async () => {
-    let invoked = false;
-    const service = {
-      async *invoke() {
-        invoked = true;
-        yield { type: 'text', catId: 'codex', content: 'should not happen', timestamp: Date.now() };
-      },
-    };
-
-    const msgs = await collect(
-      invokeSingleCat(makeDeps(), {
-        catId: 'codex',
-        service,
-        prompt: '__TEST_AGENT_TIMEOUT__',
-        userId: 'user1',
-        threadId: 'thread-timeout-hook',
-        isLastCat: true,
-      }),
-    );
-
-    assert.equal(invoked, false);
-    assert.ok(msgs.some((m) => m.type === 'system_info' && String(m.content).includes('timeout_diagnostics')));
-    assert.ok(msgs.some((m) => m.type === 'error' && String(m.error).includes('timed out')));
-    assert.ok(msgs.some((m) => m.type === 'done'));
-  });
-
-  it('triggers unified connection test hook before provider invoke', async () => {
-    let invoked = false;
-    const service = {
-      async *invoke() {
-        invoked = true;
-        yield { type: 'text', catId: 'jiuwenclaw', content: 'should not happen', timestamp: Date.now() };
-      },
-    };
-
-    const msgs = await collect(
-      invokeSingleCat(makeDeps(), {
-        catId: 'jiuwenclaw',
-        service,
-        prompt: '__TEST_AGENT_CONNECTION__',
-        userId: 'user1',
-        threadId: 'thread-connection-hook',
-        isLastCat: true,
-      }),
-    );
-
-    assert.equal(invoked, false);
-    assert.ok(msgs.some((m) => m.type === 'error' && String(m.error).includes('connection failed')));
-    assert.ok(msgs.some((m) => m.type === 'done'));
-  });
-
   it('persists task progress snapshot with completed status on done', async () => {
     const { MemoryTaskProgressStore } = await import(
       '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
