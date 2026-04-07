@@ -403,10 +403,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Identity required' };
     }
 
-    const query = (request.query as { q?: string }).q;
+    const query = (request.query as { keyword?: string }).keyword;
     if (!query) {
       reply.status(400);
-      return { error: 'Missing required query parameter: q' };
+      return { error: 'Missing required query parameter: keyword' };
     }
 
     const page = Number((request.query as { page?: string }).page) || 1;
