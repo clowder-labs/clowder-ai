@@ -958,7 +958,7 @@ export function ChatInput({
                   {ghostSuggestion && !pathCompletion.isOpen && !showMentions && !/(^|\s)@/.test(input) && (
                     <div
                       data-testid="ghost-suggestion"
-                      className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words rounded-xl p-3 text-sm"
+                      className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-t-[24px] p-4 text-[16px]"
                       aria-hidden="true"
                     >
                       <span className="invisible">{input}</span>
