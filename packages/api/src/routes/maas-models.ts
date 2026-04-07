@@ -8,13 +8,12 @@ import { dirname, resolve } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
 import { readAcpModelProfiles } from '../config/acp-model-profiles.js';
 import {
-  HUAWEI_MAAS_MODEL_SOURCE_ID,
+  getModelConfigPolicy,
   isModelConfigProviderFallbackEnabled,
   readProjectModelConfigBindings,
   resolveProjectModelConfigPath,
 } from '../config/model-config-profiles.js';
 import { readProviderProfiles } from '../config/provider-profiles.js';
-import { resolveHuaweiMaaSRuntimeConfig } from '../integrations/huawei-maas.js';
 import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import {
@@ -22,6 +21,21 @@ import {
   projectQuerySchema,
   resolveProjectRoot,
 } from './provider-profiles.shared.js';
+
+/**
+ * Get the primary Edition-managed model source ID and its display name.
+ * Falls back to null if no Edition protocol is configured.
+ */
+function getPrimaryEditionSource(): { id: string; displayName: string; protocol: string } | null {
+  const policy = getModelConfigPolicy();
+  const firstId = policy.reservedSourceIds[0];
+  if (!firstId) return null;
+  const protocol = policy.protocolInference[firstId];
+  if (!protocol) return null;
+  const rule = policy.protocolRules[protocol];
+  if (!rule) return null;
+  return { id: firstId, displayName: rule.displayName, protocol };
+}
 
 export interface MassModelInfo {
   id: string;
@@ -154,7 +168,10 @@ function uniquePayloadById(models: Array<Record<string, unknown>>): Array<Record
   });
 }
 
-function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[] {
+function toMassModelList(
+  models: Array<Record<string, unknown>>,
+  editionSource: { id: string; displayName: string; protocol: string },
+): MassModelInfo[] {
   return models.map((item, index) => {
     const rawId = item.id;
     const rawName = item.name;
@@ -168,12 +185,12 @@ function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[
           : modelId;
     return {
       ...item,
-      id: `model_config:${HUAWEI_MAAS_MODEL_SOURCE_ID}:${modelId}`,
+      id: `model_config:${editionSource.id}:${modelId}`,
       name,
-      provider: 'Huawei MaaS',
-      accountRef: HUAWEI_MAAS_MODEL_SOURCE_ID,
+      provider: editionSource.displayName,
+      accountRef: editionSource.id,
       kind: 'provider',
-      protocol: 'huawei_maas',
+      protocol: editionSource.protocol,
       enabled: true,
       ...(typeof rawDescription === 'string' && rawDescription.trim() ? { description: rawDescription.trim() } : {}),
       ...(MAAS_MAP[rawId as string] ?? {}),
@@ -195,25 +212,30 @@ function toConfiguredModelList(
     binding.models.map((modelName) => ({
       id: `model_config:${binding.id}:${modelName}`,
       name: modelName,
-      provider: binding.protocol === 'huawei_maas' ? 'Huawei MaaS' : binding.displayName?.trim() || binding.id,
+      provider: (() => {
+        const rule = binding.protocol ? getModelConfigPolicy().protocolRules[binding.protocol] : undefined;
+        return rule ? rule.displayName : binding.displayName?.trim() || binding.id;
+      })(),
       accountRef: binding.id,
       kind: 'provider' as const,
       ...(binding.protocol ? { protocol: binding.protocol } : {}),
       enabled: true,
-      description:
-        binding.protocol === 'huawei_maas'
+      description: (() => {
+        const rule = binding.protocol ? getModelConfigPolicy().protocolRules[binding.protocol] : undefined;
+        return rule
           ? '来自 ~/.cat-cafe/model.json'
-          : binding.description?.trim() || `自定义模型源 · ${binding.displayName?.trim() || binding.id}`,
+          : binding.description?.trim() || `自定义模型源 · ${binding.displayName?.trim() || binding.id}`;
+      })(),
       ...(binding.icon ? { icon: binding.icon } : {}),
     })),
   );
 }
 
-async function readCachedMaaSModels(modelJsonPath: string): Promise<Array<Record<string, unknown>>> {
+async function readCachedMaaSModels(modelJsonPath: string, sourceId: string): Promise<Array<Record<string, unknown>>> {
   const modelJsonRaw = await readFile(modelJsonPath, 'utf-8');
   if (!modelJsonRaw.trim()) return [];
   const parsed = JSON.parse(modelJsonRaw) as Record<string, unknown>;
-  return normalizeModelList(parsed[HUAWEI_MAAS_MODEL_SOURCE_ID]);
+  return normalizeModelList(parsed[sourceId]);
 }
 
 async function readCachedModelConfig(modelJsonPath: string): Promise<Record<string, unknown>> {
@@ -277,75 +299,87 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
 
     const modelJsonPath = resolveProjectModelConfigPath(projectRoot);
     const modelConfigBindings = (await readProjectModelConfigBindings(projectRoot)) ?? [];
-    const configuredNonHuaweiModels = toConfiguredModelList(
-      modelConfigBindings.filter((binding) => binding.protocol !== 'huawei_maas'),
+    const editionSource = getPrimaryEditionSource();
+    const policy = getModelConfigPolicy();
+
+    // Filter bindings: separate edition-managed from user-configured
+    const configuredUserModels = toConfiguredModelList(
+      modelConfigBindings.filter((binding) => !binding.protocol || !policy.protocolRules[binding.protocol]),
     );
-    try {
-      const cachedModels = await readCachedMaaSModels(modelJsonPath);
-      if (cachedModels.length > 0) {
-        return {
-          success: true,
-          list: [...toMassModelList(cachedModels), ...configuredNonHuaweiModels],
-          projectPath: projectRoot,
-        };
-      }
-    } catch (readError) {
-      if ((readError as { code?: string })?.code !== 'ENOENT') {
-        console.warn('读取 model.json 失败，继续调用远程接口:', readError);
-      }
-    }
 
-    const userId = resolveUserId(request);
-    if (userId) {
+    // Try cached edition models first
+    if (editionSource) {
       try {
-        const runtimeConfig = resolveHuaweiMaaSRuntimeConfig(userId);
-        const modelResponse = await fetchImpl(`${runtimeConfig.baseUrl}/models`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json;charset=utf8',
-            ...runtimeConfig.defaultHeaders,
-          },
-        });
-
-        if (!modelResponse.ok) {
-          throw new Error(`${modelResponse.status}`);
+        const cachedModels = await readCachedMaaSModels(modelJsonPath, editionSource.id);
+        if (cachedModels.length > 0) {
+          return {
+            success: true,
+            list: [...toMassModelList(cachedModels, editionSource), ...configuredUserModels],
+            projectPath: projectRoot,
+          };
         }
-
-        const data = (await modelResponse.json()) as Record<string, unknown>;
-        const incomingModels = normalizeModelList(data.data);
-        let existingModels: Array<Record<string, unknown>> = [];
-
-        await mkdir(dirname(modelJsonPath), { recursive: true });
-        let existingConfig: Record<string, unknown> = {};
-        try {
-          existingConfig = await readCachedModelConfig(modelJsonPath);
-          existingModels = await readCachedMaaSModels(modelJsonPath);
-        } catch (readError) {
-          if ((readError as { code?: string })?.code !== 'ENOENT') {
-            console.warn('读取 model.json 失败，将以新数据继续写入:', readError);
-          }
+      } catch (readError) {
+        if ((readError as { code?: string })?.code !== 'ENOENT') {
+          console.warn('读取 model.json 失败，继续调用远程接口:', readError);
         }
-
-        const mergedModels = uniquePayloadById([...existingModels, ...incomingModels]);
-        await writeFile(
-          modelJsonPath,
-          `${JSON.stringify({ ...existingConfig, [HUAWEI_MAAS_MODEL_SOURCE_ID]: mergedModels }, null, 2)}\n`,
-          'utf-8',
-        );
-        return {
-          success: true,
-          list: [...toMassModelList(incomingModels), ...configuredNonHuaweiModels],
-          projectPath: projectRoot,
-        };
-      } catch (error) {
-        console.error('获取 Huawei MaaS 模型失败，将回退到本地聚合模型列表:', error);
       }
     }
 
-    if (configuredNonHuaweiModels.length > 0) {
+    // Try live fetch from edition runtime (if runtime config is available)
+    const userId = resolveUserId(request);
+    if (userId && editionSource) {
+      const rule = policy.protocolRules[editionSource.protocol];
+      if (rule?.resolveRuntimeConfig) {
+        try {
+          const runtimeConfig = rule.resolveRuntimeConfig(userId);
+          const modelResponse = await fetchImpl(`${runtimeConfig.baseUrl}/models`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json;charset=utf8',
+              ...runtimeConfig.defaultHeaders,
+            },
+          });
+
+          if (!modelResponse.ok) {
+            throw new Error(`${modelResponse.status}`);
+          }
+
+          const data = (await modelResponse.json()) as Record<string, unknown>;
+          const incomingModels = normalizeModelList(data.data);
+          let existingModels: Array<Record<string, unknown>> = [];
+
+          await mkdir(dirname(modelJsonPath), { recursive: true });
+          let existingConfig: Record<string, unknown> = {};
+          try {
+            existingConfig = await readCachedModelConfig(modelJsonPath);
+            existingModels = await readCachedMaaSModels(modelJsonPath, editionSource.id);
+          } catch (readError) {
+            if ((readError as { code?: string })?.code !== 'ENOENT') {
+              console.warn('读取 model.json 失败，将以新数据继续写入:', readError);
+            }
+          }
+
+          const mergedModels = uniquePayloadById([...existingModels, ...incomingModels]);
+          await writeFile(
+            modelJsonPath,
+            `${JSON.stringify({ ...existingConfig, [editionSource.id]: mergedModels }, null, 2)}\n`,
+            'utf-8',
+          );
+          return {
+            success: true,
+            list: [...toMassModelList(incomingModels, editionSource), ...configuredUserModels],
+            projectPath: projectRoot,
+          };
+        } catch (error) {
+          console.error('获取 Edition 模型失败，将回退到本地聚合模型列表:', error);
+        }
+      }
+    }
+
+    if (configuredUserModels.length > 0) {
       return {
         success: true,
-        list: configuredNonHuaweiModels,
+        list: configuredUserModels,
         projectPath: projectRoot,
       };
     }
@@ -365,7 +399,7 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
   app.post('/api/maas-send', async (_request, reply) => {
     reply.status(410);
     return {
-      error: 'Clowder no longer proxies Huawei MaaS model calls. Runtime auth is passed to downstream agents.',
+      error: 'Clowder no longer proxies model calls directly. Runtime auth is passed to downstream agents.',
     };
   });
 };

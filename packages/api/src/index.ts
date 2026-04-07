@@ -99,6 +99,7 @@ import {
   stopGithubCiPoller,
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
+import { setModelConfigPolicy } from './config/model-config-profiles.js';
 import { loadEdition } from './edition/edition-loader.js';
 import { identityPlugin } from './identity/identity-plugin.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
@@ -277,6 +278,12 @@ async function main(): Promise<void> {
     },
   });
   app.log.info(`[api] Edition: ${editionConfig.edition} v${editionConfig.version}`);
+
+  // Model config policy — Edition-provided rules for model source management
+  setModelConfigPolicy(editionConfig.modelConfigPolicy);
+  app.log.info(
+    `[api] Model config policy: ${editionConfig.modelConfigPolicy.reservedSourceIds.length} reserved sources`,
+  );
 
   // Identity resolution — decorates requests with resolvedIdentity
   await app.register(identityPlugin, { config: editionConfig.identity });

@@ -131,6 +131,43 @@ export interface CapabilityManifest {
   modelSources: string[];
 }
 
+// ─── Model Config Policy (§4.2) ─────────────────────
+// Edition-provided rules that govern model source behavior.
+// Core has no hardcoded vendor model source IDs — Edition configures them.
+
+export interface ModelSourceProtocolRule {
+  /** Protocol identifier (e.g. 'huawei_maas'). Core treats it as opaque string. */
+  protocol: string;
+  /** Display name for UI (e.g. 'Huawei MaaS'). */
+  displayName: string;
+  /** Whether this protocol uses API keys (false = session/header auth). */
+  hasApiKey: boolean;
+  /** Auth type for profile views ('none' for session-based, 'api_key' for key-based). */
+  authType: 'none' | 'api_key';
+  /** Resolver function to get runtime config from session/env. Edition provides this. */
+  resolveRuntimeConfig?: (userId: string) => {
+    baseUrl: string;
+    apiKey: string;
+    defaultHeaders: Record<string, string>;
+  };
+}
+
+export interface ModelConfigPolicy {
+  /** Source IDs that are reserved (can't be user-created/updated/deleted). */
+  reservedSourceIds: string[];
+  /** Map from source ID → protocol (for auto-inference). */
+  protocolInference: Record<string, string>;
+  /** Protocol-specific rules. Keyed by protocol string. */
+  protocolRules: Record<string, ModelSourceProtocolRule>;
+}
+
+/** Default policy for community edition — no reserved IDs, no vendor protocols. */
+export const DEFAULT_MODEL_CONFIG_POLICY: ModelConfigPolicy = {
+  reservedSourceIds: [],
+  protocolInference: {},
+  protocolRules: {},
+};
+
 // ─── Edition Config (full) ────────────────────────────
 
 export interface EditionConfig {
@@ -141,6 +178,7 @@ export interface EditionConfig {
   branding: BrandingConfig;
   identity: { mode: IdentityMode };
   features: Record<string, boolean>;
+  modelConfigPolicy: ModelConfigPolicy;
   _registry?: EditionRegistryImpl;
 }
 

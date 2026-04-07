@@ -4,7 +4,7 @@ import type { EmbeddedAcpConfig } from '@cat-cafe/shared';
 import type { ModelConfigBinding } from '../config/model-config-profiles.js';
 import type { RuntimeAcpModelProfile } from '../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../config/provider-profiles.js';
-import { resolveHuaweiMaaSRuntimeConfig } from '../integrations/huawei-maas.js';
+import { getModelConfigPolicy } from '../config/model-config-profiles.js';
 
 const BUNDLED_AGENT_TEAMS_PATH_SEGMENTS = ['tools', 'python', 'python.exe'] as const;
 export const DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS = ['-m', 'relay_teams', 'gateway', 'acp', 'stdio'] as const;
@@ -105,8 +105,10 @@ export function buildEmbeddedAgentTeamsModelProfileFromBinding(
     };
   }
 
-  if (binding.protocol === 'huawei_maas') {
-    const runtimeConfig = resolveHuaweiMaaSRuntimeConfig(userId);
+  // Edition-managed protocol: resolve runtime config via policy
+  const rule = binding.protocol ? getModelConfigPolicy().protocolRules[binding.protocol] : undefined;
+  if (rule?.resolveRuntimeConfig) {
+    const runtimeConfig = rule.resolveRuntimeConfig(userId);
     return {
       id: `embedded-agentteams-model-${binding.id}`,
       displayName: `Agent Teams · ${displayName}`,

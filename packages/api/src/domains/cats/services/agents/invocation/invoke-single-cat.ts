@@ -24,7 +24,7 @@ import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.j
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import {
   findProjectModelConfigBinding,
-  HUAWEI_MAAS_MODEL_SOURCE_ID,
+  getModelConfigPolicy,
 } from '../../../../../config/model-config-profiles.js';
 import {
   resolveBuiltinClientForProvider,
@@ -35,7 +35,7 @@ import {
   resolveRuntimeProviderProfileForClient,
 } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
-import { resolveHuaweiMaaSRuntimeConfig } from '../../../../../integrations/huawei-maas.js';
+import type { ModelSourceProtocolRule } from '../../../../../edition/types.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
 import {
@@ -647,10 +647,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ? await findProjectModelConfigBinding(configProjectRoot, boundAccountRef)
         : null;
     if (modelConfigBinding) {
-      const isHuaweiMaaSBinding =
-        modelConfigBinding.id === HUAWEI_MAAS_MODEL_SOURCE_ID && modelConfigBinding.protocol === 'huawei_maas';
+      const policy = getModelConfigPolicy();
+      const editionProtocolRule: ModelSourceProtocolRule | undefined =
+        modelConfigBinding.protocol ? policy.protocolRules[modelConfigBinding.protocol] : undefined;
+      const isEditionManagedBinding = Boolean(editionProtocolRule);
       const isCustomOpenAiBinding = modelConfigBinding.protocol === 'openai';
-      if (!isHuaweiMaaSBinding && !isCustomOpenAiBinding) {
+      if (!isEditionManagedBinding && !isCustomOpenAiBinding) {
         throw new Error(`unsupported model config source "${modelConfigBinding.id}"`);
       }
       if (!embeddedAcpRuntime && provider !== 'dare' && provider !== 'relayclaw') {
@@ -802,12 +804,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       } else if (boundAccountRef) {
         callbackEnv.CODEX_AUTH_MODE = 'oauth';
       }
-    } else if (effectiveProtocol === 'huawei_maas') {
-      const runtimeConfig = resolveHuaweiMaaSRuntimeConfig(userId);
+    } else if (effectiveProtocol && getModelConfigPolicy().protocolRules[effectiveProtocol]?.resolveRuntimeConfig) {
+      // Edition-managed protocol: resolve runtime config via Edition's resolver
+      const rule = getModelConfigPolicy().protocolRules[effectiveProtocol]!;
+      const runtimeConfig = rule.resolveRuntimeConfig!(userId);
       const headersJson = JSON.stringify(runtimeConfig.defaultHeaders);
-      callbackEnv.CAT_CAFE_HUAWEI_MAAS_ENABLED = '1';
-      callbackEnv.CAT_CAFE_HUAWEI_MAAS_BASE_URL = runtimeConfig.baseUrl;
-      callbackEnv.CAT_CAFE_HUAWEI_MAAS_HEADERS_JSON = headersJson;
+      callbackEnv.CAT_CAFE_EDITION_PROTOCOL = effectiveProtocol;
+      callbackEnv.CAT_CAFE_EDITION_BASE_URL = runtimeConfig.baseUrl;
+      callbackEnv.CAT_CAFE_EDITION_HEADERS_JSON = headersJson;
       callbackEnv.CODEX_AUTH_MODE = 'api_key';
       callbackEnv.OPENAI_API_KEY = runtimeConfig.apiKey;
       callbackEnv.OPENAI_BASE_URL = runtimeConfig.baseUrl;
@@ -832,7 +836,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Dare has its own env vars regardless of protocol-based injection above
     if (provider === 'dare') {
-      if (effectiveProtocol === 'huawei_maas') {
+      if (effectiveProtocol && getModelConfigPolicy().protocolRules[effectiveProtocol]) {
         callbackEnv.CAT_CAFE_DARE_ADAPTER = 'openai';
         if (callbackEnv.OPENAI_API_KEY) callbackEnv.DARE_API_KEY = callbackEnv.OPENAI_API_KEY;
         if (callbackEnv.OPENAI_BASE_URL) callbackEnv.DARE_ENDPOINT = callbackEnv.OPENAI_BASE_URL;

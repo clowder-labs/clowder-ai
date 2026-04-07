@@ -10,8 +10,8 @@
 
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import type { EditionConfig, IEditionModule } from './types.js';
-import { EditionRegistryImpl } from './types.js';
+import type { EditionConfig, IEditionModule, ModelConfigPolicy } from './types.js';
+import { DEFAULT_MODEL_CONFIG_POLICY, EditionRegistryImpl } from './types.js';
 
 // ─── Core API version (bumped per release) ────────────
 
@@ -35,6 +35,7 @@ export const DEFAULT_EDITION: EditionConfig = {
     agentTeams: false,
     werewolfGame: false,
   },
+  modelConfigPolicy: DEFAULT_MODEL_CONFIG_POLICY,
 };
 
 // ─── edition.json discovery ───────────────────────────
@@ -138,6 +139,7 @@ export async function loadEdition(options: LoadEditionOptions): Promise<EditionC
       mode: raw.identity?.mode ?? 'no-auth',
     },
     features: raw.features ?? {},
+    modelConfigPolicy: raw.modelConfigPolicy ?? DEFAULT_MODEL_CONFIG_POLICY,
   };
 
   // Load Edition Module if specified

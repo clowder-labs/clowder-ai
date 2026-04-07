@@ -10,7 +10,7 @@
 export { CORE_API_VERSION, DEFAULT_EDITION, loadEdition } from './edition-loader.js';
 export type { LoadEditionOptions } from './edition-loader.js';
 
-export { EditionRegistryImpl } from './types.js';
+export { DEFAULT_MODEL_CONFIG_POLICY, EditionRegistryImpl } from './types.js';
 export type {
   BrandingConfig,
   CapabilityManifest,
@@ -23,7 +23,9 @@ export type {
   IModelSource,
   ISkillSource,
   InboundEvent,
+  ModelConfigPolicy,
   ModelEntry,
+  ModelSourceProtocolRule,
   OutboundMessage,
   RuntimeModelConfig,
   SkillSearchResult,
