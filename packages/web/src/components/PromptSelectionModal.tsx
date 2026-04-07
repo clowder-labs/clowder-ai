@@ -73,7 +73,7 @@ function PromptDetailContent({ item }: { item: PromptSelectionItem }) {
     <div className="h-full overflow-y-auto">
       <MarkdownContent
         content={item.content}
-        className="text-[12px] leading-7 text-[#2E3542] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#555E6D] [&_p]:text-[#555E6D]"
+        className="text-[12px] leading-7 text-[#191919] [&_h1]:mb-3 [&_h1]:text-[16px] [&_h1]:font-semibold [&_h2]:mb-3 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-[16px] [&_h3]:font-semibold [&_ul]:mb-3 [&_li]:text-[#191919] [&_p]:text-[#191919]"
         disableCommandPrefix
       />
     </div>
@@ -227,10 +227,10 @@ export function PromptSelectionModal({
                       data-testid={`prompt-list-item-${item.id}`}
                     >
                       <div className="flex h-full min-w-0 w-full flex-col justify-center overflow-hidden">
-                        <div className="h-[22px] w-full truncate text-[14px] font-semibold leading-[22px] text-[#303744]">
+                        <div className="h-[22px] w-full truncate text-[14px] font-semibold leading-[22px] text-[#191919]">
                           {item.title}
                         </div>
-                        <div className="mt-1 h-[18px] w-full truncate overflow-hidden text-[12px] leading-[18px] text-[#969EAA]">
+                        <div className="mt-1 h-[18px] w-full truncate overflow-hidden text-[12px] leading-[18px] text-[#595959]">
                           {buildItemSummary(item)}
                         </div>
                       </div>
