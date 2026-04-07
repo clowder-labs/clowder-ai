@@ -677,4 +677,100 @@ describe('RelayClawAgentService', () => {
     assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
     assert.match(messages[1].error, /connection closed unexpectedly/i);
   });
+
+  it('reuses provided cliSessionId for relayclaw requests', async () => {
+    let capturedRequest = null;
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+          channelId: 'catcafe',
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          capturedRequest = request;
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('resume this session', { cliSessionId: 'catcafe_existing_session' })) {
+      messages.push(msg);
+    }
+
+    assert.equal(messages[0].type, 'session_init');
+    assert.equal(messages[0].sessionId, 'catcafe_existing_session');
+    assert.equal(capturedRequest.session_id, 'catcafe_existing_session');
+  });
+
+  it('derives a stable relayclaw sessionId from audit context when none is persisted yet', async () => {
+    const sentSessionIds = [];
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+          channelId: 'catcafe',
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          sentSessionIds.push(request.session_id);
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const baseAuditContext = {
+      threadId: 'thread-42',
+      userId: 'user-7',
+      catId: 'relayclaw-debug',
+    };
+
+    const firstMessages = [];
+    for await (const msg of service.invoke('hello', {
+      auditContext: {
+        invocationId: 'inv-1',
+        ...baseAuditContext,
+      },
+    })) {
+      firstMessages.push(msg);
+    }
+
+    const secondMessages = [];
+    for await (const msg of service.invoke('hello again', {
+      auditContext: {
+        invocationId: 'inv-2',
+        ...baseAuditContext,
+      },
+    })) {
+      secondMessages.push(msg);
+    }
+
+    assert.equal(firstMessages[0].type, 'session_init');
+    assert.equal(secondMessages[0].type, 'session_init');
+    assert.equal(firstMessages[0].sessionId, secondMessages[0].sessionId);
+    assert.match(firstMessages[0].sessionId, /^catcafe_[0-9a-f]{24}$/);
+    assert.equal(sentSessionIds[0], firstMessages[0].sessionId);
+    assert.equal(sentSessionIds[1], secondMessages[0].sessionId);
+  });
 });
