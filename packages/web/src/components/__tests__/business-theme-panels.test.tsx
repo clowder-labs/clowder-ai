@@ -146,6 +146,7 @@ describe('business theme panels', () => {
     expect(shell?.className).toContain('ui-page-shell');
     expect(container.querySelector('h1')?.className).toContain('ui-page-title');
     expect(container.querySelector('article')?.className).toContain('ui-card');
+    expect(container.querySelector('article')?.className).toContain('ui-card-hover');
   });
 
   it('renders AgentsPanel with shared page shell and tokenized member surfaces', async () => {

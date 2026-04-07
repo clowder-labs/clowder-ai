@@ -126,6 +126,7 @@ describe('business theme hub shell', () => {
     expect(container.querySelector('select[aria-label="筛选来源"]')).not.toBeNull();
     expect(container.textContent).not.toContain('项目:');
     expect(container.querySelector('[data-testid="capability-card-skill-ops-skill"]')?.className).toContain('ui-card');
+    expect(container.querySelector('[data-testid="capability-card-skill-ops-skill"]')?.className).toContain('ui-card-hover');
     expect(container.textContent).toContain('来源：官方');
   });
 

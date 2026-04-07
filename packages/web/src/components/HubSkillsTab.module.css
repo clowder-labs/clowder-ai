@@ -10,15 +10,7 @@
   min-height: 194px;
   flex-direction: column;
   gap: var(--space-7);
-  border: var(--border-width-default) solid var(--border-default);
-  border-radius: var(--radius-xl);
-  background: var(--surface-card);
   padding: var(--space-9);
-  box-shadow: var(--shadow-card-soft);
-  transition:
-    border-color 200ms ease,
-    box-shadow 200ms ease,
-    background-color 200ms ease;
 }
 
 .header {

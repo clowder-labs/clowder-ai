@@ -32,7 +32,6 @@ from jiuwenclaw.utils import (
     get_agent_registered_skill_dirs,
     get_checkpoint_dir,
     get_env_file,
-    get_project_workspace_dir,
     get_workspace_dir,
     logger,
     sync_shared_agent_skills_cache,
@@ -393,8 +392,32 @@ class JiuWenClaw:
             self._instance.ability_manager.add(mcp_tool.card)
         self._mcp_tools_registered = True
 
+        project_mcp_names: set[str] = set()
+        host_project_mcp_path = self._tool_manager.find_host_project_mcp_json()
         try:
-            await self._tool_manager.load_tools_from_disk()
+            if host_project_mcp_path is None:
+                logger.info(
+                    "[JiuWenClaw] 未找到宿主项目 .mcp.json，跳过 MCP 工具导入: CAT_CAFE_MCP_CWD=%s",
+                    os.getenv("CAT_CAFE_MCP_CWD", ""),
+                )
+            else:
+                project_mcp_payload = await self._tool_manager.load_project_mcp_json(host_project_mcp_path)
+                project_mcp_names = {
+                    item["name"]
+                    for item in project_mcp_payload.get("saved", [])
+                    if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"]
+                }
+                if not project_mcp_payload.get("skipped"):
+                    logger.info(
+                        "[JiuWenClaw] 已从宿主项目 .mcp.json 导入 MCP 工具: count=%s source=%s",
+                        len(project_mcp_names),
+                        project_mcp_payload.get("source", str(host_project_mcp_path)),
+                    )
+        except Exception as exc:
+            logger.warning("[JiuWenClaw] 从宿主项目 .mcp.json 导入 MCP 工具失败: %s", exc)
+
+        try:
+            await self._tool_manager.load_tools_from_disk(skip_server_names=project_mcp_names)
         except Exception as exc:
             logger.warning("[JiuWenClaw] 从 agent/tools 加载落盘 MCP 工具失败: %s", exc)
 
