@@ -862,6 +862,100 @@ describe('business theme secondary surfaces', () => {
     expect(updatedHeading?.textContent).not.toContain('技能广场');
   });
 
+  it('keeps the previous heading count until the new category results arrive', async () => {
+    let resolveCategoryRequest: ((value: Response) => void) | null = null;
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url === '/api/skills/all?page=1&limit=24') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-1',
+                slug: 'skill-1',
+                name: 'skill-1',
+                description: 'search helper',
+                tags: ['developer-tools'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+              {
+                id: 'alpha-helper',
+                slug: 'alpha-helper',
+                name: 'alpha-helper',
+                description: 'alpha helper',
+                tags: ['ai-intelligence'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 2,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/all?page=1&limit=24&category=developer-tools') {
+        return new Promise<Response>((resolve) => {
+          resolveCategoryRequest = resolve;
+        });
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const developerTab = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('开发工具'),
+    );
+    expect(developerTab).not.toBeUndefined();
+
+    await act(async () => {
+      developerTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const headingDuringLoad = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('(2)'),
+    );
+    expect(headingDuringLoad?.textContent).toContain('全部 (2)');
+
+    await act(async () => {
+      resolveCategoryRequest?.(
+        jsonResponse({
+          skills: [
+            {
+              id: 'skill-1',
+              slug: 'skill-1',
+              name: 'skill-1',
+              description: 'search helper',
+              tags: ['developer-tools'],
+              repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+              isInstalled: false,
+            },
+          ],
+          total: 1,
+          page: 1,
+          hasMore: false,
+        }),
+      );
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    const headingAfterLoad = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('(1)'),
+    );
+    expect(headingAfterLoad?.textContent).toContain('开发工具 (1)');
+  });
+
   it('renders HubConnectorConfigTab with tokenized cards and form controls', async () => {
     await act(async () => {
       root.render(React.createElement(HubConnectorConfigTab));
