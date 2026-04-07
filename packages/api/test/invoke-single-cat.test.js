@@ -97,6 +97,57 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(catError[0].data.error.includes('CLI'), 'cat_error should contain error message');
   });
 
+  it('triggers unified timeout test hook before provider invoke', async () => {
+    let invoked = false;
+    const service = {
+      async *invoke() {
+        invoked = true;
+        yield { type: 'text', catId: 'codex', content: 'should not happen', timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'codex',
+        service,
+        prompt: '__TEST_AGENT_TIMEOUT__',
+        userId: 'user1',
+        threadId: 'thread-timeout-hook',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invoked, false);
+    assert.ok(msgs.some((m) => m.type === 'system_info' && String(m.content).includes('timeout_diagnostics')));
+    assert.ok(msgs.some((m) => m.type === 'error' && String(m.error).includes('timed out')));
+    assert.ok(msgs.some((m) => m.type === 'done'));
+  });
+
+  it('triggers unified connection test hook before provider invoke', async () => {
+    let invoked = false;
+    const service = {
+      async *invoke() {
+        invoked = true;
+        yield { type: 'text', catId: 'jiuwenclaw', content: 'should not happen', timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'jiuwenclaw',
+        service,
+        prompt: '__TEST_AGENT_CONNECTION__',
+        userId: 'user1',
+        threadId: 'thread-connection-hook',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(invoked, false);
+    assert.ok(msgs.some((m) => m.type === 'error' && String(m.error).includes('connection failed')));
+    assert.ok(msgs.some((m) => m.type === 'done'));
+  });
+
   it('persists task progress snapshot with completed status on done', async () => {
     const { MemoryTaskProgressStore } = await import(
       '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
@@ -2419,8 +2470,14 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
-    assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
-    assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
+    assert.ok(
+      promptsSeen[0].includes('retry once with a likely exact skill name'),
+      'ACP hint should mention retry guidance',
+    );
+    assert.ok(
+      promptsSeen[0].includes('cat_cafe_load_skill immediately'),
+      'ACP hint should mention immediate skill loading',
+    );
     assert.ok(
       promptsSeen[0].includes('before cat_cafe_search_evidence, repo grep, or read'),
       'ACP hint should prioritize skills ahead of other retrieval tools',
@@ -3302,10 +3359,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         callbackEnv.OPENAI_DEFAULT_HEADERS,
         JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
       );
-      assert.equal(
-        callbackEnv.default_headers,
-        JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
-      );
+      assert.equal(callbackEnv.default_headers, JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }));
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
       else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;

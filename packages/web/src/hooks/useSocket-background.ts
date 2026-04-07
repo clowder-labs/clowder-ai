@@ -1,4 +1,5 @@
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
+import { getFriendlyAgentErrorMessage } from '@/hooks/agent-error-fallback';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import type {
@@ -453,13 +454,24 @@ export function handleBackgroundAgentMessage(
   if (msg.type === 'error') {
     markThreadInvocationActive(msg, options);
     stopTrackedStream(streamKey, msg, options);
+    const friendlyError = getFriendlyAgentErrorMessage(msg);
+    recordDebugEvent({
+      event: 'agent_message',
+      threadId: msg.threadId,
+      timestamp: msg.timestamp,
+      catId: msg.catId,
+      invocationId: msg.invocationId,
+      reason: msg.error ?? 'Unknown error',
+      action: 'error_fallback',
+      origin: msg.origin,
+    });
     options.store.addMessageToThread(msg.threadId, {
       id: `bg-err-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
-      type: 'system',
-      variant: 'error',
+      type: 'assistant',
       catId: msg.catId,
-      content: `Error: ${msg.error ?? 'Unknown error'}`,
+      content: friendlyError,
       timestamp: msg.timestamp,
+      origin: 'stream',
     });
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
     if (msg.isFinal) {
@@ -470,7 +482,7 @@ export function handleBackgroundAgentMessage(
     options.addToast({
       type: 'error',
       title: `${msg.catId} 出错`,
-      message: msg.error ?? 'Unknown error',
+      message: friendlyError,
       threadId: msg.threadId,
       duration: 8000,
     });

@@ -637,7 +637,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ? await findProjectModelConfigBinding(configProjectRoot, rawBoundAccountRef)
         : null;
     const boundAccountRef = embeddedAcpRuntime
-      ? embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id
+      ? (embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id)
       : rawBoundAccountRef;
     const modelConfigBinding = embeddedAcpRuntime
       ? embeddedModelConfigBinding
@@ -652,7 +652,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         throw new Error(`unsupported model config source "${modelConfigBinding.id}"`);
       }
       if (!embeddedAcpRuntime && provider !== 'dare' && provider !== 'relayclaw') {
-        throw new Error(`client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`);
+        throw new Error(
+          `client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`,
+        );
       }
       if (defaultModel && modelConfigBinding.models.length && !modelConfigBinding.models.includes(defaultModel)) {
         throw new Error(`model "${defaultModel}" is not available on provider "${modelConfigBinding.id}"`);
@@ -728,8 +730,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const effectiveProtocol =
       resolvedAccount?.kind !== 'builtin' && resolvedAccount?.protocol
         ? resolvedAccount.protocol
-        : modelConfigBinding?.protocol ??
-          (provider ? (defaultProtocolForProvider[provider] ?? null) : null);
+        : (modelConfigBinding?.protocol ?? (provider ? (defaultProtocolForProvider[provider] ?? null) : null));
 
     // Pass protocol hint to CLI via callbackEnv (used by OpenCode/Claude for model prefix)
     if (effectiveProtocol) {
@@ -943,12 +944,62 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Prepend staticIdentity to prompt when injection is needed
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
-    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter((part) => typeof part === 'string' && part.trim());
+    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter(
+      (part) => typeof part === 'string' && part.trim(),
+    );
     const promptWithMission = promptParts.join('\n\n');
     const effectivePrompt =
       injectSystemPrompt && params.systemPrompt
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
         : promptWithMission;
+
+    const testHook = (() => {
+      if (effectivePrompt.includes('__TEST_AGENT_TIMEOUT__')) {
+        return {
+          diagnostics: {
+            type: 'timeout_diagnostics',
+            catId,
+            silenceDurationMs: 30 * 60 * 1000,
+            processAlive: true,
+            lastEventType: 'tool.invoke',
+          },
+          error: `${catId} request timed out before completion`,
+        };
+      }
+      if (effectivePrompt.includes('__TEST_AGENT_EXIT__')) {
+        return { error: `${catId} CLI 异常退出 (code: 1, signal: none)` };
+      }
+      if (effectivePrompt.includes('__TEST_AGENT_CONNECTION__')) {
+        return { error: `${catId} connection failed: sidecar exited during startup` };
+      }
+      if (effectivePrompt.includes('__TEST_AGENT_CONFIG__')) {
+        return { error: `${catId} provider profile is not configured` };
+      }
+      return null;
+    })();
+
+    if (testHook) {
+      if (testHook.diagnostics) {
+        yield {
+          type: 'system_info',
+          catId,
+          content: JSON.stringify(testHook.diagnostics),
+          timestamp: Date.now(),
+        };
+      }
+      yield {
+        type: 'error',
+        catId,
+        error: testHook.error,
+        timestamp: Date.now(),
+      };
+      yield {
+        type: 'done',
+        catId,
+        timestamp: Date.now(),
+      };
+      return;
+    }
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
