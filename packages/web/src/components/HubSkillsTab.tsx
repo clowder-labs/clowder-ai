@@ -400,9 +400,9 @@ export function HubSkillsTab() {
         </div>
       )}
 
-      <section className="mt-4">
+      <section>
         {categories.length > 0 && (
-          <div className="flex flex-wrap items-center gap-4 pb-4">
+          <div className="flex flex-wrap items-center gap-4 pb-6">
             {[ALL_CATEGORY, ...categories].map((category, index) => (
               <div key={category} className="flex items-center">
                 {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
@@ -427,7 +427,7 @@ export function HubSkillsTab() {
             {SILL_SQUARE_LABEL}
             {displayResults ? ` (${displayResults.total})` : ''}
           </p>
-          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center pt-4">
+          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center py-6">
             <input
               type="text"
               aria-label={SEARCH_ARIA_LABEL}

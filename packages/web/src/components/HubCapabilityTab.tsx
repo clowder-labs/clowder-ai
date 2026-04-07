@@ -211,7 +211,7 @@ export function HubCapabilityTab({
 
       <CapabilitySection
         icon={<SectionIconSkill />}
-        title={`${activeCategory} (${displayedSkillItems.length})`}
+        title={`${activeCategory} (${filteredDisplayedSkillItems.length})`}
         subtitle="已安装技能"
         headerSlotClassName="mt-0 py-6"
         showWhenEmpty={skillItems.length > 0}
