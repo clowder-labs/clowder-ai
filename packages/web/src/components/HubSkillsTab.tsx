@@ -35,7 +35,6 @@ const INSTALLED_LABEL = '已安装';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索技能';
 const LOADING_LABEL = '加载中...';
-const SILL_SQUARE_LABEL = '技能广场';
 const ALL_CATEGORY = '全部';
 
 const CATEGORY_MAP: Record<string, string> = {
@@ -424,7 +423,7 @@ export function HubSkillsTab() {
 
         <div className="space-y-0">
           <p className="text-[20px] font-semibold">
-            {SILL_SQUARE_LABEL}
+            {activeCategory}
             {displayResults ? ` (${displayResults.total})` : ''}
           </p>
           <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center py-6">

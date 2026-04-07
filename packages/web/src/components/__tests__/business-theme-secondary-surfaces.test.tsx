@@ -69,30 +69,61 @@ describe('business theme secondary surfaces', () => {
     root = createRoot(container);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
       if (url.startsWith('/api/skills/all') || url.startsWith('/api/skills?')) {
+        const parsed = new URL(url, 'https://example.test');
+        const category = parsed.searchParams.get('category');
+        const skills =
+          category === 'developer-tools'
+            ? [
+                {
+                  id: 'skill-1',
+                  slug: 'skill-1',
+                  name: 'skill-1',
+                  description: 'search helper',
+                  tags: ['developer-tools'],
+                  repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                  isInstalled: false,
+                },
+              ]
+            : category === 'ai-intelligence'
+              ? [
+                  {
+                    id: 'alpha-helper',
+                    slug: 'alpha-helper',
+                    name: 'alpha-helper',
+                    description: 'alpha helper',
+                    tags: ['ai-intelligence'],
+                    repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                    isInstalled: false,
+                  },
+                ]
+              : [
+                  {
+                    id: 'skill-1',
+                    slug: 'skill-1',
+                    name: 'skill-1',
+                    description: 'search helper',
+                    tags: ['developer-tools'],
+                    repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                    isInstalled: false,
+                  },
+                  {
+                    id: 'alpha-helper',
+                    slug: 'alpha-helper',
+                    name: 'alpha-helper',
+                    description: 'alpha helper',
+                    tags: ['ai-intelligence'],
+                    repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                    isInstalled: false,
+                  },
+                ];
         return Promise.resolve(
           jsonResponse({
-            skills: [
-              {
-                id: 'skill-1',
-                slug: 'skill-1',
-                name: 'skill-1',
-                description: 'search helper',
-                tags: [],
-                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
-                isInstalled: false,
-              },
-              {
-                id: 'alpha-helper',
-                slug: 'alpha-helper',
-                name: 'alpha-helper',
-                description: 'alpha helper',
-                tags: ['alpha'],
-                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
-                isInstalled: false,
-              },
-            ],
-            total: 2,
+            skills,
+            total: skills.length,
             page: 1,
             hasMore: false,
           }),
@@ -177,9 +208,9 @@ describe('business theme secondary surfaces', () => {
 
     expect(container.querySelector('input')?.className).toContain('ui-input');
     const plazaHeading = Array.from(container.querySelectorAll('p')).find((candidate) =>
-      candidate.textContent?.includes('技能广场'),
+      candidate.textContent?.includes('(2)'),
     );
-    const searchInput = container.querySelector('input[aria-label="搜索 SkillHub 技能"]');
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]');
     const firstSkillCard = container.querySelector('article');
     expect(
       Boolean(
@@ -203,7 +234,7 @@ describe('business theme secondary surfaces', () => {
     });
     await flushEffects();
 
-    const searchInput = container.querySelector('input[aria-label="搜索 SkillHub 技能"]') as HTMLInputElement | null;
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
     expect(searchInput).not.toBeNull();
 
     await changeInputValue(searchInput!, 'alpha');
@@ -216,6 +247,36 @@ describe('business theme secondary surfaces', () => {
       String(input).startsWith('/api/skills/search'),
     );
     expect(calledSearchEndpoint).toBe(false);
+  });
+
+  it('uses the active category name as the plaza title', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const initialHeading = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('(2)'),
+    );
+    expect(initialHeading?.textContent).toContain('全部 (2)');
+
+    const developerTab = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('开发工具'),
+    );
+    expect(developerTab).not.toBeUndefined();
+
+    await act(async () => {
+      developerTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const updatedHeading = Array.from(container.querySelectorAll('p')).find((candidate) =>
+      candidate.textContent?.includes('(1)'),
+    );
+    expect(updatedHeading?.textContent).toContain('开发工具 (1)');
+    expect(updatedHeading?.textContent).not.toContain('技能广场');
   });
 
   it('renders HubConnectorConfigTab with tokenized cards and form controls', async () => {
