@@ -333,8 +333,11 @@ class JiuClawReActAgent(ReActAgent):
         context = await self._init_context(session)
         await context.add_messages(UserMessage(content=user_input))
 
-        # Build system messages once before loop
-        system_messages = self._build_system_messages(session_id)
+        # Build request-scoped system messages once before loop.
+        system_messages = self._build_system_messages(
+            session_id,
+            system_prompt_append=inputs.get("system_prompt_append") if isinstance(inputs, dict) else None,
+        )
 
         tools = _deduplicate_tools_by_name(
             await self.ability_manager.list_tool_info()
@@ -1104,7 +1107,12 @@ class JiuClawReActAgent(ReActAgent):
             logger.warning("Failed to get session messages: %s", exc)
             return []
 
-    def _build_system_messages(self, session_id: str) -> List[SystemMessage]:
+    def _build_system_messages(
+        self,
+        session_id: str,
+        *,
+        system_prompt_append: Optional[str] = None,
+    ) -> List[SystemMessage]:
         """Build system messages: prompt_template + workspace + memory + skill summary.
 
         Order:
@@ -1125,6 +1133,11 @@ class JiuClawReActAgent(ReActAgent):
 
         # Build append content
         content_parts: List[str] = []
+
+        if isinstance(system_prompt_append, str):
+            trimmed = system_prompt_append.strip()
+            if trimmed:
+                content_parts.append(trimmed)
 
         # 4. skill_prompt + evolution summary
         skill_msgs = self._get_skill_messages()
