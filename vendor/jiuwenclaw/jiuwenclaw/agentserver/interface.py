@@ -1123,6 +1123,11 @@ class JiuWenClaw:
             request.request_id, request.channel_id, session_id,
         )
         config_base = get_config()
+        system_prompt_append = request.params.get("system_prompt")
+        if isinstance(system_prompt_append, str):
+            system_prompt_append = system_prompt_append.strip() or None
+        else:
+            system_prompt_append = None
         inputs = {
             "conversation_id": request.session_id,
             "query": build_user_prompt(
@@ -1131,6 +1136,7 @@ class JiuWenClaw:
                 channel=request.session_id.split('_')[0],
                 language=config_base.get("preferred_language", "zh")
             ),
+            **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
         if self._compaction_manager:
@@ -1262,6 +1268,11 @@ class JiuWenClaw:
             request.request_id, request.channel_id, session_id,
         )
         config_base = get_config()
+        system_prompt_append = request.params.get("system_prompt")
+        if isinstance(system_prompt_append, str):
+            system_prompt_append = system_prompt_append.strip() or None
+        else:
+            system_prompt_append = None
         inputs = {
             "conversation_id": request.session_id,
             "query": build_user_prompt(
@@ -1270,6 +1281,7 @@ class JiuWenClaw:
                 channel=request.session_id.split('_')[0],
                 language=config_base.get("preferred_language", "zh")
             ),
+            **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
         # supplement 任务：读取现有 todo 待办，拼入 query 让 agent 知道有未完成的任务

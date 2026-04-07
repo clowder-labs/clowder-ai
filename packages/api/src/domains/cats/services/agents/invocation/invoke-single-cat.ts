@@ -923,15 +923,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Note: As of F053, all cats (including Gemini) have sessionChain=true.
     // Exception: compression detected → force re-inject (see _needsReinjection)
     //
-    // Injection method: prepend to prompt string (universal, all CLIs).
-    // --append-system-prompt proved unreliable (cats didn't receive content).
-    // Codex/Gemini AgentServices also prepend if options.systemPrompt is set,
-    // so we intentionally do NOT pass systemPrompt in options to avoid double injection.
+    // Injection method:
+    // - relayclaw: pass request-scoped system prompt via options.systemPrompt so Jiuwen
+    //   can append it to its own system prompt channel without polluting user query.
+    // - other providers: prepend to prompt string (universal fallback).
+    //   --append-system-prompt proved unreliable across providers.
     const isResume = !!sessionId;
     const canSkipOnResume = isSessionChainEnabled(catId);
     const compressionKey = `${userId}:${catId as string}:${threadId}`;
     const forceReinjection = _needsReinjection.delete(compressionKey);
     const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
+    const relayClawSystemPrompt =
+      provider === 'relayclaw' && injectSystemPrompt && params.systemPrompt ? params.systemPrompt : undefined;
 
     // ACP/open agents read the task prompt more reliably than long static identity.
     // Keep the skill-selection reminder close to the task so they query runtime skills
@@ -946,7 +949,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter((part) => typeof part === 'string' && part.trim());
     const promptWithMission = promptParts.join('\n\n');
     const effectivePrompt =
-      injectSystemPrompt && params.systemPrompt
+      injectSystemPrompt && params.systemPrompt && provider !== 'relayclaw'
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
         : promptWithMission;
 
@@ -983,6 +986,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(signal ? { signal } : {}),
       ...(spawnCliOverride ? { spawnCliOverride } : {}),
       invocationId,
+      ...(relayClawSystemPrompt ? { systemPrompt: relayClawSystemPrompt } : {}),
       ...(sessionId ? { cliSessionId: sessionId } : {}),
       ...(params.resumeSession ? { resumeSession: true } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers

@@ -34,11 +34,14 @@ import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
+import type { IConnectorThreadBindingStore } from '../infrastructure/connectors/ConnectorThreadBindingStore.js';
 
 const log = createModuleLogger('routes/threads');
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
+  /** Optional: unbind connector chats when a thread is deleted to avoid routing into hidden soft-deleted threads. */
+  connectorBindingStore?: IConnectorThreadBindingStore;
   /** Optional: cascade delete messages when thread is deleted */
   messageStore?: IMessageStore;
   /** Optional: cascade delete tasks when thread is deleted */
@@ -519,6 +522,11 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       if (!deleted) {
         reply.status(400);
         return { error: 'Cannot delete this thread' };
+      }
+
+      if (opts.connectorBindingStore) {
+        const bindings = await opts.connectorBindingStore.getByThread(id);
+        await Promise.all(bindings.map((binding) => opts.connectorBindingStore!.remove(binding.connectorId, binding.externalChatId)));
       }
 
       // I-2: Audit thread deletion for traceability (best-effort, don't block response)

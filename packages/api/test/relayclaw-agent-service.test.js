@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -12,6 +13,7 @@ const { RelayClawConnectionManager, resolveRelayClawWebSocketCtor } = await impo
 );
 const {
   buildRelayClawLaunchCommand,
+  DefaultRelayClawSidecarController,
   isRelayClawRuntimeReady,
 } = await import('../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js');
 const {
@@ -32,6 +34,27 @@ function createConnectionFactory(onSend) {
     },
     close() {},
   });
+}
+
+class FakeChildProcess extends EventEmitter {
+  constructor(name) {
+    super();
+    this.name = name;
+    this.stdout = new EventEmitter();
+    this.stderr = new EventEmitter();
+    this.exitCode = null;
+    this.killed = false;
+    this.pid = Math.floor(Math.random() * 100000) + 1000;
+  }
+
+  kill(signal = 'SIGTERM') {
+    this.killed = true;
+    setTimeout(() => {
+      this.exitCode = 0;
+      this.emit('exit', 0, signal);
+    }, 0);
+    return true;
+  }
 }
 
 describe('RelayClawAgentService', () => {
@@ -172,7 +195,7 @@ describe('RelayClawAgentService', () => {
 
     assert.equal(launch.command, 'C:\\vendor\\jiuwenclaw.exe');
     assert.deepEqual(launch.args, ['--desktop-run-app']);
-    assert.equal(launch.cwd, 'C:\\vendor');
+    assert.equal(launch.cwd, process.platform === 'win32' ? 'C:\\vendor' : '.');
   });
 
   it('treats executable mode as ready when both relayclaw ports are listening', async () => {
@@ -446,6 +469,85 @@ describe('RelayClawAgentService', () => {
     assert.equal(__relayClawInternals.isSidecarReady('server listening'), false);
     assert.equal(__relayClawInternals.isSidecarReady('[JiuWenClaw] 初始化完成: agent_name=main_agent'), true);
     assert.equal(__relayClawInternals.isSidecarReady('WebChannel 已启动: ws://127.0.0.1:19001/ws'), true);
+  });
+
+  it('keeps tracking the new sidecar when the previous process exits after a restart', async () => {
+    const appDir = mkdtempSync(join(tmpdir(), 'relayclaw-sidecar-'));
+    const appPy = join(appDir, 'jiuwenclaw', 'app.py');
+    const pythonBin =
+      process.platform === 'win32'
+        ? join(appDir, '.venv', 'Scripts', 'python.exe')
+        : join(appDir, '.venv', 'bin', 'python');
+    mkdirSync(dirname(appPy), { recursive: true });
+    mkdirSync(dirname(pythonBin), { recursive: true });
+    writeFileSync(appPy, '');
+    writeFileSync(pythonBin, '');
+
+    const spawned = [];
+    let probeCall = 0;
+    const previousAppDir = process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+    const previousPython = process.env.CAT_CAFE_RELAYCLAW_PYTHON;
+
+    try {
+      process.env.CAT_CAFE_RELAYCLAW_APP_DIR = appDir;
+      process.env.CAT_CAFE_RELAYCLAW_PYTHON = pythonBin;
+
+      const controller = new DefaultRelayClawSidecarController(
+        'office',
+        {
+          autoStart: true,
+          startupTimeoutMs: 1000,
+        },
+        {
+          spawnFn: () => {
+            const child = new FakeChildProcess(`child-${spawned.length + 1}`);
+            spawned.push(child);
+            return child;
+          },
+          allocatePort: async () => 19000 + spawned.length,
+          tcpProbeFn: async (_host, port) => {
+            probeCall += 1;
+            if (probeCall <= 2) return true;
+            if (probeCall <= 4) return false;
+            return port >= 19000;
+          },
+        },
+      );
+
+      const firstUrl = await controller.ensureStarted({
+        callbackEnv: {
+          OPENAI_API_KEY: 'test-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+        workingDirectory: '/tmp/project-a',
+      });
+      assert.match(firstUrl, /^ws:\/\/127\.0\.0\.1:\d+$/);
+      assert.equal(spawned.length, 1);
+
+      const secondUrl = await controller.ensureStarted({
+        callbackEnv: {
+          OPENAI_API_KEY: 'test-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+        workingDirectory: '/tmp/project-b',
+      });
+
+      assert.match(secondUrl, /^ws:\/\/127\.0\.0\.1:\d+$/);
+      assert.equal(spawned.length, 2);
+      assert.equal(spawned[0].killed, true);
+      assert.equal(spawned[1].killed, false);
+    } finally {
+      if (previousAppDir === undefined) {
+        delete process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+      } else {
+        process.env.CAT_CAFE_RELAYCLAW_APP_DIR = previousAppDir;
+      }
+      if (previousPython === undefined) {
+        delete process.env.CAT_CAFE_RELAYCLAW_PYTHON;
+      } else {
+        process.env.CAT_CAFE_RELAYCLAW_PYTHON = previousPython;
+      }
+    }
   });
 
   it('passes project directory, uploaded files, and cat-cafe MCP config in the WS request', async () => {

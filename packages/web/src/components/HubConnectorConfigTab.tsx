@@ -265,7 +265,7 @@ export function HubConnectorConfigTab() {
                       </div>
                       {idx === 0 && (
                         <div className="ml-[26px]">
-                          <WeixinQrPanel configured={platform.configured} />
+                          <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
                         </div>
                       )}
                     </div>
