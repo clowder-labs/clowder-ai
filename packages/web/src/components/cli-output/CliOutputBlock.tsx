@@ -40,13 +40,6 @@ function lighten(hex: string, ratio: number): string {
   return `rgb(${lr}, ${lg}, ${lb})`;
 }
 
-/* ── Divider stays neutral; surface colors are now breed-tinted (see buildSurface) ── */
-const DIVIDER = '#334155';
-const LOCAL_PPT_FILE = {
-  name: 'NVIDIA_GTC_2026_华为风.pptx',
-  path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\NVIDIA_GTC_2026_华为风.pptx',
-};
-
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
 interface LocalPresentationFile {
@@ -508,7 +501,7 @@ function ToolRow({
         {hasResult && <ChevronIcon expanded={rowExpanded} />}
       </div>
       {rowExpanded && hasResult && event.detail && (
-        <div className="w-full mt-1 ml-6 whitespace-pre-wrap text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]" style={{ color: '#64748B' }}>
+        <div className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]" style={{ color: '#64748B' }}>
           {event.detail}
         </div>
       )}
