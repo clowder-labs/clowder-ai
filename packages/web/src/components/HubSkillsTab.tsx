@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
-import { InfoTooltip } from './InfoTooltip';
+import { InfoTooltip, OverflowTooltip } from './InfoTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -122,7 +122,12 @@ function SkillList({
                 <div className={styles.content}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className={`${styles.title} truncate`}>{skill.slug}</h3>
+                      <OverflowTooltip
+                        content={skill.slug}
+                        className="min-w-0"
+                        as="h3"
+                        textClassName={`${styles.title} block truncate`}
+                      />
                       <div className="mt-1 flex flex-wrap items-center gap-2 leading-[18px] text-[var(--text-secondary)] text-xs">
                         <span className="ui-badge-muted">{getSkillCategory(skill)}</span>
                         {skill.stars !== undefined ? (
