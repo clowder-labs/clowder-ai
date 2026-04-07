@@ -136,7 +136,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
     <div className="group relative w-[80%] mx-auto">
       {children}
 
-      {canAct && (
+      {false && (
         <div
           className={`opacity-0 group-hover:opacity-100 absolute ${toolbarPositionClass} right-1 flex gap-0.5 transition-opacity bg-white/90 rounded-lg shadow-sm border border-gray-200 px-1 py-0.5`}
         >
