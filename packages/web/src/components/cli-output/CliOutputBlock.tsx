@@ -316,12 +316,16 @@ function PawPrint() {
 function PptAttachmentCard({
   file,
   projectPath,
+  status,
 }: {
   file: LocalPresentationFile;
   projectPath?: string | null;
+  status: CliStatus;
 }) {
   const [isOpening, setIsOpening] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<number | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
   const resolvedPath = useMemo(
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
@@ -364,21 +368,36 @@ function PptAttachmentCard({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: resolvedPath, ...(projectPath ? { projectPath } : {}) }),
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled && status === 'streaming') {
+            retryTimer.current = setTimeout(loadMeta, 1000);
+          }
+          return;
+        }
         const payload = (await response.json()) as LocalPresentationFileMeta;
         if (!cancelled && typeof payload.generatedAt === 'number') {
           setGeneratedAt(payload.generatedAt);
+          setIsReady(true);
         }
       } catch {
-        if (!cancelled) setGeneratedAt(null);
+        if (!cancelled) {
+          setGeneratedAt(null);
+          if (status === 'streaming') {
+            retryTimer.current = setTimeout(loadMeta, 1000);
+          }
+        }
       }
     }
 
     void loadMeta();
     return () => {
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
       cancelled = true;
     };
-  }, [resolvedPath]);
+  }, [resolvedPath, projectPath, status]);
 
   async function handleOpen(): Promise<void> {
     if (isOpening || !resolvedPath) return;
@@ -393,6 +412,8 @@ function PptAttachmentCard({
       setIsOpening(false);
     }
   }
+
+  if (!isReady || !resolvedPath) return null;
 
   return (
     <div
@@ -810,7 +831,9 @@ export function CliOutputBlock({
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
         </span>
       </div>
-      {localPresentationFile && <PptAttachmentCard file={localPresentationFile} projectPath={projectPath} />}
+      {localPresentationFile && (
+        <PptAttachmentCard file={localPresentationFile} projectPath={projectPath} status={status} />
+      )}
     </div>
   );
 }
