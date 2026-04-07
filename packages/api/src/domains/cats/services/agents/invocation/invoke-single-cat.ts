@@ -198,6 +198,8 @@ export interface InvocationParams {
   readonly service: AgentService;
   /** The fully-orchestrated prompt (dynamic context + chain context already prepended by caller) */
   readonly prompt: string;
+  /** The current user task text for provider transports that need a clean query field. */
+  readonly userPrompt?: string;
   readonly userId: string;
   readonly threadId: string;
   readonly contentBlocks?: readonly MessageContent[];
@@ -933,9 +935,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const compressionKey = `${userId}:${catId as string}:${threadId}`;
     const forceReinjection = _needsReinjection.delete(compressionKey);
     const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
-    const relayClawSystemPrompt =
-      provider === 'relayclaw' && injectSystemPrompt && params.systemPrompt ? params.systemPrompt : undefined;
-
     // ACP/open agents read the task prompt more reliably than long static identity.
     // Keep the skill-selection reminder close to the task so they query runtime skills
     // before diving into repository search for planning/TDD/collab/worktree requests.
@@ -948,8 +947,21 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
     const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter((part) => typeof part === 'string' && part.trim());
     const promptWithMission = promptParts.join('\n\n');
+    const relayClawQueryPrompt =
+      provider === 'relayclaw' ? (params.userPrompt?.trim() || promptWithMission) : undefined;
+    const relayClawSystemPrompt =
+      provider === 'relayclaw'
+        ? [
+            injectSystemPrompt && params.systemPrompt ? params.systemPrompt : '',
+            promptWithMission,
+          ]
+            .filter((part) => typeof part === 'string' && part.trim())
+            .join('\n\n---\n\n') || undefined
+        : undefined;
     const effectivePrompt =
-      injectSystemPrompt && params.systemPrompt && provider !== 'relayclaw'
+      provider === 'relayclaw'
+        ? (relayClawQueryPrompt ?? promptWithMission)
+        : injectSystemPrompt && params.systemPrompt
         ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
         : promptWithMission;
 

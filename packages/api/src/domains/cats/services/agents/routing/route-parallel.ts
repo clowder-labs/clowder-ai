@@ -37,6 +37,7 @@ import {
   getService,
   routeContentBlocksForCat,
   sanitizeInjectedContent,
+  stripLeadingDirectCatMention,
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
@@ -260,6 +261,7 @@ export async function* routeParallel(
         catId,
         service: getService(deps.services, catId),
         prompt,
+        userPrompt: stripLeadingDirectCatMention(message, catId),
         userId,
         threadId,
         ...(targetContentBlocks ? { contentBlocks: targetContentBlocks } : {}),
