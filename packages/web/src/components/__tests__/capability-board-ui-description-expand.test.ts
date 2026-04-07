@@ -34,6 +34,17 @@ describe('CapabilitySection skill card layout', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
+  function mockOverflow(node: Element, { clientWidth, scrollWidth }: { clientWidth: number; scrollWidth: number }) {
+    Object.defineProperty(node, 'clientWidth', {
+      configurable: true,
+      value: clientWidth,
+    });
+    Object.defineProperty(node, 'scrollWidth', {
+      configurable: true,
+      value: scrollWidth,
+    });
+  }
+
   it('renders source and uninstall action without expanded detail sections', () => {
     const description = '这是一个用于验证卡片布局的技能描述。';
     const item: CapabilityBoardItem = {
@@ -107,5 +118,48 @@ describe('CapabilitySection skill card layout', () => {
     });
 
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(description);
+  });
+
+  it('shows the full skill title in a tooltip when the title is truncated', async () => {
+    const title = 'cross-cat-handoff-with-a-very-long-skill-name-for-tooltip';
+    const item: CapabilityBoardItem = {
+      id: title,
+      type: 'skill',
+      source: 'external',
+      enabled: true,
+      cats: { codex: true },
+      description: 'description',
+      triggers: ['handoff'],
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(CapabilitySection, {
+          icon: null,
+          title: '协作',
+          subtitle: 'OfficeClaw Skills',
+          items: [item],
+          catFamilies: [],
+          toggling: null,
+          onToggle: () => {},
+          onUninstall: () => {},
+        }),
+      );
+    });
+    await flushEffects();
+
+    const titleNode = Array.from(container.querySelectorAll('h3')).find((node) => node.textContent === title);
+    expect(titleNode).not.toBeNull();
+    expect(titleNode?.getAttribute('title')).toBeNull();
+    if (!titleNode) return;
+
+    mockOverflow(titleNode, { clientWidth: 120, scrollWidth: 280 });
+
+    await act(async () => {
+      titleNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(title);
   });
 });

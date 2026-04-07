@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
-import { InfoTooltip } from './InfoTooltip';
+import { InfoTooltip, OverflowTooltip } from './InfoTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -122,7 +122,12 @@ function SkillList({
                 <div className={styles.content}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className={`${styles.title} truncate`}>{skill.slug}</h3>
+                      <OverflowTooltip
+                        content={skill.slug}
+                        className="min-w-0"
+                        as="h3"
+                        textClassName={`${styles.title} block truncate`}
+                      />
                       <div className="mt-1 flex flex-wrap items-center gap-2 leading-[18px] text-[var(--text-secondary)] text-xs">
                         <span className="ui-badge-muted">{getSkillCategory(skill)}</span>
                         {skill.stars !== undefined ? (
@@ -183,6 +188,7 @@ export function HubSkillsTab() {
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
+  const [displayCategory, setDisplayCategory] = useState(ALL_CATEGORY);
   const [categories, setCategories] = useState<string[]>([]);
   const latestQueryRef = useRef('');
   const requestSeqRef = useRef(0);
@@ -252,6 +258,7 @@ export function HubSkillsTab() {
 
         setViewMode(mode);
         setResults((prev) => mergeResults(prev, data, append));
+        setDisplayCategory(category);
         setCurrentPage(page);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -442,7 +449,7 @@ export function HubSkillsTab() {
 
           <div className="space-y-0">
             <p className="text-[20px] font-semibold">
-              {activeCategory}
+              {displayCategory}
               {results ? ` (${results.total})` : ''}
             </p>
             <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
