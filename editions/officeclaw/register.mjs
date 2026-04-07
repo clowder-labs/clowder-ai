@@ -5,7 +5,7 @@
  * Loaded by edition-loader.ts when edition.json specifies editionMain.
  *
  * Phase 0: proves the wiring pattern end-to-end.
- *   - XiaoyiAdapter still lives in Core (moved to this directory in Phase 1)
+ *   - XiaoyiAdapter lives here (src/XiaoyiAdapter.ts, compiled to dist/)
  *   - Only connector + sidecar registrations wired; remaining hooks follow
  */
 
@@ -46,10 +46,7 @@ export async function register(registry) {
       const agentId = process.env.XIAOYI_AGENT_ID;
       if (!ak || !sk || !agentId) return; // not configured
 
-      // Phase 0: adapter still in core — moved here in Phase 1
-      const { XiaoyiAdapter } = await import(
-        '@cat-cafe/api/infrastructure/connectors/adapters/XiaoyiAdapter.js'
-      );
+      const { XiaoyiAdapter } = await import('./dist/XiaoyiAdapter.js');
 
       const adapter = new XiaoyiAdapter(deps.log, {
         ak,
