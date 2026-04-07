@@ -43,7 +43,7 @@ export interface CatColor {
 export type EmbeddedRuntimeKind = 'agentteams_acp';
 
 const EMBEDDED_RUNTIME_SEEDS: Readonly<Record<string, { provider: string; kind: EmbeddedRuntimeKind }>> = {
-  agentteams: { provider: 'acp', kind: 'agentteams_acp' },
+  acp: { provider: 'acp', kind: 'agentteams_acp' },
 };
 
 export function resolveEmbeddedRuntimeKind(input: {
@@ -52,7 +52,7 @@ export function resolveEmbeddedRuntimeKind(input: {
   source?: string | null;
 }): EmbeddedRuntimeKind | null {
   if (input.source === 'runtime') return null;
-  const entry = input.id ? EMBEDDED_RUNTIME_SEEDS[input.id] : undefined;
+  const entry = input.provider ? EMBEDDED_RUNTIME_SEEDS[input.provider] : undefined;
   if (!entry) return null;
   return entry.kind;
 }
