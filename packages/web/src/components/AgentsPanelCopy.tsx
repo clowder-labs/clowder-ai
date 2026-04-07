@@ -704,9 +704,9 @@ export function AgentsPanelCopy() {
       type="button"
       onClick={handleStartEdit}
       disabled={!canEditActiveTab}
-        className={`inline-flex items-center gap-1.5 rounded-full h-6 w-20 px-4 py-[3px] text-[12px] font-normal transition ${
+      className={`inline-flex items-center gap-1.5 rounded-full h-6 w-20 px-4 py-[3px] text-[12px] font-normal transition ${
         canEditActiveTab
-          ? 'bg-[var(--surface-panel)] text-black hover:bg-[var(--surface-card-muted)]'
+          ? 'bg-[var(--surface-panel)] text-black hover:underline hover:underline-offset-2'
           : 'cursor-not-allowed bg-[var(--surface-card-muted)] text-[var(--text-subtle)]'
       }`}
     >
@@ -729,7 +729,9 @@ export function AgentsPanelCopy() {
             }}
             disabled={isSavingEdit}
             className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
-              isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
+              isSavingEdit
+                ? 'cursor-not-allowed text-[var(--text-subtle)]'
+                : 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
             }`}
           >
             <TemplateIcon className="h-3.5 w-3.5" />
@@ -741,7 +743,9 @@ export function AgentsPanelCopy() {
           onClick={handleCancelEdit}
           disabled={isSavingEdit}
           className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
-            isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
+            isSavingEdit
+              ? 'cursor-not-allowed text-[var(--text-subtle)]'
+              : 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
           }`}
         >
           <CloseIcon className="h-3.5 w-3.5" />
@@ -752,7 +756,9 @@ export function AgentsPanelCopy() {
           onClick={handleSaveEdit}
           disabled={isSavingEdit}
           className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
-            isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
+            isSavingEdit
+              ? 'cursor-not-allowed text-[var(--text-subtle)]'
+              : 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
           }`}
         >
           <CheckIcon className="h-3.5 w-3.5" />
