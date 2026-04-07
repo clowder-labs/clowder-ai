@@ -746,7 +746,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       if (a.type !== 'skill' || b.type !== 'skill') return 0;
       const aTime = a.installedAt ? new Date(a.installedAt).getTime() : Infinity;
       const bTime = b.installedAt ? new Date(b.installedAt).getTime() : Infinity;
-      return aTime - bTime;
+      return bTime - aTime;
     });
 
     // 8. Build response with cat family + project metadata
