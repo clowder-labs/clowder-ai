@@ -331,7 +331,7 @@ export function HubSkillsTab() {
       setLoading(true);
       try {
         if (isSearch) {
-          const url = `/api/skills?page=1&pageSize=24&keyword=${encodeURIComponent(query)}`;
+          const url = `/api/skills/search?q=${encodeURIComponent(query)}&page=1&limit=24`;
           const res = await apiFetch(url);
           if (res.ok) {
             const data = (await res.json()) as SearchResult;

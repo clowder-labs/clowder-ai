@@ -270,6 +270,71 @@ describe('business theme secondary surfaces', () => {
     expect(calledSearchEndpoint).toBe(false);
   });
 
+  it('uses the remote plaza search endpoint when pressing Enter in the search box', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'alpha');
+
+    mockApiFetch.mockClear();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url.startsWith('/api/skills/all')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [],
+            total: 0,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url.startsWith('/api/skills/search')) {
+        const parsed = new URL(url, 'https://example.test');
+        expect(parsed.searchParams.get('q')).toBe('alpha');
+        expect(parsed.searchParams.get('page')).toBe('1');
+        expect(parsed.searchParams.get('limit')).toBe('24');
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'alpha-helper',
+                slug: 'alpha-helper',
+                name: 'alpha-helper',
+                description: 'alpha helper',
+                tags: ['ai-intelligence'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      searchInput?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.textContent).toContain('alpha-helper');
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?q=alpha&page=1&limit=24');
+  });
+
   it('uses the active category name as the plaza title', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
