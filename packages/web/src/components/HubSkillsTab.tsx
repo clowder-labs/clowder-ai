@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
+import { InfoTooltip } from './InfoTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -24,6 +25,7 @@ interface SearchResult {
 }
 
 type InstallStatus = 'installing' | string;
+type ViewMode = 'browse' | 'search';
 
 const GENERAL_CATEGORY = '通用技能';
 const INSTALLING_LABEL = '安装中...';
@@ -35,8 +37,9 @@ const INSTALLED_LABEL = '已安装';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索技能';
 const LOADING_LABEL = '加载中...';
-const SILL_SQUARE_LABEL = '技能广场';
 const ALL_CATEGORY = '全部';
+const PAGE_SIZE = 24;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const CATEGORY_MAP: Record<string, string> = {
   'ai-intelligence': 'AI 智能',
@@ -50,6 +53,11 @@ const CATEGORY_MAP: Record<string, string> = {
 
 function normalizeCategory(cat: string): string {
   return CATEGORY_MAP[cat] ?? cat;
+}
+
+function resolveCategoryParam(category: string): string | null {
+  if (!category || category === ALL_CATEGORY) return null;
+  return Object.entries(CATEGORY_MAP).find(([, zh]) => zh === category)?.[0] ?? category;
 }
 
 function getSkillCategory(skill: SearchSkill): string {
@@ -131,9 +139,9 @@ function SkillList({
                 </div>
               </div>
 
-              <p className={styles.description} title={resolvedDescription}>
-                {resolvedDescription}
-              </p>
+              <InfoTooltip content={resolvedDescription} className="w-full">
+                <p className={styles.description}>{resolvedDescription}</p>
+              </InfoTooltip>
 
               <div className={styles.footer}>
                 {!skill.isInstalled ? (
@@ -166,18 +174,20 @@ function SkillList({
 
 export function HubSkillsTab() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [allResults, setAllResults] = useState<SearchResult | null>(null);
+  const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isSearching, setIsSearching] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('browse');
   const [installStatus, setInstallStatus] = useState<Map<string, InstallStatus>>(new Map());
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [categories, setCategories] = useState<string[]>([]);
-
-  const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const latestQueryRef = useRef('');
+  const requestSeqRef = useRef(0);
+  const activeAbortRef = useRef<AbortController | null>(null);
+  const searchEffectReadyRef = useRef(false);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -191,70 +201,92 @@ export function HubSkillsTab() {
     }
   }, []);
 
-  const loadSkills = useCallback(async (page: number, isLoadMore = false, category?: string) => {
-    const setLoadingFn = isLoadMore ? setLoadingMore : setLoading;
-    setLoadingFn(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: '24' });
-      if (category && category !== ALL_CATEGORY) {
-        const enCategory = Object.entries(CATEGORY_MAP).find(([, zh]) => zh === category)?.[0] ?? category;
-        params.set('category', enCategory);
-      }
-      const url = `/api/skills/all?${params.toString()}`;
-      const res = await apiFetch(url);
-      if (res.ok) {
-        const data = (await res.json()) as SearchResult;
-        setAllResults((prev) => {
-          if (isLoadMore && prev) {
-            return {
-              ...data,
-              skills: [...prev.skills, ...data.skills],
-            };
-          }
-          return data;
-        });
-        setCurrentPage(page);
-      }
-    } catch {
-      // ignore error
-    } finally {
-      setLoadingFn(false);
+  const buildSkillsUrl = useCallback((mode: ViewMode, page: number, query: string, category: string) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+    const categoryParam = resolveCategoryParam(category);
+    if (categoryParam) {
+      params.set('category', categoryParam);
     }
+    if (mode === 'search') {
+      params.set('keyword', query);
+      return `/api/skills/search?${params.toString()}`;
+    }
+    return `/api/skills/all?${params.toString()}`;
   }, []);
+
+  const mergeResults = useCallback((prev: SearchResult | null, next: SearchResult, append: boolean): SearchResult => {
+    if (!append || !prev) return next;
+    return {
+      ...next,
+      skills: [...prev.skills, ...next.skills],
+    };
+  }, []);
+
+  const loadPage = useCallback(
+    async ({
+      mode,
+      page,
+      append = false,
+      query = '',
+      category = ALL_CATEGORY,
+    }: {
+      mode: ViewMode;
+      page: number;
+      append?: boolean;
+      query?: string;
+      category?: string;
+    }) => {
+      const requestId = ++requestSeqRef.current;
+      activeAbortRef.current?.abort();
+      const controller = new AbortController();
+      activeAbortRef.current = controller;
+
+      const setLoadingFn = append ? setLoadingMore : setLoading;
+      setLoadingFn(true);
+
+      try {
+        const res = await apiFetch(buildSkillsUrl(mode, page, query, category), { signal: controller.signal });
+        if (!res.ok) return;
+        const data = (await res.json()) as SearchResult;
+        if (requestId !== requestSeqRef.current) return;
+
+        setViewMode(mode);
+        setResults((prev) => mergeResults(prev, data, append));
+        setCurrentPage(page);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        // ignore error
+      } finally {
+        if (requestId === requestSeqRef.current) {
+          setLoadingFn(false);
+        }
+      }
+    },
+    [buildSkillsUrl, mergeResults],
+  );
 
   const handleCategoryChange = useCallback(
     (category: string) => {
+      latestQueryRef.current = '';
+      setSearchQuery('');
       setActiveCategory(category);
       setCurrentPage(1);
-      setAllResults(null);
-      loadSkills(1, false, category);
+      setViewMode('browse');
+      void loadPage({ mode: 'browse', page: 1, category });
     },
-    [loadSkills],
+    [loadPage],
   );
 
-  const filteredSkills = useMemo(() => {
-    const source = allResults?.skills ?? [];
-    if (!normalizedSearch) return source;
-    const tokens = normalizedSearch.split(/\s+/).filter(Boolean);
-    return source.filter((skill) => {
-      const haystack = [
-        skill.id,
-        skill.slug,
-        skill.name,
-        ...skill.tags,
-        skill.repo.githubOwner,
-        skill.repo.githubRepoName,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return tokens.every((token) => haystack.includes(token));
-    });
-  }, [allResults, normalizedSearch]);
-
   const handleLoadMore = useCallback(() => {
-    if (loadingMore || !allResults?.hasMore) return;
-    loadSkills(currentPage + 1, true, activeCategory);
-  }, [currentPage, loadingMore, allResults, loadSkills, activeCategory]);
+    if (loadingMore || !results?.hasMore) return;
+    if (viewMode === 'search') {
+      const query = latestQueryRef.current.trim();
+      if (!query) return;
+      void loadPage({ mode: 'search', page: currentPage + 1, append: true, query, category: activeCategory });
+      return;
+    }
+    void loadPage({ mode: 'browse', page: currentPage + 1, append: true, category: activeCategory });
+  }, [activeCategory, currentPage, loadPage, loadingMore, results, viewMode]);
 
   const setInstallStatusWithTimer = useCallback((slug: string, status: InstallStatus) => {
     setInstallStatus((prev) => new Map(prev).set(slug, status));
@@ -298,7 +330,7 @@ export function HubSkillsTab() {
       return changed ? { ...result, skills } : result;
     };
 
-    setAllResults((prev) => markInstalled(prev));
+    setResults((prev) => markInstalled(prev));
   }, []);
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
@@ -310,44 +342,39 @@ export function HubSkillsTab() {
     const timers = statusTimers.current;
     return () => {
       for (const timer of timers.values()) clearTimeout(timer);
+      activeAbortRef.current?.abort();
     };
   }, []);
 
   useEffect(() => {
-    loadCategories();
+    void loadCategories();
   }, [loadCategories]);
 
   useEffect(() => {
-    loadSkills(1, false, activeCategory);
-  }, []);
+    void loadPage({ mode: 'browse', page: 1, category: ALL_CATEGORY });
+  }, [loadPage]);
 
-  const handleSearch = useCallback(
-    async (query: string) => {
-      const isSearch = query.trim().length > 0;
-      setIsSearching(isSearch);
+  useEffect(() => {
+    if (!searchEffectReadyRef.current) {
+      searchEffectReadyRef.current = true;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const trimmed = searchQuery.trim();
+      latestQueryRef.current = trimmed;
       setCurrentPage(1);
-      setAllResults(null);
-      setActiveCategory(ALL_CATEGORY);
-      setLoading(true);
-      try {
-        if (isSearch) {
-          const url = `/api/skills/search?page=1&limit=24&keyword=${encodeURIComponent(query)}`;
-          const res = await apiFetch(url);
-          if (res.ok) {
-            const data = (await res.json()) as SearchResult;
-            setAllResults(data);
-          }
-        } else {
-          await loadSkills(1, false, ALL_CATEGORY);
-        }
-      } catch {
-        // ignore error
-      } finally {
-        setLoading(false);
+
+      if (!trimmed) {
+        void loadPage({ mode: 'browse', page: 1, category: activeCategory });
+        return;
       }
-    },
-    [loadSkills],
-  );
+
+      void loadPage({ mode: 'search', page: 1, query: trimmed, category: activeCategory });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [activeCategory, loadPage, searchQuery]);
 
   const handleInstall = useCallback(
     async (owner: string, repo: string, skill: string) => {
@@ -377,22 +404,12 @@ export function HubSkillsTab() {
     [clearInstallStatus, markSkillInstalled, setInstallStatusWithTimer, showToast],
   );
 
-  const displayResults: SearchResult | null = allResults
-    ? {
-        ...allResults,
-        skills: filteredSkills,
-        total: normalizedSearch ? filteredSkills.length : allResults.total,
-        page: 1,
-        hasMore: normalizedSearch ? false : allResults.hasMore,
-      }
-    : null;
-
   return (
-    <div className="space-y-[var(--space-9)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {toast && (
         <div
           aria-live="polite"
-          className={`rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium ${
+          className={`shrink-0 rounded-[var(--radius-md)] px-3 py-2 text-xs font-medium ${
             toast.type === 'success' ? 'ui-status-success' : 'ui-status-error'
           }`}
         >
@@ -400,58 +417,58 @@ export function HubSkillsTab() {
         </div>
       )}
 
-      <section className="mt-4">
-        {categories.length > 0 && (
-          <div className="flex flex-wrap items-center gap-4 pb-4">
-            {[ALL_CATEGORY, ...categories].map((category, index) => (
-              <div key={category} className="flex items-center">
-                {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
-                <button
-                  type="button"
-                  onClick={() => handleCategoryChange(category)}
-                  className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
-                    activeCategory === category
-                      ? 'font-semibold text-[var(--text-primary)]'
-                      : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-                  }`}
-                >
-                  {category}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+      <section className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="shrink-0" data-testid="hub-skills-fixed-header">
+          {categories.length > 0 && (
+            <div className="flex flex-wrap items-center gap-4 pb-6">
+              {[ALL_CATEGORY, ...categories].map((category, index) => (
+                <div key={category} className="flex items-center">
+                  {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
+                  <button
+                    type="button"
+                    onClick={() => handleCategoryChange(category)}
+                    className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
+                      activeCategory === category
+                        ? 'font-semibold text-[var(--text-primary)]'
+                        : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-        <div className="space-y-0">
-          <p className="text-[20px] font-semibold">
-            {SILL_SQUARE_LABEL}
-            {displayResults ? ` (${displayResults.total})` : ''}
-          </p>
-          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center pt-4">
-            <input
-              type="text"
-              aria-label={SEARCH_ARIA_LABEL}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  handleSearch(event.currentTarget.value);
-                }
-              }}
-              placeholder={SEARCH_PLACEHOLDER}
-              className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
-            />
+          <div className="space-y-0">
+            <p className="text-[20px] font-semibold">
+              {activeCategory}
+              {results ? ` (${results.total})` : ''}
+            </p>
+            <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                aria-label={SEARCH_ARIA_LABEL}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={SEARCH_PLACEHOLDER}
+                className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
+              />
+            </div>
           </div>
-          {displayResults ? (
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-skills-scroll-region">
+          {results ? (
             <>
-              <SkillList results={displayResults} installStatus={installStatus} onInstall={handleInstall} />
-              {!normalizedSearch && allResults?.hasMore && (
+              <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
+              {results.hasMore && (
                 <div className="flex justify-center py-4">
                   <button
                     type="button"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="ui-btn-secondary text-xs px-4 py-2"
+                    className="ui-btn-secondary px-4 py-2 text-xs"
                   >
                     {loadingMore ? '加载中...' : '加载更多'}
                   </button>
