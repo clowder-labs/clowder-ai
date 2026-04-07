@@ -15,6 +15,7 @@ export interface CapabilityBoardItem {
   mounts?: Record<string, boolean>;
   tools?: { name: string; description?: string }[];
   connectionStatus?: 'connected' | 'disconnected' | 'unknown';
+  installedAt?: string;
 }
 
 export interface CatFamily {
@@ -159,7 +160,7 @@ export function CapabilitySection({
           ))}
         </div>
       ) : (
-        emptyState ?? null
+        (emptyState ?? null)
       )}
     </div>
   );
@@ -225,7 +226,7 @@ function CapabilityCard({
                 }}
                 className="absolute left-0 top-0 opacity-0 text-[14px] font-bold text-[var(--text-accent)] transition-opacity duration-200 hover:underline group-hover:opacity-100"
               >
-                删除
+                卸载
               </button>
             </div>
           ) : (

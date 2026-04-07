@@ -33,9 +33,24 @@ const NO_RESULTS_LABEL = '未找到匹配的技能';
 const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
 const INSTALLED_LABEL = '已安装';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
-const SEARCH_ARIA_LABEL = '搜索 SkillHub 技能';
+const SEARCH_ARIA_LABEL = '搜索技能';
 const LOADING_LABEL = '加载中...';
 const SILL_SQUARE_LABEL = '技能广场';
+const ALL_CATEGORY = '全部';
+
+const CATEGORY_MAP: Record<string, string> = {
+  'ai-intelligence': 'AI 智能',
+  'developer-tools': '开发工具',
+  productivity: '效率提升',
+  'content-creation': '内容创作',
+  'data-analysis': '数据分析',
+  'security-compliance': '安全合规',
+  'communication-collaboration': '沟通协作',
+};
+
+function normalizeCategory(cat: string): string {
+  return CATEGORY_MAP[cat] ?? cat;
+}
 
 function getSkillCategory(skill: SearchSkill): string {
   const primaryTag = skill.tags.find((tag) => tag.trim().length > 0);
@@ -159,14 +174,33 @@ export function HubSkillsTab() {
   const [installStatus, setInstallStatus] = useState<Map<string, InstallStatus>>(new Map());
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
+  const [categories, setCategories] = useState<string[]>([]);
 
   const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
 
-  const loadSkills = useCallback(async (page: number, isLoadMore = false) => {
+  const loadCategories = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/skills/categories');
+      if (res.ok) {
+        const data = (await res.json()) as { categories: string[] };
+        setCategories(data.categories.map(normalizeCategory));
+      }
+    } catch {
+      // ignore error
+    }
+  }, []);
+
+  const loadSkills = useCallback(async (page: number, isLoadMore = false, category?: string) => {
     const setLoadingFn = isLoadMore ? setLoadingMore : setLoading;
     setLoadingFn(true);
     try {
-      const url = `/api/skills/all?page=${page}&limit=24`;
+      const params = new URLSearchParams({ page: String(page), limit: '24' });
+      if (category && category !== ALL_CATEGORY) {
+        const enCategory = Object.entries(CATEGORY_MAP).find(([, zh]) => zh === category)?.[0] ?? category;
+        params.set('category', enCategory);
+      }
+      const url = `/api/skills/all?${params.toString()}`;
       const res = await apiFetch(url);
       if (res.ok) {
         const data = (await res.json()) as SearchResult;
@@ -187,6 +221,16 @@ export function HubSkillsTab() {
       setLoadingFn(false);
     }
   }, []);
+
+  const handleCategoryChange = useCallback(
+    (category: string) => {
+      setActiveCategory(category);
+      setCurrentPage(1);
+      setAllResults(null);
+      loadSkills(1, false, category);
+    },
+    [loadSkills],
+  );
 
   const filteredSkills = useMemo(() => {
     const source = allResults?.skills ?? [];
@@ -209,8 +253,8 @@ export function HubSkillsTab() {
 
   const handleLoadMore = useCallback(() => {
     if (loadingMore || !allResults?.hasMore) return;
-    loadSkills(currentPage + 1, true);
-  }, [currentPage, loadingMore, allResults, loadSkills]);
+    loadSkills(currentPage + 1, true, activeCategory);
+  }, [currentPage, loadingMore, allResults, loadSkills, activeCategory]);
 
   const setInstallStatusWithTimer = useCallback((slug: string, status: InstallStatus) => {
     setInstallStatus((prev) => new Map(prev).set(slug, status));
@@ -270,30 +314,40 @@ export function HubSkillsTab() {
   }, []);
 
   useEffect(() => {
-    loadSkills(1);
+    loadCategories();
+  }, [loadCategories]);
+
+  useEffect(() => {
+    loadSkills(1, false, activeCategory);
   }, []);
 
-  const handleSearch = useCallback(async (query: string) => {
-    const isSearch = query.trim().length > 0;
-    setIsSearching(isSearch);
-    setCurrentPage(1);
-    setAllResults(null);
-    setLoading(true);
-    try {
-      const url = isSearch
-        ? `/api/skills/search?page=1&limit=24&keyword=${encodeURIComponent(query)}`
-        : '/api/skills/all?page=1&limit=24';
-      const res = await apiFetch(url);
-      if (res.ok) {
-        const data = (await res.json()) as SearchResult;
-        setAllResults(data);
+  const handleSearch = useCallback(
+    async (query: string) => {
+      const isSearch = query.trim().length > 0;
+      setIsSearching(isSearch);
+      setCurrentPage(1);
+      setAllResults(null);
+      setActiveCategory(ALL_CATEGORY);
+      setLoading(true);
+      try {
+        if (isSearch) {
+          const url = `/api/skills/search?page=1&limit=24&keyword=${encodeURIComponent(query)}`;
+          const res = await apiFetch(url);
+          if (res.ok) {
+            const data = (await res.json()) as SearchResult;
+            setAllResults(data);
+          }
+        } else {
+          await loadSkills(1, false, ALL_CATEGORY);
+        }
+      } catch {
+        // ignore error
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      // ignore error
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [loadSkills],
+  );
 
   const handleInstall = useCallback(
     async (owner: string, repo: string, skill: string) => {
@@ -346,13 +400,34 @@ export function HubSkillsTab() {
         </div>
       )}
 
-      <section className="space-y-[var(--space-6)] mt-4">
+      <section className="mt-4">
+        {categories.length > 0 && (
+          <div className="flex flex-wrap items-center gap-4 pb-4">
+            {[ALL_CATEGORY, ...categories].map((category, index) => (
+              <div key={category} className="flex items-center">
+                {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
+                <button
+                  type="button"
+                  onClick={() => handleCategoryChange(category)}
+                  className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
+                    activeCategory === category
+                      ? 'font-semibold text-[var(--text-primary)]'
+                      : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                  }`}
+                >
+                  {category}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-0">
           <p className="text-[20px] font-semibold">
             {SILL_SQUARE_LABEL}
             {displayResults ? ` (${displayResults.total})` : ''}
           </p>
-          <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-[var(--space-5)] sm:flex-row sm:items-center pt-4">
             <input
               type="text"
               aria-label={SEARCH_ARIA_LABEL}

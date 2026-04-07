@@ -21,6 +21,7 @@ import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontma
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
 import {
   fetchSkillContent,
+  getSkillCategories,
   listAllSkills,
   searchSkills,
   trendingSkills,
@@ -356,7 +357,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         if (isRemote) {
           const frontmatter = await parseSkillFrontmatter(join(CAT_CAFE_SKILLS_SRC, name));
           trigger = frontmatter.triggers?.join('、') ?? '';
-          category = 'SkillHub';
+          category = 'Skill 扩展';
           source = 'skillhub';
           skillhubUrl = installedRecordMap.get(name)?.skillhubUrl;
         } else {
@@ -461,12 +462,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Identity required' };
     }
 
-    const q = request.query as { page?: string; limit?: string };
+    const q = request.query as { page?: string; limit?: string; category?: string };
     const page = parseInt(q.page ?? '1', 10);
     const limit = parseInt(q.limit ?? '24', 10);
+    const category = q.category;
 
     try {
-      const result = await listAllSkills({ page, limit });
+      const result = await listAllSkills({ page, limit, category });
       const installed = await getInstalledRecords(CAT_CAFE_ROOT);
       const installedNames = new Set(installed.map((r) => r.name));
 
@@ -476,6 +478,25 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         page: result.page,
         hasMore: result.hasMore,
       };
+    } catch (err) {
+      reply.status(502);
+      return { error: `SkillHub unavailable: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  });
+
+  // ────────────────────────────────────────────────────────
+  // GET /api/skills/categories — 获取技能分类列表
+  // ────────────────────────────────────────────────────────
+  app.get('/api/skills/categories', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    try {
+      const categories = await getSkillCategories();
+      return { categories };
     } catch (err) {
       reply.status(502);
       return { error: `SkillHub unavailable: ${err instanceof Error ? err.message : String(err)}` };
@@ -647,7 +668,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
       // Get category
       const bootstrapEntry = bootstrapEntries.get(skillName);
-      const category = isRemote ? 'SkillHub' : (bootstrapEntry?.category ?? '其他');
+      const category = isRemote ? 'Skill 扩展' : (bootstrapEntry?.category ?? '其他');
 
       // Get description and triggers from manifest or frontmatter (only if directory exists)
       let meta = manifestMeta.get(skillName);
