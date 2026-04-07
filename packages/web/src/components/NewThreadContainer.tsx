@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
+import { useSocket } from '@/hooks/useSocket';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { AgentsPanelCopy } from './AgentsPanelCopy';
+import { AgentsPanel } from './AgentsPanel';
 import { ChannelsPanel } from './ChannelsPanel';
 import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
@@ -50,6 +51,18 @@ export function NewThreadContainer() {
     'cat-cafe:sidebarWidth',
     SIDEBAR_DEFAULT,
   );
+  const socketCallbacks = useMemo(
+    () => ({
+      onMessage: () => {},
+      onThreadCreated: () => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cat-cafe:threads-refresh'));
+        }
+      },
+    }),
+    [],
+  );
+  useSocket(socketCallbacks);
 
   const handleFolderSelect = useCallback((path: string) => {
     setSelectedFolderPath(path);
@@ -165,7 +178,7 @@ export function NewThreadContainer() {
             {sidebarMenu !== 'chat' && (
               <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
                 {sidebarMenu === 'models' && <ModelsPanel />}
-                {sidebarMenu === 'agents' && <AgentsPanelCopy />}
+                {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
                 {sidebarMenu === 'skills' && <SkillsPanel />}
               </div>

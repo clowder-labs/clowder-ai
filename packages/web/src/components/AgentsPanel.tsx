@@ -2,10 +2,10 @@
 
 import { type SVGProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type CatData, useCatData } from '@/hooks/useCatData';
-import { apiFetch } from '@/utils/api-client';
+import { API_URL, apiFetch } from '@/utils/api-client';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
-import { CreateAgentModalDraft } from './CreateAgentModalDraft';
+import { CreateAgentModal } from './CreateAgentModal';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
 import { transform } from 'esbuild-wasm';
@@ -236,10 +236,11 @@ function catInitial(name?: string): string {
 
 function renderAvatar(cat: CatData) {
   const avatar = cat.avatar?.trim() ?? '';
-  const isImageAvatar = /^(https?:\/\/|\/|data:image)/.test(avatar);
+  const resolvedAvatar = avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar;
+  const isImageAvatar = /^(https?:\/\/|\/|data:image)/.test(resolvedAvatar);
 
   if (isImageAvatar) {
-    return <img src={avatar} alt={cat.displayName} className="h-11 w-11 rounded-full object-cover" />;
+    return <img src={resolvedAvatar} alt={cat.displayName} className="h-11 w-11 rounded-full object-cover" />;
   }
 
   return (
@@ -266,10 +267,11 @@ function PlaceholderPanel({ title, description, label }: { title: string; descri
   );
 }
 
-export function AgentsPanelCopy() {
+export function AgentsPanel() {
   const { cats = [], refresh } = useCatData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [pendingSelectedCatId, setPendingSelectedCatId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
   const [mode, setMode] = useState<PanelMode>('preview');
   const [savedDraftsByCatId, setSavedDraftsByCatId] = useState<Record<string, EditableDrafts>>({});
@@ -443,6 +445,15 @@ export function AgentsPanelCopy() {
   }, [cats]);
 
   useEffect(() => {
+    if (!pendingSelectedCatId) return;
+    if (!cats.some((cat) => cat.id === pendingSelectedCatId)) return;
+
+    setSelectedCatId(pendingSelectedCatId);
+    setMode('preview');
+    setPendingSelectedCatId(null);
+  }, [cats, pendingSelectedCatId]);
+
+  useEffect(() => {
     if (filteredCats.length === 0) {
       setSelectedCatId(null);
       return;
@@ -575,9 +586,25 @@ export function AgentsPanelCopy() {
     setEditorOpen(true);
   }, []);
 
-  const handleEditorSaved = useCallback(async () => {
-    await refresh();
-  }, [refresh]);
+  const handleEditorSaved = useCallback(
+    async (savedCatId?: string) => {
+      const isCreatingCat = !editingCatId;
+      const nextCats = await refresh();
+
+      if (!isCreatingCat || !savedCatId) return;
+
+      setSearchQuery('');
+      if (nextCats.some((cat) => cat.id === savedCatId)) {
+        setSelectedCatId(savedCatId);
+        setMode('preview');
+        setPendingSelectedCatId(null);
+        return;
+      }
+
+      setPendingSelectedCatId(savedCatId);
+    },
+    [editingCatId, refresh],
+  );
 
   const handleDeleteMember = useCallback(
     async (catId: string) => {
@@ -704,9 +731,9 @@ export function AgentsPanelCopy() {
       type="button"
       onClick={handleStartEdit}
       disabled={!canEditActiveTab}
-        className={`inline-flex items-center gap-1.5 rounded-full h-6 w-20 px-4 py-[3px] text-[12px] font-normal transition ${
+      className={`inline-flex items-center gap-1.5 rounded-full h-6 w-20 px-4 py-[3px] text-[12px] font-normal transition ${
         canEditActiveTab
-          ? 'bg-[var(--surface-panel)] text-black hover:bg-[var(--surface-card-muted)]'
+          ? 'bg-[var(--surface-panel)] text-black hover:underline hover:underline-offset-2'
           : 'cursor-not-allowed bg-[var(--surface-card-muted)] text-[var(--text-subtle)]'
       }`}
     >
@@ -729,7 +756,9 @@ export function AgentsPanelCopy() {
             }}
             disabled={isSavingEdit}
             className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
-              isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
+              isSavingEdit
+                ? 'cursor-not-allowed text-[var(--text-subtle)]'
+                : 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
             }`}
           >
             <TemplateIcon className="h-3.5 w-3.5" />
@@ -741,7 +770,9 @@ export function AgentsPanelCopy() {
           onClick={handleCancelEdit}
           disabled={isSavingEdit}
           className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
-            isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
+            isSavingEdit
+              ? 'cursor-not-allowed text-[var(--text-subtle)]'
+              : 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
           }`}
         >
           <CloseIcon className="h-3.5 w-3.5" />
@@ -752,7 +783,9 @@ export function AgentsPanelCopy() {
           onClick={handleSaveEdit}
           disabled={isSavingEdit}
           className={`inline-flex items-center justify-center gap-1 text-[12px] font-normal transition w-[44px] h-[18px] ${
-            isSavingEdit ? 'cursor-not-allowed text-[var(--text-subtle)]' : 'text-[var(--text-primary)]'
+            isSavingEdit
+              ? 'cursor-not-allowed text-[var(--text-subtle)]'
+              : 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
           }`}
         >
           <CheckIcon className="h-3.5 w-3.5" />
@@ -1160,7 +1193,7 @@ export function AgentsPanelCopy() {
                   }}
                   className={`${ACTION_MENU_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'hover:bg-[var(--state-error-surface)]'
+                      ? 'hover:bg-[var(--surface-card-muted)]'
                       : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
@@ -1223,7 +1256,7 @@ export function AgentsPanelCopy() {
         </div>
       </div>
 
-      <CreateAgentModalDraft
+      <CreateAgentModal
         open={editorOpen}
         cat={editingCat ?? undefined}
         name={editingCat?.name ?? editingCat?.displayName}
@@ -1326,4 +1359,3 @@ export function AgentsPanelCopy() {
   );
 }
 
-export { AgentsPanelCopy as AgentsPanel };

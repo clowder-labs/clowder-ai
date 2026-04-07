@@ -254,6 +254,40 @@ Section "Install"
   IfFileExists "$INSTDIR\cat-config.json" +2 0
     CopyFiles /SILENT "$INSTDIR\installer-seed\cat-config.json" "$INSTDIR\cat-config.json"
 
+  ; 检查并安装 WebView2 运行时
+  DetailPrint "正在检查 WebView2 运行时..."
+  ; 检查 HKLM (per-machine) 注册表
+  ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+  StrCmp $0 "" 0 webview2_installed
+  
+  ; 检查 HKCU (per-user) 注册表
+  ReadRegStr $1 HKCU "Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+  StrCmp $1 "" webview2_not_installed webview2_installed
+
+webview2_not_installed:
+  DetailPrint "正在安装 WebView2 运行时..."
+  ; 使用 /silent /install 参数静默安装
+  nsExec::ExecToLog '"$INSTDIR\tools\webview2\MicrosoftEdgeWebview2Setup.exe" /silent /install'
+  Pop $0
+  ; 验证安装结果
+  ReadRegStr $2 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
+  StrCmp $2 "" webview2_install_failed webview2_installed
+
+webview2_install_failed:
+  DetailPrint "警告: WebView2 安装失败，桌面启动器可能无法使用"
+  Goto webview2_done
+
+webview2_installed:
+  StrCmp $0 "" webview2_check_hkcu webview2_found
+webview2_check_hkcu:
+  StrCmp $1 "" webview2_not_found webview2_found
+webview2_not_found:
+  DetailPrint "WebView2 未安装"
+  Goto webview2_done
+webview2_found:
+  DetailPrint "WebView2 已安装 (版本: $0$1)"
+webview2_done:
+
   ; Run post-install configuration (generate provider-profiles, cat-catalog, etc.)
   DetailPrint "正在初始化配置..."
   nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'

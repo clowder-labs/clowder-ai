@@ -1,9 +1,9 @@
 ---
-name: cross-cat-handoff
+name: cross-agent-handoff
 description: >
-  跨猫传话/交接的五件套结构（What/Why/Tradeoff/Open/Next）。
-  Use when: 交接工作给其他猫、传话、写 review 信。
-  Not for: 自己的任务、不涉及其他猫的工作。
+  跨 agent 传话/交接的五件套结构（What/Why/Tradeoff/Open/Next）。
+  Use when: 交接工作给其他 agent、传话、写 review 信。
+  Not for: 自己的任务、不涉及其他 agent 的工作。
   Output: 结构化交接信。
 triggers:
   - "交接"
@@ -11,7 +11,7 @@ triggers:
   - "handoff"
 ---
 
-# Cross-Cat Handoff
+# Cross-Agent Handoff
 
 **Core principle:** 交接不能只写"改了什么"。没有 Why = 接手方无法判断 = 低效协作。
 
@@ -43,7 +43,7 @@ BEFORE 发送交接/传话/review请求:
 ### ❌ 只写 What
 
 ```
-Author 猫准备写: "@ Reviewer 我改完了三个文件，帮我 review"
+Author agent 准备写: "@ Reviewer 我改完了三个文件，帮我 review"
 
 ⚠️ BLOCKED — 交接缺失必要信息
 
@@ -59,7 +59,7 @@ Author 猫准备写: "@ Reviewer 我改完了三个文件，帮我 review"
 ### ❌ 只有 What + Why
 
 ```
-Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题"
+Author agent 准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题"
 
 ⚠️ BLOCKED — 交接缺失必要信息
 
@@ -122,7 +122,7 @@ Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题
 
 ### 1. Review 请求
 
-交给其他猫审查代码。
+交给其他 agent 审查代码。
 
 **重点**：
 - What: 改了哪些文件
@@ -131,7 +131,7 @@ Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题
 
 ### 2. 工作交接
 
-一只猫做到一半，另一只猫接手。
+一个 agent 做到一半，另一个 agent 接手。
 
 **重点**：
 - What: 当前进度
@@ -140,7 +140,7 @@ Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题
 
 ### 3. 决策通知
 
-通知其他猫一个重要决策。
+通知其他 agent 一个重要决策。
 
 **重点**：
 - What: 做了什么决定
@@ -149,7 +149,7 @@ Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题
 
 ### 4. 开放讨论邀请
 
-邀请其他猫讨论某个方向性问题（不是任务指派）。
+邀请其他 agent 讨论某个方向性问题（不是任务指派）。
 
 **特殊规则**：
 - 这是讨论，不是任务
@@ -157,7 +157,7 @@ Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题
 - 透明展示推理链
 - 让对方先形成自己的想法再看你的分析
 
-详见 `feat-lifecycle` skill 的讨论阶段（开放讨论模式）。
+详见 `collaborative-thinking` skill 的讨论模式。
 
 ## 常见错误
 
@@ -183,11 +183,8 @@ Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题
 
 ## 下一步
 
-- 交接 review 请求 → 接收方用 `receive-review`
-- 交接开发工作 → 接收方用 `worktree` 开始
 - 交接讨论邀请 → 接收方用 `collaborative-thinking`
 
 ## 参考
 
 - 五件套详见：`refs/shared-rules.md` §1
-- Review 信存放：*(internal reference removed)*

@@ -165,7 +165,7 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
   const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
-  const folderButtonLabel = selectedFolderName?.trim() || '选择文件夹';
+  const folderButtonLabel = selectedFolderName?.trim() || '选择工作空间';
   const isFolderButtonDisabled = disabled || !folderSelectionEnabled;
   const shouldShowFolderTooltip = Boolean(selectedFolderTitle?.trim());
 
@@ -958,7 +958,7 @@ export function ChatInput({
                   {ghostSuggestion && !pathCompletion.isOpen && !showMentions && !/(^|\s)@/.test(input) && (
                     <div
                       data-testid="ghost-suggestion"
-                      className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words rounded-xl p-3 text-sm"
+                      className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-t-[24px] p-4 text-[16px]"
                       aria-hidden="true"
                     >
                       <span className="invisible">{input}</span>

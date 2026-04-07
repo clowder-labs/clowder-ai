@@ -84,6 +84,8 @@ import {
   loadConnectorGatewayConfig,
   startConnectorGateway,
 } from './infrastructure/connectors/connector-gateway-bootstrap.js';
+import { MemoryConnectorThreadBindingStore } from './infrastructure/connectors/ConnectorThreadBindingStore.js';
+import { RedisConnectorThreadBindingStore } from './infrastructure/connectors/RedisConnectorThreadBindingStore.js';
 import {
   CiCdRouter,
   ConnectorInvokeTrigger,
@@ -954,6 +956,9 @@ async function main(): Promise<void> {
     auditStore: authAuditStore,
     io: socketManager.getIO(),
   });
+  const connectorBindingStore = redisClient
+    ? new RedisConnectorThreadBindingStore(redisClient)
+    : new MemoryConnectorThreadBindingStore();
   await app.register(callbackAuthRoutes, { registry, authManager });
   await app.register(authorizationRoutes, {
     authManager,
@@ -963,6 +968,7 @@ async function main(): Promise<void> {
   });
   await app.register(threadsRoutes, {
     threadStore,
+    connectorBindingStore,
     messageStore,
     taskStore,
     memoryStore,
@@ -1392,6 +1398,7 @@ async function main(): Promise<void> {
   try {
     const gatewayConfig = loadConnectorGatewayConfig();
     connectorGatewayHandle = await startConnectorGateway(gatewayConfig, {
+      bindingStore: connectorBindingStore,
       messageStore: {
         async append(input) {
           const result = await messageStore.append(input);
@@ -1446,6 +1453,8 @@ async function main(): Promise<void> {
       (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = connectorGatewayHandle.weixinAdapter;
       (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling =
         connectorGatewayHandle.startWeixinPolling;
+      (connectorHubOpts as { activateWeixinBotToken?: (token: string) => Promise<void> }).activateWeixinBotToken =
+        connectorGatewayHandle.activateWeixinBotToken;
       // F134 Phase D: Wire permission store to hub routes
       (connectorHubOpts as { permissionStore?: unknown }).permissionStore = connectorGatewayHandle.permissionStore;
       app.log.info('[api] Connector gateway started');

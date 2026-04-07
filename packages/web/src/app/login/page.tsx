@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [domainName, setDomainName] = useState(''); // 域名
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [agreeToTerms, setAgreeToTerms] = useState(false); // 同意条款状态
+  const [agreeToTerms, setAgreeToTerms] = useState(true); // 同意条款状态
   const promotionCodeRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -132,7 +132,7 @@ export default function LoginPage() {
                   <Image src="/images/login4.svg" alt="多渠道接入" width={32} height={32} />
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">多渠道接入</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">可接入飞书、微信、钉钉、小艺、Welink 等多渠道。</p>
+                <p className="text-sm text-gray-600 leading-relaxed">可接入飞书、微信、钉钉、小艺等多渠道。</p>
               </div>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function LoginPage() {
               </div>
 
               {/* 注册和忘记密码链接 */}
-              <div className="text-center mt-3">
+              <div className="text-center mt-3 hidden">
                 <a
                   href="https://id1.cloud.huawei.com/UnifiedIDMPortal/portal/userRegister/regbyphone.html"
                   target="_blank"
@@ -278,7 +278,7 @@ export default function LoginPage() {
               </div>
 
               {/* 同意条款复选框 */}
-              <div className="flex items-start">
+              <div className="flex items-start hidden">
                 <div className="flex items-center h-5">
                   <input
                     id="agreeToTerms"
