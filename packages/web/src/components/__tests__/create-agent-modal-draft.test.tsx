@@ -53,6 +53,7 @@ describe('CreateAgentModal', () => {
   });
 
   it('saves Huawei system models from /api/maas-models using accountRef + bare model name', async () => {
+    const onSaved = vi.fn();
     mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === '/api/available-clients') {
@@ -91,7 +92,7 @@ describe('CreateAgentModal', () => {
           name: 'Huawei Bot',
           description: 'ACP header bridge',
           onClose: vi.fn(),
-          onSaved: vi.fn(),
+          onSaved,
         }),
       );
     });
@@ -111,6 +112,7 @@ describe('CreateAgentModal', () => {
     const payload = JSON.parse(String(postCall?.[1]?.body));
     expect(payload.accountRef).toBe('huawei-maas');
     expect(payload.defaultModel).toBe('glm-5');
+    expect(onSaved).toHaveBeenCalledWith('huawei-bot');
   });
 
   it('uses shared footer button classes', async () => {

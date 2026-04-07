@@ -271,6 +271,7 @@ export function AgentsPanel() {
   const { cats = [], refresh } = useCatData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [pendingSelectedCatId, setPendingSelectedCatId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AgentTabKey>('persona');
   const [mode, setMode] = useState<PanelMode>('preview');
   const [savedDraftsByCatId, setSavedDraftsByCatId] = useState<Record<string, EditableDrafts>>({});
@@ -444,6 +445,15 @@ export function AgentsPanel() {
   }, [cats]);
 
   useEffect(() => {
+    if (!pendingSelectedCatId) return;
+    if (!cats.some((cat) => cat.id === pendingSelectedCatId)) return;
+
+    setSelectedCatId(pendingSelectedCatId);
+    setMode('preview');
+    setPendingSelectedCatId(null);
+  }, [cats, pendingSelectedCatId]);
+
+  useEffect(() => {
     if (filteredCats.length === 0) {
       setSelectedCatId(null);
       return;
@@ -576,9 +586,25 @@ export function AgentsPanel() {
     setEditorOpen(true);
   }, []);
 
-  const handleEditorSaved = useCallback(async () => {
-    await refresh();
-  }, [refresh]);
+  const handleEditorSaved = useCallback(
+    async (savedCatId?: string) => {
+      const isCreatingCat = !editingCatId;
+      const nextCats = await refresh();
+
+      if (!isCreatingCat || !savedCatId) return;
+
+      setSearchQuery('');
+      if (nextCats.some((cat) => cat.id === savedCatId)) {
+        setSelectedCatId(savedCatId);
+        setMode('preview');
+        setPendingSelectedCatId(null);
+        return;
+      }
+
+      setPendingSelectedCatId(savedCatId);
+    },
+    [editingCatId, refresh],
+  );
 
   const handleDeleteMember = useCallback(
     async (catId: string) => {

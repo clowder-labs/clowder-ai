@@ -35,7 +35,7 @@ interface CreateAgentModalProps {
   draft?: HubCatEditorDraft | null;
   title?: string;
   onClose?: () => void;
-  onSaved?: () => Promise<void> | void;
+  onSaved?: (savedCatId?: string) => Promise<void> | void;
 }
 
 type ModelGroupId = 'huawei-maas' | 'third-party';
@@ -704,7 +704,10 @@ export function CreateAgentModal({
         return;
       }
 
-      await onSaved?.();
+      const body = (await response.json().catch(() => ({}))) as {
+        cat?: { id?: string };
+      };
+      await onSaved?.(body.cat?.id);
       onClose?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : cat ? '保存失败' : '创建失败');
