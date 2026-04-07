@@ -25,6 +25,8 @@ export interface SidecarPathConfig {
   legacyAppDir: string;
   /** Env var prefix for sidecar process (e.g. 'MY_AGENT' → MY_AGENT_ROOT, MY_AGENT_PROJECT_DIR) */
   envPrefix: string;
+  /** Log patterns that indicate the sidecar is ready (checked via string.includes()) */
+  readyPatterns?: string[];
 }
 
 let sidecarConfig: SidecarPathConfig | null = null;
@@ -126,4 +128,9 @@ export function getSidecarHomeSubdir(): string {
 /** Env var prefix for sidecar process (Edition-provided). */
 export function getSidecarEnvPrefix(): string {
   return sidecarConfig?.envPrefix ?? 'SIDECAR';
+}
+
+/** Log patterns that indicate sidecar readiness. */
+export function getSidecarReadyPatterns(): string[] {
+  return sidecarConfig?.readyPatterns ?? ['WebChannel 已启动'];
 }

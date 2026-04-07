@@ -10,6 +10,7 @@ import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import {
   getSidecarEnvPrefix,
   getSidecarPythonModule,
+  getSidecarReadyPatterns,
   resolveSidecarAppDir,
   resolveSidecarExecutable,
   resolveSidecarPythonBin,
@@ -374,11 +375,7 @@ export async function isRelayClawRuntimeReady(
 }
 
 export function isSidecarReady(recentLogs: string): boolean {
-  return (
-    recentLogs.includes('[JiuWenClaw] 初始化完成') ||
-    recentLogs.includes('JiuWenClaw] 初始化完成') ||
-    recentLogs.includes('WebChannel 已启动')
-  );
+  return getSidecarReadyPatterns().some((pattern) => recentLogs.includes(pattern));
 }
 
 export function summarizeLogs(recentLogs: string): string {
