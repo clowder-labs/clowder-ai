@@ -43,12 +43,13 @@ type Segment =
   | { type: 'mention'; text: string }
   | { type: 'skill'; text: string; iconUrl?: string | null };
 
-const MENTION_TRAILING_PUNCT_RE = /[,:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉.]+$/;
+const MENTION_RIGHT_WHITESPACE_RE = /\s/;
 
 function buildSegments(value: string, skillOptions: RichSkillOption[]): Segment[] {
   if (!value) return [{ type: 'text', text: '' }];
   const sortedSkills = [...skillOptions].sort((a, b) => b.name.length - a.name.length);
   const mentionToCat = getMentionToCat();
+  const mentionAliases = Object.keys(mentionToCat).sort((a, b) => b.length - a.length);
   const segments: Segment[] = [];
   let cursor = 0;
 
@@ -72,16 +73,23 @@ function buildSegments(value: string, skillOptions: RichSkillOption[]): Segment[
     }
 
     const prev = cursor > 0 ? value[cursor - 1] : ' ';
-    const mentionMatch = value.slice(cursor).match(/^@[^\s]+/);
-    if (mentionMatch && /\s/.test(prev)) {
-      const rawMention = mentionMatch[0];
-      const trimmedMention = rawMention.replace(MENTION_TRAILING_PUNCT_RE, '');
-      const trailing = rawMention.slice(trimmedMention.length);
-      const alias = trimmedMention.slice(1).toLowerCase();
-      if (alias && mentionToCat[alias]) {
-        segments.push({ type: 'mention', text: trimmedMention });
-        if (trailing) segments.push({ type: 'text', text: trailing });
-        cursor += rawMention.length;
+    if (value[cursor] === '@' && /\s/.test(prev)) {
+      let matched: { text: string; len: number } | null = null;
+      for (const alias of mentionAliases) {
+        if (!alias) continue;
+        const token = `@${alias}`;
+        const raw = value.slice(cursor, cursor + token.length);
+        if (raw.toLowerCase() !== token.toLowerCase()) continue;
+        const next = value[cursor + token.length];
+        // Mention must be followed by an actual whitespace char.
+        // End-of-text does NOT count, so deleting trailing space de-highlights immediately.
+        if (!next || !MENTION_RIGHT_WHITESPACE_RE.test(next)) continue;
+        matched = { text: raw, len: token.length };
+        break;
+      }
+      if (matched) {
+        segments.push({ type: 'mention', text: matched.text });
+        cursor += matched.len;
         continue;
       }
     }
@@ -99,6 +107,17 @@ function serializeNode(node: Node): string {
   if (el.dataset.tokenType === 'skill') return el.dataset.tokenValue ?? '';
   let out = '';
   for (const child of Array.from(el.childNodes)) out += serializeNode(child);
+  return out;
+}
+
+function serializeNodeSignature(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) return `t:${(node.textContent ?? '').replace(/\u00A0/g, ' ')}`;
+  if (node.nodeType !== Node.ELEMENT_NODE) return '';
+  const el = node as HTMLElement;
+  if (el.dataset.tokenType === 'skill') return `s:${el.dataset.tokenValue ?? ''}`;
+  if (el.dataset.tokenType === 'mention') return `m:${el.textContent ?? ''}`;
+  let out = '';
+  for (const child of Array.from(el.childNodes)) out += serializeNodeSignature(child);
   return out;
 }
 
@@ -183,7 +202,19 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const isComposingRef = useRef(false);
   const segments = useMemo(() => buildSegments(value, skillOptions), [value, skillOptions]);
+  const segmentSignature = useMemo(
+    () =>
+      segments
+        .map((seg) => {
+          if (seg.type === 'text') return `t:${seg.text}`;
+          if (seg.type === 'mention') return `m:${seg.text}`;
+          return `s:${seg.text}`;
+        })
+        .join(''),
+    [segments],
+  );
 
   useImperativeHandle(ref, () => ({
     focus: () => rootRef.current?.focus(),
@@ -208,8 +239,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    // IME composition guard: rebuilding DOM during 拼音组合输入会打断候选词。
+    if (isComposingRef.current) return;
     const current = Array.from(root.childNodes).map((n) => serializeNode(n)).join('');
-    if (current === value) return;
+    const currentSignature = Array.from(root.childNodes).map((n) => serializeNodeSignature(n)).join('');
+    if (current === value && currentSignature === segmentSignature) return;
 
     const active = document.activeElement === root;
     const start = active ? getSelectionOffset(root, false) : 0;
@@ -223,6 +257,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
       }
       if (seg.type === 'mention') {
         const span = document.createElement('span');
+        span.setAttribute('data-token-type', 'mention');
         span.className = 'text-[rgba(20,118,255,1)]';
         span.textContent = seg.text;
         frag.appendChild(span);
@@ -262,7 +297,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
       const nextEnd = Math.min(end, value.length);
       setSelectionOffset(root, nextStart, nextEnd);
     }
-  }, [segments, value]);
+  }, [segments, segmentSignature, value]);
 
   return (
     <div className="relative">
@@ -278,6 +313,17 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         role="textbox"
         aria-multiline="true"
         onInput={() => {
+          const root = rootRef.current;
+          if (!root) return;
+          const next = Array.from(root.childNodes).map((n) => serializeNode(n)).join('');
+          onValueChange(next, getSelectionOffset(root, false), getSelectionOffset(root, true));
+          onInput?.();
+        }}
+        onCompositionStart={() => {
+          isComposingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          isComposingRef.current = false;
           const root = rootRef.current;
           if (!root) return;
           const next = Array.from(root.childNodes).map((n) => serializeNode(n)).join('');
