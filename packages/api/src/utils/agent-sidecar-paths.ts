@@ -13,16 +13,18 @@ import { resolveCatCafeHostRoot } from './cat-cafe-root.js';
 // ── Edition-injectable sidecar path config ──
 
 export interface SidecarPathConfig {
-  /** Vendor subdirectory under vendor/ (e.g. 'jiuwenclaw') */
+  /** Vendor subdirectory under vendor/ (e.g. 'my-agent') */
   vendorSubdir: string;
-  /** Vendor executable name under vendor/ (e.g. 'jiuwenclaw.exe') */
+  /** Vendor executable name under vendor/ (e.g. 'my-agent.exe') */
   vendorExeName: string;
-  /** Python module for -m launch (e.g. 'jiuwenclaw.app') */
+  /** Python module for -m launch (e.g. 'my_agent.app') */
   pythonModule: string;
-  /** Home subdirectory for agent data (e.g. '.jiuwenclaw') */
+  /** Home subdirectory for agent data (e.g. '.my-agent') */
   homeSubdir: string;
   /** Legacy fallback app directory */
   legacyAppDir: string;
+  /** Env var prefix for sidecar process (e.g. 'MY_AGENT' → MY_AGENT_ROOT, MY_AGENT_PROJECT_DIR) */
+  envPrefix: string;
 }
 
 let sidecarConfig: SidecarPathConfig | null = null;
@@ -111,12 +113,17 @@ export function sidecarBundleAvailable(): boolean {
   return existsSync(join(appDir, moduleDir, 'app.py')) && existsSync(pythonBin);
 }
 
-/** Python module name for -m launch (e.g. 'jiuwenclaw.app'). */
+/** Python module name for -m launch (Edition-provided). */
 export function getSidecarPythonModule(): string {
   return sidecarConfig?.pythonModule ?? 'sidecar.app';
 }
 
-/** Home subdirectory for agent data (e.g. '.jiuwenclaw'). */
+/** Home subdirectory for agent data (Edition-provided). */
 export function getSidecarHomeSubdir(): string {
   return sidecarConfig?.homeSubdir ?? '.cat-cafe-agent';
+}
+
+/** Env var prefix for sidecar process (Edition-provided). */
+export function getSidecarEnvPrefix(): string {
+  return sidecarConfig?.envPrefix ?? 'SIDECAR';
 }

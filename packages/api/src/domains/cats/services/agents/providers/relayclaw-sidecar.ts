@@ -8,6 +8,7 @@ import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import {
+  getSidecarEnvPrefix,
   getSidecarPythonModule,
   resolveSidecarAppDir,
   resolveSidecarExecutable,
@@ -171,11 +172,11 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         ...(defaultHeaders ? { default_headers: defaultHeaders } : {}),
         MODEL_NAME: modelName,
         MODEL_PROVIDER: provider,
-        JIUWENCLAW_AGENT_ROOT: join(homeDir, 'agent'),
-        JIUWENCLAW_RUNTIME_SKILLS_DIR: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
-        ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
-        ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
-        ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
+        [`${getSidecarEnvPrefix()}_AGENT_ROOT`]: join(homeDir, 'agent'),
+        [`${getSidecarEnvPrefix()}_RUNTIME_SKILLS_DIR`]: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
+        ...(projectDir ? { [`${getSidecarEnvPrefix()}_PROJECT_DIR`]: projectDir } : {}),
+        ...(sharedSkillDirs.length > 0 ? { [`${getSidecarEnvPrefix()}_SHARED_SKILLS_DIRS`]: sharedSkillDirs.join(delimiter) } : {}),
+        ...(disabledSkills.length > 0 ? { [`${getSidecarEnvPrefix()}_DISABLED_SKILLS`]: disabledSkills.join(',') } : {}),
         ...(catCafeMcp
           ? {
               CAT_CAFE_MCP_SERVER_PATH: catCafeMcp.serverPath,
