@@ -300,6 +300,27 @@ async function parseBootstrapCategories(skillsSrcDir: string): Promise<Map<strin
 }
 
 /**
+ * Get all skill names defined in BOOTSTRAP.md (preset skills).
+ * These are the official skills provided by us.
+ */
+async function getBootstrapSkillNames(skillsSrcDir: string): Promise<Set<string>> {
+  const bootstrapPath = join(skillsSrcDir, 'BOOTSTRAP.md');
+  try {
+    const content = await readFile(bootstrapPath, 'utf-8');
+    const names = new Set<string>();
+    for (const line of content.split('\n')) {
+      const rowMatch = line.match(/^\|\s*`([a-z][-a-z0-9]*)`\s*\|/);
+      if (rowMatch?.[1]) {
+        names.add(rowMatch[1]);
+      }
+    }
+    return names;
+  } catch {
+    return new Set();
+  }
+}
+
+/**
  * Parse manifest.yaml and extract skill description/triggers.
  * F042: manifest is the routing source-of-truth.
  */
@@ -517,84 +538,6 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         configDirty = true;
       }
     }
-    // Also fix source for existing skills that were incorrectly classified
-    // Remote-installed skills should always be 'external'
-    for (const cap of config.capabilities) {
-      if (cap.type !== 'skill') continue;
-      if (remoteInstalledNames.has(cap.id)) {
-        if (cap.source !== 'external') {
-          cap.source = 'external';
-          configDirty = true;
-        }
-        continue;
-      }
-      const shouldBeCatCafe = projectSkillNames.has(cap.id);
-      if (shouldBeCatCafe && cap.source !== 'cat-cafe') {
-        cap.source = 'cat-cafe';
-        configDirty = true;
-      } else if (
-        !shouldBeCatCafe &&
-        cap.source === 'cat-cafe' &&
-        catCafeOwnSkills !== null &&
-        claudeProjectSkills !== null
-      ) {
-        cap.source = 'external';
-        configDirty = true;
-      }
-    }
-    // Prune stale skills no longer on filesystem.
-    // Guard: only prune when project scan succeeded.
-    if (projectScanOk) {
-      const before = config.capabilities.length;
-      config.capabilities = config.capabilities.filter((c) => c.type !== 'skill' || allSkillNames.has(c.id));
-      if (config.capabilities.length !== before) configDirty = true;
-    }
-
-    // Re-discover project-level + user-level MCP servers on each GET.
-    // Adds newly configured servers to capabilities.json without re-bootstrap.
-    const projectLevelPaths = getDiscoveryPaths(projectRoot);
-    const userLevelPaths: DiscoveryPaths = {
-      claudeConfig: join(home, '.claude', 'mcp.json'),
-      codexConfig: join(home, '.codex', 'config.toml'),
-      geminiConfig: join(home, '.gemini', 'settings.json'),
-    };
-    const [projectLevelServers, userLevelServers] = await Promise.all([
-      discoverExternalMcpServers(projectLevelPaths),
-      discoverExternalMcpServers(userLevelPaths),
-    ]);
-    const allDiscoveredServers = [...projectLevelServers, ...userLevelServers];
-    const discoveredByName = new Map<string, (typeof allDiscoveredServers)[number]>();
-    for (const server of allDiscoveredServers) {
-      const existing = discoveredByName.get(server.name);
-      if (!existing) {
-        discoveredByName.set(server.name, server);
-      } else if (existing.transport === 'streamableHttp' && server.transport !== 'streamableHttp') {
-        // Prefer stdio — but only when the stdio entry is actually enabled,
-        // or when the existing streamableHttp entry is disabled anyway.
-        // Prevents a disabled user-level stdio from replacing an enabled project-level HTTP server.
-        if (server.enabled !== false || existing.enabled !== true) {
-          discoveredByName.set(server.name, server);
-        }
-      } else if (existing.enabled === false && server.enabled !== false) {
-        // Same transport: prefer enabled entry over disabled one.
-        discoveredByName.set(server.name, server);
-      }
-    }
-    // Skip legacy Cat Cafe names — a stale 'cat-cafe' entry in user config should
-    // not be re-added alongside the split 'cat-cafe-*' built-in entries.
-    const CAT_CAFE_BUILTIN_NAMES = new Set(['cat-cafe', 'cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals']);
-    for (const server of discoveredByName.values()) {
-      if (CAT_CAFE_BUILTIN_NAMES.has(server.name)) continue;
-      const exists = config.capabilities.some((c) => c.type === 'mcp' && c.id === server.name);
-      if (!exists) {
-        config.capabilities.push(toCapabilityEntry(server));
-        configDirty = true;
-      }
-    }
-
-    if (configDirty) {
-      await writeCapabilitiesConfig(projectRoot, config);
-    }
 
     // 4. Build skill metadata lookup (description + triggers + category)
     // Categories + registration must be parsed from the SAME root used for mount checks.
@@ -602,6 +545,19 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const mainSkillsSrc = join(mainRepo, 'cat-cafe-skills');
     // Use dir existence (not skill count) to avoid treating existing-but-empty as "missing".
     const mountSkillsSrc = catCafeOwnSkills !== null && hasProjectCatCafeSkillsDir ? catCafeSkillsDir : mainSkillsSrc;
+
+    // Also fix source for existing skills
+    // Only skills in BOOTSTRAP.md are official (cat-cafe), others are external
+    const bootstrapSkillNames = await getBootstrapSkillNames(mountSkillsSrc);
+    for (const cap of config.capabilities) {
+      if (cap.type !== 'skill') continue;
+      const isPresetSkill = bootstrapSkillNames.has(cap.id);
+      const newSource = isPresetSkill ? 'cat-cafe' : 'external';
+      if (cap.source !== newSource) {
+        cap.source = newSource;
+        configDirty = true;
+      }
+    }
 
     const [skillCategoryMap, manifestMetaMap] = await Promise.all([
       parseBootstrapCategories(mountSkillsSrc),
