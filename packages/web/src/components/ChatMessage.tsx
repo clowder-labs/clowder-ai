@@ -234,8 +234,8 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             )}
           </div>
         </div>
-        <div
-          className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 hidden items-center justify-center text-[11px] font-bold text-white"
+        { false && <div
+          className="user-question-toolbar w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 hidden items-center justify-center text-[11px] font-bold text-white"
           style={{ backgroundColor: coCreatorPrimary, boxShadow: `0 0 0 2px ${coCreatorSecondary}` }}
         >
           {coCreator.avatar ? (
@@ -252,7 +252,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           ) : (
             'ME'
           )}
-        </div>
+        </div>}
       </div>
     );
   }
