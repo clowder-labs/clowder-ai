@@ -97,9 +97,9 @@ function highlightMentionsAndSkills(text: string, skillNames: string[]): ReactNo
     parts.push(
       <span
         key={`m${m.index}`}
-        className="font-semibold"
+        className="font-semibold user-question-mention"
         style={{
-          color: catColor,
+          color: 'rgb(20, 118, 255)',
           borderRadius: 4,
           padding: '1px 5px',
         }}
