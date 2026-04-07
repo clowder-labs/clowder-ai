@@ -321,6 +321,133 @@ describe('business theme secondary surfaces', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=1&limit=24&q=alpha', { signal: expect.any(AbortSignal) });
   });
 
+  it('keeps the active category when searching from a category tab', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const developerTab = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('开发工具'),
+    );
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
+    expect(developerTab).not.toBeUndefined();
+    expect(searchInput).not.toBeNull();
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url === '/api/skills/all?page=1&limit=24') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-1',
+                slug: 'skill-1',
+                name: 'skill-1',
+                description: 'search helper',
+                tags: ['developer-tools'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+              {
+                id: 'alpha-helper',
+                slug: 'alpha-helper',
+                name: 'alpha-helper',
+                description: 'alpha helper',
+                tags: ['ai-intelligence'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 2,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/all?page=1&limit=24&category=developer-tools') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-1',
+                slug: 'skill-1',
+                name: 'skill-1',
+                description: 'search helper',
+                tags: ['developer-tools'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url.startsWith('/api/skills/search')) {
+        const parsed = new URL(url, 'https://example.test');
+        if (
+          parsed.searchParams.get('page') === '1' &&
+          parsed.searchParams.get('limit') === '24' &&
+          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('category') === 'developer-tools'
+        ) {
+          return Promise.resolve(
+            jsonResponse({
+              skills: [
+                {
+                  id: 'skill-1',
+                  slug: 'skill-1',
+                  name: 'skill-1',
+                  description: 'search helper',
+                  tags: ['developer-tools'],
+                  repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                  isInstalled: false,
+                },
+              ],
+              total: 1,
+              page: 1,
+              hasMore: false,
+            }),
+          );
+        }
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      developerTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    await changeInputValue(searchInput!, 'alpha');
+    await advanceTimers(300);
+    await flushEffects();
+
+    const heading = Array.from(container.querySelectorAll('p')).find((candidate) => candidate.textContent?.includes('(1)'));
+    expect(heading?.textContent).toContain('开发工具 (1)');
+    expect(
+      mockApiFetch.mock.calls.some(([input, init]) => {
+        const url = String(input);
+        if (!url.startsWith('/api/skills/search')) return false;
+        const parsed = new URL(url, 'https://example.test');
+        return (
+          parsed.searchParams.get('page') === '1' &&
+          parsed.searchParams.get('limit') === '24' &&
+          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('category') === 'developer-tools' &&
+          init?.signal instanceof AbortSignal
+        );
+      }),
+    ).toBe(true);
+  });
+
   it('loads more search results using the search endpoint pagination', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
@@ -409,6 +536,146 @@ describe('business theme secondary surfaces', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/search?page=2&limit=24&q=alpha', {
       signal: expect.any(AbortSignal),
     });
+  });
+
+  it('loads more category search results with the active category preserved', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const developerTab = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('开发工具'),
+    );
+    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
+    expect(developerTab).not.toBeUndefined();
+    expect(searchInput).not.toBeNull();
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url === '/api/skills/all?page=1&limit=24') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [],
+            total: 0,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/all?page=1&limit=24&category=developer-tools') {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'alpha-1',
+                slug: 'alpha-1',
+                name: 'alpha-1',
+                description: 'alpha page 1',
+                tags: ['developer-tools'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      if (url.startsWith('/api/skills/search')) {
+        const parsed = new URL(url, 'https://example.test');
+        if (
+          parsed.searchParams.get('limit') === '24' &&
+          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('category') === 'developer-tools'
+        ) {
+          if (parsed.searchParams.get('page') === '1') {
+            return Promise.resolve(
+              jsonResponse({
+                skills: [
+                  {
+                    id: 'alpha-1',
+                    slug: 'alpha-1',
+                    name: 'alpha-1',
+                    description: 'alpha page 1',
+                    tags: ['developer-tools'],
+                    repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                    isInstalled: false,
+                  },
+                ],
+                total: 2,
+                page: 1,
+                hasMore: true,
+              }),
+            );
+          }
+          if (parsed.searchParams.get('page') === '2') {
+            return Promise.resolve(
+              jsonResponse({
+                skills: [
+                  {
+                    id: 'alpha-2',
+                    slug: 'alpha-2',
+                    name: 'alpha-2',
+                    description: 'alpha page 2',
+                    tags: ['developer-tools'],
+                    repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                    isInstalled: false,
+                  },
+                ],
+                total: 2,
+                page: 2,
+                hasMore: false,
+              }),
+            );
+          }
+        }
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      developerTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    await changeInputValue(searchInput!, 'alpha');
+    await advanceTimers(300);
+    await flushEffects();
+
+    const loadMoreButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('加载更多'),
+    );
+    expect(loadMoreButton).not.toBeUndefined();
+
+    await act(async () => {
+      loadMoreButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('alpha-1');
+    expect(container.textContent).toContain('alpha-2');
+    expect(
+      mockApiFetch.mock.calls.some(([input, init]) => {
+        const url = String(input);
+        if (!url.startsWith('/api/skills/search')) return false;
+        const parsed = new URL(url, 'https://example.test');
+        return (
+          parsed.searchParams.get('page') === '2' &&
+          parsed.searchParams.get('limit') === '24' &&
+          parsed.searchParams.get('q') === 'alpha' &&
+          parsed.searchParams.get('category') === 'developer-tools' &&
+          init?.signal instanceof AbortSignal
+        );
+      }),
+    ).toBe(true);
   });
 
   it('clearing the search box falls back to browse results after debounce', async () => {

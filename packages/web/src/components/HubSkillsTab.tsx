@@ -55,6 +55,11 @@ function normalizeCategory(cat: string): string {
   return CATEGORY_MAP[cat] ?? cat;
 }
 
+function resolveCategoryParam(category: string): string | null {
+  if (!category || category === ALL_CATEGORY) return null;
+  return Object.entries(CATEGORY_MAP).find(([, zh]) => zh === category)?.[0] ?? category;
+}
+
 function getSkillCategory(skill: SearchSkill): string {
   const primaryTag = skill.tags.find((tag) => tag.trim().length > 0);
   return primaryTag ? primaryTag.replace(/[-_]/g, ' ') : GENERAL_CATEGORY;
@@ -198,13 +203,13 @@ export function HubSkillsTab() {
 
   const buildSkillsUrl = useCallback((mode: ViewMode, page: number, query: string, category: string) => {
     const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
-    if (mode === 'search') {
-      params.set('q', query);
-      return `/api/skills/search?${params.toString()}`;
+    const categoryParam = resolveCategoryParam(category);
+    if (categoryParam) {
+      params.set('category', categoryParam);
     }
-    if (category && category !== ALL_CATEGORY) {
-      const enCategory = Object.entries(CATEGORY_MAP).find(([, zh]) => zh === category)?.[0] ?? category;
-      params.set('category', enCategory);
+    if (mode === 'search') {
+      params.set('keyword', query);
+      return `/api/skills/search?${params.toString()}`;
     }
     return `/api/skills/all?${params.toString()}`;
   }, []);
@@ -277,7 +282,7 @@ export function HubSkillsTab() {
     if (viewMode === 'search') {
       const query = latestQueryRef.current.trim();
       if (!query) return;
-      void loadPage({ mode: 'search', page: currentPage + 1, append: true, query });
+      void loadPage({ mode: 'search', page: currentPage + 1, append: true, query, category: activeCategory });
       return;
     }
     void loadPage({ mode: 'browse', page: currentPage + 1, append: true, category: activeCategory });
@@ -365,10 +370,7 @@ export function HubSkillsTab() {
         return;
       }
 
-      if (activeCategory !== ALL_CATEGORY) {
-        setActiveCategory(ALL_CATEGORY);
-      }
-      void loadPage({ mode: 'search', page: 1, query: trimmed });
+      void loadPage({ mode: 'search', page: 1, query: trimmed, category: activeCategory });
     }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
