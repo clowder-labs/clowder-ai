@@ -76,7 +76,8 @@ interface ModelMenuPosition {
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_GROUP_LABEL = 'Huawei MaaS';
+const HUAWEI_GROUP_LABEL = '华为云MaaS';
+const HUAWEI_PROVIDER_LABEL = 'Huawei MaaS';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
 const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
@@ -227,7 +228,7 @@ function parseAccountRefFromModelItem(item: MaaSModelResponseItem): string | nul
   if (typeof item.accountRef === 'string' && item.accountRef.trim().length > 0) {
     return item.accountRef.trim();
   }
-  if (item.provider === HUAWEI_GROUP_LABEL) return 'huawei-maas';
+  if (item.provider === HUAWEI_PROVIDER_LABEL) return 'huawei-maas';
   const rawId = typeof item.id === 'string' ? item.id.trim() : '';
   if (!rawId) return null;
   if (rawId.startsWith('model_config:')) {
@@ -254,7 +255,7 @@ function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
 
   const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
   const protocol = pickStringField(normalized, ['protocol']);
-  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_GROUP_LABEL;
+  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_PROVIDER_LABEL;
   const groupId: ModelGroupId = isHuawei ? 'huawei-maas' : 'third-party';
   const rawId =
     typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;

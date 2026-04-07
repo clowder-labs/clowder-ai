@@ -1166,7 +1166,7 @@ export function AgentsPanelCopy() {
                   }}
                   className={`${ACTION_MENU_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'hover:bg-[var(--state-error-surface)]'
+                      ? 'hover:bg-[var(--surface-card-muted)]'
                       : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
