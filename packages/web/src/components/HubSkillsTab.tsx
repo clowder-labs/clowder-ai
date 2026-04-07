@@ -188,6 +188,7 @@ export function HubSkillsTab() {
   const statusTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
+  const [displayCategory, setDisplayCategory] = useState(ALL_CATEGORY);
   const [categories, setCategories] = useState<string[]>([]);
   const latestQueryRef = useRef('');
   const requestSeqRef = useRef(0);
@@ -257,6 +258,7 @@ export function HubSkillsTab() {
 
         setViewMode(mode);
         setResults((prev) => mergeResults(prev, data, append));
+        setDisplayCategory(category);
         setCurrentPage(page);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -447,7 +449,7 @@ export function HubSkillsTab() {
 
           <div className="space-y-0">
             <p className="text-[20px] font-semibold">
-              {activeCategory}
+              {displayCategory}
               {results ? ` (${results.total})` : ''}
             </p>
             <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
