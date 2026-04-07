@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./edition": "./dist/edition/index.js",
+    "./*": "./dist/*"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "pnpm --dir ../shared build && tsc",

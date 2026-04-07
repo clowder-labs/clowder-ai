@@ -1,0 +1,20 @@
+{
+  "edition": "officeclaw",
+  "version": "1.0.0",
+  "coreApiVersion": "^0.1.0",
+  "editionMain": "./register.mjs",
+  "branding": {
+    "appName": "OfficeClaw",
+    "themeColor": "#e53935",
+    "locale": "zh"
+  },
+  "identity": {
+    "mode": "huawei-cloud"
+  },
+  "features": {
+    "remoteSkillHub": true,
+    "voiceIO": true,
+    "agentTeams": true,
+    "werewolfGame": true
+  }
+}

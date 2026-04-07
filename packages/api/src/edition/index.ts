@@ -10,6 +10,26 @@
 export { CORE_API_VERSION, DEFAULT_EDITION, loadEdition } from './edition-loader.js';
 export type { LoadEditionOptions } from './edition-loader.js';
 
+// Registration API — Edition modules import from here to register extensions
+export {
+  registerEditionConnectorPlugin,
+  registerEditionConnectorPlatform,
+  registerEditionSidecarPaths,
+  registerEditionVersionChecker,
+  registerEditionDareAdapters,
+  registerContextWindowSizes,
+  registerEditionEnvVars,
+  registerEditionCats,
+  registerEditionConnectorDefinitions,
+  setModelConfigPolicy,
+} from './registration-api.js';
+export type {
+  EditionConnectorPlugin,
+  EditionConnectorPluginDeps,
+  EditionVersionInfo,
+  SidecarPathConfig,
+} from './registration-api.js';
+
 export { DEFAULT_MODEL_CONFIG_POLICY, EditionRegistryImpl } from './types.js';
 export type {
   BrandingConfig,

@@ -94,6 +94,7 @@ export {
   CAT_CONFIGS,
   findCatByMention,
   getAllCatIds,
+  registerEditionCats,
   resolveEmbeddedRuntimeKind,
   usesEmbeddedAcpRuntime,
 } from './cat.js';
@@ -127,6 +128,7 @@ export type {
 export {
   getAllConnectorDefinitions,
   getConnectorDefinition,
+  registerEditionConnectorDefinitions,
 } from './connector.js';
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {
