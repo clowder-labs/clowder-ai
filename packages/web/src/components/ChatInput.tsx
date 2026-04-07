@@ -165,7 +165,7 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
   const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
-  const folderButtonLabel = selectedFolderName?.trim() || '选择文件夹';
+  const folderButtonLabel = selectedFolderName?.trim() || '选择工作空间';
   const isFolderButtonDisabled = disabled || !folderSelectionEnabled;
   const shouldShowFolderTooltip = Boolean(selectedFolderTitle?.trim());
 
