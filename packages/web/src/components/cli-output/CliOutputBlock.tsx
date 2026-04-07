@@ -40,13 +40,6 @@ function lighten(hex: string, ratio: number): string {
   return `rgb(${lr}, ${lg}, ${lb})`;
 }
 
-/* ── Divider stays neutral; surface colors are now breed-tinted (see buildSurface) ── */
-const DIVIDER = '#334155';
-const LOCAL_PPT_FILE = {
-  name: 'NVIDIA_GTC_2026_华为风.pptx',
-  path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\NVIDIA_GTC_2026_华为风.pptx',
-};
-
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
 interface LocalPresentationFile {
@@ -316,12 +309,16 @@ function PawPrint() {
 function PptAttachmentCard({
   file,
   projectPath,
+  status,
 }: {
   file: LocalPresentationFile;
   projectPath?: string | null;
+  status: CliStatus;
 }) {
   const [isOpening, setIsOpening] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<number | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [defaultProjectPath, setDefaultProjectPath] = useState<string | null>(null);
   const resolvedPath = useMemo(
     () => resolvePresentationPath(file.path, projectPath, defaultProjectPath),
@@ -364,21 +361,36 @@ function PptAttachmentCard({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: resolvedPath, ...(projectPath ? { projectPath } : {}) }),
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled && status === 'streaming') {
+            retryTimer.current = setTimeout(loadMeta, 1000);
+          }
+          return;
+        }
         const payload = (await response.json()) as LocalPresentationFileMeta;
         if (!cancelled && typeof payload.generatedAt === 'number') {
           setGeneratedAt(payload.generatedAt);
+          setIsReady(true);
         }
       } catch {
-        if (!cancelled) setGeneratedAt(null);
+        if (!cancelled) {
+          setGeneratedAt(null);
+          if (status === 'streaming') {
+            retryTimer.current = setTimeout(loadMeta, 1000);
+          }
+        }
       }
     }
 
     void loadMeta();
     return () => {
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
       cancelled = true;
     };
-  }, [resolvedPath]);
+  }, [resolvedPath, projectPath, status]);
 
   async function handleOpen(): Promise<void> {
     if (isOpening || !resolvedPath) return;
@@ -394,10 +406,12 @@ function PptAttachmentCard({
     }
   }
 
+  if (!isReady || !resolvedPath) return null;
+
   return (
     <div
       data-testid="cli-output-ppt-card"
-      className="mt-3 flex items-center gap-3 rounded-2xl border border-[#E9E5DF] bg-[#FBF9F6] px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
+      className="mt-3 max-w-[392px] font-sans flex items-center gap-3 rounded-2xl border border-[#E9E5DF] bg-[#FBF9F6] px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
     >
       <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
@@ -487,7 +501,7 @@ function ToolRow({
         {hasResult && <ChevronIcon expanded={rowExpanded} />}
       </div>
       {rowExpanded && hasResult && event.detail && (
-        <div className="w-full mt-1 ml-6 whitespace-pre-wrap text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]" style={{ color: '#64748B' }}>
+        <div className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]" style={{ color: '#64748B' }}>
           {event.detail}
         </div>
       )}
@@ -810,7 +824,9 @@ export function CliOutputBlock({
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
         </span>
       </div>
-      {localPresentationFile && <PptAttachmentCard file={localPresentationFile} projectPath={projectPath} />}
+      {localPresentationFile && (
+        <PptAttachmentCard file={localPresentationFile} projectPath={projectPath} status={status} />
+      )}
     </div>
   );
 }
