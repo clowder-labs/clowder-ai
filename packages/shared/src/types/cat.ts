@@ -179,24 +179,7 @@ export const CAT_CONFIGS: Record<string, CatConfig> = {
     roleDescription: '多智能体协作引擎，擅长复杂任务拆解、多步骤编排和工具链调度',
     personality: '冷静高效的任务指挥官，擅长将复杂问题拆解为可执行步骤并协调多方资源完成',
   },
-  jiuwenclaw: {
-    id: createCatId('jiuwenclaw'),
-    name: '办公助理',
-    displayName: '办公助理',
-    nickname: '小九',
-    avatar: '/avatars/jiuwenclaw.png',
-    color: {
-      primary: '#D97A3A',
-      secondary: '#F6E7DA',
-    },
-    mentionPatterns: ['@jiuwenclaw', '@jiuwenClaw', '@jiuwen', '@办公助理', '@office', '@小九'],
-    provider: 'relayclaw',
-    defaultModel: 'gpt-5.4',
-    mcpSupport: true,
-    breedId: 'jiuwenclaw',
-    roleDescription: '通用 office 助理，负责文档整理、会议纪要、资料汇总、事项跟进和日常事务协助',
-    personality: '耐心细致、沟通清楚，优先帮助用户把办公事务梳理清楚并推进落地',
-  },
+  // Edition-specific cats are registered at runtime via registerEditionCats().
 } as const;
 
 /**
@@ -226,4 +209,9 @@ export function findCatByMention(text: string): CatConfig | undefined {
  */
 export function getAllCatIds(): readonly CatId[] {
   return Object.values(CAT_CONFIGS).map((config) => config.id);
+}
+
+/** Edition calls this at startup to register vendor-specific cats into CAT_CONFIGS. */
+export function registerEditionCats(cats: Record<string, CatConfig>): void {
+  Object.assign(CAT_CONFIGS, cats);
 }
