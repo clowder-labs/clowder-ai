@@ -136,9 +136,9 @@ export interface CapabilityManifest {
 // Core has no hardcoded vendor model source IDs — Edition configures them.
 
 export interface ModelSourceProtocolRule {
-  /** Protocol identifier (e.g. 'huawei_maas'). Core treats it as opaque string. */
+  /** Protocol identifier (e.g. 'custom_llm'). Core treats it as opaque string. */
   protocol: string;
-  /** Display name for UI (e.g. 'Huawei MaaS'). */
+  /** Display name for UI (e.g. 'Custom LLM'). */
   displayName: string;
   /** Whether this protocol uses API keys (false = session/header auth). */
   hasApiKey: boolean;

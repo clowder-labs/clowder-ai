@@ -178,10 +178,10 @@ import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
 import {
-  resolveJiuwenClawAppDir,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} from './utils/jiuwenclaw-paths.js';
+  resolveSidecarAppDir,
+  resolveSidecarExecutable,
+  resolveSidecarPythonBin,
+} from './utils/agent-sidecar-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
 import { isSeedCat } from './config/cat-account-binding.js';
@@ -692,9 +692,9 @@ async function main(): Promise<void> {
           const wsEnvKey = `CAT_${id.toUpperCase()}_WS_URL`;
           const wsUrl = process.env[wsEnvKey]?.trim() ?? '';
           const projectRoot = resolveActiveProjectRoot(process.cwd());
-          const appDir = resolveJiuwenClawAppDir();
-          const executablePath = resolveJiuwenClawExecutable();
-          const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
+          const appDir = resolveSidecarAppDir();
+          const executablePath = resolveSidecarExecutable();
+          const pythonBin = resolveSidecarPythonBin(undefined, appDir);
           service = new RelayClawAgentService({
             catId,
             config: {

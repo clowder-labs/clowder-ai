@@ -7,7 +7,7 @@
 
 import { execFile } from 'node:child_process';
 import { dareBundleAvailable } from '../domains/cats/services/agents/providers/DareAgentService.js';
-import { jiuwenClawBundleAvailable, resolveVendoredJiuwenClawExecutable } from './jiuwenclaw-paths.js';
+import { sidecarBundleAvailable, resolveVendoredSidecarExecutable } from './agent-sidecar-paths.js';
 import {
   bundledAgentTeamsRuntimeAvailable,
   DEFAULT_EMBEDDED_AGENT_TEAMS_ARGS,
@@ -31,7 +31,7 @@ const CLIENT_COMMAND_MAP: ClientInfo[] = [
   { id: 'dare', label: 'Office Agent', command: 'dare' },
   { id: 'opencode', label: 'OpenCode', command: 'opencode' },
   { id: 'antigravity', label: 'Antigravity', command: 'antigravity' },
-  { id: 'relayclaw', label: 'Assistant Agent', command: resolveVendoredJiuwenClawExecutable() },
+  { id: 'relayclaw', label: 'Assistant Agent', command: resolveVendoredSidecarExecutable() },
   {
     id: 'acp',
     label: 'ACP',
@@ -62,7 +62,7 @@ async function acpRuntimeAvailable(): Promise<boolean> {
 }
 
 function relayClawSidecarAvailable(): boolean {
-  return jiuwenClawBundleAvailable();
+  return sidecarBundleAvailable();
 }
 
 function dareRuntimeAvailable(): boolean {

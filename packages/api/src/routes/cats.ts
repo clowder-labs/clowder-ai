@@ -30,6 +30,7 @@ import {
   resolveRuntimeProviderProfileForClient,
 } from '../config/provider-profiles.js';
 import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
+import { resolveVendoredSidecarExecutable } from '../utils/agent-sidecar-paths.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import {
@@ -228,7 +229,7 @@ function defaultCliForClient(client: CatProvider): { command: string; outputForm
     case 'a2a':
       return { command: 'a2a', outputFormat: 'json' };
     case 'relayclaw':
-      return { command: 'vendor/jiuwenclaw.exe', outputFormat: 'json' };
+      return { command: resolveVendoredSidecarExecutable(), outputFormat: 'json' };
     case 'acp':
       return { command: 'relay-teams', outputFormat: 'json' };
     default:

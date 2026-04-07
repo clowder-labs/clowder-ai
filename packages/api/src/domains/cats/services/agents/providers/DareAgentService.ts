@@ -253,19 +253,28 @@ const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
 const DARE_ADAPTER_OVERRIDE_ENV = 'CAT_CAFE_DARE_ADAPTER';
 const DARE_SSL_VERIFY_ENV = 'DARE_SSL_VERIFY';
 
-const ADAPTER_KEY_ENV: Record<string, string> = {
+// Core adapter env var mappings. Edition can register additional adapters.
+const CORE_ADAPTER_KEY_ENV: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
   anthropic: 'ANTHROPIC_API_KEY',
-  'huawei-modelarts': 'HUAWEI_MODELARTS_API_KEY',
 };
+const ADAPTER_KEY_ENV: Record<string, string> = { ...CORE_ADAPTER_KEY_ENV };
 
-const ADAPTER_ENDPOINT_ENV: Record<string, string> = {
+const CORE_ADAPTER_ENDPOINT_ENV: Record<string, string> = {
   openai: 'OPENAI_BASE_URL',
   openrouter: 'OPENROUTER_BASE_URL',
   anthropic: 'ANTHROPIC_BASE_URL',
-  'huawei-modelarts': 'HUAWEI_MODELARTS_BASE_URL',
 };
+const ADAPTER_ENDPOINT_ENV: Record<string, string> = { ...CORE_ADAPTER_ENDPOINT_ENV };
+
+/** Edition calls this to register vendor-specific Dare adapter env var mappings. */
+export function registerEditionDareAdapters(adapters: { adapter: string; keyEnv: string; endpointEnv: string }[]): void {
+  for (const a of adapters) {
+    ADAPTER_KEY_ENV[a.adapter] = a.keyEnv;
+    ADAPTER_ENDPOINT_ENV[a.adapter] = a.endpointEnv;
+  }
+}
 
 function readWorkspaceDareConfig(workspace?: string): DareWorkspaceConfig | null {
   if (!workspace) return null;
