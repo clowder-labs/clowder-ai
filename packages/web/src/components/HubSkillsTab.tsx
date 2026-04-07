@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
+import { CenteredLoadingState } from './CenteredLoadingState';
 import { InfoTooltip, OverflowTooltip } from './InfoTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
@@ -36,7 +37,6 @@ const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
 const INSTALLED_LABEL = '已安装';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SEARCH_ARIA_LABEL = '搜索技能';
-const LOADING_LABEL = '加载中...';
 const ALL_CATEGORY = '全部';
 const PAGE_SIZE = 24;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -411,6 +411,10 @@ export function HubSkillsTab() {
     [clearInstallStatus, markSkillInstalled, setInstallStatusWithTimer, showToast],
   );
 
+  if (!results && loading) {
+    return <CenteredLoadingState />;
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {toast && (
@@ -482,8 +486,6 @@ export function HubSkillsTab() {
                 </div>
               )}
             </>
-          ) : loading ? (
-            <p className="text-[11px] text-[var(--text-muted)]">{LOADING_LABEL}</p>
           ) : null}
         </div>
       </section>

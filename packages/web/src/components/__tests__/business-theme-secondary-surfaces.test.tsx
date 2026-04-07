@@ -248,6 +248,31 @@ describe('business theme secondary surfaces', () => {
     expect(buttons.some((button) => button.textContent?.includes('导入'))).toBe(false);
   });
 
+  it('shows a centered loading icon instead of loading text while plaza skills are loading', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['developer-tools', 'ai-intelligence'] }));
+      }
+      if (url.startsWith('/api/skills/all')) {
+        return new Promise<Response>(() => {});
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+      await Promise.resolve();
+    });
+
+    const loadingState = container.querySelector('[data-testid="skills-loading-state"]');
+    expect(loadingState).not.toBeNull();
+    expect(loadingState?.className).toContain('items-center');
+    expect(loadingState?.className).toContain('justify-center');
+    expect(loadingState?.querySelector('img')).not.toBeNull();
+    expect(container.textContent).not.toContain('加载中...');
+  });
+
   it('keeps plaza search controls outside the scrolling results region', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
