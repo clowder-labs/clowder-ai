@@ -60,6 +60,17 @@ function mockOverflow(node: Element, { clientWidth, scrollWidth }: { clientWidth
   });
 }
 
+function mockBlockOverflow(node: Element, clientHeight: number, scrollHeight: number) {
+  Object.defineProperty(node, 'clientHeight', {
+    configurable: true,
+    value: clientHeight,
+  });
+  Object.defineProperty(node, 'scrollHeight', {
+    configurable: true,
+    value: scrollHeight,
+  });
+}
+
 const sampleCat = {
   id: 'office',
   displayName: 'Office',
@@ -308,6 +319,16 @@ describe('business theme secondary surfaces', () => {
 
     await act(async () => {
       descriptionNode?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    if (!descriptionNode) return;
+    mockOverflow(descriptionNode, { clientWidth: 180, scrollWidth: 180 });
+    mockBlockOverflow(descriptionNode, 44, 88);
+
+    await act(async () => {
+      descriptionNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
       await Promise.resolve();
     });
 

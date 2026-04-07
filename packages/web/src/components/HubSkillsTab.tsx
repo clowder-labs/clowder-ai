@@ -5,7 +5,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
 import { CenteredLoadingState } from './CenteredLoadingState';
-import { InfoTooltip, OverflowTooltip } from './InfoTooltip';
+import { OverflowTooltip } from './OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -146,9 +146,9 @@ function SkillList({
                 </div>
               </div>
 
-              <InfoTooltip content={resolvedDescription} className="w-full">
+              <OverflowTooltip content={resolvedDescription} className="w-full">
                 <p className={styles.description}>{resolvedDescription}</p>
-              </InfoTooltip>
+              </OverflowTooltip>
 
               <div className={styles.footer}>
                 {!skill.isInstalled ? (

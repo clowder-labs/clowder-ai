@@ -1,9 +1,11 @@
 'use client';
 
 import {
+  cloneElement,
   type CSSProperties,
   type ElementType,
-  type ReactNode,
+  isValidElement,
+  type ReactElement,
   useEffect,
   useId,
   useLayoutEffect,
@@ -120,37 +122,8 @@ function TooltipPortal({
   );
 }
 
-export function InfoTooltip({
-  content,
-  children,
-  className,
-}: {
-  content: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  const { triggerRef, tooltipRef, tooltipId, open, setOpen, tooltipStyle } = useTooltipPositioning(content);
-
-  return (
-    <div
-      ref={triggerRef}
-      className={className}
-      onMouseOver={() => setOpen(true)}
-      onMouseOut={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-      aria-describedby={open ? tooltipId : undefined}
-    >
-      {children}
-      <TooltipPortal
-        open={open}
-        tooltipId={tooltipId}
-        tooltipRef={tooltipRef}
-        tooltipStyle={tooltipStyle}
-        content={content}
-      />
-    </div>
-  );
+function isOverflowed(node: HTMLElement): boolean {
+  return node.scrollWidth > node.clientWidth || node.scrollHeight > node.clientHeight;
 }
 
 export function OverflowTooltip({
@@ -158,20 +131,30 @@ export function OverflowTooltip({
   className,
   textClassName,
   as: Component = 'span',
+  children,
 }: {
   content: string;
   className?: string;
   textClassName?: string;
   as?: ElementType;
+  children?: ReactElement;
 }) {
-  const textRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLElement | null>(null);
   const { triggerRef, tooltipRef, tooltipId, open, setOpen, tooltipStyle } = useTooltipPositioning(content);
 
   const handleOpen = () => {
-    const text = textRef.current;
-    if (!text) return;
-    setOpen(text.scrollWidth > text.clientWidth);
+    const node = contentRef.current;
+    if (!node) return;
+    setOpen(isOverflowed(node));
   };
+
+  const renderedContent = children
+    ? isValidElement(children)
+      ? cloneElement(children, { ref: contentRef } as { ref: typeof contentRef })
+      : children
+    : cloneElement(<Component className={textClassName}>{content}</Component>, { ref: contentRef } as {
+        ref: typeof contentRef;
+      });
 
   return (
     <div
@@ -183,9 +166,7 @@ export function OverflowTooltip({
       onBlur={() => setOpen(false)}
       aria-describedby={open ? tooltipId : undefined}
     >
-      <Component ref={textRef} className={textClassName}>
-        {content}
-      </Component>
+      {renderedContent}
       <TooltipPortal
         open={open}
         tooltipId={tooltipId}
