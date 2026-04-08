@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { type ReactNode } from 'react';
-import { InfoTooltip, OverflowTooltip } from './InfoTooltip';
+import { OverflowTooltip } from './OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 export interface CapabilityBoardItem {
@@ -210,9 +210,9 @@ export function CapabilityCard({
         </div>
       </div>
 
-      <InfoTooltip content={resolvedDescription} className="w-full">
+      <OverflowTooltip content={resolvedDescription} className="w-full">
         <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">{resolvedDescription}</p>
-      </InfoTooltip>
+      </OverflowTooltip>
 
       <div className="mt-auto flex items-end justify-between gap-3">
         <div className="min-h-5 text-xs leading-5">

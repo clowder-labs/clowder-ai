@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
+import { CenteredLoadingState } from './CenteredLoadingState';
 import { useConfirm } from './useConfirm';
 
 const ALL_CATEGORY = '全部';
@@ -179,7 +180,7 @@ export function HubCapabilityTab({
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
   }, [activeCategory, categoryTabs]);
 
-  if (loading) return <p className="text-sm text-[var(--text-muted)]">加载中...</p>;
+  if (loading) return <CenteredLoadingState />;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">

@@ -45,6 +45,17 @@ describe('CapabilitySection skill card layout', () => {
     });
   }
 
+  function mockBlockOverflow(node: Element, clientHeight: number, scrollHeight: number) {
+    Object.defineProperty(node, 'clientHeight', {
+      configurable: true,
+      value: clientHeight,
+    });
+    Object.defineProperty(node, 'scrollHeight', {
+      configurable: true,
+      value: scrollHeight,
+    });
+  }
+
   it('renders source and uninstall action without expanded detail sections', () => {
     const description = '这是一个用于验证卡片布局的技能描述。';
     const item: CapabilityBoardItem = {
@@ -114,6 +125,16 @@ describe('CapabilitySection skill card layout', () => {
 
     await act(async () => {
       descriptionNode?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    if (!descriptionNode) return;
+    mockOverflow(descriptionNode, { clientWidth: 200, scrollWidth: 200 });
+    mockBlockOverflow(descriptionNode, 44, 88);
+
+    await act(async () => {
+      descriptionNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
       await Promise.resolve();
     });
 

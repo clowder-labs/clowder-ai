@@ -130,6 +130,28 @@ describe('business theme hub shell', () => {
     expect(container.textContent).toContain('来源：官方');
   });
 
+  it('shows a centered loading icon instead of loading text while installed skills are loading', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities?')) {
+        return new Promise<Response>(() => {});
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+      await Promise.resolve();
+    });
+
+    const loadingState = container.querySelector('[data-testid="skills-loading-state"]');
+    expect(loadingState).not.toBeNull();
+    expect(loadingState?.className).toContain('items-center');
+    expect(loadingState?.className).toContain('justify-center');
+    expect(loadingState?.querySelector('img')).not.toBeNull();
+    expect(container.textContent).not.toContain('加载中...');
+  });
+
   it('renders search input under title and filters installed skills', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));

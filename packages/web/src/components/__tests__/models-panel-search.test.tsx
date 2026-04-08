@@ -51,6 +51,25 @@ async function clickButton(button: HTMLElement) {
   });
 }
 
+function mockOverflow(node: Element, clientWidth: number, scrollWidth: number, clientHeight: number, scrollHeight: number) {
+  Object.defineProperty(node, 'clientWidth', {
+    configurable: true,
+    value: clientWidth,
+  });
+  Object.defineProperty(node, 'scrollWidth', {
+    configurable: true,
+    value: scrollWidth,
+  });
+  Object.defineProperty(node, 'clientHeight', {
+    configurable: true,
+    value: clientHeight,
+  });
+  Object.defineProperty(node, 'scrollHeight', {
+    configurable: true,
+    value: scrollHeight,
+  });
+}
+
 describe('ModelsPanel search', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -234,6 +253,15 @@ describe('ModelsPanel search', () => {
 
     await act(async () => {
       descriptionNode?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    if (!descriptionNode) return;
+    mockOverflow(descriptionNode, 200, 200, 44, 88);
+
+    await act(async () => {
+      descriptionNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
       await Promise.resolve();
     });
 
