@@ -484,6 +484,8 @@ describe('SkillDetailView', () => {
     expect(loadingShell?.className).toContain('h-full');
     expect(loadingShell?.className).toContain('items-center');
     expect(loadingShell?.className).toContain('justify-center');
+    expect(container.querySelector('[data-testid="skills-loading-state"] span')?.className).toContain('h-4');
+    expect(container.querySelector('[data-testid="skills-loading-state"] span')?.className).toContain('w-4');
 
     await act(async () => {
       resolvePreview?.(
