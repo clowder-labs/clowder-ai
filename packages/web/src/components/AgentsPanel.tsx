@@ -884,7 +884,7 @@ export function AgentsPanel() {
             updateWorkingDraft(activeTab, event.target.value);
           }}
           placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
-          className="ui-textarea h-[120px] w-full resize-none rounded-none text-[12px] leading-7"
+          className="ui-textarea ui-textarea-plain h-[120px] w-full resize-none rounded-none text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>
