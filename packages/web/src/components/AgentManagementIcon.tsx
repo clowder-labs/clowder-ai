@@ -9,7 +9,9 @@ type AgentManagementIconName =
   | 'close'
   | 'check'
   | 'more'
-  | 'delete';
+  | 'delete'
+  | 'refresh'
+  | 'random';
 
 const ICON_PATHS: Record<AgentManagementIconName, string> = {
   persona: '/images/agent-management-icons/agent-persona.svg',
@@ -21,14 +23,21 @@ const ICON_PATHS: Record<AgentManagementIconName, string> = {
   check: '/images/agent-management-icons/agent-check.svg',
   more: '/images/agent-management-icons/agent-more.svg',
   delete: '/images/agent-management-icons/agent-delete.svg',
+  refresh: '/images/agent-management-icons/agent-refresh.svg',
+  random: '/images/agent-management-icons/agent-random-avatar.svg',
 };
 
 export function AgentManagementIcon({
   name,
   className,
+  preserveOriginalColor = false,
 }: {
   name: AgentManagementIconName;
   className?: string;
+  preserveOriginalColor?: boolean;
 }) {
-  return <img src={ICON_PATHS[name]} alt="" aria-hidden="true" className={className} />;
+  const imageClassName = [name === 'edit' && !preserveOriginalColor ? 'brightness-0' : null, className]
+    .filter(Boolean)
+    .join(' ');
+  return <img src={ICON_PATHS[name]} alt="" aria-hidden="true" className={imageClassName} />;
 }
