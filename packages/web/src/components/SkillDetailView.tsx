@@ -35,13 +35,6 @@ function statusLabel(value: boolean): string {
   return value ? '已启用' : '已停用';
 }
 
-function mountLabel(provider: string): string {
-  if (provider === 'claude') return 'Claude';
-  if (provider === 'codex') return 'Codex';
-  if (provider === 'gemini') return 'Gemini';
-  return provider;
-}
-
 function formatInstalledAt(value?: string): string {
   if (!value) return '未知';
   const date = new Date(value);
@@ -128,12 +121,6 @@ export function SkillDetailView({
   }, [skillName]);
 
   const triggerLabel = useMemo(() => detail?.triggers?.join(', ') || '无', [detail?.triggers]);
-  const mountLabelText = useMemo(() => {
-    if (!detail?.mounts) return '暂无数据';
-    return Object.entries(detail.mounts)
-      .map(([provider, mounted]) => `${mountLabel(provider)}: ${mounted ? '已挂载' : '未挂载'}`)
-      .join(' / ');
-  }, [detail?.mounts]);
   const catsLabel = useMemo(() => {
     if (!detail) return '暂无数据';
     const enabledCats = Object.entries(detail.cats)
@@ -171,7 +158,12 @@ export function SkillDetailView({
           <div className="space-y-6">
             <section>
               <div className="flex items-center gap-4">
-                <SkillAvatar avatarName={skillName} avatarUrl={avatarUrl} dataTestId="skill-detail-avatar" />
+                <SkillAvatar
+                  avatarName={skillName}
+                  avatarUrl={avatarUrl}
+                  dataTestId="skill-detail-avatar"
+                  className="h-[52px] w-[52px]"
+                />
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-2xl font-semibold text-[var(--text-primary)]">{resolvedTitle}</h2>
                   <div className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -201,12 +193,6 @@ export function SkillDetailView({
                 <DetailRow label="启用猫咪" value={catsLabel} />
               </div>
             </section>
-
-            <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--surface-card)] p-5">
-              <h3 className="text-base font-semibold text-[var(--text-primary)]">挂载状态</h3>
-              <p className="text-sm leading-6 text-[var(--text-secondary)]">{mountLabelText}</p>
-            </section>
-
             <section className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--surface-card)] p-5">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">文件结构</h3>
               {detail.fileTree?.length ? (
