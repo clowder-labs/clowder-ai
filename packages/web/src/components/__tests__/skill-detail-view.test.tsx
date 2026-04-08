@@ -90,4 +90,22 @@ describe('SkillDetailView', () => {
     expect(container.textContent).toContain('demo');
     expect(container.textContent).toContain('SKILL.md');
   });
+
+  it('navigates back when clicking the 我的技能 breadcrumb', async () => {
+    const onBack = vi.fn();
+
+    await act(async () => {
+      root.render(React.createElement(SkillDetailView, { skillName: 'demo-skill', onBack }));
+    });
+    await flushEffects();
+
+    const breadcrumbButton = container.querySelector('[data-testid="skill-detail-breadcrumb-back"]');
+    expect(breadcrumbButton).not.toBeNull();
+
+    act(() => {
+      (breadcrumbButton as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
 });

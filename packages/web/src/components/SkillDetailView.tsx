@@ -137,22 +137,22 @@ export function SkillDetailView({ skillName, onBack }: { skillName: string; onBa
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden" data-testid="skill-detail-panel">
-      <div className="shrink-0 border-b border-[var(--border-default)] pb-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-[var(--text-accent)] hover:underline"
-        >
-          返回
-        </button>
+      <div className="shrink-0 pb-6">
         <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-          <span>我的技能</span>
+          <button
+            type="button"
+            onClick={onBack}
+            data-testid="skill-detail-breadcrumb-back"
+            className="transition hover:underline"
+          >
+            我的技能
+          </button>
           <span>/</span>
           <span className="font-medium text-[var(--text-primary)]">{detail?.name ?? skillName}</span>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pt-6">
+      <div className="min-h-0 flex-1">
         {error ? <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p> : null}
 
         {detail ? (
