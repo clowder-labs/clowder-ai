@@ -7,7 +7,7 @@ import { API_URL, apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
-import { OverflowTooltip } from './OverflowTooltip';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';

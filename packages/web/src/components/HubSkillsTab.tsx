@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
-import { CenteredLoadingState } from './CenteredLoadingState';
-import { OverflowTooltip } from './OverflowTooltip';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {

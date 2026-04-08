@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
-import { CenteredLoadingState } from './CenteredLoadingState';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { useConfirm } from './useConfirm';
 
 const ALL_CATEGORY = '全部';
