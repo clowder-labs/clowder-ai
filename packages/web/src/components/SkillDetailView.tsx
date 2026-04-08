@@ -314,7 +314,7 @@ export function SkillDetailView({
                   label="描述"
                   value={
                     <OverflowTooltip content={resolvedDescription} className="w-full">
-                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">
+                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6">
                         {resolvedDescription}
                       </p>
                     </OverflowTooltip>
