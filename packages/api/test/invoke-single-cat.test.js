@@ -97,6 +97,36 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(catError[0].data.error.includes('CLI'), 'cat_error should contain error message');
   });
 
+  it('logs service-emitted error messages at error level for fallback diagnostics', async () => {
+    const errorService = {
+      async *invoke() {
+        yield {
+          type: 'error',
+          catId: 'codex',
+          error: 'ACP provider profile is not configured',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const messages = await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'codex',
+        service: errorService,
+        prompt: 'test',
+        userId: 'user1',
+        threadId: 'thread-error-log',
+        isLastCat: true,
+      }),
+    );
+
+    // Verify error message was emitted to user
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'should emit error message');
+    assert.equal(errorMsg.error, 'ACP provider profile is not configured');
+  });
+
   it('persists task progress snapshot with completed status on done', async () => {
     const { MemoryTaskProgressStore } = await import(
       '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
