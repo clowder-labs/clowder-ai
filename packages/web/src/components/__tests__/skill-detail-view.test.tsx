@@ -480,6 +480,10 @@ describe('SkillDetailView', () => {
     await flushEffects();
 
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"] [data-testid="skills-loading-state"]')).not.toBeNull();
+    const loadingShell = container.querySelector('[data-testid="skill-detail-preview-loading-shell"]');
+    expect(loadingShell?.className).toContain('h-full');
+    expect(loadingShell?.className).toContain('items-center');
+    expect(loadingShell?.className).toContain('justify-center');
 
     await act(async () => {
       resolvePreview?.(
