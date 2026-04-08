@@ -73,8 +73,8 @@ function BasicInfoField({
 }) {
   return (
     <div className={`space-y-2 ${className}`.trim()}>
-      <p className="text-xs font-medium tracking-[0.02em] text-[var(--text-muted)]">{label}</p>
-      {typeof value === 'string' ? <p className="text-sm leading-6 text-[var(--text-primary)]">{value}</p> : value}
+      <p className="text-xs font-medium tracking-[0.02em] text-[var(--text-label-secondary)]">{label}</p>
+      {typeof value === 'string' ? <p className="text-xs leading-6 text-[var(--text-primary)]">{value}</p> : value}
     </div>
   );
 }
@@ -276,11 +276,11 @@ export function SkillDetailView({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {error ? <p className="ui-status-error mb-4 rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p> : null}
 
         {detail ? (
-          <div className="flex h-full min-h-0 flex-col gap-8 pb-6">
+          <div className="flex h-full min-h-0 flex-col gap-8">
             <section className="shrink-0 space-y-5">
               <div className="flex items-start gap-4">
                 <SkillAvatar
@@ -313,7 +313,7 @@ export function SkillDetailView({
                   label="触发词"
                   value={
                     <OverflowTooltip content={triggerLabel} className="w-full">
-                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6">
+                      <p className="line-clamp-2 min-h-[44px] text-xs leading-6">
                         {triggerLabel}
                       </p>
                     </OverflowTooltip>
@@ -323,7 +323,7 @@ export function SkillDetailView({
                   label="描述"
                   value={
                     <OverflowTooltip content={resolvedDescription} className="w-full">
-                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6">
+                      <p className="line-clamp-2 min-h-[44px] text-xs leading-6">
                         {resolvedDescription}
                       </p>
                     </OverflowTooltip>
@@ -334,7 +334,7 @@ export function SkillDetailView({
 
             <section className="flex min-h-0 flex-1 flex-col space-y-3" data-testid="skill-detail-file-workspace">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">文件目录</h3>
-              <div className="flex min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
+              <div className="flex min-h-[360px] flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
                     <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs">

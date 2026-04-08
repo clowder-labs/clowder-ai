@@ -137,6 +137,7 @@ describe('SkillDetailView', () => {
     expect(basicInfoGrids[0]?.className).toContain('md:grid-cols-3');
     expect(basicInfoGrids[1]?.className).toContain('md:grid-cols-3');
     expect(basicInfoFields).toHaveLength(5);
+    expect(basicInfoFields[0]?.querySelector('p')?.className).toContain('text-[var(--text-label-secondary)]');
 
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');
     expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
@@ -344,8 +345,7 @@ describe('SkillDetailView', () => {
     await flushEffects();
 
     const scroller = container.querySelector('[data-testid="skill-detail-panel"] > .min-h-0.flex-1');
-    expect(scroller?.className).toContain('overflow-hidden');
-    expect(scroller?.className).not.toContain('overflow-y-auto');
+    expect(scroller?.className).toContain('overflow-y-auto');
 
     const contentColumn = container.querySelector('[data-testid="skill-detail-panel"] > .min-h-0.flex-1 > div');
     expect(contentColumn?.className).toContain('h-full');
@@ -354,6 +354,9 @@ describe('SkillDetailView', () => {
     const workspace = container.querySelector('[data-testid="skill-detail-file-workspace"]');
     expect(workspace?.className).toContain('flex-1');
     expect(workspace?.className).toContain('min-h-0');
+
+    const workspaceFrame = workspace?.querySelector('.rounded-\\[20px\\]');
+    expect(workspaceFrame?.className).toContain('min-h-[360px]');
 
     const panes = workspace?.querySelectorAll('.overflow-y-auto');
     expect(panes?.length).toBeGreaterThanOrEqual(2);
