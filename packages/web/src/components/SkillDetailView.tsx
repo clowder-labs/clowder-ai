@@ -97,10 +97,10 @@ function FileTreeBranch({
           <button
             type="button"
             onClick={() => onSelect(node)}
-            className={`flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm transition ${
+            className={`flex w-full items-center gap-2 rounded-[10px] px-3 py-[7px] text-left text-sm transition ${
               selectedPath === node.path
-                ? 'bg-[var(--surface-card-muted)] text-[var(--text-primary)]'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-card-muted)]/70'
+                ? 'bg-[var(--surface-card-muted)]'
+                : ''
             }`}
             style={{ paddingLeft: `${depth * 18 + 12}px` }}
           >
@@ -113,10 +113,7 @@ function FileTreeBranch({
             >
               {node.type === 'directory' ? 'D' : 'F'}
             </span>
-            <span className="min-w-0 flex-1 truncate font-medium">{node.name}</span>
-            {typeof node.size === 'number' ? (
-              <span className="shrink-0 text-xs text-[var(--text-muted)]">{node.size} B</span>
-            ) : null}
+            <span className="min-w-0 flex-1 text-xs">{node.name}</span>
           </button>
           {node.children?.length ? (
             <FileTreeBranch nodes={node.children} selectedPath={selectedPath} onSelect={onSelect} depth={depth + 1} />
@@ -292,11 +289,11 @@ export function SkillDetailView({
                   dataTestId="skill-detail-avatar"
                   className="h-[56px] w-[56px] rounded-[14px]"
                 />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 flex flex-col gap-1">
                   <h2 className="truncate text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]">
                     {resolvedTitle}
                   </h2>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span className="ui-badge-muted" data-testid="skill-detail-category-badge">
                       {categoryLabel}
                     </span>
@@ -312,7 +309,16 @@ export function SkillDetailView({
                 <BasicInfoField label="状态" value={statusLabel(detail.enabled)} />
               </div>
               <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
-                <BasicInfoField label="触发词" value={triggerLabel} />
+                <BasicInfoField
+                  label="触发词"
+                  value={
+                    <OverflowTooltip content={triggerLabel} className="w-full">
+                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6">
+                        {triggerLabel}
+                      </p>
+                    </OverflowTooltip>
+                  }
+                />
                 <BasicInfoField
                   label="描述"
                   value={
@@ -331,7 +337,7 @@ export function SkillDetailView({
               <div className="flex min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
-                    <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs font-medium text-[var(--text-muted)]">
+                    <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs">
                       File
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
@@ -343,7 +349,7 @@ export function SkillDetailView({
                     </div>
                   </aside>
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--surface-card)]">
-                    <div className="border-b border-[var(--border-default)] px-5 py-3 text-sm text-[var(--text-secondary)]">
+                    <div className="border-b border-[var(--border-default)] px-5 py-3 text-xs">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <span>{selectedFileLabel}</span>
                         {filePreview ? (
@@ -365,7 +371,7 @@ export function SkillDetailView({
                               文件内容过长，当前仅展示前 1MB。
                             </p>
                           ) : null}
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-[14px] leading-6 text-[var(--text-primary)]">
+                          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-sm leading-6">
                             {filePreview.content}
                           </pre>
                         </div>

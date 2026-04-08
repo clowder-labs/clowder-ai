@@ -235,6 +235,102 @@ describe('SkillDetailView', () => {
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(description);
   });
 
+  it('truncates long triggers to two lines and shows the full text in an overflow tooltip', async () => {
+    const triggers = [
+      'trigger-alpha',
+      'trigger-beta',
+      'trigger-gamma',
+      'trigger-delta',
+      'trigger-epsilon',
+      'trigger-zeta',
+      'trigger-eta',
+      'trigger-theta',
+    ];
+    const triggerText = triggers.join(', ');
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/detail?name=demo-skill') {
+        return Promise.resolve(
+          jsonResponse({
+            id: 'demo-skill',
+            name: 'demo-skill',
+            description: 'Skill detail description',
+            category: 'Automation',
+            source: 'cat-cafe',
+            enabled: true,
+            triggers,
+            mounts: { claude: true, codex: false, gemini: true },
+            cats: { office: true, review: false },
+            fileTree: [
+              {
+                name: 'SKILL.md',
+                path: 'SKILL.md',
+                type: 'file',
+                size: 128,
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=SKILL.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'SKILL.md',
+            content: '# Skill File\n\nSkill file preview content',
+            size: 128,
+            mime: 'text/markdown',
+            truncated: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const triggerNode = Array.from(
+      container.querySelectorAll('[data-testid="skill-detail-basic-info"] p'),
+    ).find((node) => node.textContent === triggerText);
+    expect(triggerNode).not.toBeNull();
+    expect(triggerNode?.className).toContain('line-clamp-2');
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    if (!triggerNode) return;
+
+    Object.defineProperty(triggerNode, 'clientWidth', {
+      configurable: true,
+      value: 240,
+    });
+    Object.defineProperty(triggerNode, 'scrollWidth', {
+      configurable: true,
+      value: 240,
+    });
+    Object.defineProperty(triggerNode, 'clientHeight', {
+      configurable: true,
+      value: 48,
+    });
+    Object.defineProperty(triggerNode, 'scrollHeight', {
+      configurable: true,
+      value: 96,
+    });
+
+    await act(async () => {
+      triggerNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(triggerText);
+  });
+
   it('keeps the file workspace constrained to the remaining height and scrolls internally', async () => {
     await act(async () => {
       root.render(

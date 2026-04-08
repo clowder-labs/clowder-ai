@@ -1082,7 +1082,8 @@ select:-webkit-autofill:focus {
     background: var(--surface-card-muted);
     font-size: var(--font-size-sm);
     line-height: 1;
-    padding: 0 4px;
+    padding: 2px 4px;
+    border-radius: 2px;
   }
 
   .ui-tab-trigger {
