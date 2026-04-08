@@ -41,6 +41,12 @@ async function flushEffects() {
   });
 }
 
+function setInputValue(input: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  descriptor?.set?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 describe('CreateAgentModal', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -157,6 +163,74 @@ describe('CreateAgentModal', () => {
     expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
     expect(confirmButton?.className).toContain('ui-modal-action-button');
+  });
+
+  it('shows inline validation and disables confirm when name is empty', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Name Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const nameInput = container.querySelector('input[aria-label="Name"]') as HTMLInputElement | null;
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(nameInput).toBeTruthy();
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      setInputValue(nameInput!, '');
+    });
+
+    await flushEffects();
+
+    expect(container.textContent).toContain('请输入名称');
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(createButton?.disabled).toBe(true);
+    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+  });
+
+  it('shows inline validation and disables confirm when name has no valid characters', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Name Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const nameInput = container.querySelector('input[aria-label="Name"]') as HTMLInputElement | null;
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(nameInput).toBeTruthy();
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      setInputValue(nameInput!, '!!!');
+    });
+
+    await flushEffects();
+
+    expect(container.textContent).toContain('名称需包含中文、字母或数字');
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(createButton?.disabled).toBe(true);
+    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
   });
 
   it('blocks unsupported avatar formats before upload', async () => {

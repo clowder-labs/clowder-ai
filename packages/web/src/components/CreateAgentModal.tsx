@@ -138,6 +138,13 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
+function validateAgentName(name: string): string | null {
+  const trimmedName = name.trim();
+  if (!trimmedName) return '请输入名称';
+  if (!autoSlug(trimmedName)) return '名称需包含中文、字母或数字';
+  return null;
+}
+
 function generateRandomCatId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).slice(2, 8);
@@ -595,6 +602,8 @@ export function CreateAgentModal({
     () => clientOptions.find((option) => option.value === selectedClient)?.label ?? selectedClient,
     [clientOptions, selectedClient],
   );
+  const nameError = useMemo(() => validateAgentName(draftName), [draftName]);
+  const isConfirmDisabled = saving || Boolean(nameError);
 
   const updateClientMenuPosition = useCallback(() => {
     if (!clientMenuOpen || !clientTriggerRef.current) return;
@@ -703,10 +712,7 @@ export function CreateAgentModal({
 
   const handleSave = async () => {
     const trimmedName = draftName.trim();
-    if (!trimmedName) {
-      setError('请输入名称');
-      return;
-    }
+    if (nameError) return;
 
     if (!selectedModel) {
       setError('请选择模型');
@@ -772,10 +778,12 @@ export function CreateAgentModal({
               <div className="text-[12px] text-[var(--text-primary)]">名称</div>
               <input
                 aria-label="Name"
+                aria-invalid={Boolean(nameError)}
                 value={draftName}
                 onChange={(event) => setDraftName(event.target.value)}
                 className="ui-input h-[28px] w-full rounded-[6px] px-4 text-[12px]"
               />
+              {nameError ? <div className="text-[12px] text-[var(--state-error-text)]">{nameError}</div> : null}
             </div>
 
             <div className="space-y-2.5">
@@ -886,8 +894,8 @@ export function CreateAgentModal({
                                   }}
                                   className={`flex min-h-[32px] w-full items-center px-3 text-left text-[12px] transition-colors ${
                                     isSelected
-                                      ? 'bg-[var(--surface-selected)] font-medium text-[var(--text-accent)]'
-                                      : 'text-[var(--text-primary)] hover:bg-[rgb(245,245,245)]'
+                                      ? 'bg-[#f5f5f5] text-[var(--text-primary)]'
+                                      : 'text-[var(--text-primary)] hover:bg-[#f5f5f5]'
                                   }`}
                                 >
                                   {option.label}
@@ -962,7 +970,7 @@ export function CreateAgentModal({
             type="button"
             aria-label="Cancel"
             onClick={onClose}
-            className="ui-button-default ui-modal-action-button"
+            className="ui-button-default ui-modal-action-button font-normal"
           >
             取消
           </button>
@@ -970,8 +978,8 @@ export function CreateAgentModal({
             type="button"
             aria-label="Create"
             onClick={handleSave}
-            disabled={saving}
-            className="ui-button-primary ui-modal-action-button disabled:opacity-50"
+            disabled={isConfirmDisabled}
+            className="ui-button-primary ui-modal-action-button font-normal disabled:opacity-50"
           >
             {primaryButtonText}
           </button>
