@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UploadSkillModal } from '@/components/UploadSkillModal';
+import { SKILL_UPLOAD_LIMITS, UploadSkillModal, validateSkillUpload } from '@/components/UploadSkillModal';
 
 beforeAll(() => {
   (globalThis as { React?: typeof React }).React = React;
@@ -40,6 +40,30 @@ function renderModal(props: Partial<React.ComponentProps<typeof UploadSkillModal
 }
 
 describe('UploadSkillModal', () => {
+  it('validates upload file count before submit', () => {
+    const files = Array.from({ length: SKILL_UPLOAD_LIMITS.maxFiles + 1 }, (_, index) => ({
+      path: `${index}/SKILL.md`,
+      content: 'Zg==',
+      size: 1,
+    }));
+
+    expect(validateSkillUpload('demo', files)).toContain(String(SKILL_UPLOAD_LIMITS.maxFiles));
+  });
+
+  it('validates upload total size before submit', () => {
+    const chunk = 900 * 1024;
+    const files = [
+      { path: 'SKILL.md', content: 'Zg==', size: 1 },
+      { path: 'a.txt', content: 'Zg==', size: chunk },
+      { path: 'b.txt', content: 'Zg==', size: chunk },
+      { path: 'c.txt', content: 'Zg==', size: chunk },
+      { path: 'd.txt', content: 'Zg==', size: chunk },
+      { path: 'e.txt', content: 'Zg==', size: chunk },
+    ];
+
+    expect(validateSkillUpload('demo', files)).toContain('总大小');
+  });
+
   it('renders as a modal dialog', () => {
     renderModal();
     const dialog = container.querySelector('[role="dialog"]');
