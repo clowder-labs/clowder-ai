@@ -19,6 +19,8 @@ from jiuwenclaw.utils import get_agent_tools_dir
 from jiuwenclaw.agentserver.tools.mcp_toolkits import create_mcp_tool
 
 logger = logging.getLogger(__name__)
+_CAT_CAFE_SERVER_NAME_PREFIX = "cat-cafe"
+_REQUEST_SCOPED_CAT_CAFE_SERVER_ID = "cat-cafe-request"
 
 
 def _mcp_add_result_is_ok(result: Any) -> bool:
@@ -204,6 +206,49 @@ class ToolManager:
         payload["source"] = str(path.resolve())
         payload["skipped"] = False
         return payload
+
+    async def register_request_scoped_cat_cafe_mcp(self, cfg: dict[str, Any]) -> dict[str, Any]:
+        """Register request-scoped Cat Cafe MCP from Clowder callback payload.
+
+        Replaces any static ``cat-cafe*`` entries imported from the host ``.mcp.json`` so
+        the current request's callback env wins over stale startup-time configuration.
+        """
+        if not isinstance(cfg, dict):
+            raise ValueError("cat_cafe_mcp 必须是对象")
+
+        agent = self._get_agent() if self._get_agent else None
+        if agent is None:
+            raise RuntimeError("JiuWenClaw 未初始化，请先调用 create_instance()")
+
+        names_to_remove = [
+            name
+            for name in getattr(agent.ability_manager, "_mcp_servers", {}).keys()
+            if isinstance(name, str) and (name == _CAT_CAFE_SERVER_NAME_PREFIX or name.startswith(f"{_CAT_CAFE_SERVER_NAME_PREFIX}-"))
+        ]
+        for server_name in names_to_remove:
+            get_server_ids = getattr(Runner.resource_mgr, "get_mcp_server_ids", None)
+            server_ids = list(get_server_ids(server_name) or []) if callable(get_server_ids) else []
+            for server_id in server_ids:
+                try:
+                    await Runner.resource_mgr.remove_tool_server(server_id, ignore_not_exist=True)
+                except Exception as exc:
+                    logger.warning("[ToolManager] 移除旧的 Cat Cafe MCP 失败 name=%s id=%s: %s", server_name, server_id, exc)
+            agent.ability_manager.remove(server_name)
+
+        record = {
+            "name": _CAT_CAFE_SERVER_NAME_PREFIX,
+            "server_id": _REQUEST_SCOPED_CAT_CAFE_SERVER_ID,
+            **cfg,
+        }
+        single_json = json.dumps(record, ensure_ascii=False)
+        mcp_cfg = create_mcp_tool(single_json)
+        await _add_mcp_server_and_ability(agent, mcp_cfg, tag=mcp_cfg.server_name)
+        logger.info("[ToolManager] 已注册请求级 Cat Cafe MCP name=%s id=%s", mcp_cfg.server_name, mcp_cfg.server_id)
+        return {
+            "registered": True,
+            "name": mcp_cfg.server_name,
+            "server_id": mcp_cfg.server_id,
+        }
 
     async def handle_tools_add(self, params: dict) -> dict[str, Any]:
         """按工具名拆分落盘到 ``agent/tools/``；对每个工具以与落盘一致的 JSON 调用 ``create_mcp_tool`` 得到 ``McpServerConfig`` 并注册。

@@ -2659,6 +2659,45 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
   });
 
+  it('keeps relayclaw query on the clean user task and moves orchestration context into systemPrompt', async () => {
+    const seen = [];
+    const service = {
+      async *invoke(prompt, options) {
+        seen.push({ prompt, options: options ?? {} });
+        yield { type: 'done', catId: 'jiuwenclaw', timestamp: Date.now() };
+      },
+    };
+
+    const orchestratedPrompt = [
+      '## Dispatch Mission Context',
+      '',
+      'mission:    @office 帮我做一页 PPT',
+      '',
+      '[对话历史增量 - 未发送过 1 条]',
+      '[msg-1] [00:18 铲屎官] @office 帮我做一页 PPT',
+      '[/对话历史]',
+    ].join('\n');
+
+    await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'jiuwenclaw',
+        service,
+        prompt: orchestratedPrompt,
+        userPrompt: '帮我做一页 PPT',
+        userId: 'user-relayclaw-query-split',
+        threadId: 'thread-relayclaw-query-split',
+        systemPrompt: 'Identity: 办公智能体/office',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].prompt, '帮我做一页 PPT');
+    assert.match(String(seen[0].options.systemPrompt ?? ''), /Identity: 办公智能体\/office/);
+    assert.match(String(seen[0].options.systemPrompt ?? ''), /Dispatch Mission Context/);
+    assert.match(String(seen[0].options.systemPrompt ?? ''), /对话历史增量/);
+  });
+
   it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {
     const promptsSeen = [];
     const service = {
