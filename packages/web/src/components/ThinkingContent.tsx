@@ -96,11 +96,36 @@ export function ThinkingContent({
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
   const shouldExpand = (isExport && expandInExport) || defaultExpanded;
   const [expanded, setExpanded] = useState(shouldExpand);
+  const prevStatusRef = useRef(status);
+  const autoCollapsedRef = useRef(false);
   const hasMounted = useRef(false);
   const toolUses = events.filter((e) => e.kind === 'tool_use');
   useEffect(() => {
-    setExpanded((isExport && expandInExport) || defaultExpanded);
-  }, [isExport, expandInExport, defaultExpanded]);
+    if (isExport) {
+      setExpanded((isExport && expandInExport) || defaultExpanded);
+      prevStatusRef.current = status;
+      return;
+    }
+
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    if (status === 'streaming') {
+      autoCollapsedRef.current = false;
+      setExpanded(true);
+      return;
+    }
+
+    if (prevStatus === 'streaming' && (status === 'done' || status === 'failed')) {
+      autoCollapsedRef.current = true;
+      setExpanded(false);
+      return;
+    }
+
+    if (!autoCollapsedRef.current) {
+      setExpanded(defaultExpanded);
+    }
+  }, [defaultExpanded, expandInExport, isExport, status]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: expanded is intentional — dispatch on toggle
   useLayoutEffect(() => {
     if (!hasMounted.current) {
@@ -117,7 +142,7 @@ export function ThinkingContent({
     normalizedContent.length > previewLength ? `${normalizedContent.slice(0, previewLength)}…` : normalizedContent;
 
   return (
-    <div className={`thinking-output-container overflow-hidden pt-2 test-222 ${toolUses.length > 0 && 'pb-4'}`}>
+    <div className={`thinking-output-container overflow-hidden pt-2${toolUses.length > 0 ? ' pb-4' : ''}`}>
       <button
         type="button"
         data-testid="thinking-toggle"
