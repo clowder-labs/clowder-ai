@@ -185,6 +185,31 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('全部 (2)');
   });
 
+  it('clears the installed skills search input when switching categories', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'doc');
+    expect(searchInput?.value).toBe('doc');
+
+    const knowledgeTab = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Knowledge',
+    );
+    expect(knowledgeTab).not.toBeUndefined();
+
+    await act(async () => {
+      knowledgeTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(searchInput?.value).toBe('');
+  });
+
   it('renders optional import action beside installed skills search', async () => {
     const onImport = vi.fn();
     await act(async () => {

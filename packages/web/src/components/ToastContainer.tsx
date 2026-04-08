@@ -7,6 +7,12 @@ const DISMISS_DELAY = 300; // animation duration
 
 function ToastCard({ toast }: { toast: ToastItem }) {
   const { removeToast, markExiting } = useToastStore();
+  const statusIconSrc =
+    toast.type === 'success'
+      ? '/icons/message-success.svg'
+      : toast.type === 'error'
+        ? '/icons/message-error.svg'
+        : null;
 
   const dismiss = useCallback(() => {
     markExiting(toast.id);
@@ -36,7 +42,16 @@ function ToastCard({ toast }: { toast: ToastItem }) {
       `}
       role="alert"
     >
-      <div className="flex flex-row items-start justify-start gap-4">
+      <div className="flex flex-row items-start justify-start gap-2">
+        {statusIconSrc ? (
+          <img
+            src={statusIconSrc}
+            alt=""
+            aria-hidden="true"
+            data-testid="toast-status-icon"
+            className="mt-0.5 h-4 w-4 flex-shrink-0"
+          />
+        ) : null}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-black">{toast.title}</p>
           <p className="mt-0.5 line-clamp-2 text-xs text-black/80">{toast.message}</p>
@@ -47,7 +62,7 @@ function ToastCard({ toast }: { toast: ToastItem }) {
           title="关闭"
           aria-label="关闭"
         >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="currentColor">
+          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
             <path d="M4.293 4.293a1 1 0 011.414 0L7 5.586l1.293-1.293a1 1 0 111.414 1.414L8.414 7l1.293 1.293a1 1 0 01-1.414 1.414L7 8.414 5.707 9.707a1 1 0 01-1.414-1.414L5.586 7 4.293 5.707a1 1 0 010-1.414z" />
           </svg>
         </button>

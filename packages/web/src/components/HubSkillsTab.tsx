@@ -30,7 +30,7 @@ type InstallStatus = 'installing' | string;
 type ViewMode = 'browse' | 'search';
 
 const GENERAL_CATEGORY = '通用技能';
-const INSTALLING_LABEL = '安装中...';
+const INSTALLING_LABEL = '安装中';
 const INSTALL_LABEL = '安装';
 const NO_RESULTS_LABEL = '未找到匹配的技能';
 const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
@@ -395,7 +395,7 @@ export function HubSkillsTab() {
           addToast({
             type: 'success',
             title: INSTALL_SUCCESS_TITLE,
-            message: `"${skill}" 安装成功`,
+            message: `"${skill}" 安装成功，可在我的技能中查看`,
             duration: 4000,
           });
         } else {
@@ -405,7 +405,7 @@ export function HubSkillsTab() {
           addToast({
             type: 'error',
             title: INSTALL_FAILURE_TITLE,
-            message: `安装失败：${detail}`,
+            message: detail,
             duration: 4000,
           });
         }
@@ -414,7 +414,7 @@ export function HubSkillsTab() {
         addToast({
           type: 'error',
           title: INSTALL_FAILURE_TITLE,
-          message: '安装失败：网络错误，请重试',
+          message: '网络错误，请重试',
           duration: 4000,
         });
       }

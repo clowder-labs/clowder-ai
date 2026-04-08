@@ -77,8 +77,16 @@ describe('ToastContainer status styling', () => {
     const contentRow = successToast?.firstElementChild as HTMLDivElement | null;
     expect(contentRow?.className).toContain('items-start');
     expect(contentRow?.className).toContain('gap-4');
+    expect(successToast?.querySelector('[data-testid="toast-status-icon"]')?.getAttribute('src')).toBe(
+      '/icons/message-success.svg',
+    );
+    expect(errorToast?.querySelector('[data-testid="toast-status-icon"]')?.getAttribute('src')).toBe(
+      '/icons/message-error.svg',
+    );
 
     const closeButton = successToast?.querySelector('button');
     expect(closeButton?.className).toContain('text-gray-300');
+    expect(closeButton?.querySelector('svg')?.getAttribute('class')).toContain('h-4');
+    expect(closeButton?.querySelector('svg')?.getAttribute('class')).toContain('w-4');
   });
 });

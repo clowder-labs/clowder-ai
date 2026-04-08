@@ -187,6 +187,11 @@ export function HubCapabilityTab({
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
   }, [activeCategory, categoryTabs]);
 
+  const handleCategoryChange = useCallback((category: string) => {
+    setSearchQuery('');
+    setActiveCategory(category);
+  }, []);
+
   if (loading) return <CenteredLoadingState />;
 
   return (
@@ -200,7 +205,7 @@ export function HubCapabilityTab({
               {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
               <button
                 type="button"
-                onClick={() => setActiveCategory(category)}
+                onClick={() => handleCategoryChange(category)}
                 className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
                   activeCategory === category
                     ? 'font-semibold text-[var(--text-primary)]'
