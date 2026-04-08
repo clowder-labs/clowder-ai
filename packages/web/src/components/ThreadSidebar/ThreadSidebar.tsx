@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getMentionToCat } from '@/lib/mention-highlight';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
@@ -11,6 +12,7 @@ import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
+import { sanitizeThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
 import { getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
@@ -121,7 +123,11 @@ export function ThreadSidebar({
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
-      const threads = data.threads ?? [];
+      const knownAliases = new Set(Object.keys(getMentionToCat()).map((alias) => alias.toLowerCase()));
+      const threads = (data.threads ?? []).map((thread: Thread) => ({
+        ...thread,
+        title: sanitizeThreadTitleOrNull(thread.title, knownAliases),
+      }));
       setThreads(threads);
       // F069: Restore unread state from API
       const { initThreadUnread } = useChatStore.getState();
@@ -598,8 +604,12 @@ export function ThreadSidebar({
               <button
                 ref={filterToggleRef}
                 type="button"
-                onClick={() => { setShowFilter((prev) => !prev); setIsSearchOpen(false); }}
-                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[rgba(20,115,255,1)]' : 'text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-accent)]'}`}
+                onClick={() => {
+                  setShowFilter((prev) => !prev);
+                  setIsSearchOpen(false);
+                  setSearchQuery('');
+                }}
+                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[rgba(20,115,255,1)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="筛选会话"
                 data-testid="thread-filter-toggle"
               >
@@ -609,8 +619,13 @@ export function ThreadSidebar({
               </button>
               <button
                 type="button"
-                onClick={() => { setIsSearchOpen((prev) => !prev); setShowFilter(false) }}
-                className={`rounded p-1 transition-colors ${isSearchOpen || normalizedQuery.length > 0 ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-accent)]'}`}
+                onClick={() => {
+                  setIsSearchOpen((prev) => !prev);
+                  setShowFilter(false);
+                  setFilterOption('all');
+                  setPendingFilterOption('all');
+                }}
+                className={`rounded p-1 transition-colors ${isSearchOpen || normalizedQuery.length > 0 ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="搜索会话"
                 data-testid="thread-search-toggle"
               >
@@ -627,15 +642,23 @@ export function ThreadSidebar({
             <div className="relative mt-2">
               <input
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索对话"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setFilterOption('all');
+                  setPendingFilterOption('all');
+                }}
+                placeholder="搜索会话"
                 autoComplete="off"
                 className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => { setSearchQuery(''); setShowFilter(false); }}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowFilter(false);
+                    setIsSearchOpen(false);
+                  }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full text-[20px] leading-5 text-[#808080] hover:text-[#191919]"
                   aria-label="清除搜索"
                 >
@@ -687,6 +710,8 @@ export function ThreadSidebar({
                   onClick={() => {
                     setFilterOption(pendingFilterOption);
                     setShowFilter(false);
+                    setSearchQuery('');
+                    setIsSearchOpen(false);
                   }}
                 >
                   确定
@@ -695,7 +720,7 @@ export function ThreadSidebar({
             </div>
           )}
 
-          {unreadIds.size > 0 && (
+          {false && unreadIds.size > 0 && (
             <button
               type="button"
               onClick={handleMarkAllRead}
@@ -710,7 +735,7 @@ export function ThreadSidebar({
 
         <div className="flex-1 overflow-y-auto">
           {isLoadingThreads && threads.length === 0 && (
-            <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
+            <div className="text-center py-4 text-xs text-gray-400">加载中..</div>
           )}
 
           {false && showDefaultThread && (
@@ -853,7 +878,7 @@ export function ThreadSidebar({
 
         {/* 回收站入口暂时隐藏 */}
 
-        <div className="border-t border-[var(--border-default)]"></div>
+        <div className="border-t border-[var(--border-default)] mx-4"></div>
 
         <UserProfile />
 
@@ -886,16 +911,15 @@ export function ThreadSidebar({
       >
         <div className="flex flex-col gap-5" data-testid="thread-delete-modal-content">
           <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-900">{deleteTarget?.title ?? '未命名对话'}</p>
-            <p className="text-sm text-gray-600">删除后，对话将移入回收站，你仍可在回收站中恢复该对话。</p>
+            <p className="text-sm text-gray-600">删除后，该会话及相关聊天记录将全部清空且不可恢复。</p>
           </div>
 
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default ui-modal-action-button">
               取消
             </button>
-            <button type="button" onClick={handleDeleteConfirm} className="ui-button-danger ui-modal-action-button">
-              移入回收站
+            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary ui-modal-action-button">
+              确定
             </button>
           </div>
         </div>
