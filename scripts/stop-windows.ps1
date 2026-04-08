@@ -220,6 +220,38 @@ if ($configuredRedisUrl -and -not (Test-LocalRedisUrl -RedisUrl $configuredRedis
     }
 }
 
+# Stop orphaned Python processes spawned by Clowder (relayclaw sidecar, ACP agent-teams, etc.)
+if ($ProjectRoot) {
+    try {
+        $pythonProcesses = Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" -ErrorAction SilentlyContinue
+        $stoppedPython = $false
+        foreach ($proc in $pythonProcesses) {
+            if (-not $proc.CommandLine) { continue }
+            $cmdLine = $proc.CommandLine
+            $isClowderPython = (
+                ($cmdLine -like "*$ProjectRoot*") -or
+                ($cmdLine -like "*tools\python\python.exe*") -or
+                ($cmdLine -like "*tools/python/python.exe*") -or
+                ($cmdLine -like "*vendor\jiuwenclaw*") -or
+                ($cmdLine -like "*vendor/jiuwenclaw*")
+            )
+            if (-not $isClowderPython) { continue }
+            if (-not (Test-ClowderOwnedProcess -ProcessId $proc.ProcessId -ClowderProjectRoot $ProjectRoot)) {
+                # Command line matched a Clowder-like pattern but process is not owned by this project
+                Write-Warn "Skipping non-Clowder Python process (PID $($proc.ProcessId))"
+                continue
+            }
+            Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+            $stoppedPython = $true
+        }
+        if ($stoppedPython) {
+            Write-Ok "Stopped orphaned Python processes"
+        }
+    } catch {
+        # Best-effort cleanup — do not block shutdown
+    }
+}
+
 Remove-Item $ApiPidFile -ErrorAction SilentlyContinue
 Remove-Item $WebPidFile -ErrorAction SilentlyContinue
 Remove-Item $redisPidFile -ErrorAction SilentlyContinue
