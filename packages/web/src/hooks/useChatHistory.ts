@@ -207,6 +207,7 @@ export function useChatHistory(threadId: string) {
   const prevCountRef = useRef(0);
   const scrollSnapshotRef = useRef<number | null>(null);
   const restoreFrameRef = useRef<number | null>(null);
+  const autoFollowRafRef = useRef<number | null>(null);
 
   // Track loading guard per-thread to prevent double-fetch
   const loadingRef = useRef(false);
@@ -631,6 +632,17 @@ export function useChatHistory(threadId: string) {
     return () => clearTimeout(timer);
   }, [catchUpVersion, catchUpThreadId, threadId, fetchHistory]);
 
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = 'smooth') => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+      const el = scrollContainerRef.current;
+      if (el) {
+        scrollPositionsByThread.set(threadId, { top: el.scrollTop, anchor: 'bottom' });
+      }
+    },
+    [threadId],
+  );
+
   // Snapshot scroll height before history load
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -690,8 +702,31 @@ export function useChatHistory(threadId: string) {
           });
         }
       }
+      return;
+    }
+
+    const saved = scrollPositionsByThread.get(threadId);
+    if (saved?.anchor === 'bottom') {
+      if (autoFollowRafRef.current !== null) return;
+      autoFollowRafRef.current = requestAnimationFrame(() => {
+        autoFollowRafRef.current = null;
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        const scroller = scrollContainerRef.current;
+        if (scroller) {
+          scrollPositionsByThread.set(threadId, { top: scroller.scrollTop, anchor: 'bottom' });
+        }
+      });
     }
   }, [messages, scheduleRestore, threadId]);
+
+  useEffect(() => {
+    return () => {
+      if (autoFollowRafRef.current !== null) {
+        cancelAnimationFrame(autoFollowRafRef.current);
+        autoFollowRafRef.current = null;
+      }
+    };
+  }, []);
 
   // Load more when scrolled to top + clowder-ai#27 continuous scroll save
   const handleScroll = useCallback(() => {
@@ -719,6 +754,7 @@ export function useChatHistory(threadId: string) {
     handleScroll,
     scrollContainerRef,
     messagesEndRef,
+    scrollToBottom,
     isLoadingHistory,
     hasMore,
   };

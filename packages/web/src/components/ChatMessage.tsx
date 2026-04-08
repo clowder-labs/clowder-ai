@@ -71,7 +71,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         const idLabel = catData.id.charAt(0).toUpperCase() + catData.id.slice(1);
         const label = catData.variantLabel
           ? `${catData.displayName}（${catData.variantLabel}）`
-          : `${catData.displayName}（${idLabel}）`; // 不显示 ID
+          : `${catData.displayName}`; // 不显示 ID
         const isCallback = message.origin === 'callback';
         return {
           label,
@@ -277,7 +277,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} showRing={false} />}
       <div className="answer-container  max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
-          <div className="answer-header mb-1 flex flex-col gap-1 min-w-0">
+          <div className="answer-header flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0 text-[rgb(128_128_128)]">
               <span className="text-xs">
                 {catStyle.label}
@@ -360,6 +360,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           {message.thinking && (
             <ThinkingContent
               status={cliStatus}
+              events={cliEvents}
               content={message.thinking}
               className={catStyle?.font}
               label={thinkingLabel}
@@ -372,6 +373,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             <CliOutputBlock
               events={cliEvents}
               status={cliStatus}
+              message={message}
               thinkingMode={currentThread?.thinkingMode}
               defaultExpanded={uiThinkingExpandedByDefault}
               breedColor={catData?.color.primary}
