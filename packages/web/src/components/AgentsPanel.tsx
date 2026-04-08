@@ -223,9 +223,23 @@ function buildTemplateMarkdown(template: InspirationTemplate): string {
   return `## ${template.title}\n\n${template.content}`;
 }
 
-function formatBudgetLabel(value?: number): string {
-  if (!value || Number.isNaN(value)) return '-- KB';
-  const kb = Math.max(1, Math.round(value / 1024));
+function estimateDefinitionBytes(cat: CatData): number {
+  const payload = {
+    name: cat.name ?? '',
+    displayName: cat.displayName ?? '',
+    nickname: cat.nickname ?? '',
+    mentionPatterns: cat.mentionPatterns ?? [],
+    roleDescription: cat.roleDescription ?? '',
+    personality: cat.personality ?? '',
+  };
+
+  return new TextEncoder().encode(JSON.stringify(payload)).length;
+}
+
+function formatDefinitionSizeLabel(cat: CatData): string {
+  const bytes = estimateDefinitionBytes(cat);
+  if (!bytes || Number.isNaN(bytes)) return '-- KB';
+  const kb = Math.max(1, Math.round(bytes / 1024));
   return `${kb} KB`;
 }
 
@@ -853,7 +867,7 @@ export function AgentsPanel() {
               ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
               : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
           }
-          className="ui-textarea ui-textarea-plain h-full w-full resize-none text-[12px] leading-7"
+          className="ui-textarea ui-textarea-plain h-full w-full resize-none rounded-none text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -870,7 +884,7 @@ export function AgentsPanel() {
             updateWorkingDraft(activeTab, event.target.value);
           }}
           placeholder="请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成"
-          className="ui-textarea h-[120px] w-full resize-none rounded-[8px] text-[12px] leading-7"
+          className="ui-textarea ui-textarea-plain h-[120px] w-full resize-none rounded-none text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>
@@ -1069,7 +1083,7 @@ export function AgentsPanel() {
               {filteredCats.map((cat) => {
                 const isSelected = selectedCat?.id === cat.id;
                 const modelText = cat.defaultModel || '未配置模型';
-                const budgetText = formatBudgetLabel(cat.contextBudget?.maxContextTokens);
+                const budgetText = formatDefinitionSizeLabel(cat);
                 const isPlatformPreset = cat.source !== 'runtime';
 
                 return (
@@ -1174,7 +1188,7 @@ export function AgentsPanel() {
                     setActionMenuPosition(null);
                     openEditMember(openActionMenuCatId);
                   }}
-                  className={`${ACTION_MENU_ITEM_CLASS} hover:bg-[var(--surface-card-muted)]`}
+                  className={`${ACTION_MENU_ITEM_CLASS} hover:bg-[#f5f5f5]`}
                 >
                   <EditIcon className="h-3.5 w-3.5 text-[var(--text-primary)]" />
                   <span>编辑</span>
@@ -1193,7 +1207,7 @@ export function AgentsPanel() {
                   }}
                   className={`${ACTION_MENU_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'hover:bg-[var(--surface-card-muted)]'
+                      ? 'hover:bg-[#f5f5f5]'
                       : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >

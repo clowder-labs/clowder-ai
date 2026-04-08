@@ -90,6 +90,11 @@ const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
   'antigravity',
   'acp',
 ]);
+const AVATAR_MAX_SIZE_BYTES = 200 * 1024;
+const AVATAR_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
+const AVATAR_ALLOWED_EXTENSIONS = ['.png', '.jpeg', '.jpg', '.gif'];
+const AVATAR_ACCEPT = 'image/png,image/jpeg,image/gif,.png,.jpeg,.jpg,.gif';
+const AVATAR_FORMAT_HINT = 'png、jpeg、gif、jpg';
 
 // 预设头像列表
 const PRESET_AVATARS = [
@@ -131,6 +136,13 @@ function autoSlug(name: string): string {
     .replace(/[\s_]+/g, '-')
     .replace(/[^a-z0-9\u4e00-\u9fff-]/g, '')
     .slice(0, 40);
+}
+
+function validateAgentName(name: string): string | null {
+  const trimmedName = name.trim();
+  if (!trimmedName) return '请输入名称';
+  if (!autoSlug(trimmedName)) return '名称需包含中文、字母或数字';
+  return null;
 }
 
 function generateRandomCatId(): string {
@@ -191,6 +203,22 @@ function buildGeneratedAvatarDataUrl(name: string): string {
 
 function resolveInitialAvatar(cat: CatData | null): string {
   return cat?.avatar?.trim() ?? '';
+}
+
+function validateAvatarFile(file: File): string | null {
+  const fileName = file.name.trim().toLowerCase();
+  const hasAllowedType = AVATAR_ALLOWED_TYPES.has(file.type);
+  const hasAllowedExtension = AVATAR_ALLOWED_EXTENSIONS.some((extension) => fileName.endsWith(extension));
+
+  if (!hasAllowedType && !hasAllowedExtension) {
+    return `仅支持上传 ${AVATAR_FORMAT_HINT} 格式图片`;
+  }
+
+  if (file.size > AVATAR_MAX_SIZE_BYTES) {
+    return '头像大小不能超过 200KB';
+  }
+
+  return null;
 }
 
 function parseModelIdSelection(value: string | null): SelectionHint {
@@ -574,6 +602,8 @@ export function CreateAgentModal({
     () => clientOptions.find((option) => option.value === selectedClient)?.label ?? selectedClient,
     [clientOptions, selectedClient],
   );
+  const nameError = useMemo(() => validateAgentName(draftName), [draftName]);
+  const isConfirmDisabled = saving || Boolean(nameError);
 
   const updateClientMenuPosition = useCallback(() => {
     if (!clientMenuOpen || !clientTriggerRef.current) return;
@@ -661,6 +691,13 @@ export function CreateAgentModal({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const validationError = validateAvatarFile(file);
+    if (validationError) {
+      setError(validationError);
+      event.target.value = '';
+      return;
+    }
+
     setUploadingAvatar(true);
     setError(null);
     try {
@@ -675,10 +712,7 @@ export function CreateAgentModal({
 
   const handleSave = async () => {
     const trimmedName = draftName.trim();
-    if (!trimmedName) {
-      setError('请输入名称');
-      return;
-    }
+    if (nameError) return;
 
     if (!selectedModel) {
       setError('请选择模型');
@@ -744,10 +778,12 @@ export function CreateAgentModal({
               <div className="text-[12px] text-[var(--text-primary)]">名称</div>
               <input
                 aria-label="Name"
+                aria-invalid={Boolean(nameError)}
                 value={draftName}
                 onChange={(event) => setDraftName(event.target.value)}
                 className="ui-input h-[28px] w-full rounded-[6px] px-4 text-[12px]"
               />
+              {nameError ? <div className="text-[12px] text-[var(--state-error-text)]">{nameError}</div> : null}
             </div>
 
             <div className="space-y-2.5">
@@ -786,7 +822,7 @@ export function CreateAgentModal({
                   ref={fileInputRef}
                   aria-label="Avatar file input"
                   type="file"
-                  accept="image/png,image/jpeg,image/gif,image/jpg"
+                  accept={AVATAR_ACCEPT}
                   onChange={handleAvatarUpload}
                   className="hidden"
                 />
@@ -858,8 +894,8 @@ export function CreateAgentModal({
                                   }}
                                   className={`flex min-h-[32px] w-full items-center px-3 text-left text-[12px] transition-colors ${
                                     isSelected
-                                      ? 'bg-[var(--surface-selected)] font-medium text-[var(--text-accent)]'
-                                      : 'text-[var(--text-primary)] hover:bg-[rgb(245,245,245)]'
+                                      ? 'bg-[#f5f5f5] text-[var(--text-primary)]'
+                                      : 'text-[var(--text-primary)] hover:bg-[#f5f5f5]'
                                   }`}
                                 >
                                   {option.label}
@@ -934,7 +970,7 @@ export function CreateAgentModal({
             type="button"
             aria-label="Cancel"
             onClick={onClose}
-            className="ui-button-default ui-modal-action-button"
+            className="ui-button-default ui-modal-action-button font-normal"
           >
             取消
           </button>
@@ -942,8 +978,8 @@ export function CreateAgentModal({
             type="button"
             aria-label="Create"
             onClick={handleSave}
-            disabled={saving}
-            className="ui-button-primary ui-modal-action-button disabled:opacity-50"
+            disabled={isConfirmDisabled}
+            className="ui-button-primary ui-modal-action-button font-normal disabled:opacity-50"
           >
             {primaryButtonText}
           </button>
