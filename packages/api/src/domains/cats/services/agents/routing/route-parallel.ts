@@ -27,7 +27,6 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { mergeStreams } from '../invocation/stream-merge.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { parseA2AMentions } from '../routing/a2a-mentions.js';
-import { parseSystemInfoContent } from './parse-system-info.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
@@ -37,7 +36,6 @@ import {
   getService,
   routeContentBlocksForCat,
   sanitizeInjectedContent,
-  stripLeadingDirectCatMention,
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
@@ -261,7 +259,6 @@ export async function* routeParallel(
         catId,
         service: getService(deps.services, catId),
         prompt,
-        userPrompt: stripLeadingDirectCatMention(message, catId),
         userId,
         threadId,
         ...(targetContentBlocks ? { contentBlocks: targetContentBlocks } : {}),
@@ -312,9 +309,8 @@ export async function* routeParallel(
     // Keep forwarding this boundary event so frontend can reset stale task progress.
     if (msg.type === 'system_info' && msg.content && msg.catId && !catInvocationId.has(msg.catId)) {
       try {
-        const parsed = parseSystemInfoContent(msg.content);
-        if (!parsed) throw new Error('not parseable system_info');
-        if (parsed.type === 'invocation_created' && typeof parsed.invocationId === 'string') {
+        const parsed = JSON.parse(msg.content);
+        if (parsed.type === 'invocation_created') {
           catInvocationId.set(msg.catId, parsed.invocationId);
           // #80 fix: seed flush baseline so interval triggers after FLUSH_INTERVAL_MS
           catFlushTime.set(msg.catId, Date.now());
@@ -338,8 +334,7 @@ export async function* routeParallel(
     // F045: Accumulate thinking blocks per cat for persistence (F5 recovery)
     if (msg.type === 'system_info' && msg.content && msg.catId) {
       try {
-        const parsed = parseSystemInfoContent(msg.content);
-        if (!parsed) throw new Error('not parseable system_info');
+        const parsed = JSON.parse(msg.content);
         if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
           const prev = catThinking.get(msg.catId) ?? '';
           const mergeStrategy = parsed.mergeStrategy === 'append' ? 'append' : 'paragraph';
@@ -357,10 +352,6 @@ export async function* routeParallel(
     }
     if (msg.type === 'error' && msg.catId) {
       catHadError.add(msg.catId);
-      if (msg.error) {
-        const prev = catText.get(msg.catId) ?? '';
-        catText.set(msg.catId, `${prev + (prev ? '\n\n' : '')}[错误] ${msg.error}`);
-      }
     }
     // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
     // state — mark catHadError so we don't fall through to silent_completion.
