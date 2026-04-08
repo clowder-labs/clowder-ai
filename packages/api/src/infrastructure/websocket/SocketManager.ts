@@ -12,6 +12,7 @@ import type {
   InvocationTracker,
 } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
+import { classifyAgentErrorCode } from '../../utils/model-sensitive-input-error.js';
 import { createModuleLogger } from '../logger.js';
 
 const log = createModuleLogger('ws');
@@ -163,7 +164,9 @@ export class SocketManager {
   broadcastAgentMessage(message: AgentMessage, threadId?: string): void {
     const tid = threadId ?? 'default';
     const room = `thread:${tid}`;
-    this.io.to(room).emit('agent_message', { ...message, threadId: tid });
+    const errorCode = message.type === 'error' ? classifyAgentErrorCode(message.error, message.errorCode) : undefined;
+    const classifiedMessage = errorCode ? { ...message, errorCode } : message;
+    this.io.to(room).emit('agent_message', { ...classifiedMessage, threadId: tid });
   }
 
   broadcastToRoom(room: string, event: string, data: unknown): void {
