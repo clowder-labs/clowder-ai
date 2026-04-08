@@ -62,7 +62,35 @@ describe('SkillDetailView', () => {
                 type: 'file',
                 size: 128,
               },
+              {
+                name: 'README.md',
+                path: 'README.md',
+                type: 'file',
+                size: 256,
+              },
             ],
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=SKILL.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'SKILL.md',
+            content: '# Skill File\n\nSkill file preview content',
+            size: 128,
+            mime: 'text/markdown',
+            truncated: false,
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=README.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'README.md',
+            content: 'README preview content',
+            size: 256,
+            mime: 'text/markdown',
+            truncated: false,
           }),
         );
       }
@@ -76,7 +104,7 @@ describe('SkillDetailView', () => {
     mockApiFetch.mockReset();
   });
 
-  it('requests detail and renders the detail page sections from the mockup without extra actions', async () => {
+  it('loads the first file preview and renders it in the workspace panel', async () => {
     await act(async () => {
       root.render(
         React.createElement(SkillDetailView, {
@@ -89,6 +117,9 @@ describe('SkillDetailView', () => {
     await flushEffects();
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/detail?name=demo-skill', { signal: expect.any(AbortSignal) });
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/file?name=demo-skill&path=SKILL.md', {
+      signal: expect.any(AbortSignal),
+    });
     expect(container.textContent).toContain('我的技能');
     expect(container.textContent).toContain('demo-skill');
     expect(container.textContent).toContain('基础信息');
@@ -106,10 +137,44 @@ describe('SkillDetailView', () => {
       'Skill detail description',
     );
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');
+    expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
+      'Skill file preview content',
+    );
     const updateButton = Array.from(container.querySelectorAll('button')).find(
       (candidate) => candidate.textContent?.trim() === '更新',
     );
     expect(updateButton).toBeUndefined();
+  });
+
+  it('requests file preview when clicking another file in the tree', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const readmeButton = Array.from(container.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.includes('README.md'),
+    );
+    expect(readmeButton).not.toBeUndefined();
+
+    await act(async () => {
+      readmeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/file?name=demo-skill&path=README.md', {
+      signal: expect.any(AbortSignal),
+    });
+    expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
+      'README preview content',
+    );
   });
 
   it('navigates back when clicking the 我的技能 breadcrumb', async () => {

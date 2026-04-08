@@ -27,6 +27,14 @@ interface SkillDetailResponse {
   cats: Record<string, boolean>;
 }
 
+interface SkillFilePreviewResponse {
+  path: string;
+  content: string;
+  size: number;
+  mime: string;
+  truncated: boolean;
+}
+
 function sourceLabel(source: SkillDetailResponse['source']): string {
   return source === 'cat-cafe' ? '官方' : '三方';
 }
@@ -78,7 +86,7 @@ function FileTreeBranch({
 }: {
   nodes: SkillDetailFileTreeNode[];
   selectedPath: string | null;
-  onSelect: (path: string) => void;
+  onSelect: (node: SkillDetailFileTreeNode) => void;
   depth?: number;
 }) {
   return (
@@ -87,7 +95,7 @@ function FileTreeBranch({
         <li key={node.path}>
           <button
             type="button"
-            onClick={() => onSelect(node.path)}
+            onClick={() => onSelect(node)}
             className={`flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm transition ${
               selectedPath === node.path
                 ? 'bg-[var(--surface-card-muted)] text-[var(--text-primary)]'
@@ -129,6 +137,10 @@ export function SkillDetailView({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [filePreview, setFilePreview] = useState<SkillFilePreviewResponse | null>(null);
+  const [filePreviewLoading, setFilePreviewLoading] = useState(false);
+  const [filePreviewError, setFilePreviewError] = useState<string | null>(null);
+  const [previewCache, setPreviewCache] = useState<Record<string, SkillFilePreviewResponse>>({});
 
   useEffect(() => {
     const controller = new AbortController();
@@ -188,6 +200,69 @@ export function SkillDetailView({
     }
     setSelectedPath((current) => current ?? findFirstFile(fileTree) ?? fileTree[0]?.path ?? null);
   }, [detail]);
+
+  useEffect(() => {
+    setFilePreview(null);
+    setFilePreviewError(null);
+    setPreviewCache({});
+  }, [skillName]);
+
+  useEffect(() => {
+    if (!selectedPath) {
+      setFilePreview(null);
+      setFilePreviewError(null);
+      return;
+    }
+
+    const cachedPreview = previewCache[selectedPath];
+    if (cachedPreview) {
+      setFilePreview(cachedPreview);
+      setFilePreviewError(null);
+      setFilePreviewLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadFilePreview = async () => {
+      setFilePreviewLoading(true);
+      setFilePreviewError(null);
+      try {
+        const res = await apiFetch(
+          `/api/skills/file?name=${encodeURIComponent(skillName)}&path=${encodeURIComponent(selectedPath)}`,
+          {
+            signal: controller.signal,
+          },
+        );
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          setFilePreview(null);
+          setFilePreviewError(payload.error ?? `加载文件失败 (${res.status})`);
+          return;
+        }
+        const data = (await res.json()) as SkillFilePreviewResponse;
+        setFilePreview(data);
+        setPreviewCache((current) => ({ ...current, [selectedPath]: data }));
+      } catch (loadError) {
+        if (loadError instanceof DOMException && loadError.name === 'AbortError') return;
+        setFilePreview(null);
+        setFilePreviewError('文件预览加载失败');
+      } finally {
+        if (!controller.signal.aborted) {
+          setFilePreviewLoading(false);
+        }
+      }
+    };
+
+    void loadFilePreview();
+
+    return () => controller.abort();
+  }, [previewCache, selectedPath, skillName]);
+
+  const handleSelectNode = (node: SkillDetailFileTreeNode) => {
+    if (node.type !== 'file') return;
+    setSelectedPath(node.path);
+  };
 
   if (loading) return <CenteredLoadingState />;
 
@@ -259,7 +334,7 @@ export function SkillDetailView({
                     <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs font-medium text-[var(--text-muted)]">File</div>
                     <div className="max-h-[420px] overflow-y-auto px-3 py-3">
                       {detail.fileTree?.length ? (
-                        <FileTreeBranch nodes={detail.fileTree} selectedPath={selectedPath} onSelect={setSelectedPath} />
+                        <FileTreeBranch nodes={detail.fileTree} selectedPath={selectedPath} onSelect={handleSelectNode} />
                       ) : (
                         <p className="px-2 py-4 text-sm text-[var(--text-muted)]">暂无文件结构数据。</p>
                       )}
@@ -267,30 +342,35 @@ export function SkillDetailView({
                   </aside>
                   <div className="min-w-0 flex-1 bg-[var(--surface-card)]">
                     <div className="border-b border-[var(--border-default)] px-5 py-3 text-sm text-[var(--text-secondary)]">
-                      {selectedFileLabel}
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span>{selectedFileLabel}</span>
+                        {filePreview ? (
+                          <span className="text-xs text-[var(--text-muted)]">
+                            {filePreview.mime} · {filePreview.size} B
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="space-y-5 px-5 py-5">
-                      <div className="space-y-2">
-                        <h4 className="text-lg font-semibold text-[var(--text-primary)]">{resolvedTitle}</h4>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-                          <span className="ui-badge-muted">{categoryLabel}</span>
-                          <span>{sourceLabel(detail.source)}</span>
-                          <span>{formatInstalledAt(detail.installedAt)}</span>
+                      {filePreviewLoading ? <p className="text-sm text-[var(--text-muted)]">加载文件内容中...</p> : null}
+                      {!filePreviewLoading && filePreviewError ? (
+                        <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{filePreviewError}</p>
+                      ) : null}
+                      {!filePreviewLoading && !filePreviewError && filePreview ? (
+                        <div className="space-y-3" data-testid="skill-detail-file-preview">
+                          {filePreview.truncated ? (
+                            <p className="rounded-[12px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-3 py-2 text-xs text-[var(--text-muted)]">
+                              文件内容过长，当前仅展示前 1MB。
+                            </p>
+                          ) : null}
+                          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-[13px] leading-6 text-[var(--text-primary)]">
+                            {filePreview.content}
+                          </pre>
                         </div>
-                      </div>
-                      <div className="space-y-4 text-sm leading-7 text-[var(--text-secondary)]">
-                        <p>{resolvedDescription}</p>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div className="rounded-[14px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-3">
-                            <p className="text-xs text-[var(--text-muted)]">触发词</p>
-                            <p className="mt-1 text-sm text-[var(--text-primary)]">{triggerLabel}</p>
-                          </div>
-                          <div className="rounded-[14px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-3">
-                            <p className="text-xs text-[var(--text-muted)]">启用猫咪</p>
-                            <p className="mt-1 text-sm text-[var(--text-primary)]">{catsLabel}</p>
-                          </div>
-                        </div>
-                      </div>
+                      ) : null}
+                      {!filePreviewLoading && !filePreviewError && !filePreview ? (
+                        <p className="text-sm text-[var(--text-muted)]">请选择要预览的文件。</p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
