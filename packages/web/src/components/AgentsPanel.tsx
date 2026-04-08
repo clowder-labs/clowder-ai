@@ -1188,7 +1188,7 @@ export function AgentsPanel() {
                     setActionMenuPosition(null);
                     openEditMember(openActionMenuCatId);
                   }}
-                  className={`${ACTION_MENU_ITEM_CLASS} hover:bg-[var(--surface-card-muted)]`}
+                  className={`${ACTION_MENU_ITEM_CLASS} hover:bg-[#f5f5f5]`}
                 >
                   <EditIcon className="h-3.5 w-3.5 text-[var(--text-primary)]" />
                   <span>编辑</span>
@@ -1207,7 +1207,7 @@ export function AgentsPanel() {
                   }}
                   className={`${ACTION_MENU_ITEM_CLASS} ${
                     actionMenuCat?.source === 'runtime'
-                      ? 'hover:bg-[var(--surface-card-muted)]'
+                      ? 'hover:bg-[#f5f5f5]'
                       : 'cursor-not-allowed text-[var(--text-subtle)] opacity-60'
                   }`}
                 >
