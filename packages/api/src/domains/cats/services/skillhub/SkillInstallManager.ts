@@ -104,6 +104,7 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
     repo: req.repo,
     remoteSkillName: req.skill,
     installedAt: new Date().toISOString(),
+    displayDescription: req.description?.trim() || undefined,
   });
 
   return {
