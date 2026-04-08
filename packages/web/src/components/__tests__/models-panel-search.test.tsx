@@ -218,12 +218,17 @@ describe('ModelsPanel search', () => {
     expect(input).not.toBeNull();
     await changeInputValue(input!, 'no-match');
 
-    expect(container.textContent).toContain('未找到匹配模型');
+    expect(container.textContent).toContain('暂未匹配到数据');
+    expect(container.textContent).toContain('没有匹配到符合条件的数据');
+    const clearButton = container.querySelector('[data-testid="no-search-results-clear"]') as HTMLButtonElement | null;
+    expect(clearButton).not.toBeNull();
     expect(container.textContent).not.toContain('gpt-5');
     expect(container.textContent).not.toContain('deepseek-r1');
 
-    await changeInputValue(input!, '');
+    await clickButton(clearButton!);
+    await flushEffects();
 
+    expect((container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null)?.value).toBe('');
     expect(container.textContent).toContain('gpt-5');
     expect(container.textContent).toContain('deepseek-r1');
   });

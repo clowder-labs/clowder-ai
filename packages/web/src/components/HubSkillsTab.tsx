@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
-import { CenteredLoadingState } from './CenteredLoadingState';
-import { OverflowTooltip } from './OverflowTooltip';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -107,10 +108,6 @@ function SkillList({
   installStatus: Map<string, InstallStatus>;
   onInstall: (owner: string, repo: string, skill: string) => void;
 }) {
-  if (results.skills.length === 0) {
-    return <p className="py-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_LABEL}</p>;
-  }
-
   return (
     <div className="space-y-4">
       <div className={styles.skillGrid}>
@@ -285,6 +282,14 @@ export function HubSkillsTab() {
     },
     [loadPage],
   );
+
+  const handleClearFilters = useCallback(() => {
+    latestQueryRef.current = '';
+    setSearchQuery('');
+    setCurrentPage(1);
+    setViewMode('browse');
+    void loadPage({ mode: 'browse', page: 1, category: activeCategory });
+  }, [activeCategory, loadPage]);
 
   const handleLoadMore = useCallback(() => {
     if (loadingMore || !results?.hasMore) return;
@@ -472,8 +477,17 @@ export function HubSkillsTab() {
         <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-skills-scroll-region">
           {results ? (
             <>
-              <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
-              {results.hasMore && (
+              {results.skills.length === 0 ? (
+                <div
+                  className="flex h-full min-h-0 items-center justify-center py-16"
+                  data-testid="hub-skills-empty-state-shell"
+                >
+                  <NoSearchResultsState onClear={handleClearFilters} />
+                </div>
+              ) : (
+                <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
+              )}
+              {results.skills.length > 0 && results.hasMore && (
                 <div className="flex justify-center py-4">
                   <button
                     type="button"

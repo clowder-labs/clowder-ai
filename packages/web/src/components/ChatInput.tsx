@@ -28,7 +28,7 @@ import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
 import { MobileInputToolbar } from './MobileInputToolbar';
-import { OverflowTooltip } from './OverflowTooltip';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { PathCompletionMenu } from './PathCompletionMenu';
 import { RichTextarea, type RichTextareaHandle } from './RichTextarea';
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { LoadingSmall } from './LoadingSmall';
+import { LoadingSmall } from '../LoadingSmall';
 
 export function CenteredLoadingState() {
   return (
