@@ -7,30 +7,27 @@
  * [宪宪/Opus-46🐾] Phase 1 — Edition Module
  */
 
-export { CORE_API_VERSION, DEFAULT_EDITION, loadEdition } from './edition-loader.js';
 export type { LoadEditionOptions } from './edition-loader.js';
-
-// Registration API — Edition modules import from here to register extensions
-export {
-  registerEditionConnectorPlugin,
-  registerEditionConnectorPlatform,
-  registerEditionSidecarPaths,
-  registerEditionVersionChecker,
-  registerEditionDareAdapters,
-  registerContextWindowSizes,
-  registerEditionEnvVars,
-  registerEditionCats,
-  registerEditionConnectorDefinitions,
-  setModelConfigPolicy,
-} from './registration-api.js';
+export { CORE_API_VERSION, DEFAULT_EDITION, loadEdition } from './edition-loader.js';
 export type {
   EditionConnectorPlugin,
   EditionConnectorPluginDeps,
   EditionVersionInfo,
   SidecarPathConfig,
 } from './registration-api.js';
-
-export { DEFAULT_MODEL_CONFIG_POLICY, EditionRegistryImpl } from './types.js';
+// Registration API — Edition modules import from here to register extensions
+export {
+  registerContextWindowSizes,
+  registerEditionCats,
+  registerEditionConnectorDefinitions,
+  registerEditionConnectorPlatform,
+  registerEditionConnectorPlugin,
+  registerEditionDareAdapters,
+  registerEditionEnvVars,
+  registerEditionSidecarPaths,
+  registerEditionVersionChecker,
+  setModelConfigPolicy,
+} from './registration-api.js';
 export type {
   BrandingConfig,
   CapabilityManifest,
@@ -41,8 +38,8 @@ export type {
   IConnectorAdapter,
   IEditionModule,
   IModelSource,
-  ISkillSource,
   InboundEvent,
+  ISkillSource,
   ModelConfigPolicy,
   ModelEntry,
   ModelSourceProtocolRule,
@@ -50,3 +47,4 @@ export type {
   RuntimeModelConfig,
   SkillSearchResult,
 } from './types.js';
+export { DEFAULT_MODEL_CONFIG_POLICY, EditionRegistryImpl } from './types.js';

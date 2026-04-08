@@ -9,10 +9,10 @@
  */
 
 import { createHmac } from 'node:crypto';
+import type { IOutboundAdapter } from '@cat-cafe/api/infrastructure/connectors/OutboundDeliveryHook.js';
 import type { FastifyBaseLogger } from 'fastify';
 // @ts-expect-error — ws has no bundled types; @types/ws not in this project
 import { WebSocket } from 'ws';
-import type { IOutboundAdapter } from '@cat-cafe/api/infrastructure/connectors/OutboundDeliveryHook.js';
 
 // ── Types ──
 
