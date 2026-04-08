@@ -15,6 +15,10 @@ export const GOVERNANCE_PACK_VERSION = '1.3.0';
 export const MANAGED_BLOCK_START = '<!-- CLOWDER-GOVERNANCE-START -->';
 export const MANAGED_BLOCK_END = '<!-- CLOWDER-GOVERNANCE-END -->';
 
+/** Legacy markers from pre-1.3.0 — used for upgrade migration only. */
+export const LEGACY_BLOCK_START = '<!-- CAT-CAFE-GOVERNANCE-START -->';
+export const LEGACY_BLOCK_END = '<!-- CAT-CAFE-GOVERNANCE-END -->';
+
 const HARD_CONSTRAINTS = `## Governance Rules (Auto-managed)
 
 ### Hard Constraints (immutable)
