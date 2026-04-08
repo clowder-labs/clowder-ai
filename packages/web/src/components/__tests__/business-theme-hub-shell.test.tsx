@@ -240,7 +240,9 @@ describe('business theme hub shell', () => {
 
     expect(container.querySelector('select[aria-label="筛选来源"]')).not.toBeNull();
     expect(container.querySelector('input[aria-label="搜索我的技能"]')).not.toBeNull();
-    expect(container.textContent).toContain('未找到匹配技能');
+    expect(container.textContent).toContain('暂未匹配到数据');
+    expect(container.textContent).toContain('没有匹配到符合条件的数据');
+    expect(container.querySelector('[data-testid="no-search-results-clear"]')).not.toBeNull();
     expect(container.textContent).not.toContain('ops-skill');
     expect(container.textContent).not.toContain('doc-skill');
   });

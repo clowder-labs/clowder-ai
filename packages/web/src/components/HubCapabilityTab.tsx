@@ -5,6 +5,7 @@ import { apiFetch } from '@/utils/api-client';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
 
 const ALL_CATEGORY = '全部';
@@ -14,8 +15,6 @@ const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
 const IMPORT_LABEL = '导入';
-const NO_SEARCH_RESULTS_TITLE = '未找到匹配技能';
-
 export interface SelectedSkillSummary {
   skillName: string;
   avatarUrl?: string | null;
@@ -192,6 +191,12 @@ export function HubCapabilityTab({
     setActiveCategory(category);
   }, []);
 
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery('');
+    setActiveCategory(ALL_CATEGORY);
+    setActiveSource(ALL_SOURCES);
+  }, []);
+
   if (loading) return <CenteredLoadingState />;
 
   return (
@@ -282,7 +287,9 @@ export function HubCapabilityTab({
             ))}
           </div>
         ) : skillItems.length > 0 ? (
-          <h3 className="py-2 text-xs text-[var(--text-muted)]">{NO_SEARCH_RESULTS_TITLE}</h3>
+          <div className="flex min-h-full items-center justify-center py-16">
+            <NoSearchResultsState onClear={handleClearFilters} />
+          </div>
         ) : null}
       </div>
 

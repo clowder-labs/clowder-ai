@@ -648,7 +648,6 @@ select:-webkit-autofill:focus {
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-pill);
     font-size: 12px;
-    font-weight: var(--font-weight-medium);
     padding: 5px 24px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   }
@@ -673,7 +672,6 @@ select:-webkit-autofill:focus {
   .ui-button-default {
     border: var(--border-width-default) solid var(--button-default-border);
     background: var(--button-default-bg);
-    color: var(--button-default-text);
   }
 
   .ui-button-default:hover {
