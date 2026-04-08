@@ -4,6 +4,31 @@ type ErrorLike = {
   metadata?: { provider?: string; model?: string };
 };
 
+type ConfigurationMatch = {
+  pattern: RegExp;
+  message: string;
+};
+
+const CONFIGURATION_MATCHES: ConfigurationMatch[] = [
+  {
+    pattern: /WebSocket URL is not configured/i,
+    message: '当前智能体缺少 WebSocket 地址配置，暂时无法启动。请先配置对应智能体的连接地址后再重试。',
+  },
+  {
+    pattern: /provider profile is not configured|bound provider profile/i,
+    message: '当前智能体未绑定可用的 provider profile，暂时无法处理请求。请先检查并绑定正确的 provider profile。',
+  },
+  {
+    pattern: /requires a default model profile|default model profile|model profile is missing/i,
+    message: '当前智能体缺少默认 model profile 配置，暂时无法处理请求。请先为对应 provider profile 配置默认模型。',
+  },
+  {
+    pattern: /model profile ".+" not found or missing apiKey|missing apiKey|API key/i,
+    message:
+      '当前智能体的模型配置缺少 API Key 或模型档案不存在，暂时无法处理请求。请检查对应 model profile 的 API Key 配置。',
+  },
+];
+
 function isTimeoutError(rawError: string): boolean {
   return /响应超时|timed out|timeout/i.test(rawError);
 }
@@ -15,33 +40,40 @@ function isAbruptExitError(rawError: string): boolean {
 }
 
 function isConnectionError(rawError: string): boolean {
-  return /connection failed|WebSocket URL is not configured|WebSocket connection closed unexpectedly|sidecar exited during startup/i.test(
-    rawError,
-  );
+  return /connection failed|WebSocket connection closed unexpectedly/i.test(rawError);
 }
 
 function isConfigurationError(rawError: string): boolean {
-  return /not configured|invalid|missing|incomplete/i.test(rawError);
+  return (
+    CONFIGURATION_MATCHES.some(({ pattern }) => pattern.test(rawError)) ||
+    /not configured|invalid|missing|incomplete|sidecar exited|CLI path/i.test(rawError)
+  );
+}
+
+function getConfigurationErrorMessage(rawError: string): string {
+  const matched = CONFIGURATION_MATCHES.find(({ pattern }) => pattern.test(rawError));
+  if (matched) return matched.message;
+  return `当前智能体配置存在问题，暂时无法处理这次请求。请检查配置后重试。原始错误：${rawError}`;
 }
 
 export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
   const rawError = msg.error?.trim() || 'Unknown error';
 
   if (isTimeoutError(rawError)) {
-    return '这次响应花了太久，我先结束本次尝试。你可以稍后重试，或换一种更短、更明确的问法。';
+    return '这次响应超时了，我先结束本次尝试。请稍后直接重试。';
   }
 
   if (isAbruptExitError(rawError)) {
-    return '这次响应中断了，我没能稳定完成处理。请重试一次；如果连续出现，建议换个问法或稍后再试。';
+    return '这次响应中断了，我没能稳定完成处理。请重试一次；如果连续出现，请稍后再试。';
+  }
+
+  if (isConfigurationError(rawError)) {
+    return getConfigurationErrorMessage(rawError);
   }
 
   if (isConnectionError(rawError)) {
     return '当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。';
   }
 
-  if (isConfigurationError(rawError)) {
-    return '当前智能体暂未正确配置，暂时无法处理这次请求。请检查相关运行配置后再试。';
-  }
-
-  return '这次处理没有顺利完成。我先结束本次尝试，你可以稍后重试，或换一种更短、更明确的问法。';
+  return '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。';
 }
