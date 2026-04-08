@@ -149,6 +149,93 @@ describe('SkillDetailView', () => {
     expect(updateButton).toBeUndefined();
   });
 
+  it('truncates the description to two lines and shows the full text in an overflow tooltip', async () => {
+    const description = '这是一段很长的技能详情描述，用来验证基础信息里的描述字段会两行省略，并在悬停后通过公共 tooltip 展示完整内容。';
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/detail?name=demo-skill') {
+        return Promise.resolve(
+          jsonResponse({
+            id: 'demo-skill',
+            name: 'demo-skill',
+            description,
+            category: 'Automation',
+            source: 'cat-cafe',
+            enabled: true,
+            triggers: ['demo', 'detail'],
+            mounts: { claude: true, codex: false, gemini: true },
+            cats: { office: true, review: false },
+            fileTree: [
+              {
+                name: 'SKILL.md',
+                path: 'SKILL.md',
+                type: 'file',
+                size: 128,
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=SKILL.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'SKILL.md',
+            content: '# Skill File\n\nSkill file preview content',
+            size: 128,
+            mime: 'text/markdown',
+            truncated: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const descriptionNode = Array.from(
+      container.querySelectorAll('[data-testid="skill-detail-basic-info"] p'),
+    ).find((node) => node.textContent === description);
+    expect(descriptionNode).not.toBeNull();
+    expect(descriptionNode?.className).toContain('line-clamp-2');
+    expect(descriptionNode?.className).toContain('text-[var(--text-secondary)]');
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    if (!descriptionNode) return;
+
+    Object.defineProperty(descriptionNode, 'clientWidth', {
+      configurable: true,
+      value: 240,
+    });
+    Object.defineProperty(descriptionNode, 'scrollWidth', {
+      configurable: true,
+      value: 240,
+    });
+    Object.defineProperty(descriptionNode, 'clientHeight', {
+      configurable: true,
+      value: 48,
+    });
+    Object.defineProperty(descriptionNode, 'scrollHeight', {
+      configurable: true,
+      value: 96,
+    });
+
+    await act(async () => {
+      descriptionNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(description);
+  });
+
   it('keeps the file workspace constrained to the remaining height and scrolls internally', async () => {
     await act(async () => {
       root.render(

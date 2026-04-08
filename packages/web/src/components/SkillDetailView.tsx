@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { CenteredLoadingState } from './CenteredLoadingState';
+import { OverflowTooltip } from './OverflowTooltip';
 import { SkillAvatar } from './SkillAvatar';
 
 interface SkillDetailFileTreeNode {
@@ -67,13 +68,13 @@ function BasicInfoField({
   className = '',
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   className?: string;
 }) {
   return (
     <div className={`space-y-2 ${className}`.trim()}>
       <p className="text-xs font-medium tracking-[0.02em] text-[var(--text-muted)]">{label}</p>
-      <p className="text-sm leading-6 text-[var(--text-primary)]">{value}</p>
+      {typeof value === 'string' ? <p className="text-sm leading-6 text-[var(--text-primary)]">{value}</p> : value}
     </div>
   );
 }
@@ -113,7 +114,9 @@ function FileTreeBranch({
               {node.type === 'directory' ? 'D' : 'F'}
             </span>
             <span className="min-w-0 flex-1 truncate font-medium">{node.name}</span>
-            {typeof node.size === 'number' ? <span className="shrink-0 text-xs text-[var(--text-muted)]">{node.size} B</span> : null}
+            {typeof node.size === 'number' ? (
+              <span className="shrink-0 text-xs text-[var(--text-muted)]">{node.size} B</span>
+            ) : null}
           </button>
           {node.children?.length ? (
             <FileTreeBranch nodes={node.children} selectedPath={selectedPath} onSelect={onSelect} depth={depth + 1} />
@@ -277,6 +280,7 @@ export function SkillDetailView({
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
+        {error ? <p className="ui-status-error mb-4 rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p> : null}
 
         {detail ? (
           <div className="flex h-full min-h-0 flex-col gap-8 pb-6">
@@ -289,7 +293,9 @@ export function SkillDetailView({
                   className="h-[56px] w-[56px] rounded-[14px]"
                 />
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]">{resolvedTitle}</h2>
+                  <h2 className="truncate text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]">
+                    {resolvedTitle}
+                  </h2>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span className="ui-badge-muted" data-testid="skill-detail-category-badge">
                       {categoryLabel}
@@ -304,7 +310,16 @@ export function SkillDetailView({
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-3">
                 <BasicInfoField label="名称" value={resolvedTitle} />
                 <BasicInfoField label="更新时间" value={formatInstalledAt(detail.installedAt)} />
-                <BasicInfoField label="描述" value={resolvedDescription} />
+                <BasicInfoField
+                  label="描述"
+                  value={
+                    <OverflowTooltip content={resolvedDescription} className="w-full">
+                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6">
+                        {resolvedDescription}
+                      </p>
+                    </OverflowTooltip>
+                  }
+                />
               </div>
               <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
                 <BasicInfoField label="触发词" value={triggerLabel} />
@@ -313,13 +328,14 @@ export function SkillDetailView({
               </div>
             </section>
 
-
             <section className="flex min-h-0 flex-1 flex-col space-y-3" data-testid="skill-detail-file-workspace">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">文件目录</h3>
               <div className="flex min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
-                    <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs font-medium text-[var(--text-muted)]">File</div>
+                    <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs font-medium text-[var(--text-muted)]">
+                      File
+                    </div>
                     <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
                       {detail.fileTree?.length ? (
                         <FileTreeBranch nodes={detail.fileTree} selectedPath={selectedPath} onSelect={handleSelectNode} />
