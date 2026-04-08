@@ -354,7 +354,7 @@ export function SkillDetailView({
                       </div>
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-                      {filePreviewLoading ? <p className="text-sm text-[var(--text-muted)]">加载文件内容中...</p> : null}
+                      {filePreviewLoading ? <CenteredLoadingState /> : null}
                       {!filePreviewLoading && filePreviewError ? (
                         <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{filePreviewError}</p>
                       ) : null}
