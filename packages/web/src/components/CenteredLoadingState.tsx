@@ -9,7 +9,7 @@ export function CenteredLoadingState() {
       data-testid="skills-loading-state"
       aria-label="loading"
     >
-      <LoadingSmall className="h-8 w-8" />
+      <LoadingSmall className="h-4 w-4" />
     </div>
   );
 }

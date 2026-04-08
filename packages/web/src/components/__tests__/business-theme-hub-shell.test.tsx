@@ -236,4 +236,26 @@ describe('business theme hub shell', () => {
     expect(scrollRegion?.contains(searchInput)).toBe(false);
     expect(scrollRegion?.querySelector('[data-testid="capability-card-skill-ops-skill"]')).not.toBeNull();
   });
+
+  it('passes skill avatar selection context when opening detail from a skill card', async () => {
+    const onSelectSkill = vi.fn();
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab, { onSelectSkill }));
+    });
+    await flushEffects();
+
+    const card = container.querySelector('[data-testid="capability-card-skill-ops-skill"]') as HTMLDivElement | null;
+    expect(card).not.toBeNull();
+
+    await act(async () => {
+      card?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(onSelectSkill).toHaveBeenCalledWith({
+      skillName: 'ops-skill',
+      avatarUrl: null,
+    });
+  });
 });

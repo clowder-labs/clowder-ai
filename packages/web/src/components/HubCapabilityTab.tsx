@@ -16,6 +16,11 @@ const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
 const IMPORT_LABEL = '导入';
 const NO_SEARCH_RESULTS_TITLE = '未找到匹配技能';
 
+export interface SelectedSkillSummary {
+  skillName: string;
+  avatarUrl?: string | null;
+}
+
 function sourceToLabel(source: string): string {
   if (source === 'cat-cafe') return '官方';
   if (source === 'external') return '三方';
@@ -25,10 +30,12 @@ function sourceToLabel(source: string): string {
 export function HubCapabilityTab({
   hideSkillMountStatus,
   onImport,
+  onSelectSkill,
   refreshSignal,
 }: {
   hideSkillMountStatus?: boolean;
   onImport?: () => void;
+  onSelectSkill?: (selection: SelectedSkillSummary) => void;
   refreshSignal?: number;
 }) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
@@ -256,6 +263,15 @@ export function HubCapabilityTab({
                 toggling={toggling}
                 onToggle={handleToggle}
                 onUninstall={handleUninstall}
+                onClick={
+                  item.type === 'skill'
+                    ? () =>
+                        onSelectSkill?.({
+                          skillName: item.id,
+                          avatarUrl: item.iconUrl ?? null,
+                        })
+                    : undefined
+                }
                 hideSkillMountStatus={hideSkillMountStatus}
               />
             ))}
