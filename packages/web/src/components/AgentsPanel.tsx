@@ -223,9 +223,23 @@ function buildTemplateMarkdown(template: InspirationTemplate): string {
   return `## ${template.title}\n\n${template.content}`;
 }
 
-function formatBudgetLabel(value?: number): string {
-  if (!value || Number.isNaN(value)) return '-- KB';
-  const kb = Math.max(1, Math.round(value / 1024));
+function estimateDefinitionBytes(cat: CatData): number {
+  const payload = {
+    name: cat.name ?? '',
+    displayName: cat.displayName ?? '',
+    nickname: cat.nickname ?? '',
+    mentionPatterns: cat.mentionPatterns ?? [],
+    roleDescription: cat.roleDescription ?? '',
+    personality: cat.personality ?? '',
+  };
+
+  return new TextEncoder().encode(JSON.stringify(payload)).length;
+}
+
+function formatDefinitionSizeLabel(cat: CatData): string {
+  const bytes = estimateDefinitionBytes(cat);
+  if (!bytes || Number.isNaN(bytes)) return '-- KB';
+  const kb = Math.max(1, Math.round(bytes / 1024));
   return `${kb} KB`;
 }
 
@@ -1069,7 +1083,7 @@ export function AgentsPanel() {
               {filteredCats.map((cat) => {
                 const isSelected = selectedCat?.id === cat.id;
                 const modelText = cat.defaultModel || '未配置模型';
-                const budgetText = formatBudgetLabel(cat.contextBudget?.maxContextTokens);
+                const budgetText = formatDefinitionSizeLabel(cat);
                 const isPlatformPreset = cat.source !== 'runtime';
 
                 return (
