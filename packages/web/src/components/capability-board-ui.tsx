@@ -173,6 +173,7 @@ export function CapabilityCard({
   toggling,
   onToggle,
   onUninstall,
+  onClick,
   hideSkillMountStatus: _hideSkillMountStatus,
 }: {
   item: CapabilityBoardItem;
@@ -180,17 +181,32 @@ export function CapabilityCard({
   toggling: string | null;
   onToggle: ToggleHandler;
   onUninstall?: (id: string) => void;
+  onClick?: () => void;
   hideSkillMountStatus?: boolean;
 }) {
   const isToggling = toggling === `${item.type}:${item.id}`;
   const sourceLabel = getSourceLabel(item.source);
   const resolvedDescription = item.description?.trim() || '暂未提供技能描述。';
   const showDeleteAction = item.source === 'external' && typeof onUninstall === 'function';
+  const isClickable = typeof onClick === 'function';
 
   return (
     <div
-      className="ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5"
+      className={`ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5 ${isClickable ? 'cursor-pointer' : ''}`}
       data-testid={`capability-card-${item.type}-${item.id}`}
+      onClick={onClick}
+      onKeyDown={
+        isClickable
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
     >
       <div className="flex items-start gap-3">
         <NameInitialIcon name={item.id} />

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { HubSkillsTab } from './HubSkillsTab';
+import { SkillDetailView } from './SkillDetailView';
 import { UploadSkillModal } from './UploadSkillModal';
 
 const INSTALLED = '我的技能';
@@ -15,6 +16,15 @@ export function SkillsPanel() {
   const [activeTab, setActiveTab] = useState<'installed' | 'plaza'>('installed');
   const [showUpload, setShowUpload] = useState(false);
   const [capabilityRefreshSignal, setCapabilityRefreshSignal] = useState(0);
+  const [selectedSkillName, setSelectedSkillName] = useState<string | null>(null);
+
+  if (selectedSkillName) {
+    return (
+      <div className="ui-page-shell gap-2">
+        <SkillDetailView skillName={selectedSkillName} onBack={() => setSelectedSkillName(null)} />
+      </div>
+    );
+  }
 
   return (
     <div className="ui-page-shell gap-2">
@@ -23,6 +33,7 @@ export function SkillsPanel() {
         onClose={() => setShowUpload(false)}
         onSuccess={() => {
           setActiveTab('installed');
+          setSelectedSkillName(null);
           setCapabilityRefreshSignal((value) => value + 1);
           addToast({
             type: 'success',
@@ -45,7 +56,10 @@ export function SkillsPanel() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('plaza')}
+              onClick={() => {
+                setActiveTab('plaza');
+                setSelectedSkillName(null);
+              }}
               className={`ui-tab-trigger ${activeTab === 'plaza' ? 'ui-tab-trigger-active' : ''}`}
             >
               {SKILL_PLAZA}
@@ -63,7 +77,11 @@ export function SkillsPanel() {
           {activeTab === 'plaza' ? (
             <HubSkillsTab />
           ) : (
-            <HubCapabilityTab onImport={() => setShowUpload(true)} refreshSignal={capabilityRefreshSignal} />
+            <HubCapabilityTab
+              onImport={() => setShowUpload(true)}
+              onSelectSkill={setSelectedSkillName}
+              refreshSignal={capabilityRefreshSignal}
+            />
           )}
         </div>
       </div>

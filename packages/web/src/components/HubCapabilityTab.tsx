@@ -25,10 +25,12 @@ function sourceToLabel(source: string): string {
 export function HubCapabilityTab({
   hideSkillMountStatus,
   onImport,
+  onSelectSkill,
   refreshSignal,
 }: {
   hideSkillMountStatus?: boolean;
   onImport?: () => void;
+  onSelectSkill?: (skillName: string) => void;
   refreshSignal?: number;
 }) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
@@ -256,6 +258,7 @@ export function HubCapabilityTab({
                 toggling={toggling}
                 onToggle={handleToggle}
                 onUninstall={handleUninstall}
+                onClick={item.type === 'skill' ? () => onSelectSkill?.(item.id) : undefined}
                 hideSkillMountStatus={hideSkillMountStatus}
               />
             ))}

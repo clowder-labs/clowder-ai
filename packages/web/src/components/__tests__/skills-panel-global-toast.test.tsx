@@ -6,15 +6,34 @@ import { ToastContainer } from '@/components/ToastContainer';
 import { useToastStore } from '@/stores/toastStore';
 
 vi.mock('@/components/HubCapabilityTab', () => ({
-  HubCapabilityTab: ({ onImport }: { onImport?: () => void }) =>
+  HubCapabilityTab: ({
+    onImport,
+    onSelectSkill,
+  }: {
+    onImport?: () => void;
+    onSelectSkill?: (skillName: string) => void;
+  }) =>
     React.createElement(
-      'button',
-      {
-        type: 'button',
-        'data-testid': 'installed-panel-import',
-        onClick: onImport,
-      },
-      '导入',
+      React.Fragment,
+      null,
+      React.createElement(
+        'button',
+        {
+          type: 'button',
+          'data-testid': 'installed-panel-import',
+          onClick: onImport,
+        },
+        'Import',
+      ),
+      React.createElement(
+        'button',
+        {
+          type: 'button',
+          'data-testid': 'installed-panel-open-detail',
+          onClick: () => onSelectSkill?.('demo-skill'),
+        },
+        'Open detail',
+      ),
     ),
 }));
 
@@ -37,9 +56,32 @@ vi.mock('@/components/UploadSkillModal', () => ({
             type: 'button',
             onClick: onSuccess,
           },
-          '模拟上传成功',
+          'Mock upload success',
         )
       : null,
+}));
+
+vi.mock('@/components/SkillDetailView', () => ({
+  SkillDetailView: ({
+    skillName,
+    onBack,
+  }: {
+    skillName: string;
+    onBack: () => void;
+  }) =>
+    React.createElement(
+      'div',
+      { 'data-testid': 'skill-detail-view' },
+      React.createElement('div', null, `Detail:${skillName}`),
+      React.createElement(
+        'button',
+        {
+          type: 'button',
+          onClick: onBack,
+        },
+        'Back',
+      ),
+    ),
 }));
 
 describe('SkillsPanel global upload toast', () => {
@@ -82,7 +124,7 @@ describe('SkillsPanel global upload toast', () => {
     });
 
     const importButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('导入'),
+      button.textContent?.includes('Import'),
     );
     expect(importButton).toBeDefined();
 
@@ -92,7 +134,7 @@ describe('SkillsPanel global upload toast', () => {
     });
 
     const successButton = Array.from(container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('模拟上传成功'),
+      button.textContent?.includes('Mock upload success'),
     );
     expect(successButton).toBeDefined();
 
@@ -106,5 +148,37 @@ describe('SkillsPanel global upload toast', () => {
         .getState()
         .toasts.some((toast) => toast.type === 'success' && toast.title === '上传成功' && toast.message === '技能上传成功'),
     ).toBe(true);
+  });
+
+  it('switches from installed list to detail view and back inside SkillsPanel', async () => {
+    await act(async () => {
+      root.render(React.createElement(SkillsPanel));
+    });
+
+    const openDetailButton = container.querySelector('[data-testid="installed-panel-open-detail"]') as HTMLButtonElement | null;
+    expect(openDetailButton).not.toBeNull();
+
+    await act(async () => {
+      openDetailButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="skill-detail-view"]')).not.toBeNull();
+    expect(container.textContent).toContain('Detail:demo-skill');
+    expect(container.querySelector('[data-testid="installed-panel-import"]')).toBeNull();
+    expect(container.textContent).not.toContain('技能广场');
+
+    const backButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Back'),
+    );
+    expect(backButton).toBeDefined();
+
+    await act(async () => {
+      backButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="skill-detail-view"]')).toBeNull();
+    expect(container.querySelector('[data-testid="installed-panel-import"]')).not.toBeNull();
   });
 });
