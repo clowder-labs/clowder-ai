@@ -593,7 +593,7 @@ export function ModelsPanel() {
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => (
-                    <article key={card.id} className="ui-card group flex min-h-[194px] flex-col gap-4 p-5">
+                    <article key={card.id} className="ui-card group flex min-h-[194px] flex-col gap-4">
                       <div>
                         <div className="flex items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -618,9 +618,12 @@ export function ModelsPanel() {
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
-                              <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
-                                {card.name}
-                              </h4>
+                              <OverflowTooltip
+                                content={card.name}
+                                className="min-w-0 flex-1"
+                                as="h4"
+                                textClassName="block truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]"
+                              />
                             </div>
                             {card.labels.length > 0 ? (
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">

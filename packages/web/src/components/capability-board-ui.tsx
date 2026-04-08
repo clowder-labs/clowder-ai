@@ -189,7 +189,7 @@ export function CapabilityCard({
 
   return (
     <div
-      className="ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5"
+      className="ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4"
       data-testid={`capability-card-${item.type}-${item.id}`}
     >
       <div className="flex items-start gap-3">

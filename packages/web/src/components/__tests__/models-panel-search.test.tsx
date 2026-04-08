@@ -268,6 +268,33 @@ describe('ModelsPanel search', () => {
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('flagship model');
   });
 
+  it('shows a custom tooltip for truncated model titles instead of the native title attribute', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const titleNode = Array.from(container.querySelectorAll('h4')).find((node) => node.textContent?.includes('gpt-5'));
+    expect(titleNode).not.toBeNull();
+    expect(titleNode?.getAttribute('title')).toBeNull();
+
+    await act(async () => {
+      titleNode?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    if (!titleNode) return;
+    mockOverflow(titleNode, 120, 220, 24, 24);
+
+    await act(async () => {
+      titleNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('gpt-5');
+  });
+
   it('submits create-model description without icon when icon is not provided', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
