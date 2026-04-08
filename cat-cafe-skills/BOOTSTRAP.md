@@ -71,6 +71,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `self-improving-agent` | 捕获错误/纠正，持续自我改进 |
 | `evolver` | Agent 自我进化引擎（分析运行历史） |
 | `schedule-tasks`          | 创建定时任务  |
+| `cross-agent-handoff`          | 协作交接  |
 
 ### 工具与自动化
 
