@@ -38,7 +38,6 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
-import { parseSystemInfoContent } from './parse-system-info.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
@@ -367,9 +366,8 @@ export async function* routeSerial(
         // Keep forwarding this boundary event so frontend can reset stale task progress.
         if (msg.type === 'system_info' && msg.content && !ownInvocationId) {
           try {
-            const parsed = parseSystemInfoContent(msg.content);
-            if (!parsed) throw new Error('not parseable system_info');
-            if (parsed.type === 'invocation_created' && typeof parsed.invocationId === 'string') {
+            const parsed = JSON.parse(msg.content);
+            if (parsed.type === 'invocation_created') {
               ownInvocationId = parsed.invocationId;
               // F111 Phase B: Start streaming TTS when we have an invocationId
               if (voiceMode && deps.socketManager) {
@@ -406,8 +404,7 @@ export async function* routeSerial(
         // F045: Accumulate thinking blocks for persistence (F5 recovery)
         if (msg.type === 'system_info' && msg.content) {
           try {
-            const parsed = parseSystemInfoContent(msg.content);
-            if (!parsed) throw new Error('not parseable system_info');
+            const parsed = JSON.parse(msg.content);
             if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
               const mergeStrategy = parsed.mergeStrategy === 'append' ? 'append' : 'paragraph';
               thinkingContent = appendThinkingChunk(thinkingContent, parsed.text, mergeStrategy);
@@ -484,9 +481,6 @@ export async function* routeSerial(
 
         if (msg.type === 'error') {
           hadError = true;
-          if (msg.error) {
-            textContent += `${textContent ? '\n\n' : ''}[错误] ${msg.error}`;
-          }
         }
         // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
         // state — mark hadError so we don't fall through to silent_completion.

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
+import { getFriendlyAgentErrorMessage } from '@/hooks/agent-error-fallback';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import { parseSystemInfoContent } from './parse-system-info';
@@ -976,17 +977,26 @@ export function useAgentMessages() {
           setStreaming(messageId, false);
           activeRefs.current.delete(msg.catId);
         }
-        // F118 AC-C3: Attach pending timeout diagnostics matched by catId
-        const timeoutDiag = msg.catId ? (pendingTimeoutDiagRef.current.get(msg.catId) ?? null) : null;
+        // Consume pending timeout diagnostics silently; keep raw details in debug logs, not UI.
         if (msg.catId) pendingTimeoutDiagRef.current.delete(msg.catId);
+
+        recordDebugEvent({
+          event: 'agent_message',
+          threadId: useChatStore.getState().currentThreadId,
+          timestamp: Date.now(),
+          catId: msg.catId,
+          invocationId: msg.invocationId,
+          reason: msg.error ?? 'Unknown error',
+          action: 'error_fallback',
+          origin: msg.origin,
+        });
 
         addMessage({
           id: `err-${Date.now()}-${msg.catId}`,
-          type: 'system',
-          variant: 'error',
+          type: 'assistant',
           catId: msg.catId,
           content: (() => {
-            const base = `Error: ${msg.error ?? 'Unknown error'}`;
+            const base = getFriendlyAgentErrorMessage(msg);
             try {
               const meta = JSON.parse(msg.content ?? '{}');
               const subtype = meta?.errorSubtype;
@@ -1005,22 +1015,7 @@ export function useAgentMessages() {
             return base;
           })(),
           timestamp: Date.now(),
-          ...(timeoutDiag
-            ? {
-                extra: {
-                  timeoutDiagnostics: {
-                    silenceDurationMs: timeoutDiag.silenceDurationMs as number,
-                    processAlive: timeoutDiag.processAlive as boolean,
-                    lastEventType: timeoutDiag.lastEventType as string | undefined,
-                    firstEventAt: timeoutDiag.firstEventAt as number | undefined,
-                    lastEventAt: timeoutDiag.lastEventAt as number | undefined,
-                    cliSessionId: timeoutDiag.cliSessionId as string | undefined,
-                    invocationId: timeoutDiag.invocationId as string | undefined,
-                    rawArchivePath: timeoutDiag.rawArchivePath as string | undefined,
-                  },
-                },
-              }
-            : {}),
+          origin: 'stream',
         });
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {

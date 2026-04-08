@@ -361,7 +361,7 @@ function buildEditForm(
     ...base,
     name: safeName,
     displayName: safeName,
-    nickname: safeName,
+    nickname: base.nickname,
     mentionPatterns: `@${mentionSeed}`,
     avatar,
     roleDescription: description.trim() || base.roleDescription,

@@ -4,12 +4,26 @@
 
 from __future__ import annotations
 import json
+from pathlib import Path
 
 from openjiuwen.core.foundation.tool import Tool, McpServerConfig
 
 from jiuwenclaw.agentserver.tools.command_tools import mcp_exec_command
 from jiuwenclaw.agentserver.tools.search_tools import mcp_free_search, mcp_paid_search
 from jiuwenclaw.agentserver.tools.web_fetch_tools import mcp_fetch_webpage
+
+
+def _normalize_stdio_command_kind(command: str) -> str:
+    raw = str(command or "").strip()
+    if not raw:
+        raise ValueError("工具配置缺少 'command' 字段")
+
+    normalized = Path(raw).name.lower()
+    if normalized in ("node", "node.exe"):
+        return "node"
+    if normalized.startswith("python"):
+        return "python"
+    raise ValueError(f"不支持的 command 类型: '{command}'，目前仅支持 node/python 及其绝对路径")
 
 
 def create_mcp_tool(config_str: str) -> McpServerConfig:
@@ -49,30 +63,36 @@ def create_mcp_tool(config_str: str) -> McpServerConfig:
         raise ValueError("工具配置必须是字典类型")
 
     tool_name = tool_config.get("name")
+    server_id = str(tool_config.get("server_id") or tool_name or "").strip()
     command = tool_config.get("command")
     args = tool_config.get("args", [])
+    env = tool_config.get("env")
+    cwd = tool_config.get("cwd")
 
     if not tool_name:
         raise ValueError("工具配置缺少 'name' 字段")
 
-    if not command:
-        raise ValueError(f"工具 '{tool_name}' 缺少 'command' 字段")
-
-    if command not in ("node", "python"):
-        raise ValueError(f"不支持的 command 类型: '{command}'，目前仅支持 'node' 和 'python'")
+    normalized_command = str(command or "").strip()
+    _normalize_stdio_command_kind(normalized_command)
 
     if not isinstance(args, list):
         raise ValueError(f"工具 '{tool_name}' 的 args 必须是列表类型")
 
+    params = {
+        "command": normalized_command,
+        "args": args,
+    }
+    if isinstance(env, dict) and env:
+        params["env"] = {str(k): str(v) for k, v in env.items() if k is not None and v is not None}
+    if isinstance(cwd, str) and cwd.strip():
+        params["cwd"] = cwd.strip()
+
     return McpServerConfig(
-        server_id=tool_name,
+        server_id=server_id or tool_name,
         server_name=tool_name,
         server_path=f"stdio://{tool_name}",
         client_type="stdio",
-        params={
-            "command": command,
-            "args": args,
-        },
+        params=params,
     )
 
 

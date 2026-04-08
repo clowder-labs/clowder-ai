@@ -547,6 +547,7 @@ function applyModelartsPreset(projectDir, apiKey) {
   const catalog = {
     version: 2,
     preset: true,
+    defaultCatId: preset.members[0]?.catId,
     coCreator: template.coCreator,
     reviewPolicy: template.reviewPolicy,
     roster,
