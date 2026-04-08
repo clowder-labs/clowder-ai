@@ -1,8 +1,34 @@
-type ErrorLike = {
+export const MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE = 'ModelArts.81011';
+const MODEL_ARTS_SENSITIVE_INPUT_MESSAGE_FRAGMENT = 'Input text May contain sensitive information';
+
+export type ErrorLike = {
   catId?: string;
   error?: string;
+  errorCode?: string;
   metadata?: { provider?: string; model?: string };
 };
+
+function normalizeQuotedText(rawError: string): string {
+  return rawError.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+}
+
+export function isSensitiveInputAgentError(msg: ErrorLike): boolean {
+  if (msg.errorCode === MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE) return true;
+  const rawError = msg.error?.trim();
+  if (!rawError) return false;
+  const normalized = normalizeQuotedText(rawError);
+  return (
+    normalized.includes(MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE) &&
+    normalized.toLowerCase().includes(MODEL_ARTS_SENSITIVE_INPUT_MESSAGE_FRAGMENT.toLowerCase())
+  );
+}
+
+export function getSensitiveInputErrorToastContent(): { title: string; message: string } {
+  return {
+    title: '检测到敏感词',
+    message: '当前对话触发了敏感词校验，请重新打开一个新会话后再试。',
+  };
+}
 
 function isTimeoutError(rawError: string): boolean {
   return /响应超时|timed out|timeout/i.test(rawError);
@@ -26,6 +52,10 @@ function isConfigurationError(rawError: string): boolean {
 
 export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
   const rawError = msg.error?.trim() || 'Unknown error';
+
+  if (isSensitiveInputAgentError(msg)) {
+    return '检测到输入内容触发了敏感词校验。请重新打开一个新会话后再试。';
+  }
 
   if (isTimeoutError(rawError)) {
     return '这次响应花了太久，我先结束本次尝试。你可以稍后重试，或换一种更短、更明确的问法。';
