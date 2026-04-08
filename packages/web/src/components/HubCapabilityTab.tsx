@@ -193,6 +193,7 @@ export function HubCapabilityTab({
 
   const handleClearFilters = useCallback(() => {
     setSearchQuery('');
+    setActiveSource(ALL_SOURCES);
   }, []);
 
   if (loading) return <CenteredLoadingState />;

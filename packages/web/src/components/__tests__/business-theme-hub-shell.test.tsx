@@ -247,7 +247,7 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('doc-skill');
   });
 
-  it('clearing empty search state keeps the current category and source filters', async () => {
+  it('clearing empty search state clears source but keeps the current category', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
     });
@@ -287,7 +287,7 @@ describe('business theme hub shell', () => {
     });
 
     expect((container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null)?.value).toBe('');
-    expect((container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null)?.value).toBe('external');
+    expect((container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null)?.value).toBe('all');
     expect(container.textContent).toContain('Knowledge (1)');
     expect(container.textContent).toContain('doc-skill');
     expect(container.textContent).not.toContain('ops-skill');
