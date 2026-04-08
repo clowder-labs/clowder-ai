@@ -585,7 +585,7 @@ describe('useAgentMessages loading lifecycle', () => {
       expect.objectContaining({
         type: 'assistant',
         catId: 'jiuwenclaw',
-        content: expect.stringContaining('启动配置不完整'),
+        content: expect.stringContaining('配置存在问题'),
       }),
     );
   });
