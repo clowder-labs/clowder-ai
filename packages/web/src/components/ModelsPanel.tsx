@@ -3,7 +3,7 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
-import { apiFetch } from '@/utils/api-client';
+import { API_URL, apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
@@ -208,6 +208,12 @@ function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
   }, []);
 }
 
+function resolveUploadedIconUrl(icon?: string | null): string | null {
+  const trimmed = icon?.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith('/uploads/') ? `${API_URL}${trimmed}` : trimmed;
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -237,6 +243,7 @@ export function ModelsPanel() {
   const confirm = useConfirm();
 
   const isEditMode = Boolean(editingSourceId);
+  const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? EMPTY_MODEL_ICON_DATA_URL;
   const canConfirmCreateModel = isEditMode
     ? modelNameInput?.trim().length > 0
     : modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
@@ -591,14 +598,16 @@ export function ModelsPanel() {
                 </h3>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {group.items.map((card) => (
+                  {group.items.map((card) => {
+                    const cardIconSrc = resolveUploadedIconUrl(card.icon);
+                    return (
                     <article key={card.id} className="ui-card group flex min-h-[194px] flex-col gap-4 p-5">
                       <div>
                         <div className="flex items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {card.icon ? (
+                          {cardIconSrc ? (
                             <img
-                              src={card.icon}
+                              src={cardIconSrc}
                               alt={`${card.name} icon`}
                               width={48}
                               height={48}
@@ -697,7 +706,8 @@ export function ModelsPanel() {
                         </div>
                       </div>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ))}
@@ -776,7 +786,7 @@ export function ModelsPanel() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={modelIconInput || EMPTY_MODEL_ICON_DATA_URL}
+                      src={modelIconPreviewSrc}
                       alt="Model icon preview"
                       className="h-full w-full object-cover"
                     />

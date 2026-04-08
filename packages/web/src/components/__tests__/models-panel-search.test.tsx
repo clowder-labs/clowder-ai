@@ -5,6 +5,7 @@ import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({
+  API_URL: 'http://localhost:3004',
   apiFetch: vi.fn(),
 }));
 
@@ -71,14 +72,14 @@ describe('ModelsPanel search', () => {
           jsonResponse({
             list: [
               {
-                id: 'gpt-5',
+                id: 'model_config:gpt-source:gpt-5',
                 object: 'model',
                 name: 'gpt-5',
                 description: 'flagship model',
                 protocol: 'openai',
                 labels: ['text-gen', 'Function Call'],
                 developer: 'OpenAI',
-                icon: '/avatars/assistant.svg',
+                icon: '/uploads/gpt-5.png',
               },
               {
                 id: 'deepseek-r1',
@@ -98,6 +99,23 @@ describe('ModelsPanel search', () => {
                 protocol: 'openai',
                 labels: ['proxy'],
                 developer: 'OpenAI',
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            providers: [
+              {
+                id: 'gpt-source',
+                displayName: 'GPT Source',
+                description: 'flagship model',
+                icon: '/uploads/provider-gpt-5.png',
+                baseUrl: 'https://proxy.example.com/v1',
+                apiKey: 'sk-test',
+                models: ['gpt-5'],
               },
             ],
           }),
@@ -218,6 +236,33 @@ describe('ModelsPanel search', () => {
     const fallbackIcon = container.querySelector('[data-testid="model-card-icon-alpha-custom"]');
     expect(fallbackIcon).not.toBeNull();
     expect(fallbackIcon?.textContent).toContain('A');
+  });
+
+  it('prefixes uploaded model icons with API_URL in model cards', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const icon = container.querySelector('[data-testid="model-card-icon-model_config:gpt-source:gpt-5"]') as HTMLImageElement | null;
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('src')).toBe('http://localhost:3004/uploads/gpt-5.png');
+  });
+
+  it('prefixes uploaded model icons with API_URL in edit modal preview', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const editButton = container.querySelector('[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]') as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    await clickButton(editButton!);
+    await flushEffects();
+
+    const preview = container.querySelector('img[alt="Model icon preview"]') as HTMLImageElement | null;
+    expect(preview).not.toBeNull();
+    expect(preview?.getAttribute('src')).toBe('http://localhost:3004/uploads/provider-gpt-5.png');
   });
 
   it('submits create-model description without icon when icon is not provided', async () => {
