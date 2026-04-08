@@ -90,6 +90,11 @@ const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
   'antigravity',
   'acp',
 ]);
+const AVATAR_MAX_SIZE_BYTES = 200 * 1024;
+const AVATAR_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
+const AVATAR_ALLOWED_EXTENSIONS = ['.png', '.jpeg', '.jpg', '.gif'];
+const AVATAR_ACCEPT = 'image/png,image/jpeg,image/gif,.png,.jpeg,.jpg,.gif';
+const AVATAR_FORMAT_HINT = 'png、jpeg、gif、jpg';
 
 // 预设头像列表
 const PRESET_AVATARS = [
@@ -191,6 +196,22 @@ function buildGeneratedAvatarDataUrl(name: string): string {
 
 function resolveInitialAvatar(cat: CatData | null): string {
   return cat?.avatar?.trim() ?? '';
+}
+
+function validateAvatarFile(file: File): string | null {
+  const fileName = file.name.trim().toLowerCase();
+  const hasAllowedType = AVATAR_ALLOWED_TYPES.has(file.type);
+  const hasAllowedExtension = AVATAR_ALLOWED_EXTENSIONS.some((extension) => fileName.endsWith(extension));
+
+  if (!hasAllowedType && !hasAllowedExtension) {
+    return `仅支持上传 ${AVATAR_FORMAT_HINT} 格式图片`;
+  }
+
+  if (file.size > AVATAR_MAX_SIZE_BYTES) {
+    return '头像大小不能超过 200KB';
+  }
+
+  return null;
 }
 
 function parseModelIdSelection(value: string | null): SelectionHint {
@@ -661,6 +682,13 @@ export function CreateAgentModal({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const validationError = validateAvatarFile(file);
+    if (validationError) {
+      setError(validationError);
+      event.target.value = '';
+      return;
+    }
+
     setUploadingAvatar(true);
     setError(null);
     try {
@@ -786,7 +814,7 @@ export function CreateAgentModal({
                   ref={fileInputRef}
                   aria-label="Avatar file input"
                   type="file"
-                  accept="image/png,image/jpeg,image/gif,image/jpg"
+                  accept={AVATAR_ACCEPT}
                   onChange={handleAvatarUpload}
                   className="hidden"
                 />

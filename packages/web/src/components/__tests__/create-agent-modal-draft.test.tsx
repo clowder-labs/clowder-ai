@@ -18,6 +18,23 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function mockModalBootApi() {
+  mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === '/api/available-clients') {
+      return Promise.resolve(
+        jsonResponse({
+          clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+        }),
+      );
+    }
+    if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+      return Promise.resolve(jsonResponse({ list: [] }));
+    }
+    throw new Error(`Unexpected apiFetch path: ${url}`);
+  });
+}
+
 async function flushEffects() {
   await act(async () => {
     await Promise.resolve();
@@ -116,20 +133,7 @@ describe('CreateAgentModal', () => {
   });
 
   it('uses shared footer button classes', async () => {
-    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url === '/api/available-clients') {
-        return Promise.resolve(
-          jsonResponse({
-            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
-          }),
-        );
-      }
-      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
-        return Promise.resolve(jsonResponse({ list: [] }));
-      }
-      throw new Error(`Unexpected apiFetch path: ${url}`);
-    });
+    mockModalBootApi();
 
     await act(async () => {
       root.render(
@@ -153,5 +157,73 @@ describe('CreateAgentModal', () => {
     expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
     expect(confirmButton?.className).toContain('ui-modal-action-button');
+  });
+
+  it('blocks unsupported avatar formats before upload', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Avatar Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const fileInput = container.querySelector('input[aria-label="Avatar file input"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const invalidFile = new File(['avatar'], 'avatar.webp', { type: 'image/webp' });
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [invalidFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('仅支持上传 png、jpeg、gif、jpg 格式图片');
+    expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
+  });
+
+  it('blocks oversized avatar files before upload', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Avatar Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const fileInput = container.querySelector('input[aria-label="Avatar file input"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const oversizedFile = new File([new Uint8Array(200 * 1024 + 1)], 'avatar.png', { type: 'image/png' });
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [oversizedFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('头像大小不能超过 200KB');
+    expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
   });
 });
