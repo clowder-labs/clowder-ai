@@ -142,10 +142,10 @@
         {
           "id": "agentteams-default",
           "provider": "acp",
-          "defaultModel": "agent-teams",
+          "defaultModel": "relay-teams",
           "mcpSupport": true,
           "cli": {
-            "command": "agent-teams",
+            "command": "relay-teams",
             "args": ["gateway", "acp", "stdio"],
             "outputFormat": "json"
           },

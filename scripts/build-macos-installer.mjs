@@ -769,8 +769,8 @@ function installSharedPythonDeps(bundleDir) {
   ];
   tryPipInstall(pipExe, [...pipArgs, ...officeDeps], 'Office deps');
 
-  // Agent-teams CLI
-  tryPipInstall(pipExe, [...pipArgs, 'cool-play-agent-teams'], 'agent-teams');
+  // Relay-teams CLI
+  tryPipInstall(pipExe, [...pipArgs, 'relay-teams'], 'relay-teams');
 
   // Prune
   const sitePackages = join(bundleDir, 'tools', 'python', 'lib');

@@ -616,8 +616,8 @@ function installSharedPythonDeps(bundleDir) {
   ];
   run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', ...officeDeps]);
 
-  // Install agent-teams CLI for ACP multi-agent orchestration
-  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'cool-play-agent-teams']);
+  // Install relay-teams CLI for ACP multi-agent orchestration
+  run(pythonExe, ['-m', 'pip', 'install', '-q', '--no-warn-script-location', 'relay-teams']);
 
   // Prune site-packages to reduce size
   const sitePackages = join(bundleDir, 'tools', 'python', 'Lib', 'site-packages');
