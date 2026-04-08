@@ -177,13 +177,6 @@ export function SkillDetailView({
   }, [skillName]);
 
   const triggerLabel = useMemo(() => detail?.triggers?.join(', ') || '无', [detail?.triggers]);
-  const catsLabel = useMemo(() => {
-    if (!detail) return '暂无数据';
-    const enabledCats = Object.entries(detail.cats)
-      .filter(([, enabled]) => enabled)
-      .map(([catId]) => catId);
-    return enabledCats.length > 0 ? enabledCats.join(', ') : '无';
-  }, [detail]);
   const categoryLabel = detail?.category?.trim() || '其他';
   const resolvedTitle = detail?.name ?? skillName;
   const resolvedDescription = detail?.description?.trim() || '暂未提供技能描述。';
@@ -284,7 +277,6 @@ export function SkillDetailView({
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        {error ? <p className="ui-status-error mb-4 rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p> : null}
 
         {detail ? (
           <div className="flex h-full min-h-0 flex-col gap-8 pb-6">
@@ -302,8 +294,6 @@ export function SkillDetailView({
                     <span className="ui-badge-muted" data-testid="skill-detail-category-badge">
                       {categoryLabel}
                     </span>
-                    <span className="text-[var(--text-muted)]">来源：{sourceLabel(detail.source)}</span>
-                    <span className="text-[var(--text-muted)]">状态：{statusLabel(detail.enabled)}</span>
                   </div>
                 </div>
               </div>
@@ -311,17 +301,18 @@ export function SkillDetailView({
 
             <section className="shrink-0 space-y-5" data-testid="skill-detail-basic-info">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">基础信息</h3>
-              <div className="grid gap-x-8 gap-y-5 md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_minmax(0,2fr)]">
+              <div className="grid gap-x-8 gap-y-5 md:grid-cols-3">
                 <BasicInfoField label="名称" value={resolvedTitle} />
                 <BasicInfoField label="更新时间" value={formatInstalledAt(detail.installedAt)} />
                 <BasicInfoField label="描述" value={resolvedDescription} />
               </div>
               <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
                 <BasicInfoField label="触发词" value={triggerLabel} />
-                <BasicInfoField label="启用猫咪" value={catsLabel} />
-                <BasicInfoField label="分类" value={categoryLabel} />
+                <BasicInfoField label="来源" value={sourceLabel(detail.source)} />
+                <BasicInfoField label="状态" value={statusLabel(detail.enabled)} />
               </div>
             </section>
+
 
             <section className="flex min-h-0 flex-1 flex-col space-y-3" data-testid="skill-detail-file-workspace">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">文件目录</h3>
@@ -360,7 +351,7 @@ export function SkillDetailView({
                               文件内容过长，当前仅展示前 1MB。
                             </p>
                           ) : null}
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] px-4 py-4 text-[13px] leading-6 text-[var(--text-primary)]">
+                          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-[14px] leading-6 text-[var(--text-primary)]">
                             {filePreview.content}
                           </pre>
                         </div>

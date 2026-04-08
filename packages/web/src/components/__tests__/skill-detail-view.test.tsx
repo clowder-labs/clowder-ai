@@ -104,7 +104,7 @@ describe('SkillDetailView', () => {
     mockApiFetch.mockReset();
   });
 
-  it('loads the first file preview and renders it in the workspace panel', async () => {
+  it('loads the first file preview and renders the six-field basic info layout', async () => {
     await act(async () => {
       root.render(
         React.createElement(SkillDetailView, {
@@ -120,26 +120,29 @@ describe('SkillDetailView', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/file?name=demo-skill&path=SKILL.md', {
       signal: expect.any(AbortSignal),
     });
-    expect(container.textContent).toContain('我的技能');
     expect(container.textContent).toContain('demo-skill');
-    expect(container.textContent).toContain('基础信息');
-    expect(container.textContent).toContain('文件目录');
-    expect(container.textContent).toContain('名称');
-    expect(container.textContent).toContain('更新时间');
-    expect(container.textContent).toContain('描述');
-    expect(container.textContent).toContain('demo');
     expect(container.textContent).toContain('SKILL.md');
     expect(container.querySelector('[data-testid="skill-detail-avatar"]')).not.toBeNull();
     expect(container.querySelector('img[alt="demo-skill avatar"]')?.getAttribute('src')).toBe('/avatars/demo-skill.png');
     expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Automation');
     expect(container.querySelector('[data-testid="skill-detail-description-card"]')).toBeNull();
-    expect(container.querySelector('[data-testid="skill-detail-basic-info"]')?.textContent).toContain(
-      'Skill detail description',
-    );
+
+    const basicInfo = container.querySelector('[data-testid="skill-detail-basic-info"]');
+    const basicInfoText = basicInfo?.textContent ?? '';
+    const basicInfoGrids = basicInfo?.querySelectorAll(':scope > div') ?? [];
+    const basicInfoFields = basicInfo?.querySelectorAll('.space-y-2') ?? [];
+
+    expect(basicInfoText).toContain('Skill detail description');
+    expect(basicInfoGrids).toHaveLength(2);
+    expect(basicInfoGrids[0]?.className).toContain('md:grid-cols-3');
+    expect(basicInfoGrids[1]?.className).toContain('md:grid-cols-3');
+    expect(basicInfoFields).toHaveLength(6);
+
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');
     expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
       'Skill file preview content',
     );
+
     const updateButton = Array.from(container.querySelectorAll('button')).find(
       (candidate) => candidate.textContent?.trim() === '更新',
     );
@@ -205,7 +208,7 @@ describe('SkillDetailView', () => {
     );
   });
 
-  it('navigates back when clicking the 我的技能 breadcrumb', async () => {
+  it('navigates back when clicking the breadcrumb', async () => {
     const onBack = vi.fn();
 
     await act(async () => {
