@@ -186,7 +186,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showPanel && (
         <div
-          className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 mb-2 rounded-3xl"
+          className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 mb-2 rounded-[var(--radius-lg)]"
           data-testid="user-profile-panel"
         >
           <div className="p-4" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
@@ -207,7 +207,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
-                className={`hidden ${profileActionClass}`}
+                className={profileActionClass}
                 onClick={handleOpenVersionUpdate}
               >
                 <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -249,7 +249,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showPanel && showThemePanel && (
         <div
-          className="ui-overlay-card absolute left-[calc(100%-12px)] z-[60] -translate-y-1/2 rounded-3xl"
+          className="ui-overlay-card absolute left-[calc(100%-12px)] z-[60] -translate-y-1/2 rounded-[var(--radius-md)]"
           data-testid="user-theme-popover"
           style={{ top: `${themePopoverTop}px` }}
         >
@@ -262,7 +262,7 @@ export function UserProfile({ className }: UserProfileProps) {
                     key={option.id}
                     type="button"
                     onClick={() => handleSelectTheme(option.id)}
-                    className={`flex min-w-[68px] flex-col items-center gap-2 rounded-2xl px-3 py-2 text-center`}
+                    className={`ui-overlay-item flex min-w-[68px] flex-col items-center gap-2 rounded-2xl px-3 py-2 text-center`}
                     data-testid={`user-theme-option-${option.id}`}
                   >
                     <div className="relative">
