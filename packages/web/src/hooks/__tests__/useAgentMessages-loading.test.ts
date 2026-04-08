@@ -182,7 +182,7 @@ describe('useAgentMessages loading lifecycle', () => {
       expect.objectContaining({
         type: 'assistant',
         catId: 'opus',
-        content: '这次处理没有顺利完成。我先结束本次尝试，你可以稍后重试，或换一种更短、更明确的问法。',
+        content: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。',
       }),
     );
   });
@@ -516,7 +516,7 @@ describe('useAgentMessages loading lifecycle', () => {
       expect.objectContaining({
         type: 'assistant',
         catId: 'dare',
-        content: expect.stringContaining('这次响应花了太久'),
+        content: expect.stringContaining('这次响应超时了'),
       }),
     );
   });
@@ -562,7 +562,7 @@ describe('useAgentMessages loading lifecycle', () => {
       expect.objectContaining({
         type: 'assistant',
         catId: 'jiuwenclaw',
-        content: expect.stringContaining('这次响应花了太久'),
+        content: expect.stringContaining('这次响应超时了'),
       }),
     );
   });
@@ -585,7 +585,7 @@ describe('useAgentMessages loading lifecycle', () => {
       expect.objectContaining({
         type: 'assistant',
         catId: 'jiuwenclaw',
-        content: expect.stringContaining('连接不稳定'),
+        content: expect.stringContaining('配置存在问题'),
       }),
     );
   });

@@ -18,6 +18,11 @@ type SavedScrollState = {
 const scrollPositionsByThread = new Map<string, SavedScrollState>();
 const SCROLL_BOTTOM_THRESHOLD_PX = 24;
 const MAX_RESTORE_FRAMES = 90;
+const USER_CHANNEL_CONNECTORS = new Set(['weixin', 'feishu', 'dingtalk', 'telegram']);
+
+function isUserChannelConnector(connectorId?: string): boolean {
+  return typeof connectorId === 'string' && USER_CHANNEL_CONNECTORS.has(connectorId);
+}
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.clientHeight - el.scrollTop <= SCROLL_BOTTOM_THRESHOLD_PX;
@@ -207,6 +212,7 @@ export function useChatHistory(threadId: string) {
   const prevCountRef = useRef(0);
   const scrollSnapshotRef = useRef<number | null>(null);
   const restoreFrameRef = useRef<number | null>(null);
+  const autoFollowRafRef = useRef<number | null>(null);
 
   // Track loading guard per-thread to prevent double-fetch
   const loadingRef = useRef(false);
@@ -327,7 +333,9 @@ export function useChatHistory(threadId: string) {
                 : m.summary
                   ? 'summary'
                   : m.source
-                    ? 'connector'
+                    ? isUserChannelConnector(m.source.connector)
+                      ? 'user'
+                      : 'connector'
                     : m.catId
                       ? 'assistant'
                       : 'user') as 'user' | 'assistant' | 'system' | 'summary' | 'connector',
@@ -631,6 +639,17 @@ export function useChatHistory(threadId: string) {
     return () => clearTimeout(timer);
   }, [catchUpVersion, catchUpThreadId, threadId, fetchHistory]);
 
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = 'smooth') => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+      const el = scrollContainerRef.current;
+      if (el) {
+        scrollPositionsByThread.set(threadId, { top: el.scrollTop, anchor: 'bottom' });
+      }
+    },
+    [threadId],
+  );
+
   // Snapshot scroll height before history load
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -690,8 +709,31 @@ export function useChatHistory(threadId: string) {
           });
         }
       }
+      return;
+    }
+
+    const saved = scrollPositionsByThread.get(threadId);
+    if (saved?.anchor === 'bottom') {
+      if (autoFollowRafRef.current !== null) return;
+      autoFollowRafRef.current = requestAnimationFrame(() => {
+        autoFollowRafRef.current = null;
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        const scroller = scrollContainerRef.current;
+        if (scroller) {
+          scrollPositionsByThread.set(threadId, { top: scroller.scrollTop, anchor: 'bottom' });
+        }
+      });
     }
   }, [messages, scheduleRestore, threadId]);
+
+  useEffect(() => {
+    return () => {
+      if (autoFollowRafRef.current !== null) {
+        cancelAnimationFrame(autoFollowRafRef.current);
+        autoFollowRafRef.current = null;
+      }
+    };
+  }, []);
 
   // Load more when scrolled to top + clowder-ai#27 continuous scroll save
   const handleScroll = useCallback(() => {
@@ -719,6 +761,7 @@ export function useChatHistory(threadId: string) {
     handleScroll,
     scrollContainerRef,
     messagesEndRef,
+    scrollToBottom,
     isLoadingHistory,
     hasMore,
   };

@@ -602,7 +602,12 @@ export function ModelsPanel() {
                   {group.items.map((card) => {
                     const cardIconSrc = resolveUploadedIconUrl(card.icon);
                     return (
-                    <article key={card.id} className="ui-card group flex min-h-[194px] flex-col gap-4 p-5">
+                    <article
+                      key={card.id}
+                      className={['ui-card', group.key === 'huawei_maas' ? null : 'ui-card-hover', 'group flex min-h-[194px] flex-col gap-4']
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
                       <div>
                         <div className="flex items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}

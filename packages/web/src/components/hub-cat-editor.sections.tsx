@@ -423,7 +423,7 @@ export function AccountSection({
                   form.client === 'acp'
                     ? embeddedAcpRuntime
                       ? '模型标识符，如 gpt-5.4 或 glm-4.7'
-                      : '显示标签，可留如 agent-teams/default'
+                      : '显示标签，可留如 relay-teams/default'
                     : form.client === 'opencode'
                     ? '例如 openai/gpt-5.4 或 openrouter/google/gemini-3-flash-preview'
                     : '模型标识符，如 claude-sonnet-4-5'
@@ -484,7 +484,7 @@ export function EmbeddedAcpConfigSection({
         ariaLabel="ACP Args"
         value={form.embeddedAcpArgs}
         onChange={(value) => onChange({ embeddedAcpArgs: value })}
-        placeholder="留空使用 -m agent_teams gateway acp stdio"
+        placeholder="留空使用 -m relay_teams gateway acp stdio"
       />
       <TextField
         label="ACP CWD"

@@ -781,4 +781,72 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       expect.objectContaining({ id: 'conn-bg-1', type: 'connector' }),
     );
   });
+
+  it('connector_message from weixin is treated as a user bubble', () => {
+    mockStoreCurrentThreadId = 'thread-A';
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onIntentMode: vi.fn(),
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-A' }));
+    });
+
+    act(() => {
+      simulateServerEvent('connector_message', {
+        threadId: 'thread-A',
+        message: {
+          id: 'conn-1',
+          type: 'connector',
+          content: '来自微信的提问',
+          source: { connector: 'weixin', label: '微信', icon: '/images/connectors/weixin.png' },
+          timestamp: Date.now(),
+        },
+      });
+    });
+
+    expect(mockAddMessageToThread).toHaveBeenCalledWith(
+      'thread-A',
+      expect.objectContaining({
+        id: 'conn-1',
+        type: 'user',
+        content: '来自微信的提问',
+      }),
+    );
+  });
+
+  it('connector_message from github-review remains a connector bubble', () => {
+    mockStoreCurrentThreadId = 'thread-A';
+    const callbacks: SocketCallbacks = {
+      onMessage: vi.fn(),
+      onIntentMode: vi.fn(),
+    };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-A' }));
+    });
+
+    act(() => {
+      simulateServerEvent('connector_message', {
+        threadId: 'thread-A',
+        message: {
+          id: 'conn-2',
+          type: 'connector',
+          content: 'PR review requested',
+          source: { connector: 'github-review', label: 'GitHub Review', icon: 'github' },
+          timestamp: Date.now(),
+        },
+      });
+    });
+
+    expect(mockAddMessageToThread).toHaveBeenCalledWith(
+      'thread-A',
+      expect.objectContaining({
+        id: 'conn-2',
+        type: 'connector',
+        content: 'PR review requested',
+      }),
+    );
+  });
 });

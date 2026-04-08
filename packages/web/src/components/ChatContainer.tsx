@@ -242,7 +242,8 @@ function ThreadModeChatContainer({
   );
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
-  const { handleScroll, scrollContainerRef, messagesEndRef, isLoadingHistory, hasMore } = useChatHistory(threadId);
+  const { handleScroll, scrollContainerRef, messagesEndRef, scrollToBottom, isLoadingHistory, hasMore } =
+    useChatHistory(threadId);
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
   const consumedPendingRequestIdsRef = useRef(new Set<string>());
   const {
@@ -258,8 +259,9 @@ function ThreadModeChatContainer({
     if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
 
     consumedPendingRequestIdsRef.current.add(pending.requestId);
+    scrollToBottom('smooth');
     handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
-  }, [consumePendingNewThreadSend, handleSend, threadId]);
+  }, [consumePendingNewThreadSend, handleSend, scrollToBottom, threadId]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -274,11 +276,14 @@ function ThreadModeChatContainer({
   useEffect(() => {
     const handler = (e: Event) => {
       const text = (e as CustomEvent<{ text: string }>).detail.text;
-      if (text) handleSend(text);
+      if (text) {
+        scrollToBottom('smooth');
+        handleSend(text);
+      }
     };
     window.addEventListener('cat-cafe:interactive-send', handler);
     return () => window.removeEventListener('cat-cafe:interactive-send', handler);
-  }, [handleSend]);
+  }, [handleSend, scrollToBottom]);
 
   // F079: Vote modal
   const showVoteModal = useChatStore((s) => s.showVoteModal);
@@ -313,6 +318,7 @@ function ThreadModeChatContainer({
         const optionList = config.options.map((o) => `- ${o}`).join('\n');
         const questionText = String(responseData.question ?? '');
         const notifyMsg = `${mentions}\n投票请求：${questionText}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
+        scrollToBottom('smooth');
         handleSend(notifyMsg);
       } catch (err) {
         addMessage({
@@ -324,7 +330,7 @@ function ThreadModeChatContainer({
         });
       }
     },
-    [threadId, handleSend, setShowVoteModal, addMessage],
+    [threadId, handleSend, scrollToBottom, setShowVoteModal, addMessage],
   );
 
   const messageSummary = useMemo(() => {
@@ -657,7 +663,7 @@ function ThreadModeChatContainer({
             <main
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="ui-shell-surface h-full min-h-0 overflow-y-auto p-4"
+              className="ui-shell-surface h-full min-h-0 overflow-y-auto p-6"
               data-chat-container
             >
               {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
@@ -741,9 +747,10 @@ function ThreadModeChatContainer({
           <ChatInput
             key={threadId}
             threadId={threadId}
-            onSend={(content, images, whisper, deliveryMode) =>
-              handleSend(content, images, undefined, whisper, deliveryMode)
-            }
+            onSend={(content, images, whisper, deliveryMode) => {
+              scrollToBottom('smooth');
+              handleSend(content, images, undefined, whisper, deliveryMode);
+            }}
             onStop={handleStop}
             disabled={false}
             folderSelectionEnabled={false}

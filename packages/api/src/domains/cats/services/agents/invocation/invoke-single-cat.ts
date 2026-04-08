@@ -1466,6 +1466,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const iterResult = await abortableNext(serviceIter, signal);
         if (iterResult.done) break;
         const msg = iterResult.value;
+        if (msg.type === 'error') {
+          log.error(
+            {
+              invocationId,
+              catId,
+              threadId,
+              userId,
+              sessionId: options.sessionId,
+              error: msg.error,
+            },
+            'Agent service emitted error message',
+          );
+        }
         if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
           const failureKind = classifyResumeFailure(msg.error);
           if (failureKind) {
@@ -1652,6 +1665,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
     didComplete = true; // F118 AC-C5: Normal completion reached
   } catch (err) {
+    log.error(
+      {
+        invocationId,
+        catId,
+        threadId,
+        userId,
+        err,
+      },
+      'invokeSingleCat crashed before fallback error emission',
+    );
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
     const durationMs = Date.now() - startTime;
     auditLog

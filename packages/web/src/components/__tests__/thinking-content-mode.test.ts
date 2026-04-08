@@ -117,5 +117,41 @@ describe('ThinkingContent default collapse', () => {
 
     expect(container.querySelector('[data-testid="thinking-toggle"]')?.textContent).toContain('深度思考中');
     expect(container.querySelector('[data-testid="cli-output-toggle"]')?.textContent).toContain('正在执行工具调用');
+    expect(container.querySelector('.thinking-output-body')).toBeTruthy();
+  });
+
+  it('auto-collapse: streaming thinking collapses when done', () => {
+    act(() => {
+      root.render(
+        React.createElement(ChatMessage, {
+          message: {
+            ...thinkingMessage,
+            id: 'msg-streaming-to-done',
+            isStreaming: true,
+            content: '',
+          },
+          getCatById,
+        }),
+      );
+    });
+
+    expect(container.querySelector('.thinking-output-body')).toBeTruthy();
+
+    act(() => {
+      root.render(
+        React.createElement(ChatMessage, {
+          message: {
+            ...thinkingMessage,
+            id: 'msg-streaming-to-done',
+            isStreaming: false,
+            content: '',
+          },
+          getCatById,
+        }),
+      );
+    });
+
+    expect(container.querySelector('[data-testid="thinking-toggle"]')?.textContent).toContain('完成深度思考');
+    expect(container.querySelector('.thinking-output-body')).toBeNull();
   });
 });

@@ -26,7 +26,7 @@ const THEME_OPTIONS: Array<{
     id: 'warm',
     label: '橙白浅色',
     swatchBackground:
-      'linear-gradient(-65.45deg, rgba(123, 72, 255, 1), rgba(200, 27, 181, 0.74) 24%, rgba(255, 100, 84, 0.44) 50%, rgba(255, 119, 49, 0.35) 72%, rgba(255, 92, 12, 1) 100%)',
+      'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
   },
 ];
 
@@ -37,9 +37,12 @@ export function UserProfile({ className }: UserProfileProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
   const [themePopoverTop, setThemePopoverTop] = useState(0);
+  const [themePopoverLeft, setThemePopoverLeft] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
+  const profilePanelRef = useRef<HTMLDivElement>(null);
   const panelScrollRef = useRef<HTMLDivElement>(null);
   const themeAnchorRef = useRef<HTMLDivElement>(null);
+  const themePopoverRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const userId = getUserId();
   const { theme, setTheme } = useTheme();
@@ -56,11 +59,13 @@ export function UserProfile({ className }: UserProfileProps) {
     'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[16px] font-normal leading-[20px]';
 
   const updateThemePopoverPosition = () => {
-    if (!panelRef.current || !themeAnchorRef.current) return;
+    if (!panelRef.current || !profilePanelRef.current || !themeAnchorRef.current) return;
 
     const rootRect = panelRef.current.getBoundingClientRect();
+    const profilePanelRect = profilePanelRef.current.getBoundingClientRect();
     const anchorRect = themeAnchorRef.current.getBoundingClientRect();
     setThemePopoverTop(anchorRect.top - rootRect.top);
+    setThemePopoverLeft(profilePanelRect.right - rootRect.left);
   };
 
   const handleTogglePanel = () => {
@@ -81,8 +86,17 @@ export function UserProfile({ className }: UserProfileProps) {
     setShowVersionUpdate(false);
   };
 
+  const openThemePanel = () => {
+    updateThemePopoverPosition();
+    setShowThemePanel(true);
+  };
+
   const handleToggleThemePanel = () => {
-    setShowThemePanel((prev) => !prev);
+    if (showThemePanel) {
+      setShowThemePanel(false);
+      return;
+    }
+    openThemePanel();
   };
 
   const handleSelectTheme = (nextTheme: ThemeType) => {
@@ -156,14 +170,14 @@ export function UserProfile({ className }: UserProfileProps) {
   }, []);
 
   return (
-    <div className={`relative ${className ?? ''}`} ref={panelRef}>
+    <div className={`border-none relative ${className ?? ''}`} ref={panelRef}>
       <button
         type="button"
         onClick={handleTogglePanel}
-        className="group flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-gray-50"
+        className="group border-none flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-gray-50"
         data-testid="user-profile-toggle"
       >
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#F2F2F2]">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">
           <span className="text-sm font-bold text-[#191919]">{avatarLetter}</span>
         </div>
 
@@ -174,7 +188,7 @@ export function UserProfile({ className }: UserProfileProps) {
         </div>
 
         <svg
-          className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${showPanel ? 'rotate-90' : ''}`}
+          className={`h-4 w-4 shrink-0 text-[#191919] transition-transform ${showPanel ? 'rotate-90' : ''}`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -188,11 +202,12 @@ export function UserProfile({ className }: UserProfileProps) {
         <div
           className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 mb-2 rounded-[var(--radius-lg)]"
           data-testid="user-profile-panel"
+          ref={profilePanelRef}
         >
           <div className="p-4" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
             <div className="mb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F2F2F2]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">
                   <span className="text-base font-bold text-[#191919]">{avatarLetter}</span>
                 </div>
                 <div className="min-w-0 flex-1">
@@ -214,14 +229,28 @@ export function UserProfile({ className }: UserProfileProps) {
                 版本更新
               </button>
 
-              <div className="relative" data-testid="user-profile-theme-anchor" ref={themeAnchorRef}>
+              <div
+                className="relative"
+                data-testid="user-profile-theme-anchor"
+                ref={themeAnchorRef}
+              >
                 <button
                   className={profileActionClass}
                   onClick={handleToggleThemePanel}
                   data-testid="user-profile-theme-trigger"
                 >
                   <img src="/icons/userprofile/theme.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
-                  主题模式
+                  <span className="flex-1 text-left">主题模式</span>
+                  <svg
+                    data-testid="user-profile-theme-arrow"
+                    className="h-4 w-4 shrink-0 text-[var(--overlay-item-text)]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               </div>
 
@@ -249,12 +278,13 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showPanel && showThemePanel && (
         <div
-          className="ui-overlay-card absolute left-[calc(100%-12px)] z-[60] -translate-y-1/2 rounded-[var(--radius-md)]"
+          ref={themePopoverRef}
+          className="ui-overlay-card absolute z-[60] rounded-[var(--radius-md)] shadow-[0px_4px_16px_0px_rgba(0,0,0,0.08)]"
           data-testid="user-theme-popover"
-          style={{ top: `${themePopoverTop}px` }}
+          style={{ top: `${themePopoverTop}px`, left: `${themePopoverLeft}px` }}
         >
           <div className="p-4">
-            <div className="flex items-start justify-between gap-4" data-testid="user-theme-options">
+            <div className="flex items-start gap-4" data-testid="user-theme-options">
               {THEME_OPTIONS.map((option) => {
                 const isActive = theme === option.id;
                 return (
@@ -262,7 +292,7 @@ export function UserProfile({ className }: UserProfileProps) {
                     key={option.id}
                     type="button"
                     onClick={() => handleSelectTheme(option.id)}
-                    className={`ui-overlay-item flex min-w-[68px] flex-col items-center gap-2 rounded-2xl px-3 py-2 text-center`}
+                    className={`ui-overlay-item flex flex-col items-center gap-2 text-center hover:border-transparent hover:bg-transparent hover:text-[var(--overlay-item-text)] focus-visible:border-transparent focus-visible:bg-transparent focus-visible:text-[var(--overlay-item-text)]`}
                     data-testid={`user-theme-option-${option.id}`}
                   >
                     <div className="relative">
@@ -276,7 +306,7 @@ export function UserProfile({ className }: UserProfileProps) {
                           className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white"
                           data-testid={`user-theme-selected-badge-${option.id}`}
                         >
-                          <svg className="h-2.5 w-2.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <svg className="h-2.5 w-2.5" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
                             <path
                               d="M4 8.25 6.5 10.75 12 5.25"
                               stroke="currentColor"
@@ -288,7 +318,9 @@ export function UserProfile({ className }: UserProfileProps) {
                         </div>
                       )}
                     </div>
-                    <span className="text-[12px] font-medium leading-[18px] text-[#2E3440]">{option.label}</span>
+                    <span className="whitespace-nowrap text-[12px] font-medium leading-[18px] text-[#2E3440]">
+                      {option.label}
+                    </span>
                   </button>
                 );
               })}

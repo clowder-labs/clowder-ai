@@ -14,7 +14,7 @@ interface CatAvatarProps {
   showRing?: boolean;
 }
 
-export function CatAvatar({ catId, size = 32, status, showRing = true }: CatAvatarProps) {
+export function CatAvatar({ catId, size = 32, status, showRing = false }: CatAvatarProps) {
   const [imgError, setImgError] = useState(false);
   const { getCatById } = useCatData();
   const cat = getCatById(catId);
