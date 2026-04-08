@@ -76,7 +76,7 @@ describe('SkillDetailView', () => {
     mockApiFetch.mockReset();
   });
 
-  it('requests detail and renders avatar, heading metadata, and description card', async () => {
+  it('requests detail and renders the detail page sections from the mockup without extra actions', async () => {
     await act(async () => {
       root.render(
         React.createElement(SkillDetailView, {
@@ -91,15 +91,25 @@ describe('SkillDetailView', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/detail?name=demo-skill', { signal: expect.any(AbortSignal) });
     expect(container.textContent).toContain('我的技能');
     expect(container.textContent).toContain('demo-skill');
-    expect(container.textContent).toContain('Automation');
+    expect(container.textContent).toContain('基础信息');
+    expect(container.textContent).toContain('文件目录');
+    expect(container.textContent).toContain('名称');
+    expect(container.textContent).toContain('更新时间');
+    expect(container.textContent).toContain('描述');
     expect(container.textContent).toContain('demo');
     expect(container.textContent).toContain('SKILL.md');
     expect(container.querySelector('[data-testid="skill-detail-avatar"]')).not.toBeNull();
     expect(container.querySelector('img[alt="demo-skill avatar"]')?.getAttribute('src')).toBe('/avatars/demo-skill.png');
     expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Automation');
-    expect(container.querySelector('[data-testid="skill-detail-description-card"]')?.textContent).toContain(
+    expect(container.querySelector('[data-testid="skill-detail-description-card"]')).toBeNull();
+    expect(container.querySelector('[data-testid="skill-detail-basic-info"]')?.textContent).toContain(
       'Skill detail description',
     );
+    expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');
+    const updateButton = Array.from(container.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.trim() === '更新',
+    );
+    expect(updateButton).toBeUndefined();
   });
 
   it('navigates back when clicking the 我的技能 breadcrumb', async () => {
