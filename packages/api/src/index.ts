@@ -180,6 +180,8 @@ import {
 } from './utils/jiuwenclaw-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
+import { registerAuthMiddleware } from './auth/middleware.js';
+import { authSessionStore } from './auth/session-store.js';
 import { isSeedCat } from './config/cat-account-binding.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);
@@ -235,6 +237,11 @@ async function main(): Promise<void> {
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
+
+  // Global auth middleware — resolves session credential → request.auth
+  registerAuthMiddleware(app, authSessionStore, {
+    skipAuth: process.env.CAT_CAFE_SKIP_AUTH === '1',
+  });
 
   // Create invocation tracker for cancellation support
   const invocationTracker = new InvocationTracker();
@@ -1023,7 +1030,21 @@ async function main(): Promise<void> {
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
-  await app.register(authRoutes);
+  await app.register(authRoutes, {
+    onPostLogin: async (request, session) => {
+      // Refresh model cache after login (Huawei MaaS reads session.providerState).
+      // Safe no-op for providers without MaaS data — the endpoint handles it gracefully.
+      try {
+        await request.server.inject({
+          method: 'GET',
+          url: '/api/maas-models',
+          headers: { authorization: `Bearer ${session.sessionId}` },
+        });
+      } catch {
+        // Non-fatal: model cache refresh is best-effort
+      }
+    },
+  });
   await app.register(versionRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);

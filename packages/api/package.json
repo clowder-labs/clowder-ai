@@ -21,6 +21,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@cat-cafe/plugin-api": "workspace:*",
     "@cat-cafe/shared": "workspace:*",
     "@fastify/cors": "^9.0.0",
     "@fastify/multipart": "8",

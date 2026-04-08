@@ -32,6 +32,7 @@ import {
 import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { embeddedAgentTeamsRuntimeAvailable, resolveEmbeddedAgentTeamsExecutable } from '../utils/agent-teams-bundle.js';
 import { getAllowedClientIds } from '../utils/client-visibility.js';
 import { resolveEmbeddedAgentTeamsBinding } from '../utils/embedded-runtime-bindings.js';
@@ -146,15 +147,6 @@ const updateCatSchema = z.object({
   embeddedAcpExecutablePath: z.string().min(1).nullable().optional(),
   embeddedAcpConfig: embeddedAcpConfigSchema.nullable().optional(),
 });
-
-function resolveOperator(raw: unknown): string | null {
-  if (typeof raw === 'string' && raw.trim().length > 0) return raw.trim();
-  if (Array.isArray(raw)) {
-    const first = raw.find((value) => typeof value === 'string' && value.trim().length > 0);
-    if (typeof first === 'string') return first.trim();
-  }
-  return null;
-}
 
 function resolveProjectRoot(): string {
   return resolveActiveProjectRoot();
@@ -516,7 +508,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.post('/api/cats', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveHeaderUserId(request);
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
@@ -643,7 +635,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.patch<{ Params: { id: string } }>('/api/cats/:id', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveHeaderUserId(request);
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
@@ -795,7 +787,7 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.delete<{ Params: { id: string } }>('/api/cats/:id', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveHeaderUserId(request);
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Cat-Cafe-User header)' };

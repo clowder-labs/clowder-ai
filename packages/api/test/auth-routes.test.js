@@ -1,73 +1,241 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
-import { after, before, beforeEach, describe, it } from 'node:test';
-import Conf from 'conf';
+import { beforeEach, describe, test } from 'node:test';
 import Fastify from 'fastify';
-import { authRoutes, sessions } from '../dist/routes/auth.js';
 
-const secureConfig = new Conf({
-  projectName: 'secure-config',
-  encryptionKey: 'clowder-ai-secure-key',
-  encryptionAlgorithm: 'aes-256-gcm',
-});
+const { authRoutes } = await import('../dist/routes/auth.js');
+const { AuthProviderRegistry } = await import('../dist/auth/provider-registry.js');
+const { InMemoryAuthSessionStore } = await import('../dist/auth/session-store.js');
+const { registerAuthMiddleware } = await import('../dist/auth/middleware.js');
+
+function createProvider(overrides = {}) {
+  return {
+    id: 'test-provider',
+    displayName: 'Test Provider',
+    presentation: {
+      mode: 'form',
+      fields: [
+        { name: 'tenant', label: 'Tenant', type: 'text', required: true },
+        { name: 'secret', label: 'Secret', type: 'password', required: true },
+      ],
+      submitLabel: 'Sign in',
+    },
+    async authenticate(_input) {
+      return {
+        success: true,
+        principal: {
+          userId: 'tenant:alice',
+          displayName: 'Alice',
+          expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+        },
+      };
+    },
+    ...overrides,
+  };
+}
+
+async function createApp(provider) {
+  const registry = new AuthProviderRegistry();
+  registry.register(provider);
+  const sessionStore = new InMemoryAuthSessionStore();
+  const app = Fastify();
+  // Register auth middleware (resolves session credential → request.auth)
+  registerAuthMiddleware(app, sessionStore, { skipAuth: false });
+  await app.register(authRoutes, {
+    authModule: {
+      activeProviderId: provider.id,
+      providerRegistry: registry,
+      getActiveProvider() {
+        return registry.get(provider.id);
+      },
+    },
+    sessionStore,
+  });
+  return { app, sessionStore };
+}
 
 describe('auth routes', () => {
-  let app;
-  let refreshCount = 0;
-  const userId = `domain-${randomUUID()}:user-${randomUUID()}`;
-  const expiresAt = new Date(Date.now() + 60_000).toISOString();
-
-  before(async () => {
-    app = Fastify();
-    app.get('/api/maas-models', async (request) => {
-      refreshCount += 1;
-      assert.equal(request.headers['x-cat-cafe-user'], userId);
-      assert.equal(request.headers['x-refresh'], 'true');
-      return { models: [] };
+  test('GET /api/islogin auto-authenticates when provider mode is auto', async () => {
+    let calls = 0;
+    const provider = createProvider({
+      id: 'no-auth',
+      displayName: 'No Auth',
+      presentation: { mode: 'auto', fields: [], submitLabel: 'Continue' },
+      async authenticate() {
+        calls += 1;
+        return {
+          success: true,
+          principal: { userId: 'guest-user', displayName: 'Guest', expiresAt: null },
+        };
+      },
     });
-    await app.register(authRoutes);
-    await app.ready();
+
+    const { app, sessionStore } = await createApp(provider);
+    const response = await app.inject({ method: 'GET', url: '/api/islogin' });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(calls, 1);
+    assert.equal(sessionStore.getByUserId('guest-user')?.providerId, 'no-auth');
+
+    const body = response.json();
+    assert.equal(body.islogin, true);
+    assert.equal(body.userId, 'guest-user');
+    assert.equal(body.isskip, true);
+    assert.equal(body.provider.id, 'no-auth');
   });
 
-  beforeEach(() => {
-    refreshCount = 0;
-    sessions.clear();
-    secureConfig.set(userId, expiresAt);
-    secureConfig.set(`${userId}-new`, {
-      userId,
-      token: '',
-      expiresAt,
-      credential: {},
-      modelInfo: {},
+  test('GET /api/islogin exposes active provider schema when login is required', async () => {
+    const provider = createProvider({
+      id: 'corp-oidc',
+      displayName: 'Corp SSO',
+      presentation: {
+        mode: 'form',
+        fields: [
+          { name: 'workspaceId', label: 'Workspace', type: 'text', required: true },
+          { name: 'apiToken', label: 'Token', type: 'password', required: true },
+        ],
+        submitLabel: 'Connect',
+      },
     });
+
+    const { app } = await createApp(provider);
+    const response = await app.inject({ method: 'GET', url: '/api/islogin' });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.equal(body.islogin, false);
+    assert.equal(body.provider.id, 'corp-oidc');
+    assert.equal(body.provider.mode, 'form');
+    assert.equal(body.provider.fields.length, 2);
   });
 
-  after(async () => {
-    sessions.clear();
-    secureConfig.delete(userId);
-    secureConfig.delete(`${userId}-new`);
-    await app.close();
+  test('POST /api/login delegates credentials to the active provider and stores session', async () => {
+    let receivedInput = null;
+    const provider = createProvider({
+      id: 'corp-oidc',
+      async authenticate(input) {
+        receivedInput = input;
+        return {
+          success: true,
+          principal: {
+            userId: 'corp:alice',
+            displayName: 'Alice',
+            expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+          },
+        };
+      },
+    });
+
+    const { app, sessionStore } = await createApp(provider);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/login',
+      payload: { workspaceId: 'acme', apiToken: 'shh' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    // Verify credentials are wrapped in AuthenticateInput format
+    assert.deepEqual(receivedInput.credentials, { workspaceId: 'acme', apiToken: 'shh' });
+    assert.ok(response.headers['x-session-id']);
+    assert.equal(sessionStore.getByUserId('corp:alice')?.providerId, 'corp-oidc');
+
+    const body = response.json();
+    assert.equal(body.success, true);
+    assert.equal(body.userId, 'corp:alice');
+    assert.equal(body.providerId, 'corp-oidc');
+    assert.ok(body.sessionId);
   });
 
-  it('refreshes maas models on the first islogin call for an already logged-in user', async () => {
-    const firstResponse = await app.inject({
-      method: 'GET',
-      url: '/api/islogin',
-      headers: { 'x-cat-cafe-user': userId },
+  test('POST /api/login calls postLoginInit after session issuance', async () => {
+    let initCalled = false;
+    let initSessionInfo = null;
+    const provider = createProvider({
+      id: 'hook-test',
+      async authenticate() {
+        return {
+          success: true,
+          principal: { userId: 'hook-user', displayName: 'Hook', expiresAt: null },
+        };
+      },
+      async postLoginInit(session) {
+        initCalled = true;
+        initSessionInfo = session;
+      },
     });
 
-    assert.equal(firstResponse.statusCode, 200);
-    assert.equal(JSON.parse(firstResponse.body).islogin, true);
-    assert.equal(refreshCount, 1);
+    const { app } = await createApp(provider);
+    await app.inject({ method: 'POST', url: '/api/login', payload: {} });
 
-    const secondResponse = await app.inject({
-      method: 'GET',
-      url: '/api/islogin',
-      headers: { 'x-cat-cafe-user': userId },
+    assert.equal(initCalled, true);
+    assert.equal(initSessionInfo.userId, 'hook-user');
+    assert.equal(initSessionInfo.providerId, 'hook-test');
+    assert.ok(initSessionInfo.sessionId);
+  });
+
+  test('POST /api/login does not fail when postLoginInit throws', async () => {
+    const provider = createProvider({
+      id: 'failing-hook',
+      async authenticate() {
+        return {
+          success: true,
+          principal: { userId: 'resilient-user', displayName: 'Res', expiresAt: null },
+        };
+      },
+      async postLoginInit() {
+        throw new Error('MaaS subscription exploded');
+      },
     });
 
-    assert.equal(secondResponse.statusCode, 200);
-    assert.equal(JSON.parse(secondResponse.body).islogin, true);
-    assert.equal(refreshCount, 1);
+    const { app, sessionStore } = await createApp(provider);
+    const response = await app.inject({ method: 'POST', url: '/api/login', payload: {} });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json().success, true);
+    // Session was still created despite hook failure
+    assert.ok(sessionStore.getByUserId('resilient-user'));
+  });
+
+  test('POST /api/logout clears the session and calls provider logout', async () => {
+    let logoutSession = null;
+    const provider = createProvider({
+      id: 'corp-oidc',
+      async logout(session) {
+        logoutSession = session;
+      },
+    });
+    const { app, sessionStore } = await createApp(provider);
+    const session = sessionStore.create(provider.id, {
+      userId: 'corp:alice',
+      displayName: 'Alice',
+      expiresAt: new Date('2099-01-01'),
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/logout',
+      headers: { authorization: `Bearer ${session.sessionId}` },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(sessionStore.getByUserId('corp:alice'), null);
+    assert.equal(response.json().success, true);
+    assert.equal(logoutSession.userId, 'corp:alice');
+  });
+
+  test('session store cleans up old session when same user logs in again', async () => {
+    const provider = createProvider({ id: 'relogin-test' });
+    const { app, sessionStore } = await createApp(provider);
+
+    // First login
+    const res1 = await app.inject({ method: 'POST', url: '/api/login', payload: { tenant: 'a', secret: 'b' } });
+    const session1Id = res1.json().sessionId;
+
+    // Second login (same user)
+    const res2 = await app.inject({ method: 'POST', url: '/api/login', payload: { tenant: 'a', secret: 'b' } });
+    const session2Id = res2.json().sessionId;
+
+    // Old session should be gone
+    assert.equal(sessionStore.getBySessionId(session1Id), null);
+    // New session should exist
+    assert.ok(sessionStore.getBySessionId(session2Id));
   });
 });

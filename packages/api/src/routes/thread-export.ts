@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { ImageExporter } from '../services/ImageExporter.js';
-import { resolveUserId } from '../utils/request-identity.js';
+import { resolveSessionId, resolveUserId } from '../utils/request-identity.js';
 
 export { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
 
@@ -63,7 +63,8 @@ export const threadExportRoutes: FastifyPluginAsync<ThreadExportRoutesOptions> =
 
       // Use shared exporter (browser reuse across requests)
       const exporter = sharedExporter ?? (sharedExporter = new ImageExporter());
-      const imageBuffer = await exporter.capture(url, userId);
+      const sessionId = resolveSessionId(request);
+      const imageBuffer = await exporter.capture(url, userId, sessionId ?? undefined);
 
       reply.type('image/png').send(imageBuffer);
     } catch (error) {

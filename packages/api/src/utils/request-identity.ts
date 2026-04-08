@@ -1,15 +1,12 @@
 /**
  * Unified request identity resolver.
  *
- * Priority: X-Cat-Cafe-User header > userId query param > fallbackUserId > defaultUserId
- *
- * Header-based identity is preferred because:
- * - Not logged in access logs / referer headers / browser history
- * - Single injection point in frontend api-client
- * - Easier to upgrade to JWT/session later
+ * Identity source: request.auth (populated by auth middleware from session credential).
+ * SessionAuthority is the sole truth source — no header/query fallbacks for identity.
  */
 
 import type { FastifyRequest } from 'fastify';
+import type { AuthContext } from '../auth/types.js';
 
 export interface ResolveUserIdOptions {
   /** Optional explicit fallback (e.g., legacy body/form field). */
@@ -24,22 +21,26 @@ function nonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function getAuthContext(request: FastifyRequest): AuthContext | null {
+  return (request as FastifyRequest & { auth?: AuthContext }).auth ?? null;
+}
+
 /**
- * Trusted request identity source for browser/API calls.
- *
- * Unlike resolveUserId(), this does not accept caller-controlled query params.
+ * Trusted request identity source.
+ * Reads from request.auth (session credential resolved by middleware).
  */
 export function resolveHeaderUserId(request: FastifyRequest): string | null {
-  return nonEmptyString(request.headers['x-cat-cafe-user']);
+  return getAuthContext(request)?.userId ?? null;
+}
+
+/** Extracts the session ID from the middleware-populated auth context. */
+export function resolveSessionId(request: FastifyRequest): string | null {
+  return getAuthContext(request)?.sessionId ?? null;
 }
 
 export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {
-  const fromHeader = resolveHeaderUserId(request);
-  if (fromHeader) return fromHeader;
-
-  const query = request.query as Record<string, unknown>;
-  const fromQuery = nonEmptyString(query.userId);
-  if (fromQuery) return fromQuery;
+  const fromAuth = resolveHeaderUserId(request);
+  if (fromAuth) return fromAuth;
 
   const fromFallback = nonEmptyString(options?.fallbackUserId);
   if (fromFallback) return fromFallback;

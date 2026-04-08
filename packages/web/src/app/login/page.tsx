@@ -3,8 +3,14 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import {
+  buildInitialAuthFormValues,
+  shouldRenderAuthField,
+  type AuthFieldSchema,
+  type AuthProviderInfo,
+} from '@/utils/auth-provider';
 import { apiFetch } from '@/utils/api-client';
-import { setIsSkipAuth, setUserId } from '@/utils/userId';
+import { setIsSkipAuth, setSessionId, setUserId } from '@/utils/userId';
 
 function PasswordEyeIcon({ visible }: { visible: boolean }) {
   if (visible) {
@@ -31,18 +37,67 @@ function PasswordEyeIcon({ visible }: { visible: boolean }) {
 }
 
 export default function LoginPage() {
-  const [userType, setUserType] = useState<'huawei' | 'iam'>('huawei');
-  const [userName, setUserName] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [promotionCode, setPromotionCode] = useState('');
+  const [provider, setProvider] = useState<AuthProviderInfo | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [hasCode, setHasCode] = useState(true);
-  const [domainName, setDomainName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [agreeToTerms, setAgreeToTerms] = useState(true);
   const promotionCodeRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  const handleFieldChange = (name: string, value: string) => {
+    setFormValues((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const renderField = (field: AuthFieldSchema) => {
+    const value = formValues[field.name] ?? '';
+    const required = field.name === 'promotionCode' ? !hasCode : Boolean(field.required);
+
+    if (!shouldRenderAuthField(field, hasCode)) {
+      return null;
+    }
+
+    if (field.type === 'select') {
+      return (
+        <div key={field.name}>
+          <select
+            id={field.name}
+            name={field.name}
+            required={required}
+            className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
+            value={value}
+            onChange={(e) => handleFieldChange(field.name, e.target.value)}
+          >
+            {(field.options ?? []).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.name}>
+        <input
+          ref={field.name === 'promotionCode' ? promotionCodeRef : undefined}
+          id={field.name}
+          name={field.name}
+          type={field.type}
+          required={required}
+          className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
+          placeholder={field.placeholder || field.label}
+          value={value}
+          onChange={(e) => handleFieldChange(field.name, e.target.value)}
+        />
+      </div>
+    );
+  };
 
   // 检查是否已登录
   useEffect(() => {
@@ -51,10 +106,20 @@ export default function LoginPage() {
         const response = await apiFetch('/api/islogin');
         const data = await response.json();
         setIsSkipAuth(Boolean(data?.isskip));
-        setHasCode(Boolean(data?.hascode));
+        setHasCode(Boolean(data?.hascode ?? true));
+        if (data?.provider) {
+          setProvider(data.provider);
+          setFormValues(buildInitialAuthFormValues(data.provider.fields ?? []));
+        }
 
         if (data.islogin) {
-          // 已登录则跳转到首页
+          if (typeof data.userId === 'string' && data.userId.length > 0) {
+            setUserId(data.userId);
+          }
+          if (typeof data.sessionId === 'string' && data.sessionId.length > 0) {
+            setSessionId(data.sessionId);
+          }
+          // 已登录，跳转到首页
           router.replace('/');
         }
       } catch (err) {
@@ -64,41 +129,29 @@ export default function LoginPage() {
     void checkLoginStatus();
   }, [router]);
 
-  useEffect(() => {
-    if (!password) {
-      setShowPassword(false);
-    }
-  }, [password]);
-
-  const handleUserTypeChange = (nextUserType: 'huawei' | 'iam') => {
-    setUserType(nextUserType);
-    setError('');
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!provider) return;
     setIsLoading(true);
     setError('');
 
     try {
-
-      const loginData =
-        userType === 'iam' ? { userName, password, domainName, userType } : { password, domainName, userType };
-
       const response = await apiFetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...loginData, promotionCode }),
+        body: JSON.stringify(formValues),
       });
 
       const data = await response.json();
-      console.log('login->', data);
       if (data.success) {
-        // 设置用户 ID 到 localStorage
+        // 设置用户ID和sessionId到localStorage
         setUserId(data.userId);
-        // 登录成功后跳转到首页
+        if (typeof data.sessionId === 'string' && data.sessionId.length > 0) {
+          setSessionId(data.sessionId);
+        }
+        // 登录成功，跳转到首页
         router.replace('/');
       } else if (data.needCode === true) {
         setHasCode(false);
@@ -177,84 +230,12 @@ export default function LoginPage() {
         <div className="w-[clamp(280px,36vw,450px)] flex-shrink-0">
           <div className="mx-auto w-full rounded-xl border border-gray-200 bg-white p-6 shadow-lg sm:p-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎使用 OfficeClaw</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎使用OfficeClaw</h2>
+              {provider?.description && <p className="text-sm text-gray-500">{provider.description}</p>}
             </div>
             <form className="space-y-6" onSubmit={handleLogin}>
               <div className="space-y-4">
-                {/* 域名输入框 */}
-                <div>
-                  <input
-                    id="domainName"
-                    name="domainName"
-                    type="text"
-                    required
-                    className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
-                    placeholder={userType === 'huawei' ? '华为云账号' : '租户名'}
-                    value={domainName}
-                    onChange={(e) => setDomainName(e.target.value)}
-                  />
-                </div>
-
-                {/* 用户名输入框 - IAM用户时显示 */}
-                {userType === 'iam' && (
-                  <div>
-                    <input
-                      id="userName"
-                      name="userName"
-                      type="text"
-                      required
-                      className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
-                      placeholder="IAM用户名"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                    />
-                  </div>
-                )}
-
-                {/* 密码输入框 */}
-                <div className="relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    className="ui-input login-password-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
-                    placeholder="密码"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onCopy={(event) => event.preventDefault()}
-                    onCut={(event) => event.preventDefault()}
-                  />
-                  {password ? (
-                    <button
-                      type="button"
-                      data-testid="login-password-visibility-toggle"
-                      aria-label={showPassword ? '隐藏密码' : '显示密码'}
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#8C95A6] transition-colors hover:text-[#4B5563]"
-                    >
-                      <span className="h-5 w-5">
-                        <PasswordEyeIcon visible={showPassword} />
-                      </span>
-                    </button>
-                  ) : null}
-                </div>
-
-                {!hasCode && (
-                  <div>
-                    <input
-                      ref={promotionCodeRef}
-                      id="promotionCode"
-                      name="promotionCode"
-                      type="text"
-                      required
-                      className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
-                      placeholder="请输入邀请码"
-                      value={promotionCode}
-                      onChange={(e) => setPromotionCode(e.target.value)}
-                    />
-                  </div>
-                )}
+                {(provider?.fields ?? []).map(renderField)}
               </div>
 
               {error && <div className="text-red-600 text-sm text-center bg-red-50 p-2 rounded-md">{error}</div>}
@@ -262,10 +243,10 @@ export default function LoginPage() {
               <div>
                 <button
                   type="submit"
-                  disabled={isLoading || !agreeToTerms}
+                  disabled={isLoading || !agreeToTerms || !provider}
                   className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? '登录中...' : '登录'}
+                  {isLoading ? '登录中...' : provider?.submitLabel || '登录'}
                 </button>
               </div>
 
@@ -297,35 +278,6 @@ export default function LoginPage() {
                     <div className="w-full border-t border-gray-300"></div>
                   </div>
                 </div>
-              </div>
-
-              {/* 用户类型切换链接 */}
-              <div className="text-center mb-2">
-                <span className="text-sm text-gray-600">
-                  {userType === 'huawei' ? (
-                    <>
-                      使用 IAM 用户登录？{' '}
-                      <button
-                        type="button"
-                        onClick={() => handleUserTypeChange('iam')}
-                        className="text-indigo-600 hover:text-indigo-500 font-medium"
-                      >
-                        切换到 IAM
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      使用华为云账号登录？{' '}
-                      <button
-                        type="button"
-                        onClick={() => handleUserTypeChange('huawei')}
-                        className="text-indigo-600 hover:text-indigo-500 font-medium"
-                      >
-                        切换到华为云
-                      </button>
-                    </>
-                  )}
-                </span>
               </div>
 
               {/* 同意条款复选框 */}

@@ -2,11 +2,12 @@
  * Unified API client for Clowder AI frontend.
  *
  * - Auto-prepends NEXT_PUBLIC_API_URL
- * - Auto-injects X-Cat-Cafe-User identity header on every request
+ * - Auto-injects session credential (Authorization: Bearer) on every request
+ * - Falls back to X-Cat-Cafe-User for legacy compatibility
  * - Replaces scattered raw fetch() calls across hooks/components
  */
 
-import { getUserId } from './userId';
+import { getSessionId } from './userId';
 
 function getBrowserLocation(): Location | null {
   if (typeof globalThis !== 'object' || globalThis === null) return null;
@@ -51,7 +52,11 @@ export const API_URL = resolveApiUrl();
  */
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
-  headers.set('X-Cat-Cafe-User', getUserId());
+  // Session credential — sole auth channel (SessionAuthority is truth source)
+  const sessionId = getSessionId();
+  if (sessionId) {
+    headers.set('Authorization', `Bearer ${sessionId}`);
+  }
   return fetch(`${API_URL}${path}`, {
     ...init,
     headers,

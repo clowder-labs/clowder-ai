@@ -1,4 +1,4 @@
-import { sessions } from '../routes/auth.js';
+import { authSessionStore } from '../auth/session-store.js';
 
 interface HuaweiMaaSAuthInfo {
   model_app_key?: string;
@@ -36,18 +36,19 @@ export interface HuaweiMaaSRuntimeConfig {
 }
 
 export function resolveHuaweiMaaSRuntimeConfig(userId: string): HuaweiMaaSRuntimeConfig {
-  const session = sessions.get(userId);
+  const session = authSessionStore.getByUserId(userId);
   if (!session) {
     throw new Error('Huawei MaaS session not found');
   }
-  if (new Date(session.expiresAt).getTime() <= Date.now()) {
-    throw new Error('Huawei MaaS session expired');
-  }
-  if (!isRecord(session.modelInfo)) {
+  // Session expiry is now handled by the store itself (getByUserId returns null if expired).
+  // Extract modelInfo from providerState (Huawei provider stores it there).
+  const providerState = isRecord(session.providerState) ? session.providerState : {};
+  const modelInfo = isRecord(providerState.modelInfo)
+    ? (providerState.modelInfo as HuaweiMaaSSessionModelInfo)
+    : null;
+  if (!modelInfo) {
     throw new Error('Huawei MaaS model info is missing');
   }
-
-  const modelInfo = session.modelInfo as HuaweiMaaSSessionModelInfo;
   const rawBaseUrl = modelInfo.model_api_url_base?.trim();
   if (!rawBaseUrl) {
     throw new Error('Huawei MaaS model_api_url_base is missing');

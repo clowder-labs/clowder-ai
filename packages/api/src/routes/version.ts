@@ -7,8 +7,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FastifyInstance } from 'fastify';
+import { authSessionStore } from '../auth/session-store.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 import { getErrorMessage } from '../utils/index.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 interface VersionRoutesOptions {
   projectRoot?: string;
@@ -39,13 +41,17 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
   app.get('/api/lastversion', async (request) => {
     const curversion = getPackageVersion(projectRoot);
     try {
-      const userId = request.headers['x-cat-cafe-user'] as string;
+      const userId = resolveHeaderUserId(request);
       if (!userId) {
         throw new Error('Unauthorized: Missing user ID');
       }
+      const session = authSessionStore.getByUserId(userId);
+      const providerState = session?.providerState as Record<string, unknown> | undefined;
+      const token = typeof providerState?.token === 'string' ? providerState.token : '';
       const response = await fetch('https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-latest-version', {
         headers: {
           'Content-Type': 'application/json;charset=utf8',
+          'X-Auth-Token': token,
         },
       });
       if (!response.ok) {

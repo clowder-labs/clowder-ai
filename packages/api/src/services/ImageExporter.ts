@@ -27,7 +27,7 @@ export class ImageExporter {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private browser: any = null;
 
-  async capture(url: string, userId: string): Promise<Buffer> {
+  async capture(url: string, userId: string, sessionId?: string): Promise<Buffer> {
     if (!puppeteer || !sharp) {
       throw new Error('ImageExporter requires puppeteer and sharp — install them with: pnpm add puppeteer sharp');
     }
@@ -41,7 +41,11 @@ export class ImageExporter {
 
       const page = await this.browser.newPage();
 
-      await page.setExtraHTTPHeaders({ 'X-Cat-Cafe-User': userId });
+      const headers: Record<string, string> = {};
+      if (sessionId) {
+        headers['Authorization'] = `Bearer ${sessionId}`;
+      }
+      await page.setExtraHTTPHeaders(headers);
       await page.setViewport({ width: VIEWPORT_WIDTH, height: CHUNK_HEIGHT });
 
       const exportUrl = new URL(url);
