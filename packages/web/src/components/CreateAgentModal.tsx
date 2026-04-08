@@ -98,35 +98,22 @@ const AVATAR_FORMAT_HINT = 'png、jpeg、gif、jpg';
 
 // 预设头像列表
 const PRESET_AVATARS = [
-  '/avatars/agent-avatar-1.png',
-  '/avatars/agent-avatar-2.png',
-  '/avatars/agent-avatar-3.png',
-  '/avatars/agent-avatar-4.png',
-  '/avatars/agent-avatar-5.png',
-  '/avatars/agent-avatar-6.png',
-  '/avatars/agent-avatar-7.png',
-  '/avatars/agent-avatar-8.png',
-  '/avatars/agent-avatar-9.png',
+  '/avatars/agent-avatar-1.svg',
+  '/avatars/agent-avatar-2.svg',
+  '/avatars/agent-avatar-3.svg',
+  '/avatars/agent-avatar-4.svg',
+  '/avatars/agent-avatar-5.svg',
+  '/avatars/agent-avatar-6.svg',
+  '/avatars/agent-avatar-7.svg',
+  '/avatars/agent-avatar-8.svg',
+  '/avatars/agent-avatar-9.svg',
 ];
-
 function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-4 w-4" />;
 }
 
 function SparklesIcon() {
-  return (
-    <svg className="mx-auto block h-[16px] w-[16px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 4.4L13.7 9.3L18.6 11L13.7 12.7L12 17.6L10.3 12.7L5.4 11L10.3 9.3L12 4.4Z"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M17.8 5.7L18.2 6.8L19.3 7.2L18.2 7.6L17.8 8.7L17.4 7.6L16.3 7.2L17.4 6.8L17.8 5.7Z" fill="currentColor" />
-      <path d="M6.2 15.6L6.45 16.3L7.15 16.55L6.45 16.8L6.2 17.5L5.95 16.8L5.25 16.55L5.95 16.3L6.2 15.6Z" fill="currentColor" />
-    </svg>
-  );
+  return <AgentManagementIcon name="random" className="block h-[28px] w-[28px]" />;
 }
 
 function autoSlug(name: string): string {
@@ -814,8 +801,8 @@ export function CreateAgentModal({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
-                    上传
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+                    <AgentManagementIcon name="edit" preserveOriginalColor className="h-4 w-4" />
                   </span>
                 </button>
                 <input
@@ -829,13 +816,13 @@ export function CreateAgentModal({
                 <div className="h-11 pt-[22px]">
                   <div aria-hidden="true" className="h-[16px] w-px bg-[var(--border-default)]" />
                 </div>
-                <div  className="h-11 pt-[16px]">
-                              <button
+                <div className="h-11 pt-[16px]">
+                  <button
                   type="button"
                   aria-label="Random preset avatar"
                   onClick={() => setDraftAvatar(getRandomPresetAvatar())}
                   title="换一换"
-                  className="ui-button-default h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
+                  className="h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[6px]"
                 >
                   <SparklesIcon />
                 </button>
