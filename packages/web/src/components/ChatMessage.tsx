@@ -71,7 +71,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         const idLabel = catData.id.charAt(0).toUpperCase() + catData.id.slice(1);
         const label = catData.variantLabel
           ? `${catData.displayName}（${catData.variantLabel}）`
-          : `${catData.displayName}（${idLabel}）`;
+          : `${catData.displayName}（${idLabel}）`; // 不显示 ID
         const isCallback = message.origin === 'callback';
         return {
           label,
@@ -274,7 +274,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
 
   return (
     <div data-message-id={message.id} className="answer-group group flex gap-3 mb-4 items-start">
-      {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
+      {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} showRing={false} />}
       <div className="answer-container  max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
           <div className="answer-header mb-1 flex flex-col gap-1 min-w-0">
