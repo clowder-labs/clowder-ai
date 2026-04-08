@@ -3,11 +3,12 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { APP_NAME } from '@/lib/branding';
 import { apiFetch } from '@/utils/api-client';
 import { setIsSkipAuth, setUserId } from '@/utils/userId';
 
 export default function LoginPage() {
-  const [userType, setUserType] = useState<'huawei' | 'iam'>('huawei'); // 默认华为云用户
+  const [userType, setUserType] = useState<'account' | 'iam'>('account');
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [promotionCode, setPromotionCode] = useState('');
@@ -94,7 +95,7 @@ export default function LoginPage() {
                 backgroundClip: 'text',
               }}
             >
-              OfficeClaw
+              {APP_NAME}
             </h1>
             <p className="mb-10 max-w-xl text-center text-xl font-semibold leading-10 text-gray-600 sm:text-2xl sm:leading-[48px]">
               即刻拥有专属 AI 享 7x24 小时 稳定在线的超级助手
@@ -141,7 +142,7 @@ export default function LoginPage() {
         <div className="w-[clamp(280px,36vw,450px)] flex-shrink-0">
           <div className="mx-auto w-full rounded-xl border border-gray-200 bg-white p-6 shadow-lg sm:p-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎使用OfficeClaw</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎使用</h2>
             </div>
             <form className="space-y-6" onSubmit={handleLogin}>
               <div className="space-y-4">
@@ -153,7 +154,7 @@ export default function LoginPage() {
                     type="text"
                     required
                     className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
-                    placeholder={userType === 'huawei' ? '华为云账号' : '租户名'}
+                    placeholder={userType === 'account' ? '账号' : '租户名'}
                     value={domainName}
                     onChange={(e) => setDomainName(e.target.value)}
                   />
@@ -218,26 +219,8 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              {/* 注册和忘记密码链接 */}
-              <div className="text-center mt-3 hidden">
-                <a
-                  href="https://id1.cloud.huawei.com/UnifiedIDMPortal/portal/userRegister/regbyphone.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-indigo-600 hover:text-indigo-500"
-                >
-                  注册
-                </a>
-                <span className="text-sm text-gray-400 mx-2">|</span>
-                <a
-                  href="https://id5.cloud.huawei.com/UnifiedIDMPortal/portal/resetPwd/forgetbyid.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-indigo-600 hover:text-indigo-500"
-                >
-                  忘记密码
-                </a>
-              </div>
+              {/* 注册和忘记密码链接 — Edition-specific, hidden in community */}
+              <div className="text-center mt-3" />
 
               {/* 分隔线 */}
               <div className="mt-3 mb-3">
@@ -251,7 +234,7 @@ export default function LoginPage() {
               {/* 用户类型切换链接 */}
               <div className="text-center mb-2">
                 <span className="text-sm text-gray-600">
-                  {userType === 'huawei' ? (
+                  {userType === 'account' ? (
                     <>
                       使用 IAM 用户登录？{' '}
                       <button
@@ -264,13 +247,13 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <>
-                      使用华为云账号登录？{' '}
+                      使用主账号登录？{' '}
                       <button
                         type="button"
-                        onClick={() => setUserType('huawei')}
+                        onClick={() => setUserType('account')}
                         className="text-indigo-600 hover:text-indigo-500 font-medium"
                       >
-                        切换到华为云
+                        切换到主账号
                       </button>
                     </>
                   )}

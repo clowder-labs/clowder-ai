@@ -11,8 +11,10 @@ export const viewport: Viewport = {
   themeColor: '#E29578',
 };
 
+const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Clowder AI';
+
 export const metadata: Metadata = {
-  title: 'OfficeClaw',
+  title: appName,
   description: 'Your AI team collaboration space',
   manifest: '/manifest.json',
   icons: {
@@ -21,7 +23,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'OfficeClaw',
+    title: appName,
   },
 };
 

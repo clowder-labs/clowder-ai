@@ -40,6 +40,13 @@ function lighten(hex: string, ratio: number): string {
   return `rgb(${lr}, ${lg}, ${lb})`;
 }
 
+/* ── Divider stays neutral; surface colors are now breed-tinted (see buildSurface) ── */
+const DIVIDER = '#334155';
+const LOCAL_PPT_FILE = {
+  name: 'demo-deck.pptx',
+  path: 'C:\\Users\\demo\\.clowder\\agent\\demo-deck.pptx',
+};
+
 /* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
 interface LocalPresentationFile {

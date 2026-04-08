@@ -31,7 +31,7 @@ function clientRuntimeLabel(cat: CatData, configCat?: CatConfig, labels?: Record
   if (accountRef.includes('gemini')) return 'Gemini';
   if (accountRef.includes('opencode')) return 'OpenCode';
   if (accountRef.includes('dare')) return 'Office Agent';
-  if (accountRef.includes('jiu') || accountRef.includes('modelarts')) return 'ModelArts';
+  if (accountRef.startsWith('edition-')) return 'Edition Provider';
   if (cat.provider === 'antigravity') return 'Antigravity';
   if (cat.source === 'runtime' && cat.provider === 'openai') return 'OpenAI-Compatible';
   return humanizeProvider(configCat?.provider ?? cat.provider, labels);

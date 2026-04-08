@@ -80,7 +80,7 @@ export function PushSettingsPanel() {
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 space-y-2">
           <p className="text-sm text-amber-900 font-medium">{environmentHint ?? '当前浏览器不支持推送通知。'}</p>
           <p className="text-xs text-amber-700">
-            iPhone 用户请将 OfficeClaw 添加到主屏幕后再开启推送（Safari 普通标签页不支持 Web Push）。
+            iPhone 用户请将本应用添加到主屏幕后再开启推送（Safari 普通标签页不支持 Web Push）。
           </p>
         </div>
       </div>
@@ -96,7 +96,7 @@ export function PushSettingsPanel() {
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-gray-800">推送通知</h3>
         <p className="text-sm text-gray-600">
-          开启后，猫猫回复、权限请求等会推送到系统通知栏（即使不在 OfficeClaw 页面）。
+          开启后，猫猫回复、权限请求等会推送到系统通知栏（即使不在当前页面）。
         </p>
       </div>
 

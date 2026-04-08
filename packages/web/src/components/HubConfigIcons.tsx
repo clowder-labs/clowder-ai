@@ -38,12 +38,7 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
       <img src="/images/connectors/dingtalk.svg" alt="DingTalk" className="h-11 w-11" />
     ),
   },
-  xiaoyi: {
-    icon: (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/xiaoyi.svg" alt="Huawei XiaoYi" className="h-11 w-11" />
-    ),
-  },
+  /* Edition-registered connectors have icons provided at runtime */
 };
 
 export const DEFAULT_VISUAL: PlatformVisual = {

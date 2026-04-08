@@ -505,8 +505,8 @@ export function ThreadSidebar({
       <aside className={`${className ?? 'w-[248px]'} ui-sidebar-shell flex h-full flex-col`}>
         <div className="ui-sidebar-section ui-sidebar-section-no-divider flex items-center justify-between px-3 py-[14px] border-0">
           <div className="flex items-center gap-2">
-            <img src="/images/lobster.svg" alt="OfficeClaw" className="w-9 h-9 rounded-lg" />
-            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">OfficeClaw</span>
+            <img src="/images/lobster.svg" alt="Clowder AI" className="w-9 h-9 rounded-lg" />
+            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">Clowder AI</span>
           </div>
         </div>
 

@@ -23,7 +23,7 @@ export interface ProfileItem {
   builtin: boolean;
   mode: ProfileMode;
   client?: BuiltinAccountClient;
-  protocol?: 'anthropic' | 'openai' | 'google' | 'huawei_maas' | 'acp' | string;
+  protocol?: string;
   baseUrl?: string;
   models?: string[];
   modelOverride?: string | null;

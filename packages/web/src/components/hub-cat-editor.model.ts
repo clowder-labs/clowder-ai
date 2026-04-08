@@ -105,7 +105,7 @@ export const CODEX_AUTH_MODE_OPTIONS: Array<{ value: CodexAuthMode; label: strin
 ];
 
 export const DEFAULT_ANTIGRAVITY_COMMAND_ARGS = '. --remote-debugging-port=9000';
-const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
+/** Edition-reserved model source IDs are loaded from /api/config at runtime. */
 
 export function hasEmbeddedAcpRuntime(cat?: Pick<CatData, 'id' | 'provider' | 'source' | 'embeddedRuntimeKind'> | null): boolean {
   if (!cat) return false;
@@ -245,7 +245,7 @@ export function filterAccounts(
   if (options?.embeddedAcpRuntime) {
     return profiles.filter((profile) => {
       if (profile.source === 'model_config') {
-        return profile.protocol === 'openai' || profile.protocol === 'huawei_maas';
+        return profile.protocol === 'openai' || profile.source === 'model_config';
       }
       return profile.kind !== 'acp' && profile.authType === 'api_key' && profile.protocol === 'openai';
     });
@@ -257,7 +257,7 @@ export function filterAccounts(
   if (modelConfigProfiles.length > 0) {
     if (client !== 'dare' && client !== 'relayclaw') return [];
     return modelConfigProfiles.filter((profile) => {
-      if (profile.id === HUAWEI_MAAS_MODEL_SOURCE_ID && profile.protocol === 'huawei_maas') return true;
+      if (profile.source === 'model_config' && profile.protocol !== 'openai') return true;
       return profile.protocol === 'openai';
     });
   }
