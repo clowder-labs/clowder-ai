@@ -234,6 +234,9 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     child.stderr?.on('data', pushLog);
     child.once('exit', (code, exitSignal) => {
       log.warn({ catId: this.catId, code, exitSignal }, 'relayclaw sidecar exited');
+      if (this.child !== child) {
+        return;
+      }
       this.child = null;
       this.runtimeHash = null;
       this.resolvedUrl = null;

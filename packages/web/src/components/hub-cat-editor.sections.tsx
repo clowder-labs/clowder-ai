@@ -253,7 +253,7 @@ function ComboField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           list={listId}
-          className="w-full rounded-[10px] border border-[#E8DCCF] bg-[#F7F3F0] px-3.5 py-2 text-[14px] leading-5 text-[#2D2118] placeholder:text-[#C4B5A8] outline-none transition focus:border-[#D49266] focus:ring-2 focus:ring-[#F5D2B8]"
+          className="ui-input ui-input-soft w-full rounded-[10px] px-3.5 py-2 text-[14px] leading-5 transition"
           placeholder={placeholder}
         />
         <datalist id={listId}>
