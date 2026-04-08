@@ -130,6 +130,28 @@ describe('business theme hub shell', () => {
     expect(container.textContent).toContain('来源：官方');
   });
 
+  it('shows a centered loading icon instead of loading text while installed skills are loading', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities?')) {
+        return new Promise<Response>(() => {});
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+      await Promise.resolve();
+    });
+
+    const loadingState = container.querySelector('[data-testid="skills-loading-state"]');
+    expect(loadingState).not.toBeNull();
+    expect(loadingState?.className).toContain('items-center');
+    expect(loadingState?.className).toContain('justify-center');
+    expect(loadingState?.querySelector('img')).not.toBeNull();
+    expect(container.textContent).not.toContain('加载中...');
+  });
+
   it('renders search input under title and filters installed skills', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
@@ -145,6 +167,22 @@ describe('business theme hub shell', () => {
 
     expect(container.textContent).toContain('doc-skill');
     expect(container.textContent).not.toContain('ops-skill');
+  });
+
+  it('updates installed skills title count to match visible search results', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+    expect(container.textContent).toContain('全部 (2)');
+
+    await changeInputValue(searchInput!, 'doc');
+
+    expect(container.textContent).toContain('全部 (1)');
+    expect(container.textContent).not.toContain('全部 (2)');
   });
 
   it('renders optional import action beside installed skills search', async () => {
@@ -180,5 +218,22 @@ describe('business theme hub shell', () => {
     expect(container.textContent).toContain('未找到匹配技能');
     expect(container.textContent).not.toContain('ops-skill');
     expect(container.textContent).not.toContain('doc-skill');
+  });
+
+  it('keeps search controls outside the scrolling card region', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const fixedHeader = container.querySelector('[data-testid="hub-capability-fixed-header"]') as HTMLDivElement | null;
+    const scrollRegion = container.querySelector('[data-testid="hub-capability-scroll-region"]') as HTMLDivElement | null;
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+
+    expect(fixedHeader).not.toBeNull();
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.contains(searchInput)).toBe(false);
+    expect(scrollRegion?.querySelector('[data-testid="capability-card-skill-ops-skill"]')).not.toBeNull();
   });
 });

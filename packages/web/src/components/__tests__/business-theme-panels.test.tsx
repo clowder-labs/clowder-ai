@@ -1,7 +1,7 @@
 ﻿import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AgentsPanel } from '@/components/AgentsPanel';
+import { AgentsPanelCopy as AgentsPanel } from '@/components/AgentsPanelCopy';
 import { ChannelsPanel } from '@/components/ChannelsPanel';
 import { ModelsPanel } from '@/components/ModelsPanel';
 import { SkillsPanel } from '@/components/SkillsPanel';
@@ -178,6 +178,9 @@ describe('business theme panels', () => {
 
     const shell = container.firstElementChild as HTMLElement | null;
     expect(shell?.className).toContain('ui-page-shell');
+    const contentRegion = shell?.querySelector('.min-h-0.flex-1') as HTMLElement | null;
+    expect(contentRegion?.className).toContain('overflow-hidden');
+    expect(contentRegion?.className).not.toContain('overflow-y-auto');
     const importButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('导入'));
     expect(importButton?.className).toContain('ui-button-default');
     expect(container.querySelector('[data-testid="capability-panel"]')?.className).toContain('ui-panel');

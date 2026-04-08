@@ -108,7 +108,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
         </button>
         <div className="p-8">
           <div className="flex justify-center mb-6">
-            <img src="/images/version.svg" alt="版本更新" className="w-[100px] h-[100px] object-contain" />
+            <img src="/images/lobster.svg" alt="版本更新" className="w-[64px] h-[64px] object-contain" />
           </div>
 
           <div className="mb-2">

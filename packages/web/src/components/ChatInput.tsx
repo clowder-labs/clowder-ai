@@ -28,6 +28,7 @@ import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
 import { MobileInputToolbar } from './MobileInputToolbar';
+import { OverflowTooltip } from './OverflowTooltip';
 import { PathCompletionMenu } from './PathCompletionMenu';
 import { RichTextarea, type RichTextareaHandle } from './RichTextarea';
 
@@ -153,7 +154,6 @@ export function ChatInput({
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
   const [mobileToolbar, setMobileToolbar] = useState(false);
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
-  const [isFolderTooltipVisible, setIsFolderTooltipVisible] = useState(false);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
   const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
@@ -165,7 +165,7 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
   const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
-  const folderButtonLabel = selectedFolderName?.trim() || '选择文件夹';
+  const folderButtonLabel = selectedFolderName?.trim() || '选择工作空间';
   const isFolderButtonDisabled = disabled || !folderSelectionEnabled;
   const shouldShowFolderTooltip = Boolean(selectedFolderTitle?.trim());
 
@@ -1087,26 +1087,11 @@ export function ChatInput({
                       )}
                     </div>
                     <div className="flex items-center">
-                      <div
-                        data-testid="folder-select-trigger"
-                        className="relative flex items-center mr-2"
-                        onMouseOver={() => shouldShowFolderTooltip && setIsFolderTooltipVisible(true)}
-                        onMouseOut={() => setIsFolderTooltipVisible(false)}
+                      <OverflowTooltip
+                        content={selectedFolderTitle?.trim() || folderButtonLabel}
+                        forceShow={shouldShowFolderTooltip}
+                        className="mr-2 flex items-center"
                       >
-                        {isFolderTooltipVisible && shouldShowFolderTooltip && (
-                          <div
-                            data-testid="folder-select-tooltip"
-                            className="absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2"
-                          >
-                            <div className="relative w-max rounded-lg bg-white px-3 py-2 text-xs leading-5 text-[#222222] shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)] whitespace-nowrap">
-                              <span>{selectedFolderTitle}</span>
-                              <span
-                                className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[6px] border-x-transparent border-t-white"
-                                aria-hidden="true"
-                              />
-                            </div>
-                          </div>
-                        )}
                         <button
                           type="button"
                           data-testid="folder-select-button"
@@ -1117,7 +1102,7 @@ export function ChatInput({
                           <FolderBadgeIcon className="h-6 w-6 shrink-0" />
                           <span className="truncate">{folderButtonLabel}</span>
                         </button>
-                      </div>
+                      </OverflowTooltip>
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={disabled || sendTemporarilyDisabled || images.length >= 5}

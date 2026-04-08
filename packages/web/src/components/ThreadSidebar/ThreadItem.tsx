@@ -238,7 +238,7 @@ export function ThreadItem({
   tooltipLines.push(formatRelativeTime(lastActiveAt, false));
   const tooltip = tooltipLines.join('\n');
   const contextMenuItemClass =
-    'block w-full whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none';
+    'ui-overlay-item block w-full whitespace-nowrap px-3 py-2 text-left text-xs focus-visible:outline-none';
 
   return (
     <div
@@ -342,7 +342,8 @@ export function ThreadItem({
       {contextMenu && (
         <div
           ref={menuRef}
-          className="fixed z-50 inline-block w-[100px] rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-xl"
+          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-lg"
+          data-testid="thread-context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => {
@@ -352,12 +353,12 @@ export function ThreadItem({
         >
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute -left-[6px] h-0 w-0 border-y-[6px] border-y-transparent border-r-[6px] border-r-[var(--border-default)]"
+            className="pointer-events-none absolute -left-[6px] h-0 w-0 border-y-[6px] border-y-transparent border-r-[6px] border-r-[var(--overlay-border)]"
             style={{ top: contextMenu.arrowY - 6 }}
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute -left-[5px] h-0 w-0 border-y-[5px] border-y-transparent border-r-[5px] border-r-[var(--surface-panel)]"
+            className="pointer-events-none absolute -left-[5px] h-0 w-0 border-y-[5px] border-y-transparent border-r-[5px] border-r-[var(--overlay-bg)]"
             style={{ top: contextMenu.arrowY - 5 }}
           />
           {canRename && (

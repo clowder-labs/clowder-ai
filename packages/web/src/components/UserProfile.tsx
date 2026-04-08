@@ -52,6 +52,8 @@ export function UserProfile({ className }: UserProfileProps) {
 
   const userName = getUserName();
   const avatarLetter = userName.charAt(0).toUpperCase();
+  const profileActionClass =
+    'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[16px] font-normal leading-[20px]';
 
   const updateThemePopoverPosition = () => {
     if (!panelRef.current || !themeAnchorRef.current) return;
@@ -184,7 +186,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showPanel && (
         <div
-          className="absolute bottom-full left-3 right-3 z-50 mb-2 rounded-3xl border border-gray-200 bg-white shadow-lg"
+          className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 mb-2 rounded-[var(--radius-lg)]"
           data-testid="user-profile-panel"
         >
           <div className="p-4" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
@@ -205,7 +207,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
-                className="hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-[16px] font-normal leading-[20px] text-gray-700 transition-colors hover:bg-gray-50"
+                className={profileActionClass}
                 onClick={handleOpenVersionUpdate}
               >
                 <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -214,7 +216,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
               <div className="relative" data-testid="user-profile-theme-anchor" ref={themeAnchorRef}>
                 <button
-                  className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-[16px] font-normal leading-[20px] text-gray-700 transition-colors hover:bg-gray-50"
+                  className={profileActionClass}
                   onClick={handleToggleThemePanel}
                   data-testid="user-profile-theme-trigger"
                 >
@@ -223,7 +225,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 </button>
               </div>
 
-              <button className="hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-[16px] font-normal leading-[20px] text-gray-700 transition-colors hover:bg-gray-50">
+              <button className={`hidden ${profileActionClass}`}>
                 <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 帮助
               </button>
@@ -235,7 +237,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 <button
                   onClick={handleLogout}
                   disabled={isLoading}
-                  className="mt-4 h-7 w-full rounded-full border border-gray-300 bg-white text-sm text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="ui-button-default mt-4 h-7 w-full text-sm"
                 >
                   {isLoading ? '退出中...' : '退出登录'}
                 </button>
@@ -247,7 +249,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showPanel && showThemePanel && (
         <div
-          className="absolute left-[calc(100%-12px)] z-[60] -translate-y-1/2 rounded-3xl border border-gray-200 bg-white shadow-lg"
+          className="ui-overlay-card absolute left-[calc(100%-12px)] z-[60] -translate-y-1/2 rounded-[var(--radius-md)]"
           data-testid="user-theme-popover"
           style={{ top: `${themePopoverTop}px` }}
         >
@@ -260,9 +262,7 @@ export function UserProfile({ className }: UserProfileProps) {
                     key={option.id}
                     type="button"
                     onClick={() => handleSelectTheme(option.id)}
-                    className={`flex min-w-[88px] flex-col items-center gap-2 rounded-2xl px-3 py-2 text-center transition-colors ${
-                      isActive ? 'bg-[#F7F8FA]' : 'hover:bg-[#F7F8FA]'
-                    }`}
+                    className={`ui-overlay-item flex min-w-[68px] flex-col items-center gap-2 rounded-2xl px-3 py-2 text-center`}
                     data-testid={`user-theme-option-${option.id}`}
                   >
                     <div className="relative">

@@ -15,3 +15,4 @@ export type {
 export { isParseError, parseNDJSON } from './ndjson-parser.js';
 export { normalizeErrorMessage } from './normalize-error.js';
 export { isUnderAllowedRoot, validateProjectPath } from './project-path.js';
+export { getErrorMessage } from './response-error.js';

@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { type ReactNode } from 'react';
+import { OverflowTooltip } from './OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 export interface CapabilityBoardItem {
@@ -166,7 +167,7 @@ export function CapabilitySection({
   );
 }
 
-function CapabilityCard({
+export function CapabilityCard({
   item,
   catFamilies: _catFamilies,
   toggling,
@@ -188,14 +189,19 @@ function CapabilityCard({
 
   return (
     <div
-      className="ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5"
+      className="ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4"
       data-testid={`capability-card-${item.type}-${item.id}`}
     >
       <div className="flex items-start gap-3">
         <NameInitialIcon name={item.id} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
-            <h3 className="truncate text-base font-semibold text-[var(--text-primary)]">{item.id}</h3>
+            <OverflowTooltip
+              content={item.id}
+              className="min-w-0 flex-1"
+              as="h3"
+              textClassName="block truncate text-base font-semibold text-[var(--text-primary)]"
+            />
             {item.connectionStatus ? <StatusDot status={item.connectionStatus} /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -204,12 +210,9 @@ function CapabilityCard({
         </div>
       </div>
 
-      <p
-        className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]"
-        title={resolvedDescription}
-      >
-        {resolvedDescription}
-      </p>
+      <OverflowTooltip content={resolvedDescription} className="w-full">
+        <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">{resolvedDescription}</p>
+      </OverflowTooltip>
 
       <div className="mt-auto flex items-end justify-between gap-3">
         <div className="min-h-5 text-xs leading-5">

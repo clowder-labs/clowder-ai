@@ -1,17 +1,17 @@
 import type { TaskSpec_P1 } from '../types.js';
 import type { DynamicTaskParams, TaskTemplate } from './types.js';
 
-/** Reminder template — fires on schedule, wakes a cat to handle the reminder in-thread */
+/** Reminder template — fires on schedule, wakes an agent to handle the reminder in-thread */
 export const reminderTemplate: TaskTemplate = {
   templateId: 'reminder',
   label: '定时提醒',
   category: 'system',
-  description: '按设定时间唤醒猫猫处理提醒（猫猫会根据内容自主行动）',
+  description: '按设定时间唤醒智能体处理提醒',
   subjectKind: 'none',
   defaultTrigger: { type: 'cron', expression: '0 9 * * *' },
   paramSchema: {
     message: { type: 'string', required: true, description: '提醒内容' },
-    targetCatId: { type: 'string', required: false, description: '唤醒哪只猫处理（默认当前注册的猫）' },
+    targetCatId: { type: 'string', required: false, description: '唤醒哪个智能体处理（默认当前注册的智能体）' },
   },
   createSpec(instanceId: string, p: DynamicTaskParams): TaskSpec_P1 {
     const message = (p.params.message as string) || '定时提醒';

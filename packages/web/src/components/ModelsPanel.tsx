@@ -7,6 +7,7 @@ import { API_URL, apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
+import { OverflowTooltip } from './OverflowTooltip';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
@@ -626,9 +627,12 @@ export function ModelsPanel() {
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
-                              <h4 className="truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]">
-                                {card.name}
-                              </h4>
+                              <OverflowTooltip
+                                content={card.name}
+                                className="min-w-0 flex-1"
+                                as="h4"
+                                textClassName="block truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]"
+                              />
                             </div>
                             {card.labels.length > 0 ? (
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -643,12 +647,11 @@ export function ModelsPanel() {
                         </div>
                       </div>
 
-                      <p
-                        className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden"
-                        title={card.description}
-                      >
-                        {card.description}
-                      </p>
+                      <OverflowTooltip content={card.description} className="w-full">
+                        <p className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden">
+                          {card.description}
+                        </p>
+                      </OverflowTooltip>
 
                       <div className="mt-auto flex items-end justify-between gap-3">
                         <div className="min-h-5 text-xs leading-5">

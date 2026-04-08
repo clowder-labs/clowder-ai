@@ -488,9 +488,11 @@ export function ThreadSidebar({
     currentThreadId,
   });
   const isChatMenu = !activeMenu && currentThreadId === 'default';
-  const menuItemBase = 'ui-menu-item flex h-[38px] w-full items-center gap-2 px-2.5 transition-colors';
+  const menuItemBase = 'ui-menu-item flex h-[38px] w-full items-center gap-2 px-2.5';
   const menuItemActive = 'ui-menu-item-active';
   const menuItemInactive = 'ui-menu-item-inactive';
+  const getMenuItemClassName = (isActive: boolean, extraClassName?: string) =>
+    [menuItemBase, isActive ? menuItemActive : menuItemInactive, extraClassName].filter(Boolean).join(' ');
 
   return (
     <>
@@ -512,7 +514,7 @@ export function ThreadSidebar({
                 onClose?.();
               }
             }}
-            className="flex w-full items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-left text-xs font-medium text-[#4B5563] transition-colors hover:bg-[#F9FAFB] hover:text-[#111827]"
+            className={getMenuItemClassName(false, 'h-auto py-1.5 text-left text-xs font-medium')}
             data-testid="sidebar-mission-control"
           >
             <svg
@@ -538,7 +540,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={handleNewChat}
-              className={`${menuItemBase} ${isChatMenu ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(isChatMenu)}
+              data-testid="sidebar-new-chat"
             >
               <img src="/icons/menu/new-chat.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               新建会话
@@ -546,7 +549,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('models')}
-              className={`${menuItemBase} ${activeMenu === 'models' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'models')}
+              data-testid="sidebar-menu-models"
             >
               <img src="/icons/menu/models.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               模型
@@ -554,7 +558,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('agents')}
-              className={`${menuItemBase} ${activeMenu === 'agents' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'agents')}
+              data-testid="sidebar-menu-agents"
             >
               <img src="/icons/menu/agents.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               智能体
@@ -562,7 +567,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('channels')}
-              className={`${menuItemBase} ${activeMenu === 'channels' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'channels')}
+              data-testid="sidebar-menu-channels"
             >
               <img src="/icons/menu/channels.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               渠道
@@ -570,7 +576,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('skills')}
-              className={`${menuItemBase} ${activeMenu === 'skills' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'skills')}
+              data-testid="sidebar-menu-skills"
             >
               <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               技能
@@ -641,7 +648,7 @@ export function ThreadSidebar({
           {showFilter && (
             <div
               ref={filterPanelRef}
-              className="absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] bg-white p-4 shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
+              className="ui-overlay-card absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] p-4"
             >
               <div className="text-[12px] font-[400] leading-[18px] text-[#808080]">会话时间</div>
               <div className="mt-3 flex flex-col">
@@ -654,7 +661,7 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`text-[12px] font-[400] leading-[18px] text-[#191919] text-left py-[2px] ${pendingFilterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${pendingFilterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
                     style={{ marginBottom: '14px' }}
                     onClick={() => setPendingFilterOption(item.key as 'all' | '1m' | '3m' | '6m')}
                   >
@@ -665,7 +672,7 @@ export function ThreadSidebar({
               <div className="pt-4 flex justify-end gap-2 border-t border-[#E5E7EB]">
                 <button
                   type="button"
-                  className="h-6 rounded-full border border-[rgba(89,89,89,1)] px-4 text-[12px] font-[400] text-[#191919]"
+                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
                   onClick={() => {
                     setPendingFilterOption('all');
                     setFilterOption('all');
@@ -676,7 +683,7 @@ export function ThreadSidebar({
                 </button>
                 <button
                   type="button"
-                  className="h-6 rounded-full border border-[rgba(89,89,89,1)] px-4 text-[12px] font-[400] text-[#191919]"
+                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
                   onClick={() => {
                     setFilterOption(pendingFilterOption);
                     setShowFilter(false);

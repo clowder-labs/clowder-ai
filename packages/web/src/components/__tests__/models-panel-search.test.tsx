@@ -52,6 +52,25 @@ async function clickButton(button: HTMLElement) {
   });
 }
 
+function mockOverflow(node: Element, clientWidth: number, scrollWidth: number, clientHeight: number, scrollHeight: number) {
+  Object.defineProperty(node, 'clientWidth', {
+    configurable: true,
+    value: clientWidth,
+  });
+  Object.defineProperty(node, 'scrollWidth', {
+    configurable: true,
+    value: scrollWidth,
+  });
+  Object.defineProperty(node, 'clientHeight', {
+    configurable: true,
+    value: clientHeight,
+  });
+  Object.defineProperty(node, 'scrollHeight', {
+    configurable: true,
+    value: scrollHeight,
+  });
+}
+
 describe('ModelsPanel search', () => {
   let container: HTMLDivElement;
   let root: Root;

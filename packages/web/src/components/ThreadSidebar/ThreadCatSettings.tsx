@@ -89,7 +89,8 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
       {isOpen && (
         <div
           style={getPopoverStyle()}
-          className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50"
+          className="ui-overlay-card rounded-lg p-3 z-50"
+          data-testid="thread-cat-settings-popover"
           onClick={(e) => e.stopPropagation()}
         >
           <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
@@ -106,14 +107,14 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
                   setIsOpen(false);
                   setSelectedCats(currentCats);
                 }}
-                className="text-xs px-2 py-0.5 rounded text-gray-500 hover:bg-gray-100"
+                className="ui-button-default px-2 py-0.5"
               >
                 取消
               </button>
               <button
                 onClick={() => void handleSave()}
                 disabled={!hasChanged || isSaving}
-                className="text-xs px-2 py-0.5 rounded bg-cocreator-primary text-white hover:bg-cocreator-dark disabled:opacity-40"
+                className="ui-button-primary px-2 py-0.5"
               >
                 {isSaving ? '...' : '保存'}
               </button>

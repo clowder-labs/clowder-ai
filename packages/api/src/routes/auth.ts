@@ -4,6 +4,7 @@
 
 import Conf from 'conf';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import { getErrorMessage } from '../utils/index.js';
 
 export interface AuthRoutesOptions {
   // 可以在这里添加认证相关的配置
@@ -132,7 +133,6 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
 
     userInfo.userId = `${domainName}:${name ?? ''}`;
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
-    userInfo.token = tokenResult.token ?? '';
     userInfo.modelInfo = modelInfo ?? {};
     secureConfig.set(userInfo.userId, userInfo.expiresAt);
     secureConfig.set(`${userInfo.userId}-new`, userInfo);
@@ -270,14 +270,6 @@ async function subscriptionClaw(token = '', promotionCode?: string): Promise<Mod
     return { success: false, message: '开通失败' };
   }
 }
-async function getErrorMessage(response: Response): Promise<{error_code: string, error_message: string}> {
-  const data: any = await response.json();
-  if (data && typeof data === 'object') {
-    return { error_code: data.error_code, error_message: data.error_message || data.error_msg };
-  }
-  return { error_code: response.status.toString(), error_message: response.statusText };
-}
-
 async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: string) {
   try {
     const refreshResponse = await request.server.inject({

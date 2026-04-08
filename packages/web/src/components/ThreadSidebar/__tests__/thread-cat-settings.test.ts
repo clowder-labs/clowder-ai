@@ -68,6 +68,11 @@ describe('ThreadCatSettings', () => {
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
+    await flush();
+
+    const popover = container.querySelector('[data-testid="thread-cat-settings-popover"]');
+    expect(popover).toBeTruthy();
+    expect(popover?.className).toContain('ui-overlay-card');
 
     // Popover should now be open — CatSelector renders cat chips from fallback CAT_CONFIGS
     // Find and click the 布偶猫 chip
@@ -81,6 +86,7 @@ describe('ThreadCatSettings', () => {
     const saveBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '保存');
     expect(saveBtn).toBeTruthy();
     expect(saveBtn?.hasAttribute('disabled')).toBe(false);
+    expect(saveBtn?.className).toContain('ui-button-primary');
 
     // Click save
     await act(async () => {
@@ -100,11 +106,13 @@ describe('ThreadCatSettings', () => {
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
+    await flush();
 
     // opus is already selected, so no change → save should be disabled
     const saveBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '保存');
     expect(saveBtn).toBeTruthy();
     expect(saveBtn?.hasAttribute('disabled')).toBe(true);
+    expect(saveBtn?.className).toContain('ui-button-primary');
   });
 
   it('cancel reverts selection and closes popover', async () => {
@@ -116,6 +124,7 @@ describe('ThreadCatSettings', () => {
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
+    await flush();
 
     // Select a cat
     const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('布偶猫'));
@@ -125,6 +134,7 @@ describe('ThreadCatSettings', () => {
 
     // Click cancel
     const cancelBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '取消');
+    expect(cancelBtn?.className).toContain('ui-button-default');
     act(() => {
       cancelBtn?.click();
     });
@@ -146,6 +156,7 @@ describe('ThreadCatSettings', () => {
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
+    await flush();
 
     // Select a cat
     const catChip = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('布偶猫'));
@@ -162,6 +173,7 @@ describe('ThreadCatSettings', () => {
     // Popover should still be open (save button still visible)
     const saveBtnAfter = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '保存');
     expect(saveBtnAfter).toBeTruthy();
+    expect(saveBtnAfter?.className).toContain('ui-button-primary');
 
     // Error message should be shown
     expect(container.textContent).toContain('保存失败');
@@ -179,6 +191,7 @@ describe('ThreadCatSettings', () => {
     act(() => {
       (settingsBtn as HTMLElement).click();
     });
+    await flush();
 
     // Click "清除" to clear all selections
     const clearBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '清除');

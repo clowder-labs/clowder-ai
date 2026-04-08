@@ -87,7 +87,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
   }
 
-  it('calls onClose after pressing 新建会话 on mobile viewport', async () => {
+  it('calls onClose after pressing new chat on mobile viewport', async () => {
     Object.defineProperty(window, 'innerWidth', { value: 375, writable: true });
 
     const onClose = vi.fn();
@@ -96,7 +96,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
     await flush();
 
-    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('新建会话'));
+    const newBtn = container.querySelector('[data-testid="sidebar-new-chat"]');
     expect(newBtn).toBeTruthy();
     act(() => {
       (newBtn as HTMLButtonElement).click();
@@ -109,7 +109,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('does not call onClose after pressing 新建会话 on desktop viewport', async () => {
+  it('does not call onClose after pressing new chat on desktop viewport', async () => {
     Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
 
     const onClose = vi.fn();
@@ -118,7 +118,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
     await flush();
 
-    const newBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('新建会话'));
+    const newBtn = container.querySelector('[data-testid="sidebar-new-chat"]');
     expect(newBtn).toBeTruthy();
     act(() => {
       (newBtn as HTMLButtonElement).click();
@@ -129,5 +129,29 @@ describe('ThreadSidebar mobile auto-close', () => {
     expect(mockStore.setCurrentThread).toHaveBeenCalledWith('default');
     expect(mockStore.setCurrentProject).toHaveBeenCalledWith('default');
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('uses shared menu item classes for active and inactive sidebar actions', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
+    mockStore.currentThreadId = 'default';
+
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+
+    const newChatButton = container.querySelector('[data-testid="sidebar-new-chat"]');
+    const modelsButton = container.querySelector('[data-testid="sidebar-menu-models"]');
+    const missionControlButton = container.querySelector('[data-testid="sidebar-mission-control"]');
+
+    expect(newChatButton).toBeTruthy();
+    expect(newChatButton?.className).toContain('ui-menu-item');
+    expect(newChatButton?.className).toContain('ui-menu-item-active');
+    expect(modelsButton).toBeTruthy();
+    expect(modelsButton?.className).toContain('ui-menu-item');
+    expect(modelsButton?.className).toContain('ui-menu-item-inactive');
+    expect(missionControlButton).toBeTruthy();
+    expect(missionControlButton?.className).toContain('ui-menu-item');
+    expect(missionControlButton?.className).toContain('ui-menu-item-inactive');
   });
 });
