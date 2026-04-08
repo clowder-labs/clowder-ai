@@ -59,6 +59,18 @@ describe('HubSkillsTab empty search state', () => {
         return Promise.resolve(jsonResponse({ categories: ['ai-intelligence'] }));
       }
       if (url.startsWith('/api/skills/all?')) {
+        const parsedUrl = new URL(url, 'http://localhost');
+        const category = parsedUrl.searchParams.get('category');
+        if (!category) {
+          return Promise.resolve(
+            jsonResponse({
+              skills: [],
+              total: 0,
+              page: 1,
+              hasMore: false,
+            }),
+          );
+        }
         return Promise.resolve(
           jsonResponse({
             skills: [
@@ -67,7 +79,7 @@ describe('HubSkillsTab empty search state', () => {
                 slug: 'skill-1',
                 name: 'skill-1',
                 description: 'Alpha skill',
-                tags: ['AI 智能'],
+                tags: ['AI 鏅鸿兘'],
                 repo: { githubOwner: 'demo', githubRepoName: 'skills' },
                 isInstalled: false,
               },
@@ -98,14 +110,25 @@ describe('HubSkillsTab empty search state', () => {
     mockApiFetch.mockReset();
   });
 
-  it('shows the shared empty search state and clears filters back to browse results', async () => {
+  it('shows the shared empty search state and clears back to the current category browse results', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
     });
     await flushEffects();
 
-    const searchInput = container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null;
+    const categoryButtons = Array.from(container.querySelectorAll('[data-testid="hub-skills-fixed-header"] button'));
+    const categoryButton = categoryButtons[1];
+    expect(categoryButton).toBeDefined();
+
+    await act(async () => {
+      categoryButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[type="text"]') as HTMLInputElement | null;
     expect(searchInput).not.toBeNull();
+    expect(container.textContent).toContain('AI 智能 (1)');
     expect(container.textContent).toContain('skill-1');
 
     await changeInputValue(searchInput!, 'zzz');
@@ -120,19 +143,23 @@ describe('HubSkillsTab empty search state', () => {
     expect(emptyShell?.className).toContain('h-full');
     expect(emptyShell?.className).toContain('items-center');
     expect(emptyShell?.className).toContain('justify-center');
-    expect(container.textContent).toContain('暂未匹配到数据');
-    expect(container.textContent).toContain('没有匹配到符合条件的数据');
-
-    const clearButton = container.querySelector('[data-testid="no-search-results-clear"]') as HTMLButtonElement | null;
-    expect(clearButton).not.toBeNull();
+    expect(container.querySelector('[data-testid="no-search-results-clear"]')).not.toBeNull();
 
     await act(async () => {
-      clearButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      (container.querySelector('[data-testid="no-search-results-clear"]') as HTMLButtonElement | null)?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
       await Promise.resolve();
     });
     await flushEffects();
 
-    expect((container.querySelector('input[aria-label="搜索技能"]') as HTMLInputElement | null)?.value).toBe('');
+    expect((container.querySelector('input[type="text"]') as HTMLInputElement | null)?.value).toBe('');
+    expect(container.textContent).toContain('AI 智能 (1)');
     expect(container.textContent).toContain('skill-1');
+    expect(
+      mockApiFetch.mock.calls.some(([input]) =>
+        String(input).includes('/api/skills/all?page=1&limit=24&category=ai-intelligence'),
+      ),
+    ).toBe(true);
   });
 });

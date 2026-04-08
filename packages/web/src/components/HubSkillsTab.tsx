@@ -286,12 +286,10 @@ export function HubSkillsTab() {
   const handleClearFilters = useCallback(() => {
     latestQueryRef.current = '';
     setSearchQuery('');
-    setActiveCategory(ALL_CATEGORY);
-    setDisplayCategory(ALL_CATEGORY);
     setCurrentPage(1);
     setViewMode('browse');
-    void loadPage({ mode: 'browse', page: 1, category: ALL_CATEGORY });
-  }, [loadPage]);
+    void loadPage({ mode: 'browse', page: 1, category: activeCategory });
+  }, [activeCategory, loadPage]);
 
   const handleLoadMore = useCallback(() => {
     if (loadingMore || !results?.hasMore) return;
