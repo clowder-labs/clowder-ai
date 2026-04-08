@@ -87,7 +87,7 @@ function formatMentionPreview(patterns: string[], max = 3) {
 export function HubCoCreatorOverviewCard({ coCreator, onEdit }: { coCreator: CoCreatorConfig; onEdit?: () => void }) {
   const primary = coCreator.color?.primary ?? '#D4A76A';
   const avatarSrc = safeAvatarSrc(coCreator.avatar);
-  const cardClassName = onEdit ? 'ui-card-muted ui-card-hover px-[18px] py-[18px]' : 'ui-card-muted px-[18px] py-[18px]';
+  const cardClassName = onEdit ? 'ui-card-muted ui-card-hover' : 'ui-card-muted';
 
   return (
     <section
@@ -165,7 +165,7 @@ export function HubMemberOverviewCard({
 }) {
   const status = getStatusBadge(cat);
   const title = [cat.breedDisplayName ?? cat.displayName, cat.nickname].filter(Boolean).join(' · ');
-  const cardClassName = onEdit ? 'ui-card ui-card-hover px-[18px] py-[18px]' : 'ui-card px-[18px] py-[18px]';
+  const cardClassName = onEdit ? 'ui-card ui-card-hover' : 'ui-card';
 
   return (
     <section

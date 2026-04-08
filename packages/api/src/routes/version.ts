@@ -8,8 +8,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-import { sessions } from './auth.js';
-import { UserInfo } from 'node:os';
+import { getErrorMessage } from '../utils/index.js';
 
 interface VersionRoutesOptions {
   projectRoot?: string;
@@ -44,15 +43,14 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
       if (!userId) {
         throw new Error('Unauthorized: Missing user ID');
       }
-      const userInfo: any = sessions.get(userId);
       const response = await fetch('https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-latest-version', {
         headers: {
           'Content-Type': 'application/json;charset=utf8',
-          'X-Auth-Token': userInfo.token || '',
         },
       });
       if (!response.ok) {
-        throw new Error('Failed to fetch latest version');
+        const { error_code, error_message } = await getErrorMessage(response);
+        throw new Error(`错误码: ${error_code}, 错误信息: ${error_message}`);
       }
       const data: any = await response.json();
       return {
@@ -61,7 +59,8 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
         downloadUrl: data.download_url || '',
         description: data.description || '',
       };
-    } catch {
+    } catch(err) {
+      console.error('获取最新版本信息失败，', err);
       return {
         curversion,
         lastversion: curversion

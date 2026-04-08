@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LoadingPointStyle } from './LoadingPointStyle';
 import { MarkdownContent } from './MarkdownContent';
+import { CliEvent } from '@/stores/chat-types';
 
 const HAN_CHAR_RE = /\p{Script=Han}/u;
 const MARKDOWNISH_LINE_RE = /^\s*(?:[-*+] |\d+\. |> |#{1,6}\s|```|~~~|\|)/;
@@ -80,6 +81,7 @@ export function ThinkingContent({
   defaultExpanded = false,
   expandInExport = true,
   status,
+  events,
 }: {
   content: string;
   className?: string;
@@ -88,15 +90,42 @@ export function ThinkingContent({
   expandInExport?: boolean;
   breedColor?: string;
   status?: 'done' | 'streaming' | 'failed';
+  events: CliEvent[];
 }) {
   const isExport =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
   const shouldExpand = (isExport && expandInExport) || defaultExpanded;
   const [expanded, setExpanded] = useState(shouldExpand);
+  const prevStatusRef = useRef(status);
+  const autoCollapsedRef = useRef(false);
   const hasMounted = useRef(false);
+  const toolUses = events.filter((e) => e.kind === 'tool_use');
   useEffect(() => {
-    setExpanded((isExport && expandInExport) || defaultExpanded);
-  }, [isExport, expandInExport, defaultExpanded]);
+    if (isExport) {
+      setExpanded((isExport && expandInExport) || defaultExpanded);
+      prevStatusRef.current = status;
+      return;
+    }
+
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    if (status === 'streaming') {
+      autoCollapsedRef.current = false;
+      setExpanded(true);
+      return;
+    }
+
+    if (prevStatus === 'streaming' && (status === 'done' || status === 'failed')) {
+      autoCollapsedRef.current = true;
+      setExpanded(false);
+      return;
+    }
+
+    if (!autoCollapsedRef.current) {
+      setExpanded(defaultExpanded);
+    }
+  }, [defaultExpanded, expandInExport, isExport, status]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: expanded is intentional — dispatch on toggle
   useLayoutEffect(() => {
     if (!hasMounted.current) {
@@ -113,7 +142,7 @@ export function ThinkingContent({
     normalizedContent.length > previewLength ? `${normalizedContent.slice(0, previewLength)}…` : normalizedContent;
 
   return (
-    <div className="thinking-output-container mt-2 mb-1 overflow-hidden">
+    <div className={`thinking-output-container overflow-hidden pt-2${toolUses.length > 0 ? ' pb-4' : ''}`}>
       <button
         type="button"
         data-testid="thinking-toggle"
@@ -121,7 +150,6 @@ export function ThinkingContent({
           setExpanded((v) => !v);
         }}
         className="thinking-button w-full flex items-center gap-2 text-[14px] font-mono transition-colors"
-        style={{ padding: '8px 0' }}
       >
         {status === 'streaming' && <LoadingPointStyle className="w-4 h-4 flex-shrink-0" />}
         { status === 'done' && 
@@ -225,7 +253,7 @@ export function ThinkingContent({
             </g>
           </svg>
         }
-        <span className="text-[16px] font-normal font-sans" style={{ color: 'rgb(31, 31, 31)' }}>
+        <span className="text-[16px] font-bold font-sans" style={{ color: 'rgb(31, 31, 31)' }}>
           {label}
         </span>
         <span style={{ color: 'rgb(31, 31, 31)' }}>
@@ -240,8 +268,8 @@ export function ThinkingContent({
       {expanded && (
         <div className="thinking-output-body">
           <div
-            style={{ padding: '8px 0 10px 28px', color: 'rgb(31, 31, 31)' }}
-            className="text-[12px] leading-relaxed cli-output-md"
+            style={{ padding: '8px 0 8px 28px' }}
+            className="text-[12px] leading-relaxed cli-output-md text-[#595959]"
           >
             <MarkdownContent content={normalizedContent} className={className} />
           </div>

@@ -48,6 +48,7 @@ import {
   getService,
   routeContentBlocksForCat,
   sanitizeInjectedContent,
+  stripLeadingDirectCatMention,
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
@@ -346,6 +347,7 @@ export async function* routeSerial(
         catId,
         service: getService(deps.services, catId),
         prompt,
+        userPrompt: stripLeadingDirectCatMention(message, catId),
         userId,
         threadId,
         ...(targetContentBlocks ? { contentBlocks: targetContentBlocks } : {}),
@@ -484,9 +486,6 @@ export async function* routeSerial(
 
         if (msg.type === 'error') {
           hadError = true;
-          if (msg.error) {
-            textContent += `${textContent ? '\n\n' : ''}[错误] ${msg.error}`;
-          }
         }
         // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
         // state — mark hadError so we don't fall through to silent_completion.

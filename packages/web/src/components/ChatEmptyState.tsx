@@ -59,12 +59,17 @@ export function ChatEmptyState({
         <div className="w-full text-center">
           <div className="mx-auto max-w-2xl">
             <h2 className="text-[34px] font-semibold leading-tight tracking-[-0.03em] text-[#1F1F24] sm:text-[36px]">
-              <span className="text-[#4D6BFF]">OfficeClaw</span>
-              <span className="text-[#4D6BFF]">，</span>
-              <span>制定目标自动规划执行</span>
+              <span style={{
+                background:
+                  'linear-gradient(224.38deg, rgba(123, 72, 255, 1), rgba(200, 27, 181, 0.74) 24%, rgba(255, 100, 84, 0.44) 50%, rgba(255, 119, 49, 0.35) 72%, rgba(255, 92, 12, 1) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}>OfficeClaw</span>
+              <span>，制定目标自动规划执行</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#8E8E98] sm:text-[15px]">
-              即刻部署专属 AI 专家，成为 7x24 小时在线的超级助手。
+              即刻拥有专属 AI 专家，成为 7x24 小时在线的超级助手。
             </p>
           </div>
 

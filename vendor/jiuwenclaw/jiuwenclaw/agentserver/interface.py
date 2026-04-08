@@ -147,6 +147,24 @@ _TOOL_ROUTES: dict[ReqMethod, str] = {
 }
 
 
+def _log_agent_chat_request(*, label: str, request: AgentRequest, session_id: str) -> None:
+    """记录 chat 相关请求的完整参数（含 query、system_prompt、整包 params）。"""
+    params = request.params if isinstance(request.params, dict) else {}
+    rm = getattr(request.req_method, "value", None) or str(request.req_method)
+    record: dict[str, Any] = {
+        "label": label,
+        "request_id": request.request_id,
+        "channel_id": request.channel_id,
+        "session_id_resolved": session_id,
+        "session_id_raw": request.session_id,
+        "req_method": rm,
+        "query": params.get("query", ""),
+        "system_prompt": params.get("system_prompt", ""),
+        "params": params,
+    }
+    logger.info("[AgentServer] chat_request %s", json.dumps(record, ensure_ascii=False, default=str))
+
+
 class JiuWenClaw:
     """基于 openJiuwen ReActAgent 的 AgentServer 实现."""
 
@@ -265,6 +283,11 @@ class JiuWenClaw:
                 - workspace_dir: 工作区目录，默认 "agent"（memory 落在 agent/memory 下）。
                 - 其余字段透传给 ReActAgentConfig。
         """
+        logger.info(
+            "[AgentServer] create_instance 开始 agent_name=%s workspace_dir=%s",
+            self._agent_name,
+            self._workspace_dir,
+        )
         await self.set_checkpoint()
 
         config_base = get_config()
@@ -513,6 +536,11 @@ class JiuWenClaw:
             permissions_cfg.get("enabled", True),
         )
         logger.info("[JiuWenClaw] 初始化完成: agent_name=%s", self._agent_name)
+        logger.info(
+            "[AgentServer] create_instance 结束 agent_name=%s workspace_dir=%s",
+            self._agent_name,
+            self._workspace_dir,
+        )
 
     def reload_agent_config(self) -> None:
         """从 config.yaml 重新加载配置并 reconfigure 当前实例，使模型/API 等配置生效且不重启进程。"""
@@ -558,6 +586,7 @@ class JiuWenClaw:
             request_id: str | None,
             mode="plan",
             project_dir: str | None = None,
+            cat_cafe_mcp: dict[str, Any] | None = None,
     ) -> None:
         """Register per-request tools for current agent execution."""
         if self._instance is None:
@@ -569,7 +598,6 @@ class JiuWenClaw:
             resolved = project_dir.strip()
             set_request_workspace(resolved)
             self._workspace_dir = resolved
-            logger.info("[JiuWenClaw] per-request project_dir: %s", resolved)
         else:
             set_request_workspace(None)  # fall back to default ~/.jiuwenclaw workspace
 
@@ -729,6 +757,12 @@ class JiuWenClaw:
                 Runner.resource_mgr.add_tool(mcp_tool)
                 self._instance.ability_manager.add(mcp_tool.card)
             self._mcp_tools_registered = True
+
+        if cat_cafe_mcp:
+            try:
+                await self._tool_manager.register_request_scoped_cat_cafe_mcp(cat_cafe_mcp)
+            except Exception as exc:
+                logger.warning("[JiuWenClaw] ensure request-scoped Cat Cafe MCP failed: %s", exc)
 
         config_base = get_config()
         self._instance._config.prompt_template = [{
@@ -1118,9 +1152,10 @@ class JiuWenClaw:
         # 确保 session 的任务处理器在运行
         await self._ensure_session_processor(session_id)
 
-        logger.info(
-            "[JiuWenClaw] 处理请求: request_id=%s channel_id=%s session_id=%s",
-            request.request_id, request.channel_id, session_id,
+        _log_agent_chat_request(
+            label="process_message_unary",
+            request=request,
+            session_id=session_id,
         )
         config_base = get_config()
         system_prompt_append = request.params.get("system_prompt")
@@ -1128,14 +1163,21 @@ class JiuWenClaw:
             system_prompt_append = system_prompt_append.strip() or None
         else:
             system_prompt_append = None
+        built_user_prompt = build_user_prompt(
+            request.params.get("query", ""),
+            files=request.params.get("files", {}),
+            channel=request.session_id.split('_')[0],
+            language=config_base.get("preferred_language", "zh"),
+        )
+        logger.info(
+            "[AgentServer] system_prompt_append request_id=%s session_id=%s\n%s",
+            request.request_id,
+            session_id,
+            system_prompt_append if system_prompt_append else "",
+        )
         inputs = {
             "conversation_id": request.session_id,
-            "query": build_user_prompt(
-                request.params.get("query", ""),
-                files=request.params.get("files", {}),
-                channel=request.session_id.split('_')[0],
-                language=config_base.get("preferred_language", "zh")
-            ),
+            "query": built_user_prompt,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1161,6 +1203,7 @@ class JiuWenClaw:
                     request.request_id,
                     request.params.get("mode", "plan"),
                     project_dir=request.params.get("project_dir"),
+                    cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 return await Runner.run_agent(agent=self._instance, inputs=inputs)
             except asyncio.CancelledError:
@@ -1263,9 +1306,10 @@ class JiuWenClaw:
         )
         await self._ensure_session_processor(session_id)
 
-        logger.info(
-            "[JiuWenClaw] 处理流式请求: request_id=%s channel_id=%s session_id=%s",
-            request.request_id, request.channel_id, session_id,
+        _log_agent_chat_request(
+            label="process_message_stream",
+            request=request,
+            session_id=session_id,
         )
         config_base = get_config()
         system_prompt_append = request.params.get("system_prompt")
@@ -1273,14 +1317,21 @@ class JiuWenClaw:
             system_prompt_append = system_prompt_append.strip() or None
         else:
             system_prompt_append = None
+        built_user_prompt = build_user_prompt(
+            request.params.get("query", ""),
+            files=request.params.get("files", {}),
+            channel=request.session_id.split('_')[0],
+            language=config_base.get("preferred_language", "zh"),
+        )
+        logger.info(
+            "[AgentServer] system_prompt_append request_id=%s session_id=%s\n%s",
+            request.request_id,
+            session_id,
+            system_prompt_append if system_prompt_append else "",
+        )
         inputs = {
             "conversation_id": request.session_id,
-            "query": build_user_prompt(
-                request.params.get("query", ""),
-                files=request.params.get("files", {}),
-                channel=request.session_id.split('_')[0],
-                language=config_base.get("preferred_language", "zh")
-            ),
+            "query": built_user_prompt,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1311,6 +1362,7 @@ class JiuWenClaw:
                     request.request_id,
                     request.params.get("mode", "plan"),
                     project_dir=request.params.get("project_dir"),
+                    cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 async for chunk in Runner.run_agent_streaming(self._instance, inputs):
                     parsed = self._parse_stream_chunk(chunk)

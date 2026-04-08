@@ -42,7 +42,7 @@ interface ConnectorBubbleProps {
 
 /** Default theme for connectors without a registered tailwindTheme. */
 const DEFAULT_CONNECTOR_THEME: ConnectorTailwindTheme = {
-  avatar: 'bg-blue-100 ring-2 ring-blue-200',
+  avatar: 'bg-blue-100 ring-blue-200',
   label: 'text-blue-700',
   labelLink: 'text-blue-700 hover:text-blue-900',
   bubble: 'border border-blue-200 bg-blue-50',

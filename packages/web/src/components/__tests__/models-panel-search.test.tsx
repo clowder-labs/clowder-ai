@@ -5,6 +5,7 @@ import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({
+  API_URL: 'http://localhost:3004',
   apiFetch: vi.fn(),
 }));
 
@@ -90,14 +91,14 @@ describe('ModelsPanel search', () => {
           jsonResponse({
             list: [
               {
-                id: 'gpt-5',
+                id: 'model_config:gpt-source:gpt-5',
                 object: 'model',
                 name: 'gpt-5',
                 description: 'flagship model',
                 protocol: 'openai',
                 labels: ['text-gen', 'Function Call'],
                 developer: 'OpenAI',
-                icon: '/avatars/assistant.svg',
+                icon: '/uploads/gpt-5.png',
               },
               {
                 id: 'deepseek-r1',
@@ -117,6 +118,23 @@ describe('ModelsPanel search', () => {
                 protocol: 'openai',
                 labels: ['proxy'],
                 developer: 'OpenAI',
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/model-config-profiles') {
+        return Promise.resolve(
+          jsonResponse({
+            providers: [
+              {
+                id: 'gpt-source',
+                displayName: 'GPT Source',
+                description: 'flagship model',
+                icon: '/uploads/provider-gpt-5.png',
+                baseUrl: 'https://proxy.example.com/v1',
+                apiKey: 'sk-test',
+                models: ['gpt-5'],
               },
             ],
           }),
@@ -235,37 +253,42 @@ describe('ModelsPanel search', () => {
     await flushEffects();
 
     const fallbackIcon = container.querySelector('[data-testid="model-card-icon-alpha-custom"]');
+    const customModelCard = fallbackIcon?.closest('article');
+    const huaweiTitle = Array.from(container.querySelectorAll('h4')).find((node) => node.textContent?.includes('deepseek-r1'));
+    const huaweiModelCard = huaweiTitle?.closest('article');
     expect(fallbackIcon).not.toBeNull();
     expect(fallbackIcon?.textContent).toContain('A');
+    expect(customModelCard?.className).toContain('ui-card');
+    expect(customModelCard?.className).toContain('ui-card-hover');
+    expect(huaweiModelCard?.className).toContain('ui-card');
+    expect(huaweiModelCard?.className).not.toContain('ui-card-hover');
   });
 
-  it('shows a custom tooltip for model descriptions instead of the native title attribute', async () => {
+  it('prefixes uploaded model icons with API_URL in model cards', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
     await flushEffects();
 
-    const descriptionNode = Array.from(container.querySelectorAll('p')).find((node) =>
-      node.textContent?.includes('flagship model'),
-    );
-    expect(descriptionNode).not.toBeNull();
-    expect(descriptionNode?.getAttribute('title')).toBeNull();
+    const icon = container.querySelector('[data-testid="model-card-icon-model_config:gpt-source:gpt-5"]') as HTMLImageElement | null;
+    expect(icon).not.toBeNull();
+    expect(icon?.getAttribute('src')).toBe('http://localhost:3004/uploads/gpt-5.png');
+  });
 
+  it('prefixes uploaded model icons with API_URL in edit modal preview', async () => {
     await act(async () => {
-      descriptionNode?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-      await Promise.resolve();
+      root.render(React.createElement(ModelsPanel));
     });
+    await flushEffects();
 
-    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
-    if (!descriptionNode) return;
-    mockOverflow(descriptionNode, 200, 200, 44, 88);
+    const editButton = container.querySelector('[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]') as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+    await clickButton(editButton!);
+    await flushEffects();
 
-    await act(async () => {
-      descriptionNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('flagship model');
+    const preview = container.querySelector('img[alt="Model icon preview"]') as HTMLImageElement | null;
+    expect(preview).not.toBeNull();
+    expect(preview?.getAttribute('src')).toBe('http://localhost:3004/uploads/provider-gpt-5.png');
   });
 
   it('submits create-model description without icon when icon is not provided', async () => {

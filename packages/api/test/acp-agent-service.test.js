@@ -371,7 +371,7 @@ process.stdin.on('data', (chunk) => {
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -483,7 +483,7 @@ process.stdin.on('data', (chunk) => {
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -530,7 +530,7 @@ process.stdin.on('data', (chunk) => {
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -637,7 +637,7 @@ process.stdin.on('data', (chunk) => {
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -764,7 +764,7 @@ process.stdin.on('data', (chunk) => {
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -889,7 +889,7 @@ process.stdin.on('data', (chunk) => {
     const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
     const service = new ACPAgentService({ catId: 'codex' });
     const providerProfile = {
-      id: 'agent-teams-test',
+      id: 'relay-teams-test',
       kind: 'acp',
       protocol: 'acp',
       authType: 'none',
@@ -914,7 +914,7 @@ process.stdin.on('data', (chunk) => {
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -948,7 +948,7 @@ process.stdin.on('data', (chunk) => {
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -1020,7 +1020,7 @@ function handle(message) {
     log({
       method: message.method,
       cwd: typeof params.cwd === 'string' ? params.cwd : null,
-      envProjectRoot: process.env.AGENT_TEAMS_PROJECT_ROOT ?? null,
+      envProjectRoot: process.env.RELAY_TEAMS_PROJECT_ROOT ?? null,
     });
     write({
       jsonrpc: '2.0',
@@ -1074,14 +1074,14 @@ process.stdin.on('data', (chunk) => {
     }
   }
 
-  it('invoke passes cwd through ACP params without AGENT_TEAMS_PROJECT_ROOT', async () => {
+  it('invoke passes cwd through ACP params without RELAY_TEAMS_PROJECT_ROOT', async () => {
     await withFakeAcpCwdAgent(async ({ logFile, scriptFile, tempDir }) => {
       const workingDirectory = path.join(tempDir, 'invoke-workspace');
       await mkdir(workingDirectory);
       const { ACPAgentService } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const service = new ACPAgentService({ catId: 'codex' });
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',
@@ -1115,13 +1115,13 @@ process.stdin.on('data', (chunk) => {
     });
   });
 
-  it('runACPProviderProbe uses cwd param without AGENT_TEAMS_PROJECT_ROOT', async () => {
+  it('runACPProviderProbe uses cwd param without RELAY_TEAMS_PROJECT_ROOT', async () => {
     await withFakeAcpCwdAgent(async ({ logFile, scriptFile, tempDir }) => {
       const workingDirectory = path.join(tempDir, 'probe-workspace');
       await mkdir(workingDirectory);
       const { runACPProviderProbe } = await import('../dist/domains/cats/services/agents/providers/ACPAgentService.js');
       const providerProfile = {
-        id: 'agent-teams-test',
+        id: 'relay-teams-test',
         kind: 'acp',
         protocol: 'acp',
         authType: 'none',

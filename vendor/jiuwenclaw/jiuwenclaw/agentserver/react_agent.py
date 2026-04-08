@@ -41,6 +41,7 @@ from jiuwenclaw.agentserver.tools.todo_toolkits import TodoToolkit
 from jiuwenclaw.evolution.service import EvolutionService
 from jiuwenclaw.utils import get_agent_memory_dir, get_workspace_dir, logger
 from jiuwenclaw.config import get_config
+from jiuwenclaw.utils import fix_json_arguments
 
 
 # 加载流式输出配置
@@ -391,6 +392,9 @@ class JiuClawReActAgent(ReActAgent):
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
                 )
+                # 修复 tool_calls 中的 JSON 格式
+                if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
+                    ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
             except Exception as e:
                 logger.error(f"[JiuwenClaw] 尝试修复上下文")
                 await self._fix_incomplete_tool_context(context)
@@ -408,6 +412,9 @@ class JiuClawReActAgent(ReActAgent):
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
                 )
+                # 修复 tool_calls 中的 JSON 格式
+                if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
+                    ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
 
             # Pause checkpoint: after LLM returns, before tool execution
             if _pause_event is not None:
@@ -1073,7 +1080,7 @@ class JiuClawReActAgent(ReActAgent):
 
         try:
             import json as _json
-            args = _json.loads(tc.arguments) if isinstance(tc.arguments, str) else tc.arguments
+            args = fix_json_arguments(tc.arguments)
             file_path: str = args.get("file_path", "")
         except Exception:
             return tool_msg
@@ -1091,6 +1098,36 @@ class JiuClawReActAgent(ReActAgent):
         tool_msg.content = original + body_text
         logger.info("[ReActAgent] injected body experience for skill=%s", skill_name)
         return tool_msg
+
+    def _fix_tool_calls_arguments(self, tool_calls: List[Any]) -> List[Any]:
+        """修复 tool_calls 中每个 tool_call 的 arguments 字段。
+
+        当 LLM 返回的 tool_calls.function.arguments 格式不正确时（如缺少引号），
+        尝试修复后再解析，确保后续流程能正常处理。
+
+        Args:
+            tool_calls: ToolCall 对象列表
+
+        Returns:
+            修复后的 ToolCall 对象列表（原对象会被修改）
+        """
+        if not tool_calls:
+            return tool_calls
+
+        for tc in tool_calls:
+            if hasattr(tc, "arguments") and isinstance(tc.arguments, str):
+                # 尝试修复 JSON
+                fixed_args = fix_json_arguments(tc.arguments)
+                # 如果修复成功且结果是字典，尝试将其转换回 JSON 字符串
+                # 保持与原始格式一致
+                if isinstance(fixed_args, dict):
+                    import json as _json
+                    try:
+                        tc.arguments = _json.dumps(fixed_args, ensure_ascii=False)
+                    except Exception:
+                        # 序列化失败，保持原样
+                        pass
+        return tool_calls
 
     async def _get_session_messages(self, session: Optional[Any]) -> List[Any]:
         """Get raw historical message list from session.

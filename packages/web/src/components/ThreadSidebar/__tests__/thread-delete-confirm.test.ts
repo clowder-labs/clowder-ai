@@ -143,10 +143,12 @@ describe('Thread delete confirmation (I-1)', () => {
 
     await flush();
 
-    const menu = container.querySelector('.fixed.z-50.inline-block') as HTMLDivElement | null;
+    const menu = container.querySelector('[data-testid="thread-context-menu"]') as HTMLDivElement | null;
     expect(menu, 'context menu should open').toBeTruthy();
+    expect(menu?.className).toContain('ui-overlay-card');
 
     const menuButtons = Array.from(menu?.querySelectorAll('button') ?? []);
+    expect(menuButtons.every((button) => button.className.includes('ui-overlay-item'))).toBe(true);
     const deleteBtn = menuButtons.at(-1) as HTMLButtonElement | undefined;
     expect(deleteBtn, 'delete menu item should exist for non-default thread').toBeTruthy();
 

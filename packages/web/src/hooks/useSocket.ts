@@ -55,6 +55,12 @@ interface ConnectorMessageEvent {
   };
 }
 
+const USER_CHANNEL_CONNECTORS = new Set(['weixin', 'feishu', 'dingtalk', 'telegram']);
+
+function isUserChannelConnector(connectorId?: string): boolean {
+  return typeof connectorId === 'string' && USER_CHANNEL_CONNECTORS.has(connectorId);
+}
+
 interface SocketIoTransportLike {
   name?: string;
   ws?: WebSocket;
@@ -472,9 +478,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socket.on('connector_message', (data: ConnectorMessageEvent) => {
       if (!data?.threadId || !data?.message?.id) return;
       const store = useChatStore.getState();
+      const shouldTreatAsUser = isUserChannelConnector(data.message.source?.connector);
       store.addMessageToThread(data.threadId, {
         id: data.message.id,
-        type: 'connector',
+        type: shouldTreatAsUser ? 'user' : 'connector',
         content: data.message.content ?? '',
         ...(data.message.source ? { source: data.message.source } : {}),
         ...(data.message.extra ? { extra: data.message.extra } : {}),

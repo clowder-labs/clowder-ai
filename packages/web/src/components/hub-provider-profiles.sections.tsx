@@ -133,7 +133,7 @@ export function CreateApiKeyProfileSection({
           <input
             value={displayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
-            placeholder={kind === 'acp' ? 'Provider 显示名，如 agent-teams-local' : '账号显示名，如 my-glm'}
+            placeholder={kind === 'acp' ? 'Provider 显示名，如 relay-teams-local' : '账号显示名，如 my-glm'}
             autoComplete="off"
             className="ui-input w-full rounded px-3 py-2 text-sm"
           />
@@ -149,7 +149,7 @@ export function CreateApiKeyProfileSection({
                 value={args}
                 onChange={(e) => onArgsChange(e.target.value)}
                 rows={3}
-                placeholder="参数按空格分隔，例如 -m agent_teams gateway acp stdio"
+                placeholder="参数按空格分隔，例如 -m relay_teams gateway acp stdio"
                 className="ui-textarea w-full rounded px-3 py-2 text-sm"
               />
               <input

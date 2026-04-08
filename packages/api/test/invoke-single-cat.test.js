@@ -97,6 +97,36 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(catError[0].data.error.includes('CLI'), 'cat_error should contain error message');
   });
 
+  it('logs service-emitted error messages at error level for fallback diagnostics', async () => {
+    const errorService = {
+      async *invoke() {
+        yield {
+          type: 'error',
+          catId: 'codex',
+          error: 'ACP provider profile is not configured',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const messages = await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'codex',
+        service: errorService,
+        prompt: 'test',
+        userId: 'user1',
+        threadId: 'thread-error-log',
+        isLastCat: true,
+      }),
+    );
+
+    // Verify error message was emitted to user
+    const errorMsg = messages.find((m) => m.type === 'error');
+    assert.ok(errorMsg, 'should emit error message');
+    assert.equal(errorMsg.error, 'ACP provider profile is not configured');
+  });
+
   it('persists task progress snapshot with completed status on done', async () => {
     const { MemoryTaskProgressStore } = await import(
       '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
@@ -2477,16 +2507,16 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       }
       catRegistry.register('agentteams', {
         ...originalConfig,
-        provider: 'relayclaw',
+        provider: 'acp',
         accountRef: 'my-openai-proxy',
         defaultModel: 'mimo-v2-flash',
         embeddedAcpConfig: {
           executablePath: 'tools/python/python.exe',
-          args: ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio'],
-          cwd: '/tmp/custom-agent-teams',
+          args: ['--trace', '-m', 'relay_teams', 'gateway', 'acp', 'stdio'],
+          cwd: '/tmp/custom-relay-teams',
           env: {
             ACP_TRACE_STDIO: '1',
-            AGENT_TEAMS_LOG_LEVEL: 'debug',
+            RELAY_TEAMS_LOG_LEVEL: 'debug',
           },
         },
       });
@@ -2526,11 +2556,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       const acpModelProfile = optionsSeen[0]?.acpModelProfile ?? null;
       assert.equal(providerProfile?.kind, 'acp');
       assert.match(String(providerProfile?.command ?? ''), /python\.exe$/i);
-      assert.deepEqual(providerProfile?.args, ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio']);
-      assert.equal(providerProfile?.cwd, '/tmp/custom-agent-teams');
+      assert.deepEqual(providerProfile?.args, ['--trace', '-m', 'relay_teams', 'gateway', 'acp', 'stdio']);
+      assert.equal(providerProfile?.cwd, '/tmp/custom-relay-teams');
       assert.deepEqual(providerProfile?.env, {
         ACP_TRACE_STDIO: '1',
-        AGENT_TEAMS_LOG_LEVEL: 'debug',
+        RELAY_TEAMS_LOG_LEVEL: 'debug',
       });
       assert.equal(acpModelProfile?.provider, 'openai_compatible');
       assert.equal(acpModelProfile?.model, 'mimo-v2-flash');
@@ -2594,16 +2624,16 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       }
       catRegistry.register('agentteams', {
         ...originalConfig,
-        provider: 'relayclaw',
+        provider: 'acp',
         accountRef: 'huawei-maas',
         defaultModel: 'glm-5',
         embeddedAcpConfig: {
           executablePath: 'tools/python/python.exe',
-          args: ['--trace', '-m', 'agent_teams', 'gateway', 'acp', 'stdio'],
-          cwd: '/tmp/custom-agent-teams',
+          args: ['--trace', '-m', 'relay_teams', 'gateway', 'acp', 'stdio'],
+          cwd: '/tmp/custom-relay-teams',
           env: {
             ACP_TRACE_STDIO: '1',
-            AGENT_TEAMS_LOG_LEVEL: 'debug',
+            RELAY_TEAMS_LOG_LEVEL: 'debug',
           },
         },
       });
@@ -2657,6 +2687,45 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it('keeps relayclaw query on the clean user task and moves orchestration context into systemPrompt', async () => {
+    const seen = [];
+    const service = {
+      async *invoke(prompt, options) {
+        seen.push({ prompt, options: options ?? {} });
+        yield { type: 'done', catId: 'jiuwenclaw', timestamp: Date.now() };
+      },
+    };
+
+    const orchestratedPrompt = [
+      '## Dispatch Mission Context',
+      '',
+      'mission:    @office 帮我做一页 PPT',
+      '',
+      '[对话历史增量 - 未发送过 1 条]',
+      '[msg-1] [00:18 铲屎官] @office 帮我做一页 PPT',
+      '[/对话历史]',
+    ].join('\n');
+
+    await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'jiuwenclaw',
+        service,
+        prompt: orchestratedPrompt,
+        userPrompt: '帮我做一页 PPT',
+        userId: 'user-relayclaw-query-split',
+        threadId: 'thread-relayclaw-query-split',
+        systemPrompt: 'Identity: 办公智能体/office',
+        isLastCat: true,
+      }),
+    );
+
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].prompt, '帮我做一页 PPT');
+    assert.match(String(seen[0].options.systemPrompt ?? ''), /Identity: 办公智能体\/office/);
+    assert.match(String(seen[0].options.systemPrompt ?? ''), /Dispatch Mission Context/);
+    assert.match(String(seen[0].options.systemPrompt ?? ''), /对话历史增量/);
   });
 
   it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {
