@@ -1,8 +1,8 @@
 ﻿'use client';
 
 import { type ReactNode } from 'react';
-import { InfoTooltip, OverflowTooltip } from './InfoTooltip';
-import { NameInitialIcon } from './NameInitialIcon';
+import { OverflowTooltip } from './OverflowTooltip';
+import { SkillAvatar } from './SkillAvatar';
 
 export interface CapabilityBoardItem {
   id: string;
@@ -17,6 +17,7 @@ export interface CapabilityBoardItem {
   tools?: { name: string; description?: string }[];
   connectionStatus?: 'connected' | 'disconnected' | 'unknown';
   installedAt?: string;
+  iconUrl?: string | null;
 }
 
 export interface CatFamily {
@@ -173,6 +174,7 @@ export function CapabilityCard({
   toggling,
   onToggle,
   onUninstall,
+  onClick,
   hideSkillMountStatus: _hideSkillMountStatus,
 }: {
   item: CapabilityBoardItem;
@@ -180,20 +182,35 @@ export function CapabilityCard({
   toggling: string | null;
   onToggle: ToggleHandler;
   onUninstall?: (id: string) => void;
+  onClick?: () => void;
   hideSkillMountStatus?: boolean;
 }) {
   const isToggling = toggling === `${item.type}:${item.id}`;
   const sourceLabel = getSourceLabel(item.source);
   const resolvedDescription = item.description?.trim() || '暂未提供技能描述。';
   const showDeleteAction = item.source === 'external' && typeof onUninstall === 'function';
+  const isClickable = typeof onClick === 'function';
 
   return (
     <div
-      className="ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5"
+      className={`ui-card ui-card-hover group flex min-h-[194px] flex-col gap-4 p-5 ${isClickable ? 'cursor-pointer' : ''}`}
       data-testid={`capability-card-${item.type}-${item.id}`}
+      onClick={onClick}
+      onKeyDown={
+        isClickable
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
     >
       <div className="flex items-start gap-3">
-        <NameInitialIcon name={item.id} />
+        <SkillAvatar avatarName={item.id} avatarUrl={item.iconUrl} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <OverflowTooltip
@@ -210,9 +227,9 @@ export function CapabilityCard({
         </div>
       </div>
 
-      <InfoTooltip content={resolvedDescription} className="w-full">
+      <OverflowTooltip content={resolvedDescription} className="w-full">
         <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">{resolvedDescription}</p>
-      </InfoTooltip>
+      </OverflowTooltip>
 
       <div className="mt-auto flex items-end justify-between gap-3">
         <div className="min-h-5 text-xs leading-5">

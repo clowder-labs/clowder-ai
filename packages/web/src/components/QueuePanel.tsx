@@ -147,9 +147,9 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
 
   const pauseLabel = queuePauseReason === 'canceled' ? '当前调用已取消' : '当前调用失败';
 
-  return (
+  return ( 
     <div
-      className={`border-t mx-4 mb-1 rounded-xl overflow-hidden ${
+      className={`hidden border-t mx-4 mb-1 rounded-xl overflow-hidden ${
         queuePaused ? 'border-amber-200 bg-amber-50/50' : 'border-[#9B7EBD]/20 bg-[#9B7EBD]/5'
       }`}
     >

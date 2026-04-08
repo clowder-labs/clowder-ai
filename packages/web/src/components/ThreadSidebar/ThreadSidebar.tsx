@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getMentionToCat } from '@/lib/mention-highlight';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
@@ -11,6 +12,7 @@ import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
+import { sanitizeThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
 import { getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
@@ -121,7 +123,11 @@ export function ThreadSidebar({
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
-      const threads = data.threads ?? [];
+      const knownAliases = new Set(Object.keys(getMentionToCat()).map((alias) => alias.toLowerCase()));
+      const threads = (data.threads ?? []).map((thread: Thread) => ({
+        ...thread,
+        title: sanitizeThreadTitleOrNull(thread.title, knownAliases),
+      }));
       setThreads(threads);
       // F069: Restore unread state from API
       const { initThreadUnread } = useChatStore.getState();
@@ -488,9 +494,11 @@ export function ThreadSidebar({
     currentThreadId,
   });
   const isChatMenu = !activeMenu && currentThreadId === 'default';
-  const menuItemBase = 'ui-menu-item flex h-[38px] w-full items-center gap-2 px-2.5 transition-colors';
+  const menuItemBase = 'ui-menu-item flex h-[38px] w-full items-center gap-2 px-2.5';
   const menuItemActive = 'ui-menu-item-active';
   const menuItemInactive = 'ui-menu-item-inactive';
+  const getMenuItemClassName = (isActive: boolean, extraClassName?: string) =>
+    [menuItemBase, isActive ? menuItemActive : menuItemInactive, extraClassName].filter(Boolean).join(' ');
 
   return (
     <>
@@ -512,7 +520,7 @@ export function ThreadSidebar({
                 onClose?.();
               }
             }}
-            className="flex w-full items-center gap-2 rounded-md border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-left text-xs font-medium text-[#4B5563] transition-colors hover:bg-[#F9FAFB] hover:text-[#111827]"
+            className={getMenuItemClassName(false, 'h-auto py-1.5 text-left text-xs font-medium')}
             data-testid="sidebar-mission-control"
           >
             <svg
@@ -538,7 +546,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={handleNewChat}
-              className={`${menuItemBase} ${isChatMenu ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(isChatMenu)}
+              data-testid="sidebar-new-chat"
             >
               <img src="/icons/menu/new-chat.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               新建会话
@@ -546,7 +555,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('models')}
-              className={`${menuItemBase} ${activeMenu === 'models' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'models')}
+              data-testid="sidebar-menu-models"
             >
               <img src="/icons/menu/models.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               模型
@@ -554,7 +564,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('agents')}
-              className={`${menuItemBase} ${activeMenu === 'agents' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'agents')}
+              data-testid="sidebar-menu-agents"
             >
               <img src="/icons/menu/agents.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               智能体
@@ -562,7 +573,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('channels')}
-              className={`${menuItemBase} ${activeMenu === 'channels' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'channels')}
+              data-testid="sidebar-menu-channels"
             >
               <img src="/icons/menu/channels.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               渠道
@@ -570,7 +582,8 @@ export function ThreadSidebar({
             <button
               type="button"
               onClick={() => onMenuClick?.('skills')}
-              className={`${menuItemBase} ${activeMenu === 'skills' ? menuItemActive : menuItemInactive} text-cafe-black`}
+              className={getMenuItemClassName(activeMenu === 'skills')}
+              data-testid="sidebar-menu-skills"
             >
               <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               技能
@@ -591,8 +604,12 @@ export function ThreadSidebar({
               <button
                 ref={filterToggleRef}
                 type="button"
-                onClick={() => { setShowFilter((prev) => !prev); setIsSearchOpen(false); }}
-                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[rgba(20,115,255,1)]' : 'text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-accent)]'}`}
+                onClick={() => {
+                  setShowFilter((prev) => !prev);
+                  setIsSearchOpen(false);
+                  setSearchQuery('');
+                }}
+                className={`rounded p-1 transition-colors ${showFilter || filterOption !== 'all' ? 'text-[rgba(20,115,255,1)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="筛选会话"
                 data-testid="thread-filter-toggle"
               >
@@ -602,8 +619,13 @@ export function ThreadSidebar({
               </button>
               <button
                 type="button"
-                onClick={() => { setIsSearchOpen((prev) => !prev); setShowFilter(false) }}
-                className={`rounded p-1 transition-colors ${isSearchOpen || normalizedQuery.length > 0 ? 'bg-[var(--accent-soft)] text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text-accent)]'}`}
+                onClick={() => {
+                  setIsSearchOpen((prev) => !prev);
+                  setShowFilter(false);
+                  setFilterOption('all');
+                  setPendingFilterOption('all');
+                }}
+                className={`rounded p-1 transition-colors ${isSearchOpen || normalizedQuery.length > 0 ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="搜索会话"
                 data-testid="thread-search-toggle"
               >
@@ -620,15 +642,23 @@ export function ThreadSidebar({
             <div className="relative mt-2">
               <input
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索对话"
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setFilterOption('all');
+                  setPendingFilterOption('all');
+                }}
+                placeholder="搜索会话"
                 autoComplete="off"
                 className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => { setSearchQuery(''); setShowFilter(false); }}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setShowFilter(false);
+                    setIsSearchOpen(false);
+                  }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full text-[20px] leading-5 text-[#808080] hover:text-[#191919]"
                   aria-label="清除搜索"
                 >
@@ -641,7 +671,7 @@ export function ThreadSidebar({
           {showFilter && (
             <div
               ref={filterPanelRef}
-              className="absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] bg-white p-4 shadow-[0_2px_12px_0_rgba(0,0,0,0.16)]"
+              className="ui-overlay-card absolute right-4 top-[44px] z-40 w-[200px] rounded-[6px] p-4"
             >
               <div className="text-[12px] font-[400] leading-[18px] text-[#808080]">会话时间</div>
               <div className="mt-3 flex flex-col">
@@ -654,7 +684,7 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`text-[12px] font-[400] leading-[18px] text-[#191919] text-left py-[2px] ${pendingFilterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${pendingFilterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
                     style={{ marginBottom: '14px' }}
                     onClick={() => setPendingFilterOption(item.key as 'all' | '1m' | '3m' | '6m')}
                   >
@@ -665,7 +695,7 @@ export function ThreadSidebar({
               <div className="pt-4 flex justify-end gap-2 border-t border-[#E5E7EB]">
                 <button
                   type="button"
-                  className="h-6 rounded-full border border-[rgba(89,89,89,1)] px-4 text-[12px] font-[400] text-[#191919]"
+                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
                   onClick={() => {
                     setPendingFilterOption('all');
                     setFilterOption('all');
@@ -676,10 +706,12 @@ export function ThreadSidebar({
                 </button>
                 <button
                   type="button"
-                  className="h-6 rounded-full border border-[rgba(89,89,89,1)] px-4 text-[12px] font-[400] text-[#191919]"
+                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
                   onClick={() => {
                     setFilterOption(pendingFilterOption);
                     setShowFilter(false);
+                    setSearchQuery('');
+                    setIsSearchOpen(false);
                   }}
                 >
                   确定
@@ -688,7 +720,7 @@ export function ThreadSidebar({
             </div>
           )}
 
-          {unreadIds.size > 0 && (
+          {false && unreadIds.size > 0 && (
             <button
               type="button"
               onClick={handleMarkAllRead}
@@ -703,7 +735,7 @@ export function ThreadSidebar({
 
         <div className="flex-1 overflow-y-auto">
           {isLoadingThreads && threads.length === 0 && (
-            <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
+            <div className="text-center py-4 text-xs text-gray-400">加载中..</div>
           )}
 
           {false && showDefaultThread && (
@@ -846,7 +878,7 @@ export function ThreadSidebar({
 
         {/* 回收站入口暂时隐藏 */}
 
-        <div className="border-t border-[var(--border-default)]"></div>
+        <div className="border-t border-[var(--border-default)] mx-4"></div>
 
         <UserProfile />
 
@@ -879,16 +911,15 @@ export function ThreadSidebar({
       >
         <div className="flex flex-col gap-5" data-testid="thread-delete-modal-content">
           <div className="space-y-1">
-            <p className="text-sm font-medium text-gray-900">{deleteTarget?.title ?? '未命名对话'}</p>
-            <p className="text-sm text-gray-600">删除后，对话将移入回收站，你仍可在回收站中恢复该对话。</p>
+            <p className="text-sm text-gray-600">删除后，该会话及相关聊天记录将全部清空且不可恢复。</p>
           </div>
 
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default ui-modal-action-button">
               取消
             </button>
-            <button type="button" onClick={handleDeleteConfirm} className="ui-button-danger ui-modal-action-button">
-              移入回收站
+            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary ui-modal-action-button">
+              确定
             </button>
           </div>
         </div>

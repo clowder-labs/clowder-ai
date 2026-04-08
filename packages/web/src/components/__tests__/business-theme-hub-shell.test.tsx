@@ -130,6 +130,28 @@ describe('business theme hub shell', () => {
     expect(container.textContent).toContain('来源：官方');
   });
 
+  it('shows a centered loading icon instead of loading text while installed skills are loading', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities?')) {
+        return new Promise<Response>(() => {});
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+      await Promise.resolve();
+    });
+
+    const loadingState = container.querySelector('[data-testid="skills-loading-state"]');
+    expect(loadingState).not.toBeNull();
+    expect(loadingState?.className).toContain('items-center');
+    expect(loadingState?.className).toContain('justify-center');
+    expect(loadingState?.querySelector('img')).not.toBeNull();
+    expect(container.textContent).not.toContain('加载中...');
+  });
+
   it('renders search input under title and filters installed skills', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
@@ -161,6 +183,31 @@ describe('business theme hub shell', () => {
 
     expect(container.textContent).toContain('全部 (1)');
     expect(container.textContent).not.toContain('全部 (2)');
+  });
+
+  it('clears the installed skills search input when switching categories', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'doc');
+    expect(searchInput?.value).toBe('doc');
+
+    const knowledgeTab = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Knowledge',
+    );
+    expect(knowledgeTab).not.toBeUndefined();
+
+    await act(async () => {
+      knowledgeTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(searchInput?.value).toBe('');
   });
 
   it('renders optional import action beside installed skills search', async () => {
@@ -213,5 +260,27 @@ describe('business theme hub shell', () => {
     expect(scrollRegion?.className).toContain('overflow-y-auto');
     expect(scrollRegion?.contains(searchInput)).toBe(false);
     expect(scrollRegion?.querySelector('[data-testid="capability-card-skill-ops-skill"]')).not.toBeNull();
+  });
+
+  it('passes skill avatar selection context when opening detail from a skill card', async () => {
+    const onSelectSkill = vi.fn();
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab, { onSelectSkill }));
+    });
+    await flushEffects();
+
+    const card = container.querySelector('[data-testid="capability-card-skill-ops-skill"]') as HTMLDivElement | null;
+    expect(card).not.toBeNull();
+
+    await act(async () => {
+      card?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(onSelectSkill).toHaveBeenCalledWith({
+      skillName: 'ops-skill',
+      avatarUrl: null,
+    });
   });
 });

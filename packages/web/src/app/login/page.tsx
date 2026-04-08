@@ -97,7 +97,7 @@ export default function LoginPage() {
               OfficeClaw
             </h1>
             <p className="mb-10 max-w-xl text-center text-xl font-semibold leading-10 text-gray-600 sm:text-2xl sm:leading-[48px]">
-              即可部署专属AI 享 7x24 小时 稳定在线的超级助手
+              即刻拥有专属 AI 享 7x24 小时 稳定在线的超级助手
             </p>
 
             <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
+import { CenteredLoadingState } from './CenteredLoadingState';
 import { useConfirm } from './useConfirm';
 
 const ALL_CATEGORY = '全部';
@@ -15,6 +16,11 @@ const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
 const IMPORT_LABEL = '导入';
 const NO_SEARCH_RESULTS_TITLE = '未找到匹配技能';
 
+export interface SelectedSkillSummary {
+  skillName: string;
+  avatarUrl?: string | null;
+}
+
 function sourceToLabel(source: string): string {
   if (source === 'cat-cafe') return '官方';
   if (source === 'external') return '三方';
@@ -24,10 +30,12 @@ function sourceToLabel(source: string): string {
 export function HubCapabilityTab({
   hideSkillMountStatus,
   onImport,
+  onSelectSkill,
   refreshSignal,
 }: {
   hideSkillMountStatus?: boolean;
   onImport?: () => void;
+  onSelectSkill?: (selection: SelectedSkillSummary) => void;
   refreshSignal?: number;
 }) {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
@@ -179,7 +187,12 @@ export function HubCapabilityTab({
     if (!categoryTabs.includes(activeCategory)) setActiveCategory(ALL_CATEGORY);
   }, [activeCategory, categoryTabs]);
 
-  if (loading) return <p className="text-sm text-[var(--text-muted)]">加载中...</p>;
+  const handleCategoryChange = useCallback((category: string) => {
+    setSearchQuery('');
+    setActiveCategory(category);
+  }, []);
+
+  if (loading) return <CenteredLoadingState />;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -192,7 +205,7 @@ export function HubCapabilityTab({
               {index > 0 ? <div aria-hidden="true" className="mr-4 h-4 w-px self-center bg-[#dbdbdb]" /> : null}
               <button
                 type="button"
-                onClick={() => setActiveCategory(category)}
+                onClick={() => handleCategoryChange(category)}
                 className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
                   activeCategory === category
                     ? 'font-semibold text-[var(--text-primary)]'
@@ -255,6 +268,15 @@ export function HubCapabilityTab({
                 toggling={toggling}
                 onToggle={handleToggle}
                 onUninstall={handleUninstall}
+                onClick={
+                  item.type === 'skill'
+                    ? () =>
+                        onSelectSkill?.({
+                          skillName: item.id,
+                          avatarUrl: item.iconUrl ?? null,
+                        })
+                    : undefined
+                }
                 hideSkillMountStatus={hideSkillMountStatus}
               />
             ))}

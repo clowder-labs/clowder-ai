@@ -141,24 +141,15 @@ export function ModelSelectDropdownDraft({
                   data-testid={`model-row-${item.id}`}
                   onClick={() => onSelect?.(item)}
                   className={`flex min-h-[34px] w-full items-center border-0 px-4 py-1.5 text-left transition-colors ${
-                    isSelected
-                      ? 'bg-[var(--surface-selected)]'
-                      : 'bg-[var(--surface-panel)] hover:bg-[rgb(245,245,245)]'
+                    isSelected ? 'bg-[#f5f5f5]' : 'bg-[var(--surface-panel)] hover:bg-[#f5f5f5]'
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <ModelIcon item={item} />
                     <div className="min-w-0">
-                      <div
-                        className={`truncate text-[14px] leading-[20px] text-[var(--text-primary)] ${
-                          isSelected ? 'font-medium text-[var(--text-accent)]' : 'font-normal'
-                        }`}
-                      >
+                      <div className="truncate text-[14px] leading-[20px] font-normal text-[var(--text-primary)]">
                         {item.name}
                       </div>
-                      {item.providerGroup && item.providerGroup !== group.label ? (
-                        <div className="truncate text-[11px] text-[var(--text-muted)]">{item.providerGroup}</div>
-                      ) : null}
                     </div>
                   </div>
                 </button>

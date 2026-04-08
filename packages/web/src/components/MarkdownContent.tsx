@@ -357,7 +357,7 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
 
   return (
     <div
-      className={`markdown-content font-sans text-sm break-words ${className ?? ''}`}
+      className={`markdown-content font-sans break-words ${className ?? ''}`}
       style={{ fontFamily: 'Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif' }}
     >
       {cmdMatch && <span className="text-indigo-500">{cmdMatch[1]}</span>}
