@@ -19,23 +19,24 @@ function ToastCard({ toast }: { toast: ToastItem }) {
     return () => clearTimeout(timer);
   }, [toast.duration, dismiss]);
 
-  const backgroundClass =
+  const toneClass =
     toast.type === 'error'
-      ? 'bg-[var(--state-error-surface)]'
+      ? 'bg-[var(--state-error-surface)] border-[var(--state-error-surface)]'
       : toast.type === 'success'
-        ? 'bg-[var(--state-success-surface)]'
-        : 'bg-[var(--state-warning-surface)]';
+        ? 'bg-[var(--state-success-surface)] border-[var(--state-success-surface)]'
+        : 'bg-[var(--state-warning-surface)] border-[var(--state-warning-surface)]';
 
   return (
     <div
       className={`
-        ${backgroundClass} text-black rounded-lg shadow-lg border border-black/5
-        px-4 py-3 max-w-xs pointer-events-auto
+        ${toneClass} box-border text-black rounded-[8px] border
+        shadow-[-2px_0px_12px_0px_rgba(0,0,0,0.16)]
+        px-4 py-2 max-w-xs pointer-events-auto
         ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}
       `}
       role="alert"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex flex-row items-start justify-start gap-4">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-black">{toast.title}</p>
           <p className="mt-0.5 line-clamp-2 text-xs text-black/80">{toast.message}</p>

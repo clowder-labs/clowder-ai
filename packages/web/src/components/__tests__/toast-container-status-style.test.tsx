@@ -50,7 +50,7 @@ describe('ToastContainer status styling', () => {
     useToastStore.setState({ toasts: [] });
   });
 
-  it('uses global status backgrounds without left icon or left border accent', async () => {
+  it('uses the updated global toast card layout and status surfaces', async () => {
     await act(async () => {
       root.render(React.createElement(ToastContainer));
     });
@@ -63,11 +63,21 @@ describe('ToastContainer status styling', () => {
 
     expect(successToast?.className).toContain('bg-[var(--state-success-surface)]');
     expect(errorToast?.className).toContain('bg-[var(--state-error-surface)]');
-    expect(successToast?.className).not.toContain('border-l-4');
-    expect(errorToast?.className).not.toContain('border-l-4');
+    expect(successToast?.className).toContain('border-[var(--state-success-surface)]');
+    expect(errorToast?.className).toContain('border-[var(--state-error-surface)]');
+    expect(successToast?.className).toContain('box-border');
+    expect(successToast?.className).toContain('rounded-[8px]');
+    expect(successToast?.className).toContain('shadow-[-2px_0px_12px_0px_rgba(0,0,0,0.16)]');
+    expect(successToast?.className).toContain('px-4');
+    expect(successToast?.className).toContain('py-2');
     expect(successToast?.className).toContain('text-black');
-    expect(successToast?.textContent).not.toContain('釗');
-    expect(errorToast?.textContent).not.toContain('釗');
+    expect(successToast?.textContent).not.toContain('⚠');
+    expect(errorToast?.textContent).not.toContain('⚠');
+
+    const contentRow = successToast?.firstElementChild as HTMLDivElement | null;
+    expect(contentRow?.className).toContain('items-start');
+    expect(contentRow?.className).toContain('gap-4');
+
     const closeButton = successToast?.querySelector('button');
     expect(closeButton?.className).toContain('text-gray-300');
   });
