@@ -146,6 +146,34 @@ describe('SkillDetailView', () => {
     expect(updateButton).toBeUndefined();
   });
 
+  it('keeps the file workspace constrained to the remaining height and scrolls internally', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const scroller = container.querySelector('[data-testid="skill-detail-panel"] > .min-h-0.flex-1');
+    expect(scroller?.className).toContain('overflow-hidden');
+    expect(scroller?.className).not.toContain('overflow-y-auto');
+
+    const contentColumn = container.querySelector('[data-testid="skill-detail-panel"] > .min-h-0.flex-1 > div');
+    expect(contentColumn?.className).toContain('h-full');
+    expect(contentColumn?.className).not.toContain('min-h-full');
+
+    const workspace = container.querySelector('[data-testid="skill-detail-file-workspace"]');
+    expect(workspace?.className).toContain('flex-1');
+    expect(workspace?.className).toContain('min-h-0');
+
+    const panes = workspace?.querySelectorAll('.overflow-y-auto');
+    expect(panes?.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('requests file preview when clicking another file in the tree', async () => {
     await act(async () => {
       root.render(

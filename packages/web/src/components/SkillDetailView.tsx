@@ -283,12 +283,12 @@ export function SkillDetailView({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {error ? <p className="ui-status-error mb-4 rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p> : null}
 
         {detail ? (
-          <div className="space-y-8 pb-6">
-            <section className="space-y-5 border-b border-[var(--border-default)] pb-8">
+          <div className="flex h-full min-h-0 flex-col gap-8 pb-6">
+            <section className="shrink-0 space-y-5">
               <div className="flex items-start gap-4">
                 <SkillAvatar
                   avatarName={skillName}
@@ -309,12 +309,9 @@ export function SkillDetailView({
               </div>
             </section>
 
-            <section
-              className="space-y-5"
-              data-testid="skill-detail-basic-info"
-            >
+            <section className="shrink-0 space-y-5" data-testid="skill-detail-basic-info">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">基础信息</h3>
-              <div className="grid gap-x-8 gap-y-5 border-b border-[var(--border-default)] pb-6 md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_minmax(0,2fr)]">
+              <div className="grid gap-x-8 gap-y-5 md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_minmax(0,2fr)]">
                 <BasicInfoField label="名称" value={resolvedTitle} />
                 <BasicInfoField label="更新时间" value={formatInstalledAt(detail.installedAt)} />
                 <BasicInfoField label="描述" value={resolvedDescription} />
@@ -326,13 +323,13 @@ export function SkillDetailView({
               </div>
             </section>
 
-            <section className="space-y-3" data-testid="skill-detail-file-workspace">
+            <section className="flex min-h-0 flex-1 flex-col space-y-3" data-testid="skill-detail-file-workspace">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">文件目录</h3>
-              <div className="overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
-                <div className="flex min-h-[420px] flex-col md:flex-row">
-                  <aside className="w-full shrink-0 border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
+              <div className="flex min-h-0 flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
+                <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+                  <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
                     <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs font-medium text-[var(--text-muted)]">File</div>
-                    <div className="max-h-[420px] overflow-y-auto px-3 py-3">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
                       {detail.fileTree?.length ? (
                         <FileTreeBranch nodes={detail.fileTree} selectedPath={selectedPath} onSelect={handleSelectNode} />
                       ) : (
@@ -340,7 +337,7 @@ export function SkillDetailView({
                       )}
                     </div>
                   </aside>
-                  <div className="min-w-0 flex-1 bg-[var(--surface-card)]">
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--surface-card)]">
                     <div className="border-b border-[var(--border-default)] px-5 py-3 text-sm text-[var(--text-secondary)]">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <span>{selectedFileLabel}</span>
@@ -351,7 +348,7 @@ export function SkillDetailView({
                         ) : null}
                       </div>
                     </div>
-                    <div className="space-y-5 px-5 py-5">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                       {filePreviewLoading ? <p className="text-sm text-[var(--text-muted)]">加载文件内容中...</p> : null}
                       {!filePreviewLoading && filePreviewError ? (
                         <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{filePreviewError}</p>
