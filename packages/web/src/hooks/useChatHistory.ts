@@ -18,6 +18,11 @@ type SavedScrollState = {
 const scrollPositionsByThread = new Map<string, SavedScrollState>();
 const SCROLL_BOTTOM_THRESHOLD_PX = 24;
 const MAX_RESTORE_FRAMES = 90;
+const USER_CHANNEL_CONNECTORS = new Set(['weixin', 'feishu', 'dingtalk', 'telegram']);
+
+function isUserChannelConnector(connectorId?: string): boolean {
+  return typeof connectorId === 'string' && USER_CHANNEL_CONNECTORS.has(connectorId);
+}
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.clientHeight - el.scrollTop <= SCROLL_BOTTOM_THRESHOLD_PX;
@@ -328,7 +333,9 @@ export function useChatHistory(threadId: string) {
                 : m.summary
                   ? 'summary'
                   : m.source
-                    ? 'connector'
+                    ? isUserChannelConnector(m.source.connector)
+                      ? 'user'
+                      : 'connector'
                     : m.catId
                       ? 'assistant'
                       : 'user') as 'user' | 'assistant' | 'system' | 'summary' | 'connector',
