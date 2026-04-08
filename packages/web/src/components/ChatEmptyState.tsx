@@ -69,7 +69,7 @@ export function ChatEmptyState({
               <span>，制定目标自动规划执行</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#8E8E98] sm:text-[15px]">
-              即刻部署专属 AI 专家，成为 7x24 小时在线的超级助手。
+              即刻拥有专属 AI 专家，成为 7x24 小时在线的超级助手。
             </p>
           </div>
 

@@ -59,6 +59,9 @@ describe('card token contract in globals.css', () => {
     const cardBorderValues = [...globalsCss.matchAll(/--card-border:\s*([^;]+);/g)].map((match) => match[1].trim());
     const cardRadiusValues = [...globalsCss.matchAll(/--card-radius:\s*([^;]+);/g)].map((match) => match[1].trim());
     const cardPaddingValues = [...globalsCss.matchAll(/--card-padding:\s*([^;]+);/g)].map((match) => match[1].trim());
+    const cardHoverShadowValues = [...globalsCss.matchAll(/--card-hover-shadow:\s*([^;]+);/g)].map((match) =>
+      match[1].trim(),
+    );
 
     expect(cardBorderValues.length).toBeGreaterThan(0);
     expect(cardBorderValues.every((value) => value === '#e6e6e6')).toBe(true);
@@ -66,6 +69,8 @@ describe('card token contract in globals.css', () => {
     expect(cardRadiusValues.every((value) => value === '16px')).toBe(true);
     expect(cardPaddingValues.length).toBeGreaterThan(0);
     expect(cardPaddingValues.every((value) => value === '21px')).toBe(true);
+    expect(cardHoverShadowValues.length).toBeGreaterThan(0);
+    expect(cardHoverShadowValues.every((value) => value === '0px 4px 16px 0px rgba(0, 0, 0, 0.08)')).toBe(true);
   });
 
   it('limits shared card classes to --card-* tokens', () => {

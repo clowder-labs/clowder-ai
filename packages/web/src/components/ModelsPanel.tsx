@@ -593,7 +593,12 @@ export function ModelsPanel() {
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => (
-                    <article key={card.id} className="ui-card group flex min-h-[194px] flex-col gap-4">
+                    <article
+                      key={card.id}
+                      className={['ui-card', group.key === 'huawei_maas' ? null : 'ui-card-hover', 'group flex min-h-[194px] flex-col gap-4']
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
                       <div>
                         <div className="flex items-start gap-3">
                           {/* eslint-disable-next-line @next/next/no-img-element */}

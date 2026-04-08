@@ -235,8 +235,15 @@ describe('ModelsPanel search', () => {
     await flushEffects();
 
     const fallbackIcon = container.querySelector('[data-testid="model-card-icon-alpha-custom"]');
+    const customModelCard = fallbackIcon?.closest('article');
+    const huaweiTitle = Array.from(container.querySelectorAll('h4')).find((node) => node.textContent?.includes('deepseek-r1'));
+    const huaweiModelCard = huaweiTitle?.closest('article');
     expect(fallbackIcon).not.toBeNull();
     expect(fallbackIcon?.textContent).toContain('A');
+    expect(customModelCard?.className).toContain('ui-card');
+    expect(customModelCard?.className).toContain('ui-card-hover');
+    expect(huaweiModelCard?.className).toContain('ui-card');
+    expect(huaweiModelCard?.className).not.toContain('ui-card-hover');
   });
 
   it('shows a custom tooltip for model descriptions instead of the native title attribute', async () => {
