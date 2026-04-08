@@ -8,11 +8,11 @@ vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     cats: [],
     getCatById: (id: string) =>
-      id === 'jiuwenclaw'
+      id === 'opus'
         ? {
-            id: 'jiuwenclaw',
+            id: 'opus',
             displayName: '九文爪',
-            avatar: '/avatars/jiuwen.png',
+            avatar: '/avatars/opus.png',
             color: { primary: '#123456', secondary: '#abcdef' },
           }
         : undefined,
@@ -65,7 +65,7 @@ describe('ThreadItem message avatar', () => {
               {
                 id: 'msg-1',
                 type: 'user',
-                content: '请 @jiuwenclaw 处理这个会话',
+                content: '请 @opus 处理这个会话',
                 timestamp: Date.now(),
               },
             ],
@@ -76,6 +76,6 @@ describe('ThreadItem message avatar', () => {
 
     const img = container.querySelector('img[alt="九文爪"]') as HTMLImageElement | null;
     expect(img).toBeTruthy();
-    expect(img?.getAttribute('src')).toBe('/avatars/jiuwen.png');
+    expect(img?.getAttribute('src')).toBe('/avatars/opus.png');
   });
 });

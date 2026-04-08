@@ -65,9 +65,9 @@ describe('ChatContainerHeader controls', () => {
     });
 
     expect(container.querySelector('h1')).toBeNull();
-    expect(container.querySelector('img[alt="OfficeClaw"]')).toBeNull();
+    expect(container.querySelector('img[alt="Hub"]')).toBeNull();
 
-    const hubBtn = container.querySelector('button[aria-label="OfficeClaw Hub"]') as HTMLButtonElement | null;
+    const hubBtn = container.querySelector('button[aria-label="Hub"]') as HTMLButtonElement | null;
     const themeBtn = container.querySelector('button[aria-label="Switch to business theme"]') as HTMLButtonElement | null;
     expect(hubBtn).toBeTruthy();
     expect(themeBtn).toBeTruthy();
@@ -78,7 +78,7 @@ describe('ChatContainerHeader controls', () => {
       root.render(React.createElement(ChatContainerHeader, defaultProps));
     });
 
-    const hubBtn = container.querySelector('button[aria-label="OfficeClaw Hub"]') as HTMLButtonElement;
+    const hubBtn = container.querySelector('button[aria-label="Hub"]') as HTMLButtonElement;
     const themeBtn = container.querySelector('button[aria-label="Switch to business theme"]') as HTMLButtonElement;
 
     act(() => {

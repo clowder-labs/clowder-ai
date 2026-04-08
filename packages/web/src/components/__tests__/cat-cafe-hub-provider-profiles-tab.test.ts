@@ -407,19 +407,19 @@ describe('CatCafeHub provider profiles tab', () => {
             activeProfileId: null,
             visibleBuiltinClients: [],
             bootstrapBindings: {
-              dare: { enabled: true, mode: 'api_key', accountRef: 'modelarts-shared' },
+              dare: { enabled: true, mode: 'api_key', accountRef: 'edition-shared' },
             },
             providers: [
               {
-                id: 'modelarts-shared',
-                provider: 'modelarts-shared',
-                displayName: 'ModelArts Shared',
-                name: 'ModelArts Shared',
+                id: 'edition-shared',
+                provider: 'edition-shared',
+                displayName: 'Edition Shared',
+                name: 'Edition Shared',
                 authType: 'api_key',
                 protocol: 'openai',
                 builtin: false,
                 mode: 'api_key',
-                baseUrl: 'https://api.modelarts-maas.com/v2',
+                baseUrl: 'https://api.example.com/v2',
                 models: ['glm-5'],
                 hasApiKey: true,
                 createdAt: '2026-03-25T00:00:00.000Z',
@@ -437,7 +437,7 @@ describe('CatCafeHub provider profiles tab', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('ModelArts Shared');
+    expect(container.textContent).toContain('Edition Shared');
     expect(container.textContent).not.toContain('Claude (OAuth)');
     expect(container.textContent).not.toContain('Codex (OAuth)');
     expect(container.textContent).not.toContain('Gemini (OAuth)');

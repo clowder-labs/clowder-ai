@@ -197,7 +197,7 @@ describe('HubAddMemberWizard', () => {
               { id: 'google', label: 'Gemini', command: 'gemini', available: true },
               { id: 'dare', label: 'Dare', command: 'dare', available: true },
               { id: 'opencode', label: 'OpenCode', command: 'opencode', available: true },
-              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+              { id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true },
               { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: true },
             ],
           }),
@@ -224,7 +224,7 @@ describe('HubAddMemberWizard', () => {
     expect(queryField(container, '[aria-label="Client Row 1"]').textContent).toContain('Gemini');
     expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('OpenCode');
     expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('Dare');
-    expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('jiuwen');
+    expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('sidecar');
     expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('Antigravity');
     expect(container.textContent).toContain('Step 2: 选择 Provider / 配置 CLI');
     expect(container.textContent).toContain('Step 3: 选择模型');
@@ -249,20 +249,20 @@ describe('HubAddMemberWizard', () => {
     expect(queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]').value).toBe('gpt-5.4-mini');
   });
 
-  it('shows only openai-compatible API key profiles for jiuwen', async () => {
+  it('shows only openai-compatible API key profiles for sidecar', async () => {
     await act(async () => {
       root.render(React.createElement(HubAddMemberWizard, { open: true, onClose: vi.fn(), onComplete: vi.fn() }));
     });
     await flushEffects();
 
-    await click(queryButton(container, 'jiuwen'));
+    await click(queryButton(container, 'sidecar'));
     expect(container.textContent).toContain('Codex Sponsor');
     expect(container.textContent).not.toContain('Codex (OAuth)');
     expect(container.textContent).not.toContain('Claude (OAuth)');
     expect(container.textContent).not.toContain('Claude Sponsor');
   });
 
-  it('shows Huawei MaaS for jiuwen when ~/.cat-cafe/model.json exists', async () => {
+  it('shows Edition LLM for sidecar when ~/.cat-cafe/model.json exists', async () => {
     useChatStore.getState().setCurrentProject('/tmp/project');
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/cats') {
@@ -275,13 +275,13 @@ describe('HubAddMemberWizard', () => {
             exists: true,
             providers: [
               {
-                id: 'huawei-maas',
-                provider: 'huawei-maas',
+                id: 'edition-provider',
+                provider: 'edition-provider',
                 source: 'model_config',
-                displayName: 'Huawei MaaS',
-                name: 'Huawei MaaS',
+                displayName: 'Edition LLM',
+                name: 'Edition LLM',
                 authType: 'none',
-                protocol: 'huawei_maas',
+                protocol: 'custom_llm',
                 builtin: false,
                 kind: 'api_key',
                 mode: 'none',
@@ -303,7 +303,7 @@ describe('HubAddMemberWizard', () => {
               { id: 'google', label: 'Gemini', command: 'gemini', available: true },
               { id: 'dare', label: 'Dare', command: 'dare', available: true },
               { id: 'opencode', label: 'OpenCode', command: 'opencode', available: true },
-              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+              { id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true },
               { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: true },
             ],
           }),
@@ -317,13 +317,13 @@ describe('HubAddMemberWizard', () => {
     });
     await flushEffects();
 
-    await click(queryButton(container, 'jiuwen'));
-    expect(container.textContent).toContain('Huawei MaaS');
+    await click(queryButton(container, 'sidecar'));
+    expect(container.textContent).toContain('Edition LLM');
     expect(container.textContent).toContain('用户模型配置');
     expect(container.textContent).not.toContain('Codex Sponsor');
   });
 
-  it('shows custom openai-compatible model.json sources for jiuwen using displayName', async () => {
+  it('shows custom openai-compatible model.json sources for sidecar using displayName', async () => {
     useChatStore.getState().setCurrentProject('/tmp/project');
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/cats') {
@@ -360,7 +360,7 @@ describe('HubAddMemberWizard', () => {
           jsonResponse({
             clients: [
               { id: 'dare', label: 'Dare', command: 'dare', available: true },
-              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+              { id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true },
             ],
           }),
         );
@@ -373,7 +373,7 @@ describe('HubAddMemberWizard', () => {
     });
     await flushEffects();
 
-    await click(queryButton(container, 'jiuwen'));
+    await click(queryButton(container, 'sidecar'));
     expect(container.textContent).toContain('My OpenAI Proxy');
     expect(container.textContent).toContain('用户模型配置');
   });
@@ -400,7 +400,7 @@ describe('HubAddMemberWizard', () => {
           jsonResponse({
             clients: [
               { id: 'dare', label: 'Dare', command: 'dare', available: true },
-              { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+              { id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true },
             ],
           }),
         );
@@ -413,9 +413,9 @@ describe('HubAddMemberWizard', () => {
     });
     await flushEffects();
 
-    await click(queryButton(container, 'jiuwen'));
+    await click(queryButton(container, 'sidecar'));
     expect(container.textContent).not.toContain('Codex Sponsor');
-    expect(container.textContent).not.toContain('Huawei MaaS');
+    expect(container.textContent).not.toContain('Edition LLM');
     expect(mockApiFetch.mock.calls.some(([path]) => path === '/api/provider-profiles')).toBe(false);
   });
   it('keeps known clients visible even when their local CLI is unavailable', async () => {
@@ -441,7 +441,7 @@ describe('HubAddMemberWizard', () => {
               { id: 'google', label: 'Gemini', command: 'gemini', available: false },
               { id: 'dare', label: 'Dare', command: 'dare', available: false },
               { id: 'opencode', label: 'OpenCode', command: 'opencode', available: false },
-              { id: 'relayclaw', label: 'jiuwenClaw', command: 'jiuwenclaw-app', available: true },
+              { id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true },
               { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: false },
             ],
           }),
@@ -457,7 +457,7 @@ describe('HubAddMemberWizard', () => {
 
     expect(queryField(container, '[aria-label="Client Row 1"]').textContent).toContain('Claude');
     expect(queryField(container, '[aria-label="Client Row 1"]').textContent).toContain('Codex');
-    expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('jiuwenClaw');
+    expect(queryField(container, '[aria-label="Client Row 2"]').textContent).toContain('sidecar');
   });
 
   it('uses shared footer button classes', async () => {

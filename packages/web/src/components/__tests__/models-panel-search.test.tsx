@@ -105,7 +105,7 @@ describe('ModelsPanel search', () => {
                 object: 'model',
                 name: 'deepseek-r1',
                 description: 'reasoning model',
-                protocol: 'huawei_maas',
+                protocol: 'custom_llm',
                 labels: ['reasoning'],
                 developer: 'DeepSeek',
                 icon: '/images/deepseek.svg',

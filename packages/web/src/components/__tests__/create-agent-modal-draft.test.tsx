@@ -24,7 +24,7 @@ function mockModalBootApi() {
     if (url === '/api/available-clients') {
       return Promise.resolve(
         jsonResponse({
-          clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          clients: [{ id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true }],
         }),
       );
     }
@@ -75,14 +75,14 @@ describe('CreateAgentModal', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('saves Huawei system models from /api/maas-models using accountRef + bare model name', async () => {
+  it('saves edition system models from /api/maas-models using accountRef + bare model name', async () => {
     const onSaved = vi.fn();
     mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === '/api/available-clients') {
         return Promise.resolve(
           jsonResponse({
-            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+            clients: [{ id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true }],
           }),
         );
       }
@@ -91,11 +91,11 @@ describe('CreateAgentModal', () => {
           jsonResponse({
             list: [
               {
-                id: 'model_config:huawei-maas:glm-5',
+                id: 'model_config:edition-provider:glm-5',
                 name: 'GLM-5',
-                provider: 'Huawei MaaS',
-                accountRef: 'huawei-maas',
-                protocol: 'huawei_maas',
+                provider: 'Edition LLM',
+                accountRef: 'edition-provider',
+                protocol: 'custom_llm',
                 enabled: true,
               },
             ],
@@ -103,7 +103,7 @@ describe('CreateAgentModal', () => {
         );
       }
       if (url === '/api/cats' && init?.method === 'POST') {
-        return Promise.resolve(jsonResponse({ cat: { id: 'huawei-bot' } }, 201));
+        return Promise.resolve(jsonResponse({ cat: { id: 'test-bot' } }, 201));
       }
       throw new Error(`Unexpected apiFetch path: ${url}`);
     });
@@ -112,7 +112,7 @@ describe('CreateAgentModal', () => {
       root.render(
         React.createElement(CreateAgentModal, {
           open: true,
-          name: 'Huawei Bot',
+          name: 'Test Bot',
           description: 'ACP header bridge',
           onClose: vi.fn(),
           onSaved,
@@ -133,7 +133,7 @@ describe('CreateAgentModal', () => {
     const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(postCall?.[1]?.body));
-    expect(payload.accountRef).toBe('huawei-maas');
+    expect(payload.accountRef).toBe('edition-provider');
     expect(payload.defaultModel).toBe('glm-5');
     expect(onSaved).toHaveBeenCalledWith('huawei-bot');
   });
