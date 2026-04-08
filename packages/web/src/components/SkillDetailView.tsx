@@ -309,12 +309,12 @@ export function SkillDetailView({
               <h3 className="text-base font-semibold text-[var(--text-primary)]">基础信息</h3>
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-3">
                 <BasicInfoField label="名称" value={resolvedTitle} />
-                <BasicInfoField label="更新时间" value={formatInstalledAt(detail.installedAt)} />
+                <BasicInfoField label="来源" value={sourceLabel(detail.source)} />
                 <BasicInfoField
                   label="描述"
                   value={
                     <OverflowTooltip content={resolvedDescription} className="w-full">
-                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6">
+                      <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[var(--text-secondary)]">
                         {resolvedDescription}
                       </p>
                     </OverflowTooltip>
@@ -323,7 +323,6 @@ export function SkillDetailView({
               </div>
               <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
                 <BasicInfoField label="触发词" value={triggerLabel} />
-                <BasicInfoField label="来源" value={sourceLabel(detail.source)} />
                 <BasicInfoField label="状态" value={statusLabel(detail.enabled)} />
               </div>
             </section>

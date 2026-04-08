@@ -104,7 +104,7 @@ describe('SkillDetailView', () => {
     mockApiFetch.mockReset();
   });
 
-  it('loads the first file preview and renders the six-field basic info layout', async () => {
+  it('loads the first file preview and renders the five-field basic info layout', async () => {
     await act(async () => {
       root.render(
         React.createElement(SkillDetailView, {
@@ -136,7 +136,7 @@ describe('SkillDetailView', () => {
     expect(basicInfoGrids).toHaveLength(2);
     expect(basicInfoGrids[0]?.className).toContain('md:grid-cols-3');
     expect(basicInfoGrids[1]?.className).toContain('md:grid-cols-3');
-    expect(basicInfoFields).toHaveLength(6);
+    expect(basicInfoFields).toHaveLength(5);
 
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');
     expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
