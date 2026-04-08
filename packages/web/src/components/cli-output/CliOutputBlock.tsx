@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
-import type { CliEvent, CliStatus } from '@/stores/chat-types';
+import type { ChatMessage, CliEvent, CliStatus } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 import { LoadingSmall } from '../LoadingSmall';
 import { LoadingPointStyle } from '../LoadingPointStyle';
@@ -411,7 +411,7 @@ function PptAttachmentCard({
   return (
     <div
       data-testid="cli-output-ppt-card"
-      className="mt-3 max-w-[392px] font-sans flex items-center gap-3 rounded-2xl border border-[#E9E5DF] bg-[#FBF9F6] px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
+      className="mt-2 max-w-[392px] font-sans flex items-center gap-4 rounded-xl bg-[#F8F8F8] px-5 py-4"
     >
       <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-[11px] font-semibold tracking-[0.16em]">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24.000000" height="24.000000" fill="none">
@@ -422,8 +422,8 @@ function PptAttachmentCard({
         </svg>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-[#1F2937]">{file.name}</div>
-        <div className="mt-1 break-all text-[11px] leading-4 text-[#9A8F84]">{formatGeneratedDate(generatedAt)}</div>
+        <div className="truncate text-sm font-semibold text-[#191919]" title={file.name}>{file.name}</div>
+        <div className="mt-1 break-all text-sm leading-4 text-[#808080]">{formatGeneratedDate(generatedAt)}</div>
       </div>
       <button
         type="button"
@@ -432,7 +432,7 @@ function PptAttachmentCard({
           void handleOpen();
         }}
         disabled={isOpening || !resolvedPath}
-        className="inline-flex flex-shrink-0 items-center rounded-full border border-[#D2CDC4] bg-white px-4 py-1.5 text-xs font-medium text-[#3F3B37] transition-colors hover:bg-[#F4F1EC] disabled:cursor-not-allowed disabled:opacity-70"
+        className="inline-flex flex-shrink-0 items-center h-[24px] rounded-full border border-[#595959] bg-white px-4 py-0.75 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70"
       >
         打开
       </button>
@@ -471,9 +471,9 @@ function ToolRow({
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className="w-full text-left cursor-pointer rounded  text-[11px] flex flex-col gap-2"
+      className="w-full text-left cursor-pointer rounded text-[11px] flex flex-col gap-2"
       style={{
-        padding: '5px 0 5px 28px',
+        padding: '4px 0 4px 28px',
         borderRadius: 4,
       }}
       onClick={() => {
@@ -547,7 +547,7 @@ function ToolsSection({
   const toolSummary = `${toolUses.length} tool${toolUses.length > 1 ? 's' : ''}`;
 
   return (
-    <div style={{ padding: '4px 0' }}>
+    <div className="pt-1">
       <button
         type="button"
         data-testid="tools-section-toggle"
@@ -587,6 +587,7 @@ function ToolsSection({
 interface CliOutputBlockProps {
   events: CliEvent[];
   status: CliStatus;
+  message: ChatMessage;
   thinkingMode?: 'debug' | 'play';
   defaultExpanded?: boolean;
   breedColor?: string;
@@ -596,6 +597,7 @@ interface CliOutputBlockProps {
 export function CliOutputBlock({
   events,
   status,
+  message,
   thinkingMode,
   defaultExpanded = false,
   breedColor,
@@ -653,14 +655,13 @@ export function CliOutputBlock({
   };
 
   return (
-    <div className="cli-output-container mt-2 mb-1 overflow-hidden">
+    <div className="cli-output-container overflow-hidden">
       {/* Header — design: chevron(accent) + summary(slate-400) + paw chip */}
       {toolUses.length > 0 && <button
         type="button"
         data-testid="cli-output-toggle"
         onClick={handleToggle}
         className="cli-output-button w-full flex items-center gap-2 text-[14px] transition-colors"
-        style={{ padding: '8px 0' }}
       >
         { status === 'streaming' && <LoadingPointStyle className="w-4 h-4 flex-shrink-0" /> }
         { status === 'done' && 
@@ -764,7 +765,7 @@ export function CliOutputBlock({
             </g>
           </svg>
         }
-        <span className="text-[16px] font-normal font-sans">{summary}</span>
+        <span className="text-[16px] font-bold font-sans">{summary}</span>
         <span style={{ color: 'rgb(31, 31, 31)' }}>
           <ChevronIcon expanded={expanded} />
         </span>
@@ -816,9 +817,9 @@ export function CliOutputBlock({
           )}
         </div>
       )}
+      { (toolUses.length > 0 || message.thinking) && <div className="h-0 border-t-[1px] border-[#F0F0F0] my-3" /> }
       <div
-        style={{ padding: '8px 0 10px 0' }}
-        className=" text-[11px] leading-relaxed cli-output-md"
+        className=" text-base leading-relaxed cli-output-md"
       >
         <span>
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
