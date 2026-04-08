@@ -36,6 +36,24 @@ interface SkillFilePreviewResponse {
   truncated: boolean;
 }
 
+const SPECIAL_FILE_ICON_MAP: Record<string, string> = {
+  '.gitignore': '/icons/file-gitignore.svg',
+};
+
+const FILE_EXTENSION_ICON_MAP: Record<string, string> = {
+  '.docx': '/icons/file-docx.svg',
+  '.html': '/icons/file-html.svg',
+  '.ini': '/icons/file-ini.svg',
+  '.json': '/icons/file-json.svg',
+  '.md': '/icons/file-md.svg',
+  '.py': '/icons/file-py.svg',
+  '.sh': '/icons/file-sh.svg',
+  '.txt': '/icons/file-txt.svg',
+};
+
+const DIRECTORY_ICON_SRC = '/icons/chart/folder.svg';
+const DEFAULT_FILE_ICON_SRC = '/icons/file-html.svg';
+
 function sourceLabel(source: SkillDetailResponse['source']): string {
   return source === 'cat-cafe' ? '官方' : '三方';
 }
@@ -60,6 +78,39 @@ function findFirstFile(nodes: SkillDetailFileTreeNode[]): string | null {
     }
   }
   return null;
+}
+
+function findNodeByPath(nodes: SkillDetailFileTreeNode[], targetPath: string): SkillDetailFileTreeNode | null {
+  for (const node of nodes) {
+    if (node.path === targetPath) return node;
+    if (node.children?.length) {
+      const nestedNode = findNodeByPath(node.children, targetPath);
+      if (nestedNode) return nestedNode;
+    }
+  }
+  return null;
+}
+
+function getFileTreeIconSrc(node: SkillDetailFileTreeNode): string {
+  if (node.type === 'directory') return DIRECTORY_ICON_SRC;
+
+  const segments = node.path.split('/').filter(Boolean);
+  const fileName = segments.at(-1) ?? node.name;
+  const normalizedFileName = fileName.toLowerCase();
+
+  if (SPECIAL_FILE_ICON_MAP[normalizedFileName]) {
+    return SPECIAL_FILE_ICON_MAP[normalizedFileName];
+  }
+
+  const extensionIndex = normalizedFileName.lastIndexOf('.');
+  if (extensionIndex > 0) {
+    const extension = normalizedFileName.slice(extensionIndex);
+    if (FILE_EXTENSION_ICON_MAP[extension]) {
+      return FILE_EXTENSION_ICON_MAP[extension];
+    }
+  }
+
+  return DEFAULT_FILE_ICON_SRC;
 }
 
 function BasicInfoField({
@@ -105,13 +156,18 @@ function FileTreeBranch({
             style={{ paddingLeft: `${depth * 18 + 12}px` }}
           >
             <span
-              className={`inline-flex h-5 min-w-5 items-center justify-center rounded-[6px] border text-[10px] font-semibold uppercase ${
-                selectedPath === node.path
-                  ? 'border-[var(--border-strong)] bg-[var(--surface-panel)] text-[var(--text-primary)]'
-                  : 'border-[var(--border-default)] bg-[var(--surface-panel)] text-[var(--text-muted)]'
+              className={`inline-flex h-5 min-w-5 items-center justify-center overflow-hidden rounded-[6px] ${
+                selectedPath === node.path ? 'opacity-100' : 'opacity-90'
               }`}
             >
-              {node.type === 'directory' ? 'D' : 'F'}
+              <img
+                src={getFileTreeIconSrc(node)}
+                alt=""
+                aria-hidden="true"
+                data-testid="skill-detail-file-tree-icon"
+                data-path={node.path}
+                className="h-4 w-4 shrink-0 object-contain"
+              />
             </span>
             <span className="min-w-0 flex-1 text-xs">{node.name}</span>
           </button>
@@ -176,13 +232,17 @@ export function SkillDetailView({
     return () => controller.abort();
   }, [skillName]);
 
-  const triggerLabel = useMemo(() => detail?.triggers?.join(', ') || '无', [detail?.triggers]);
+  const triggerLabel = useMemo(() => detail?.triggers?.join(', ') || '--', [detail?.triggers]);
   const categoryLabel = detail?.category?.trim() || '其他';
   const resolvedTitle = detail?.name ?? skillName;
-  const resolvedDescription = detail?.description?.trim() || '暂未提供技能描述。';
+  const resolvedDescription = detail?.description?.trim() || '--';
   const selectedFileLabel = useMemo(() => {
     if (!selectedPath) return detail?.fileTree?.length ? '请选择文件' : '暂无文件';
     return selectedPath.split('/').filter(Boolean).at(-1) ?? selectedPath;
+  }, [detail?.fileTree, selectedPath]);
+  const selectedFileNode = useMemo(() => {
+    if (!detail?.fileTree?.length || !selectedPath) return null;
+    return findNodeByPath(detail.fileTree, selectedPath);
   }, [detail?.fileTree, selectedPath]);
 
   useEffect(() => {
@@ -351,7 +411,16 @@ export function SkillDetailView({
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--surface-card)]">
                     <div className="border-b border-[var(--border-default)] px-5 py-3 text-xs">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span>{selectedFileLabel}</span>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <img
+                            src={selectedFileNode ? getFileTreeIconSrc(selectedFileNode) : DEFAULT_FILE_ICON_SRC}
+                            alt=""
+                            aria-hidden="true"
+                            data-testid="skill-detail-preview-header-icon"
+                            className="h-4 w-4 shrink-0 object-contain"
+                          />
+                          <span className="truncate">{selectedFileLabel}</span>
+                        </div>
                         {filePreview ? (
                           <span className="text-xs text-[var(--text-muted)]">
                             {filePreview.mime} · {filePreview.size} B

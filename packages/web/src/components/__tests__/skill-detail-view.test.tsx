@@ -68,6 +68,25 @@ describe('SkillDetailView', () => {
                 type: 'file',
                 size: 256,
               },
+              {
+                name: '.gitignore',
+                path: '.gitignore',
+                type: 'file',
+                size: 32,
+              },
+              {
+                name: 'assets',
+                path: 'assets',
+                type: 'directory',
+                children: [
+                  {
+                    name: 'unknown.xyz',
+                    path: 'assets/unknown.xyz',
+                    type: 'file',
+                    size: 48,
+                  },
+                ],
+              },
             ],
           }),
         );
@@ -142,6 +161,22 @@ describe('SkillDetailView', () => {
     expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('SKILL.md');
     expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
       'Skill file preview content',
+    );
+    const fileIcons = Array.from(container.querySelectorAll('[data-testid="skill-detail-file-tree-icon"]'));
+    expect(fileIcons.find((icon) => icon.getAttribute('data-path') === 'SKILL.md')?.getAttribute('src')).toBe(
+      '/icons/file-md.svg',
+    );
+    expect(fileIcons.find((icon) => icon.getAttribute('data-path') === '.gitignore')?.getAttribute('src')).toBe(
+      '/icons/file-gitignore.svg',
+    );
+    expect(fileIcons.find((icon) => icon.getAttribute('data-path') === 'assets')?.getAttribute('src')).toBe(
+      '/icons/chart/folder.svg',
+    );
+    expect(fileIcons.find((icon) => icon.getAttribute('data-path') === 'assets/unknown.xyz')?.getAttribute('src')).toBe(
+      '/icons/file-html.svg',
+    );
+    expect(container.querySelector('[data-testid="skill-detail-preview-header-icon"]')?.getAttribute('src')).toBe(
+      '/icons/file-md.svg',
     );
 
     const updateButton = Array.from(container.querySelectorAll('button')).find(
@@ -390,6 +425,9 @@ describe('SkillDetailView', () => {
     });
     expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
       'README preview content',
+    );
+    expect(container.querySelector('[data-testid="skill-detail-preview-header-icon"]')?.getAttribute('src')).toBe(
+      '/icons/file-md.svg',
     );
   });
 
