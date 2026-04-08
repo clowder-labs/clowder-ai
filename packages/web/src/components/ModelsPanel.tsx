@@ -7,7 +7,8 @@ import { API_URL, apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
-import { OverflowTooltip } from './OverflowTooltip';
+import { OverflowTooltip } from './shared/OverflowTooltip';
+import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
 
 const ADD_MODEL = '添加模型';
@@ -15,8 +16,6 @@ const MODEL_TITLE = '模型';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
 const LOADING_TEXT = '加载中...';
 const EMPTY_TEXT = '暂无模型信息';
-const NO_RESULTS_TEXT = '未找到匹配模型';
-const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
 const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
@@ -542,8 +541,8 @@ export function ModelsPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-4 pb-2">
-          <section className="flex justify-between gap-2">
+        <div className="flex min-h-full flex-col gap-4 pb-2">
+          <section className="flex shrink-0 justify-between gap-2">
             <div className="relative flex-1 mr-2">
               <input
                 type="search"
@@ -585,9 +584,11 @@ export function ModelsPanel() {
           {showEmptyData && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>}
 
           {showNoResults && (
-            <div className="py-10 text-center">
-              <p className="text-sm font-medium text-[var(--text-secondary)]">{NO_RESULTS_TEXT}</p>
-              <p className="mt-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_HINT}</p>
+            <div
+              className="flex flex-1 min-h-0 items-center justify-center py-10"
+              data-testid="models-no-results-state"
+            >
+              <NoSearchResultsState onClear={() => setSearchQuery('')} />
             </div>
           )}
 

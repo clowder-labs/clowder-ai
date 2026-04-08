@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { OverflowTooltip } from '@/components/OverflowTooltip';
+import { OverflowTooltip } from '@/components/shared/OverflowTooltip';
 
 describe('OverflowTooltip', () => {
   let container: HTMLDivElement;
