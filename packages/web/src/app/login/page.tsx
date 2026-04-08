@@ -46,7 +46,6 @@ export default function LoginPage() {
     setError('');
 
     try {
-
       const loginData =
         userType === 'iam' ? { userName, password, domainName, userType } : { password, domainName, userType };
 

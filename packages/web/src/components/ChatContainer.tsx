@@ -439,14 +439,12 @@ function ThreadModeChatContainer({
       (message) =>
         message.type === 'assistant' &&
         message.timestamp >= lastMessage.timestamp &&
-        (
-          message.isStreaming ||
+        (message.isStreaming ||
           message.content.trim().length > 0 ||
           Boolean(message.thinking) ||
           Boolean(message.toolEvents?.length) ||
           Boolean(message.contentBlocks?.length) ||
-          Boolean(message.extra?.rich?.blocks?.length)
-        ),
+          Boolean(message.extra?.rich?.blocks?.length)),
     );
 
     if (!hasAssistantResponseStarted) return lastMessage.timestamp;
@@ -489,9 +487,7 @@ function ThreadModeChatContainer({
   }, [messages, pendingIntentRecognitionTimestamp, stoppedIntentRecognition]);
 
   const showThinkingIndicator =
-    sidebarMenu === 'chat' &&
-    intentMode === 'execute' &&
-    pendingIntentRecognitionTimestamp == null;
+    sidebarMenu === 'chat' && intentMode === 'execute' && pendingIntentRecognitionTimestamp == null;
 
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
@@ -618,45 +614,130 @@ function ThreadModeChatContainer({
   }
   return (
     <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
-        <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
-          <ThreadSidebar
-            className="w-full"
-            onBootcampClick={() => setShowBootcampList(true)}
-            onHubClick={() => setShowHubList(true)}
-            onThreadSelect={() => setSidebarMenu('chat')}
-            onMenuClick={(menu) => setSidebarMenu(menu)}
-            activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
-          />
-        </div>
-        <div className="hidden md:flex items-center">
-          <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
-        </div>
+      <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
+        <ThreadSidebar
+          className="w-full"
+          onBootcampClick={() => setShowBootcampList(true)}
+          onHubClick={() => setShowHubList(true)}
+          onThreadSelect={() => setSidebarMenu('chat')}
+          onMenuClick={(menu) => setSidebarMenu(menu)}
+          activeMenu={sidebarMenu === 'chat' ? undefined : sidebarMenu}
+        />
+      </div>
+      <div className="hidden md:flex items-center">
+        <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
+      </div>
       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
-        {sidebarMenu === 'chat' && (
-          <ChatContainerHeader
-            sidebarOpen={sidebarOpen}
-            onToggleSidebar={() => {}}
-            threadId={threadId}
-            authPendingCount={authPending.length}
-            targetCats={targetCats}
-            viewMode={viewMode}
-            onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
-            onOpenMobileStatus={() => setMobileStatusOpen(true)}
-            defaultCatId={targetCats[0] || firstAvailableCatId}
-          />
-        )}
+          {sidebarMenu === 'chat' && (
+            <ChatContainerHeader
+              sidebarOpen={sidebarOpen}
+              onToggleSidebar={() => {}}
+              threadId={threadId}
+              authPendingCount={authPending.length}
+              targetCats={targetCats}
+              viewMode={viewMode}
+              onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
+              onOpenMobileStatus={() => setMobileStatusOpen(true)}
+              defaultCatId={targetCats[0] || firstAvailableCatId}
+            />
+          )}
 
-        {sidebarMenu === 'chat' && intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
-        {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
+          {sidebarMenu === 'chat' && intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
+          {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
 
-        <div className="relative flex-1 min-h-0 overflow-hidden">
-          {sidebarMenu !== 'chat' && (
-            <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
-              {sidebarMenu === 'models' && <ModelsPanel />}
-              {sidebarMenu === 'agents' && <AgentsPanel />}
-              {sidebarMenu === 'channels' && <ChannelsPanel />}
-              {sidebarMenu === 'skills' && <SkillsPanel />}
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            {sidebarMenu !== 'chat' && (
+              <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
+                {sidebarMenu === 'models' && <ModelsPanel />}
+                {sidebarMenu === 'agents' && <AgentsPanel />}
+                {sidebarMenu === 'channels' && <ChannelsPanel />}
+                {sidebarMenu === 'skills' && <SkillsPanel />}
+              </div>
+            )}
+            {sidebarMenu === 'chat' && (
+              <main
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="ui-shell-surface h-full min-h-0 overflow-y-auto p-4"
+                data-chat-container
+              >
+                {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
+                {!hasMore && messages.length > 0 && (
+                  <div className="text-center py-3 text-xs text-gray-300 hidden">没有更多消息...</div>
+                )}
+                {messages.length === 0 && !isLoadingHistory ? (
+                  <ChatEmptyState
+                    bootcampCount={bootcampCount}
+                    isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
+                    onOpenBootcampList={() => setShowBootcampList(true)}
+                  />
+                ) : (
+                  renderItems.map((item) =>
+                    item.kind === 'a2a_group' ? (
+                      <A2ACollapsible
+                        key={item.groupId}
+                        group={{ groupId: item.groupId, messages: item.messages }}
+                        renderMessage={renderSingleMessage}
+                        getCatColor={(catId) => getCatById(catId)?.color.primary}
+                      />
+                    ) : (
+                      renderSingleMessage(item.msg)
+                    ),
+                  )
+                )}
+                {pendingIntentRecognitionTimestamp != null &&
+                  renderSingleMessage({
+                    id: `intent-recognition-${pendingIntentRecognitionTimestamp}`,
+                    type: 'assistant',
+                    catId: pendingIntentRecognitionCatId,
+                    content: '',
+                    timestamp: pendingIntentRecognitionTimestamp,
+                    variant: 'intent_recognition',
+                  } as ChatMessageData)}
+                {pendingIntentRecognitionTimestamp == null &&
+                  stoppedIntentRecognition != null &&
+                  renderSingleMessage({
+                    id: `intent-recognition-stopped-${stoppedIntentRecognition.timestamp}`,
+                    type: 'assistant',
+                    catId: stoppedIntentRecognition.catId,
+                    content: 'stopped',
+                    timestamp: stoppedIntentRecognition.timestamp,
+                    variant: 'intent_recognition',
+                  } as ChatMessageData)}
+                <div ref={messagesEndRef} />
+                {sidebarMenu === 'chat' && (
+                  <ScrollToBottomButton
+                    scrollContainerRef={scrollContainerRef}
+                    messagesEndRef={messagesEndRef}
+                    recomputeSignal={computeScrollRecomputeSignal(
+                      threadId,
+                      messages,
+                      uiThinkingExpandedByDefault ? 1 : 0,
+                    )}
+                    observerKey={threadId}
+                  />
+                )}
+              </main>
+            )}
+          </div>
+
+          {sidebarMenu === 'chat' && authPending.length > 0 && (
+            <div className="border-t border-amber-200 bg-amber-50/40 py-2">
+              {authPending.map((req) => (
+                <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
+              ))}
+            </div>
+          )}
+
+          {sidebarMenu === 'chat' && <ThreadExecutionBar />}
+          {sidebarMenu === 'chat' && <QueuePanel threadId={threadId} />}
+          {sidebarMenu === 'chat' && <VoteActiveBar threadId={threadId} onEnd={() => {}} />}
+
+          {sidebarMenu === 'chat' && isResearchMode && (
+            <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              多智能体研究模式 - 文章上下文已注入。请输入研究问题，智能体会自动调用 multi_mention
+              邀请其他智能体参与分析。
             </div>
           )}
           {sidebarMenu === 'chat' && (
@@ -724,7 +805,6 @@ function ThreadModeChatContainer({
               )}
             </main>
           )}
-        </div>
 
         {sidebarMenu === 'chat' && authPending.length > 0 && (
           <div className="border-t border-amber-200 bg-amber-50/40 py-2">
@@ -760,62 +840,6 @@ function ThreadModeChatContainer({
             uploadStatus={uploadStatus}
             uploadError={uploadError}
           />
-        )}
-
-        {/* F101: Game overlay, renders when a game is active */}
-        <GameOverlayConnector
-          gameView={gameView}
-          isGameActive={isGameActive}
-          currentThreadId={threadId}
-          isNight={isNight}
-          selectedTarget={selectedTarget}
-          godScopeFilter={godScopeFilter}
-          isGodView={isGodView}
-          isDetective={isDetective}
-          detectiveBoundName={detectiveBoundName ?? undefined}
-          godSeats={godSeats}
-          godNightSteps={godNightSteps}
-          hasTargetedAction={hasTargetedAction}
-          myRole={myRole ?? undefined}
-          myRoleIcon={myRoleIcon ?? undefined}
-          myActionLabel={myActionLabel ?? undefined}
-          myActionHint={myActionHint ?? undefined}
-          altActionName={altActionName ?? undefined}
-          onClose={() => {
-            abortGame(threadId);
-            useGameStore.getState().clearGame();
-          }}
-          onSelectTarget={(seatId) => useGameStore.getState().setSelectedTarget(seatId)}
-          onGodScopeChange={(scope) => useGameStore.getState().setGodScopeFilter(scope)}
-          onGodAction={(action) => godAction(threadId, action)}
-          onVote={() => {
-            const state = useGameStore.getState();
-            if (state.selectedTarget && state.mySeatId) {
-              submitAction(threadId, state.mySeatId, 'vote', state.selectedTarget);
-              state.setSelectedTarget(null);
-            }
-          }}
-          onSpeak={(content) => {
-            const state = useGameStore.getState();
-            if (state.mySeatId) {
-              submitAction(threadId, state.mySeatId, 'speak', undefined, { content });
-            }
-          }}
-          onConfirmAction={() => {
-            const state = useGameStore.getState();
-            if (state.selectedTarget && state.mySeatId && state.currentActionName) {
-              submitAction(threadId, state.mySeatId, state.currentActionName, state.selectedTarget);
-              state.setSelectedTarget(null);
-            }
-          }}
-          onConfirmAltAction={() => {
-            const state = useGameStore.getState();
-            if (state.selectedTarget && state.mySeatId && state.altActionName) {
-              submitAction(threadId, state.mySeatId, state.altActionName, state.selectedTarget);
-              state.setSelectedTarget(null);
-            }
-          }}
-        />
         </div>
       </div>
 
