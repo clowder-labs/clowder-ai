@@ -34,4 +34,24 @@ describe('getFriendlyAgentErrorMessage', () => {
       '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。',
     );
   });
+
+  it('distinguishes connection errors from abrupt exit errors', () => {
+    // Connection errors
+    expect(getFriendlyAgentErrorMessage({ error: 'connection failed' })).toBe(
+      '当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。',
+    );
+    expect(
+      getFriendlyAgentErrorMessage({ error: 'assistant connection failed: WebSocket connection closed unexpectedly' }),
+    ).toBe(
+      '当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。',
+    );
+
+    // Abrupt exit errors (should NOT match "connection closed unexpectedly" in connection context)
+    expect(getFriendlyAgentErrorMessage({ error: 'CLI 异常退出 (code: 1, signal: none)' })).toBe(
+      '这次响应中断了，我没能稳定完成处理。请重试一次；如果连续出现，请稍后再试。',
+    );
+    expect(getFriendlyAgentErrorMessage({ error: 'subprocess exited unexpectedly' })).toBe(
+      '这次响应中断了，我没能稳定完成处理。请重试一次；如果连续出现，请稍后再试。',
+    );
+  });
 });

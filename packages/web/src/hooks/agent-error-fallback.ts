@@ -34,13 +34,13 @@ function isTimeoutError(rawError: string): boolean {
 }
 
 function isAbruptExitError(rawError: string): boolean {
-  return /CLI\s*异常退出|abnormal exit|exited unexpectedly|subprocess exited|connection closed unexpectedly/i.test(
-    rawError,
-  );
+  // 排除 "connection closed unexpectedly" 因为它应该归类为连接错误
+  // 只匹配 CLI 异常退出相关的错误
+  return /CLI\s*异常退出|abnormal exit|exited unexpectedly|subprocess exited/i.test(rawError);
 }
 
 function isConnectionError(rawError: string): boolean {
-  return /connection failed|WebSocket connection closed unexpectedly/i.test(rawError);
+  return /connection failed|connection closed unexpectedly|WebSocket connection closed/i.test(rawError);
 }
 
 function isConfigurationError(rawError: string): boolean {
