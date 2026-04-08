@@ -304,12 +304,15 @@ export function SkillDetailView({
                 </div>
               </div>
             </section>
-
             <section className="shrink-0 space-y-5" data-testid="skill-detail-basic-info">
               <h3 className="text-base font-semibold text-[var(--text-primary)]">基础信息</h3>
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-3">
                 <BasicInfoField label="名称" value={resolvedTitle} />
                 <BasicInfoField label="来源" value={sourceLabel(detail.source)} />
+                <BasicInfoField label="状态" value={statusLabel(detail.enabled)} />
+              </div>
+              <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
+                <BasicInfoField label="触发词" value={triggerLabel} />
                 <BasicInfoField
                   label="描述"
                   value={
@@ -320,10 +323,6 @@ export function SkillDetailView({
                     </OverflowTooltip>
                   }
                 />
-              </div>
-              <div className="grid gap-x-8 gap-y-4 text-sm md:grid-cols-3">
-                <BasicInfoField label="触发词" value={triggerLabel} />
-                <BasicInfoField label="状态" value={statusLabel(detail.enabled)} />
               </div>
             </section>
 
