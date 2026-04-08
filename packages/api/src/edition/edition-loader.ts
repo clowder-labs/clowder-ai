@@ -43,6 +43,14 @@ export const DEFAULT_EDITION: EditionConfig = {
 const EDITION_JSON_NAMES = ['edition.json'];
 
 function findEditionJson(projectRoot: string): string | null {
+  // EDITION_DIR env var: allows specifying edition directory
+  // (absolute or relative to projectRoot)
+  const envDir = process.env.EDITION_DIR;
+  if (envDir) {
+    const dirPath = isAbsolute(envDir) ? envDir : join(projectRoot, envDir);
+    const candidate = join(dirPath, 'edition.json');
+    if (existsSync(candidate)) return candidate;
+  }
   for (const name of EDITION_JSON_NAMES) {
     const candidate = join(projectRoot, name);
     if (existsSync(candidate)) return candidate;
