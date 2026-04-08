@@ -162,6 +162,7 @@ describe('SkillDetailView', () => {
     expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
       'Skill file preview content',
     );
+    expect(container.querySelector('[data-testid="skill-detail-file-preview"] pre')?.className).toContain('font-sans');
     const fileIcons = Array.from(container.querySelectorAll('[data-testid="skill-detail-file-tree-icon"]'));
     expect(fileIcons.find((icon) => icon.getAttribute('data-path') === 'SKILL.md')?.getAttribute('src')).toBe(
       '/icons/file-md.svg',

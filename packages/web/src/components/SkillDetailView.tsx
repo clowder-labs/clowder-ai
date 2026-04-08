@@ -440,7 +440,7 @@ export function SkillDetailView({
                               文件内容过长，当前仅展示前 1MB。
                             </p>
                           ) : null}
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words text-sm leading-6">
+                          <pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6">
                             {filePreview.content}
                           </pre>
                         </div>
