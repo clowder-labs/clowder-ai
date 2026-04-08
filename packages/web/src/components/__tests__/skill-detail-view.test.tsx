@@ -76,26 +76,42 @@ describe('SkillDetailView', () => {
     mockApiFetch.mockReset();
   });
 
-  it('requests /api/skills/detail and renders detail content', async () => {
+  it('requests detail and renders avatar, heading metadata, and description card', async () => {
     await act(async () => {
-      root.render(React.createElement(SkillDetailView, { skillName: 'demo-skill', onBack: vi.fn() }));
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
     });
     await flushEffects();
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/skills/detail?name=demo-skill', { signal: expect.any(AbortSignal) });
     expect(container.textContent).toContain('我的技能');
     expect(container.textContent).toContain('demo-skill');
-    expect(container.textContent).toContain('Skill detail description');
     expect(container.textContent).toContain('Automation');
     expect(container.textContent).toContain('demo');
     expect(container.textContent).toContain('SKILL.md');
+    expect(container.querySelector('[data-testid="skill-detail-avatar"]')).not.toBeNull();
+    expect(container.querySelector('img[alt="demo-skill avatar"]')?.getAttribute('src')).toBe('/avatars/demo-skill.png');
+    expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Automation');
+    expect(container.querySelector('[data-testid="skill-detail-description-card"]')?.textContent).toContain(
+      'Skill detail description',
+    );
   });
 
   it('navigates back when clicking the 我的技能 breadcrumb', async () => {
     const onBack = vi.fn();
 
     await act(async () => {
-      root.render(React.createElement(SkillDetailView, { skillName: 'demo-skill', onBack }));
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          onBack,
+        }),
+      );
     });
     await flushEffects();
 

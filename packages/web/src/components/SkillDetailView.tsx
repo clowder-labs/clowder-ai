@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { CenteredLoadingState } from './CenteredLoadingState';
+import { SkillAvatar } from './SkillAvatar';
 
 interface SkillDetailFileTreeNode {
   name: string;
@@ -79,7 +80,15 @@ function FileTreeBranch({ nodes, depth = 0 }: { nodes: SkillDetailFileTreeNode[]
   );
 }
 
-export function SkillDetailView({ skillName, onBack }: { skillName: string; onBack: () => void }) {
+export function SkillDetailView({
+  skillName,
+  avatarUrl,
+  onBack,
+}: {
+  skillName: string;
+  avatarUrl?: string | null;
+  onBack: () => void;
+}) {
   const [detail, setDetail] = useState<SkillDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,6 +141,9 @@ export function SkillDetailView({ skillName, onBack }: { skillName: string; onBa
       .map(([catId]) => catId);
     return enabledCats.length > 0 ? enabledCats.join(', ') : '无';
   }, [detail]);
+  const categoryLabel = detail?.category?.trim() || '其他';
+  const resolvedTitle = detail?.name ?? skillName;
+  const resolvedDescription = detail?.description?.trim() || '暂未提供技能描述。';
 
   if (loading) return <CenteredLoadingState />;
 
@@ -148,24 +160,40 @@ export function SkillDetailView({ skillName, onBack }: { skillName: string; onBa
             我的技能
           </button>
           <span>/</span>
-          <span className="font-medium text-[var(--text-primary)]">{detail?.name ?? skillName}</span>
+          <span className="font-medium text-[var(--text-primary)]">{resolvedTitle}</span>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">
-        {error ? <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p> : null}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {error ? <p className="ui-status-error mb-4 rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p> : null}
 
         {detail ? (
           <div className="space-y-6">
-            <section className="space-y-3">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold text-[var(--text-primary)]">{detail.name}</h2>
-                <p className="text-sm leading-6 text-[var(--text-secondary)]">
-                  {detail.description?.trim() || '暂未提供技能描述。'}
-                </p>
+            <section>
+              <div className="flex items-center gap-4">
+                <SkillAvatar avatarName={skillName} avatarUrl={avatarUrl} dataTestId="skill-detail-avatar" />
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate text-2xl font-semibold text-[var(--text-primary)]">{resolvedTitle}</h2>
+                  <div className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                    <span className="ui-badge-muted" data-testid="skill-detail-category-badge">
+                      {categoryLabel}
+                    </span>
+                  </div>
+                </div>
               </div>
+            </section>
+
+            <section
+              className="space-y-3 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--surface-card)] p-5"
+              data-testid="skill-detail-description-card"
+            >
+              <h3 className="text-base font-semibold text-[var(--text-primary)]">技能描述</h3>
+              <p className="text-sm leading-6 text-[var(--text-secondary)]">{resolvedDescription}</p>
+            </section>
+
+            <section className="space-y-3">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <DetailRow label="分类" value={detail.category?.trim() || '其他'} />
+                <DetailRow label="分类" value={categoryLabel} />
                 <DetailRow label="来源" value={sourceLabel(detail.source)} />
                 <DetailRow label="状态" value={statusLabel(detail.enabled)} />
                 <DetailRow label="触发词" value={triggerLabel} />

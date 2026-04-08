@@ -11,7 +11,7 @@ vi.mock('@/components/HubCapabilityTab', () => ({
     onSelectSkill,
   }: {
     onImport?: () => void;
-    onSelectSkill?: (skillName: string) => void;
+    onSelectSkill?: (selection: { skillName: string; avatarUrl?: string | null }) => void;
   }) =>
     React.createElement(
       React.Fragment,
@@ -30,7 +30,11 @@ vi.mock('@/components/HubCapabilityTab', () => ({
         {
           type: 'button',
           'data-testid': 'installed-panel-open-detail',
-          onClick: () => onSelectSkill?.('demo-skill'),
+          onClick: () =>
+            onSelectSkill?.({
+              skillName: 'demo-skill',
+              avatarUrl: '/avatars/demo-skill.png',
+            }),
         },
         'Open detail',
       ),
@@ -64,15 +68,18 @@ vi.mock('@/components/UploadSkillModal', () => ({
 vi.mock('@/components/SkillDetailView', () => ({
   SkillDetailView: ({
     skillName,
+    avatarUrl,
     onBack,
   }: {
     skillName: string;
+    avatarUrl?: string | null;
     onBack: () => void;
   }) =>
     React.createElement(
       'div',
       { 'data-testid': 'skill-detail-view' },
       React.createElement('div', null, `Detail:${skillName}`),
+      React.createElement('div', null, `AvatarUrl:${avatarUrl ?? 'none'}`),
       React.createElement(
         'button',
         {
@@ -144,9 +151,7 @@ describe('SkillsPanel global upload toast', () => {
     });
 
     expect(
-      useToastStore
-        .getState()
-        .toasts.some((toast) => toast.type === 'success' && toast.title === '上传成功' && toast.message === '技能上传成功'),
+      useToastStore.getState().toasts.some((toast) => toast.type === 'success' && toast.title === '上传成功' && toast.message === '技能上传成功'),
     ).toBe(true);
   });
 
@@ -165,6 +170,7 @@ describe('SkillsPanel global upload toast', () => {
 
     expect(container.querySelector('[data-testid="skill-detail-view"]')).not.toBeNull();
     expect(container.textContent).toContain('Detail:demo-skill');
+    expect(container.textContent).toContain('AvatarUrl:/avatars/demo-skill.png');
     expect(container.querySelector('[data-testid="installed-panel-import"]')).toBeNull();
     expect(container.textContent).not.toContain('技能广场');
 

@@ -2,7 +2,7 @@
 
 import { type ReactNode } from 'react';
 import { OverflowTooltip } from './OverflowTooltip';
-import { NameInitialIcon } from './NameInitialIcon';
+import { SkillAvatar } from './SkillAvatar';
 
 export interface CapabilityBoardItem {
   id: string;
@@ -17,6 +17,7 @@ export interface CapabilityBoardItem {
   tools?: { name: string; description?: string }[];
   connectionStatus?: 'connected' | 'disconnected' | 'unknown';
   installedAt?: string;
+  iconUrl?: string | null;
 }
 
 export interface CatFamily {
@@ -209,7 +210,7 @@ export function CapabilityCard({
       tabIndex={isClickable ? 0 : undefined}
     >
       <div className="flex items-start gap-3">
-        <NameInitialIcon name={item.id} />
+        <SkillAvatar avatarName={item.id} avatarUrl={item.iconUrl} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <OverflowTooltip

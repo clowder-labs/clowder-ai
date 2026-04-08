@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
-import { HubCapabilityTab } from './HubCapabilityTab';
+import { HubCapabilityTab, type SelectedSkillSummary } from './HubCapabilityTab';
 import { HubSkillsTab } from './HubSkillsTab';
 import { SkillDetailView } from './SkillDetailView';
 import { UploadSkillModal } from './UploadSkillModal';
@@ -16,12 +16,16 @@ export function SkillsPanel() {
   const [activeTab, setActiveTab] = useState<'installed' | 'plaza'>('installed');
   const [showUpload, setShowUpload] = useState(false);
   const [capabilityRefreshSignal, setCapabilityRefreshSignal] = useState(0);
-  const [selectedSkillName, setSelectedSkillName] = useState<string | null>(null);
+  const [selectedSkill, setSelectedSkill] = useState<SelectedSkillSummary | null>(null);
 
-  if (selectedSkillName) {
+  if (selectedSkill) {
     return (
       <div className="ui-page-shell gap-2">
-        <SkillDetailView skillName={selectedSkillName} onBack={() => setSelectedSkillName(null)} />
+        <SkillDetailView
+          skillName={selectedSkill.skillName}
+          avatarUrl={selectedSkill.avatarUrl}
+          onBack={() => setSelectedSkill(null)}
+        />
       </div>
     );
   }
@@ -33,7 +37,7 @@ export function SkillsPanel() {
         onClose={() => setShowUpload(false)}
         onSuccess={() => {
           setActiveTab('installed');
-          setSelectedSkillName(null);
+          setSelectedSkill(null);
           setCapabilityRefreshSignal((value) => value + 1);
           addToast({
             type: 'success',
@@ -58,7 +62,7 @@ export function SkillsPanel() {
               type="button"
               onClick={() => {
                 setActiveTab('plaza');
-                setSelectedSkillName(null);
+                setSelectedSkill(null);
               }}
               className={`ui-tab-trigger ${activeTab === 'plaza' ? 'ui-tab-trigger-active' : ''}`}
             >
@@ -79,7 +83,7 @@ export function SkillsPanel() {
           ) : (
             <HubCapabilityTab
               onImport={() => setShowUpload(true)}
-              onSelectSkill={setSelectedSkillName}
+              onSelectSkill={setSelectedSkill}
               refreshSignal={capabilityRefreshSignal}
             />
           )}
