@@ -782,7 +782,7 @@ export function CreateAgentModal({
                   onChange={(event) => setDraftDescription(event.target.value)}
                   placeholder="请输入描述"
                   maxLength={1000}
-                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
+                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full rounded-none text-[12px]"
                 />
                 <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
                   {draftDescription.length}/1000

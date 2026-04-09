@@ -127,11 +127,12 @@ export function PromptSelectionModal({
 
     return items.filter((item) => promptItemMatchesQuery(item, normalized));
   }, [items, query]);
+  const hasNoMatches = filteredItems.length === 0;
 
   const selectedItem = useMemo(() => {
-    if (filteredItems.length === 0) return null;
+    if (hasNoMatches) return null;
     return filteredItems.find((item) => item.id === selectedId) ?? filteredItems[0];
-  }, [filteredItems, selectedId]);
+  }, [filteredItems, hasNoMatches, selectedId]);
 
   useEffect(() => {
     if (!open) return;
@@ -183,64 +184,74 @@ export function PromptSelectionModal({
               type="button"
               onClick={() => setQuery('')}
               className="flex h-8 w-8 items-center justify-center rounded-[6px] border border-[#D9E0EA] bg-white transition hover:bg-[#F7F9FC]"
-              aria-label="刷新模板"
+              aria-label="清空搜索"
             >
               <RefreshIcon />
             </button>
           </div>
 
           <div className="mt-4 flex min-h-0" style={{ gap: CONTENT_GAP }}>
-            <aside
-              className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto bg-white pr-2"
-              style={{ width: LIST_SCROLL_CONTAINER_WIDTH }}
-            >
-              {filteredItems.length === 0 ? (
-                <div
-                  className="rounded-[10px] border border-[#EDF1F6] bg-[#fafafa] px-3 py-4 text-[12px] text-[#8C8C8C]"
-                  style={{ width: LIST_WIDTH }}
+            {hasNoMatches ? (
+              <section
+                data-testid="prompt-empty-state"
+                className="flex min-h-[420px] flex-1 flex-col items-center justify-center rounded-[10px] border border-[#E7ECF3] bg-white px-8 text-center"
+              >
+                <h3 className="text-[14px] font-semibold text-[#191919]">暂未匹配到数据</h3>
+                <p className="mt-2 text-[12px] text-[#8C8C8C]">没有匹配到符合条件的数据</p>
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="mt-4 inline-flex h-7 min-w-[96px] items-center justify-center rounded-full border border-black bg-white px-6 text-[12px] font-normal text-black transition hover:bg-black/5"
                 >
-                  没有匹配的提示词
-                </div>
-              ) : (
-                filteredItems.map((item) => {
-                  const isSelected = item.id === selectedItem?.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedId(item.id)}
-                      className={`block h-[68px] min-h-[68px] shrink-0 overflow-hidden rounded-[8px] p-3 text-left transition ${
-                        isSelected
-                          ? 'border border-[#1476ff] bg-white shadow-[0_4px_12px_rgba(134,177,255,0.12)]'
-                          : 'border border-[#f0f0f0] bg-[#fafafa] hover:bg-white'
-                      }`}
-                      data-testid={`prompt-list-item-${item.id}`}
-                    >
-                      <div className="flex h-full min-w-0 w-full flex-col justify-center overflow-hidden">
-                        <div className="h-[22px] w-full truncate text-[14px] font-semibold leading-[22px] text-[#191919]">
-                          {item.title}
+                  清除筛选器
+                </button>
+              </section>
+            ) : (
+              <>
+                <aside
+                  className="flex shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto bg-white pr-2"
+                  style={{ width: LIST_SCROLL_CONTAINER_WIDTH }}
+                >
+                  {filteredItems.map((item) => {
+                    const isSelected = item.id === selectedItem?.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setSelectedId(item.id)}
+                        className={`block h-[68px] min-h-[68px] shrink-0 overflow-hidden rounded-[8px] p-3 text-left transition ${
+                          isSelected
+                            ? 'border border-[#1476ff] bg-white shadow-[0_4px_12px_rgba(134,177,255,0.12)]'
+                            : 'border border-[#f0f0f0] bg-[#fafafa] hover:bg-white'
+                        }`}
+                        data-testid={`prompt-list-item-${item.id}`}
+                      >
+                        <div className="flex h-full min-w-0 w-full flex-col justify-center overflow-hidden">
+                          <div className="h-[22px] w-full truncate text-[14px] font-semibold leading-[22px] text-[#191919]">
+                            {item.title}
+                          </div>
+                          <div className="mt-1 h-[18px] w-full truncate overflow-hidden text-[12px] leading-[18px] text-[#595959]">
+                            {buildItemSummary(item)}
+                          </div>
                         </div>
-                        <div className="mt-1 h-[18px] w-full truncate overflow-hidden text-[12px] leading-[18px] text-[#595959]">
-                          {buildItemSummary(item)}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </aside>
+                      </button>
+                    );
+                  })}
+                </aside>
 
-            <section
-              data-testid="prompt-detail-panel"
-              className="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-[#E7ECF3] bg-white p-4 flex-1"
-              style={{ width: DETAIL_WIDTH }}
-            >
-              {selectedItem ? (
-                <PromptDetailContent item={selectedItem} />
-              ) : (
-                <div className="flex h-full items-center justify-center text-[13px] text-[#8C8C8C]">请选择左侧提示词</div>
-              )}
-            </section>
+                <section
+                  data-testid="prompt-detail-panel"
+                  className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-[#E7ECF3] bg-white p-4"
+                  style={{ width: DETAIL_WIDTH }}
+                >
+                  {selectedItem ? (
+                    <PromptDetailContent item={selectedItem} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[13px] text-[#8C8C8C]">请选择左侧提示词</div>
+                  )}
+                </section>
+              </>
+            )}
           </div>
 
           <div className="mt-3 flex justify-end gap-3">
