@@ -452,7 +452,7 @@ export function HubSkillsTab() {
                     className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
                       activeCategory === category
                         ? 'font-semibold text-[var(--text-primary)]'
-                        : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                     }`}
                   >
                     {category}

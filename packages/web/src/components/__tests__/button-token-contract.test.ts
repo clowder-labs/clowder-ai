@@ -44,7 +44,7 @@ describe('button token contract in globals.css', () => {
       { selector: '.ui-button-primary', properties: ['background', 'color'] },
       { selector: '.ui-button-primary:hover', properties: ['background', 'color'] },
       { selector: '.ui-button-primary:disabled', properties: ['background', 'color'] },
-      { selector: '.ui-button-default', properties: ['border', 'background', 'color'] },
+      { selector: '.ui-button-default', properties: ['border', 'background'] },
       { selector: '.ui-button-default:hover', properties: ['border-color', 'background', 'color'] },
       { selector: '.ui-button-default:disabled', properties: ['border-color', 'background', 'color'] },
       { selector: '.ui-button-danger', properties: ['background', 'color'] },
@@ -64,5 +64,21 @@ describe('button token contract in globals.css', () => {
       expect(visualTokenRefs.length).toBeGreaterThan(0);
       expect(visualTokenRefs.every((token) => token.startsWith('--button-'))).toBe(true);
     }
+  });
+
+  it('defines the default button border tokens for default, hover, and disabled states', () => {
+    expect(globalsCss).toContain('--button-default-border: #595959;');
+    expect(globalsCss).toContain('--button-default-border-hover: #c2c2c2;');
+    expect(globalsCss).toContain('--button-default-border-disabled: #dbdbdb;');
+  });
+
+  it('defines the default button background tokens for default, hover, and disabled states', () => {
+    expect(globalsCss).toContain('--button-default-bg: #ffffff;');
+    expect(globalsCss).toContain('--button-default-bg-hover: #ffffff;');
+    expect(globalsCss).toContain('--button-default-bg-disabled: #f0f0f0;');
+  });
+
+  it('defines the default button disabled text token as #c2c2c2 across themes', () => {
+    expect(globalsCss.match(/--button-default-text-disabled:\s*#c2c2c2;/g)?.length ?? 0).toBe(3);
   });
 });
