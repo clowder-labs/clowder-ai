@@ -41,7 +41,12 @@ from jiuwenclaw.agentserver.tools.todo_toolkits import TodoToolkit
 from jiuwenclaw.evolution.service import EvolutionService
 from jiuwenclaw.utils import get_agent_memory_dir, get_workspace_dir, logger
 from jiuwenclaw.config import get_config
-from jiuwenclaw.utils import fix_json_arguments
+from jiuwenclaw.utils import (
+    fix_json_arguments,
+    normalize_tool_call_argument_to_json_string,
+    parse_tool_arguments_json,
+    validate_tool_args_required_non_empty,
+)
 
 
 # 加载流式输出配置
@@ -50,6 +55,17 @@ ANSWER_CHUNK_SIZE = _react_config.get("answer_chunk_size", 500)
 STREAM_CHUNK_THRESHOLD = _react_config.get("stream_chunk_threshold", 50)
 STREAM_CHARACTER_THRESHOLD = _react_config.get("stream_character_threshold", 2000)
 
+_raw_retry_mode = str(_react_config.get("tool_arguments_retry_mode", "same_turn_llm") or "").strip().lower()
+if _raw_retry_mode in ("same_turn_llm", "next_iteration"):
+    _TOOL_ARGUMENTS_RETRY_MODE: str = _raw_retry_mode
+else:
+    if _raw_retry_mode:
+        logger.warning(
+            "[ReActAgent] 无效 react.tool_arguments_retry_mode=%r，回退 same_turn_llm",
+            _raw_retry_mode,
+        )
+    _TOOL_ARGUMENTS_RETRY_MODE = "same_turn_llm"
+
 _TODO_TOOL_NAMES = frozenset(
     ["todo_create", "todo_complete", "todo_insert", "todo_remove", "todo_list"]
 )
@@ -57,6 +73,21 @@ _CMD_EVOLVE = "/evolve"
 _CMD_SOLIDIFY = "/solidify"
 
 _PERMISSION_APPROVAL_TIMEOUT = 300  # Auto-reject after 5 minute timeout
+
+_TOOL_ARGS_INVALID_HINT_SAME_TURN = (
+    "[TOOL_ARGS_INVALID] 工具 arguments 不是合法 JSON 对象或必填参数不合法（已尝试 json-repair、规则修复及一次同轮模型重试）。"
+    "请严格按工具 schema 使用双引号键与字符串，重新发起 tool_calls。"
+)
+_TOOL_ARGS_INVALID_HINT_NEXT_ITER = (
+    "[TOOL_ARGS_INVALID] 工具 arguments 不是合法 JSON 对象或必填参数为空/缺失（已尝试 json-repair 与规则修复，未在同轮再次调用模型）。"
+    "请根据工具 schema 在下一轮对话中修正后重新发起 tool_calls。"
+)
+
+
+def _tool_args_invalid_base_hint() -> str:
+    if _TOOL_ARGUMENTS_RETRY_MODE == "next_iteration":
+        return _TOOL_ARGS_INVALID_HINT_NEXT_ITER
+    return _TOOL_ARGS_INVALID_HINT_SAME_TURN
 
 
 def _deduplicate_tools_by_name(tools: List[Any]) -> List[Any]:
@@ -386,15 +417,21 @@ class JiuClawReActAgent(ReActAgent):
                     uncompressed.append(message)
             await self._emit_context_compression(session, compression_to_show, uncompressed)
 
+            tools_for_llm = context_window.get_tools() or None
+            invalid_argument_ids: set[str] = set()
+            invalid_argument_messages: Dict[str, str] = {}
             try:
                 ai_message = await self._call_llm(
                     messages,
-                    context_window.get_tools() or None,
+                    tools_for_llm,
                     session,  # Pass session for streaming
                 )
-                # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
-                    ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
+                    ai_message, invalid_argument_ids, invalid_argument_messages = (
+                        await self._resolve_tool_call_arguments_with_retry(
+                            ai_message, messages, tools_for_llm, session
+                        )
+                    )
             except Exception as e:
                 logger.error(f"[JiuwenClaw] 尝试修复上下文")
                 await self._fix_incomplete_tool_context(context)
@@ -407,14 +444,20 @@ class JiuClawReActAgent(ReActAgent):
                 # Filter out SystemMessage from history to avoid "System message must be at the beginning" error
                 history_messages = [m for m in history_messages if not isinstance(m, SystemMessage)]
                 messages = [*system_messages, *history_messages]
+                tools_for_llm = context_window.get_tools() or None
+                invalid_argument_ids = set()
+                invalid_argument_messages = {}
                 ai_message = await self._call_llm(
                     messages,
-                    context_window.get_tools() or None,
+                    tools_for_llm,
                     session,  # Pass session for streaming
                 )
-                # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
-                    ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
+                    ai_message, invalid_argument_ids, invalid_argument_messages = (
+                        await self._resolve_tool_call_arguments_with_retry(
+                            ai_message, messages, tools_for_llm, session
+                        )
+                    )
 
             # Pause checkpoint: after LLM returns, before tool execution
             if _pause_event is not None:
@@ -435,6 +478,21 @@ class JiuClawReActAgent(ReActAgent):
                     request_approval_callback=self._request_permission_approval,
                 )
 
+                perm_denied_by_id: Dict[str, str] = {
+                    str(getattr(tc, "id", "") or ""): deny_msg
+                    for tc, deny_msg in denied_results
+                }
+
+                allowed_tool_calls = [
+                    tc
+                    for tc in allowed_tool_calls
+                    if str(getattr(tc, "id", "") or "") not in invalid_argument_ids
+                ]
+
+                allowed_tool_calls = self._guard_allowed_tool_calls_parseable(
+                    allowed_tool_calls, invalid_argument_ids
+                )
+
                 # Add assistant message to context before tool execution
                 ai_msg_for_context = AssistantMessage(
                     content=ai_message.content,
@@ -444,31 +502,60 @@ class JiuClawReActAgent(ReActAgent):
 
                 tool_messages_added = False
                 try:
-                    # 先把被拒绝的工具调用写入 ToolMessage
                     from openjiuwen.core.foundation.llm import ToolMessage as _ToolMsg
-                    for tc, deny_msg in denied_results:
-                        tool_call_id = getattr(tc, "id", "")
-                        await context.add_messages(_ToolMsg(
-                            content=deny_msg,
-                            tool_call_id=tool_call_id,
-                        ))
-                        if session is not None:
-                            await self._emit_tool_result(session, tc, deny_msg)
 
-                    # 执行被允许的工具调用
+                    exec_by_id: Dict[str, tuple[Any, Any]] = {}
                     if allowed_tool_calls:
                         results = await self.ability_manager.execute(
                             allowed_tool_calls, session
                         )
-
                         for i, (_result, tool_msg) in enumerate(results):
                             tc = allowed_tool_calls[i] if i < len(allowed_tool_calls) else None
                             if tc is not None:
-                                tool_msg = self._maybe_inject_body_experience(tc, tool_msg)
+                                tid = str(getattr(tc, "id", "") or "")
+                                if tid:
+                                    exec_by_id[tid] = (_result, tool_msg)
+
+                    for tc in ai_message.tool_calls:
+                        tid = str(getattr(tc, "id", "") or "")
+                        if tid in invalid_argument_ids:
+                            invalid_body = invalid_argument_messages.get(tid) or _tool_args_invalid_base_hint()
+                            await context.add_messages(
+                                _ToolMsg(
+                                    content=invalid_body,
+                                    tool_call_id=tid,
+                                )
+                            )
+                            if session is not None:
+                                await self._emit_tool_result(
+                                    session, tc, invalid_body
+                                )
+                        elif tid in perm_denied_by_id:
+                            deny_msg = perm_denied_by_id[tid]
+                            await context.add_messages(
+                                _ToolMsg(content=deny_msg, tool_call_id=tid)
+                            )
+                            if session is not None:
+                                await self._emit_tool_result(session, tc, deny_msg)
+                        elif tid in exec_by_id:
+                            _result, tool_msg = exec_by_id[tid]
+                            tool_msg = self._maybe_inject_body_experience(tc, tool_msg)
                             await context.add_messages(tool_msg)
                             if session is not None:
                                 await self._emit_tool_result(session, tc, _result)
-                    
+                        else:
+                            logger.warning(
+                                "[ReActAgent] unexpected tool_call without result: id=%s name=%s",
+                                tid,
+                                getattr(tc, "name", ""),
+                            )
+                            fallback = f"[TOOL_NO_RESULT] {getattr(tc, 'name', '')}"
+                            await context.add_messages(
+                                _ToolMsg(content=fallback, tool_call_id=tid)
+                            )
+                            if session is not None:
+                                await self._emit_tool_result(session, tc, fallback)
+
                     tool_messages_added = True
 
                     # Detect if todo tool was called, emit todo.updated if so
@@ -1099,35 +1186,191 @@ class JiuClawReActAgent(ReActAgent):
         logger.info("[ReActAgent] injected body experience for skill=%s", skill_name)
         return tool_msg
 
-    def _fix_tool_calls_arguments(self, tool_calls: List[Any]) -> List[Any]:
-        """修复 tool_calls 中每个 tool_call 的 arguments 字段。
+    def _guard_allowed_tool_calls_parseable(
+        self,
+        allowed_tool_calls: List[Any],
+        invalid_argument_ids: set[str],
+    ) -> List[Any]:
+        """execute 前最后一道校验：仍无法解析的从执行列表剔除并并入 invalid_argument_ids。"""
+        safe: List[Any] = []
+        for tc in allowed_tool_calls:
+            raw = getattr(tc, "arguments", None)
+            if isinstance(raw, dict):
+                safe.append(tc)
+                continue
+            if isinstance(raw, str):
+                ok, _parsed, err = parse_tool_arguments_json(raw)
+                if ok:
+                    safe.append(tc)
+                    continue
+                tid = str(getattr(tc, "id", "") or "")
+                raw_preview = raw[:500] if len(raw) > 500 else raw
+                logger.error(
+                    "[TOOL_ARGS_INVALID] pre_execute_guard tool=%s tool_call_id=%s err=%s raw=%s",
+                    getattr(tc, "name", ""),
+                    tid,
+                    err,
+                    raw_preview,
+                )
+                tc.arguments = "{}"
+                if tid:
+                    invalid_argument_ids.add(tid)
+                continue
+            tid = str(getattr(tc, "id", "") or "")
+            logger.error(
+                "[TOOL_ARGS_INVALID] pre_execute_guard unsupported_args_type tool=%s id=%s type=%s",
+                getattr(tc, "name", ""),
+                tid,
+                type(raw).__name__ if raw is not None else "None",
+            )
+            tc.arguments = "{}"
+            if tid:
+                invalid_argument_ids.add(tid)
+        return safe
 
-        当 LLM 返回的 tool_calls.function.arguments 格式不正确时（如缺少引号），
-        尝试修复后再解析，确保后续流程能正常处理。
-
-        Args:
-            tool_calls: ToolCall 对象列表
-
-        Returns:
-            修复后的 ToolCall 对象列表（原对象会被修改）
-        """
-        if not tool_calls:
-            return tool_calls
-
+    def _collect_argument_normalization_failures(
+        self, tool_calls: List[Any]
+    ) -> List[tuple[Any, str, Any]]:
+        """Try to stringify each tool_call.arguments; return failures with raw snapshot."""
+        failures: List[tuple[Any, str, Any]] = []
         for tc in tool_calls:
-            if hasattr(tc, "arguments") and isinstance(tc.arguments, str):
-                # 尝试修复 JSON
-                fixed_args = fix_json_arguments(tc.arguments)
-                # 如果修复成功且结果是字典，尝试将其转换回 JSON 字符串
-                # 保持与原始格式一致
-                if isinstance(fixed_args, dict):
-                    import json as _json
-                    try:
-                        tc.arguments = _json.dumps(fixed_args, ensure_ascii=False)
-                    except Exception:
-                        # 序列化失败，保持原样
-                        pass
-        return tool_calls
+            raw_before = getattr(tc, "arguments", None)
+            ok, err = normalize_tool_call_argument_to_json_string(tc)
+            if not ok:
+                failures.append((tc, err or "unknown", raw_before))
+        return failures
+
+    def _mark_tool_call_parse_failures(
+        self,
+        failures: List[tuple[Any, str, Any]],
+        invalid_ids: set[str],
+        invalid_msgs: Dict[str, str],
+    ) -> None:
+        base = _tool_args_invalid_base_hint()
+        for tc, err, raw_before in failures:
+            tid = str(getattr(tc, "id", "") or "")
+            name = getattr(tc, "name", "")
+            raw_repr = raw_before if isinstance(raw_before, str) else repr(raw_before)
+            logger.error(
+                "[TOOL_ARGS_INVALID] tool=%s tool_call_id=%s err=%s raw=%s",
+                name,
+                tid,
+                err,
+                raw_repr[:500],
+            )
+            tc.arguments = "{}"
+            if tid:
+                invalid_ids.add(tid)
+                detail = f"{base}\n详情: {err}" if err else base
+                if len(detail) > 1200:
+                    detail = detail[:1200] + "..."
+                invalid_msgs[tid] = detail
+
+    def _apply_required_schema_checks(
+        self,
+        ai_message: Any,
+        tools: Optional[List[Any]],
+        invalid_ids: set[str],
+        invalid_msgs: Dict[str, str],
+    ) -> None:
+        import json as _json
+
+        schema_map: Dict[str, Dict[str, Any]] = {}
+        for t in tools or []:
+            name = getattr(t, "name", None)
+            if not name:
+                continue
+            p = getattr(t, "parameters", None)
+            if hasattr(p, "model_dump"):
+                try:
+                    p = p.model_dump()
+                except Exception:
+                    p = None
+            if isinstance(p, dict):
+                schema_map[str(name)] = p
+
+        base = _tool_args_invalid_base_hint()
+        for tc in list(ai_message.tool_calls or []):
+            tid = str(getattr(tc, "id", "") or "")
+            if tid in invalid_ids:
+                continue
+            raw = getattr(tc, "arguments", None)
+            if not isinstance(raw, str):
+                continue
+            try:
+                args = _json.loads(raw)
+            except Exception:
+                continue
+            if not isinstance(args, dict):
+                continue
+            tool_name = str(getattr(tc, "name", "") or "")
+            params = schema_map.get(tool_name)
+            if params is None:
+                continue
+            ok, s_err = validate_tool_args_required_non_empty(tool_name, args, params)
+            if ok:
+                continue
+            logger.error(
+                "[TOOL_ARGS_INVALID] schema tool=%s tool_call_id=%s err=%s",
+                tool_name,
+                tid,
+                s_err,
+            )
+            tc.arguments = "{}"
+            if tid:
+                invalid_ids.add(tid)
+                detail = f"{base}\n详情: {s_err}" if s_err else base
+                if len(detail) > 1200:
+                    detail = detail[:1200] + "..."
+                invalid_msgs[tid] = detail
+
+    async def _resolve_tool_call_arguments_with_retry(
+        self,
+        ai_message: Any,
+        messages: List[Any],
+        tools: Optional[List[Any]],
+        session: Optional[Session],
+    ) -> tuple[Any, set[str], Dict[str, str]]:
+        """json-repair + 规则在 normalize 中；可选同轮再调 LLM；必填 schema 校验；失败写入 invalid_ids。"""
+        invalid_ids: set[str] = set()
+        invalid_msgs: Dict[str, str] = {}
+        if not getattr(ai_message, "tool_calls", None):
+            return ai_message, invalid_ids, invalid_msgs
+
+        failures = self._collect_argument_normalization_failures(list(ai_message.tool_calls))
+        if failures:
+            if _TOOL_ARGUMENTS_RETRY_MODE == "next_iteration":
+                self._mark_tool_call_parse_failures(failures, invalid_ids, invalid_msgs)
+            else:
+                lines = [
+                    "以下 tool 调用的 arguments 无法解析为合法 JSON 对象（已尝试 json-repair 与规则修复）。"
+                    "请重新发起 tool_calls，确保每个 function.arguments 为严格 JSON 对象字符串（键使用双引号）。",
+                ]
+                for tc, err, raw_before in failures:
+                    tid = getattr(tc, "id", "")
+                    name = getattr(tc, "name", "")
+                    raw_s = raw_before if isinstance(raw_before, str) else repr(raw_before)
+                    snippet = raw_s[:400] + ("..." if len(raw_s) > 400 else "")
+                    lines.append(
+                        f"- tool_call_id={tid}, tool={name}, error={err}, arguments_snippet={snippet}"
+                    )
+                feedback = "\n".join(lines)
+                retry_msgs: List[Any] = [
+                    *messages,
+                    AssistantMessage(content=ai_message.content or "", tool_calls=None),
+                    UserMessage(content=feedback),
+                ]
+                ai_message = await self._call_llm(retry_msgs, tools, session)
+
+                if not getattr(ai_message, "tool_calls", None):
+                    return ai_message, invalid_ids, invalid_msgs
+
+                failures = self._collect_argument_normalization_failures(list(ai_message.tool_calls))
+                if failures:
+                    self._mark_tool_call_parse_failures(failures, invalid_ids, invalid_msgs)
+
+        self._apply_required_schema_checks(ai_message, tools, invalid_ids, invalid_msgs)
+        return ai_message, invalid_ids, invalid_msgs
 
     async def _get_session_messages(self, session: Optional[Any]) -> List[Any]:
         """Get raw historical message list from session.
