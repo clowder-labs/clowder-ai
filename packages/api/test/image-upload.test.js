@@ -109,6 +109,50 @@ describe('saveUploadedImages', () => {
   });
 });
 
+describe('saveUploadedAttachments', () => {
+  let uploadDir;
+
+  beforeEach(async () => {
+    uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-attachment-upload-'));
+  });
+
+  afterEach(async () => {
+    if (uploadDir) await rm(uploadDir, { recursive: true, force: true });
+  });
+
+  it('saves a valid PDF file and returns metadata', async () => {
+    const { saveUploadedAttachments } = await import('../dist/routes/image-upload.js');
+
+    const fakeFile = createMockFile('report.pdf', 'application/pdf', Buffer.from('fake-pdf'));
+    const saved = await saveUploadedAttachments([fakeFile], uploadDir);
+
+    assert.equal(saved.length, 1);
+    assert.ok(saved[0].absPath.startsWith(resolve(uploadDir)));
+    assert.ok(saved[0].urlPath.startsWith('/uploads/file-'));
+    assert.equal(saved[0].content.type, 'file');
+    assert.equal(saved[0].content.fileName, 'report.pdf');
+    assert.equal(saved[0].content.mimeType, 'application/pdf');
+    assert.equal(saved[0].content.fileSize, 8);
+
+    const files = await readdir(uploadDir);
+    assert.equal(files.length, 1);
+    const content = await readFile(join(uploadDir, files[0]));
+    assert.equal(content.toString(), 'fake-pdf');
+  });
+
+  it('uses MIME extension instead of trusting uploaded filename', async () => {
+    const { saveUploadedAttachments } = await import('../dist/routes/image-upload.js');
+
+    const fakeFile = createMockFile('report.exe', 'application/pdf', Buffer.from('fake-pdf'));
+    const saved = await saveUploadedAttachments([fakeFile], uploadDir);
+
+    assert.equal(saved.length, 1);
+    assert.ok(saved[0].absPath.endsWith('.pdf'), `expected .pdf, got ${saved[0].absPath}`);
+    assert.ok(saved[0].urlPath.endsWith('.pdf'), `expected .pdf URL, got ${saved[0].urlPath}`);
+    assert.equal(saved[0].content.fileName, 'report.pdf');
+  });
+});
+
 describe('extractImagePaths', () => {
   it('extracts absolute paths from /uploads/ URLs', async () => {
     const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
