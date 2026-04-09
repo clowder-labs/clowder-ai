@@ -211,8 +211,10 @@ export function HubConnectorConfigTab() {
     }
   };
 
+  const TESTABLE_PLATFORMS = ['feishu', 'dingtalk', 'xiaoyi'];
+
   const handleTestConnection = async (platform: PlatformStatus) => {
-    if (platform.id !== 'feishu') {
+    if (!TESTABLE_PLATFORMS.includes(platform.id)) {
       setSaveResult({ type: 'success', message: '该平台测试连接功能即将上线' });
       return;
     }
@@ -225,7 +227,7 @@ export function HubConnectorConfigTab() {
           .map((field) => [field.envName, fieldValues[field.envName]])
           .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
       );
-      const res = await apiFetch('/api/connector/test/feishu', {
+      const res = await apiFetch(`/api/connector/test/${platform.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -238,11 +240,13 @@ export function HubConnectorConfigTab() {
       }
 
       const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
-      const botName = data.bot?.name?.trim() || data.bot?.openId?.trim() || '机器人';
       const warningText = warnings.length > 0 ? `；${warnings.join('；')}` : '';
+      // Feishu includes bot info in response
+      const botSuffix = data.bot?.name?.trim() || data.bot?.openId?.trim();
+      const botText = botSuffix ? ` 已识别 ${botSuffix}` : '';
       setSaveResult({
         type: 'success',
-        message: `${data.message ?? '连接测试成功'} 已识别 ${botName}${warningText}`,
+        message: `${data.message ?? '连接测试成功'}${botText}${warningText}`,
       });
     } catch {
       setSaveResult({ type: 'error', message: '网络错误' });
