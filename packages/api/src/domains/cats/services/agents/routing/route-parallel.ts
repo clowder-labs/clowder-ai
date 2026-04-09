@@ -315,8 +315,6 @@ export async function* routeParallel(
   const catStreamRichBlocks = new Map<string, import('@cat-cafe/shared').RichBlock[]>();
   const catErrorText = new Map<string, string>();
   const catHadError = new Set<string>();
-  // #267: track errors that happened BEFORE abort — only these are real provider failures
-  const catHadProviderError = new Set<string>();
   // F22 R2 P1-1: Capture own invocationId per cat from stream
   const catInvocationId = new Map<string, string>();
   let completedCount = 0;
@@ -391,8 +389,6 @@ export async function* routeParallel(
     }
     if (msg.type === 'error' && msg.catId) {
       catHadError.add(msg.catId);
-      // #267: errors before abort are real provider failures; errors after abort are cleanup
-      if (!signal?.aborted) catHadProviderError.add(msg.catId);
       if (msg.error) {
         const prev = catErrorText.get(msg.catId) ?? '';
         catErrorText.set(msg.catId, `${prev}${prev ? '\n' : ''}${msg.error}`);

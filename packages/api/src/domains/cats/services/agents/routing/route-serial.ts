@@ -347,8 +347,6 @@ export async function* routeSerial(
       let doneMsg: AgentMessage | undefined;
       let hadError = false;
       let sawUserFacingSystemInfo = false;
-      // #267: track errors that happened BEFORE abort — only these are real provider failures
-      let hadProviderError = false;
       // Collect error text separately for system-message persistence (F5 reload)
       let collectedErrorText = '';
       const collectedToolEvents: StoredToolEvent[] = [];
@@ -523,8 +521,6 @@ export async function* routeSerial(
 
         if (msg.type === 'error') {
           hadError = true;
-          // #267: errors before abort are real provider failures; errors after abort are cleanup
-          if (!signal?.aborted) hadProviderError = true;
           if (msg.error) {
             collectedErrorText += `${collectedErrorText ? '\n' : ''}${msg.error}`;
           }
@@ -1002,7 +998,7 @@ export async function* routeSerial(
         // Update activity for error-only responses (no text/tools branch handles it)
         if (deps.invocationDeps.threadStore) {
           try {
-            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId, !hadProviderError);
+            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId);
           } catch (activityErr) {
             log.warn({ catId: catId as string, err: activityErr }, 'updateParticipantActivity failed');
           }
