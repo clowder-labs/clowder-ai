@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
+import { catRegistry } from '@cat-cafe/shared';
 import { ConnectorRouter } from '../dist/infrastructure/connectors/ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from '../dist/infrastructure/connectors/ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from '../dist/infrastructure/connectors/InboundMessageDedup.js';
@@ -155,6 +156,34 @@ describe('ConnectorRouter', () => {
     assert.equal(trigger.calls.length, 1);
     assert.equal(trigger.calls[0].catId, 'opus');
     assert.ok(trigger.calls[0].threadId);
+  });
+
+  it('routes by displayName mention for connector messages', async () => {
+    catRegistry.reset();
+    catRegistry.register('office', {
+      id: 'office',
+      name: '办公智能体',
+      displayName: '办公智能体',
+      nickname: '小九',
+      avatar: '/avatars/agent-avatar-2.png',
+      color: { primary: '#2B5797', secondary: '#C0D0E8' },
+      mentionPatterns: ['@office', '@小九'],
+      provider: 'relayclaw',
+      defaultModel: 'gpt-5.4',
+      mcpSupport: true,
+      breedId: 'office',
+      roleDescription: '商务办公专家',
+      personality: '专业干练',
+    });
+
+    try {
+      await router.route('weixin', 'chat-office', '@办公智能体 帮我做个会议纪要', 'ext-office-1');
+      assert.equal(trigger.calls.length, 1);
+      assert.equal(trigger.calls[0].catId, 'office');
+      assert.equal(messageStore.messages[0].mentions[0], 'office');
+    } finally {
+      catRegistry.reset();
+    }
   });
 
   it('skips duplicate messages', async () => {
