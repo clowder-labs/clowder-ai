@@ -7,16 +7,17 @@ import { API_URL, apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
-import { OverflowTooltip } from './OverflowTooltip';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
+import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
+import { getIsSkipAuth } from '@/utils/userId';
 
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
-const LOADING_TEXT = '加载中...';
-const EMPTY_TEXT = '暂无模型信息';
-const NO_RESULTS_TEXT = '未找到匹配模型';
-const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
+const EMPTY_STATE_TITLE = '暂无模型';
 const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
@@ -217,6 +218,7 @@ function resolveUploadedIconUrl(icon?: string | null): string | null {
 
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
+  const [isSkipAuth, setIsSkipAuth] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
@@ -323,6 +325,10 @@ export function ModelsPanel() {
     },
     [confirm, deletingModelId, currentProjectPath, fetchModels],
   );
+
+  useEffect(() => {
+    setIsSkipAuth(getIsSkipAuth());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -541,60 +547,72 @@ export function ModelsPanel() {
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-4 pb-2">
-          <section className="flex justify-between gap-2">
-            <div className="relative flex-1 mr-2">
-              <input
-                type="search"
-                aria-label="搜索模型"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openHub('provider-profiles')}
-                className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-              >
-                ACP / 账号配置
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddModelModal(true)}
-                className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
-              >
-                {ADD_MODEL}
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenCreateModelModal}
-                data-testid="models-open-create-model-modal"
-                className="ui-button-primary"
-              >
-                {CREATE_MODEL_LABEL}
-              </button>
-            </div>
-          </section>
+      <section className="flex shrink-0 justify-between gap-2 pb-6" data-testid="models-toolbar">
+        <div className="relative mr-2 flex-1">
+          <input
+            type="search"
+            aria-label="搜索模型"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={SEARCH_PLACEHOLDER}
+            className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openHub('provider-profiles')}
+            className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            ACP / 账号配置
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModelModal(true)}
+            className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+          >
+            {ADD_MODEL}
+          </button>
+          {isSkipAuth ? (
+            <button
+              type="button"
+              onClick={handleOpenCreateModelModal}
+              data-testid="models-open-create-model-modal"
+              className="ui-button-primary"
+            >
+              {CREATE_MODEL_LABEL}
+            </button>
+          ) : null}
+        </div>
+      </section>
 
-          {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
+      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="models-scroll-region">
+        <div className="flex min-h-full flex-col gap-4 pb-2">
+          {loading && (
+            <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-loading-state">
+              <CenteredLoadingState />
+            </div>
+          )}
 
-          {showEmptyData && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>}
+          {showEmptyData && (
+            <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-empty-state">
+              <EmptyDataState title={EMPTY_STATE_TITLE} />
+            </div>
+          )}
 
           {showNoResults && (
-            <div className="py-10 text-center">
-              <p className="text-sm font-medium text-[var(--text-secondary)]">{NO_RESULTS_TEXT}</p>
-              <p className="mt-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_HINT}</p>
+            <div
+              className="flex flex-1 min-h-0 items-center justify-center py-10"
+              data-testid="models-no-results-state"
+            >
+              <NoSearchResultsState onClear={() => setSearchQuery('')} />
             </div>
           )}
 
           {showGroups &&
             groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3 className="text-[14px] font-semibold text-[var(--text-primary)]" style={{ marginBlock: '24px' }}>
+                <h3 className="text-[14px] font-semibold text-[var(--text-primary)] mb-4">
                   {group.label} ({group.items.length})
                 </h3>
 
@@ -750,7 +768,7 @@ export function ModelsPanel() {
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
                   placeholder={'请输入模型名称'}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -778,7 +796,7 @@ export function ModelsPanel() {
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -843,7 +861,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -861,7 +879,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -1009,14 +1027,14 @@ function ModelsCreateModelConfigSource({
         onChange={(event) => setDisplayName(event.target.value)}
         placeholder="显示名称，如 My OpenAI Proxy"
         autoComplete="off"
-        className="ui-input w-full rounded px-3 py-2 text-sm"
+        className="ui-input w-full"
       />
       <input
         value={baseUrl}
         onChange={(event) => setBaseUrl(event.target.value)}
         placeholder="Base URL，如 https://api.example.com/v1"
         autoComplete="off"
-        className="ui-input w-full rounded px-3 py-2 text-sm"
+        className="ui-input w-full"
       />
       <input
         type="password"

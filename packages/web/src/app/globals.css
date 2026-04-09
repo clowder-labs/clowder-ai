@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+.login-password-input::-ms-reveal,
+.login-password-input::-ms-clear {
+  display: none;
+}
+
 /* === Cat Cafe Design System Variables === */
 :root {
   /* Base Colors */
@@ -89,7 +94,7 @@
   /* Connector list item tokens */
   --connector-tab-radius: 8px;
   --connector-tab-bg-default: #ffffff;
-  --connector-tab-border-default: #f1e7df;
+  --connector-tab-border-default: #f0f0f0;
   --connector-tab-bg-selected: #fff5f2;
   --connector-tab-border-selected: rgba(226, 149, 120, 0.4);
 
@@ -112,25 +117,33 @@
   --accent-button-danger-hover: #dc2626;
   --button-primary-bg: #111111;
   --button-primary-text: #ffffff;
-  --button-primary-bg-hover: #0f0f0f;
+  --button-primary-bg-hover: #595959;
   --button-primary-text-hover: #ffffff;
-  --button-primary-bg-disabled: #111111;
-  --button-primary-text-disabled: #ffffff;
+  --button-disabled-bg: #f0f0f0;
+  --button-disabled-text: #c2c2c2;
+  --button-disabled-border: #dbdbdb;
   --button-default-bg: #ffffff;
   --button-default-text: #666666;
-  --button-default-border: #e6e6e6;
-  --button-default-bg-hover: #f4f5f7;
+  --button-default-border: #595959;
+  --button-default-bg-hover: #ffffff;
   --button-default-text-hover: #191919;
-  --button-default-border-hover: #e6e6e6;
-  --button-default-bg-disabled: #ffffff;
-  --button-default-text-disabled: #c2c2c2;
-  --button-default-border-disabled: #e6e6e6;
+  --button-default-border-hover: #c2c2c2;
   --button-danger-bg: #ef4444;
   --button-danger-text: #ffffff;
   --button-danger-bg-hover: #dc2626;
   --button-danger-text-hover: #ffffff;
   --button-danger-bg-disabled: #ef4444;
   --button-danger-text-disabled: #ffffff;
+  --input-field-font-size: 13px;
+  --input-border: #c2c2c2;
+  --input-border-hover: #191919;
+  --input-border-active: #191919;
+  --input-radius: 6px;
+  --input-font-size: 12px;
+  --input-line-height: 1.5;
+  --input-padding-y: 5px;
+  --input-padding-x: 12px;
+  --input-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
   --text-field: #191919;
   --text-field-hover: #111111;
   --text-field-disabled: #c2c2c2;
@@ -149,17 +162,9 @@
   --card-disabled-text: #c2c2c2;
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: #666666;
   --menu-hover-bg: rgba(255, 255, 255, 0.72);
-  --menu-hover-border: transparent;
-  --menu-hover-text: #191919;
   --menu-active-bg: #ffffff;
-  --menu-active-border: #e6e6e6;
-  --menu-active-text: #191919;
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: #c2c2c2;
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: #ffffff;
   --overlay-border: #e6e6e6;
@@ -175,10 +180,8 @@
   --overlay-disabled-text: #c2c2c2;
   --overlay-item-bg: transparent;
   --overlay-item-border: transparent;
-  --overlay-item-text: #666666;
   --overlay-item-hover-bg: #f7f8fa;
   --overlay-item-hover-border: transparent;
-  --overlay-item-hover-text: #191919;
   --overlay-item-disabled-bg: transparent;
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: #c2c2c2;
@@ -194,8 +197,8 @@
 }
 
 [data-ui-theme="warm"] {
-  --surface-app: var(--color-base-white);
-  --surface-sidebar: #fff5f2;
+  --surface-app: linear-gradient(180deg, rgba(255, 247, 241, 0.6) 0%, rgba(255, 250, 245, 0.6) 100%);
+  --surface-sidebar: linear-gradient(180deg, #faecdc 0%, #fff8f1 100%);
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
   --surface-card-muted: #fbf5ec;
@@ -211,7 +214,7 @@
   --text-inverse: #ffffff;
   --text-accent: var(--color-cocreator-primary);
 
-  --border-default: #f1e7df;
+  --border-default: #e6e6e6;
   --border-soft: #ffddd2;
   --border-strong: #e8dccf;
   --border-accent: rgba(226, 149, 120, 0.4);
@@ -219,6 +222,10 @@
   --accent-primary: var(--color-cocreator-primary);
   --accent-soft: rgba(255, 221, 210, 0.45);
   --accent-soft-strong: #ffddd2;
+
+  --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
+  --status-badge-unconfigured-surface: #e6e6e6;
+  --status-badge-unconfigured-text: var(--text-primary);
 
   --state-success-surface: rgba(230, 242, 213, 1);
   --state-success-text: #029931;
@@ -244,17 +251,9 @@
   --card-disabled-text: var(--text-disabled);
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: var(--text-secondary);
   --menu-hover-bg: color-mix(in srgb, var(--surface-panel) 72%, transparent);
-  --menu-hover-border: transparent;
-  --menu-hover-text: var(--text-primary);
   --menu-active-bg: var(--surface-panel);
-  --menu-active-border: var(--border-default);
-  --menu-active-text: var(--text-primary);
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: var(--text-disabled);
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: var(--surface-panel);
   --overlay-border: var(--border-default);
@@ -270,10 +269,8 @@
   --overlay-disabled-text: var(--text-disabled);
   --overlay-item-bg: transparent;
   --overlay-item-border: transparent;
-  --overlay-item-text: var(--text-secondary);
   --overlay-item-hover-bg: color-mix(in srgb, var(--surface-card-muted) 88%, white);
   --overlay-item-hover-border: transparent;
-  --overlay-item-hover-text: var(--text-primary);
   --overlay-item-disabled-bg: transparent;
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: var(--text-disabled);
@@ -284,28 +281,26 @@
   --spacing-unit: var(--space-3);
 
   --connector-tab-radius: 8px;
-  --connector-tab-bg-default: #fafafa;
-  --connector-tab-border-default: var(--border-default);
+  --connector-tab-bg-default: transparent;
+  --connector-tab-border-default: #f0f0f0;
   --connector-tab-bg-selected: var(--surface-panel);
-  --connector-tab-border-selected: var(--border-accent);
+  --connector-tab-border-selected: #cc6d1a;
 
   --agent-preset-badge-bg: var(--surface-card-muted);
   --agent-preset-badge-text: var(--text-secondary);
   --button-primary-bg: var(--surface-inverse);
   --button-primary-text: var(--text-inverse);
-  --button-primary-bg-hover: color-mix(in srgb, var(--surface-inverse) 96%, white);
+  --button-primary-bg-hover: #595959;
   --button-primary-text-hover: var(--text-inverse);
-  --button-primary-bg-disabled: var(--surface-inverse);
-  --button-primary-text-disabled: var(--text-inverse);
+  --button-disabled-bg: #f0f0f0;
+  --button-disabled-text: #c2c2c2;
+  --button-disabled-border: #dbdbdb;
   --button-default-bg: var(--surface-panel);
   --button-default-text: var(--text-secondary);
-  --button-default-border: var(--border-default);
-  --button-default-bg-hover: var(--surface-card-muted);
+  --button-default-border: #595959;
+  --button-default-bg-hover: #ffffff;
   --button-default-text-hover: var(--text-primary);
-  --button-default-border-hover: var(--border-default);
-  --button-default-bg-disabled: var(--surface-panel);
-  --button-default-text-disabled: var(--text-disabled);
-  --button-default-border-disabled: var(--border-default);
+  --button-default-border-hover: #c2c2c2;
   --button-danger-bg: var(--accent-button-danger);
   --button-danger-text: var(--surface-neutral-white);
   --button-danger-bg-hover: var(--accent-button-danger-hover);
@@ -316,6 +311,8 @@
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
   --text-field-placeholder: var(--text-muted);
+
+  --tag-bg: #e6e6e6;
 }
 
 [data-ui-theme="business"] {
@@ -345,6 +342,10 @@
   --accent-soft: #eef0ff;
   --accent-soft-strong: #ddeeff;
 
+  --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
+  --status-badge-unconfigured-surface: #f0f0f0;
+  --status-badge-unconfigured-text: var(--text-label-secondary);
+
   --state-success-surface: rgba(230, 242, 213, 1);
   --state-success-text: #6a8f22;
   --state-error-surface: rgba(252, 227, 225, 1);
@@ -369,17 +370,9 @@
   --card-disabled-text: var(--text-disabled);
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: var(--text-secondary);
   --menu-hover-bg: color-mix(in srgb, var(--surface-panel) 72%, transparent);
-  --menu-hover-border: transparent;
-  --menu-hover-text: var(--text-primary);
   --menu-active-bg: var(--surface-panel);
-  --menu-active-border: var(--border-default);
-  --menu-active-text: var(--text-primary);
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: var(--text-disabled);
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: var(--surface-panel);
   --overlay-border: var(--border-default);
@@ -395,10 +388,8 @@
   --overlay-disabled-text: var(--text-disabled);
   --overlay-item-bg: transparent;
   --overlay-item-border: transparent;
-  --overlay-item-text: var(--text-secondary);
   --overlay-item-hover-bg: color-mix(in srgb, var(--surface-card-muted) 92%, white);
   --overlay-item-hover-border: transparent;
-  --overlay-item-hover-text: var(--text-primary);
   --overlay-item-disabled-bg: transparent;
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: var(--text-disabled);
@@ -418,19 +409,17 @@
   --agent-preset-badge-text: rgba(25, 25, 25, 1);
   --button-primary-bg: var(--surface-inverse);
   --button-primary-text: var(--text-inverse);
-  --button-primary-bg-hover: color-mix(in srgb, var(--surface-inverse) 96%, white);
+  --button-primary-bg-hover: #595959;
   --button-primary-text-hover: var(--text-inverse);
-  --button-primary-bg-disabled: var(--surface-inverse);
-  --button-primary-text-disabled: var(--text-inverse);
+  --button-disabled-bg: #f0f0f0;
+  --button-disabled-text: #c2c2c2;
+  --button-disabled-border: #dbdbdb;
   --button-default-bg: var(--surface-panel);
   --button-default-text: var(--text-secondary);
-  --button-default-border: var(--border-default);
-  --button-default-bg-hover: var(--surface-card-muted);
+  --button-default-border: #595959;
+  --button-default-bg-hover: #ffffff;
   --button-default-text-hover: var(--text-primary);
-  --button-default-border-hover: var(--border-default);
-  --button-default-bg-disabled: var(--surface-panel);
-  --button-default-text-disabled: var(--text-disabled);
-  --button-default-border-disabled: var(--border-default);
+  --button-default-border-hover: #c2c2c2;
   --button-danger-bg: var(--accent-button-danger);
   --button-danger-text: var(--surface-neutral-white);
   --button-danger-bg-hover: var(--accent-button-danger-hover);
@@ -441,6 +430,8 @@
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
   --text-field-placeholder: var(--text-muted);
+
+  --tag-bg: #f5f5f5;
 }
 
 [data-theme="dark"] {
@@ -531,15 +522,13 @@ select:-webkit-autofill:focus {
   }
 
   .ui-panel {
-    border: var(--border-width-default) solid var(--border-default);
+    border: var(--border-width-default) solid #dbdbdb;
     border-radius: var(--radius-lg);
-    background: var(--surface-panel);
   }
 
   .ui-card {
     border: var(--border-width-default) solid var(--card-border);
     border-radius: var(--card-radius);
-    background: var(--card-bg);
     box-shadow: var(--card-shadow);
     padding: var(--card-padding);
   }
@@ -598,7 +587,6 @@ select:-webkit-autofill:focus {
     border: var(--border-width-default) solid var(--overlay-item-border);
     border-radius: var(--radius-sm);
     background: var(--overlay-item-bg);
-    color: var(--overlay-item-text);
     transition: var(--overlay-transition);
   }
 
@@ -606,7 +594,6 @@ select:-webkit-autofill:focus {
   .ui-overlay-item:focus-visible {
     border-color: var(--overlay-item-hover-border);
     background: var(--overlay-item-hover-bg);
-    color: var(--overlay-item-hover-text);
     outline: none;
   }
 
@@ -648,7 +635,6 @@ select:-webkit-autofill:focus {
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-pill);
     font-size: 12px;
-    font-weight: var(--font-weight-medium);
     padding: 5px 24px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   }
@@ -663,17 +649,9 @@ select:-webkit-autofill:focus {
     color: var(--button-primary-text-hover);
   }
 
-  .ui-button-primary:disabled {
-    background: var(--button-primary-bg-disabled);
-    color: var(--button-primary-text-disabled);
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
   .ui-button-default {
     border: var(--border-width-default) solid var(--button-default-border);
     background: var(--button-default-bg);
-    color: var(--button-default-text);
   }
 
   .ui-button-default:hover {
@@ -682,10 +660,11 @@ select:-webkit-autofill:focus {
     color: var(--button-default-text-hover);
   }
 
+  .ui-button-primary:disabled,
   .ui-button-default:disabled {
-    border-color: var(--button-default-border-disabled);
-    background: var(--button-default-bg-disabled);
-    color: var(--button-default-text-disabled);
+    border-color: var(--button-disabled-border);
+    background: var(--button-disabled-bg);
+    color: var(--button-disabled-text);
     opacity: 0.4;
     cursor: not-allowed;
   }
@@ -1044,12 +1023,23 @@ select:-webkit-autofill:focus {
   }
 
   .ui-input {
+    border-color: var(--input-border);
+    border-radius: var(--input-radius);
     color: var(--text-field);
     caret-color: var(--text-field);
+    font-size: var(--input-font-size);
+    line-height: var(--input-line-height);
+    padding: var(--input-padding-y) var(--input-padding-x);
   }
 
   .ui-input:hover {
+    border-color: var(--input-border-hover);
     color: var(--text-field-hover);
+  }
+
+  .ui-input:active,
+  .ui-input:focus {
+    border-color: var(--input-border-active);
   }
 
   .ui-input:disabled {
@@ -1086,12 +1076,14 @@ select:-webkit-autofill:focus {
   .ui-textarea-plain {
     border-color: transparent!important;
     background: transparent!important;
+    border-radius: unset!important;
   }
 
   .ui-input-plain:focus,
   .ui-textarea-plain:focus {
     border-color: transparent!important;
     background: transparent!important;
+    border-radius: unset!important;
   }
 
   .ui-input-underline {
@@ -1224,6 +1216,25 @@ select:-webkit-autofill:focus {
     font-weight: 600;
   }
 
+  .ui-status-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .ui-status-badge-configured {
+    background: var(--status-badge-configured-surface);
+    color: var(--state-success-text);
+  }
+
+  .ui-status-badge-unconfigured {
+    background: var(--status-badge-unconfigured-surface);
+    color: var(--status-badge-unconfigured-text);
+  }
+
   .ui-status-muted {
     border: var(--border-width-default) solid var(--border-default);
     background: var(--surface-card-muted);
@@ -1244,7 +1255,7 @@ select:-webkit-autofill:focus {
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    background: var(--surface-card-muted);
+    background: var(--tag-bg);
     font-size: var(--font-size-sm);
     line-height: 1;
     padding: 2px 4px;
@@ -1301,51 +1312,38 @@ select:-webkit-autofill:focus {
 
   .ui-menu-item {
     min-height: var(--control-height-sm);
-    border: var(--border-width-default) solid var(--menu-border);
     border-radius: var(--radius-sm);
     background: var(--menu-bg);
-    color: var(--menu-text);
     font-size: 14px;
     transition: var(--menu-transition);
+    border: none;
   }
 
   .ui-menu-item:hover {
-    border-color: var(--menu-hover-border);
     background: var(--menu-hover-bg);
-    color: var(--menu-hover-text);
   }
 
   .ui-menu-item:disabled,
   .ui-menu-item-disabled {
-    border-color: var(--menu-disabled-border);
     background: var(--menu-disabled-bg);
-    color: var(--menu-disabled-text);
     cursor: not-allowed;
     pointer-events: none;
   }
 
   .ui-menu-item-active {
-    border-color: var(--menu-active-border);
     background: var(--menu-active-bg);
-    color: var(--menu-active-text);
   }
 
   .ui-menu-item-active:hover {
-    border-color: var(--menu-active-border);
     background: var(--menu-active-bg);
-    color: var(--menu-active-text);
   }
 
   .ui-menu-item-inactive {
-    border-color: var(--menu-border);
     background: var(--menu-bg);
-    color: var(--menu-text);
   }
 
   .ui-menu-item-inactive:hover {
-    border-color: var(--menu-hover-border);
     background: var(--menu-hover-bg);
-    color: var(--menu-hover-text);
   }
 
   .ui-thread-item {

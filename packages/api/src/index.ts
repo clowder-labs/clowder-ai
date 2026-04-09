@@ -184,6 +184,7 @@ import { isSeedCat } from './config/cat-account-binding.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);
 const HOST = process.env.API_SERVER_HOST ?? '127.0.0.1';
+const API_BODY_LIMIT_BYTES = 10 * 1024 * 1024;
 
 let socketManager: SocketManager | null = null;
 let redisClient: RedisClient | null = null;
@@ -203,7 +204,10 @@ const PROCESS_START_AT = Date.now();
 
 async function main(): Promise<void> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
-  const app = Fastify({ logger: customLogger as unknown as import('fastify').FastifyBaseLogger });
+  const app = Fastify({
+    logger: customLogger as unknown as import('fastify').FastifyBaseLogger,
+    bodyLimit: API_BODY_LIMIT_BYTES,
+  });
 
   if (isDebugMode) {
     app.log.info({ logDir: LOG_DIR_PATH }, '[api] Debug mode enabled (--debug flag)');

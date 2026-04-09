@@ -16,6 +16,7 @@ export interface InstalledSkillRecord {
   repo: string;
   remoteSkillName: string;
   installedAt: string; // ISO 8601
+  displayDescription?: string;
 }
 
 export interface InstalledSkillsRegistry {

@@ -11,7 +11,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { lstat, mkdir, readdir, readFile, readlink, realpath, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readdir, readFile, readlink, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { FastifyPluginAsync } from 'fastify';
@@ -61,6 +61,11 @@ interface SkillsResponse {
   skills: SkillEntry[];
   summary: SkillsSummary;
 }
+
+const SKILL_UPLOAD_MAX_FILES = 100;
+const SKILL_UPLOAD_MAX_FILE_BYTES = 1024 * 1024;
+const SKILL_UPLOAD_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
+const SKILL_NAME_CHINESE_RE = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/u;
 
 // ─── Skill Detail Types ──────────────────────────────────
 
@@ -539,7 +544,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Identity required' };
     }
 
-    const body = request.body as { owner?: string; repo?: string; skill?: string; localName?: string };
+    const body = request.body as {
+      owner?: string;
+      repo?: string;
+      skill?: string;
+      localName?: string;
+      description?: string;
+    };
     if (!body.owner || !body.repo || !body.skill) {
       reply.status(400);
       return { error: 'Missing: owner, repo, skill' };
@@ -551,6 +562,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         repo: body.repo,
         skill: body.skill,
         localName: body.localName,
+        description: body.description,
       });
     } catch (err) {
       if (err instanceof SkillInstallError) {
@@ -681,6 +693,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
             triggers: frontmatter.triggers,
           };
         }
+      }
+      const installedDescription = installedRecord?.displayDescription?.trim();
+      if (installedDescription) {
+        meta = {
+          ...meta,
+          description: installedDescription,
+        };
       }
 
       // Check mount status (symlinks)
@@ -836,15 +855,28 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       reply.status(400);
       return { success: false, error: 'Missing name or files' };
     }
+    if (body.files.length > SKILL_UPLOAD_MAX_FILES) {
+      reply.status(422);
+      return { success: false, error: `Too many files. Limit is ${SKILL_UPLOAD_MAX_FILES}.` };
+    }
 
     const skillName = body.name.trim();
     if (!skillName || /[\\/]|(\.\.)/.test(skillName)) {
       reply.status(422);
       return { success: false, error: 'Invalid skill name' };
     }
+    if (SKILL_NAME_CHINESE_RE.test(skillName)) {
+      reply.status(422);
+      return { success: false, error: 'Skill name cannot contain Chinese characters' };
+    }
 
     const skillsDir = resolve(CAT_CAFE_SKILLS_SRC);
     const skillDir = join(skillsDir, skillName);
+    if (existsSync(skillDir)) {
+      reply.status(409);
+      return { success: false, error: `Skill "${skillName}" already exists` };
+    }
+    let createdSkillDir = false;
 
     try {
       // Detect common prefix directory (e.g. all files under "my-skill/" folder)
@@ -858,27 +890,47 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      // Write all files (max 3MB per file)
-      const MAX_UPLOAD_SIZE = 3 * 1024 * 1024;
+      const preparedFiles: { originalPath: string; strippedPath: string; fullPath: string; content: Buffer }[] = [];
+      let totalBytes = 0;
+
       for (const file of body.files) {
         const relPath = file.path.replace(/\\/g, '/');
-        // Strip common prefix folder
         const stripped = prefix ? relPath.slice(prefix.length) : relPath;
         if (stripped.includes('..') || stripped.startsWith('/')) continue;
         const fullPath = resolve(skillDir, stripped);
-        // Jail check: resolved path must be inside skillDir
         if (!fullPath.startsWith(resolve(skillDir) + sep)) continue;
         const content = Buffer.from(file.content, 'base64');
-        if (content.length > MAX_UPLOAD_SIZE) {
+        if (content.length > SKILL_UPLOAD_MAX_FILE_BYTES) {
           reply.status(422);
-          return { success: false, error: `File ${stripped} exceeds 2MB limit` };
+          return {
+            success: false,
+            error: `File ${stripped} exceeds ${Math.floor(SKILL_UPLOAD_MAX_FILE_BYTES / (1024 * 1024))}MB limit`,
+          };
         }
-        await mkdir(dirname(fullPath), { recursive: true });
-        await writeFile(fullPath, content);
+        totalBytes += content.length;
+        if (totalBytes > SKILL_UPLOAD_MAX_TOTAL_BYTES) {
+          reply.status(422);
+          return {
+            success: false,
+            error: `Total upload size exceeds ${Math.floor(SKILL_UPLOAD_MAX_TOTAL_BYTES / (1024 * 1024))}MB limit`,
+          };
+        }
+        preparedFiles.push({ originalPath: file.path, strippedPath: stripped, fullPath, content });
+      }
+
+      await mkdir(skillDir, { recursive: true });
+      createdSkillDir = true;
+
+      for (const file of preparedFiles) {
+        await mkdir(dirname(file.fullPath), { recursive: true });
+        await writeFile(file.fullPath, file.content);
       }
 
       // Verify SKILL.md exists
       if (!existsSync(join(skillDir, 'SKILL.md'))) {
+        if (createdSkillDir) {
+          await rm(skillDir, { recursive: true, force: true }).catch(() => {});
+        }
         reply.status(422);
         return { success: false, error: 'Uploaded files must include SKILL.md' };
       }
@@ -903,10 +955,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         success: true,
         name: skillName,
         localPath: `cat-cafe-skills/${skillName}`,
-        files: body.files.map((f) => f.path),
+        files: preparedFiles.map((f) => f.originalPath),
         mounts,
       };
     } catch (err) {
+      if (createdSkillDir) {
+        await rm(skillDir, { recursive: true, force: true }).catch(() => {});
+      }
       reply.status(500);
       return { success: false, error: String(err) };
     }

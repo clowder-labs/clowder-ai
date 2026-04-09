@@ -414,16 +414,8 @@ export function ThreadSidebar({
     let result = threads;
     if (normalizedQuery) {
       result = result.filter((thread) => {
-        const title = (thread.title ?? '').toLowerCase();
-        const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
-        const project = (thread.projectPath ?? '').toLowerCase();
-        const threadId = thread.id.toLowerCase();
-        return (
-          title.includes(normalizedQuery) ||
-          fallback.includes(normalizedQuery) ||
-          project.includes(normalizedQuery) ||
-          threadId.includes(normalizedQuery)
-        );
+        const displayTitle = (thread.title?.trim() || (thread.id === 'default' ? '大厅' : '未命名对话')).toLowerCase();
+        return displayTitle.includes(normalizedQuery);
       });
     }
 
@@ -753,12 +745,12 @@ export function ThreadSidebar({
           {showNoResults ? (
             <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-gray-400">
               <div className="text-[14px] font-[400] text-[#333]">没有结果</div>
-              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-2">请开启 <button
+              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-1">请<button
                 type="button"
                 onClick={handleNewChat}
-                className="text-[12px] font-[400] text-[rgba(20,115,255,1)]"
+                className="text-[12px] font-[400] text-[#1476ff]"
               >
-                新的会话
+                新建会话
               </button>
               </div>
             </div>
@@ -896,6 +888,7 @@ export function ThreadSidebar({
       <AppModal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
+        disableBackdropClose
         title={
           <div className="flex items-center gap-2">
             <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

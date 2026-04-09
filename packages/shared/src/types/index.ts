@@ -241,6 +241,7 @@ export type {
 export type {
   AgentStreamMessage,
   CodeContent,
+  FileContent,
   ImageContent,
   Message,
   MessageContent,

@@ -6,6 +6,7 @@
 export type { SendMessageRequest } from './message.schema.js';
 export {
   CodeContentSchema,
+  FileContentSchema,
   ImageContentSchema,
   MessageContentSchema,
   MessageSchema,

@@ -8,8 +8,6 @@ import {
   ExternalLinkIcon,
   LockIcon,
   PLATFORM_VISUALS,
-  StatusDotConnected,
-  StatusDotIdle,
   StepBadge,
   WifiIcon,
 } from './HubConfigIcons';
@@ -267,10 +265,7 @@ export function HubConnectorConfigTab() {
 
   return (
     <div className="ui-panel flex h-full min-h-0 overflow-hidden">
-      <div
-        className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[var(--border-default)] px-4 py-6"
-        data-testid="connector-left-pane"
-      >
+      <div className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[var(--connector-tab-border-default)] px-4 py-6" data-testid="connector-left-pane">
         {platforms.map((platform) => {
           const isSelected = selectedPlatform?.id === platform.id;
           const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
@@ -282,24 +277,23 @@ export function HubConnectorConfigTab() {
               data-testid={`platform-item-${platform.id}`}
               className="flex w-full items-center gap-3 border px-4 py-3.5 text-left transition-colors [border-radius:var(--connector-tab-radius)]"
               style={{
-                borderColor: isSelected
-                  ? 'var(--connector-tab-border-selected)'
-                  : 'var(--connector-tab-border-default)',
+                borderColor: isSelected ? 'var(--connector-tab-border-selected)' : 'var(--border-default)',
                 backgroundColor: isSelected ? 'var(--connector-tab-bg-selected)' : 'var(--connector-tab-bg-default)',
               }}
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center">{v.icon}</span>
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center"
+              >
+                {v.icon}
+              </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-[14px] font-semibold text-[var(--text-primary)]">
                   {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
                 </span>
                 <span
-                  className={`flex items-center gap-1 text-xs ${
-                    platform.configured ? 'text-[var(--state-success-text)]' : 'text-[var(--text-muted)]'
-                  }`}
+                  className={`ui-status-badge ${platform.configured ? 'ui-status-badge-configured' : 'ui-status-badge-unconfigured'}`}
                 >
-                  {platform.configured ? <StatusDotConnected /> : <StatusDotIdle />}
-                  {platform.configured ? '已配置' : '未配置'}
+                  {platform.configured ? '已启用' : '未配置'}
                 </span>
               </span>
             </button>
