@@ -745,11 +745,7 @@ export function AgentsPanel() {
       type="button"
       onClick={handleStartEdit}
       disabled={!canEditActiveTab}
-      className={`inline-flex items-center gap-1.5 rounded-full h-6 w-20 px-4 py-[3px] text-[12px] font-normal transition ${
-        canEditActiveTab
-          ? 'bg-[var(--surface-panel)] text-black hover:underline hover:underline-offset-2'
-          : 'cursor-not-allowed bg-[var(--surface-card-muted)] text-[var(--text-subtle)]'
-      }`}
+      className="ui-button-default inline-flex items-center gap-1.5"
     >
       <EditIcon className="h-3.5 w-3.5" />
       <span>编辑</span>
@@ -1068,7 +1064,7 @@ export function AgentsPanel() {
 
       <div className="ui-panel min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0">
-          <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[var(--border-soft)] bg-[var(--surface-panel)] px-4 py-6">
+          <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[var(--connector-tab-border-default)] px-4 py-6">
             <label className="mb-3 mr-1 flex h-[28px] min-h-[28px] w-[calc(100%-4px)] items-center gap-2 rounded-[6px] border border-[rgba(194,194,194,1)] bg-[var(--surface-panel)] px-3 text-[var(--text-muted)]">
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <input
@@ -1094,7 +1090,7 @@ export function AgentsPanel() {
                     style={{
                       borderColor: isSelected
                         ? 'var(--connector-tab-border-selected)'
-                        : 'var(--connector-tab-border-default)',
+                        : 'var(--border-default)',
                       backgroundColor: isSelected
                         ? 'var(--connector-tab-bg-selected)'
                         : 'var(--connector-tab-bg-default)',
@@ -1220,8 +1216,8 @@ export function AgentsPanel() {
             ) : null}
           </aside>
 
-          <section className="relative z-0 flex min-w-0 flex-1 flex-col bg-[var(--surface-panel)]">
-            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-4 py-3">
+          <section className="relative z-0 flex min-w-0 flex-1 flex-col">
+            <div className="flex items-center justify-between gap-4 px-4 py-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {AGENT_TABS.map((tab) => {
                   const TabIcon = tab.icon;
@@ -1235,7 +1231,7 @@ export function AgentsPanel() {
                         setActiveTab(tab.id);
                         setMode('preview');
                       }}
-                      className={`inline-flex items-center gap-1.5 rounded-[8px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919] transition ${
+                      className={`inline-flex items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919] transition ${
                         isActive ? 'bg-[rgba(230,230,230,1)]' : ' hover:bg-[#F8FAFC]'
                       }`}
                       data-testid={`agent-tab-${tab.id}`}

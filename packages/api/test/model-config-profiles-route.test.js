@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, beforeEach, describe, it } from 'node:test';
@@ -12,6 +12,23 @@ function createProjectRoot() {
   process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
   writeFileSync(join(projectRoot, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
   return projectRoot;
+}
+
+async function seedHuaweiSession(userId = 'demo-user') {
+  const { sessions } = await import('../dist/routes/auth.js');
+  sessions.set(userId, {
+    userId,
+    token: 'token-123',
+    expiresAt: '2999-01-01T00:00:00.000Z',
+    credential: {},
+    modelInfo: {
+      model_api_url_base: 'https://maas.example.com',
+      model_auth_info: {
+        model_app_key: 'app-key',
+        model_app_secret: 'app-secret',
+      },
+    },
+  });
 }
 
 describe('model config profiles routes', () => {
@@ -82,6 +99,111 @@ describe('model config profiles routes', () => {
     assert.ok(Array.isArray(listBody.list));
     assert.ok(listBody.list.some((item) => item.id === 'model_config:my-openai-proxy:gpt-4o-mini'));
     assert.ok(listBody.list.some((item) => item.name === 'deepseek-chat' && item.provider === 'My OpenAI Proxy'));
+  });
+
+  it('GET /api/maas-models prefers cache when refresh header is not set', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { maasModelsRoutes } = await import('../dist/routes/maas-models.js');
+    await seedHuaweiSession();
+
+    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.cat-cafe', 'model.json'),
+      JSON.stringify(
+        {
+          'huawei-maas': [
+            {
+              id: 'cached-model',
+              name: 'Cached Model',
+              description: 'from cache',
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    let fetchCount = 0;
+    const app = Fastify();
+    await app.register(maasModelsRoutes, {
+      fetchImpl: async () => {
+        fetchCount += 1;
+        return new Response(
+          JSON.stringify({
+            data: [{ id: 'remote-model', name: 'Remote Model' }],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      },
+    });
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: `/api/maas-models?projectPath=${encodeURIComponent(projectRoot)}`,
+      headers: {
+        'x-cat-cafe-user': 'demo-user',
+      },
+    });
+
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    assert.equal(fetchCount, 0);
+    assert.ok(listBody.list.some((item) => item.id === 'model_config:huawei-maas:cached-model'));
+    assert.ok(!listBody.list.some((item) => item.id === 'model_config:huawei-maas:remote-model'));
+  });
+
+  it('GET /api/maas-models bypasses cache when refresh header is true', async () => {
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { maasModelsRoutes } = await import('../dist/routes/maas-models.js');
+    await seedHuaweiSession();
+
+    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.cat-cafe', 'model.json'),
+      JSON.stringify(
+        {
+          'huawei-maas': [
+            {
+              id: 'cached-model',
+              name: 'Cached Model',
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    let fetchCount = 0;
+    const app = Fastify();
+    await app.register(maasModelsRoutes, {
+      fetchImpl: async () => {
+        fetchCount += 1;
+        return new Response(
+          JSON.stringify({
+            data: [{ id: 'remote-model', name: 'Remote Model' }],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      },
+    });
+
+    const listRes = await app.inject({
+      method: 'GET',
+      url: `/api/maas-models?projectPath=${encodeURIComponent(projectRoot)}`,
+      headers: {
+        'x-cat-cafe-user': 'demo-user',
+        'x-refresh': 'true',
+      },
+    });
+
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    assert.equal(fetchCount, 1);
+    assert.ok(listBody.list.some((item) => item.id === 'model_config:huawei-maas:remote-model'));
   });
 
   it('PUT /api/model-config-profiles/:sourceId updates an existing source', async () => {

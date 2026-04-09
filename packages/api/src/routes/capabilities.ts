@@ -505,8 +505,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const installedRegistry = await loadInstalledRegistry(dirname(CAT_CAFE_SKILLS_SRC));
     const remoteInstalledNames = new Set(installedRegistry.skills.map((s) => s.name));
     const installedAtMap = new Map<string, string>();
+    const installedDescriptionMap = new Map<string, string>();
     for (const record of installedRegistry.skills) {
       installedAtMap.set(record.name, record.installedAt);
+      if (record.displayDescription?.trim()) {
+        installedDescriptionMap.set(record.name, record.displayDescription.trim());
+      }
     }
     const allSkillNames = new Set<string>();
     for (const skills of Object.values(providerSkills)) {
@@ -636,7 +640,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         cap.source === 'cat-cafe'
           ? (manifestMetaMap.get(cap.id) ?? skillMetaMap.get(cap.id))
           : skillMetaMap.get(cap.id);
-      if (meta?.description) skillItem.description = meta.description;
+      const installedDescription = installedDescriptionMap.get(cap.id);
+      if (installedDescription) skillItem.description = installedDescription;
+      else if (meta?.description) skillItem.description = meta.description;
       if (meta?.triggers) skillItem.triggers = meta.triggers;
       const category = skillCategoryMap.get(cap.id);
       skillItem.category = category ?? (remoteInstalledNames.has(cap.id) ? 'Skill 扩展' : '其他');

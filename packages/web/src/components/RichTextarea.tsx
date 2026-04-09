@@ -3,6 +3,7 @@ import {
   type CSSProperties,
   type ClipboardEvent,
   type KeyboardEvent,
+  type MouseEvent,
   type UIEvent,
   useLayoutEffect,
   useImperativeHandle,
@@ -14,6 +15,12 @@ import { getMentionToCat } from '@/lib/mention-highlight';
 export interface RichSkillOption {
   name: string;
   iconUrl?: string | null;
+}
+
+export interface RichQuickActionOption {
+  label: string;
+  icon?: string;
+  token?: string;
 }
 
 interface RichTextareaProps {
@@ -28,6 +35,7 @@ interface RichTextareaProps {
   style?: CSSProperties;
   disabled?: boolean;
   skillOptions?: RichSkillOption[];
+  quickActionOptions?: RichQuickActionOption[];
 }
 
 export interface RichTextareaHandle {
@@ -42,19 +50,39 @@ export interface RichTextareaHandle {
 type Segment =
   | { type: 'text'; text: string }
   | { type: 'mention'; text: string }
-  | { type: 'skill'; text: string; iconUrl?: string | null };
+  | { type: 'skill'; text: string; iconUrl?: string | null }
+  | { type: 'quick_action'; text: string; icon?: string; token: string };
 
 const MENTION_RIGHT_WHITESPACE_RE = /\s/;
+const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
+const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 
-function buildSegments(value: string, skillOptions: RichSkillOption[]): Segment[] {
+function buildSegments(value: string, skillOptions: RichSkillOption[], quickActionOptions: RichQuickActionOption[]): Segment[] {
   if (!value) return [{ type: 'text', text: '' }];
   const sortedSkills = [...skillOptions].sort((a, b) => b.name.length - a.name.length);
+  const quickActionIconByLabel = new Map(quickActionOptions.map((item) => [item.label, item.icon]));
   const mentionToCat = getMentionToCat();
   const mentionAliases = Object.keys(mentionToCat).sort((a, b) => b.length - a.length);
   const segments: Segment[] = [];
   let cursor = 0;
 
   while (cursor < value.length) {
+    if (value.startsWith(QUICK_ACTION_TOKEN_PREFIX, cursor)) {
+      const end = value.indexOf(QUICK_ACTION_TOKEN_SUFFIX, cursor + QUICK_ACTION_TOKEN_PREFIX.length);
+      if (end > cursor) {
+        const token = value.slice(cursor, end + QUICK_ACTION_TOKEN_SUFFIX.length);
+        const label = value.slice(cursor + QUICK_ACTION_TOKEN_PREFIX.length, end);
+        segments.push({
+          type: 'quick_action',
+          text: label,
+          icon: quickActionIconByLabel.get(label),
+          token,
+        });
+        cursor = end + QUICK_ACTION_TOKEN_SUFFIX.length;
+        continue;
+      }
+    }
+
     let matchedSkill: RichSkillOption | null = null;
     for (const skill of sortedSkills) {
       const name = skill.name;
@@ -105,7 +133,7 @@ function serializeNode(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) return (node.textContent ?? '').replace(/\u00A0/g, ' ');
   if (node.nodeType !== Node.ELEMENT_NODE) return '';
   const el = node as HTMLElement;
-  if (el.dataset.tokenType === 'skill') return el.dataset.tokenValue ?? '';
+  if (el.dataset.tokenType === 'skill' || el.dataset.tokenType === 'quick-action') return el.dataset.tokenValue ?? '';
   let out = '';
   for (const child of Array.from(el.childNodes)) out += serializeNode(child);
   return out;
@@ -116,6 +144,7 @@ function serializeNodeSignature(node: Node): string {
   if (node.nodeType !== Node.ELEMENT_NODE) return '';
   const el = node as HTMLElement;
   if (el.dataset.tokenType === 'skill') return `s:${el.dataset.tokenValue ?? ''}`;
+  if (el.dataset.tokenType === 'quick-action') return `q:${el.dataset.tokenValue ?? ''}`;
   if (el.dataset.tokenType === 'mention') return `m:${el.textContent ?? ''}`;
   let out = '';
   for (const child of Array.from(el.childNodes)) out += serializeNodeSignature(child);
@@ -134,7 +163,7 @@ function collectTextNodes(root: HTMLElement): Array<{ node: Node; start: number;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const el = node as HTMLElement;
-    if (el.dataset.tokenType === 'skill') {
+    if (el.dataset.tokenType === 'skill' || el.dataset.tokenType === 'quick-action') {
       const token = el.dataset.tokenValue ?? '';
       out.push({ node: el, start: offset, end: offset + token.length });
       offset += token.length;
@@ -233,19 +262,21 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
     style,
     disabled,
     skillOptions = [],
+    quickActionOptions = [],
   },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const isComposingRef = useRef(false);
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
-  const segments = useMemo(() => buildSegments(value, skillOptions), [value, skillOptions]);
+  const segments = useMemo(() => buildSegments(value, skillOptions, quickActionOptions), [value, skillOptions, quickActionOptions]);
   const segmentSignature = useMemo(
     () =>
       segments
         .map((seg) => {
           if (seg.type === 'text') return `t:${seg.text}`;
           if (seg.type === 'mention') return `m:${seg.text}`;
+          if (seg.type === 'quick_action') return `q:${seg.token}`;
           return `s:${seg.text}`;
         })
         .join(''),
@@ -306,6 +337,48 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         frag.appendChild(span);
         continue;
       }
+      if (seg.type === 'quick_action') {
+        const token = document.createElement('span');
+        token.setAttribute('data-token-type', 'quick-action');
+        token.setAttribute('data-token-value', seg.token);
+        token.setAttribute('contenteditable', 'false');
+        token.className =
+          'group/quick-action inline-flex max-w-full cursor-pointer items-center gap-1 rounded-full border text-[14px] font-normal leading-[22px] text-[#191919] align-middle';
+        token.style.padding = '3px 8px';
+        token.style.borderColor = 'rgba(20,118,255,0.8)';
+        token.style.backgroundColor = '#eff6ff';
+        token.style.cursor = 'pointer';
+
+        if (seg.icon) {
+          const icon = document.createElement('img');
+          icon.setAttribute('src', seg.icon);
+          icon.setAttribute('alt', '');
+          icon.setAttribute('aria-hidden', 'true');
+          icon.className = 'h-4 w-4 shrink-0 group-hover/quick-action:hidden';
+          token.appendChild(icon);
+        } else {
+          const fallback = document.createElement('span');
+          fallback.setAttribute('aria-hidden', 'true');
+          fallback.className = 'h-2 w-2 rounded-full bg-[rgba(20,118,255,1)] group-hover/quick-action:hidden';
+          token.appendChild(fallback);
+        }
+
+        const remove = document.createElement('span');
+        remove.setAttribute('data-remove-quick-action', '1');
+        remove.setAttribute('aria-hidden', 'true');
+        remove.className =
+          'hidden h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#a7a7a7] group-hover/quick-action:inline-flex hover:text-[#1476ff]';
+        remove.style.fontSize = '18px';
+        remove.style.lineHeight = '18px';
+        remove.textContent = '×';
+        token.appendChild(remove);
+
+        const label = document.createElement('span');
+        label.textContent = seg.text;
+        token.appendChild(label);
+        frag.appendChild(token);
+        continue;
+      }
       const token = document.createElement('span');
       token.setAttribute('data-token-type', 'skill');
       token.setAttribute('data-token-value', seg.text);
@@ -342,6 +415,13 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
     }
   }, [segments, segmentSignature, value]);
 
+  const resolveEventElement = (target: EventTarget | null): HTMLElement | null => {
+    if (!target) return null;
+    if (target instanceof HTMLElement) return target;
+    if (target instanceof Text) return target.parentElement;
+    return null;
+  };
+
   return (
     <div className="relative">
       {!value && placeholder && (
@@ -355,6 +435,33 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         style={style}
         role="textbox"
         aria-multiline="true"
+        onMouseDown={(e: MouseEvent<HTMLDivElement>) => {
+          const target = resolveEventElement(e.target);
+          const removeButton = target?.closest('[data-remove-quick-action="1"]') as HTMLElement | null;
+          if (!removeButton) return;
+
+          const token = removeButton.closest('[data-token-type="quick-action"]') as HTMLElement | null;
+          const tokenValue = token?.dataset.tokenValue ?? '';
+          if (!tokenValue) return;
+
+          e.preventDefault();
+          const index = value.indexOf(tokenValue);
+          if (index < 0) return;
+          const rawNext = `${value.slice(0, index)}${value.slice(index + tokenValue.length)}`;
+          const next = rawNext.replace(/\s{2,}/g, ' ').trimStart();
+          const caret = Math.min(index, next.length);
+          pendingSelectionRef.current = { start: caret, end: caret };
+          onValueChange(next, caret, caret);
+          onInput?.();
+        }}
+        onMouseDownCapture={(e: MouseEvent<HTMLDivElement>) => {
+          const target = resolveEventElement(e.target);
+          if (!target) return;
+          const skillToken = target.closest('[data-token-type="skill"]');
+          if (!skillToken) return;
+          // Keep caret stable when clicking highlighted skill token.
+          e.preventDefault();
+        }}
         onInput={() => {
           const root = rootRef.current;
           if (!root) return;

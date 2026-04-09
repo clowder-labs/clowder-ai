@@ -8,8 +8,6 @@ import {
   ExternalLinkIcon,
   LockIcon,
   PLATFORM_VISUALS,
-  StatusDotConnected,
-  StatusDotIdle,
   StepBadge,
   WifiIcon,
 } from './HubConfigIcons';
@@ -298,8 +296,7 @@ export function HubConnectorConfigTab() {
                     platform.configured ? 'text-[var(--state-success-text)]' : 'text-[var(--text-muted)]'
                   }`}
                 >
-                  {platform.configured ? <StatusDotConnected /> : <StatusDotIdle />}
-                  {platform.configured ? '已配置' : '未配置'}
+                  {platform.configured ? '已启用' : '未配置'}
                 </span>
               </span>
             </button>

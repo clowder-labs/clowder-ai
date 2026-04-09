@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { type ReactNode } from 'react';
-import { OverflowTooltip } from './OverflowTooltip';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { SkillAvatar } from './SkillAvatar';
 
 export interface CapabilityBoardItem {
