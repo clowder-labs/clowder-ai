@@ -31,7 +31,7 @@ export function detectUserMention(text: string): boolean {
           log.debug({ pattern, lineLen: line.length }, 'Co-creator mention detected');
           return true;
         }
-        log.debug({ pattern, rest: rest.slice(0, 10) }, 'Co-creator pattern matched but boundary failed');
+        log.debug({ pattern, restLen: rest.length }, 'Co-creator pattern matched but boundary failed');
       }
     }
   }
