@@ -35,8 +35,8 @@ import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
-import { registerCallbackSkillRoutes } from './callback-skill-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
+import { registerCallbackSkillRoutes } from './callback-skill-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
@@ -454,7 +454,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     }
     const mentions: CatId[] = [...mergedTargets];
     if (contentTargets.length > 0 || validExplicitTargets.length > 0) {
-      app.log.info(
+      app.log.debug(
         {
           invocationId,
           threadId: effectiveThreadId,
