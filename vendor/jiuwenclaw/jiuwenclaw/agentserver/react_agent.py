@@ -55,6 +55,8 @@ ANSWER_CHUNK_SIZE = _react_config.get("answer_chunk_size", 500)
 STREAM_CHUNK_THRESHOLD = _react_config.get("stream_chunk_threshold", 50)
 STREAM_CHARACTER_THRESHOLD = _react_config.get("stream_character_threshold", 2000)
 
+LLM_MAX_TOKENS = env_int("LLM_MAX_TOKENS", 16384)
+
 _raw_retry_mode = str(_react_config.get("tool_arguments_retry_mode", "same_turn_llm") or "").strip().lower()
 if _raw_retry_mode in ("same_turn_llm", "next_iteration"):
     _TOOL_ARGUMENTS_RETRY_MODE: str = _raw_retry_mode
@@ -195,7 +197,8 @@ class JiuClawReActAgent(ReActAgent):
             return await llm.invoke(
                 model=self._config.model_name,
                 messages=messages,
-                tools=tools
+                tools=tools,
+                max_tokens=LLM_MAX_TOKENS,
             )
 
     async def _call_llm_stream(
@@ -223,7 +226,12 @@ class JiuClawReActAgent(ReActAgent):
         last_sent_length = 0  # Track last sent content length
 
         try:
-            async for chunk in llm.stream(messages, tools=tools, model=self._config.model_name):
+            async for chunk in llm.stream(
+                messages,
+                tools=tools,
+                model=self._config.model_name,
+                max_tokens=LLM_MAX_TOKENS,
+            ):
                 # Accumulate chunks using AssistantMessageChunk's __add__ method
                 if accumulated_chunk is None:
                     accumulated_chunk = chunk
