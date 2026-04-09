@@ -506,6 +506,14 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
 | 4 | `packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts` | L943 ACP skill hint | 2 处 |
 | 5 | `packages/api/src/domains/memory/SqliteEvidenceStore.ts` | L265,272 drill-down hint | 2 处 |
 
+### M3b. multi_mention tool description 补充 catId 映射
+
+文件：`packages/mcp-server/src/tools/callback-tools.ts`
+
+`office_claw_multi_mention` 的 targets schema describe 和 tool description 补充了内置 catId 映射
+（`assistant`=通用智能体, `office`=办公智能体, `agentteams`=编码智能体），
+避免 LLM 误用显示名导致 400 错误暴露给用户。同时将描述中 `cats` 措辞替换为 `agents`。
+
 ### M4. 测试文件
 
 | # | 文件 | 改动量 |
@@ -533,21 +541,14 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
 | 4 | `cat-cafe-skills/refs/cicd-tracking.md` | 1 处 |
 | 5 | `cat-cafe-skills/refs/shared-rules.md` | 2 处 |
 
-### M6. Feature 文档（tool name 引用）
+### M6. Feature/架构文档（tool name 引用）
 
-| # | 文件 | 改动量 |
-|---|------|--------|
-| 1 | `docs/features/F086-cat-orchestration-multi-mention.md` | 6 处 |
-| 2 | `docs/features/F079-voting-system.md` | 4 处 |
-| 3 | `docs/features/F073-sop-auto-guardian.md` | 3 处 |
-| 4 | `docs/features/F117-message-delivery-lifecycle.md` | 3 处 |
-| 5 | `docs/features/F087-cvo-bootcamp.md` | 2 处 |
-| 6 | `docs/features/F088-multi-platform-chat-gateway.md` | 1 处 |
-| 7 | `docs/features/F096-interactive-rich-blocks.md` | 1 处 |
-| 8 | `docs/features/F101-mode-v2-game-engine.md` | 1 处 |
-| 9 | `docs/features/F102-memory-adapter-refactor.md` | 1 处 |
-| 10 | `docs/features/F128-cat-create-thread.md` | 1 处 |
-| 11 | `docs/architecture/acp-configuration.md` | 1 处 |
+> **已回退**：11 个历史文档保留原始 `cat_cafe_*` 名称（记录当时事实，改了反而失真）。
+> 仅保留本文件自身更新。
+
+| # | 文件 | 状态 |
+|---|------|------|
+| 1-11 | `docs/features/F073,F079,F086,...` + `docs/architecture/acp-configuration.md` | 已回退（保留历史名称） |
 | 12 | `docs/discussions/de-cat-remediation.md` | 本文件自身更新 |
 
 ### 完整工具名映射表（35 个）
