@@ -663,7 +663,7 @@ export const multiMentionInputSchema = {
     .array(z.string().min(1))
     .min(1)
     .max(3)
-    .describe('Cat IDs to invoke in parallel (max 3). Example: ["codex","gemini"]'),
+    .describe('Cat IDs to invoke in parallel (max 3). Built-in IDs: "assistant" (通用智能体), "office" (办公智能体), "agentteams" (编码智能体). Example: ["assistant","office"]'),
   question: z.string().min(1).max(5000).describe('The question or request for the target cats'),
   callbackTo: z.string().min(1).describe('Cat ID to route all responses back to (required, usually yourself)'),
   context: z.string().max(5000).optional().describe('Additional context to include for the targets'),
@@ -984,11 +984,12 @@ export const callbackTools = [
   {
     name: 'office_claw_multi_mention',
     description:
-      'Invoke up to 3 cats in parallel to gather perspectives on a question. ' +
+      'Invoke up to 3 agents in parallel to gather perspectives on a question. ' +
+      'targets must use catId (e.g. "assistant", "office", "agentteams"), NOT display names. ' +
       'All responses are automatically routed back to callbackTo (usually yourself). ' +
       "REQUIRES: searchEvidenceRefs (list what you searched first) OR overrideReason (why you're skipping search). " +
-      'This enforces the "先搜后问" principle — always search before asking other cats. ' +
-      'Use this instead of multiple @mentions when you need structured multi-cat collaboration with guaranteed response aggregation. ' +
+      'This enforces the "先搜后问" principle — always search before asking other agents. ' +
+      'Use this instead of multiple @mentions when you need structured multi-agent collaboration with guaranteed response aggregation. ' +
       'GOTCHA: callbackTo is usually your own catId so responses come back to you.',
     inputSchema: multiMentionInputSchema,
     handler: handleMultiMention,
