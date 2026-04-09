@@ -92,6 +92,10 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     if (!expiresAt || new Date(userInfo.expiresAt).getTime() < new Date().getTime()) {
       return { islogin: false, hascode, isskip: false };
     }
+    const isFirstIsLoginCall = !sessions.has(userInfo.userId);
+    if (isFirstIsLoginCall) {
+      await refreshMaaSModelsAfterLogin(request, userInfo.userId);
+    }
     sessions.set(userInfo.userId, { ...userInfo });
     return { islogin: true, hascode, userId, isskip: false };
   });
@@ -277,6 +281,7 @@ async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: stri
       url: '/api/maas-models',
       headers: {
         'x-cat-cafe-user': userId,
+        'x-refresh': 'true',
       },
     });
     if (refreshResponse.statusCode >= 400) {

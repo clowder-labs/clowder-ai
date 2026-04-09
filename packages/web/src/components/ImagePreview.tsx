@@ -27,6 +27,12 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
     return parts[parts.length - 1].toUpperCase();
   };
 
+  const getFileBaseName = (name: string) => {
+    const lastDot = name.lastIndexOf('.');
+    if (lastDot <= 0) return name;
+    return name.slice(0, lastDot);
+  };
+
   // Create object URLs once per file set, revoke on cleanup
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
 
@@ -44,10 +50,10 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
     <>
       <div className="flex gap-2 border-b pt-5 border-gray-100 overflow-visible pb-3 mb-0 mx-5">
         {files.map((file, i) => (
-          <div key={`${file.name}-${i}`} className="relative inline-flex gap-[10px] py-2 flex-shrink-0 group border border-gray-200 rounded-lg px-2  hover:shadow-md hover:border-[rgb(240,240,240)] max-w-[192px]  w-auto h-[56px]" title={file.name}>
+          <div key={`${getFileBaseName(file.name)}-${i}`} className="relative inline-flex gap-[10px] py-2 flex-shrink-0 group border border-gray-200 rounded-lg px-2  hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)] hover:border-[rgb(240,240,240)] w-[201px]  w-auto h-[56px]" title={getFileBaseName(file.name)}>
             <img
               src={urls[i]}
-              alt={file.name}
+              alt={getFileBaseName(file.name)}
               className="w-10 h-10 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => setLightboxIdx(i)}
             />
@@ -55,22 +61,20 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
               <div
                 className="truncate max-w-[120px] text-ellipsis overflow-hidden"
                 style={{ color: '#191919', fontSize: 12, fontWeight: 400, lineHeight: '18px' }}
-                title={file.name}
               >
-                {file.name}
+                {getFileBaseName(file.name)}
               </div>
               <div className="mt-1 text-[12px]" style={{ color: '#808080', fontWeight: 400, lineHeight: '18px' }}>
                 <span>{getFileExt(file.name)}</span>
-                <span className="mx-3"></span>
-                <span>{formatFileSize(file.size)}</span>
+                <span className='ml-3'>{formatFileSize(file.size)}</span>
               </div>
             </div>
             <button
               onClick={() => onRemove(i)}
-              className="hidden group-hover:flex items-center absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-[rgba(0,0,0,0.3)] pb-1 text-white text-xs flex items-center justify-center z-10"
+              className="hidden group-hover:flex items-center absolute top-0 right-0 transform translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-[#c2c2c2] pb-1 text-white text-xs flex items-center justify-center z-10"
               style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.8)' }}
-              title={`移除 ${file.name}`}
-              aria-label={`Remove ${file.name}`}
+              title={`移除 ${getFileBaseName(file.name)}`}
+              aria-label={`Remove ${getFileBaseName(file.name)}`}
             >
               x
             </button>
@@ -87,3 +91,4 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
     </>
   );
 }
+
