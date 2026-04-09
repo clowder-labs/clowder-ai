@@ -91,10 +91,10 @@ const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
   'acp',
 ]);
 const AVATAR_MAX_SIZE_BYTES = 200 * 1024;
-const AVATAR_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
-const AVATAR_ALLOWED_EXTENSIONS = ['.png', '.jpeg', '.jpg', '.gif'];
-const AVATAR_ACCEPT = 'image/png,image/jpeg,image/gif,.png,.jpeg,.jpg,.gif';
-const AVATAR_FORMAT_HINT = 'png、jpeg、gif、jpg';
+const AVATAR_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg']);
+const AVATAR_ALLOWED_EXTENSIONS = ['.png', '.jpeg', '.jpg'];
+const AVATAR_ACCEPT = 'image/png,image/jpeg,.png,.jpeg,.jpg';
+const AVATAR_FORMAT_HINT = 'png、jpeg、jpg';
 
 // 预设头像列表
 const PRESET_AVATARS = [
@@ -130,6 +130,26 @@ function validateAgentName(name: string): string | null {
   if (!trimmedName) return '请输入名称';
   if (!autoSlug(trimmedName)) return '名称需包含中文、字母或数字';
   return null;
+}
+
+function normalizeSaveErrorMessage(message: string | null | undefined): string | null {
+  if (!message) return null;
+
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (
+    normalized.includes('duplicate') ||
+    normalized.includes('already exists') ||
+    normalized.includes('名称重复') ||
+    normalized.includes('名字重复') ||
+    normalized.includes('重名') ||
+    normalized.includes('别名')
+  ) {
+    return '名称重复';
+  }
+
+  return message;
 }
 
 function generateRandomCatId(): string {
@@ -721,7 +741,7 @@ export function CreateAgentModal({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        setError((body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`);
+        setError(normalizeSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`);
         return;
       }
 
@@ -731,7 +751,7 @@ export function CreateAgentModal({
       await onSaved?.(body.cat?.id);
       onClose?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : cat ? '保存失败' : '创建失败');
+      setError(normalizeSaveErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败'));
     } finally {
       setSaving(false);
     }
@@ -830,7 +850,7 @@ export function CreateAgentModal({
     
               </div>
               <div className="text-[12px] text-[var(--text-muted)]">
-                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
               </div>
             </div>
 
