@@ -31,6 +31,18 @@ interface PlatformStatus {
   steps: string[];
 }
 
+interface ConnectorTestResult {
+  ok?: boolean;
+  message?: string;
+  error?: string;
+  details?: string;
+  warnings?: string[];
+  bot?: {
+    openId?: string | null;
+    name?: string | null;
+  };
+}
+
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
     const trimmed = step.trim();
@@ -112,6 +124,7 @@ export function HubConnectorConfigTab() {
   const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -192,6 +205,46 @@ export function HubConnectorConfigTab() {
       setSaveResult({ type: 'error', message: '网络错误' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestConnection = async (platform: PlatformStatus) => {
+    if (platform.id !== 'feishu') {
+      setSaveResult({ type: 'success', message: '该平台测试连接功能即将上线' });
+      return;
+    }
+
+    setTesting(true);
+    setSaveResult(null);
+    try {
+      const payload = Object.fromEntries(
+        platform.fields
+          .map((field) => [field.envName, fieldValues[field.envName]])
+          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
+      );
+      const res = await apiFetch('/api/connector/test/feishu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => ({}))) as ConnectorTestResult;
+      if (!res.ok || !data.ok) {
+        const pieces = [data.error ?? '测试失败', data.details].filter(Boolean);
+        setSaveResult({ type: 'error', message: pieces.join('：') });
+        return;
+      }
+
+      const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
+      const botName = data.bot?.name?.trim() || data.bot?.openId?.trim() || '机器人';
+      const warningText = warnings.length > 0 ? `；${warnings.join('；')}` : '';
+      setSaveResult({
+        type: 'success',
+        message: `${data.message ?? '连接测试成功'} 已识别 ${botName}${warningText}`,
+      });
+    } catch {
+      setSaveResult({ type: 'error', message: '网络错误' });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -344,10 +397,11 @@ export function HubConnectorConfigTab() {
                       <button
                         type="button"
                         className="ui-button-default inline-flex items-center gap-1.5"
-                        onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
+                        onClick={() => void handleTestConnection(platform)}
+                        disabled={testing}
                       >
                         <WifiIcon />
-                        测试连接
+                        {testing ? '测试中...' : '测试连接'}
                       </button>
                       <button
                         type="button"

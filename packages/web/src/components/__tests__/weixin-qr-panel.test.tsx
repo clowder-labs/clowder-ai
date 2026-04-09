@@ -80,6 +80,41 @@ describe('F137 Phase C — WeixinQrPanel', () => {
 
     expect(queryTestId(container, 'weixin-connected')).not.toBeNull();
     expect(container.textContent).toContain('WeChat connected');
+    expect(queryTestId(container, 'weixin-disconnect')).not.toBeNull();
+  });
+
+  it('disconnects WeChat and returns to QR generation state', async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse({ ok: true, configured: false }));
+
+    await act(async () => {
+      root.render(React.createElement(WeixinQrPanel, { configured: true }));
+    });
+    await flushEffects();
+
+    await act(async () => {
+      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/connector/weixin/disconnect', { method: 'POST' });
+    expect(queryTestId(container, 'weixin-generate-qr')).not.toBeNull();
+  });
+
+  it('shows disconnect error and stays connected when disconnect fails', async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse({ error: '解除绑定失败' }, 500));
+
+    await act(async () => {
+      root.render(React.createElement(WeixinQrPanel, { configured: true }));
+    });
+    await flushEffects();
+
+    await act(async () => {
+      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('解除绑定失败');
+    expect(queryTestId(container, 'weixin-connected')).not.toBeNull();
   });
 
   it('fetches QR code on button click and displays image', async () => {

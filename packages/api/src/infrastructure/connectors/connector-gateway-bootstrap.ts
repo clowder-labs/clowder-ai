@@ -168,6 +168,7 @@ export interface ConnectorGatewayHandle {
   readonly permissionStore: IConnectorPermissionStore;
   readonly startWeixinPolling: () => void;
   readonly activateWeixinBotToken: (token: string) => Promise<void>;
+  readonly disconnectWeixinBotToken: () => Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -569,6 +570,11 @@ export async function startConnectorGateway(
     weixinSessionStore.save(trimmed);
     startWeixinPolling();
   };
+  const disconnectWeixinBotToken = async () => {
+    await weixin.stopPolling();
+    weixin.setBotToken('');
+    weixinSessionStore.clear();
+  };
 
   if (hasWeixin) {
     startWeixinPolling();
@@ -681,6 +687,7 @@ export async function startConnectorGateway(
     permissionStore,
     startWeixinPolling,
     activateWeixinBotToken,
+    disconnectWeixinBotToken,
     async stop() {
       cleanupJob.stop();
       await Promise.allSettled(stopFns.map((fn) => fn()));
