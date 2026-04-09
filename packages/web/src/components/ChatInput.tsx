@@ -9,6 +9,7 @@ import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
+import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
 import { apiFetch } from '@/utils/api-client';
 import { compressImage } from '@/utils/compressImage';
 import { fetchSkillOptionsWithCache, seedSkillOptionsCache, type SkillOption } from '@/utils/skill-options-cache';
@@ -63,10 +64,24 @@ interface ChatInputProps {
 }
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
-const QUICK_ACTIONS = ['文档处理', '视频生成', '深度研究', '幻灯片', '数据分析', '数据可视化', '金融服务'] as const;
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
+const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
+const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+
+function getQuickActionToken(label: string): string {
+  return `${QUICK_ACTION_TOKEN_PREFIX}${label}${QUICK_ACTION_TOKEN_SUFFIX}`;
+}
+
+function normalizeQuickActionsForSend(input: string): string {
+  let output = input;
+  for (const action of QUICK_ACTIONS) {
+    const token = getQuickActionToken(action.label);
+    output = output.split(token).join(action.label);
+  }
+  return output;
+}
 
 function normalizeMentionsForSend(input: string, catOptions: CatOption[]): string {
   let output = input;
@@ -80,6 +95,22 @@ function normalizeMentionsForSend(input: string, catOptions: CatOption[]): strin
     output = output.replace(re, `$1${routeToken}`);
   }
   return output;
+}
+
+function normalizeSkillsForSend(input: string, skillOptions: SkillOption[]): string {
+  let output = input;
+  const sortedSkills = [...skillOptions].sort((a, b) => b.name.length - a.name.length);
+  for (const skill of sortedSkills) {
+    const name = skill.name.trim();
+    if (!name) continue;
+    const escaped = escapeRegExp(name);
+    const re = new RegExp(`(^|\\s)${escaped}(?=\\s|$)`, 'g');
+    output = output.replace(re, (full: string, leadingWhitespace: string) => {
+      const replacement = `使用 ${name} 技能`;
+      return `${leadingWhitespace}${replacement}`;
+    });
+  }
+  return output.replace(/\s+/g, ' ').trim();
 }
 
 function getSkillInitial(name: string): string {
@@ -158,11 +189,14 @@ export function ChatInput({
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
   const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
+  const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionConfig | null>(null);
+  const [showQuickPrompts, setShowQuickPrompts] = useState(false);
   const textareaRef = useRef<RichTextareaHandle>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const gameBtnRef = useRef<HTMLButtonElement>(null);
   const skillBtnRef = useRef<HTMLButtonElement>(null);
   const skillOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const skillInsertAnchorRef = useRef<{ start: number; end: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
   const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
@@ -191,10 +225,72 @@ export function ChatInput({
     });
   }, []);
 
-  const handleQuickAction = useCallback((text: (typeof QUICK_ACTIONS)[number]) => {
-    setInput(text);
-    setTimeout(() => textareaRef.current?.focus(), 0);
-  }, []);
+  const handleQuickAction = useCallback(
+    (action: QuickActionConfig) => {
+      const token = getQuickActionToken(action.label);
+      const next = `${token} `;
+      setInput(next);
+      setShowQuickPrompts(true);
+      setTimeout(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        const cursorPos = next.length;
+        el.focus();
+        el.setSelectionRange(cursorPos, cursorPos);
+      }, 0);
+    },
+    [],
+  );
+
+  const handleQuickPrompt = useCallback(
+    (prompt: string) => {
+      const startIdx = input.indexOf(QUICK_ACTION_TOKEN_PREFIX);
+      const endIdx =
+        startIdx >= 0 ? input.indexOf(QUICK_ACTION_TOKEN_SUFFIX, startIdx + QUICK_ACTION_TOKEN_PREFIX.length) : -1;
+
+      let next = input;
+      let caret = input.length;
+      if (startIdx >= 0 && endIdx > startIdx) {
+        const tokenEndExclusive = endIdx + QUICK_ACTION_TOKEN_SUFFIX.length;
+        const before = input.slice(0, tokenEndExclusive);
+        const after = input.slice(tokenEndExclusive).replace(/^\s+/, '');
+        const joiner = after.length > 0 ? ' ' : '';
+        next = `${before} ${prompt}${joiner}${after}`;
+        caret = next.length;
+      } else {
+        const ta = textareaRef.current;
+        const start = ta?.getSelectionStart() ?? input.length;
+        const end = ta?.getSelectionEnd() ?? input.length;
+        const before = input.slice(0, start);
+        const after = input.slice(end);
+        const leftJoiner = before.endsWith(' ') || before.length === 0 ? '' : ' ';
+        const rightJoiner = after.startsWith(' ') || after.length === 0 ? '' : ' ';
+        next = `${before}${leftJoiner}${prompt}${rightJoiner}${after}`;
+        caret = next.length;
+      }
+
+      setInput(next);
+      setShowQuickPrompts(false);
+      setTimeout(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(caret, caret);
+      }, 0);
+    },
+    [input],
+  );
+
+  const visibleQuickActions = useMemo(() => QUICK_ACTIONS.filter((action) => action.show !== false), []);
+
+  useEffect(() => {
+    const matched = visibleQuickActions.find((action) => input.includes(getQuickActionToken(action.label))) ?? null;
+    setSelectedQuickAction(matched);
+  }, [input, visibleQuickActions]);
+
+  useEffect(() => {
+    if (!selectedQuickAction) setShowQuickPrompts(false);
+  }, [selectedQuickAction]);
 
 
   const filteredCatOptions = useMemo(() => {
@@ -252,7 +348,10 @@ export function ChatInput({
       if (sendTemporarilyDisabled) return;
       if (whisperMode && whisperTargets.size === 0) return;
       const trimmed = input.trim();
-      const payload = normalizeMentionsForSend(trimmed, catOptions);
+      const payload = normalizeMentionsForSend(
+        normalizeSkillsForSend(normalizeQuickActionsForSend(trimmed), skillOptions),
+        catOptions,
+      );
       if (payload && !disabled) {
         addHistoryEntry(payload);
         const whisper =
@@ -267,6 +366,8 @@ export function ChatInput({
         setShowMentions(false);
         setShowGameMenu(false);
         setShowSkillMenu(false);
+        setSelectedQuickAction(null);
+        setShowQuickPrompts(false);
       }
     },
     [
@@ -278,6 +379,8 @@ export function ChatInput({
       whisperMode,
       whisperTargets,
       addHistoryEntry,
+      catOptions,
+      skillOptions,
     ],
   );
 
@@ -390,8 +493,9 @@ export function ChatInput({
   const insertSkill = useCallback(
     (skillName: string) => {
       const ta = textareaRef.current;
-      const start = ta?.getSelectionStart() ?? input.length;
-      const end = ta?.getSelectionEnd() ?? input.length;
+      const anchor = skillInsertAnchorRef.current;
+      const start = anchor?.start ?? ta?.getSelectionStart() ?? input.length;
+      const end = anchor?.end ?? ta?.getSelectionEnd() ?? input.length;
       const before = input.slice(0, start);
       const after = input.slice(end);
       const leftJoiner = before.endsWith(' ') ? '' : ' ';
@@ -405,6 +509,7 @@ export function ChatInput({
         const el = textareaRef.current;
         if (!el) return;
         const cursorPos = (before + leftJoiner + skillName + rightJoiner).length;
+        skillInsertAnchorRef.current = { start: cursorPos, end: cursorPos };
         el.focus();
         el.setSelectionRange(cursorPos, cursorPos);
       }, 0);
@@ -413,8 +518,9 @@ export function ChatInput({
   );
 
   const handleChange = useCallback(
-    (val: string, selectionStart: number, _selectionEnd: number) => {
+    (val: string, selectionStart: number, selectionEnd: number) => {
       setInput(val);
+      skillInsertAnchorRef.current = { start: selectionStart, end: selectionEnd };
       const trigger = detectMenuTrigger(val, selectionStart);
       if (trigger?.type === 'game') {
         setShowGameMenu(true);
@@ -747,12 +853,16 @@ export function ChatInput({
   }, []);
 
   const handleSkillClick = useCallback(() => {
+    const ta = textareaRef.current;
+    const start = ta?.getSelectionStart() ?? input.length;
+    const end = ta?.getSelectionEnd() ?? input.length;
+    skillInsertAnchorRef.current = { start, end };
     setShowMentions(false);
     setShowGameMenu(false);
     setShowSkillMenu((prev) => !prev);
     setSelectedIdx(0);
     setTimeout(() => textareaRef.current?.focus(), 0);
-  }, []);
+  }, [input]);
 
   const handleWhisperToggle = useCallback(() => {
     setWhisperMode((prev) => {
@@ -959,20 +1069,41 @@ export function ChatInput({
 
           <div className="flex-1">
             <div>
-              <div className="mb-2 hidden flex-wrap gap-2">
-                {QUICK_ACTIONS.map((action) => (
-                  <button
-                    key={action}
-                    type="button"
-                    onClick={() => handleQuickAction(action)}
-                    disabled={disabled}
-                    className="rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    style={{ borderColor: 'rgba(219,219,219,0.8)' }}
-                  >
-                    {action}
-                  </button>
-                ))}
-              </div>
+              {!showQuickPrompts && (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {visibleQuickActions.map((action) => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      onClick={() => handleQuickAction(action)}
+                      disabled={disabled}
+                      className="inline-flex items-center gap-1 rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                    >
+                      <img src={action.icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      <span>{action.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showQuickPrompts && selectedQuickAction && (
+                <div
+                  className="mb-2 grid gap-2"
+                  style={{ gridTemplateColumns: `repeat(${selectedQuickAction.prompts.length}, minmax(0, 1fr))` }}
+                >
+                  {selectedQuickAction.prompts.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => handleQuickPrompt(prompt)}
+                      className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-gray-50"
+                      style={{ borderColor: 'rgba(219,219,219,0.8)' }}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="relative">
                 <div
@@ -996,6 +1127,11 @@ export function ChatInput({
                       className="block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
                       disabled={disabled}
                       skillOptions={skillOptions}
+                      quickActionOptions={visibleQuickActions.map((action) => ({
+                        label: action.label,
+                        icon: action.icon,
+                        token: getQuickActionToken(action.label),
+                      }))}
                     />
                     {ghostSuggestion && !pathCompletion.isOpen && !showMentions && !/(^|\s)@/.test(input) && (
                       <div
@@ -1014,8 +1150,15 @@ export function ChatInput({
                       <button
                         ref={skillBtnRef}
                         type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const ta = textareaRef.current;
+                          const start = ta?.getSelectionStart() ?? input.length;
+                          const end = ta?.getSelectionEnd() ?? input.length;
+                          skillInsertAnchorRef.current = { start, end };
+                        }}
                         onClick={handleSkillClick}
-                        className="hidden inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,0.8)] px-3 py-[5px] text-xs text-[#191919] transition-colors hover:bg-gray-50"
+                        className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,0.8)] px-3 py-[5px] text-xs text-[#191919] transition-colors hover:bg-gray-50"
                       >
                         <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
                         技能
@@ -1114,7 +1257,7 @@ export function ChatInput({
                           </div>
                           <button
                             type="button"
-                            className="mt-2 inline-flex h-[34px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
+                            className="mt-2 inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
                             onMouseDown={(e) => {
                               e.preventDefault();
                               closeMenus();
@@ -1132,6 +1275,7 @@ export function ChatInput({
                       <OverflowTooltip
                         content={selectedFolderTitle?.trim() || folderButtonLabel}
                         forceShow={shouldShowFolderTooltip}
+                        copyable={shouldShowFolderTooltip}
                         className="mr-2 flex items-center"
                       >
                         <button

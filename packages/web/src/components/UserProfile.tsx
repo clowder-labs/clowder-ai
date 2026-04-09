@@ -204,7 +204,7 @@ export function UserProfile({ className }: UserProfileProps) {
           data-testid="user-profile-panel"
           ref={profilePanelRef}
         >
-          <div className="p-4" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
+          <div className="p-4 border-none" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
             <div className="mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">

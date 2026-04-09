@@ -1299,12 +1299,12 @@ select:-webkit-autofill:focus {
 
   .ui-menu-item {
     min-height: var(--control-height-sm);
-    border: var(--border-width-default) solid var(--menu-border);
     border-radius: var(--radius-sm);
     background: var(--menu-bg);
     color: var(--menu-text);
     font-size: 14px;
     transition: var(--menu-transition);
+    border: none;
   }
 
   .ui-menu-item:hover {
