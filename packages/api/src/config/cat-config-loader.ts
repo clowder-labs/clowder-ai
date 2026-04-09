@@ -420,13 +420,20 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
       // Auto-include displayName as valid mention pattern so model-generated
       // @displayName routes correctly (buildCallableMentions uses displayName
       // in prompt but parsers only match mentionPatterns).
+      // Skip for non-default variants inheriting breed displayName — the
+      // default variant already owns that pattern; adding it here would
+      // violate the unique-alias constraint.
       const resolvedDisplayName = variant.displayName ?? breed.displayName;
       const displayNamePattern = `@${resolvedDisplayName}`;
-      const mentionPatterns = rawMentionPatterns.some(
-        (p) => p.toLowerCase() === displayNamePattern.toLowerCase(),
-      )
-        ? rawMentionPatterns
-        : [...rawMentionPatterns, displayNamePattern];
+      const shouldAddDisplayName =
+        isDefault || resolvedDisplayName !== breed.displayName;
+      const mentionPatterns =
+        shouldAddDisplayName &&
+        !rawMentionPatterns.some(
+          (p) => p.toLowerCase() === displayNamePattern.toLowerCase(),
+        )
+          ? [...rawMentionPatterns, displayNamePattern]
+          : rawMentionPatterns;
 
       // F32-b R3: catId uniqueness — duplicate is a hard error (startup failure)
       if (result[catId]) {
