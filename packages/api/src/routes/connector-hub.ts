@@ -121,7 +121,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { envName: 'DINGTALK_APP_KEY', label: 'App Key', sensitive: false },
       { envName: 'DINGTALK_APP_SECRET', label: 'App Secret', sensitive: true },
     ],
-    docsUrl: 'https://open.dingtalk.com/document/orgapp/create-an-enterprise-internal-application',
+    docsUrl: 'https://open.dingtalk.com/document/dingstart/robot-application-overview',
     steps: [
       { text: '在钉钉开放平台创建企业内部应用，获取 App Key 和 App Secret' },
       { text: '在「机器人与消息推送」中开启机器人能力' },
