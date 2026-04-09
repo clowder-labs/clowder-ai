@@ -13,6 +13,28 @@ interface ToolPolicy {
   enabled: boolean;
 }
 
+interface AuditEntry {
+  id: string;
+  catId: string;
+  threadId: string;
+  toolName: string;
+  riskLevel: string;
+  status: string;
+  decisions: { decidedBy: string; decision: string; scope: string; decidedAt: number }[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  approved: 'bg-green-100 text-green-700',
+  denied: 'bg-red-100 text-red-700',
+  canceled: 'bg-gray-100 text-gray-500',
+  expired: 'bg-yellow-100 text-yellow-700',
+};
+const STATUS_LABELS: Record<string, string> = {
+  approved: '已批准', denied: '已拒绝', canceled: '已取消', expired: '已过期',
+};
+
 interface ApprovalCenterPanelProps {
   threadId: string;
 }
@@ -20,6 +42,7 @@ interface ApprovalCenterPanelProps {
 export function ApprovalCenterPanel({ threadId }: ApprovalCenterPanelProps) {
   const { pending, respond, cancel, cancelAll, fetchPending } = useApprovalCenter(threadId);
   const [policies, setPolicies] = useState<ToolPolicy[]>([]);
+  const [history, setHistory] = useState<AuditEntry[]>([]);
 
   const loadPolicies = useCallback(async () => {
     try {
@@ -28,16 +51,24 @@ export function ApprovalCenterPanel({ threadId }: ApprovalCenterPanelProps) {
         const data = await res.json();
         setPolicies(data.policies ?? []);
       }
-    } catch {
-      // Best-effort
-    }
+    } catch { /* best-effort */ }
+  }, []);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/approval/audit?limit=50');
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.entries ?? []);
+      }
+    } catch { /* best-effort */ }
   }, []);
 
   useEffect(() => {
     void loadPolicies();
-  }, [loadPolicies]);
+    void loadHistory();
+  }, [loadPolicies, loadHistory]);
 
-  // Re-fetch pending on mount
   useEffect(() => {
     void fetchPending();
   }, [fetchPending]);
@@ -111,10 +142,52 @@ export function ApprovalCenterPanel({ threadId }: ApprovalCenterPanelProps) {
         )}
       </section>
 
-      {/* Section 3: History placeholder */}
+      {/* Section 3: Approval history */}
       <section>
-        <h3 className="text-sm font-medium text-gray-600 mb-2">审批记录</h3>
-        <p className="text-xs text-gray-400">暂无记录</p>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium text-gray-600">审批记录 ({history.length})</h3>
+          {history.length > 0 && (
+            <button onClick={() => void loadHistory()} className="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors">
+              刷新
+            </button>
+          )}
+        </div>
+        {history.length === 0 ? (
+          <p className="text-xs text-gray-400">暂无记录</p>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">工具</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">发起</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">状态</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">审批人</th>
+                  <th className="text-left px-3 py-2 font-medium text-gray-600">时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((e) => {
+                  const lastDecision = e.decisions[e.decisions.length - 1];
+                  const time = new Date(e.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <tr key={e.id} className="border-t">
+                      <td className="px-3 py-2 font-mono">{e.toolName}</td>
+                      <td className="px-3 py-2">{e.catId}</td>
+                      <td className="px-3 py-2">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${STATUS_STYLES[e.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {STATUS_LABELS[e.status] ?? e.status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-gray-500">{lastDecision?.decidedBy ?? '-'}</td>
+                      <td className="px-3 py-2 text-gray-400">{time}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );
