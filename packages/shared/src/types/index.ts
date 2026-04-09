@@ -85,15 +85,16 @@ export type {
   CatColor,
   CatConfig,
   CatProvider,
-  EmbeddedRuntimeKind,
-  KnownCatProvider,
   CatState,
   CatStatus,
+  EmbeddedRuntimeKind,
+  KnownCatProvider,
 } from './cat.js';
 export {
   CAT_CONFIGS,
   findCatByMention,
   getAllCatIds,
+  registerEditionCats,
   resolveEmbeddedRuntimeKind,
   usesEmbeddedAcpRuntime,
 } from './cat.js';
@@ -106,10 +107,10 @@ export type {
   CatFeatures,
   CatVariant,
   CliConfig,
-  EmbeddedAcpConfig,
   // F067: Co-Creator config for @ mention routing
   CoCreatorConfig,
   ContextBudget,
+  EmbeddedAcpConfig,
   MissionHubSelfClaimScope,
   // F032: Roster types for collaboration rules
   ReviewPolicy,
@@ -127,6 +128,7 @@ export type {
 export {
   getAllConnectorDefinitions,
   getConnectorDefinition,
+  registerEditionConnectorDefinitions,
 } from './connector.js';
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {
@@ -277,13 +279,6 @@ export type {
   RefluxCategory,
   RefluxPattern,
 } from './reflux.js';
-// Resolution types (F076 Phase 2 — 风险消解)
-export type {
-  AnswerResolutionInput,
-  CreateResolutionInput,
-  ResolutionItem,
-  ResolutionStatus,
-} from './resolution.js';
 // RelayClaw types (relay-claw WebSocket agent bridge)
 export type {
   RelayClawAgentConfig,
@@ -291,6 +286,13 @@ export type {
   RelayClawEventType,
   RelayClawWsFrame,
 } from './relayclaw.js';
+// Resolution types (F076 Phase 2 — 风险消解)
+export type {
+  AnswerResolutionInput,
+  CreateResolutionInput,
+  ResolutionItem,
+  ResolutionStatus,
+} from './resolution.js';
 // Rich block types (F22 Rich Blocks 富消息系统)
 export type {
   InteractiveOption,

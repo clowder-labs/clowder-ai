@@ -134,11 +134,11 @@ vi.mock('@/hooks/useChatSocketCallbacks', () => ({
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     getCatById: (id: string) =>
-      id === 'jiuwenclaw'
+      id === 'opus'
         ? {
-            id: 'jiuwenclaw',
+            id: 'opus',
             displayName: '办公助理',
-            avatar: '/avatars/jiuwenclaw.png',
+            avatar: '/avatars/opus.png',
             color: { primary: '#D97A3A', secondary: '#F6E7DA' },
           }
         : id === 'codex'
@@ -360,7 +360,7 @@ describe('ChatContainer recognition loading placeholder', () => {
       {
         id: 'assistant-1',
         type: 'assistant',
-        catId: 'jiuwenclaw',
+        catId: 'opus',
         content: '',
         timestamp: userTimestamp + 1,
         isStreaming: true,

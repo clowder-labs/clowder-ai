@@ -9,8 +9,8 @@ export function HubButton() {
       type="button"
       onClick={() => openHub()}
       className="ui-icon-button"
-      aria-label="OfficeClaw Hub"
-      title="OfficeClaw Hub"
+      aria-label="Hub"
+      title="Hub"
     >
       <svg
         className="h-5 w-5"

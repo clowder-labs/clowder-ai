@@ -34,7 +34,7 @@ const ALL_CLIENTS_RESPONSE = {
     { id: 'google', label: 'Gemini', command: 'gemini', available: true },
     { id: 'dare', label: 'Dare', command: 'dare', available: true },
     { id: 'opencode', label: 'OpenCode', command: 'opencode', available: true },
-    { id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true },
+    { id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true },
     { id: 'acp', label: 'ACP', command: 'tools/python/python.exe -m relay_teams gateway acp stdio', available: true },
     { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: true },
   ],
@@ -505,16 +505,16 @@ describe('HubCatEditor', () => {
             exists: true,
             providers: [
               {
-                id: 'huawei-maas',
-                provider: 'huawei-maas',
+                id: 'edition-provider',
+                provider: 'edition-provider',
                 source: 'model_config',
-                displayName: 'Huawei MaaS',
-                name: 'Huawei MaaS',
+                displayName: 'Edition Models',
+                name: 'Edition Models',
                 authType: 'none',
                 kind: 'api_key',
                 builtin: false,
                 mode: 'none',
-                protocol: 'huawei_maas',
+                protocol: 'custom_llm',
                 models: ['glm-5', 'qwen3-32b'],
                 hasApiKey: false,
                 createdAt: '2026-03-28T00:00:00.000Z',
@@ -587,16 +587,16 @@ describe('HubCatEditor', () => {
 
     const accountSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]');
     const accountLabels = Array.from(accountSelect.options).map((option) => option.textContent ?? '');
-    expect(accountLabels).toContain('Huawei MaaS（模型配置）');
+    expect(accountLabels).toContain('Edition Models（模型配置）');
     expect(accountLabels).toContain('My OpenAI Proxy（模型配置）');
     expect(accountLabels).toContain('Codex Sponsor（API Key）');
 
-    await changeField(accountSelect, 'huawei-maas', 'change');
+    await changeField(accountSelect, 'edition-provider', 'change');
     await flushEffects();
-    const huaweiModels = Array.from(queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]').options).map(
+    const editionModels = Array.from(queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]').options).map(
       (option) => option.value,
     );
-    expect(huaweiModels).toContain('glm-5');
+    expect(editionModels).toContain('glm-5');
 
     await changeField(accountSelect, 'my-openai-proxy', 'change');
     await flushEffects();
@@ -626,7 +626,7 @@ describe('HubCatEditor', () => {
               { id: 'google', label: 'Gemini', command: 'gemini', available: false },
               { id: 'dare', label: 'Dare', command: 'dare', available: false },
               { id: 'opencode', label: 'OpenCode', command: 'opencode', available: false },
-              { id: 'relayclaw', label: 'jiuwenClaw', command: 'jiuwenclaw-app', available: true },
+              { id: 'relayclaw', label: 'sidecar', command: 'sidecar-app', available: true },
               { id: 'acp', label: 'ACP', command: 'tools/python/python.exe -m relay_teams gateway acp stdio', available: false },
               { id: 'antigravity', label: 'Antigravity', command: 'antigravity', available: false },
             ],
@@ -657,7 +657,7 @@ describe('HubCatEditor', () => {
     const optionLabels = Array.from(clientSelect.options).map((option) => option.textContent ?? '');
     expect(optionLabels).toContain('Claude');
     expect(optionLabels).toContain('Codex');
-    expect(optionLabels).toContain('jiuwenClaw');
+    expect(optionLabels).toContain('sidecar');
   });
 
   it('renders normal member provider/model fields and saves to /api/cats', async () => {
@@ -755,16 +755,16 @@ describe('HubCatEditor', () => {
             exists: true,
             providers: [
               {
-                id: 'huawei-maas',
-                provider: 'huawei-maas',
+                id: 'edition-provider',
+                provider: 'edition-provider',
                 source: 'model_config',
-                displayName: 'Huawei MaaS',
-                name: 'Huawei MaaS',
+                displayName: 'Edition Models',
+                name: 'Edition Models',
                 authType: 'none',
                 kind: 'api_key',
                 builtin: false,
                 mode: 'none',
-                protocol: 'huawei_maas',
+                protocol: 'custom_llm',
                 models: ['deepseek-v3.1-terminus', 'deepseek-r1'],
                 hasApiKey: false,
                 createdAt: '2026-03-28T00:00:00.000Z',
@@ -790,16 +790,16 @@ describe('HubCatEditor', () => {
 
     await changeField(queryField(container, 'input[aria-label="Name"]'), '华为猫');
     await changeField(queryField(container, 'input[aria-label="Description"]'), '走 MaaS');
-    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@huawei-maas-cat');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@test-cat');
     await changeField(queryField(container, 'select[aria-label="Client"]'), 'dare', 'change');
     await flushEffects();
     await flushEffects();
 
     const accountSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]');
     const accountLabels = Array.from(accountSelect.options).map((option) => option.textContent ?? '');
-    expect(accountLabels).toContain('Huawei MaaS（模型配置）');
+    expect(accountLabels).toContain('Edition Models（模型配置）');
     expect(accountLabels.some((label) => label.includes('API Key'))).toBe(false);
-    await changeField(accountSelect, 'huawei-maas', 'change');
+    await changeField(accountSelect, 'edition-provider', 'change');
     await flushEffects();
 
     const modelSelect = queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]');
@@ -816,7 +816,7 @@ describe('HubCatEditor', () => {
     expect(postCall).toBeTruthy();
     expect(mockApiFetch.mock.calls.some(([path]) => String(path).startsWith('/api/provider-profiles'))).toBe(false);
     const payload = JSON.parse(String(postCall?.[1]?.body));
-    expect(payload.accountRef).toBe('huawei-maas');
+    expect(payload.accountRef).toBe('edition-provider');
     expect(payload.defaultModel).toBe('deepseek-v3.1-terminus');
   });
 
@@ -907,16 +907,16 @@ describe('HubCatEditor', () => {
             exists: true,
             providers: [
               {
-                id: 'huawei-maas',
-                provider: 'huawei-maas',
+                id: 'edition-provider',
+                provider: 'edition-provider',
                 source: 'model_config',
-                displayName: 'Huawei MaaS',
-                name: 'Huawei MaaS',
+                displayName: 'Edition Models',
+                name: 'Edition Models',
                 authType: 'none',
                 kind: 'api_key',
                 builtin: false,
                 mode: 'none',
-                protocol: 'huawei_maas',
+                protocol: 'custom_llm',
                 models: ['glm-5'],
                 hasApiKey: false,
                 createdAt: '2026-03-28T00:00:00.000Z',
@@ -1313,12 +1313,12 @@ describe('HubCatEditor', () => {
   it('returns only supported model_config sources for dare and relayclaw', () => {
     const profiles: ProfileItem[] = [
       {
-        id: 'huawei-maas',
-        provider: 'huawei-maas',
-        displayName: 'Huawei MaaS',
-        name: 'Huawei MaaS',
+        id: 'edition-provider',
+        provider: 'edition-provider',
+        displayName: 'Edition Models',
+        name: 'Edition Models',
         authType: 'none',
-        protocol: 'huawei_maas',
+        protocol: 'custom_llm',
         kind: 'api_key',
         builtin: false,
         mode: 'none',
@@ -1362,9 +1362,9 @@ describe('HubCatEditor', () => {
       },
     ];
 
-    expect(filterProfiles('dare', profiles).map((profile) => profile.id)).toEqual(['huawei-maas', 'my-openai-proxy']);
+    expect(filterProfiles('dare', profiles).map((profile) => profile.id)).toEqual(['edition-provider', 'my-openai-proxy']);
     expect(filterProfiles('relayclaw', profiles).map((profile) => profile.id)).toEqual([
-      'huawei-maas',
+      'edition-provider',
       'my-openai-proxy',
     ]);
     expect(filterProfiles('openai', profiles)).toEqual([]);
@@ -1539,7 +1539,7 @@ describe('HubCatEditor', () => {
     expect(payload.defaultModel).toBe('gpt-5.4-mini');
   });
 
-  it('rehydrates Huawei MaaS binding from config snapshot when runtime cat data is stale', async () => {
+  it('rehydrates Edition Models binding from config snapshot when runtime cat data is stale', async () => {
     const existingCat = {
       id: 'runtime-dare',
       name: 'runtime-dare',
@@ -1561,12 +1561,12 @@ describe('HubCatEditor', () => {
             exists: true,
             providers: [
               {
-                id: 'huawei-maas',
-                provider: 'huawei-maas',
-                displayName: 'Huawei MaaS',
-                name: 'Huawei MaaS',
+                id: 'edition-provider',
+                provider: 'edition-provider',
+                displayName: 'Edition Models',
+                name: 'Edition Models',
                 authType: 'none',
-                protocol: 'huawei_maas',
+                protocol: 'custom_llm',
                 builtin: false,
                 mode: 'none',
                 kind: 'api_key',
@@ -1602,8 +1602,8 @@ describe('HubCatEditor', () => {
             provider: 'dare',
             model: 'glm-5',
             mcpSupport: true,
-            accountRef: 'huawei-maas',
-            providerProfileId: 'huawei-maas',
+            accountRef: 'edition-provider',
+            providerProfileId: 'edition-provider',
           },
           onClose: vi.fn(),
           onSaved: vi.fn(),
@@ -1613,7 +1613,7 @@ describe('HubCatEditor', () => {
     await flushEffects();
 
     expect(queryField<HTMLSelectElement>(container, 'select[aria-label="Client"]').value).toBe('dare');
-    expect(queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]').value).toBe('huawei-maas');
+    expect(queryField<HTMLSelectElement>(container, 'select[aria-label="认证信息"]').value).toBe('edition-provider');
     expect(queryField<HTMLSelectElement>(container, 'select[aria-label="Model"]').value).toBe('glm-5');
   });
 

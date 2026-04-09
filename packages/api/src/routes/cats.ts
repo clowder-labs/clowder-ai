@@ -18,8 +18,8 @@ import { z } from 'zod';
 import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';
 import { bootstrapCatCatalog, resolveCatCatalogPath } from '../config/cat-catalog-store.js';
 import { getRoster, loadCatConfig, toAllCatConfigs } from '../config/cat-config-loader.js';
+import { findProjectModelConfigBinding, getModelConfigPolicy } from '../config/model-config-profiles.js';
 import { resolveProjectTemplatePath } from '../config/project-template-path.js';
-import { findProjectModelConfigBinding, HUAWEI_MAAS_MODEL_SOURCE_ID } from '../config/model-config-profiles.js';
 import {
   resolveBuiltinClientForProvider,
   validateModelFormatForProvider,
@@ -30,9 +30,13 @@ import {
   resolveRuntimeProviderProfileForClient,
 } from '../config/provider-profiles.js';
 import { createRuntimeCat, deleteRuntimeCat, updateRuntimeCat } from '../config/runtime-cat-catalog.js';
+import { resolveVendoredSidecarExecutable } from '../utils/agent-sidecar-paths.js';
 import { deleteRuntimeOverride, getRuntimeOverride, setRuntimeOverride } from '../config/session-strategy-overrides.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-import { embeddedAgentTeamsRuntimeAvailable, resolveEmbeddedAgentTeamsExecutable } from '../utils/agent-teams-bundle.js';
+import {
+  embeddedAgentTeamsRuntimeAvailable,
+  resolveEmbeddedAgentTeamsExecutable,
+} from '../utils/agent-teams-bundle.js';
 import { getAllowedClientIds } from '../utils/client-visibility.js';
 import { resolveEmbeddedAgentTeamsBinding } from '../utils/embedded-runtime-bindings.js';
 
@@ -169,7 +173,6 @@ function resolveEmbeddedAcpExecutableOverride(input: {
   return nested ? nested : undefined;
 }
 
-
 type CatSource = 'seed' | 'runtime';
 
 interface CatResponseMetadata {
@@ -226,7 +229,7 @@ function defaultCliForClient(client: CatProvider): { command: string; outputForm
     case 'a2a':
       return { command: 'a2a', outputFormat: 'json' };
     case 'relayclaw':
-      return { command: 'vendor/jiuwenclaw.exe', outputFormat: 'json' };
+      return { command: resolveVendoredSidecarExecutable(), outputFormat: 'json' };
     case 'acp':
       return { command: 'relay-teams', outputFormat: 'json' };
     default:
@@ -299,10 +302,12 @@ async function validateAccountBindingOrThrow(
   if (!trimmedAccountRef) return;
   const modelConfigBinding = await findProjectModelConfigBinding(projectRoot, trimmedAccountRef);
   if (modelConfigBinding) {
-    const isHuaweiMaaSBinding =
-      modelConfigBinding.id === HUAWEI_MAAS_MODEL_SOURCE_ID && modelConfigBinding.protocol === 'huawei_maas';
+    const policy = getModelConfigPolicy();
+    const isEditionManagedBinding = Boolean(
+      modelConfigBinding.protocol && policy.protocolRules[modelConfigBinding.protocol],
+    );
     const isCustomOpenAiBinding = modelConfigBinding.protocol === 'openai';
-    if (!isHuaweiMaaSBinding && !isCustomOpenAiBinding) {
+    if (!isEditionManagedBinding && !isCustomOpenAiBinding) {
       throw new Error(`model config source "${trimmedAccountRef}" is not supported yet`);
     }
     if (embeddedAcpRuntime) {
@@ -642,7 +647,9 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     const effectiveDefaultModel = body.defaultModel !== undefined ? body.defaultModel : currentCat.defaultModel;
     const nextEmbeddedAcpExecutablePath = resolveEmbeddedAcpExecutableOverride(body);
     const effectiveEmbeddedAcpExecutablePath =
-      nextEmbeddedAcpExecutablePath !== undefined ? nextEmbeddedAcpExecutablePath : currentCat.embeddedAcpExecutablePath;
+      nextEmbeddedAcpExecutablePath !== undefined
+        ? nextEmbeddedAcpExecutablePath
+        : currentCat.embeddedAcpExecutablePath;
     const providerConfigTouched =
       body.client !== undefined ||
       body.defaultModel !== undefined ||

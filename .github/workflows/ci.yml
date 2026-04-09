@@ -47,6 +47,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @cat-cafe/shared build
       - run: pnpm --filter @cat-cafe/api build
+      - run: pnpm --filter @cat-cafe/edition-officeclaw build
       - run: pnpm --filter @cat-cafe/web build
 
   test:
@@ -62,6 +63,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @cat-cafe/shared build
       - run: pnpm --filter @cat-cafe/api run test:public
+      - run: pnpm --filter @cat-cafe/edition-officeclaw build
+      - run: pnpm --filter @cat-cafe/edition-officeclaw test
 
   dir-size:
     name: Directory Size Guard

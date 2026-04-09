@@ -670,6 +670,7 @@ ok "Packages installed"
 build_step "shared" pnpm --dir packages/shared run build
 build_step "mcp-server" pnpm --dir packages/mcp-server run build
 build_step "api" pnpm --dir packages/api run build
+build_step "edition-officeclaw" pnpm --dir editions/officeclaw run build
 build_step "web" env NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=3072}" pnpm --dir packages/web run build
 ok "Build complete"
 # Skills: per-skill user-level symlinks (ADR-009)

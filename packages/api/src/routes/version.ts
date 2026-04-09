@@ -1,14 +1,32 @@
 /**
  * Version Route
- * GET /api/curversion — 返回当前版本信息
- * GET /api/lastversion — 返回最新版本信息
+ * GET /api/curversion — current version info
+ * GET /api/lastversion — latest version info (Edition-provided or echo)
  */
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
-import { getErrorMessage } from '../utils/index.js';
+
+// ── Edition version checker hook ──
+
+export interface EditionVersionInfo {
+  lastversion: string;
+  downloadUrl?: string;
+  description?: string;
+}
+
+type EditionVersionChecker = (request: FastifyRequest) => Promise<EditionVersionInfo>;
+
+let editionVersionChecker: EditionVersionChecker | null = null;
+
+/** Edition calls this at startup to register a vendor-specific version checker. */
+export function registerEditionVersionChecker(checker: EditionVersionChecker): void {
+  editionVersionChecker = checker;
+}
+
+// ── Routes ──
 
 interface VersionRoutesOptions {
   projectRoot?: string;
@@ -38,33 +56,14 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
 
   app.get('/api/lastversion', async (request) => {
     const curversion = getPackageVersion(projectRoot);
-    try {
-      const userId = request.headers['x-cat-cafe-user'] as string;
-      if (!userId) {
-        throw new Error('Unauthorized: Missing user ID');
+    if (editionVersionChecker) {
+      try {
+        const info = await editionVersionChecker(request);
+        return { curversion, ...info };
+      } catch {
+        return { curversion, lastversion: curversion };
       }
-      const response = await fetch('https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-latest-version', {
-        headers: {
-          'Content-Type': 'application/json;charset=utf8',
-        },
-      });
-      if (!response.ok) {
-        const { error_code, error_message } = await getErrorMessage(response);
-        throw new Error(`错误码: ${error_code}, 错误信息: ${error_message}`);
-      }
-      const data: any = await response.json();
-      return {
-        curversion,
-        lastversion: data.latest_version || curversion,
-        downloadUrl: data.download_url || '',
-        description: data.description || '',
-      };
-    } catch(err) {
-      console.error('获取最新版本信息失败，', err);
-      return {
-        curversion,
-        lastversion: curversion
-      };
     }
+    return { curversion, lastversion: curversion };
   });
 }

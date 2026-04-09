@@ -25,7 +25,7 @@ export interface CommandsRoutesOptions {
 
 const extractTasksSchema = z.object({
   threadId: z.string().min(1).max(100),
-  /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+  /** @deprecated Ignored by Core — retained for backward-compatible request parsing. Use X-Cat-Cafe-User header. */
   userId: z.string().min(1).max(100).optional(),
   /** Number of recent messages to analyze (default: 50) */
   messageCount: z.number().int().min(1).max(200).optional(),
@@ -40,11 +40,11 @@ export const commandsRoutes: FastifyPluginAsync<CommandsRoutesOptions> = async (
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { threadId, userId: legacyUserId, messageCount } = parseResult.data;
-    const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
+    const { threadId, messageCount } = parseResult.data;
+    const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
 
     // Ownership guard: default thread is shared; non-default threads are owner-scoped.

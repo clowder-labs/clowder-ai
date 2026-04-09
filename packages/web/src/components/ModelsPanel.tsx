@@ -19,10 +19,10 @@ const NO_RESULTS_TEXT = '未找到匹配模型';
 const NO_RESULTS_HINT = '试试模型名、厂商名、模型 ID 或描述关键词';
 const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
-const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
+const EDITION_MODEL_GROUP_LABEL = 'Edition Models';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
 const VENDOR_ICON = '/images/vendor.svg';
-const DEFAULT_DEVELOPER = '华为云 MaaS';
+const DEFAULT_DEVELOPER = 'Cloud Provider';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
@@ -170,15 +170,14 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
 }
 
 function protocolGroupLabel(protocol: string): string {
-  const trimmed = protocol.trim();
-  if (trimmed.toLowerCase() === 'huawei_maas') return HUAWEI_MAAS_GROUP_LABEL;
-  return CUSTOM_MODEL_GROUP_LABEL;
+  if (protocol.trim().toLowerCase() === 'openai') return CUSTOM_MODEL_GROUP_LABEL;
+  return EDITION_MODEL_GROUP_LABEL;
 }
 
 function protocolGroupKey(protocol: string): string {
   const trimmed = protocol.trim().toLowerCase();
-  if (trimmed === 'huawei_maas') return 'huawei_maas';
-  return 'custom_models';
+  if (trimmed === 'openai') return 'custom_models';
+  return `edition_${trimmed}`;
 }
 
 function buildModelSearchText(card: ModelCardData): string {
@@ -660,7 +659,7 @@ export function ModelsPanel() {
 
                       <div className="mt-auto flex items-end justify-between gap-3">
                         <div className="min-h-5 text-xs leading-5">
-                          {card.protocol !== 'huawei_maas' ? (
+                          {card.protocol === 'openai' ? (
                             <div className="relative">
                               <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}

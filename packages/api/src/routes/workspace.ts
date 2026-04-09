@@ -35,13 +35,14 @@ import {
   resolveWorkspacePath,
   WorkspaceSecurityError,
 } from '../domains/workspace/workspace-security.js';
+import { getSidecarHomeSubdir } from '../utils/agent-sidecar-paths.js';
 
 const execFileAsync = promisify(execFile);
 const MAX_FILE_SIZE = 1024 * 1024; // 1 MB text preview
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB image preview
 const MAX_SEARCH_RESULTS = 100;
 const MAX_TREE_DEPTH = 5;
-const LOCAL_AGENT_ROOT = resolve(homedir(), '.jiuwenclaw', 'agent');
+const LOCAL_AGENT_ROOT = resolve(homedir(), getSidecarHomeSubdir(), 'agent');
 const LOCAL_AGENT_PRESENTATION_EXTS = new Set(['.ppt', '.pptx']);
 
 const MIME_MAP: Record<string, string> = {

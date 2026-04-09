@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { describe, it } from 'node:test';
-import { generateXiaoyiSignature, XiaoyiAdapter } from '../dist/infrastructure/connectors/adapters/XiaoyiAdapter.js';
+import { generateXiaoyiSignature, XiaoyiAdapter } from '../dist/XiaoyiAdapter.js';
 
 function noopLog() {
   const noop = () => {};

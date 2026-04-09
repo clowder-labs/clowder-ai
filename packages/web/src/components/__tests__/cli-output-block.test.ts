@@ -38,7 +38,7 @@ beforeEach(() => {
     if (path === '/api/projects/cwd') {
       return {
         ok: true,
-        json: async () => ({ path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent' }),
+        json: async () => ({ path: 'C:\\Users\\kagol\\.clowder\\agent' }),
       } as Response;
     }
     if (path === '/api/workspace/local-file-meta') {
@@ -440,13 +440,13 @@ describe('CliOutputBlock', () => {
         kind: 'tool_result',
         timestamp: 1001,
         label: 'Bash python build_ppt.py',
-        detail: '[Done] Saved: C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+        detail: '[Done] Saved: C:\\Users\\kagol\\.clowder\\agent\\output\\demo-deck.pptx',
       },
       {
         id: 't3',
         kind: 'text',
         timestamp: 1002,
-        content: 'PPT generated at C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+        content: 'PPT generated at C:\\Users\\kagol\\.clowder\\agent\\output\\demo-deck.pptx',
       },
     ];
 
@@ -473,7 +473,7 @@ describe('CliOutputBlock', () => {
     const openLocalCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/open-local');
     const [, init] = openLocalCall ?? [];
     expect(JSON.parse(String(init?.body))).toEqual({
-      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+      path: 'C:\\Users\\kagol\\.clowder\\agent\\output\\demo-deck.pptx',
     });
   });
 
@@ -584,7 +584,7 @@ describe('CliOutputBlock', () => {
 
     const metaCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/local-file-meta');
     expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
-      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+      path: 'C:\\Users\\kagol\\.clowder\\agent\\output\\demo-deck.pptx',
       projectPath: 'default',
     });
 
@@ -595,7 +595,7 @@ describe('CliOutputBlock', () => {
 
     const openLocalCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/open-local');
     expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
-      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\demo-deck.pptx',
+      path: 'C:\\Users\\kagol\\.clowder\\agent\\output\\demo-deck.pptx',
       projectPath: 'default',
     });
   });
@@ -621,7 +621,7 @@ describe('CliOutputBlock', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/workspace/open-local', expect.objectContaining({ method: 'POST' }));
     const [, init] = mockApiFetch.mock.calls[0] ?? [];
     expect(JSON.parse(String(init?.body))).toEqual({
-      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\NVIDIA_GTC_2026_华为风.pptx',
+      path: 'C:\\Users\\kagol\\.clowder\\agent\\NVIDIA_GTC_2026_华为风.pptx',
     });
   });
 });

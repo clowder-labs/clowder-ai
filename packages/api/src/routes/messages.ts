@@ -172,7 +172,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
     let content: string;
-    let legacyUserId: string | undefined;
     let threadId: string | undefined;
     let contentBlocks: MessageContent[] | undefined;
     let idempotencyKey: string | undefined;
@@ -191,7 +190,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         reply.status(400);
         return { error: parsed.error };
       }
-      ({ content, userId: legacyUserId, threadId, contentBlocks } = parsed);
+      ({ content, threadId, contentBlocks } = parsed);
       if ('idempotencyKey' in parsed && parsed.idempotencyKey) {
         idempotencyKey = parsed.idempotencyKey;
       }
@@ -214,7 +213,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         reply.status(400);
         return { error: 'Invalid request body', details: parseResult.error.issues };
       }
-      ({ content, userId: legacyUserId, threadId, idempotencyKey } = parseResult.data);
+      ({ content, threadId, idempotencyKey } = parseResult.data);
       deliveryMode = parseResult.data.deliveryMode;
       resumeCatId = parseResult.data.resumeCatId as CatId | undefined;
       // F35: Extract whisper fields from parsed body
@@ -224,13 +223,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       }
     }
 
-    const userId = resolveUserId(request, {
-      fallbackUserId: legacyUserId,
-      defaultUserId: 'default-user',
-    });
+    const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
 
     // Default to 'default' thread for lobby (prevents global broadcast)

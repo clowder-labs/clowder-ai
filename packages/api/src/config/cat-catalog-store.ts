@@ -432,7 +432,7 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
   if (existsSync(catalogPath)) {
     try {
       const existingCatalog = JSON.parse(readFileSync(catalogPath, 'utf-8')) as CatCafeConfig;
-      // Skip reconciliation for preset-managed catalogs (e.g. ModelArts custom install).
+      // Skip reconciliation for preset-managed catalogs (e.g. Edition custom install).
       // These catalogs intentionally contain a subset of members; reconciling with the
       // full template would re-add members the preset explicitly removed.
       const isPresetCatalog = (existingCatalog as unknown as Record<string, unknown>).preset === true;

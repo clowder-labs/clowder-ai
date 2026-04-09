@@ -1,4 +1,4 @@
-export function buildProbeHeaders(protocol: 'anthropic' | 'openai' | 'google', apiKey: string): Record<string, string> {
+export function buildProbeHeaders(protocol: string, apiKey: string): Record<string, string> {
   switch (protocol) {
     case 'anthropic':
       return { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };

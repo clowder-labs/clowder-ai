@@ -1,4 +1,6 @@
-export type ProviderProfileProtocol = 'anthropic' | 'openai' | 'google' | 'huawei_maas' | 'acp';
+// Core protocols. Edition can add vendor-specific protocols via ModelConfigPolicy.
+// The `& {}` allows any string while preserving autocompletion for known values.
+export type ProviderProfileProtocol = 'anthropic' | 'openai' | 'google' | 'acp' | (string & {});
 export type ProviderProfileProvider = string;
 export type ProviderProfileMode = 'subscription' | 'api_key' | 'none';
 export type ProviderProfileAuthType = 'oauth' | 'api_key' | 'none';

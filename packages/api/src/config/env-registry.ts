@@ -531,27 +531,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'connector',
     sensitive: true,
   },
-  {
-    name: 'XIAOYI_AGENT_ID',
-    defaultValue: '(未设置 → 不启用)',
-    description: '小艺智能体 Agent ID',
-    category: 'connector',
-    sensitive: false,
-  },
-  {
-    name: 'XIAOYI_AK',
-    defaultValue: '(未设置)',
-    description: '小艺 Access Key',
-    category: 'connector',
-    sensitive: true,
-  },
-  {
-    name: 'XIAOYI_SK',
-    defaultValue: '(未设置)',
-    description: '小艺 Secret Key',
-    category: 'connector',
-    sensitive: true,
-  },
+  // Edition-specific connector env vars are registered via registerEditionEnvVars().
 
   // --- codex ---
   {
@@ -862,4 +842,13 @@ export function isEditableEnvVarName(name: string): boolean {
 /** Returns true when the env var requires a service restart to take effect. */
 export function requiresRestartEnvVar(name: string): boolean {
   return ENV_VARS.some((def) => def.name === name && isConnectorSensitiveEditable(def));
+}
+
+/** Edition calls this at startup to register vendor-specific env vars (e.g. connector secrets). */
+export function registerEditionEnvVars(defs: EnvDefinition[]): void {
+  for (const def of defs) {
+    if (!ENV_VARS.some((existing) => existing.name === def.name)) {
+      ENV_VARS.push(def);
+    }
+  }
 }

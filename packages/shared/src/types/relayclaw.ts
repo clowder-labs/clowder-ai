@@ -2,7 +2,7 @@
  * RelayClaw Agent Types
  *
  * Configuration and wire-protocol types for connecting to a relay-claw
- * AgentWebSocketServer (openJiuwen agent exposed via WebSocket).
+ * AgentWebSocketServer (agent exposed via WebSocket).
  */
 
 /** Configuration for connecting to a relay-claw agent server */
@@ -13,9 +13,9 @@ export interface RelayClawAgentConfig {
   timeoutMs?: number;
   /** Channel ID sent in requests (default: "catcafe") */
   channelId?: string;
-  /** Start a dedicated local jiuwenclaw sidecar when url is not provided */
+  /** Start a dedicated local agent sidecar when url is not provided */
   autoStart?: boolean;
-  /** Preferred executable used to launch vendored jiuwenclaw on packaged runtimes */
+  /** Preferred executable used to launch vendored agent on packaged runtimes */
   executablePath?: string;
   /** Python executable used to launch relay-claw */
   pythonBin?: string;
@@ -35,7 +35,7 @@ export interface RelayClawAgentConfig {
 
 /**
  * Inbound event types from the relay-claw agent stream.
- * Maps to EventType enum in jiuwenclaw/schema/message.py.
+ * Maps to EventType enum in relay-claw schema/message.py.
  */
 export type RelayClawEventType =
   | 'chat.delta'

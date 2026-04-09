@@ -2,6 +2,7 @@
 import { ThemeRootSync } from '@/components/ThemeRootSync';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
+import { APP_NAME } from '@/lib/branding';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -12,7 +13,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'OfficeClaw',
+  title: APP_NAME,
   description: 'Your AI team collaboration space',
   manifest: '/manifest.json',
   icons: {
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'OfficeClaw',
+    title: APP_NAME,
   },
 };
 

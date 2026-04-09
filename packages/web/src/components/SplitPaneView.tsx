@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
+import { APP_NAME } from '@/lib/branding';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { ChatInput } from './ChatInput';
@@ -90,7 +91,7 @@ export function SplitPaneView({ onSend, onStop, uploadStatus, uploadError, onZoo
       <header className="border-b border-cocreator-light px-5 py-3 bg-cocreator-bg flex items-center gap-2 flex-shrink-0">
         <PawIcon className="w-6 h-6 text-cocreator-primary" />
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-cafe-black">OfficeClaw</h1>
+          <h1 className="text-lg font-bold text-cafe-black">{APP_NAME}</h1>
           <p className="text-xs text-gray-500">分屏模式</p>
         </div>
         <span className="text-[10px] text-gray-400 hidden sm:inline mr-1">⌘\ 切换</span>

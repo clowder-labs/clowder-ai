@@ -73,7 +73,7 @@ describe('CapabilitySection skill card layout', () => {
         React.createElement(CapabilitySection, {
           icon: null,
           title: '协作',
-          subtitle: 'OfficeClaw Skills',
+          subtitle: 'Hub Skills',
           items: [item],
           catFamilies: [],
           toggling: null,

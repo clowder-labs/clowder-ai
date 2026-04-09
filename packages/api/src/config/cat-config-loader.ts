@@ -668,9 +668,8 @@ let _defaultCatId: CatId | null = null;
  *
  * Resolution order:
  * 1. Catalog-level `defaultCatId` field (set by preset installers)
- * 2. `jiuwenclaw` if present in catalog (backward compat with dev environment)
- * 3. First breed's catId from the catalog (preset deployments)
- * 4. Hardcoded `jiuwenclaw` (ultimate fallback)
+ * 2. First breed's catId from the catalog
+ * 3. 'opus' (core default when no config is available)
  */
 export function getDefaultCatId(): CatId {
   if (_defaultCatId) return _defaultCatId;
@@ -684,14 +683,7 @@ export function getDefaultCatId(): CatId {
       return _defaultCatId;
     }
 
-    // 2. Try jiuwenclaw (backward compat with full dev catalog)
-    const allConfigs = toAllCatConfigs(config);
-    if (allConfigs['jiuwenclaw']) {
-      _defaultCatId = createCatId('jiuwenclaw');
-      return _defaultCatId;
-    }
-
-    // 3. First breed's catId (preset deployments with custom members)
+    // 2. First breed's catId (handles renamed breeds without hardcoding)
     const firstBreed = config.breeds[0];
     if (firstBreed) {
       const catId = firstBreed.catId ?? firstBreed.variants?.[0]?.catId;
@@ -702,8 +694,8 @@ export function getDefaultCatId(): CatId {
     }
   }
 
-  // 4. Ultimate fallback
-  _defaultCatId = createCatId('jiuwenclaw');
+  // 3. Core default fallback
+  _defaultCatId = createCatId('opus');
   return _defaultCatId;
 }
 

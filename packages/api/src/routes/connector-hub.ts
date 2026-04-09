@@ -128,23 +128,20 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { text: '填写以下配置并保存，重启 API 服务后生效' },
     ],
   },
-  {
-    id: 'xiaoyi',
-    name: '小艺',
-    nameEn: 'Huawei XiaoYi',
-    fields: [
-      { envName: 'XIAOYI_AGENT_ID', label: 'Agent ID', sensitive: false },
-      { envName: 'XIAOYI_AK', label: 'Access Key (AK)', sensitive: true },
-      { envName: 'XIAOYI_SK', label: 'Secret Key (SK)', sensitive: true },
-    ],
-    docsUrl: 'https://developer.huawei.com/consumer/cn/hag/abilityportal/',
-    steps: [
-      { text: '在华为小艺开放平台创建智能体，新建凭证获取 AK / SK' },
-      { text: '配置白名单分组，添加调试用华为账号' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
-    ],
-  },
 ];
+
+// Edition-registered connector platforms (vendor-specific)
+const editionPlatforms: PlatformDef[] = [];
+
+/** Edition calls this at startup to register vendor-specific connector platform definitions. */
+export function registerEditionConnectorPlatform(platform: PlatformDef): void {
+  editionPlatforms.push(platform);
+}
+
+/** All connector platforms (core + edition). */
+export function getAllConnectorPlatforms(): PlatformDef[] {
+  return [...CONNECTOR_PLATFORMS, ...editionPlatforms];
+}
 
 /** Mask a sensitive value: show only that it is set, no suffix. Aligns with env-registry *** policy. */
 function maskSensitiveValue(_value: string): string {
@@ -175,7 +172,7 @@ export interface PlatformStatus {
 }
 
 export function buildConnectorStatus(env: Record<string, string | undefined> = process.env): PlatformStatus[] {
-  return CONNECTOR_PLATFORMS.map((platform) => {
+  return getAllConnectorPlatforms().map((platform) => {
     const fields: PlatformFieldStatus[] = platform.fields.map((f) => {
       const raw = env[f.envName];
       const isSet = raw != null && raw !== '' && !raw.startsWith('(未设置');

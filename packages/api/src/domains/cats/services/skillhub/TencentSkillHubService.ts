@@ -1,5 +1,5 @@
 /**
- * TencentSkillHubService — 腾讯 SkillHub (skillhub.tencent.com → lightmake.site) API 封装
+ * TencentSkillHubService — SkillHub API
  *
  * 搜索: GET /api/skills?page=1&pageSize=20&search=...
  * 热门: GET /api/skills/top
@@ -8,7 +8,8 @@
 
 import JSZip from 'jszip';
 
-const API_BASE = 'https://lightmake.site';
+/** Edition provides the SkillHub API URL via env var. Feature-gated by remoteSkillHub capability. */
+const API_BASE = process.env.CAT_CAFE_SKILLHUB_URL ?? '';
 
 interface CacheEntry<T> {
   data: T;

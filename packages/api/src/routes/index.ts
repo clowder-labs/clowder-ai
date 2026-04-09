@@ -1,5 +1,7 @@
 export { auditRoutes } from './audit.js';
-export { authRoutes } from './auth.js';
+// authRoutes is Edition-specific — loaded dynamically via import('./auth.js') when identity mode ≠ 'no-auth'
+export { editionApiRoutes } from './edition-api.js';
+export { healthRoutes } from './health.js';
 export { authorizationRoutes } from './authorization.js';
 export { availableClientsRoutes } from './available-clients.js';
 export { backlogRoutes } from './backlog.js';

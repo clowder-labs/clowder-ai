@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { APP_NAME } from '@/lib/branding';
 import { getMentionToCat } from '@/lib/mention-highlight';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
@@ -12,8 +13,8 @@ import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
-import { sanitizeThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
+import { sanitizeThreadTitleOrNull } from './thread-title';
 import { getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 import { useCollapseState } from './use-collapse-state';
@@ -238,7 +239,9 @@ export function ThreadSidebar({
           );
           const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
           if (failed.length > 0) {
-            setBindWarning(`Session 缁戝畾閮ㄥ垎澶辫触锛?{failed.length}/${results.length}锛夛紝鍙湪 Session 闈㈡澘閲嶈瘯`);
+            setBindWarning(
+              `Session 缁戝畾閮ㄥ垎澶辫触锛?{failed.length}/${results.length}锛夛紝鍙湪 Session 闈㈡澘閲嶈瘯`,
+            );
             setTimeout(() => setBindWarning(null), 6000);
           }
         }
@@ -485,7 +488,8 @@ export function ThreadSidebar({
     () => displayThreadGroups.some((group) => (group.threads?.length ?? 0) > 0),
     [displayThreadGroups],
   );
-  const showNoResults = !hasVisibleThreads && !showDefaultThread && (normalizedQuery.length > 0 || filterOption !== 'all');
+  const showNoResults =
+    !hasVisibleThreads && !showDefaultThread && (normalizedQuery.length > 0 || filterOption !== 'all');
 
   // F095: Collapse state with localStorage persistence + search/active auto-expand
   const { isCollapsed, toggleGroup } = useCollapseState({
@@ -505,8 +509,10 @@ export function ThreadSidebar({
       <aside className={`${className ?? 'w-[248px]'} ui-sidebar-shell flex h-full flex-col`}>
         <div className="ui-sidebar-section ui-sidebar-section-no-divider flex items-center justify-between px-3 py-[14px] border-0">
           <div className="flex items-center gap-2">
-            <img src="/images/lobster.svg" alt="OfficeClaw" className="w-9 h-9 rounded-lg" />
-            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">OfficeClaw</span>
+            <img src="/images/lobster.svg" alt={APP_NAME} className="w-9 h-9 rounded-lg" />
+            <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">
+              {APP_NAME}
+            </span>
           </div>
         </div>
 
@@ -613,8 +619,12 @@ export function ThreadSidebar({
                 title="筛选会话"
                 data-testid="thread-filter-toggle"
               >
-                <svg  className="h-4 w-4 align-middle" viewBox="0 0 16 16" fill="currentColor" >
-                  <path id="_减去顶层" d="M12.308 1.84961L3.68802 1.84961C3.38802 1.84961 3.09802 1.94961 2.86802 2.13961C2.40802 2.60961 2.26802 3.44961 2.68802 3.96961L5.86802 7.85961L5.86802 13.6396C5.86802 13.9196 6.08802 14.1396 6.36802 14.1396L9.72802 14.1396C9.95802 14.0896 10.138 13.8896 10.138 13.6396L10.138 7.85961L13.328 3.96961C13.518 3.73961 13.618 3.44961 13.618 3.14961C13.618 2.42961 13.028 1.84961 12.308 1.84961ZM12.608 3.14961C12.608 2.97961 12.478 2.84961 12.308 2.84961L3.68802 2.84961C3.61802 2.84961 3.54802 2.86961 3.49802 2.91961C3.36802 3.01961 3.34802 3.20961 3.45802 3.33961L6.74802 7.36961C6.81802 7.45961 6.85802 7.56961 6.85802 7.68961L6.85802 13.1496L9.12802 13.1496L9.12802 7.68961C9.12802 7.59961 9.14802 7.51961 9.19802 7.43961L12.548 3.33961C12.588 3.28961 12.608 3.21961 12.608 3.14961Z" fillRule="evenodd"/>
+                <svg className="h-4 w-4 align-middle" viewBox="0 0 16 16" fill="currentColor">
+                  <path
+                    id="_减去顶层"
+                    d="M12.308 1.84961L3.68802 1.84961C3.38802 1.84961 3.09802 1.94961 2.86802 2.13961C2.40802 2.60961 2.26802 3.44961 2.68802 3.96961L5.86802 7.85961L5.86802 13.6396C5.86802 13.9196 6.08802 14.1396 6.36802 14.1396L9.72802 14.1396C9.95802 14.0896 10.138 13.8896 10.138 13.6396L10.138 7.85961L13.328 3.96961C13.518 3.73961 13.618 3.44961 13.618 3.14961C13.618 2.42961 13.028 1.84961 12.308 1.84961ZM12.608 3.14961C12.608 2.97961 12.478 2.84961 12.308 2.84961L3.68802 2.84961C3.61802 2.84961 3.54802 2.86961 3.49802 2.91961C3.36802 3.01961 3.34802 3.20961 3.45802 3.33961L6.74802 7.36961C6.81802 7.45961 6.85802 7.56961 6.85802 7.68961L6.85802 13.1496L9.12802 13.1496L9.12802 7.68961C9.12802 7.59961 9.14802 7.51961 9.19802 7.43961L12.548 3.33961C12.588 3.28961 12.608 3.21961 12.608 3.14961Z"
+                    fillRule="evenodd"
+                  />
                 </svg>
               </button>
               <button
@@ -753,13 +763,15 @@ export function ThreadSidebar({
           {showNoResults ? (
             <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-gray-400">
               <div className="text-[14px] font-[400] text-[#333]">没有结果</div>
-              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-2">请开启 <button
-                type="button"
-                onClick={handleNewChat}
-                className="text-[12px] font-[400] text-[rgba(20,115,255,1)]"
-              >
-                新的会话
-              </button>
+              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-2">
+                请开启{' '}
+                <button
+                  type="button"
+                  onClick={handleNewChat}
+                  className="text-[12px] font-[400] text-[rgba(20,115,255,1)]"
+                >
+                  新的会话
+                </button>
               </div>
             </div>
           ) : (
@@ -834,13 +846,15 @@ export function ThreadSidebar({
                   icon={icon}
                   count={group.threads.length}
                   isCollapsed={group.type === 'pinned' || group.type === 'recent' ? false : isCollapsed(groupKey)}
-                  onToggle={group.type === 'pinned' || group.type === 'recent' ? () => { } : () => toggleGroup(groupKey)}
+                  onToggle={group.type === 'pinned' || group.type === 'recent' ? () => {} : () => toggleGroup(groupKey)}
                   hideToggle={group.type === 'pinned' || group.type === 'recent'}
                   hideCount={group.type === 'pinned' || group.type === 'recent'}
                   projectPath={group.projectPath}
                   governanceStatus={group.projectPath ? govHealth[group.projectPath] : undefined}
                   onToggleProjectPin={
-                    group.type === 'project' && group.projectPath ? () => toggleProjectPin(group.projectPath!) : undefined
+                    group.type === 'project' && group.projectPath
+                      ? () => toggleProjectPin(group.projectPath!)
+                      : undefined
                   }
                   isProjectPinned={
                     group.type === 'project' && group.projectPath ? pinnedProjects.has(group.projectPath) : undefined
@@ -873,7 +887,6 @@ export function ThreadSidebar({
               );
             })
           )}
-
         </div>
 
         {/* 回收站入口暂时隐藏 */}
@@ -915,7 +928,11 @@ export function ThreadSidebar({
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default ui-modal-action-button">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="ui-button-default ui-modal-action-button"
+            >
               取消
             </button>
             <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary ui-modal-action-button">

@@ -38,7 +38,7 @@ interface CreateAgentModalProps {
   onSaved?: (savedCatId?: string) => Promise<void> | void;
 }
 
-type ModelGroupId = 'huawei-maas' | 'third-party';
+type ModelGroupId = 'edition' | 'third-party';
 
 interface CreateModelOption extends DraftModelOption {
   accountRef: string;
@@ -76,8 +76,7 @@ interface ModelMenuPosition {
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_GROUP_LABEL = '华为云MaaS';
-const HUAWEI_PROVIDER_LABEL = 'Huawei MaaS';
+const EDITION_GROUP_LABEL = 'Edition Models';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
 const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
@@ -243,7 +242,7 @@ function parseAccountRefFromModelItem(item: MaaSModelResponseItem): string | nul
   if (typeof item.accountRef === 'string' && item.accountRef.trim().length > 0) {
     return item.accountRef.trim();
   }
-  if (item.provider === HUAWEI_PROVIDER_LABEL) return 'huawei-maas';
+  if (item.provider === EDITION_GROUP_LABEL) return 'edition';
   const rawId = typeof item.id === 'string' ? item.id.trim() : '';
   if (!rawId) return null;
   if (rawId.startsWith('model_config:')) {
@@ -270,8 +269,8 @@ function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
 
   const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
   const protocol = pickStringField(normalized, ['protocol']);
-  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_PROVIDER_LABEL;
-  const groupId: ModelGroupId = isHuawei ? 'huawei-maas' : 'third-party';
+  const isEditionModel = (protocol != null && protocol !== 'openai') || providerLabel === EDITION_GROUP_LABEL;
+  const groupId: ModelGroupId = isEditionModel ? 'edition' : 'third-party';
   const rawId =
     typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;
   const model = parseModelNameFromModelItemId(rawId, accountRef, modelLabel);
@@ -291,26 +290,25 @@ function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
 
 function buildFallbackSelectedOption(selectionHint: SelectionHint): CreateModelOption | null {
   if (!selectionHint.model || !selectionHint.accountRef) return null;
-  const isHuawei = selectionHint.accountRef === 'huawei-maas';
   return {
     id: `${selectionHint.accountRef}::${selectionHint.model}`,
     name: selectionHint.model,
-    providerGroup: isHuawei ? HUAWEI_GROUP_LABEL : THIRD_PARTY_GROUP_LABEL,
+    providerGroup: THIRD_PARTY_GROUP_LABEL,
     accountRef: selectionHint.accountRef,
     client: RELAYCLAW_CLIENT,
     model: selectionHint.model,
     modelLabel: selectionHint.model,
-    groupId: isHuawei ? 'huawei-maas' : 'third-party',
+    groupId: 'third-party',
   };
 }
 
 function groupModelOptions(items: CreateModelOption[]): DraftModelOptionGroup[] {
-  const huaweiItems = items.filter((item) => item.groupId === 'huawei-maas');
+  const editionItems = items.filter((item) => item.groupId === 'edition');
   const thirdPartyItems = items.filter((item) => item.groupId === 'third-party');
   const groups: DraftModelOptionGroup[] = [];
 
-  if (huaweiItems.length > 0) {
-    groups.push({ id: 'huawei-maas', label: HUAWEI_GROUP_LABEL, items: huaweiItems });
+  if (editionItems.length > 0) {
+    groups.push({ id: 'edition', label: EDITION_GROUP_LABEL, items: editionItems });
   }
   if (thirdPartyItems.length > 0) {
     groups.push({ id: 'third-party', label: THIRD_PARTY_GROUP_LABEL, items: thirdPartyItems });

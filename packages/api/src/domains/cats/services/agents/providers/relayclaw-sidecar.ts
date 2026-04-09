@@ -8,10 +8,13 @@ import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import {
-  resolveJiuwenClawAppDir,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} from '../../../../../utils/jiuwenclaw-paths.js';
+  getSidecarEnvPrefix,
+  getSidecarPythonModule,
+  getSidecarReadyPatterns,
+  resolveSidecarAppDir,
+  resolveSidecarExecutable,
+  resolveSidecarPythonBin,
+} from '../../../../../utils/agent-sidecar-paths.js';
 import {
   buildRelayClawAppSignature,
   buildRelayClawDisabledSkillsSignature,
@@ -137,9 +140,9 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
 
   private buildRuntime(options?: AgentServiceOptions): RelayClawSidecarRuntime {
     const callbackEnv = options?.callbackEnv ?? {};
-    const appDir = resolveJiuwenClawAppDir(this.config.appDir);
-    const executablePath = resolveJiuwenClawExecutable(this.config.executablePath);
-    const pythonBin = resolveJiuwenClawPythonBin(this.config.pythonBin, appDir);
+    const appDir = resolveSidecarAppDir(this.config.appDir);
+    const executablePath = resolveSidecarExecutable(this.config.executablePath);
+    const pythonBin = resolveSidecarPythonBin(this.config.pythonBin, appDir);
     const useExecutable = existsSync(executablePath);
     const homeDir = this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
@@ -170,11 +173,11 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         ...(defaultHeaders ? { default_headers: defaultHeaders } : {}),
         MODEL_NAME: modelName,
         MODEL_PROVIDER: provider,
-        JIUWENCLAW_AGENT_ROOT: join(homeDir, 'agent'),
-        JIUWENCLAW_RUNTIME_SKILLS_DIR: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
-        ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
-        ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
-        ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
+        [`${getSidecarEnvPrefix()}_AGENT_ROOT`]: join(homeDir, 'agent'),
+        [`${getSidecarEnvPrefix()}_RUNTIME_SKILLS_DIR`]: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
+        ...(projectDir ? { [`${getSidecarEnvPrefix()}_PROJECT_DIR`]: projectDir } : {}),
+        ...(sharedSkillDirs.length > 0 ? { [`${getSidecarEnvPrefix()}_SHARED_SKILLS_DIRS`]: sharedSkillDirs.join(delimiter) } : {}),
+        ...(disabledSkills.length > 0 ? { [`${getSidecarEnvPrefix()}_DISABLED_SKILLS`]: disabledSkills.join(',') } : {}),
         ...(catCafeMcp
           ? {
               CAT_CAFE_MCP_SERVER_PATH: catCafeMcp.serverPath,
@@ -347,7 +350,7 @@ export function buildRelayClawLaunchCommand(runtime: RelayClawSidecarRuntime): R
 
   return {
     command: runtime.pythonBin,
-    args: ['-m', 'jiuwenclaw.app'],
+    args: ['-m', getSidecarPythonModule()],
     cwd: runtime.appDir,
   };
 }
@@ -372,11 +375,7 @@ export async function isRelayClawRuntimeReady(
 }
 
 export function isSidecarReady(recentLogs: string): boolean {
-  return (
-    recentLogs.includes('[JiuWenClaw] 初始化完成') ||
-    recentLogs.includes('JiuWenClaw] 初始化完成') ||
-    recentLogs.includes('WebChannel 已启动')
-  );
+  return getSidecarReadyPatterns().some((pattern) => recentLogs.includes(pattern));
 }
 
 export function summarizeLogs(recentLogs: string): string {

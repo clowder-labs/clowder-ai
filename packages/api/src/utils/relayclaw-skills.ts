@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CapabilitiesConfig, CapabilityEntry } from '@cat-cafe/shared';
+import { getSidecarHomeSubdir, getSidecarPathConfig } from './agent-sidecar-paths.js';
 
 const CAT_CAFE_SKILLS_MANIFEST = join('cat-cafe-skills', 'manifest.yaml');
 
@@ -105,7 +106,7 @@ export function listRelayClawSharedSkillNames(): string[] {
 }
 
 export function resolveRelayClawOverlaySkillsDir(homeDir: string): string {
-  return resolve(homeDir, '.jiuwenclaw', 'agent', 'skills');
+  return resolve(homeDir, getSidecarHomeSubdir(), 'agent', 'skills');
 }
 
 export function resolveRelayClawDisabledSkills(projectRoot: string, catId: string): string[] {
@@ -127,7 +128,8 @@ export function buildRelayClawDisabledSkillsSignature(projectRoot: string, catId
 }
 
 export function buildRelayClawAppSignature(appDir: string): string {
-  const packageRoot = resolve(appDir, 'jiuwenclaw');
+  const vendorSubdir = getSidecarPathConfig()?.vendorSubdir ?? 'sidecar';
+  const packageRoot = resolve(appDir, vendorSubdir);
   const payload = existsSync(packageRoot)
     ? {
         root: packageRoot,

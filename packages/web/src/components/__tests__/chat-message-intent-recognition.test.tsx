@@ -61,14 +61,14 @@ describe('ChatMessage intent recognition placeholder', () => {
   it('renders the recognition placeholder through ChatMessage using passed cat data', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
     const getCatById = vi.fn(() => ({
-      id: 'jiuwenclaw',
+      id: 'opus',
       displayName: '主智能体',
       variantLabel: 'Office',
       color: { primary: '#D97A3A', secondary: '#F6E7DA' },
       breedId: 'ragdoll',
       provider: 'openai',
       defaultModel: 'gpt-5.4',
-      avatar: '/avatars/jiuwenclaw.png',
+      avatar: '/avatars/opus.png',
       mentionPatterns: [],
       roleDescription: '',
       personality: '',
@@ -80,7 +80,7 @@ describe('ChatMessage intent recognition placeholder', () => {
           message: {
             id: 'intent-1',
             type: 'assistant',
-            catId: 'jiuwenclaw',
+            catId: 'opus',
             content: '',
             timestamp: new Date(2026, 1, 26, 19, 35, 0).getTime(),
             variant: 'intent_recognition',
@@ -91,9 +91,9 @@ describe('ChatMessage intent recognition placeholder', () => {
     });
 
     expect(container.querySelector('[data-testid="intent-recognition-placeholder"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="cat-avatar"]')?.getAttribute('data-cat-id')).toBe('jiuwenclaw');
+    expect(container.querySelector('[data-testid="cat-avatar"]')?.getAttribute('data-cat-id')).toBe('opus');
     expect(container.textContent).toContain('主智能体（Office）');
     expect(container.textContent).toContain('正在识别你的需求');
-    expect(getCatById).toHaveBeenCalledWith('jiuwenclaw');
+    expect(getCatById).toHaveBeenCalledWith('opus');
   });
 });

@@ -179,19 +179,7 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
       bubble: 'border border-green-200 bg-green-50',
     },
   },
-  {
-    id: 'xiaoyi',
-    displayName: '小艺',
-    icon: '/images/connectors/xiaoyi.png',
-    color: { primary: '#CF0A2C', secondary: '#FEE8EB' },
-    description: '华为小艺智慧助手 A2A',
-    tailwindTheme: {
-      avatar: 'bg-red-100 ring-2 ring-red-200',
-      label: 'text-red-700',
-      labelLink: 'text-red-700 hover:text-red-900',
-      bubble: 'border border-red-200 bg-red-50',
-    },
-  },
+  // Edition-specific connectors are registered via registerEditionConnectorDefinitions().
   {
     id: 'system-command',
     displayName: 'Clowder AI',
@@ -208,7 +196,16 @@ export function getConnectorDefinition(connectorId: string): ConnectorDefinition
   return connectorMap.get(connectorId);
 }
 
-/** Get all registered connector definitions. */
+/** Get all registered connector definitions (core + edition). */
 export function getAllConnectorDefinitions(): readonly ConnectorDefinition[] {
-  return CONNECTOR_DEFINITIONS;
+  return [...CONNECTOR_DEFINITIONS, ...Array.from(connectorMap.values()).filter(
+    (d) => !CONNECTOR_DEFINITIONS.some((core) => core.id === d.id),
+  )];
+}
+
+/** Edition calls this at startup to register vendor-specific connector definitions. */
+export function registerEditionConnectorDefinitions(defs: ConnectorDefinition[]): void {
+  for (const def of defs) {
+    connectorMap.set(def.id, def);
+  }
 }

@@ -99,13 +99,15 @@ import {
   stopGithubCiPoller,
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
+import { setModelConfigPolicy } from './config/model-config-profiles.js';
+import { loadEdition } from './edition/edition-loader.js';
+import { identityPlugin } from './identity/identity-plugin.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
 import {
   auditRoutes,
   authorizationRoutes,
-  authRoutes,
   availableClientsRoutes,
   backlogRoutes,
   bootcampRoutes,
@@ -114,6 +116,8 @@ import {
   capabilitiesRoutes,
   catsRoutes,
   claudeRescueRoutes,
+  editionApiRoutes,
+  healthRoutes,
   commandsRoutes,
   configRoutes,
   connectorHubRoutes,
@@ -174,10 +178,10 @@ import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
 import {
-  resolveJiuwenClawAppDir,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} from './utils/jiuwenclaw-paths.js';
+  resolveSidecarAppDir,
+  resolveSidecarExecutable,
+  resolveSidecarPythonBin,
+} from './utils/agent-sidecar-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
 import { isSeedCat } from './config/cat-account-binding.js';
@@ -261,6 +265,28 @@ async function main(): Promise<void> {
   }
   const storageResult = assertStorageReady(!!redis);
   app.log.info(`[api] Storage mode: ${storageResult.mode}`);
+
+  // Edition bootstrap — load edition.json (or DEFAULT_EDITION for community mode)
+  const projectRoot = findMonorepoRoot();
+  const editionConfig = await loadEdition({
+    projectRoot,
+    logger: {
+      info: (msg) => app.log.info(`[edition] ${msg}`),
+      warn: (msg) => app.log.warn(`[edition] ${msg}`),
+      fatal: (msg) => app.log.error(`[edition] ${msg}`),
+    },
+  });
+  app.log.info(`[api] Edition: ${editionConfig.edition} v${editionConfig.version}`);
+
+  // Model config policy — Edition-provided rules for model source management
+  setModelConfigPolicy(editionConfig.modelConfigPolicy);
+  app.log.info(
+    `[api] Model config policy: ${editionConfig.modelConfigPolicy.reservedSourceIds.length} reserved sources`,
+  );
+
+  // Identity resolution — decorates requests with resolvedIdentity
+  await app.register(identityPlugin, { config: editionConfig.identity });
+  app.log.info(`[api] Identity mode: ${editionConfig.identity.mode}`);
 
   // F102 KD-34: append listener placeholder (wired after memoryServices init)
   let appendListener: ((msg: { id: string; threadId: string; timestamp: number; content: string }) => void) | null =
@@ -666,9 +692,9 @@ async function main(): Promise<void> {
           const wsEnvKey = `CAT_${id.toUpperCase()}_WS_URL`;
           const wsUrl = process.env[wsEnvKey]?.trim() ?? '';
           const projectRoot = resolveActiveProjectRoot(process.cwd());
-          const appDir = resolveJiuwenClawAppDir();
-          const executablePath = resolveJiuwenClawExecutable();
-          const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
+          const appDir = resolveSidecarAppDir();
+          const executablePath = resolveSidecarExecutable();
+          const pythonBin = resolveSidecarPythonBin(undefined, appDir);
           service = new RelayClawAgentService({
             catId,
             config: {
@@ -1019,10 +1045,23 @@ async function main(): Promise<void> {
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });
-  await app.register(authRoutes);
+  // Auth routes are Edition-specific — only load when identity mode ≠ 'no-auth'
+  if (editionConfig.identity.mode !== 'no-auth') {
+    const { authRoutes } = await import('./routes/auth.js');
+    await app.register(authRoutes);
+  } else {
+    // F140 C1: no-auth mode — provide minimal /api/islogin so frontend ChatContainer
+    // doesn't 404 and redirect to /login. In no-auth mode, everyone is "logged in".
+    app.get('/api/islogin', async () => ({ islogin: true, isskip: false, mode: 'no-auth' }));
+  }
   await app.register(versionRoutes);
   await app.register(maasModelsRoutes);
   await app.register(capabilitiesRoutes);
+
+  // Binary Core: Health probes + Edition API surface
+  await app.register(healthRoutes, { redis });
+  await app.register(editionApiRoutes, { editionConfig });
+
   await app.register(workspaceRoutes, {
     socketEmit: (event, data, room) => {
       socketManager?.broadcastToRoom(room, event, data);

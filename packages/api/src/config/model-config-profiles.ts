@@ -1,5 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import type { ModelConfigPolicy, ModelSourceProtocolRule } from '../edition/types.js';
+import { DEFAULT_MODEL_CONFIG_POLICY } from '../edition/types.js';
 import type { ProviderProfileProtocol, ProviderProfileView } from './provider-profiles.types.js';
 import { resolveProviderProfilesRootSync } from './provider-profiles-root.js';
 
@@ -14,7 +16,21 @@ export interface ModelConfigBinding {
   headers?: Record<string, string>;
   protocol?: ProviderProfileProtocol;
 }
-export const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
+
+// ─── Edition-provided policy ─────────────────────────
+// Edition injects reserved IDs and protocol rules at startup.
+// Set via setModelConfigPolicy(editionConfig.modelConfigPolicy).
+
+let activePolicy: ModelConfigPolicy = DEFAULT_MODEL_CONFIG_POLICY;
+
+export function setModelConfigPolicy(policy: ModelConfigPolicy): void {
+  activePolicy = policy;
+}
+
+export function getModelConfigPolicy(): ModelConfigPolicy {
+  return activePolicy;
+}
+
 export const MODEL_CONFIG_FALLBACK_ENV = 'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED';
 
 export interface CreateProjectModelConfigSourceInput {
@@ -72,12 +88,18 @@ function normalizeModelConfigRecord(value: unknown): Record<string, unknown> {
   return { ...value };
 }
 function inferProtocol(profileId: string): ProviderProfileProtocol | undefined {
-  if (profileId.trim().toLowerCase() === HUAWEI_MAAS_MODEL_SOURCE_ID) return 'huawei_maas';
-  return undefined;
+  const inferred = activePolicy.protocolInference[profileId.trim().toLowerCase()];
+  return inferred as ProviderProfileProtocol | undefined;
+}
+
+function getProtocolRule(protocol: string | undefined): ModelSourceProtocolRule | undefined {
+  if (!protocol) return undefined;
+  return activePolicy.protocolRules[protocol];
 }
 
 function displayNameForBinding(binding: ModelConfigBinding): string {
-  if (binding.protocol === 'huawei_maas') return 'Huawei MaaS';
+  const rule = getProtocolRule(binding.protocol);
+  if (rule) return rule.displayName;
   return binding.displayName?.trim() || binding.id;
 }
 
@@ -109,8 +131,10 @@ function normalizeOpenAiBinding(id: string, value: Record<string, unknown>): Mod
 
 function normalizeModelSourceBinding(id: string, value: unknown): ModelConfigBinding | null {
   const protocol = inferProtocol(id);
+  const rule = getProtocolRule(protocol);
   if (Array.isArray(value)) {
-    if (protocol !== 'huawei_maas') return null;
+    // Edition-managed protocol: array of models (no base URL / API key needed)
+    if (!rule) return null;
     return {
       id,
       models: normalizeModelIds(value),
@@ -118,13 +142,10 @@ function normalizeModelSourceBinding(id: string, value: unknown): ModelConfigBin
     } satisfies ModelConfigBinding;
   }
   if (isRecord(value)) {
-    if (protocol === 'huawei_maas') {
+    if (rule && protocol) {
+      // Edition-managed protocol: object with models
       const models = normalizeModelIds(value.models);
-      return {
-        id,
-        models,
-        protocol,
-      } satisfies ModelConfigBinding;
+      return { id, models, protocol } satisfies ModelConfigBinding;
     }
     return normalizeOpenAiBinding(id, value);
   }
@@ -176,8 +197,8 @@ export async function createProjectModelConfigSource(
   if (!trimmedId) {
     throw new Error('model config source id is required');
   }
-  if (trimmedId === HUAWEI_MAAS_MODEL_SOURCE_ID) {
-    throw new Error(`model config source "${HUAWEI_MAAS_MODEL_SOURCE_ID}" is reserved`);
+  if (activePolicy.reservedSourceIds.includes(trimmedId)) {
+    throw new Error(`model config source "${trimmedId}" is reserved`);
   }
 
   const existingDocument = (await readProjectModelConfigDocument(projectRoot)) ?? {};
@@ -246,8 +267,8 @@ export async function deleteProjectModelConfigSource(projectRoot: string, source
   if (!trimmedId) {
     throw new Error('model config source id is required');
   }
-  if (trimmedId === HUAWEI_MAAS_MODEL_SOURCE_ID) {
-    throw new Error(`model config source "${HUAWEI_MAAS_MODEL_SOURCE_ID}" cannot be deleted`);
+  if (activePolicy.reservedSourceIds.includes(trimmedId)) {
+    throw new Error(`model config source "${trimmedId}" cannot be deleted`);
   }
 
   const existingDocument = await readProjectModelConfigDocument(projectRoot);
@@ -271,8 +292,8 @@ export async function updateProjectModelConfigSource(
   if (!trimmedId) {
     throw new Error('model config source id is required');
   }
-  if (trimmedId === HUAWEI_MAAS_MODEL_SOURCE_ID) {
-    throw new Error(`model config source "${HUAWEI_MAAS_MODEL_SOURCE_ID}" cannot be updated`);
+  if (activePolicy.reservedSourceIds.includes(trimmedId)) {
+    throw new Error(`model config source "${trimmedId}" cannot be updated`);
   }
 
   const existingDocument = await readProjectModelConfigDocument(projectRoot);
@@ -367,13 +388,13 @@ export async function readProjectModelConfigProfileViews(projectRoot: string): P
     icon: binding.icon,
     baseUrl: binding.baseUrl,
     apiKey: binding.apiKey,
-    authType: binding.protocol === 'huawei_maas' ? 'none' : 'api_key',
+    authType: getProtocolRule(binding.protocol)?.authType ?? 'api_key',
     kind: 'api_key' as const,
     builtin: false,
-    mode: binding.protocol === 'huawei_maas' ? ('none' as const) : ('api_key' as const),
+    mode: (getProtocolRule(binding.protocol)?.authType ?? 'api_key') as 'none' | 'api_key',
     ...(binding.protocol ? { protocol: binding.protocol } : {}),
     models: binding.models,
-    hasApiKey: binding.protocol !== 'huawei_maas',
+    hasApiKey: getProtocolRule(binding.protocol)?.hasApiKey ?? true,
     createdAt: timestamp,
     updatedAt: timestamp,
   })) as ProviderProfileView[];
