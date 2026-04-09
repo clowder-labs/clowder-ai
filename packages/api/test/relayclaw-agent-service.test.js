@@ -23,6 +23,12 @@ const {
 } = await import('../dist/utils/jiuwenclaw-paths.js');
 const { WebSocket: NodeWebSocket } = await import('ws');
 
+async function collect(iterable) {
+  const items = [];
+  for await (const item of iterable) items.push(item);
+  return items;
+}
+
 function createConnectionFactory(onSend) {
   return (requestQueues) => ({
     async ensureConnected() {},
@@ -471,7 +477,7 @@ describe('RelayClawAgentService', () => {
     assert.equal(__relayClawInternals.isSidecarReady('WebChannel 已启动: ws://127.0.0.1:19001/ws'), true);
   });
 
-  it('keeps tracking the new sidecar when the previous process exits after a restart', async () => {
+  it('reuses the existing sidecar child when only the working directory changes', async () => {
     const appDir = mkdtempSync(join(tmpdir(), 'relayclaw-sidecar-'));
     const appPy = join(appDir, 'jiuwenclaw', 'app.py');
     const pythonBin =
@@ -484,7 +490,6 @@ describe('RelayClawAgentService', () => {
     writeFileSync(pythonBin, '');
 
     const spawned = [];
-    let probeCall = 0;
     const previousAppDir = process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
     const previousPython = process.env.CAT_CAFE_RELAYCLAW_PYTHON;
 
@@ -505,12 +510,7 @@ describe('RelayClawAgentService', () => {
             return child;
           },
           allocatePort: async () => 19000 + spawned.length,
-          tcpProbeFn: async (_host, port) => {
-            probeCall += 1;
-            if (probeCall <= 2) return true;
-            if (probeCall <= 4) return false;
-            return port >= 19000;
-          },
+          tcpProbeFn: async (_host, port) => port >= 19000,
         },
       );
 
@@ -532,10 +532,9 @@ describe('RelayClawAgentService', () => {
         workingDirectory: '/tmp/project-b',
       });
 
-      assert.match(secondUrl, /^ws:\/\/127\.0\.0\.1:\d+$/);
-      assert.equal(spawned.length, 2);
-      assert.equal(spawned[0].killed, true);
-      assert.equal(spawned[1].killed, false);
+      assert.equal(secondUrl, firstUrl);
+      assert.equal(spawned.length, 1);
+      assert.equal(spawned[0].killed, false);
     } finally {
       if (previousAppDir === undefined) {
         delete process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
@@ -614,6 +613,126 @@ describe('RelayClawAgentService', () => {
     assert.equal(capturedRequest.params.cat_cafe_mcp.env.CAT_CAFE_INVOCATION_ID, 'invocation-123');
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
     assert.match(normalizedQuery, /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/);
+  });
+
+  it('reuses the same scoped sidecar across working directories when auth scope is unchanged', async () => {
+    const createdHomeDirs = [];
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+          modelName: 'gpt-5.4',
+          homeDir: '/tmp/relayclaw-home',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => {
+          createdHomeDirs.push(config.homeDir);
+          return {
+            async ensureStarted() {
+              return 'ws://127.0.0.1:19092';
+            },
+            stop() {},
+            getRecentLogs() {
+              return '';
+            },
+          };
+        },
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    await collect(
+      service.invoke('hello one', {
+        workingDirectory: '/tmp/project-a',
+        callbackEnv: {
+          OPENAI_API_KEY: 'same-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+    await collect(
+      service.invoke('hello two', {
+        workingDirectory: '/tmp/project-b',
+        callbackEnv: {
+          OPENAI_API_KEY: 'same-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+
+    assert.equal(createdHomeDirs.length, 1);
+    assert.match(createdHomeDirs[0], /scope-/);
+  });
+
+  it('creates a new scoped sidecar when auth scope changes', async () => {
+    const createdHomeDirs = [];
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+          modelName: 'gpt-5.4',
+          homeDir: '/tmp/relayclaw-home',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => {
+          createdHomeDirs.push(config.homeDir);
+          return {
+            async ensureStarted() {
+              return 'ws://127.0.0.1:19093';
+            },
+            stop() {},
+            getRecentLogs() {
+              return '';
+            },
+          };
+        },
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    await collect(
+      service.invoke('hello one', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-a',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+    await collect(
+      service.invoke('hello two', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-b',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+
+    assert.equal(createdHomeDirs.length, 2);
+    assert.notEqual(createdHomeDirs[0], createdHomeDirs[1]);
   });
 
   it('yields error before done when the provider times out', async () => {
