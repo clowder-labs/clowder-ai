@@ -276,10 +276,9 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     let needsRestart = false;
     for (const [name, value] of updates) {
       if (requiresRestartEnvVar(name)) {
-        // Sensitive connector fields: written to .env but NOT applied to process.env.
-        // Requires service restart to take effect.
+        // Connector adapters cache credentials at startup — flag restart needed.
+        // But still update process.env so test-connection reads fresh values.
         needsRestart = true;
-        continue;
       }
       if (value == null || value === '') delete process.env[name];
       else process.env[name] = value;
