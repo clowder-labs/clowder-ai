@@ -124,7 +124,7 @@ Commit: `abc1234`
 
 在往 clowder-ai 提 PR（场景 C）或 Hotfix（场景 F）时：
 
-1. **注册 PR tracking**（`cat_cafe_register_pr_tracking`）→ CI 自动追踪启动
+1. **注册 PR tracking**（`office_claw_register_pr_tracking`）→ CI 自动追踪启动
 2. **等 CI 结果**（条件性门禁）：
    - 仓库有 GitHub Actions → 等 CI 结果通知（pass/fail）
    - CI 失败 → 修复后 push，等下一轮通知

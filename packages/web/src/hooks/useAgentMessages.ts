@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
-import { getFriendlyAgentErrorMessage } from '@/hooks/agent-error-fallback';
+import {
+  getFriendlyAgentErrorMessage,
+  getSensitiveInputErrorToastContent,
+  isSensitiveInputAgentError,
+} from '@/hooks/agent-error-fallback';
 import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import { parseSystemInfoContent } from './parse-system-info';
 
@@ -18,6 +23,7 @@ interface AgentMsg {
   catId: string;
   content?: string;
   error?: string;
+  errorCode?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
   /** Tool name (for 'tool_use' events from backend) */
@@ -1017,6 +1023,16 @@ export function useAgentMessages() {
           timestamp: Date.now(),
           origin: 'stream',
         });
+        if (isSensitiveInputAgentError(msg)) {
+          const toast = getSensitiveInputErrorToastContent();
+          useToastStore.getState().addToast({
+            type: 'error',
+            title: toast.title,
+            message: toast.message,
+            threadId: useChatStore.getState().currentThreadId,
+            duration: 8000,
+          });
+        }
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {
           clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error

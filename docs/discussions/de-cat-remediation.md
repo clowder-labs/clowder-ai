@@ -4,7 +4,7 @@
 > 替换对照来源：`cat-config.json`  
 > 关联 PR：#218（skills 层去猫化 + 裁剪，已对齐命名规范）  
 > 日期：2026-04-07  
-> MCP 调用层暂不动。
+> MCP 调用层原计划暂不动；Phase M 作为例外专项已启动（仅改 tool name，不动 server 名和基础设施）。
 
 ---
 
@@ -435,6 +435,212 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
 
 ---
 
+## Phase M：MCP Tool Name 重命名（`cat_cafe_*` → `office_claw_*`）
+
+> 目标：用户在前端聊天界面不再看到 `cat_cafe_` 前缀的工具调用名。
+> 策略：只改 tool name 和 prompt 中的引用，不动 MCP server 名、capability 基础设施、文件路径。
+> 日期：2026-04-09
+> 关联讨论：砚砚（缅因猫）两轮 Review，确认精简方案可行。
+
+### 前提条件
+
+1. 运行时不使用 Codex provider（Codex 事件链会通过 `mcp:<server>/<tool>` 格式暴露 server 名，但我们不走该链路）
+2. 旧名不兼容可接受（`cat_cafe_*` 旧名调用会返回 tool not found）
+3. 所有运行时提示词中的工具名同步改成 `office_claw_*`
+
+### 命名映射
+
+| 旧前缀 | → 新前缀 |
+|--------|---------|
+| `cat_cafe_` | `office_claw_` |
+
+35 个工具全部适用此规则。例如：
+- `cat_cafe_post_message` → `office_claw_post_message`
+- `cat_cafe_search_evidence` → `office_claw_search_evidence`
+- `cat_cafe_load_skill` → `office_claw_load_skill`
+
+### 不改的部分（明确排除）
+
+| 不动 | 理由 |
+|------|------|
+| MCP server 注册名 `cat-cafe-*-mcp` | 传输层标识，用户/LLM 不感知 |
+| Client config key `cat-cafe-collab` 等 | 基础设施层，改动涉及 capability orchestrator + 迁移 |
+| ACP bridge serverId `'cat-cafe'` | 协议层，需要兼容策略，独立 PR |
+| `source: 'cat-cafe'` 类型标识 | 涉及 shared type + web type + capabilities.json，独立 PR |
+| env var `CAT_CAFE_*` | 运行时回调协议字段，独立专项 |
+| `cat_cafe_mcp` 请求参数（RelayClawAgentService） | API 协议字段，涉及 vendor Python 侧，独立 PR |
+| `cat-cafe-skills/` 目录名 | symlinks + scripts + 安装器，独立 PR |
+| `~/.cat-cafe/` / `.cat-cafe/` 路径 | 用户数据迁移，高风险，独立 PR |
+| `@cat-cafe/*` package name | npm workspace，独立 PR |
+| 内部函数名 `buildCatCafeMcp*` 等 | 不影响外部接口，代码卫生 PR |
+| `signal_*` / `limb_*` 工具名 | 不含 cat-cafe，不在范围 |
+
+### M1. MCP Tool 定义（8 个文件，35 个 tool name）
+
+| # | 文件 | 工具数 |
+|---|------|--------|
+| 1 | `packages/mcp-server/src/tools/callback-tools.ts` | 21 |
+| 2 | `packages/mcp-server/src/tools/session-chain-tools.ts` | 4 |
+| 3 | `packages/mcp-server/src/tools/schedule-tools.ts` | 5 |
+| 4 | `packages/mcp-server/src/tools/evidence-tools.ts` | 1 |
+| 5 | `packages/mcp-server/src/tools/reflect-tools.ts` | 1 |
+| 6 | `packages/mcp-server/src/tools/callback-memory-tools.ts` | 1 |
+| 7 | `packages/mcp-server/src/tools/rich-block-rules-tool.ts` | 1 |
+| 8 | `packages/mcp-server/src/tools/game-action-tools.ts` | 1 |
+
+每个文件中的 `name: 'cat_cafe_xxx'` → `name: 'office_claw_xxx'`。
+
+### M2. COMPACT_DESCRIPTIONS（1 个文件，35 个 key）
+
+文件：`packages/mcp-server/src/server-toolsets.ts`
+
+`COMPACT_DESCRIPTIONS` Record 的所有 key 从 `cat_cafe_*` → `office_claw_*`。
+
+### M3. System Prompt 工具名引用
+
+| # | 文件 | 位置 | 改动量 |
+|---|------|------|--------|
+| 1 | `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` | L198-218 MCP_TOOLS_SECTION | ~15 处 |
+| 2 | `packages/api/src/domains/cats/services/session/SessionBootstrap.ts` | L207-220 | ~6 处 |
+| 3 | `packages/api/src/domains/cats/services/context/rich-block-rules.ts` | 注释 | 2 处 |
+| 4 | `packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts` | L943 ACP skill hint | 2 处 |
+| 5 | `packages/api/src/domains/memory/SqliteEvidenceStore.ts` | L265,272 drill-down hint | 2 处 |
+
+### M3b. multi_mention tool description 补充 catId 映射
+
+文件：`packages/mcp-server/src/tools/callback-tools.ts`
+
+`office_claw_multi_mention` 的 targets schema describe 和 tool description 补充了内置 catId 映射
+（`assistant`=通用智能体, `office`=办公智能体, `agentteams`=编码智能体），
+避免 LLM 误用显示名导致 400 错误暴露给用户。同时将描述中 `cats` 措辞替换为 `agents`。
+
+### M4. 测试文件
+
+| # | 文件 | 改动量 |
+|---|------|--------|
+| 1 | `packages/mcp-server/test/tool-registration.test.js` | 35 处（EXPECTED_TOOLS 列表） |
+| 2 | `packages/api/test/opencode-mcp-isolation.test.js` | ~17 处 |
+| 3 | `packages/api/test/system-prompt-builder.test.js` | ~6 处 |
+| 4 | `packages/api/test/invoke-single-cat.test.js` | 3 处 |
+| 5 | `packages/api/test/session-bootstrap.test.js` | 5 处 |
+| 6 | `packages/api/test/memory/search-mode-split.test.js` | 3 处 |
+| 7 | `packages/api/test/opencode-omoc-isolation.test.js` | 4 处 |
+| 8 | `packages/api/test/dare-agent-service.test.js` | 1 处（namespace prefix 验证） |
+| 9 | `packages/api/test/f065-hotfix.test.js` | 1 处 |
+| 10 | `packages/mcp-server/test/callback-tools.test.js` | 1 处 |
+| 11 | `packages/mcp-server/test/evidence-tools.test.js` | 1 处 |
+| 12 | `packages/mcp-server/test/reflect-tools.test.js` | 1 处 |
+
+### M5. Skill 文档（tool name 引用）
+
+| # | 文件 | 改动量 |
+|---|------|--------|
+| 1 | `cat-cafe-skills/rich-messaging/SKILL.md` | 1 处 |
+| 2 | `cat-cafe-skills/collaborative-thinking/SKILL.md` | 1 处 |
+| 3 | `cat-cafe-skills/refs/rich-blocks.md` | 1 处 |
+| 4 | `cat-cafe-skills/refs/cicd-tracking.md` | 1 处 |
+| 5 | `cat-cafe-skills/refs/shared-rules.md` | 2 处 |
+
+### M6. Feature/架构文档（tool name 引用）
+
+> **已回退**：11 个历史文档保留原始 `cat_cafe_*` 名称（记录当时事实，改了反而失真）。
+> 仅保留本文件自身更新。
+
+| # | 文件 | 状态 |
+|---|------|------|
+| 1-11 | `docs/features/F073,F079,F086,...` + `docs/architecture/acp-configuration.md` | 已回退（保留历史名称） |
+| 12 | `docs/discussions/de-cat-remediation.md` | 本文件自身更新 |
+
+### 完整工具名映射表（35 个）
+
+| # | 旧名 | → 新名 |
+|---|------|--------|
+| 1 | `cat_cafe_post_message` | `office_claw_post_message` |
+| 2 | `cat_cafe_get_pending_mentions` | `office_claw_get_pending_mentions` |
+| 3 | `cat_cafe_ack_mentions` | `office_claw_ack_mentions` |
+| 4 | `cat_cafe_get_thread_context` | `office_claw_get_thread_context` |
+| 5 | `cat_cafe_list_threads` | `office_claw_list_threads` |
+| 6 | `cat_cafe_feat_index` | `office_claw_feat_index` |
+| 7 | `cat_cafe_cross_post_message` | `office_claw_cross_post_message` |
+| 8 | `cat_cafe_list_tasks` | `office_claw_list_tasks` |
+| 9 | `cat_cafe_list_skills` | `office_claw_list_skills` |
+| 10 | `cat_cafe_load_skill` | `office_claw_load_skill` |
+| 11 | `cat_cafe_update_task` | `office_claw_update_task` |
+| 12 | `cat_cafe_create_rich_block` | `office_claw_create_rich_block` |
+| 13 | `cat_cafe_generate_document` | `office_claw_generate_document` |
+| 14 | `cat_cafe_request_permission` | `office_claw_request_permission` |
+| 15 | `cat_cafe_check_permission_status` | `office_claw_check_permission_status` |
+| 16 | `cat_cafe_register_pr_tracking` | `office_claw_register_pr_tracking` |
+| 17 | `cat_cafe_update_workflow` | `office_claw_update_workflow` |
+| 18 | `cat_cafe_multi_mention` | `office_claw_multi_mention` |
+| 19 | `cat_cafe_start_vote` | `office_claw_start_vote` |
+| 20 | `cat_cafe_update_bootcamp_state` | `office_claw_update_bootcamp_state` |
+| 21 | `cat_cafe_bootcamp_env_check` | `office_claw_bootcamp_env_check` |
+| 22 | `cat_cafe_get_rich_block_rules` | `office_claw_get_rich_block_rules` |
+| 23 | `cat_cafe_submit_game_action` | `office_claw_submit_game_action` |
+| 24 | `cat_cafe_list_scheduled_tasks` | `office_claw_list_scheduled_tasks` |
+| 25 | `cat_cafe_list_schedule_templates` | `office_claw_list_schedule_templates` |
+| 26 | `cat_cafe_preview_scheduled_task` | `office_claw_preview_scheduled_task` |
+| 27 | `cat_cafe_register_scheduled_task` | `office_claw_register_scheduled_task` |
+| 28 | `cat_cafe_remove_scheduled_task` | `office_claw_remove_scheduled_task` |
+| 29 | `cat_cafe_retain_memory_callback` | `office_claw_retain_memory_callback` |
+| 30 | `cat_cafe_search_evidence` | `office_claw_search_evidence` |
+| 31 | `cat_cafe_reflect` | `office_claw_reflect` |
+| 32 | `cat_cafe_list_session_chain` | `office_claw_list_session_chain` |
+| 33 | `cat_cafe_read_session_events` | `office_claw_read_session_events` |
+| 34 | `cat_cafe_read_session_digest` | `office_claw_read_session_digest` |
+| 35 | `cat_cafe_read_invocation_detail` | `office_claw_read_invocation_detail` |
+
+### 统计
+
+| 类别 | 文件数 | 改动点 |
+|------|--------|--------|
+| MCP tool 定义 | 8 | 35 |
+| COMPACT_DESCRIPTIONS | 1 | 35 |
+| System prompt / hint | 5 | ~27 |
+| 测试 | 12 | ~78 |
+| Skill 文档 | 5 | 6 |
+| Feature 文档 | 12 | ~24 |
+| **合计** | **~43 文件** | **~205 处** |
+
+### 验收标准
+
+1. **先验检查**：确认运行时未启用 Codex provider（避免 server 名通过 `mcp:<server>/<tool>` 泄露）
+2. **Phase M 目标文件 grep**：对 M1-M3 涉及的 14 个源文件逐一检查，`cat_cafe_` 应为零结果：
+   ```bash
+   grep -l 'cat_cafe_' \
+     packages/mcp-server/src/tools/callback-tools.ts \
+     packages/mcp-server/src/tools/session-chain-tools.ts \
+     packages/mcp-server/src/tools/schedule-tools.ts \
+     packages/mcp-server/src/tools/evidence-tools.ts \
+     packages/mcp-server/src/tools/reflect-tools.ts \
+     packages/mcp-server/src/tools/callback-memory-tools.ts \
+     packages/mcp-server/src/tools/rich-block-rules-tool.ts \
+     packages/mcp-server/src/tools/game-action-tools.ts \
+     packages/mcp-server/src/server-toolsets.ts \
+     packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts \
+     packages/api/src/domains/cats/services/context/rich-block-rules.ts \
+     packages/api/src/domains/cats/services/session/SessionBootstrap.ts \
+     packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts \
+     packages/api/src/domains/memory/SqliteEvidenceStore.ts
+   ```
+   预期：无输出（零命中）。**注意**：不扫整个 `packages/api/src/`，因为 `cat_cafe_mcp`（RelayClawAgentService）等协议字段不在本次 scope 内。
+3. **工具注册面校验**：`tool-registration.test.js` 的 EXPECTED_TOOLS 列表应只包含 `office_claw_*`，不再包含 `cat_cafe_*`
+4. `pnpm check` 通过
+5. `pnpm test` 全绿
+6. 新建对话，触发 `office_claw_post_message`、`office_claw_search_evidence`、`office_claw_load_skill`，确认前端 CliOutputBlock 显示新名
+
+### 后续 PR 路线图（不在本次 scope）
+
+| PR | 内容 | 前置条件 |
+|----|------|---------|
+| Phase M-2 | MCP server 注册名 `cat-cafe-*` → `office-claw-*` + capability 迁移 | 本 PR 合入 |
+| Phase M-3 | `source: 'cat-cafe'` → `'builtin'`（shared type + web + capabilities.json 迁移） | M-2 合入 |
+| Phase M-4 | env var `CAT_CAFE_*` 重命名 | M-3 合入 |
+| Phase M-5 | 文件路径 `cat-cafe-skills/` + `~/.cat-cafe/` + `@cat-cafe/*` package | M-4 合入 |
+
+---
+
 ## 整改统计
 
 | Phase | 文件数 | 改动点 | 优先级 | 状态 |
@@ -444,6 +650,7 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
 | A12（governance-pack + sentinel + 3 md） | 4 文件 | 10 处 | P0 | ✅ 已执行 |
 | B（前端） | ~33 文件 | 45 处 | P0-P1 | 📋 已列出，由前端执行 |
 | C（运行时数据清理） | 见下方 | — | P0 | 📋 部署时执行 |
+| **M（MCP tool name 重命名）** | **~43 文件** | **~205 处** | **P0** | **✅ 已执行** |
 | 测试同步 | ~20 文件 | 跟随主代码 | P1 | 📋 待同步 |
 | 注释清理 | ~30 处 | 不影响用户 | P2 | — |
 
@@ -455,6 +662,13 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
 - P1-3: ContextAssembler 铲屎官标签 → 新增 A1-ext
 - P1-4: 前端遗漏（worker/commands/socket）→ 新增 B6
 - P2: CAT_CONFIGS id 兼容策略 → A2 补充决策表
+
+缅因猫 Review Phase M（v1→v2→v3→精简版）于 2026-04-09：
+- v1 Review: 发现 4 个 P1（ACP bridge / RelayClaw / config adapters / capabilities 迁移）+ 2 个 P2
+- v2 Review: 确认 v2 补齐了 P1，新增 1 个 P1（source type 链）+ 2 个 P2
+- 最终共识：精简为"只改 tool name"，scope 大幅缩小，无基础设施风险
+- 文档 Review: P1 验证命令会误报（扫整个 api/src 会命中 scope 外的 `cat_cafe_mcp`）→ 已修正为精确文件列表
+- 文档 Review: P2 header "MCP 调用层暂不动" 与 Phase M 冲突 → 已修正
 
 ---
 
@@ -517,3 +731,10 @@ this.config.channelId ?? 'catcafe'   // ← fallback 默认值
 1. 全局搜索前端 build 产物关键词：`猫猫|猫|喵|铲屎官|🐾|布偶|缅因|暹罗`
 2. 逐页面检查 UI 文案（对照上表 F01-F38）
 3. 运行前端测试确认无 regression
+
+### Phase M 验证
+1. **先验检查**：确认运行时未启用 Codex provider
+2. **精确文件 grep**：对 M1-M3 的 13 个目标源文件执行 `grep -l 'cat_cafe_'`，预期零命中
+3. **工具注册面校验**：`tool-registration.test.js` 的 EXPECTED_TOOLS 只含 `office_claw_*`
+4. `pnpm check && pnpm test` 全绿
+5. 新建对话，触发 `office_claw_post_message` / `office_claw_search_evidence` / `office_claw_load_skill`，确认前端显示新名

@@ -7,7 +7,7 @@
  *
  * Full rules available via (in priority order):
  *   1. Skill: cat-cafe-skills/using-rich-blocks/SKILL.md (primary SOT)
- *   2. MCP tool: cat_cafe_get_rich_block_rules (fallback for Claude)
+ *   2. MCP tool: office_claw_get_rich_block_rules (fallback for Claude)
  *   3. HTTP endpoint: GET /api/callbacks/rich-block-rules (fallback for Codex/Gemini)
  *
  * System prompts contain only a short reference.
@@ -71,7 +71,7 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
 /**
  * Condensed rich block reference for injection into system prompts.
  * Full rules: load `using-rich-blocks` skill (primary).
- * Fallback: MCP tool `cat_cafe_get_rich_block_rules` or HTTP endpoint.
+ * Fallback: MCP tool `office_claw_get_rich_block_rules` or HTTP endpoint.
  */
 export const RICH_BLOCK_SHORT = `富消息块：结构化信息用富块，普通对话不用。先写 1-2 句摘要再发。
 ⚠️ 字段名是 "kind"（不是 "type"！），必须有 "v": 1 和唯一 id。

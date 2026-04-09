@@ -135,8 +135,17 @@ export class ConnectorRouter {
     const patterns = new Map<string, string[]>();
     for (const catId of catRegistry.getAllIds()) {
       const entry = catRegistry.tryGet(catId);
-      if (entry?.config.mentionPatterns && entry.config.mentionPatterns.length > 0) {
-        patterns.set(catId, [...entry.config.mentionPatterns]);
+      if (!entry?.config) continue;
+
+      const derived = new Set<string>(entry.config.mentionPatterns ?? []);
+      for (const raw of [entry.config.displayName, entry.config.name, entry.config.nickname, entry.config.id, catId]) {
+        if (typeof raw !== 'string') continue;
+        const value = raw.trim();
+        if (!value) continue;
+        derived.add(value.startsWith('@') ? value : `@${value}`);
+      }
+      if (derived.size > 0) {
+        patterns.set(catId, [...derived]);
       }
     }
     return patterns;
@@ -322,6 +331,17 @@ export class ConnectorRouter {
     // Parse @-mentions to determine target cat
     const mentionPatterns = this.getMentionPatterns();
     const { targetCatId } = parseMentions(resolvedText, mentionPatterns, this.opts.defaultCatId);
+    log.debug(
+      {
+        connectorId,
+        externalChatId,
+        targetCatId,
+        defaultCatId: this.opts.defaultCatId,
+        hasAtSign: resolvedText.includes('@'),
+        contentLen: resolvedText.length,
+      },
+      '[ConnectorRouter] Mention parse result',
+    );
 
     const messageTimestamp = Date.now();
     const stored = await messageStore.append({

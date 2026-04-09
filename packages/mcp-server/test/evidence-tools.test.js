@@ -1,6 +1,6 @@
 /**
  * MCP Evidence Tools Tests
- * 测试 cat_cafe_search_evidence 的参数编码与降级提示行为。
+ * 测试 office_claw_search_evidence 的参数编码与降级提示行为。
  */
 
 import assert from 'node:assert/strict';
