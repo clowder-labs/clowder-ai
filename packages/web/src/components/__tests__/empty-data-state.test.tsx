@@ -54,4 +54,14 @@ describe('EmptyDataState', () => {
 
     expect(container.querySelector('button')).toBeNull();
   });
+
+  it('renders a custom title when provided', async () => {
+    await act(async () => {
+      root.render(React.createElement(EmptyDataState, { title: '暂无模型' }));
+    });
+
+    const title = container.querySelector('[data-testid="empty-data-title"]') as HTMLParagraphElement | null;
+    expect(title).not.toBeNull();
+    expect(title?.textContent).toBe('暂无模型');
+  });
 });

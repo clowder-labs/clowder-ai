@@ -8,6 +8,7 @@ import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
@@ -15,7 +16,7 @@ import { useConfirm } from './useConfirm';
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
-const EMPTY_TEXT = '暂无模型信息';
+const EMPTY_STATE_TITLE = '暂无模型';
 const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
@@ -585,7 +586,11 @@ export function ModelsPanel() {
             </div>
           )}
 
-          {showEmptyData && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>}
+          {showEmptyData && (
+            <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-empty-state">
+              <EmptyDataState title={EMPTY_STATE_TITLE} />
+            </div>
+          )}
 
           {showNoResults && (
             <div
