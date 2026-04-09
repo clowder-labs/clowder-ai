@@ -164,17 +164,9 @@
   --card-disabled-text: #c2c2c2;
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: #666666;
   --menu-hover-bg: rgba(255, 255, 255, 0.72);
-  --menu-hover-border: transparent;
-  --menu-hover-text: #191919;
   --menu-active-bg: #ffffff;
-  --menu-active-border: #e6e6e6;
-  --menu-active-text: #191919;
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: #c2c2c2;
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: #ffffff;
   --overlay-border: #e6e6e6;
@@ -210,7 +202,7 @@
 
 [data-ui-theme="warm"] {
   --surface-app: linear-gradient(180deg, rgba(255, 247, 241, 0.6) 0%, rgba(255, 250, 245, 0.6) 100%);
-  --surface-sidebar: #fff5f2;
+  --surface-sidebar: linear-gradient(180deg, #faecdc 0%, #fff8f1 100%);
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
   --surface-card-muted: #fbf5ec;
@@ -234,6 +226,10 @@
   --accent-primary: var(--color-cocreator-primary);
   --accent-soft: rgba(255, 221, 210, 0.45);
   --accent-soft-strong: #ffddd2;
+
+  --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
+  --status-badge-unconfigured-surface: #e6e6e6;
+  --status-badge-unconfigured-text: var(--text-primary);
 
   --state-success-surface: rgba(230, 242, 213, 1);
   --state-success-text: #029931;
@@ -259,17 +255,9 @@
   --card-disabled-text: var(--text-disabled);
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: var(--text-secondary);
   --menu-hover-bg: color-mix(in srgb, var(--surface-panel) 72%, transparent);
-  --menu-hover-border: transparent;
-  --menu-hover-text: var(--text-primary);
   --menu-active-bg: var(--surface-panel);
-  --menu-active-border: var(--border-default);
-  --menu-active-text: var(--text-primary);
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: var(--text-disabled);
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: var(--surface-panel);
   --overlay-border: var(--border-default);
@@ -362,6 +350,10 @@
   --accent-soft: #eef0ff;
   --accent-soft-strong: #ddeeff;
 
+  --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
+  --status-badge-unconfigured-surface: #f0f0f0;
+  --status-badge-unconfigured-text: var(--text-label-secondary);
+
   --state-success-surface: rgba(230, 242, 213, 1);
   --state-success-text: #6a8f22;
   --state-error-surface: rgba(252, 227, 225, 1);
@@ -386,17 +378,9 @@
   --card-disabled-text: var(--text-disabled);
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: var(--text-secondary);
   --menu-hover-bg: color-mix(in srgb, var(--surface-panel) 72%, transparent);
-  --menu-hover-border: transparent;
-  --menu-hover-text: var(--text-primary);
   --menu-active-bg: var(--surface-panel);
-  --menu-active-border: var(--border-default);
-  --menu-active-text: var(--text-primary);
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: var(--text-disabled);
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: var(--surface-panel);
   --overlay-border: var(--border-default);
@@ -1252,6 +1236,25 @@ select:-webkit-autofill:focus {
     font-weight: 600;
   }
 
+  .ui-status-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .ui-status-badge-configured {
+    background: var(--status-badge-configured-surface);
+    color: var(--state-success-text);
+  }
+
+  .ui-status-badge-unconfigured {
+    background: var(--status-badge-unconfigured-surface);
+    color: var(--status-badge-unconfigured-text);
+  }
+
   .ui-status-muted {
     border: var(--border-width-default) solid var(--border-default);
     background: var(--surface-card-muted);
@@ -1331,49 +1334,36 @@ select:-webkit-autofill:focus {
     min-height: var(--control-height-sm);
     border-radius: var(--radius-sm);
     background: var(--menu-bg);
-    color: var(--menu-text);
     font-size: 14px;
     transition: var(--menu-transition);
     border: none;
   }
 
   .ui-menu-item:hover {
-    border-color: var(--menu-hover-border);
     background: var(--menu-hover-bg);
-    color: var(--menu-hover-text);
   }
 
   .ui-menu-item:disabled,
   .ui-menu-item-disabled {
-    border-color: var(--menu-disabled-border);
     background: var(--menu-disabled-bg);
-    color: var(--menu-disabled-text);
     cursor: not-allowed;
     pointer-events: none;
   }
 
   .ui-menu-item-active {
-    border-color: var(--menu-active-border);
     background: var(--menu-active-bg);
-    color: var(--menu-active-text);
   }
 
   .ui-menu-item-active:hover {
-    border-color: var(--menu-active-border);
     background: var(--menu-active-bg);
-    color: var(--menu-active-text);
   }
 
   .ui-menu-item-inactive {
-    border-color: var(--menu-border);
     background: var(--menu-bg);
-    color: var(--menu-text);
   }
 
   .ui-menu-item-inactive:hover {
-    border-color: var(--menu-hover-border);
     background: var(--menu-hover-bg);
-    color: var(--menu-hover-text);
   }
 
   .ui-thread-item {

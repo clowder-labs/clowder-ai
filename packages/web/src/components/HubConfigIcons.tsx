@@ -109,24 +109,6 @@ export function TriangleAlertIcon() {
   );
 }
 
-/** Solid green circle — "configured / connected" status indicator */
-export function StatusDotConnected() {
-  return (
-    <svg className="w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="5" fill="#16A34A" />
-    </svg>
-  );
-}
-
-/** Hollow gray circle — "not configured" status indicator */
-export function StatusDotIdle() {
-  return (
-    <svg className="w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="none" stroke="#9CA3AF" strokeWidth="2" />
-    </svg>
-  );
-}
-
 /** QR code icon for the "generate QR" button */
 export function QrCodeIcon() {
   return (
