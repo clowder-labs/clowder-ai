@@ -16,6 +16,8 @@ export interface ConnectorHubRoutesOptions {
   startWeixinPolling?: () => void;
   /** Persist + activate a newly acquired WeChat bot token */
   activateWeixinBotToken?: (token: string) => Promise<void> | void;
+  /** Clear active WeChat bot token and persisted local session */
+  disconnectWeixinBotToken?: () => Promise<void> | void;
   /** F134 Phase D: Permission store for group whitelist + admin management */
   permissionStore?: IConnectorPermissionStore | null;
 }
@@ -57,6 +59,10 @@ interface PlatformDef {
   docsUrl: string;
   /** Steps displayed in the guided wizard — may be mode-filtered */
   steps: PlatformStepDef[];
+}
+
+export function normalizeFeishuConnectionMode(value: string | undefined): 'webhook' | 'websocket' {
+  return value === 'websocket' ? 'websocket' : 'webhook';
 }
 
 export const CONNECTOR_PLATFORMS: PlatformDef[] = [
@@ -185,9 +191,8 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
       configured = platform.fields.every((f) => {
         if (f.optional) return true;
         if (f.requiredWhen) {
-          // Normalize to match runtime: only 'websocket' passes through, everything else → 'webhook'
           const rawCondition = env[f.requiredWhen.envName];
-          const conditionValue = rawCondition === 'websocket' ? 'websocket' : 'webhook';
+          const conditionValue = normalizeFeishuConnectionMode(rawCondition);
           if (conditionValue !== f.requiredWhen.value) return true;
         }
         const raw = env[f.envName];
@@ -244,6 +249,84 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       weixinStatus.configured = adapter != null && adapter.hasBotToken() && adapter.isPolling();
     }
     return { platforms: status };
+  });
+
+  app.post('/api/connector/test/feishu', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) {
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+    }
+
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const readInput = (key: string): string | undefined => {
+      const value = body[key];
+      return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+    };
+    const readEnv = (key: string): string | undefined => {
+      const value = process.env[key];
+      return value && !value.startsWith('(未设置') ? value : undefined;
+    };
+
+    const appId = readInput('FEISHU_APP_ID') ?? readEnv('FEISHU_APP_ID');
+    const appSecret = readInput('FEISHU_APP_SECRET') ?? readEnv('FEISHU_APP_SECRET');
+    const connectionMode = normalizeFeishuConnectionMode(
+      readInput('FEISHU_CONNECTION_MODE') ?? readEnv('FEISHU_CONNECTION_MODE'),
+    );
+    const verificationToken =
+      readInput('FEISHU_VERIFICATION_TOKEN') ?? readEnv('FEISHU_VERIFICATION_TOKEN');
+
+    if (!appId || !appSecret) {
+      reply.status(400);
+      return { ok: false, error: '缺少 FEISHU_APP_ID 或 FEISHU_APP_SECRET' };
+    }
+
+    try {
+      const { FeishuTokenManager } = await import('../infrastructure/connectors/adapters/FeishuTokenManager.js');
+      const tokenManager = new FeishuTokenManager({ appId, appSecret });
+      const tenantAccessToken = await tokenManager.getTenantAccessToken();
+
+      const botInfoRes = await fetch('https://open.feishu.cn/open-apis/bot/v3/info', {
+        headers: { Authorization: `Bearer ${tenantAccessToken}` },
+      });
+      const botInfoData = (await botInfoRes.json().catch(() => ({}))) as {
+        code?: number;
+        msg?: string;
+        bot?: { open_id?: string; name?: string; app_name?: string };
+      };
+
+      if (!botInfoRes.ok || botInfoData.code) {
+        reply.status(502);
+        return {
+          ok: false,
+          error: '获取机器人信息失败，请确认已在飞书开放平台开启机器人能力',
+          details: botInfoData.msg ?? `HTTP ${botInfoRes.status}`,
+        };
+      }
+
+      const warnings: string[] = [];
+      if (connectionMode === 'webhook' && !verificationToken) {
+        warnings.push('当前为 webhook 模式，但未提供 Verification Token；事件订阅仍无法完成。');
+      }
+
+      return {
+        ok: true,
+        message: '飞书应用认证成功，机器人信息可访问。',
+        connectionMode,
+        warnings,
+        bot: {
+          openId: botInfoData.bot?.open_id ?? null,
+          name: botInfoData.bot?.name ?? botInfoData.bot?.app_name ?? null,
+        },
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      reply.status(502);
+      return {
+        ok: false,
+        error: '飞书连接测试失败，请检查 App ID / App Secret 是否正确',
+        details: message,
+      };
+    }
   });
 
   // ── F137: WeChat QR code login routes ──
@@ -320,6 +403,22 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     app.log.info('[WeChat QR] Manual activate — polling started');
 
     return { ok: true, polling: adapter.isPolling() };
+  });
+
+  app.post('/api/connector/weixin/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const adapter = opts.weixinAdapter;
+    if (!adapter || !opts.disconnectWeixinBotToken) {
+      reply.status(503);
+      return { error: 'WeChat adapter not available (connector gateway not started)' };
+    }
+
+    await opts.disconnectWeixinBotToken();
+    app.log.info('[WeChat QR] Manual disconnect — bot_token cleared, polling stopped');
+
+    return { ok: true, configured: adapter.hasBotToken() && adapter.isPolling() };
   });
 
   // ── F134 Phase D: Connector Permission API ──

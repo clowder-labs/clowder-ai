@@ -170,6 +170,76 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
   });
 });
 
+describe('POST /api/connector/weixin/disconnect', () => {
+  it('returns 503 when disconnect handler is unavailable', async () => {
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      weixinAdapter: {
+        hasBotToken() {
+          return true;
+        },
+        isPolling() {
+          return true;
+        },
+      },
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/connector/weixin/disconnect',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 503);
+    await app.close();
+  });
+
+  it('clears active WeChat session through disconnectWeixinBotToken', async () => {
+    let connected = true;
+    let disconnectCalls = 0;
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      weixinAdapter: {
+        hasBotToken() {
+          return connected;
+        },
+        isPolling() {
+          return connected;
+        },
+      },
+      disconnectWeixinBotToken: async () => {
+        disconnectCalls += 1;
+        connected = false;
+      },
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/connector/weixin/disconnect',
+      headers: AUTH_HEADERS,
+    });
+
+    const body = JSON.parse(res.body);
+    assert.equal(res.statusCode, 200);
+    assert.equal(disconnectCalls, 1);
+    assert.deepEqual(body, { ok: true, configured: false });
+
+    await app.close();
+  });
+});
+
 describe('GET /api/connector/hub-threads', () => {
   it('returns 401 when only a spoofed userId query param is provided', async () => {
     const { app } = await buildApp();
