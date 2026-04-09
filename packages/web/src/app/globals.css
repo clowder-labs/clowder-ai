@@ -94,7 +94,7 @@
   /* Connector list item tokens */
   --connector-tab-radius: 8px;
   --connector-tab-bg-default: #ffffff;
-  --connector-tab-border-default: #f1e7df;
+  --connector-tab-border-default: #f0f0f0;
   --connector-tab-bg-selected: #fff5f2;
   --connector-tab-border-selected: rgba(226, 149, 120, 0.4);
 
@@ -209,7 +209,7 @@
 }
 
 [data-ui-theme="warm"] {
-  --surface-app: var(--color-base-white);
+  --surface-app: linear-gradient(180deg, rgba(255, 247, 241, 0.6) 0%, rgba(255, 250, 245, 0.6) 100%);
   --surface-sidebar: #fff5f2;
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
@@ -226,7 +226,7 @@
   --text-inverse: #ffffff;
   --text-accent: var(--color-cocreator-primary);
 
-  --border-default: #f1e7df;
+  --border-default: #e6e6e6;
   --border-soft: #ffddd2;
   --border-strong: #e8dccf;
   --border-accent: rgba(226, 149, 120, 0.4);
@@ -299,10 +299,10 @@
   --spacing-unit: var(--space-3);
 
   --connector-tab-radius: 8px;
-  --connector-tab-bg-default: #fafafa;
-  --connector-tab-border-default: var(--border-default);
+  --connector-tab-bg-default: transparent;
+  --connector-tab-border-default: #f0f0f0;
   --connector-tab-bg-selected: var(--surface-panel);
-  --connector-tab-border-selected: var(--border-accent);
+  --connector-tab-border-selected: #cc6d1a;
 
   --agent-preset-badge-bg: var(--surface-card-muted);
   --agent-preset-badge-text: var(--text-secondary);
@@ -546,9 +546,8 @@ select:-webkit-autofill:focus {
   }
 
   .ui-panel {
-    border: var(--border-width-default) solid var(--border-default);
+    border: var(--border-width-default) solid #dbdbdb;
     border-radius: var(--radius-lg);
-    background: var(--surface-panel);
   }
 
   .ui-card {
