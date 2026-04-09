@@ -330,11 +330,32 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
   }
 
   if (patch.displayName !== undefined) {
+    // Capture old displayName before mutation so we can update mentionPatterns
+    const oldDisplayName = located.isDefaultVariant
+      ? breed.displayName
+      : (variant.displayName ?? breed.displayName);
+
     if (located.isDefaultVariant) {
       breed.displayName = patch.displayName;
       delete variant.displayName;
     } else {
       variant.displayName = patch.displayName;
+    }
+
+    // Auto-sync mentionPatterns when displayName changes (unless caller
+    // is also explicitly setting mentionPatterns in the same patch).
+    if (patch.mentionPatterns === undefined) {
+      const patterns = located.isDefaultVariant
+        ? breed.mentionPatterns
+        : (variant.mentionPatterns ?? breed.mentionPatterns);
+      const oldPattern = `@${oldDisplayName}`.toLowerCase();
+      const newPattern = `@${patch.displayName}`;
+      const idx = patterns.findIndex((p: string) => p.toLowerCase() === oldPattern);
+      if (idx >= 0) {
+        patterns[idx] = newPattern;
+      } else if (!patterns.some((p: string) => p.toLowerCase() === newPattern.toLowerCase())) {
+        patterns.push(newPattern);
+      }
     }
   }
 

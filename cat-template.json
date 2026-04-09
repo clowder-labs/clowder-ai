@@ -46,7 +46,7 @@
         "primary": "#2B5797",
         "secondary": "#C0D0E8"
       },
-      "mentionPatterns": ["@office", "@小九"],
+      "mentionPatterns": ["@office", "@小九", "@办公智能体"],
       "roleDescription": "商务办公专家，擅长文档撰写、会议纪要、项目管理和数据分析",
       "teamStrengths": "文档撰写、会议纪要、项目管理、数据分析",
       "caution": null,
@@ -89,7 +89,7 @@
         "primary": "#E8913A",
         "secondary": "#FFF0DD"
       },
-      "mentionPatterns": ["@assistant", "@小理"],
+      "mentionPatterns": ["@assistant", "@小理", "@通用智能体"],
       "roleDescription": "个人助理，擅长日常问答、信息整理、创意写作和生活建议",
       "teamStrengths": "日常问答、信息整理、创意写作、生活建议",
       "caution": null,
@@ -132,7 +132,7 @@
         "primary": "#4CAF50",
         "secondary": "#E8F5E9"
       },
-      "mentionPatterns": ["@agentteams", "@协作引擎", "@小协", "@agent-teams"],
+      "mentionPatterns": ["@agentteams", "@协作引擎", "@小协", "@agent-teams", "@编码智能体"],
       "roleDescription": "多智能体协作引擎，擅长复杂任务拆解、多步骤编排和工具链调度",
       "teamStrengths": "复杂任务分解、多步骤编排、工具链调度",
       "caution": null,
