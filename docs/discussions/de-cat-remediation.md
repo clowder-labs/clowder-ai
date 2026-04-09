@@ -605,7 +605,7 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
 ### 验收标准
 
 1. **先验检查**：确认运行时未启用 Codex provider（避免 server 名通过 `mcp:<server>/<tool>` 泄露）
-2. **Phase M 目标文件 grep**：对 M1-M3 涉及的 13 个源文件逐一检查，`cat_cafe_` 应为零结果：
+2. **Phase M 目标文件 grep**：对 M1-M3 涉及的 14 个源文件逐一检查，`cat_cafe_` 应为零结果：
    ```bash
    grep -l 'cat_cafe_' \
      packages/mcp-server/src/tools/callback-tools.ts \
@@ -618,6 +618,7 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
      packages/mcp-server/src/tools/game-action-tools.ts \
      packages/mcp-server/src/server-toolsets.ts \
      packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts \
+     packages/api/src/domains/cats/services/context/rich-block-rules.ts \
      packages/api/src/domains/cats/services/session/SessionBootstrap.ts \
      packages/api/src/domains/cats/services/agents/invocation/invoke-single-cat.ts \
      packages/api/src/domains/memory/SqliteEvidenceStore.ts
@@ -648,7 +649,7 @@ PR #218 删除了 `writing-plans`、`tdd`、`worktree` 三个 skill，但 L942-9
 | A12（governance-pack + sentinel + 3 md） | 4 文件 | 10 处 | P0 | ✅ 已执行 |
 | B（前端） | ~33 文件 | 45 处 | P0-P1 | 📋 已列出，由前端执行 |
 | C（运行时数据清理） | 见下方 | — | P0 | 📋 部署时执行 |
-| **M（MCP tool name 重命名）** | **~43 文件** | **~205 处** | **P0** | **📋 待执行** |
+| **M（MCP tool name 重命名）** | **~43 文件** | **~205 处** | **P0** | **✅ 已执行** |
 | 测试同步 | ~20 文件 | 跟随主代码 | P1 | 📋 待同步 |
 | 注释清理 | ~30 处 | 不影响用户 | P2 | — |
 

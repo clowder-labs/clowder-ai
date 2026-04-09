@@ -1113,7 +1113,7 @@ describe('DareAgentService', () => {
     const bridgePath = args[mcpIdx + 1];
     const bridgeConfig = JSON.parse(readFileSync(bridgePath, 'utf8'));
     const names = bridgeConfig.servers.map((item) => item.name).sort();
-    assert.deepEqual(names, ['cat_cafe', 'office_claw_2', 'mcp_123_weird_name']);
+    assert.deepEqual(names, ['cat_cafe', 'cat_cafe_2', 'mcp_123_weird_name']);
   });
 
   test('injects bundled Python Scripts into dare child PATH', async () => {
