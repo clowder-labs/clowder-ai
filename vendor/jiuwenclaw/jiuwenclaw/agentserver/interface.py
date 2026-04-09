@@ -46,6 +46,7 @@ from jiuwenclaw.agentserver.tools.audio_tools import (
 from jiuwenclaw.agentserver.tools.image_tools import visual_question_answering
 from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
 from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus, TodoToolkit
+from jiuwenclaw.agentserver.tools.file_tools import FileToolkit
 from jiuwenclaw.agentserver.tools.memory_tools import (
     init_memory_manager_async,
     memory_search,
@@ -190,6 +191,7 @@ class JiuWenClaw:
         self._memory_tools_registered: bool = False
         self._task_memory_tools_registered: bool = False
         self._mcp_tools_registered: bool = False
+        self._file_tools_registered: bool = False
         self._video_tool_registered: bool = False
         self._send_file_tool_registered: bool = False
         self._xiaoyi_phone_tools_registered: bool = False
@@ -414,6 +416,18 @@ class JiuWenClaw:
             Runner.resource_mgr.add_tool(mcp_tool)
             self._instance.ability_manager.add(mcp_tool.card)
         self._mcp_tools_registered = True
+
+        # add file tools (read/write/edit)
+        try:
+            file_toolkit = FileToolkit()
+            for tool in file_toolkit.get_tools():
+                Runner.resource_mgr.add_tool(tool)
+                self._instance.ability_manager.add(tool.card)
+            self._file_tools_registered = True
+            logger.info("[JiuWenClaw] file tools registered successfully")
+        except Exception as exc:
+            self._file_tools_registered = False
+            logger.warning("[JiuWenClaw] file tools registration skipped: %s", exc)
 
         project_mcp_names: set[str] = set()
         host_project_mcp_path = self._tool_manager.find_host_project_mcp_json()

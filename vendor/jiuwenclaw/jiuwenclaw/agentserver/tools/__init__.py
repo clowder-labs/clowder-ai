@@ -17,6 +17,8 @@ from .send_file_to_user import (
     SendFileToolkit,
 )
 
+from .file_tools import FileToolkit
+
 # Re-export deep openjiuwen symbols at ≤3-layer depth so task_tools.py can comply
 # with the G.IMP import-depth lint rule without creating additional files.
 try:
@@ -49,6 +51,7 @@ __all__ = [
     "edit_memory",
     "read_memory",
     "SendFileToolkit",
+    "FileToolkit",
     # openjiuwen re-exports
     "tool",
     "ce_config",
