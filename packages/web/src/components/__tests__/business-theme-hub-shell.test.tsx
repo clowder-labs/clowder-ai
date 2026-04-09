@@ -152,6 +152,39 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('加载中...');
   });
 
+  it('uses the shared empty-data state when installed skills are empty', async () => {
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities?')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'project-a',
+            catFamilies: [],
+            items: [],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const emptyState = container.querySelector('[data-testid="empty-data-state"]') as HTMLDivElement | null;
+    expect(emptyState).not.toBeNull();
+    expect(emptyState?.querySelector('[data-testid="empty-data-image"]')).not.toBeNull();
+    expect(emptyState?.textContent).toContain('暂无数据');
+    expect(container.querySelector('[data-testid="hub-capability-scroll-region"]')).toBeNull();
+    const emptyShell = emptyState?.parentElement as HTMLDivElement | null;
+    expect(emptyShell?.className).toContain('flex-1');
+    expect(emptyShell?.className).toContain('items-center');
+    expect(emptyShell?.className).toContain('justify-center');
+    expect(container.querySelector('[data-testid="no-search-results-state"]')).toBeNull();
+  });
+
   it('renders search input under title and filters installed skills', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
