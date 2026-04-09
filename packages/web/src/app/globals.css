@@ -210,7 +210,7 @@
 
 [data-ui-theme="warm"] {
   --surface-app: linear-gradient(180deg, rgba(255, 247, 241, 0.6) 0%, rgba(255, 250, 245, 0.6) 100%);
-  --surface-sidebar: #fff5f2;
+  --surface-sidebar: linear-gradient(180deg, #faecdc 0%, #fff8f1 100%);
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
   --surface-card-muted: #fbf5ec;
