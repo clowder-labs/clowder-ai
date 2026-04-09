@@ -585,7 +585,7 @@ export async function* routeSerial(
         a2aMentions = parseA2AMentions(storedContent, catId);
         if (a2aMentions.length === 0 && storedContent.includes('@')) {
           log.debug(
-            { threadId, catId, contentTail: storedContent.slice(-300) },
+            { threadId, catId, contentLen: storedContent.length },
             'A2A text-scan: @ found in content but no mention parsed (check if @ is at line start)',
           );
         }

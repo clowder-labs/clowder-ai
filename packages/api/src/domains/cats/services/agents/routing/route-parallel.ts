@@ -479,7 +479,7 @@ export async function* routeParallel(
         const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
         if (mentions.length === 0 && storedContent.includes('@')) {
           log.debug(
-            { threadId, catId: msg.catId, contentTail: storedContent.slice(-200) },
+            { threadId, catId: msg.catId, contentLen: storedContent.length },
             '[route-parallel] @ found in content but no A2A mention parsed (parallel never chains)',
           );
         } else if (mentions.length > 0) {

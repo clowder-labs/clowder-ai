@@ -28,7 +28,7 @@ export function detectUserMention(text: string): boolean {
       if (trimmed.startsWith(pattern)) {
         const rest = trimmed.slice(pattern.length);
         if (!CONTINUATION_RE.test(rest)) {
-          log.debug({ pattern, lineSnippet: line.slice(0, 60) }, 'Co-creator mention detected');
+          log.debug({ pattern, lineLen: line.length }, 'Co-creator mention detected');
           return true;
         }
         log.debug({ pattern, rest: rest.slice(0, 10) }, 'Co-creator pattern matched but boundary failed');

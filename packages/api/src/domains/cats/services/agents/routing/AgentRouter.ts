@@ -663,7 +663,7 @@ export class AgentRouter {
         explicit: intent.explicit,
         persist: options?.persist,
         hasAtSign: message.includes('@'),
-        msgSnippet: message.slice(0, 100),
+        contentLen: message.length,
       },
       '[AgentRouter] resolveTargetsAndIntent result',
     );

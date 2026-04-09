@@ -440,7 +440,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         mergedMentions: mentions,
         mentionsUser,
         hasAtSign: storedContent.includes('@'),
-        contentTail: storedContent.slice(-200),
+        contentLen: storedContent.length,
       },
       '[callbacks/post-message] Mention parse result',
     );

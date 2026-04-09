@@ -128,7 +128,7 @@ export function analyzeA2AMentions(
     }
     if (!matched) {
       log.debug(
-        { lineIndex, lineSnippet: rawLine.slice(0, 60), currentCatId },
+        { lineIndex, lineLen: rawLine.length, currentCatId },
         'Line starts with @ but no pattern matched',
       );
     }

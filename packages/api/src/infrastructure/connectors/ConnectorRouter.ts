@@ -329,7 +329,7 @@ export class ConnectorRouter {
         targetCatId,
         defaultCatId: this.opts.defaultCatId,
         hasAtSign: resolvedText.includes('@'),
-        textSnippet: resolvedText.slice(0, 100),
+        contentLen: resolvedText.length,
       },
       '[ConnectorRouter] Mention parse result',
     );
