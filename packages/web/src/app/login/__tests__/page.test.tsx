@@ -169,6 +169,17 @@ describe('LoginPage password visibility toggle', () => {
     expect(cutEvent.defaultPrevented).toBe(true);
   });
 
+  it('applies the native password reveal suppression class to the login password input', async () => {
+    await act(async () => {
+      root.render(React.createElement(LoginPage));
+    });
+    await flush();
+
+    const passwordInput = container.querySelector('#password') as HTMLInputElement | null;
+    expect(passwordInput).not.toBeNull();
+    expect(passwordInput?.className).toContain('login-password-input');
+  });
+
   it('clears the login error when switching account type', async () => {
     await act(async () => {
       root.render(React.createElement(LoginPage));
