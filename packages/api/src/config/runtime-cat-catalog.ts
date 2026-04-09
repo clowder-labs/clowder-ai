@@ -330,11 +330,49 @@ export function updateRuntimeCat(projectRoot: string, catId: string, patch: Runt
   }
 
   if (patch.displayName !== undefined) {
+    // Capture old displayName before mutation so we can update mentionPatterns
+    const oldDisplayName = located.isDefaultVariant
+      ? breed.displayName
+      : (variant.displayName ?? breed.displayName);
+
     if (located.isDefaultVariant) {
       breed.displayName = patch.displayName;
       delete variant.displayName;
     } else {
       variant.displayName = patch.displayName;
+    }
+
+    // Auto-sync mentionPatterns when displayName changes (unless caller
+    // is also explicitly setting mentionPatterns in the same patch).
+    if (patch.mentionPatterns === undefined && oldDisplayName !== patch.displayName) {
+      let patterns: string[];
+      if (located.isDefaultVariant) {
+        patterns = breed.mentionPatterns;
+      } else {
+        // Non-default variant with same displayName as breed → skip sync
+        // because the breed-level patterns already cover this displayName.
+        // The runtime fallback in toAllCatConfigs() will handle it.
+        if (patch.displayName === breed.displayName) {
+          // no-op: breed already owns this displayName pattern
+        } else {
+          // Materialize variant-level patterns to avoid mutating breed's array.
+          // Fallback mirrors toAllCatConfigs() logic.
+          if (!variant.mentionPatterns || variant.mentionPatterns.length === 0) {
+            variant.mentionPatterns = [`@${catId}`];
+          }
+          patterns = variant.mentionPatterns;
+        }
+      }
+      if (patterns!) {
+        const oldPattern = `@${oldDisplayName}`.toLowerCase();
+        const newPattern = `@${patch.displayName}`;
+        const idx = patterns.findIndex((p: string) => p.toLowerCase() === oldPattern);
+        if (idx >= 0) {
+          patterns[idx] = newPattern;
+        } else if (!patterns.some((p: string) => p.toLowerCase() === newPattern.toLowerCase())) {
+          patterns.push(newPattern);
+        }
+      }
     }
   }
 

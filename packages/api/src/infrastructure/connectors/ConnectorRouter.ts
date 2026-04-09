@@ -331,6 +331,17 @@ export class ConnectorRouter {
     // Parse @-mentions to determine target cat
     const mentionPatterns = this.getMentionPatterns();
     const { targetCatId } = parseMentions(resolvedText, mentionPatterns, this.opts.defaultCatId);
+    log.debug(
+      {
+        connectorId,
+        externalChatId,
+        targetCatId,
+        defaultCatId: this.opts.defaultCatId,
+        hasAtSign: resolvedText.includes('@'),
+        contentLen: resolvedText.length,
+      },
+      '[ConnectorRouter] Mention parse result',
+    );
 
     const messageTimestamp = Date.now();
     const stored = await messageStore.append({

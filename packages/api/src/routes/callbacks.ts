@@ -35,8 +35,8 @@ import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
-import { registerCallbackSkillRoutes } from './callback-skill-routes.js';
 import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
+import { registerCallbackSkillRoutes } from './callback-skill-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
@@ -429,6 +429,21 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     const mergedTargets = new Set<CatId>([...contentTargets, ...validExplicitTargets]);
     const mentions: CatId[] = [...mergedTargets];
     const mentionsUser = detectUserMention(storedContent);
+    log.debug(
+      {
+        catId: record.catId,
+        invocationId,
+        threadId: effectiveThreadId,
+        isCrossThread,
+        contentTargets,
+        explicitTargets: validExplicitTargets,
+        mergedMentions: mentions,
+        mentionsUser,
+        hasAtSign: storedContent.includes('@'),
+        contentLen: storedContent.length,
+      },
+      '[callbacks/post-message] Mention parse result',
+    );
     const crossPostExtra = isCrossThread
       ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
       : {};
