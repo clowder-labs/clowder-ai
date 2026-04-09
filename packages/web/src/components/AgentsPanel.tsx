@@ -1231,7 +1231,7 @@ export function AgentsPanel() {
                         setActiveTab(tab.id);
                         setMode('preview');
                       }}
-                      className={`inline-flex items-center gap-1.5 rounded-[8px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919] transition ${
+                      className={`inline-flex items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919] transition ${
                         isActive ? 'bg-[rgba(230,230,230,1)]' : ' hover:bg-[#F8FAFC]'
                       }`}
                       data-testid={`agent-tab-${tab.id}`}
