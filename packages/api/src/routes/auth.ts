@@ -277,6 +277,7 @@ async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: stri
       url: '/api/maas-models',
       headers: {
         'x-cat-cafe-user': userId,
+        'x-refresh': 'true',
       },
     });
     if (refreshResponse.statusCode >= 400) {
