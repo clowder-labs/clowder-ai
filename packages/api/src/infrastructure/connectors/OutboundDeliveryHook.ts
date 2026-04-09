@@ -28,6 +28,8 @@ export interface IOutboundAdapter {
     externalChatId: string,
     payload: { type: 'image' | 'file' | 'audio'; [key: string]: unknown },
   ): Promise<void>;
+  /** F151: Delivery batch complete. `chainDone=true` = no more output for this task; send close frame. */
+  onDeliveryBatchDone?(externalChatId: string, chainDone: boolean): Promise<void>;
 }
 
 /** Adapter that supports edit-in-place streaming (placeholder → progressive edits). */
