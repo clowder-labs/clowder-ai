@@ -162,4 +162,49 @@ describe('HubSkillsTab empty search state', () => {
       ),
     ).toBe(true);
   });
+
+  it('uses the shared empty-data state when browse results are empty', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const emptyState = container.querySelector('[data-testid="empty-data-state"]') as HTMLDivElement | null;
+    expect(emptyState).not.toBeNull();
+    expect(emptyState?.querySelector('[data-testid="empty-data-image"]')).not.toBeNull();
+    expect(emptyState?.textContent).toContain('暂无数据');
+    expect(container.querySelector('[data-testid="no-search-results-state"]')).toBeNull();
+    expect(container.querySelector('[data-testid="no-search-results-clear"]')).toBeNull();
+  });
+
+  it('keeps no-search-results state for empty search responses', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+
+    const categoryButtons = Array.from(container.querySelectorAll('[data-testid="hub-skills-fixed-header"] button'));
+    const categoryButton = categoryButtons[1];
+    expect(categoryButton).toBeDefined();
+
+    await act(async () => {
+      categoryButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[type="text"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'zzz');
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="no-search-results-state"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="no-search-results-clear"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="empty-data-state"]')).toBeNull();
+  });
 });

@@ -5,6 +5,7 @@ import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
@@ -482,7 +483,7 @@ export function HubSkillsTab() {
                   className="flex h-full min-h-0 items-center justify-center py-16"
                   data-testid="hub-skills-empty-state-shell"
                 >
-                  <NoSearchResultsState onClear={handleClearFilters} />
+                  {viewMode === 'search' ? <NoSearchResultsState onClear={handleClearFilters} /> : <EmptyDataState />}
                 </div>
               ) : (
                 <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
