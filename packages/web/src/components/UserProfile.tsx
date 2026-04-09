@@ -56,7 +56,7 @@ export function UserProfile({ className }: UserProfileProps) {
   const userName = getUserName();
   const avatarLetter = userName.charAt(0).toUpperCase();
   const profileActionClass =
-    'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[16px] font-normal leading-[20px]';
+    'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[14px] font-normal leading-[20px]';
 
   const updateThemePopoverPosition = () => {
     if (!panelRef.current || !profilePanelRef.current || !themeAnchorRef.current) return;

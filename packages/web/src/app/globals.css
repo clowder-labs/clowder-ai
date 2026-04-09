@@ -117,19 +117,17 @@
   --accent-button-danger-hover: #dc2626;
   --button-primary-bg: #111111;
   --button-primary-text: #ffffff;
-  --button-primary-bg-hover: #0f0f0f;
+  --button-primary-bg-hover: #595959;
   --button-primary-text-hover: #ffffff;
-  --button-primary-bg-disabled: #111111;
-  --button-primary-text-disabled: #ffffff;
+  --button-disabled-bg: #f0f0f0;
+  --button-disabled-text: #c2c2c2;
+  --button-disabled-border: #dbdbdb;
   --button-default-bg: #ffffff;
   --button-default-text: #666666;
   --button-default-border: #595959;
   --button-default-bg-hover: #ffffff;
   --button-default-text-hover: #191919;
   --button-default-border-hover: #c2c2c2;
-  --button-default-bg-disabled: #f0f0f0;
-  --button-default-text-disabled: #c2c2c2;
-  --button-default-border-disabled: #dbdbdb;
   --button-danger-bg: #ef4444;
   --button-danger-text: #ffffff;
   --button-danger-bg-hover: #dc2626;
@@ -182,10 +180,8 @@
   --overlay-disabled-text: #c2c2c2;
   --overlay-item-bg: transparent;
   --overlay-item-border: transparent;
-  --overlay-item-text: #666666;
   --overlay-item-hover-bg: #f7f8fa;
   --overlay-item-hover-border: transparent;
-  --overlay-item-hover-text: #191919;
   --overlay-item-disabled-bg: transparent;
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: #c2c2c2;
@@ -273,10 +269,8 @@
   --overlay-disabled-text: var(--text-disabled);
   --overlay-item-bg: transparent;
   --overlay-item-border: transparent;
-  --overlay-item-text: var(--text-secondary);
   --overlay-item-hover-bg: color-mix(in srgb, var(--surface-card-muted) 88%, white);
   --overlay-item-hover-border: transparent;
-  --overlay-item-hover-text: var(--text-primary);
   --overlay-item-disabled-bg: transparent;
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: var(--text-disabled);
@@ -296,19 +290,17 @@
   --agent-preset-badge-text: var(--text-secondary);
   --button-primary-bg: var(--surface-inverse);
   --button-primary-text: var(--text-inverse);
-  --button-primary-bg-hover: color-mix(in srgb, var(--surface-inverse) 96%, white);
+  --button-primary-bg-hover: #595959;
   --button-primary-text-hover: var(--text-inverse);
-  --button-primary-bg-disabled: var(--surface-inverse);
-  --button-primary-text-disabled: var(--text-inverse);
+  --button-disabled-bg: #f0f0f0;
+  --button-disabled-text: #c2c2c2;
+  --button-disabled-border: #dbdbdb;
   --button-default-bg: var(--surface-panel);
   --button-default-text: var(--text-secondary);
   --button-default-border: #595959;
   --button-default-bg-hover: #ffffff;
   --button-default-text-hover: var(--text-primary);
   --button-default-border-hover: #c2c2c2;
-  --button-default-bg-disabled: #f0f0f0;
-  --button-default-text-disabled: #c2c2c2;
-  --button-default-border-disabled: #dbdbdb;
   --button-danger-bg: var(--accent-button-danger);
   --button-danger-text: var(--surface-neutral-white);
   --button-danger-bg-hover: var(--accent-button-danger-hover);
@@ -396,10 +388,8 @@
   --overlay-disabled-text: var(--text-disabled);
   --overlay-item-bg: transparent;
   --overlay-item-border: transparent;
-  --overlay-item-text: var(--text-secondary);
   --overlay-item-hover-bg: color-mix(in srgb, var(--surface-card-muted) 92%, white);
   --overlay-item-hover-border: transparent;
-  --overlay-item-hover-text: var(--text-primary);
   --overlay-item-disabled-bg: transparent;
   --overlay-item-disabled-border: transparent;
   --overlay-item-disabled-text: var(--text-disabled);
@@ -419,19 +409,17 @@
   --agent-preset-badge-text: rgba(25, 25, 25, 1);
   --button-primary-bg: var(--surface-inverse);
   --button-primary-text: var(--text-inverse);
-  --button-primary-bg-hover: color-mix(in srgb, var(--surface-inverse) 96%, white);
+  --button-primary-bg-hover: #595959;
   --button-primary-text-hover: var(--text-inverse);
-  --button-primary-bg-disabled: var(--surface-inverse);
-  --button-primary-text-disabled: var(--text-inverse);
+  --button-disabled-bg: #f0f0f0;
+  --button-disabled-text: #c2c2c2;
+  --button-disabled-border: #dbdbdb;
   --button-default-bg: var(--surface-panel);
   --button-default-text: var(--text-secondary);
   --button-default-border: #595959;
   --button-default-bg-hover: #ffffff;
   --button-default-text-hover: var(--text-primary);
   --button-default-border-hover: #c2c2c2;
-  --button-default-bg-disabled: #f0f0f0;
-  --button-default-text-disabled: #c2c2c2;
-  --button-default-border-disabled: #dbdbdb;
   --button-danger-bg: var(--accent-button-danger);
   --button-danger-text: var(--surface-neutral-white);
   --button-danger-bg-hover: var(--accent-button-danger-hover);
@@ -599,7 +587,6 @@ select:-webkit-autofill:focus {
     border: var(--border-width-default) solid var(--overlay-item-border);
     border-radius: var(--radius-sm);
     background: var(--overlay-item-bg);
-    color: var(--overlay-item-text);
     transition: var(--overlay-transition);
   }
 
@@ -607,7 +594,6 @@ select:-webkit-autofill:focus {
   .ui-overlay-item:focus-visible {
     border-color: var(--overlay-item-hover-border);
     background: var(--overlay-item-hover-bg);
-    color: var(--overlay-item-hover-text);
     outline: none;
   }
 
@@ -663,13 +649,6 @@ select:-webkit-autofill:focus {
     color: var(--button-primary-text-hover);
   }
 
-  .ui-button-primary:disabled {
-    background: var(--button-primary-bg-disabled);
-    color: var(--button-primary-text-disabled);
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
   .ui-button-default {
     border: var(--border-width-default) solid var(--button-default-border);
     background: var(--button-default-bg);
@@ -681,10 +660,11 @@ select:-webkit-autofill:focus {
     color: var(--button-default-text-hover);
   }
 
+  .ui-button-primary:disabled,
   .ui-button-default:disabled {
-    border-color: var(--button-default-border-disabled);
-    background: var(--button-default-bg-disabled);
-    color: var(--button-default-text-disabled);
+    border-color: var(--button-disabled-border);
+    background: var(--button-disabled-bg);
+    color: var(--button-disabled-text);
     opacity: 0.4;
     cursor: not-allowed;
   }
