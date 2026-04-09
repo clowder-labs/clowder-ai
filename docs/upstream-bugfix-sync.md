@@ -174,7 +174,7 @@ After filtering: **40 candidates** → **34 safe cherry-pick, 5 partial-port, 1 
 
 ### Phase 1 — Triage ✅ (this document)
 - [x] Identify all fix commits since fork point
-- [x] Filter by CVO-approved scope (no ACP, no UI except stuck-bubble)
+- [x] Filter by CVO-approved scope (no ACP, no UI except stuck-bubble + IME input bugs)
 - [x] Categorize by module and priority
 - [x] Check file existence in clowder-ai
 - [x] Assess conflict risk per tier
@@ -223,3 +223,4 @@ After filtering: **40 candidates** → **34 safe cherry-pick, 5 partial-port, 1 
 |------|----------|---------|--------|
 | 2026-04-09 | @codex | Revise — 3×P1 + 2×P2 | v2: P1s fixed (ea61aa854 blocked, dff38d585 partial, 14daa6c00 demoted); P2s fixed (3ae239a1a risk↑, ff63c9f1f files updated) |
 | 2026-04-09 | @codex | Revise — 3×P1 + 1×P2 | v3: P1-1 stats corrected (34/5/1); P1-2 Phase 2 now covers Tier 4 safe; P1-3 scope broadened to include IME input bugs; P2 3ea2823bd→partial (weixin-cdn.ts missing) |
+| 2026-04-09 | @codex | **Approved** | v3 放行; P3 suggestion: Phase 1 checklist scope wording aligned in v3.1 |
