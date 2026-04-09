@@ -175,6 +175,22 @@ describe('ModelsPanel search', () => {
     expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
   });
 
+  it('keeps the search toolbar outside the scroll region', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
+    const scrollRegion = container.querySelector('[data-testid="models-scroll-region"]') as HTMLDivElement | null;
+
+    expect(searchInput).not.toBeNull();
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.contains(searchInput!)).toBe(false);
+    expect(scrollRegion?.textContent).toContain('gpt-5');
+  });
+
   it('uses the shared centered loading state while models are still loading', async () => {
     const pending = deferredResponse();
     mockApiFetch.mockReset();

@@ -540,45 +540,45 @@ export function ModelsPanel() {
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex min-h-full flex-col gap-4 pb-2">
-          <section className="flex shrink-0 justify-between gap-2">
-            <div className="relative flex-1 mr-2">
-              <input
-                type="search"
-                aria-label="搜索模型"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openHub('provider-profiles')}
-                className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-              >
-                ACP / 账号配置
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddModelModal(true)}
-                className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
-              >
-                {ADD_MODEL}
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenCreateModelModal}
-                data-testid="models-open-create-model-modal"
-                className="ui-button-primary"
-              >
-                {CREATE_MODEL_LABEL}
-              </button>
-            </div>
-          </section>
+      <section className="flex shrink-0 justify-between gap-2 pb-6" data-testid="models-toolbar">
+        <div className="relative mr-2 flex-1">
+          <input
+            type="search"
+            aria-label="搜索模型"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={SEARCH_PLACEHOLDER}
+            className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openHub('provider-profiles')}
+            className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            ACP / 账号配置
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModelModal(true)}
+            className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+          >
+            {ADD_MODEL}
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenCreateModelModal}
+            data-testid="models-open-create-model-modal"
+            className="ui-button-primary"
+          >
+            {CREATE_MODEL_LABEL}
+          </button>
+        </div>
+      </section>
 
+      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="models-scroll-region">
+        <div className="flex min-h-full flex-col gap-4 pb-2">
           {loading && (
             <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-loading-state">
               <CenteredLoadingState />
@@ -599,7 +599,7 @@ export function ModelsPanel() {
           {showGroups &&
             groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3 className="text-[14px] font-semibold text-[var(--text-primary)]" style={{ marginBlock: '24px' }}>
+                <h3 className="text-[14px] font-semibold text-[var(--text-primary)] mb-4">
                   {group.label} ({group.items.length})
                 </h3>
 
