@@ -67,6 +67,7 @@ export interface StreamingOutboundHookLike {
   onStreamChunk(threadId: string, accumulatedText: string, invocationId: string): Promise<void>;
   onStreamEnd(threadId: string, finalText: string, invocationId: string): Promise<void>;
   cleanupPlaceholders?(threadId: string, invocationId: string): Promise<void>;
+  notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
 /** Thread metadata for outbound delivery (deep link, title, etc.) */
@@ -159,6 +160,18 @@ export class QueueProcessor {
       if (key.startsWith(`${threadId}:`)) {
         if (this.deps.queue.hasQueuedForThread(threadId)) return true;
       }
+    }
+    return false;
+  }
+
+  /** F151: Check if thread has any queued or processing entries (used by delivery-batch-done signal).
+   *  @param excludeSlot — slot key to ignore (the caller's own slot, which hasn't been released yet in finally). */
+  isThreadBusy(threadId: string, excludeSlot?: string): boolean {
+    if (this.deps.queue.hasQueuedForThread(threadId)) return true;
+    const prefix = `${threadId}:`;
+    for (const key of this.processingSlots) {
+      if (key === excludeSlot) continue;
+      if (key.startsWith(prefix)) return true;
     }
     return false;
   }
@@ -675,6 +688,17 @@ export class QueueProcessor {
       }
       // Chain auto-dequeue is handled by tryExecuteNext* (calls onInvocationComplete
       // AFTER releasing processingThreads mutex to avoid self-blocking).
+
+      // F151: Notify adapters (e.g. XiaoYi) — MUST be after invocationTracker.complete().
+      // excludeSlot: our own processingSlot hasn't been released yet (that happens in the
+      // outer .then() after executeEntry resolves), so exclude it from the busy check.
+      if (this.deps.streamingHook?.notifyDeliveryBatchDone) {
+        const selfSlot = QueueProcessor.slotKey(threadId, primaryCat);
+        const threadStillBusy = invocationTracker.has(threadId) || this.isThreadBusy(threadId, selfSlot);
+        this.deps.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+          log.warn({ err, threadId }, '[QueueProcessor] notifyDeliveryBatchDone failed');
+        });
+      }
     }
   }
 
@@ -834,6 +858,7 @@ export class QueueProcessor {
         log.warn({ err, threadId }, '[QueueProcessor] StreamingHook.cleanupPlaceholders failed (silent)');
       });
     }
+
   }
 
   /** Emit queue_paused to each user who has queued entries for this thread. */
