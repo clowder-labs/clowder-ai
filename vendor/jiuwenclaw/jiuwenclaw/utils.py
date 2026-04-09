@@ -591,107 +591,11 @@ def _fix_missing_quotes(json_str: str) -> str:
     # 匹配 {key: 但 key 没有被引号包围
     s = re.sub(
         r'{\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:',
-        r'{"\1":',
+        r'{"":',
         s
     )
 
     return s
-
-
-def parse_tool_arguments_json(arguments: str | dict) -> tuple[bool, dict, str | None]:
-    """解析工具参数 JSON：标准库 → json-repair → 规则兜底。
-
-    Returns:
-        (成功, 字典, 错误说明)。失败时字典为空，错误说明非空。
-    """
-    import json
-
-    if isinstance(arguments, dict):
-        return True, arguments, None
-
-    if not isinstance(arguments, str):
-        return False, {}, f"unsupported arguments type: {type(arguments).__name__}"
-
-    s = arguments.strip()
-    if not s:
-        return True, {}, None
-
-    try:
-        parsed = json.loads(s)
-    except json.JSONDecodeError as e:
-        parsed = None
-        std_err = str(e)
-    else:
-        std_err = None
-
-    if parsed is not None:
-        if isinstance(parsed, dict):
-            return True, parsed, None
-        return False, {}, "tool arguments JSON must be an object, not array/primitive"
-
-    try:
-        import json_repair
-
-        repaired = json_repair.loads(s)
-    except Exception as e:
-        repaired = None
-        repair_err = str(e)
-    else:
-        repair_err = None
-
-    if isinstance(repaired, dict):
-        logger.info("[parse_tool_arguments_json] json-repair 成功: %s...", s[:60])
-        return True, repaired, None
-
-    fixed = _fix_missing_quotes(s)
-    if fixed != s:
-        try:
-            parsed2 = json.loads(fixed)
-        except json.JSONDecodeError:
-            parsed2 = None
-        else:
-            if isinstance(parsed2, dict):
-                logger.info("[parse_tool_arguments_json] 规则修复成功: %s...", s[:60])
-                return True, parsed2, None
-
-    detail_parts = [p for p in (std_err, repair_err) if p]
-    err_msg = "; ".join(detail_parts) if detail_parts else "JSON parse failed after json-repair and rule fallback"
-    logger.warning("[parse_tool_arguments_json] 无法解析: %s | raw=%s...", err_msg, s[:100])
-    return False, {}, err_msg
-
-
-def normalize_tool_call_argument_to_json_string(tc: Any) -> tuple[bool, str | None]:
-    """将单个 tool_call 的 arguments 规范为 JSON 对象字符串。
-
-    成功时原地写入 tc.arguments；失败时不修改 arguments。
-
-    Returns:
-        (是否成功, 错误说明)
-    """
-    import json as _json
-
-    raw = getattr(tc, "arguments", None)
-    if raw is None:
-        tc.arguments = "{}"
-        return True, None
-    if isinstance(raw, dict):
-        try:
-            tc.arguments = _json.dumps(raw, ensure_ascii=False)
-        except Exception as e:
-            return False, str(e)
-        return True, None
-    if isinstance(raw, str):
-        ok, d, err = parse_tool_arguments_json(raw)
-        if not ok:
-            return False, err or "parse failed"
-        try:
-            tc.arguments = _json.dumps(d, ensure_ascii=False)
-        except Exception as e:
-            return False, str(e)
-        return True, None
-    return False, f"unsupported arguments type: {type(raw).__name__}"
-
-
 def fix_json_arguments(arguments: str | dict) -> str | dict:
     """尝试修复并解析工具调用的参数 JSON。
 
@@ -704,52 +608,34 @@ def fix_json_arguments(arguments: str | dict) -> str | dict:
     Returns:
         解析后的参数字典，如果解析失败则返回空字典
     """
+    import json
+
+    # 如果已经是字典，直接返回
     if not isinstance(arguments, str):
         return arguments
 
-    ok, d, _err = parse_tool_arguments_json(arguments)
-    return d if ok else {}
+    # 去除前后空白
+    s = arguments.strip()
 
+    if not s:
+        return {}
 
-def _is_empty_param_value(v: Any) -> bool:
-    """判定工具参数值是否视为「空」（仅用于必填项校验）。"""
-    if v is None:
-        return True
-    if isinstance(v, str):
-        return v == ""
-    if isinstance(v, (list, tuple)):
-        return len(v) == 0
-    if isinstance(v, dict):
-        return len(v) == 0
-    return False
+    # 第一次尝试：直接解析
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
 
+    # 第二次尝试：修复常见问题
+    fixed = _fix_missing_quotes(s)
+    if fixed != s:
+        try:
+            result = json.loads(fixed)
+            logger.info(f"[fix_json_arguments] 成功修复 JSON: {s[:50]}... -> {result}")
+            return result
+        except json.JSONDecodeError:
+            pass
 
-def validate_tool_args_required_non_empty(
-    tool_name: str,
-    args: dict[str, Any],
-    parameters: Any,
-) -> tuple[bool, str | None]:
-    """按 OpenAI 风格 parameters（含 required）校验必填且非空。
-
-    Returns:
-        (True, None) 表示跳过或校验通过；(False, err) 表示失败。
-    """
-    if not isinstance(args, dict):
-        return False, "arguments must be a JSON object"
-
-    if not isinstance(parameters, dict):
-        return True, None
-
-    required = parameters.get("required")
-    if not isinstance(required, list):
-        return True, None
-
-    for key in required:
-        if not isinstance(key, str):
-            continue
-        if key not in args:
-            return False, f"缺少必填参数: {key} (tool={tool_name})"
-        if _is_empty_param_value(args[key]):
-            return False, f"必填参数为空: {key} (tool={tool_name})"
-
-    return True, None
+    # 所有修复尝试都失败
+    logger.warning(f"[fix_json_arguments] 无法修复 JSON: {s[:100]}...")
+    return {}
