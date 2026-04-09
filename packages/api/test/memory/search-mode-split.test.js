@@ -227,7 +227,7 @@ describe('G-4: drillDown hints', () => {
 
     if (threadResult) {
       assert.ok(threadResult.drillDown, 'thread result should have drillDown');
-      assert.equal(threadResult.drillDown.tool, 'cat_cafe_get_thread_context');
+      assert.equal(threadResult.drillDown.tool, 'office_claw_get_thread_context');
       assert.equal(threadResult.drillDown.params.threadId, 'abc123');
       assert.ok(threadResult.drillDown.hint.includes('abc123'));
     }
@@ -257,7 +257,7 @@ describe('G-4: drillDown hints', () => {
 
     if (sessionResult) {
       assert.ok(sessionResult.drillDown, 'session result should have drillDown');
-      assert.equal(sessionResult.drillDown.tool, 'cat_cafe_read_session_digest');
+      assert.equal(sessionResult.drillDown.tool, 'office_claw_read_session_digest');
       assert.equal(sessionResult.drillDown.params.sessionId, 'xyz789');
     }
   });
@@ -296,6 +296,6 @@ describe('G-4: drillDown hints', () => {
     const t = results.find((r) => r.anchor === 'thread-t1');
     assert.ok(t, 'thread-t1 should be in results');
     assert.ok(t.drillDown, 'thread result should have drillDown');
-    assert.equal(t.drillDown.tool, 'cat_cafe_get_thread_context');
+    assert.equal(t.drillDown.tool, 'office_claw_get_thread_context');
   });
 });

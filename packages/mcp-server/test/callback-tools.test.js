@@ -110,7 +110,7 @@ describe('MCP Callback Tools', () => {
     const result = await handlePostMessage({ content: '' });
 
     assert.equal(result.isError, true);
-    assert.ok(result.content[0].text.includes('Invalid input for cat_cafe_post_message'));
+    assert.ok(result.content[0].text.includes('Invalid input for office_claw_post_message'));
     assert.equal(fetchCalled, false);
   });
 

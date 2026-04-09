@@ -40,8 +40,8 @@ team experience：
 - **期望**：queued/canceled 的用户 @mention 不应出现在 `pending-mentions`；delivered 后才进入
 - **根因**：mention inbox 读取时只看 `msg.mentions`，不看 `deliveryStatus`
 
-### Bug 3b: `cat_cafe_post_message` 的 @mention 路由异常（F117 out of scope）
-- **复现**：猫猫用 `cat_cafe_post_message` 发带 `@gpt52` 的消息 → Maine Coon session 未收到
+### Bug 3b: `office_claw_post_message` 的 @mention 路由异常（F117 out of scope）
+- **复现**：猫猫用 `office_claw_post_message` 发带 `@gpt52` 的消息 → Maine Coon session 未收到
 - **截图**：`1773488607773-f4b34f0a.png`
 - **不属于 F117**：`post_message` 走 callback 路由（`callbacks.ts` → `messageStore.append` + `enqueueA2ATargets`），不经过前端 queue send，不依赖 delivery lifecycle
 - **处置**：单开 callback @mention 路由 bug，F117 仅标记 `related`
@@ -97,7 +97,7 @@ team experience：
 ## Scope Boundary
 
 - **In scope**: undelivered user message 对 `timeline / history API / prompt context / pending-mentions` 的一切泄漏
-- **Out of scope but related**: `cat_cafe_post_message` callback 路由的 @mention 解析/路由异常（走 `callbacks.ts`，不经过 queue/delivery lifecycle）
+- **Out of scope but related**: `office_claw_post_message` callback 路由的 @mention 解析/路由异常（走 `callbacks.ts`，不经过 queue/delivery lifecycle）
 
 ## Dependencies
 

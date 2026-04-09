@@ -95,7 +95,7 @@ export async function handleSearchEvidence(input: {
 
 export const evidenceTools = [
   {
-    name: 'cat_cafe_search_evidence',
+    name: 'office_claw_search_evidence',
     description:
       'Search project knowledge base — features, decisions, plans, lessons, session history. ' +
       'This is the PRIMARY entry point for all memory recall. Start here before drilling down. ' +

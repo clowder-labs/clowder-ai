@@ -83,8 +83,8 @@ workflow:
 
 #### P2: 接力可靠性（handoff + ack + timeout）
 
-- `cat_cafe_handoff_feature(...)` — 原子操作：更新告示牌 + 写摘要 + 发 @mention + 挂 timeout
-- `cat_cafe_ack_handoff(...)` — 接球确认，切换 baton_holder
+- `office_claw_handoff_feature(...)` — 原子操作：更新告示牌 + 写摘要 + 发 @mention + 挂 timeout
+- `office_claw_ack_handoff(...)` — 接球确认，切换 baton_holder
 - 超时 → 提醒/升级给 fallback reviewer 或team lead，**不卡死流程**
 
 #### P3: 少量硬门禁
@@ -138,7 +138,7 @@ workflow:
 
 ### P1（告示牌）— PR #278, #289
 - [x] AC-5: Mission Hub 支持 `workflow.sop` 结构，冷启动/压缩后可通过 MCP 恢复（WorkflowSopPanel + workflow-sop routes + resume capsule）
-- [x] AC-6: 所有猫（Claude/Codex/Gemini）都能通过 MCP 读写 SOP 阶段（`cat_cafe_update_workflow` MCP tool + CAS）
+- [x] AC-6: 所有猫（Claude/Codex/Gemini）都能通过 MCP 读写 SOP 阶段（`office_claw_update_workflow` MCP tool + CAS）
 - [x] AC-7: 架构 review 确认"告示牌不是控制器"——猫读信息后自己决定行动（2026-03-08 三猫愿景守护确认）
 
 ### P2（接力可靠性）— **descoped from F073**

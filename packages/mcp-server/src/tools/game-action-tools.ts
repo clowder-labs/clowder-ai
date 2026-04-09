@@ -70,7 +70,7 @@ export async function handleSubmitGameAction(input: {
 
 export const gameActionTools = [
   {
-    name: 'cat_cafe_submit_game_action',
+    name: 'office_claw_submit_game_action',
     description:
       'Submit a game action (kill/guard/divine/vote/speak/last_words). ' +
       'Only use when you are woken up for a game phase that requires your action. ' +

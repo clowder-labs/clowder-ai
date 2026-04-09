@@ -1,6 +1,6 @@
 /**
  * MCP Reflect Tools Tests
- * 测试 cat_cafe_reflect 的 POST 调用与降级行为。
+ * 测试 office_claw_reflect 的 POST 调用与降级行为。
  */
 
 import assert from 'node:assert/strict';

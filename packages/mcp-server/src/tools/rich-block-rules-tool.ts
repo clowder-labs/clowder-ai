@@ -34,7 +34,7 @@ export const richBlockRulesInputSchema = {};
 
 export const richBlockRulesTools = [
   {
-    name: 'cat_cafe_get_rich_block_rules',
+    name: 'office_claw_get_rich_block_rules',
     description:
       'Get the full rich block usage rules (card/diff/checklist/media_gallery/audio/interactive). ' +
       'Call this BEFORE creating your first rich block in a session — it returns the full schema and constraints. ' +
