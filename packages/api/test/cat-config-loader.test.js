@@ -510,10 +510,12 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     assert.deepEqual(all.opus.mentionPatterns, ['@opus', '@布偶猫', '@布偶']);
   });
 
-  it('non-default variant uses its own mentionPatterns (not breed)', () => {
+  it('non-default variant uses its own mentionPatterns plus auto-added displayName', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
-    assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@布偶猫4.5']);
+    // displayName '布偶猫 4.5' (with space) differs from alias '@布偶猫4.5' (no space),
+    // so toAllCatConfigs auto-appends it as a valid mention pattern.
+    assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@布偶猫4.5', '@布偶猫 4.5']);
   });
 
   it('non-default variant with no mentionPatterns gets @catId fallback pattern', () => {
@@ -680,7 +682,8 @@ describe('F32-b: mentionPattern validation', () => {
     const path = writeTempConfig(cfg);
     const config = loadCatConfig(path);
     const allConfigs = toAllCatConfigs(config);
-    assert.deepEqual(allConfigs['opus-45'].mentionPatterns, ['@布偶猫4.5']);
+    // displayName '布偶猫 4.5' auto-appended (differs from alias '@布偶猫4.5' by space)
+    assert.deepEqual(allConfigs['opus-45'].mentionPatterns, ['@布偶猫4.5', '@布偶猫 4.5']);
   });
 });
 

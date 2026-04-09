@@ -40,7 +40,6 @@ import { getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
 import { parseSystemInfoContent } from './parse-system-info.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
-import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
   assembleIncrementalContext,
@@ -52,6 +51,7 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
+import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');
@@ -580,6 +580,12 @@ export async function* routeSerial(
         // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
         // Line-start @mention = always actionable (no keyword gate)
         a2aMentions = parseA2AMentions(storedContent, catId);
+        if (a2aMentions.length === 0 && storedContent.includes('@')) {
+          log.debug(
+            { threadId, catId, contentLen: storedContent.length },
+            'A2A text-scan: @ found in content but no mention parsed (check if @ is at line start)',
+          );
+        }
 
         // F079 Phase 2: Vote interception — extract [VOTE:xxx] from cat response
         const votedOption = extractVoteFromText(storedContent);
