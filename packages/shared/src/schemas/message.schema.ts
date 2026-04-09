@@ -41,8 +41,19 @@ export const TextContentSchema = z.object({
  */
 export const ImageContentSchema = z.object({
   type: z.literal('image'),
-  url: z.string().url(),
+  url: z.string().min(1),
   alt: z.string().optional(),
+});
+
+/**
+ * File content schema
+ */
+export const FileContentSchema = z.object({
+  type: z.literal('file'),
+  url: z.string().min(1),
+  fileName: z.string().min(1),
+  mimeType: z.string().optional(),
+  fileSize: z.number().int().min(0).optional(),
 });
 
 /**
@@ -81,6 +92,7 @@ export const ToolResultContentSchema = z.object({
 export const MessageContentSchema = z.discriminatedUnion('type', [
   TextContentSchema,
   ImageContentSchema,
+  FileContentSchema,
   CodeContentSchema,
   ToolCallContentSchema,
   ToolResultContentSchema,
