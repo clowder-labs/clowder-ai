@@ -204,6 +204,7 @@
 
   --text-primary: var(--color-base-black);
   --text-secondary: #666666;
+  --text-label-secondary: #808080;
   --text-muted: #8f8075;
   --text-subtle: #b59a88;
   --text-disabled: #c2c2c2;
@@ -328,6 +329,7 @@
 
   --text-primary: #191919;
   --text-secondary: #666666;
+  --text-label-secondary: #808080;
   --text-muted: #595959;
   --text-subtle: #d0d0d0;
   --text-disabled: #c2c2c2;
@@ -646,7 +648,6 @@ select:-webkit-autofill:focus {
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-pill);
     font-size: 12px;
-    font-weight: var(--font-weight-medium);
     padding: 5px 24px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   }
@@ -671,7 +672,6 @@ select:-webkit-autofill:focus {
   .ui-button-default {
     border: var(--border-width-default) solid var(--button-default-border);
     background: var(--button-default-bg);
-    color: var(--button-default-text);
   }
 
   .ui-button-default:hover {
@@ -1245,7 +1245,8 @@ select:-webkit-autofill:focus {
     background: var(--surface-card-muted);
     font-size: var(--font-size-sm);
     line-height: 1;
-    padding: 0 4px;
+    padding: 2px 4px;
+    border-radius: 2px;
   }
 
   .ui-tab-trigger {

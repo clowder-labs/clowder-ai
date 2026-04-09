@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
-import { CenteredLoadingState } from './CenteredLoadingState';
-import { OverflowTooltip } from './OverflowTooltip';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -30,7 +31,7 @@ type InstallStatus = 'installing' | string;
 type ViewMode = 'browse' | 'search';
 
 const GENERAL_CATEGORY = '通用技能';
-const INSTALLING_LABEL = '安装中...';
+const INSTALLING_LABEL = '安装中';
 const INSTALL_LABEL = '安装';
 const NO_RESULTS_LABEL = '未找到匹配的技能';
 const FALLBACK_DESCRIPTION = '暂未提供技能描述。';
@@ -107,10 +108,6 @@ function SkillList({
   installStatus: Map<string, InstallStatus>;
   onInstall: (owner: string, repo: string, skill: string) => void;
 }) {
-  if (results.skills.length === 0) {
-    return <p className="py-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_LABEL}</p>;
-  }
-
   return (
     <div className="space-y-4">
       <div className={styles.skillGrid}>
@@ -286,6 +283,14 @@ export function HubSkillsTab() {
     [loadPage],
   );
 
+  const handleClearFilters = useCallback(() => {
+    latestQueryRef.current = '';
+    setSearchQuery('');
+    setCurrentPage(1);
+    setViewMode('browse');
+    void loadPage({ mode: 'browse', page: 1, category: activeCategory });
+  }, [activeCategory, loadPage]);
+
   const handleLoadMore = useCallback(() => {
     if (loadingMore || !results?.hasMore) return;
     if (viewMode === 'search') {
@@ -400,7 +405,7 @@ export function HubSkillsTab() {
           addToast({
             type: 'success',
             title: INSTALL_SUCCESS_TITLE,
-            message: `"${skill}" 安装成功`,
+            message: `"${skill}" 安装成功，可在我的技能中查看`,
             duration: 4000,
           });
         } else {
@@ -410,7 +415,7 @@ export function HubSkillsTab() {
           addToast({
             type: 'error',
             title: INSTALL_FAILURE_TITLE,
-            message: `安装失败：${detail}`,
+            message: detail,
             duration: 4000,
           });
         }
@@ -419,7 +424,7 @@ export function HubSkillsTab() {
         addToast({
           type: 'error',
           title: INSTALL_FAILURE_TITLE,
-          message: '安装失败：网络错误，请重试',
+          message: '网络错误，请重试',
           duration: 4000,
         });
       }
@@ -477,8 +482,17 @@ export function HubSkillsTab() {
         <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-skills-scroll-region">
           {results ? (
             <>
-              <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
-              {results.hasMore && (
+              {results.skills.length === 0 ? (
+                <div
+                  className="flex h-full min-h-0 items-center justify-center py-16"
+                  data-testid="hub-skills-empty-state-shell"
+                >
+                  <NoSearchResultsState onClear={handleClearFilters} />
+                </div>
+              ) : (
+                <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
+              )}
+              {results.skills.length > 0 && results.hasMore && (
                 <div className="flex justify-center py-4">
                   <button
                     type="button"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { AgentManagementIcon } from './AgentManagementIcon';
 import { MarkdownContent } from './MarkdownContent';
 
 export interface PromptSelectionItem {
@@ -41,18 +42,7 @@ function SearchIcon() {
 }
 
 function RefreshIcon() {
-  return (
-    <svg className="h-[18px] w-[18px] text-[#7A8290]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M20 11A8 8 0 1 0 17.66 16.66"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M20 4V11H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <AgentManagementIcon name="refresh" className="h-[18px] w-[18px]" />;
 }
 
 function CloseIcon() {

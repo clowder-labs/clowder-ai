@@ -185,6 +185,31 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('全部 (2)');
   });
 
+  it('clears the installed skills search input when switching categories', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'doc');
+    expect(searchInput?.value).toBe('doc');
+
+    const knowledgeTab = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Knowledge',
+    );
+    expect(knowledgeTab).not.toBeUndefined();
+
+    await act(async () => {
+      knowledgeTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(searchInput?.value).toBe('');
+  });
+
   it('renders optional import action beside installed skills search', async () => {
     const onImport = vi.fn();
     await act(async () => {
@@ -215,9 +240,57 @@ describe('business theme hub shell', () => {
 
     expect(container.querySelector('select[aria-label="筛选来源"]')).not.toBeNull();
     expect(container.querySelector('input[aria-label="搜索我的技能"]')).not.toBeNull();
-    expect(container.textContent).toContain('未找到匹配技能');
+    expect(container.textContent).toContain('暂未匹配到数据');
+    expect(container.textContent).toContain('没有匹配到符合条件的数据');
+    expect(container.querySelector('[data-testid="no-search-results-clear"]')).not.toBeNull();
     expect(container.textContent).not.toContain('ops-skill');
     expect(container.textContent).not.toContain('doc-skill');
+  });
+
+  it('clearing empty search state clears source but keeps the current category', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const knowledgeTab = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Knowledge',
+    );
+    expect(knowledgeTab).not.toBeUndefined();
+
+    await act(async () => {
+      knowledgeTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const sourceSelect = container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null;
+    expect(sourceSelect).not.toBeNull();
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+      setter?.call(sourceSelect, 'external');
+      sourceSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'no-such-skill');
+
+    const clearButton = container.querySelector('[data-testid="no-search-results-clear"]') as HTMLButtonElement | null;
+    expect(clearButton).not.toBeNull();
+
+    await act(async () => {
+      clearButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect((container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null)?.value).toBe('');
+    expect((container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null)?.value).toBe('all');
+    expect(container.textContent).toContain('Knowledge (1)');
+    expect(container.textContent).toContain('doc-skill');
+    expect(container.textContent).not.toContain('ops-skill');
   });
 
   it('keeps search controls outside the scrolling card region', async () => {
@@ -235,5 +308,27 @@ describe('business theme hub shell', () => {
     expect(scrollRegion?.className).toContain('overflow-y-auto');
     expect(scrollRegion?.contains(searchInput)).toBe(false);
     expect(scrollRegion?.querySelector('[data-testid="capability-card-skill-ops-skill"]')).not.toBeNull();
+  });
+
+  it('passes skill avatar selection context when opening detail from a skill card', async () => {
+    const onSelectSkill = vi.fn();
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab, { onSelectSkill }));
+    });
+    await flushEffects();
+
+    const card = container.querySelector('[data-testid="capability-card-skill-ops-skill"]') as HTMLDivElement | null;
+    expect(card).not.toBeNull();
+
+    await act(async () => {
+      card?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(onSelectSkill).toHaveBeenCalledWith({
+      skillName: 'ops-skill',
+      avatarUrl: null,
+    });
   });
 });

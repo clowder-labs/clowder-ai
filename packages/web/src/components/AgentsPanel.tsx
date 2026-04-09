@@ -193,7 +193,7 @@ function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
 
 const AGENT_TABS: TabDefinition[] = [
   { id: 'persona', label: '灵魂配置', icon: PersonaIcon, editable: true },
-  { id: 'collab', label: '协作配置', icon: CollaborateIcon, editable: true },
+  // { id: 'collab', label: '协作配置', icon: CollaborateIcon, editable: true },
 ];
 
 function isEditableTab(tab: AgentTabKey): tab is EditableTabKey {
