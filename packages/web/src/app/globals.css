@@ -164,17 +164,9 @@
   --card-disabled-text: #c2c2c2;
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: #666666;
   --menu-hover-bg: rgba(255, 255, 255, 0.72);
-  --menu-hover-border: transparent;
-  --menu-hover-text: #191919;
   --menu-active-bg: #ffffff;
-  --menu-active-border: #e6e6e6;
-  --menu-active-text: #191919;
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: #c2c2c2;
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: #ffffff;
   --overlay-border: #e6e6e6;
@@ -263,17 +255,9 @@
   --card-disabled-text: var(--text-disabled);
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: var(--text-secondary);
   --menu-hover-bg: color-mix(in srgb, var(--surface-panel) 72%, transparent);
-  --menu-hover-border: transparent;
-  --menu-hover-text: var(--text-primary);
   --menu-active-bg: var(--surface-panel);
-  --menu-active-border: var(--border-default);
-  --menu-active-text: var(--text-primary);
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: var(--text-disabled);
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: var(--surface-panel);
   --overlay-border: var(--border-default);
@@ -394,17 +378,9 @@
   --card-disabled-text: var(--text-disabled);
   --card-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease, color 200ms ease;
   --menu-bg: transparent;
-  --menu-border: transparent;
-  --menu-text: var(--text-secondary);
   --menu-hover-bg: color-mix(in srgb, var(--surface-panel) 72%, transparent);
-  --menu-hover-border: transparent;
-  --menu-hover-text: var(--text-primary);
   --menu-active-bg: var(--surface-panel);
-  --menu-active-border: var(--border-default);
-  --menu-active-text: var(--text-primary);
   --menu-disabled-bg: transparent;
-  --menu-disabled-border: transparent;
-  --menu-disabled-text: var(--text-disabled);
   --menu-transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease;
   --overlay-bg: var(--surface-panel);
   --overlay-border: var(--border-default);
@@ -1356,51 +1332,37 @@ select:-webkit-autofill:focus {
 
   .ui-menu-item {
     min-height: var(--control-height-sm);
-    border: var(--border-width-default) solid var(--menu-border);
     border-radius: var(--radius-sm);
     background: var(--menu-bg);
-    color: var(--menu-text);
     font-size: 14px;
     transition: var(--menu-transition);
   }
 
   .ui-menu-item:hover {
-    border-color: var(--menu-hover-border);
     background: var(--menu-hover-bg);
-    color: var(--menu-hover-text);
   }
 
   .ui-menu-item:disabled,
   .ui-menu-item-disabled {
-    border-color: var(--menu-disabled-border);
     background: var(--menu-disabled-bg);
-    color: var(--menu-disabled-text);
     cursor: not-allowed;
     pointer-events: none;
   }
 
   .ui-menu-item-active {
-    border-color: var(--menu-active-border);
     background: var(--menu-active-bg);
-    color: var(--menu-active-text);
   }
 
   .ui-menu-item-active:hover {
-    border-color: var(--menu-active-border);
     background: var(--menu-active-bg);
-    color: var(--menu-active-text);
   }
 
   .ui-menu-item-inactive {
-    border-color: var(--menu-border);
     background: var(--menu-bg);
-    color: var(--menu-text);
   }
 
   .ui-menu-item-inactive:hover {
-    border-color: var(--menu-hover-border);
     background: var(--menu-hover-bg);
-    color: var(--menu-hover-text);
   }
 
   .ui-thread-item {
