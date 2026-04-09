@@ -107,7 +107,7 @@ triggers:
 
 ## 发送方式
 
-用 MCP 工具 `cat_cafe_create_rich_block`，参数 `block` 传 JSON 字符串。
+用 MCP 工具 `office_claw_create_rich_block`，参数 `block` 传 JSON 字符串。
 发 block 前**先写 1-2 句自然语言摘要**（post_message），再发 block。
 
 ## 三条纪律

@@ -313,7 +313,7 @@ export async function handleSessionSearch(input: {
 
 export const sessionChainTools = [
   {
-    name: 'cat_cafe_list_session_chain',
+    name: 'office_claw_list_session_chain',
     description:
       'List session chain for a thread. Shows session IDs, sequence numbers, status, and context health for each cat. ' +
       'Use when you need to find a specific session ID to drill into (e.g. "what did opus do in thread X?"). ' +
@@ -323,7 +323,7 @@ export const sessionChainTools = [
     handler: handleListSessionChain,
   },
   {
-    name: 'cat_cafe_read_session_events',
+    name: 'office_claw_read_session_events',
     description:
       'Read events from a sealed session transcript. Supports view modes: raw (default, full events), chat (role/content pairs), handoff (per-invocation summaries). Pagination via cursor. ' +
       'VIEW SELECTION: ' +
@@ -336,7 +336,7 @@ export const sessionChainTools = [
     handler: handleReadSessionEvents,
   },
   {
-    name: 'cat_cafe_read_session_digest',
+    name: 'office_claw_read_session_digest',
     description:
       'Read the extractive digest of a sealed session. Contains tool names, files touched, errors, and timing info. ' +
       'ALWAYS start here before reading full events — the digest gives you a quick overview ' +
@@ -348,7 +348,7 @@ export const sessionChainTools = [
     handler: handleReadSessionDigest,
   },
   {
-    name: 'cat_cafe_read_invocation_detail',
+    name: 'office_claw_read_invocation_detail',
     description:
       'Read all events for a specific invocation within a sealed session. ' +
       'Use AFTER search_evidence or read_session_events (handoff view) returns an invocationId you want to inspect. ' +
@@ -358,5 +358,5 @@ export const sessionChainTools = [
     inputSchema: readInvocationDetailInputSchema,
     handler: handleReadInvocationDetail,
   },
-  // D15: cat_cafe_session_search removed — superseded by search_evidence unified entry point
+  // D15: office_claw_session_search removed — superseded by search_evidence unified entry point
 ] as const;

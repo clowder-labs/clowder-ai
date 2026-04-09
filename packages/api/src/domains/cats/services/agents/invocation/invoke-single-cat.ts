@@ -940,7 +940,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // before diving into repository search for compare/handoff requests.
     const acpRuntimeSkillHint =
       provider === 'acp' || embeddedAcpRuntime
-        ? 'ACP skill rule: compare-options/decision/handoff tasks use cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read. If a close match appears, call cat_cafe_load_skill immediately before other tools. Map: compare/recommend/decision -> collaborative-thinking; structured handoff -> cross-agent-handoff. If empty, retry once with a likely exact skill name.'
+        ? 'ACP skill rule: compare-options/decision/handoff tasks use office_claw_list_skills before office_claw_search_evidence, repo grep, or read. If a close match appears, call office_claw_load_skill immediately before other tools. Map: compare/recommend/decision -> collaborative-thinking; structured handoff -> cross-agent-handoff. If empty, retry once with a likely exact skill name.'
         : '';
 
     // Prepend staticIdentity to prompt when injection is needed

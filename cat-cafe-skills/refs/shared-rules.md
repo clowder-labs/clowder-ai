@@ -192,7 +192,7 @@ commit body 补一行 `Why:` 说明决策理由。
 **禁止隐性路由转嫁**：
 - ❌ 你不 @ 导致铲屎官不得不替你补 @ — 这等于让铲屎官当路由器
 - ✅ 同 thread：直接另起一行行首写 `@句柄`
-- ✅ 跨 thread：用 `cat_cafe_cross_post_message`
+- ✅ 跨 thread：用 `office_claw_cross_post_message`
 
 **A2A 状态迁移协议**（A2A 不是站会，只在状态迁移时发消息）：
 
@@ -238,7 +238,7 @@ commit body 补一行 `Why:` 说明决策理由。
 
 ## 13. 元思考触发器 §13（F086 M2）
 
-调用 `cat_cafe_multi_mention` 前，**必须先搜后问**（MCP 层硬检查：缺少 `searchEvidenceRefs` 且无 `overrideReason` → 拒绝调用）。
+调用 `office_claw_multi_mention` 前，**必须先搜后问**（MCP 层硬检查：缺少 `searchEvidenceRefs` 且无 `overrideReason` → 拒绝调用）。
 
 | 触发器 | 场景 | 默认动作 |
 |--------|------|---------|
