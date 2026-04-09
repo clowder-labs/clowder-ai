@@ -69,6 +69,10 @@ export interface AuthorizationRule {
   readonly createdAt: number;
   readonly createdBy: string;
   readonly reason?: string;
+  /** Epoch ms after which this rule is no longer valid. Store-level TTL for once-style rules. */
+  readonly expiresAt?: number;
+  /** SHA-256 prefix binding rule to exact tool+args payload. */
+  readonly executionHash?: string;
 }
 
 /** 审计日志条目 */

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import os
 import re
 import sys
 import uuid
@@ -692,11 +693,6 @@ class JiuClawReActAgent(ReActAgent):
         """
         import json as _json
 
-        request_id = f"perm_approve_{uuid.uuid4().hex[:8]}"
-        loop = asyncio.get_event_loop()
-        future: asyncio.Future = loop.create_future()
-        self._pending_approvals[request_id] = future
-
         tool_name = getattr(tool_call, "name", "")
         tool_args = getattr(tool_call, "arguments", {})
         if isinstance(tool_args, str):
@@ -704,6 +700,48 @@ class JiuClawReActAgent(ReActAgent):
                 tool_args = _json.loads(tool_args)
             except Exception:
                 tool_args = {}
+
+        # --- Central Approval Center delegation (Cat-Cafe bridge) ---
+        try:
+            from jiuwenclaw.agentserver.permissions.cat_cafe_bridge import (
+                request_central_approval,
+                poll_approval_status,
+            )
+
+            # Extract session context for sidecar mode
+            _thread_id = getattr(session, "thread_id", "") if session else ""
+            _user_id = getattr(session, "user_id", "") if session else ""
+            _cat_id = getattr(session, "cat_id", "") or os.environ.get("CAT_CAFE_CAT_ID", "")
+
+            central_resp = await request_central_approval(
+                tool_name=tool_name,
+                tool_args=tool_args,
+                reason=result.reason or f"Agent wants to execute {tool_name}",
+                thread_id=_thread_id,
+                user_id=_user_id,
+                cat_id=_cat_id,
+            )
+
+            if central_resp is not None:
+                if central_resp["status"] == "granted":
+                    return "allow_once"
+                elif central_resp["status"] == "denied":
+                    return "deny"
+                elif central_resp["status"] == "suspended":
+                    # OA 模式: agent 立即结束本轮，审批工单留在审查中心
+                    # 人类批准后 harness 会自动发起新调用
+                    return "deny"
+        except Exception:
+            logger.debug(
+                "Central approval bridge unavailable, using local approval",
+                exc_info=True,
+            )
+
+        # --- Fallback: local approval popup ---
+        request_id = f"perm_approve_{uuid.uuid4().hex[:8]}"
+        loop = asyncio.get_event_loop()
+        future: asyncio.Future = loop.create_future()
+        self._pending_approvals[request_id] = future
 
         #risk = assess_command_risk_static(tool_name, tool_args)
         risk = await assess_command_risk_with_llm(

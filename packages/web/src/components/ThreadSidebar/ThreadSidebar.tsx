@@ -25,9 +25,9 @@ interface ThreadSidebarProps {
   onBootcampClick?: () => void;
   onHubClick?: () => void;
   onThreadSelect?: () => void;
-  onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills') => void;
+  onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills' | 'approval') => void;
   onNewChatClick?: () => void;
-  activeMenu?: 'models' | 'agents' | 'channels' | 'skills';
+  activeMenu?: 'models' | 'agents' | 'channels' | 'skills' | 'approval';
 }
 
 const CONNECTOR_SOURCE_LABELS: Record<string, string> = {
@@ -587,6 +587,14 @@ export function ThreadSidebar({
             >
               <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               技能
+            </button>
+            <button
+              type="button"
+              onClick={() => onMenuClick?.('approval')}
+              className={`${menuItemBase} ${activeMenu === 'approval' ? menuItemActive : menuItemInactive} text-cafe-black`}
+            >
+              <span className="w-5 h-5 shrink-0 flex items-center justify-center text-base">🛡</span>
+              <span className="truncate text-[13px]">审查中心</span>
             </button>
           </div>
         </div>

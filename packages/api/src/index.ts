@@ -34,7 +34,16 @@ import type {
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
+import { ApprovalManager } from './domains/cats/services/approval/ApprovalManager.js';
+import { ApprovalChannelGateway } from './domains/cats/services/approval/ApprovalChannelGateway.js';
+import { EscalationTimer } from './domains/cats/services/approval/EscalationTimer.js';
+import { ResumeQueueAdapter } from './domains/cats/services/approval/ResumeQueueAdapter.js';
+import { ToolPolicyEngine } from './domains/cats/services/approval/ToolPolicyEngine.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
+import { createApprovalStore } from './domains/cats/services/stores/factories/ApprovalStoreFactory.js';
+import { createSuspendedSessionStore } from './domains/cats/services/stores/factories/SuspendedSessionStoreFactory.js';
+import { createToolPolicyStore } from './domains/cats/services/stores/factories/ToolPolicyStoreFactory.js';
+import { WebSocketApprovalChannel } from './infrastructure/approval-channels/WebSocketApprovalChannel.js';
 import {
   AgentRouter,
   AuditEventTypes,
@@ -103,12 +112,14 @@ import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import { gameRoutes } from './routes/games.js';
 import {
+  approvalCenterRoutes,
   auditRoutes,
   authorizationRoutes,
   authRoutes,
   availableClientsRoutes,
   backlogRoutes,
   bootcampRoutes,
+  callbackApprovalRoutes,
   callbackAuthRoutes,
   callbacksRoutes,
   capabilitiesRoutes,
@@ -965,6 +976,34 @@ async function main(): Promise<void> {
     ruleStore: authRuleStore,
     auditStore: authAuditStore,
     socketManager,
+  });
+
+  // Approval Center (审批中心) — 工具调用风险策略 + 多级审批 + 会话挂起恢复
+  const toolPolicyStore = createToolPolicyStore(redis);
+  const approvalStore = createApprovalStore(redis);
+  const suspendedSessionStore = createSuspendedSessionStore(redis);
+  const policyEngine = new ToolPolicyEngine(toolPolicyStore);
+  const channelGateway = new ApprovalChannelGateway();
+  channelGateway.registerChannel(new WebSocketApprovalChannel(socketManager.getIO()));
+  const resumeQueue = new ResumeQueueAdapter(invocationQueue, queueProcessor);
+  const approvalManager = new ApprovalManager({
+    authManager,
+    policyEngine,
+    approvalStore,
+    suspendedSessionStore,
+    channelGateway,
+    resumeQueue,
+    io: socketManager.getIO(),
+  });
+  const escalationTimer = new EscalationTimer(approvalManager);
+  escalationTimer.start();
+  await app.register(callbackApprovalRoutes, { registry, approvalManager, policyEngine });
+  await app.register(approvalCenterRoutes, {
+    approvalManager,
+    approvalStore,
+    policyStore: toolPolicyStore,
+    socketManager,
+    channelGateway,
   });
   await app.register(threadsRoutes, {
     threadStore,

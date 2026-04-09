@@ -205,9 +205,40 @@ export class AuthorizationManager {
   }
 
   /** 查规则 */
-  async checkRule(catId: CatId, action: string, threadId: string): Promise<'allow' | 'deny' | null> {
-    const rule = await this.ruleStore.match(catId, action, threadId);
+  async checkRule(catId: CatId, action: string, threadId: string, executionHash?: string): Promise<'allow' | 'deny' | null> {
+    const rule = await this.ruleStore.match(catId, action, threadId, executionHash);
     return rule?.decision ?? null;
+  }
+
+  /**
+   * 直接创建授权规则（绕过 pendingStore）
+   * 用于 ApprovalManager 审批通过后直接写入规则，
+   * 避免与 pendingStore 的 requestId 不匹配问题。
+   */
+  async addRule(input: {
+    catId: CatId;
+    action: string;
+    scope: 'thread' | 'global';
+    decision: 'allow' | 'deny';
+    threadId?: string;
+    createdBy: string;
+    reason?: string;
+    /** 自动过期（秒）。用于 scope=once → store-level TTL + 首次匹配自毁 */
+    ttlSeconds?: number;
+    /** SHA-256 prefix binding to exact tool+args payload */
+    executionHash?: string;
+  }): Promise<void> {
+    await this.ruleStore.add({
+      catId: input.catId,
+      action: input.action,
+      scope: input.scope,
+      decision: input.decision,
+      ...(input.scope === 'thread' && input.threadId ? { threadId: input.threadId } : {}),
+      createdBy: input.createdBy,
+      ...(input.reason ? { reason: input.reason } : {}),
+      ...(input.ttlSeconds ? { expiresAt: Date.now() + input.ttlSeconds * 1000 } : {}),
+      ...(input.executionHash ? { executionHash: input.executionHash } : {}),
+    });
   }
 
   /** 测试用: 当前 in-flight waiter 数 */

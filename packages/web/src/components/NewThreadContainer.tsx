@@ -14,6 +14,7 @@ import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
 import { DirectoryBrowserModal } from './DirectoryBrowserModal';
 import { ModelsPanel } from './ModelsPanel';
+import { ApprovalCenterPanel } from './ApprovalCenterPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { ThreadSidebar } from './ThreadSidebar';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -41,7 +42,7 @@ export function NewThreadContainer() {
   const clearPendingNewThreadSend = useChatStore((s) => s.clearPendingNewThreadSend);
   const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>('chat');
+  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'approval'>('chat');
   const [isFolderBrowserOpen, setIsFolderBrowserOpen] = useState(false);
   const [cwdPath, setCwdPath] = useState<string | null>(null);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
@@ -181,6 +182,7 @@ export function NewThreadContainer() {
                 {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
                 {sidebarMenu === 'skills' && <SkillsPanel />}
+                {sidebarMenu === 'approval' && <ApprovalCenterPanel threadId="" />}
               </div>
             )}
             {sidebarMenu === 'chat' && (

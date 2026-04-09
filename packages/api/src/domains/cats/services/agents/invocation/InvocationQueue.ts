@@ -33,6 +33,8 @@ export interface QueueEntry {
   senderMeta?: { id: string; name?: string };
   /** Explicit interrupted-session resume target for provider integrations that support resume semantics. */
   resumeCatId?: CatId;
+  /** Structured tool call data for approval-resume entries (exact-payload binding). */
+  approvedToolCall?: { toolName: string; toolArgs: Readonly<Record<string, unknown>> };
 }
 
 export interface EnqueueResult {
