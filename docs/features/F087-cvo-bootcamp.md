@@ -216,7 +216,7 @@ F087 的 Phase 0（选引导猫）和 Phase 4（任务选择）依赖 F096 Inter
 **交付物**：
 - `callback-bootcamp-routes.ts`: 2 个回调端点（update-bootcamp-state, bootcamp-env-check）
 - `env-check.ts`: 环境检查逻辑抽取为共享 helper（GET + callback 共用）
-- `callback-tools.ts`: 2 个 MCP 工具（office_claw_update_bootcamp_state, office_claw_bootcamp_env_check）
+- `callback-tools.ts`: 2 个 MCP 工具（cat_cafe_update_bootcamp_state, cat_cafe_bootcamp_env_check）
 - `bootcamp-guide/SKILL.md`: 更新 MCP 工具引用
 - 安全：严格线程绑定（403 跨线程）+ stale invocation guard
 - 测试：15 tests（callback-state 8 + callback-env-check 6 + bootcamp-flow 1）
