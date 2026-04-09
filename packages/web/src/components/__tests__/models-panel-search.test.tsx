@@ -3,13 +3,19 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
+import { getIsSkipAuth } from '@/utils/userId';
 
 vi.mock('@/utils/api-client', () => ({
   API_URL: 'http://localhost:3004',
   apiFetch: vi.fn(),
 }));
 
+vi.mock('@/utils/userId', () => ({
+  getIsSkipAuth: vi.fn(() => false),
+}));
+
 const mockApiFetch = vi.mocked(apiFetch);
+const mockGetIsSkipAuth = vi.mocked(getIsSkipAuth);
 const SEARCH_INPUT_SELECTOR = 'input[type="search"]';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -95,6 +101,8 @@ describe('ModelsPanel search', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockGetIsSkipAuth.mockReset();
+    mockGetIsSkipAuth.mockReturnValue(false);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/maas-models') {
@@ -238,6 +246,30 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).toContain('deepseek-r1');
   });
 
+  it('shows the create-model button only when skip auth is enabled', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).not.toBeNull();
+  });
+
   it('renders grouped cards and model labels/developer', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -371,6 +403,8 @@ describe('ModelsPanel search', () => {
   });
 
   it('submits create-model description without icon when icon is not provided', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -422,6 +456,8 @@ describe('ModelsPanel search', () => {
   });
 
   it('submits create-model icon when random icon is generated', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
