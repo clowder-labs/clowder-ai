@@ -14,7 +14,7 @@ import { z } from 'zod';
 export const sendMessageSchema = z
   .object({
     content: z.string().min(1).max(10000),
-    /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+    /** @deprecated Ignored by Core — retained for backward-compatible request parsing. Use X-Cat-Cafe-User header. */
     userId: z.string().min(1).max(100).optional(),
     mentions: z.array(catIdSchema()).optional(),
     threadId: z.string().min(1).max(100).optional(),

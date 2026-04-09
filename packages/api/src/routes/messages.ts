@@ -226,7 +226,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
 
     // Default to 'default' thread for lobby (prevents global broadcast)

@@ -95,7 +95,7 @@ const bootcampStateSchema = z
 
 const createThreadSchema = z
   .object({
-    /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+    /** @deprecated Ignored by Core — retained for backward-compatible request parsing. Use X-Cat-Cafe-User header. */
     userId: z.string().min(1).max(100).optional(),
     title: z.string().min(1).max(200).optional(),
     projectPath: z.string().min(1).max(500).optional(),
@@ -262,7 +262,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
 
     let thread;
