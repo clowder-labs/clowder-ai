@@ -40,7 +40,6 @@ import { getMaxA2ADepth, parseA2AMentions } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
 import { parseSystemInfoContent } from './parse-system-info.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
-import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
   assembleIncrementalContext,
@@ -52,6 +51,7 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
+import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-serial');

@@ -29,7 +29,6 @@ import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentServi
 import { parseA2AMentions } from '../routing/a2a-mentions.js';
 import { parseSystemInfoContent } from './parse-system-info.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
-import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import type { RouteOptions, RouteStrategyDeps } from './route-helpers.js';
 import {
   assembleIncrementalContext,
@@ -41,6 +40,7 @@ import {
   toStoredToolEvent,
   upsertMaxBoundary,
 } from './route-helpers.js';
+import { appendThinkingChunk } from './thinking-chunk-merge.js';
 import { buildVoteTally, checkVoteCompletion, extractVoteFromText, VOTE_RESULT_SOURCE } from './vote-intercept.js';
 
 const log = createModuleLogger('route-parallel');
@@ -477,6 +477,17 @@ export async function* routeParallel(
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
         const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
+        if (mentions.length === 0 && storedContent.includes('@')) {
+          log.debug(
+            { threadId, catId: msg.catId, contentTail: storedContent.slice(-200) },
+            '[route-parallel] @ found in content but no A2A mention parsed (parallel never chains)',
+          );
+        } else if (mentions.length > 0) {
+          log.debug(
+            { threadId, catId: msg.catId, mentions },
+            '[route-parallel] A2A mentions detected (stored only, not chained)',
+          );
+        }
 
         // F079 Phase 2: Vote interception for parallel routing.
         // @all / multi-cat requests route here, so [VOTE:xxx] must be handled too.
