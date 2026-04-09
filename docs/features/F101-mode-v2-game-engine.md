@@ -67,7 +67,7 @@ team experience（2026-03-11）：
 - 胜负判定：狼人全灭=好人胜 / 好人≤狼人=狼人胜
 - 遗言阶段：被投票出局的玩家可发遗言
 - 无警长竞选机制（网易标准规则）
-- 投票复用现有 `cat_cafe_start_vote` 能力
+- 投票复用现有 `office_claw_start_vote` 能力
 
 **B2. 法官系统（GameEngine）**
 - 纯代码实现，不走 LLM 推理

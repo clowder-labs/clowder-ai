@@ -23,7 +23,7 @@ community_pr: https://github.com/zts212653/clowder-ai/pull/85
 
 ### Phase A: API + MCP 工具（核心）
 
-- `cat_cafe_create_thread` MCP callback tool
+- `office_claw_create_thread` MCP callback tool
   - `POST /api/callbacks/create-thread` callback route（auth + zod schema）
   - 必填：`title`（trim 后 1-200 字符）
   - 可选：`preferredCats`（指定 thread 的默认猫）

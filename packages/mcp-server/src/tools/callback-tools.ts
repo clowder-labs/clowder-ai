@@ -280,7 +280,7 @@ export async function handlePostMessage(input: {
     const issues = parsedInput.error.issues
       .map((issue) => `${issue.path.join('.') || 'input'}: ${issue.message}`)
       .join('; ');
-    return errorResult(`Invalid input for cat_cafe_post_message: ${issues}`);
+    return errorResult(`Invalid input for office_claw_post_message: ${issues}`);
   }
 
   const validatedInput = parsedInput.data;
@@ -818,7 +818,7 @@ export async function handleBootcampEnvCheck(input: { threadId: string }): Promi
 
 export const callbackTools = [
   {
-    name: 'cat_cafe_post_message',
+    name: 'office_claw_post_message',
     description:
       'Post a proactive async message to the Clowder AI chat mid-task (e.g. progress updates, sharing results). ' +
       'To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires. ' +
@@ -828,7 +828,7 @@ export const callbackTools = [
     handler: handlePostMessage,
   },
   {
-    name: 'cat_cafe_get_pending_mentions',
+    name: 'office_claw_get_pending_mentions',
     description:
       'Get recent messages that @-mention you. Use at session start to check if anyone is trying to get your attention. ' +
       'TIP: Call this early in your session, then call ack_mentions after processing to avoid seeing the same mentions next session.',
@@ -836,7 +836,7 @@ export const callbackTools = [
     handler: handleGetPendingMentions,
   },
   {
-    name: 'cat_cafe_ack_mentions',
+    name: 'office_claw_ack_mentions',
     description:
       'Acknowledge that you have processed mentions up to a specific message ID. ' +
       'Call this AFTER processing mentions from get_pending_mentions to avoid seeing them again in future sessions. ' +
@@ -845,7 +845,7 @@ export const callbackTools = [
     handler: handleAckMentions,
   },
   {
-    name: 'cat_cafe_get_thread_context',
+    name: 'office_claw_get_thread_context',
     description:
       'Get recent conversation messages for context. Use to understand what has been discussed recently in a thread. ' +
       'Pass threadId to read a DIFFERENT thread (cross-thread context); omit to read the current thread. ' +
@@ -854,9 +854,9 @@ export const callbackTools = [
     inputSchema: getThreadContextInputSchema,
     handler: handleGetThreadContext,
   },
-  // D15: cat_cafe_search_messages removed — superseded by search_evidence + get_thread_context
+  // D15: office_claw_search_messages removed — superseded by search_evidence + get_thread_context
   {
-    name: 'cat_cafe_list_threads',
+    name: 'office_claw_list_threads',
     description:
       'List thread summaries for discovery. Use when you need to find a thread by keyword or see recent activity. ' +
       'Returns thread IDs, titles, and activity timestamps. ' +
@@ -865,7 +865,7 @@ export const callbackTools = [
     handler: handleListThreads,
   },
   {
-    name: 'cat_cafe_feat_index',
+    name: 'office_claw_feat_index',
     description:
       'Lookup feature index entries by featId or query. Returns featId, name, status, and linked threadIds. ' +
       'Use when you need to find which thread(s) a feature is discussed in, or check feature status. ' +
@@ -874,7 +874,7 @@ export const callbackTools = [
     handler: handleFeatIndex,
   },
   {
-    name: 'cat_cafe_cross_post_message',
+    name: 'office_claw_cross_post_message',
     description:
       'Post a message to a specific thread by threadId (cross-thread notification). ' +
       'Use when you need to notify a different thread about something relevant. ' +
@@ -883,7 +883,7 @@ export const callbackTools = [
     handler: handleCrossPostMessage,
   },
   {
-    name: 'cat_cafe_list_tasks',
+    name: 'office_claw_list_tasks',
     description:
       'List tasks with optional threadId/catId/status filters for global task discovery. ' +
       'Use when you need to see what tasks exist, who owns them, or what is blocked. ' +
@@ -892,7 +892,7 @@ export const callbackTools = [
     handler: handleListTasks,
   },
   {
-    name: 'cat_cafe_list_skills',
+    name: 'office_claw_list_skills',
     description:
       'List Cat Cafe shared skills that are currently installed for runtime use. ' +
       'Use when you need to discover which skills exist, search by intent, or answer "what skills are available?". ' +
@@ -903,7 +903,7 @@ export const callbackTools = [
     handler: handleListSkills,
   },
   {
-    name: 'cat_cafe_load_skill',
+    name: 'office_claw_load_skill',
     description:
       'Load one Cat Cafe shared skill by exact name. ' +
       'Returns the full SKILL.md plus the skill directory and related file paths. ' +
@@ -912,7 +912,7 @@ export const callbackTools = [
     handler: handleLoadSkill,
   },
   {
-    name: 'cat_cafe_update_task',
+    name: 'office_claw_update_task',
     description:
       'Update the status of a task you own. Use to mark tasks as doing/blocked/done. ' +
       'GOTCHA: You can only update tasks assigned to you (your catId). ' +
@@ -921,7 +921,7 @@ export const callbackTools = [
     handler: handleUpdateTask,
   },
   {
-    name: 'cat_cafe_create_rich_block',
+    name: 'office_claw_create_rich_block',
     description:
       'Create a rich block (card, diff, checklist, media_gallery, audio, or interactive) attached to the current message. ' +
       'Use card for status/decisions, diff for code changes, checklist for todos, media_gallery for images, audio for voice, interactive for user selection/confirmation. ' +
@@ -932,7 +932,7 @@ export const callbackTools = [
     handler: handleCreateRichBlock,
   },
   {
-    name: 'cat_cafe_generate_document',
+    name: 'office_claw_generate_document',
     description:
       'Generate a document (PDF/DOCX/MD) from Markdown and deliver to IM platforms (Feishu/Telegram). ' +
       'Use when: user asks to "生成报告", "导出文档", "发PDF", "写份文档给我", "export to DOCX", or any document generation request. ' +
@@ -944,7 +944,7 @@ export const callbackTools = [
     handler: handleGenerateDocument,
   },
   {
-    name: 'cat_cafe_request_permission',
+    name: 'office_claw_request_permission',
     description:
       'Request permission from the user before performing a sensitive action (e.g. git_commit, file_delete). ' +
       'Returns granted/denied immediately if a rule exists, or pending with a requestId if the user needs to approve. ' +
@@ -953,7 +953,7 @@ export const callbackTools = [
     handler: handleRequestPermission,
   },
   {
-    name: 'cat_cafe_check_permission_status',
+    name: 'office_claw_check_permission_status',
     description:
       'Check the status of a previously submitted permission request. ' +
       'Use the requestId returned from request_permission. Returns granted/denied/pending.',
@@ -961,7 +961,7 @@ export const callbackTools = [
     handler: handleCheckPermissionStatus,
   },
   {
-    name: 'cat_cafe_register_pr_tracking',
+    name: 'office_claw_register_pr_tracking',
     description:
       'Register a PR for email review notification routing. Call right after `gh pr create` ' +
       'so that cloud Codex review emails are automatically routed to your current thread. ' +
@@ -971,7 +971,7 @@ export const callbackTools = [
     handler: handleRegisterPrTracking,
   },
   {
-    name: 'cat_cafe_update_workflow',
+    name: 'office_claw_update_workflow',
     description:
       'Update the SOP workflow stage for a Feature (Mission Hub bulletin board). ' +
       'Use to record current stage, baton holder, resume capsule, and checks. ' +
@@ -982,7 +982,7 @@ export const callbackTools = [
     handler: handleUpdateWorkflow,
   },
   {
-    name: 'cat_cafe_multi_mention',
+    name: 'office_claw_multi_mention',
     description:
       'Invoke up to 3 cats in parallel to gather perspectives on a question. ' +
       'All responses are automatically routed back to callbackTo (usually yourself). ' +
@@ -994,7 +994,7 @@ export const callbackTools = [
     handler: handleMultiMention,
   },
   {
-    name: 'cat_cafe_start_vote',
+    name: 'office_claw_start_vote',
     description:
       'Start a voting session in the current thread for collective decision-making ' +
       '(e.g. "REST vs GraphQL?"). Voters receive notification and reply with [VOTE:option]. ' +
@@ -1005,7 +1005,7 @@ export const callbackTools = [
   },
   // ============ Bootcamp (F087) ============
   {
-    name: 'cat_cafe_update_bootcamp_state',
+    name: 'office_claw_update_bootcamp_state',
     description:
       'Update the bootcamp training state for a thread. Use to advance phase, set lead cat, ' +
       'record task selection, store env check results, or mark completion. ' +
@@ -1015,7 +1015,7 @@ export const callbackTools = [
     handler: handleUpdateBootcampState,
   },
   {
-    name: 'cat_cafe_bootcamp_env_check',
+    name: 'office_claw_bootcamp_env_check',
     description:
       'Run environment check for bootcamp (Node.js, pnpm, Git, Claude CLI, MCP, TTS, ASR, Pencil). ' +
       "Results are automatically stored in the thread's bootcampState.envCheck. " +

@@ -128,7 +128,7 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
     assert.strictEqual(config.provider.anthropic.options.apiKey, undefined, 'apiKey must stay in env');
 
     // Verify Cat Cafe MCP tool prefix convention is distinct from opencode's tools
-    // (opencode tools: bash/read/write/..., Cat Cafe MCP: cat_cafe_*)
+    // (opencode tools: bash/read/write/..., Cat Cafe MCP: office_claw_*)
     const serialized = JSON.stringify(config);
     assert.ok(!serialized.includes('cat_cafe'), 'no cat_cafe references in opencode config');
     assert.ok(!serialized.includes('cat-cafe'), 'no cat-cafe references in opencode config');
@@ -151,33 +151,33 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
     ];
 
     const catCafeMcpTools = [
-      'cat_cafe_post_message',
-      'cat_cafe_get_pending_mentions',
-      'cat_cafe_ack_mentions',
-      'cat_cafe_get_thread_context',
-      'cat_cafe_search_messages',
-      'cat_cafe_list_threads',
-      'cat_cafe_feat_index',
-      'cat_cafe_cross_post_message',
-      'cat_cafe_list_tasks',
-      'cat_cafe_update_task',
-      'cat_cafe_create_rich_block',
-      'cat_cafe_request_permission',
-      'cat_cafe_search_evidence',
-      'cat_cafe_reflect',
-      'cat_cafe_multi_mention',
-      'cat_cafe_start_vote',
-      'cat_cafe_update_workflow',
-      'cat_cafe_register_pr_tracking',
+      'office_claw_post_message',
+      'office_claw_get_pending_mentions',
+      'office_claw_ack_mentions',
+      'office_claw_get_thread_context',
+      'office_claw_search_messages',
+      'office_claw_list_threads',
+      'office_claw_feat_index',
+      'office_claw_cross_post_message',
+      'office_claw_list_tasks',
+      'office_claw_update_task',
+      'office_claw_create_rich_block',
+      'office_claw_request_permission',
+      'office_claw_search_evidence',
+      'office_claw_reflect',
+      'office_claw_multi_mention',
+      'office_claw_start_vote',
+      'office_claw_update_workflow',
+      'office_claw_register_pr_tracking',
     ];
 
     // Verify zero overlap
     const overlap = opencodeTools.filter((t) => catCafeMcpTools.includes(t));
     assert.strictEqual(overlap.length, 0, `tool name collision detected: ${overlap}`);
 
-    // Also verify by prefix convention: Cat Cafe uses cat_cafe_ prefix
+    // Also verify by prefix convention: Cat Cafe uses office_claw_ prefix
     for (const tool of opencodeTools) {
-      assert.ok(!tool.startsWith('cat_cafe_'), `opencode tool "${tool}" collides with Cat Cafe MCP namespace`);
+      assert.ok(!tool.startsWith('office_claw_'), `opencode tool "${tool}" collides with Cat Cafe MCP namespace`);
     }
   });
 });

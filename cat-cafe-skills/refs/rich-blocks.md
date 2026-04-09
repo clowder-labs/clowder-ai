@@ -52,7 +52,7 @@
 ## 创建方式
 
 1. **HTTP Callback（推荐）** — 见 `refs/mcp-callbacks.md` create-rich-block 端点
-2. **MCP Tool** — `cat_cafe_create_rich_block`
+2. **MCP Tool** — `office_claw_create_rich_block`
 3. **Inline Text（fallback）**：
 ````
 ```cc_rich

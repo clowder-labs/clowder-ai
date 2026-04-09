@@ -273,7 +273,7 @@ Provider test 通过后，再在对话框里直接发：
 如果要验证 ACP host 提供的 MCP 真的被 agent 用起来，可以直接发送：
 
 ```text
-@agentteams 先调用 load_skill 加载 deepresearch，再调用 cat_cafe_list_threads(limit=3)。最后只回复：
+@agentteams 先调用 load_skill 加载 deepresearch，再调用 office_claw_list_threads(limit=3)。最后只回复：
 SKILL=<skill名>
 THREADS=<返回数量>
 ```

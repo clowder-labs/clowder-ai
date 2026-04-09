@@ -2446,13 +2446,13 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     assert.ok(promptsSeen[0].includes('ACP skill rule:'), 'ACP prompt should include runtime skill hint');
     assert.ok(
-      promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
+      promptsSeen[0].includes('office_claw_list_skills before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
     assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
-    assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
+    assert.ok(promptsSeen[0].includes('office_claw_load_skill immediately'), 'ACP hint should mention immediate skill loading');
     assert.ok(
-      promptsSeen[0].includes('before cat_cafe_search_evidence, repo grep, or read'),
+      promptsSeen[0].includes('before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should prioritize skills ahead of other retrieval tools',
     );
     assert.ok(
