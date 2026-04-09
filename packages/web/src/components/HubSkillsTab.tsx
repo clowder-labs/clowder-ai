@@ -392,7 +392,12 @@ export function HubSkillsTab() {
         const res = await apiFetch('/api/skills/install', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner, repo, skill }),
+          body: JSON.stringify({
+            owner,
+            repo,
+            skill,
+            description: results?.skills.find((item) => item.slug === skill)?.description ?? '',
+          }),
         });
         if (res.ok) {
           clearInstallStatus(skill);
@@ -424,7 +429,7 @@ export function HubSkillsTab() {
         });
       }
     },
-    [addToast, clearInstallStatus, markSkillInstalled, setInstallStatusWithTimer],
+    [addToast, clearInstallStatus, markSkillInstalled, results, setInstallStatusWithTimer],
   );
 
   if (!results && loading) {
