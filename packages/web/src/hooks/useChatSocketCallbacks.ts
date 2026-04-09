@@ -13,6 +13,8 @@ interface ExternalDeps {
   clearDoneTimeout: (threadId?: string) => void;
   handleAuthRequest: NonNullable<SocketCallbacks['onAuthorizationRequest']>;
   handleAuthResponse: NonNullable<SocketCallbacks['onAuthorizationResponse']>;
+  handleApprovalRequest?: SocketCallbacks['onApprovalRequest'];
+  handleApprovalResponse?: SocketCallbacks['onApprovalResponse'];
   onNavigateToThread?: (threadId: string) => void;
 }
 
@@ -28,6 +30,8 @@ export function useChatSocketCallbacks({
   clearDoneTimeout,
   handleAuthRequest,
   handleAuthResponse,
+  handleApprovalRequest,
+  handleApprovalResponse,
   onNavigateToThread,
 }: ExternalDeps): SocketCallbacks {
   const {
@@ -100,6 +104,8 @@ export function useChatSocketCallbacks({
       },
       onAuthorizationRequest: handleAuthRequest,
       onAuthorizationResponse: handleAuthResponse,
+      onApprovalRequest: handleApprovalRequest,
+      onApprovalResponse: handleApprovalResponse,
       onGameStateUpdate: (data) => {
         const view = data.view as GameView;
         // P1-3 fix: Only accept updates for the current thread
@@ -128,6 +134,8 @@ export function useChatSocketCallbacks({
       clearDoneTimeout,
       handleAuthRequest,
       handleAuthResponse,
+      handleApprovalRequest,
+      handleApprovalResponse,
       onNavigateToThread,
       threadId,
       userId,

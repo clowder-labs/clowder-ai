@@ -1,5 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { gateToolExecution } from './gate-tool-execution.js';
 import {
+  approvalTools,
   callbackMemoryTools,
   callbackTools,
   evidenceTools,
@@ -25,6 +27,7 @@ const collabTools: readonly ToolDef[] = [
   ...richBlockRulesTools,
   ...gameActionTools,
   ...scheduleTools,
+  ...approvalTools,
 ];
 
 const memoryTools: readonly ToolDef[] = [
@@ -39,9 +42,9 @@ const signalTools: readonly ToolDef[] = [...signalsTools, ...signalStudyTools];
 function registerTools(server: McpServer, tools: readonly ToolDef[]): void {
   for (const tool of tools) {
     server.tool(tool.name, tool.description, tool.inputSchema, async (args) => {
-      const result = await tool.handler(args as never);
+      const result = await gateToolExecution(tool.name, args as Record<string, unknown>, tool.handler);
       return {
-        ...(result as Record<string, unknown>),
+        ...(result as unknown as Record<string, unknown>),
       } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     });
   }
@@ -92,7 +95,8 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
     'List Cat Cafe shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
   cat_cafe_load_skill: 'Load one Cat Cafe shared skill by exact name.',
   cat_cafe_update_task: 'Update status of a task you own (doing/blocked/done).',
-  cat_cafe_create_rich_block: 'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
+  cat_cafe_create_rich_block:
+    'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
   cat_cafe_generate_document: 'Generate PDF/DOCX/MD from Markdown and deliver to IM.',
   cat_cafe_request_permission: 'Request user permission before a sensitive action.',
   cat_cafe_check_permission_status: 'Check status of a permission request by requestId.',
@@ -135,6 +139,10 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   limb_invoke: 'Invoke a capability on a limb node.',
   limb_pair_list: 'List pending limb pairing requests.',
   limb_pair_approve: 'Approve a limb pairing request.',
+  // Approval
+  cat_cafe_request_tool_execution: 'Request approval for a dangerous tool execution.',
+  cat_cafe_check_execution_status: 'Poll status of an approval request by requestId.',
+  cat_cafe_respond_approval: 'Respond to an approval request as an approver.',
   // File tools (MCP-provided)
   read_file: 'Read file content by path.',
   write_file: 'Write content to a file.',

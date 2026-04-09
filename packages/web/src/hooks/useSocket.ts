@@ -89,6 +89,17 @@ export interface SocketCallbacks {
     createdAt: number;
   }) => void;
   onAuthorizationResponse?: (data: { requestId: string; status: string; scope?: string; reason?: string }) => void;
+  onApprovalRequest?: (data: {
+    requestId: string;
+    catId: string;
+    threadId: string;
+    toolName: string;
+    riskLevel: string;
+    reason: string;
+    context?: string;
+    createdAt: number;
+  }) => void;
+  onApprovalResponse?: (data: { requestId: string; decision?: string; scope?: string; reason?: string }) => void;
   /** F101: Game state update */
   onGameStateUpdate?: (data: { gameId: string; view: unknown; timestamp: number }) => void;
   /** F101 Phase D: Independent game thread created */
@@ -383,6 +394,19 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socket.on('authorization:response', (data: Record<string, unknown>) => {
       callbacksRef.current.onAuthorizationResponse?.(
         data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0],
+      );
+    });
+
+    socket.on('approval:request', (data: Record<string, unknown>) => {
+      const currentThread = threadIdRef.current;
+      if (data.threadId && currentThread && data.threadId !== currentThread) return;
+      callbacksRef.current.onApprovalRequest?.(
+        data as Parameters<NonNullable<SocketCallbacks['onApprovalRequest']>>[0],
+      );
+    });
+    socket.on('approval:response', (data: Record<string, unknown>) => {
+      callbacksRef.current.onApprovalResponse?.(
+        data as Parameters<NonNullable<SocketCallbacks['onApprovalResponse']>>[0],
       );
     });
 

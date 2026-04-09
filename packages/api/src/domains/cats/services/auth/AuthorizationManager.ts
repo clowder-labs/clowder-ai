@@ -210,6 +210,39 @@ export class AuthorizationManager {
     return rule?.decision ?? null;
   }
 
+  /**
+   * 直接创建授权规则（绕过 pendingStore）
+   * 用于 ApprovalManager 审批通过后直接写入规则，
+   * 避免与 pendingStore 的 requestId 不匹配问题。
+   */
+  async addRule(input: {
+    catId: CatId;
+    action: string;
+    scope: 'thread' | 'global';
+    decision: 'allow' | 'deny';
+    threadId?: string;
+    createdBy: string;
+    reason?: string;
+    /** 自动过期（秒）。用于 scope=once → 短暂放行后自动回收 */
+    ttlSeconds?: number;
+  }): Promise<void> {
+    const rule = await this.ruleStore.add({
+      catId: input.catId,
+      action: input.action,
+      scope: input.scope,
+      decision: input.decision,
+      ...(input.scope === 'thread' && input.threadId ? { threadId: input.threadId } : {}),
+      createdBy: input.createdBy,
+      ...(input.reason ? { reason: input.reason } : {}),
+    });
+
+    if (input.ttlSeconds && input.ttlSeconds > 0) {
+      setTimeout(() => {
+        void Promise.resolve(this.ruleStore.remove(rule.id));
+      }, input.ttlSeconds * 1000);
+    }
+  }
+
   /** 测试用: 当前 in-flight waiter 数 */
   get pendingWaiterCount(): number {
     return this.inFlightWaiters.size;

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
+import { useApprovalCenter } from '@/hooks/useApprovalCenter';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { useCatData } from '@/hooks/useCatData';
 import { useChatHistory } from '@/hooks/useChatHistory';
@@ -28,6 +29,8 @@ import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId, setIsSkipAuth } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsPanel } from './AgentsPanel';
+import { ApprovalCenterPanel } from './ApprovalCenterPanel';
+import { ApprovalRequestCard } from './ApprovalRequestCard';
 import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -75,7 +78,7 @@ type ChatContainerProps =
       mode?: 'thread';
       threadId: string;
       requireLoginCheck?: boolean;
-      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'approval';
     };
 
 export function ChatContainer(props: ChatContainerProps) {
@@ -140,7 +143,7 @@ function ThreadModeChatContainer({
   initialSidebarMenu = 'chat',
 }: {
   threadId: string;
-  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'approval';
 }) {
   const {
     messages,
@@ -200,7 +203,7 @@ function ThreadModeChatContainer({
     timestamp: number;
     catId: string;
   } | null>(null);
-  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>(
+  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'approval'>(
     initialSidebarMenu,
   );
   // F106: fetch bootcamp count independently of sidebar lifecycle
@@ -251,6 +254,13 @@ function ThreadModeChatContainer({
     handleAuthRequest,
     handleAuthResponse,
   } = useAuthorization(threadId);
+  const {
+    pending: approvalPending,
+    respond: approvalRespond,
+    cancel: approvalCancel,
+    handleApprovalRequest,
+    handleApprovalResponse,
+  } = useApprovalCenter(threadId);
 
   useEffect(() => {
     const pending = consumePendingNewThreadSend(threadId);
@@ -392,6 +402,8 @@ function ThreadModeChatContainer({
     clearDoneTimeout,
     handleAuthRequest,
     handleAuthResponse,
+    handleApprovalRequest,
+    handleApprovalResponse,
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
   });
 
@@ -651,6 +663,7 @@ function ThreadModeChatContainer({
               {sidebarMenu === 'agents' && <AgentsPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
               {sidebarMenu === 'skills' && <SkillsPanel />}
+              {sidebarMenu === 'approval' && <ApprovalCenterPanel threadId={threadId} />}
             </div>
           )}
           {sidebarMenu === 'chat' && (
@@ -724,6 +737,14 @@ function ThreadModeChatContainer({
           <div className="border-t border-amber-200 bg-amber-50/40 py-2">
             {authPending.map((req) => (
               <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
+            ))}
+          </div>
+        )}
+
+        {sidebarMenu === 'chat' && approvalPending.length > 0 && (
+          <div className="border-t border-orange-200 bg-orange-50/40 py-2">
+            {approvalPending.map((req) => (
+              <ApprovalRequestCard key={req.requestId} request={req} onRespond={approvalRespond} onCancel={approvalCancel} />
             ))}
           </div>
         )}

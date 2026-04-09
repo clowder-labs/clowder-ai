@@ -14,6 +14,23 @@ export type {
   A2ATask,
   A2ATaskStatus,
 } from './a2a.js';
+// Approval Center types (审批中心)
+export type {
+  ApprovalChannelConfig,
+  ApprovalChannelType,
+  ApprovalDecision,
+  ApprovalRequest,
+  ApprovalRequestEvent,
+  ApprovalRespondEvent,
+  ApprovalResponse,
+  ApprovalStatus,
+  ApproverSpec,
+  EscalationTarget,
+  SuspendedSessionState,
+  ToolPolicy,
+  ToolPolicyCondition,
+  ToolRiskLevel,
+} from './approval.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
