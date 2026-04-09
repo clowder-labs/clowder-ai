@@ -98,15 +98,15 @@ const AVATAR_FORMAT_HINT = 'png、jpeg、jpg';
 
 // 预设头像列表
 const PRESET_AVATARS = [
-  '/avatars/agent-avatar-1.svg',
-  '/avatars/agent-avatar-2.svg',
-  '/avatars/agent-avatar-3.svg',
-  '/avatars/agent-avatar-4.svg',
-  '/avatars/agent-avatar-5.svg',
-  '/avatars/agent-avatar-6.svg',
-  '/avatars/agent-avatar-7.svg',
-  '/avatars/agent-avatar-8.svg',
-  '/avatars/agent-avatar-9.svg',
+  '/avatars/agent-avatar-1.png',
+  '/avatars/agent-avatar-2.png',
+  '/avatars/agent-avatar-3.png',
+  '/avatars/agent-avatar-4.png',
+  '/avatars/agent-avatar-5.png',
+  '/avatars/agent-avatar-6.png',
+  '/avatars/agent-avatar-7.png',
+  '/avatars/agent-avatar-8.png',
+  '/avatars/agent-avatar-9.png',
 ];
 function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-4 w-4" />;
