@@ -1049,6 +1049,10 @@ async function main(): Promise<void> {
   if (editionConfig.identity.mode !== 'no-auth') {
     const { authRoutes } = await import('./routes/auth.js');
     await app.register(authRoutes);
+  } else {
+    // F140 C1: no-auth mode — provide minimal /api/islogin so frontend ChatContainer
+    // doesn't 404 and redirect to /login. In no-auth mode, everyone is "logged in".
+    app.get('/api/islogin', async () => ({ islogin: true, isskip: false, mode: 'no-auth' }));
   }
   await app.register(versionRoutes);
   await app.register(maasModelsRoutes);
