@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import time
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from dotenv import load_dotenv
@@ -22,6 +23,11 @@ from openjiuwen.core.session.checkpointer.checkpointer import CheckpointerConfig
 from openjiuwen.core.session.checkpointer.persistence import PersistenceCheckpointerProvider
 
 from jiuwenclaw.agentserver.prompt_builder import build_system_prompt, build_user_prompt
+from jiuwenclaw.agentserver.session_metadata import (
+    _safe_session_subdir,
+    load_project_dir,
+    save_project_dir,
+)
 from jiuwenclaw.agentserver.tools.command_tools import set_request_workspace
 from jiuwenclaw.agentserver.tools.multi_session_toolkits import MultiSessionToolkit
 from jiuwenclaw.agentserver.tools import SendFileToolkit
@@ -178,6 +184,8 @@ class JiuWenClaw:
         self._session_priorities: dict[str, int] = {}  # session_id -> 优先级计数器（用于先进后出）
         self._session_queues: dict[str, asyncio.PriorityQueue] = {}  # session_id -> 优先队列
         self._session_processors: dict[str, asyncio.Task] = {}  # session_id -> processor_task
+        # Session-bound project_dir (resolved str), isolated from self._workspace_dir (agent root for memory).
+        self._session_project_dir: dict[str, str] = {}
         # Memory system expects workspace_dir/layout:
         # - workspace_dir/memory/MEMORY.md + USER.md
         # - workspace_dir/memory/memory.db (SQLite vector index)
@@ -615,6 +623,7 @@ class JiuWenClaw:
         else:
             set_request_workspace(None)  # fall back to default ~/.jiuwenclaw workspace
 
+        prompt_workspace_dir = project_dir or str(get_workspace_dir())
         self._session_tool = None
 
         tool_list = self._instance.ability_manager.list()
@@ -785,7 +794,7 @@ class JiuWenClaw:
                 mode=mode,
                 language=config_base.get("preferred_language", "zh"),
                 channel=channel,
-                workspace_dir=self._workspace_dir,
+                workspace_dir=prompt_workspace_dir,
             ),
         }]
 
@@ -955,6 +964,72 @@ class JiuWenClaw:
         """获取 session_id，默认为 'default'."""
         return request.session_id or "default"
 
+    def _effective_project_dir_for_session(
+        self, session_id: str, param_project_dir: str | None
+    ) -> str | None:
+        """Resolve per-session project directory: first non-empty param binds; later empty reuses bind.
+
+        Paths are normalized with Path.resolve() to match set_request_workspace().
+        If a later request passes a different non-empty path, log a warning and keep the first binding.
+        """
+        raw = (param_project_dir or "").strip()
+        can_persist = _safe_session_subdir(session_id) is not None
+
+        if not raw:
+            existing = self._session_project_dir.get(session_id)
+            if existing is not None:
+                return existing
+            if not can_persist:
+                logger.warning(
+                    "[JiuWenClaw] Skipping session metadata load for invalid session_id=%r",
+                    session_id,
+                )
+                return None
+            loaded = load_project_dir(session_id)
+            if loaded is not None:
+                self._session_project_dir[session_id] = loaded
+            return loaded
+
+        try:
+            resolved = str(Path(raw).resolve())
+        except OSError as exc:
+            logger.warning(
+                "[JiuWenClaw] project_dir resolve failed for session_id=%s path=%r: %s",
+                session_id,
+                raw,
+                exc,
+            )
+            return self._session_project_dir.get(session_id)
+
+        existing = self._session_project_dir.get(session_id)
+        if existing is None:
+            self._session_project_dir[session_id] = resolved
+            if can_persist:
+                save_project_dir(session_id, resolved)
+            else:
+                logger.warning(
+                    "[JiuWenClaw] Skipping session metadata save for invalid session_id=%r",
+                    session_id,
+                )
+            return resolved
+        if existing == resolved:
+            if can_persist:
+                save_project_dir(session_id, existing)
+            else:
+                logger.warning(
+                    "[JiuWenClaw] Skipping session metadata save for invalid session_id=%r",
+                    session_id,
+                )
+            return existing
+        logger.warning(
+            "[JiuWenClaw] Ignoring conflicting project_dir for session_id=%s "
+            "(keeping %r, got %r)",
+            session_id,
+            existing,
+            resolved,
+        )
+        return existing
+
     async def _cancel_session_task(self, session_id: str, log_msg_prefix: str = "") -> None:
         """取消指定 session 的非流式任务."""
         task = self._session_tasks.get(session_id)
@@ -1011,6 +1086,7 @@ class JiuWenClaw:
                 self._session_queues.pop(session_id, None)
                 self._session_priorities.pop(session_id, None)
                 self._session_tasks.pop(session_id, None)
+                self._session_project_dir.pop(session_id, None)
                 self._session_processors.pop(session_id, None)
                 logger.info("[JiuWenClaw] Session 任务处理器已关闭: session_id=%s", session_id)
 
@@ -1153,6 +1229,9 @@ class JiuWenClaw:
             )
 
         session_id = self._get_session_id(request)
+        effective_project_dir = self._effective_project_dir_for_session(
+            session_id, request.params.get("project_dir")
+        )
         query = request.params.get("query", "")
         append_history_record(
             session_id=session_id,
@@ -1212,11 +1291,11 @@ class JiuWenClaw:
         async def run_agent_task():
             try:
                 await self._register_runtime_tools(
-                    request.session_id,
+                    session_id,
                     request.channel_id,
                     request.request_id,
                     request.params.get("mode", "plan"),
-                    project_dir=request.params.get("project_dir"),
+                    project_dir=effective_project_dir,
                     cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 return await Runner.run_agent(agent=self._instance, inputs=inputs)
@@ -1309,6 +1388,9 @@ class JiuWenClaw:
             return
 
         session_id = self._get_session_id(request)
+        effective_project_dir = self._effective_project_dir_for_session(
+            session_id, request.params.get("project_dir")
+        )
         query = request.params.get("query", "")
         append_history_record(
             session_id=session_id,
@@ -1371,11 +1453,11 @@ class JiuWenClaw:
             """执行流式任务，将产生的 chunk 放入队列."""
             try:
                 await self._register_runtime_tools(
-                    request.session_id,
+                    session_id,
                     request.channel_id,
                     request.request_id,
                     request.params.get("mode", "plan"),
-                    project_dir=request.params.get("project_dir"),
+                    project_dir=effective_project_dir,
                     cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 async for chunk in Runner.run_agent_streaming(self._instance, inputs):
