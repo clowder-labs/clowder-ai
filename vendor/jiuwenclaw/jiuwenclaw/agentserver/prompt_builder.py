@@ -381,12 +381,6 @@ def _tool_prompt(mode, language: str) -> str:
 | `mcp_paid_search` | 付费搜索（Perplexity/SERPER/JINA） |
 | `mcp_fetch_webpage` | 抓取网页文本内容 |
 
-### 文件操作
-
-| 工具名称 | 功能说明 |
-|---------|---------|
-| `view_file` | 查看文本文件内容 |
-
 ### 记忆系统
 
 | 工具名称 | 功能说明 |
@@ -466,12 +460,6 @@ Tools are built-in methods.
 | `mcp_free_search` | Free search (DuckDuckGo) |
 | `mcp_paid_search` | Paid search (Perplexity/SERPER/JINA) |
 | `mcp_fetch_webpage` | Fetch webpage text content |
-
-### File Operations
-
-| Tool Name | Description |
-|-----------|-------------|
-| `view_file` | View text file contents |
 
 ### Memory System
 
