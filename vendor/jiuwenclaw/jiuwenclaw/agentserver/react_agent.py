@@ -39,7 +39,7 @@ from jiuwenclaw.agentserver.permissions import (
 from jiuwenclaw.agentserver.permissions.models import PermissionLevel
 from jiuwenclaw.agentserver.tools.todo_toolkits import TodoToolkit
 from jiuwenclaw.evolution.service import EvolutionService
-from jiuwenclaw.utils import get_agent_memory_dir, get_workspace_dir, logger
+from jiuwenclaw.utils import get_agent_memory_dir, get_workspace_dir, logger, get_env_file
 from jiuwenclaw.config import get_config
 from jiuwenclaw.utils import (
     fix_json_arguments,
@@ -47,15 +47,17 @@ from jiuwenclaw.utils import (
     parse_tool_arguments_json,
     validate_tool_args_required_non_empty,
 )
+import os
+from dotenv import load_dotenv
 
-
+load_dotenv(dotenv_path=get_env_file())
 # 加载流式输出配置
 _react_config = get_config().get("react", {})
 ANSWER_CHUNK_SIZE = _react_config.get("answer_chunk_size", 500)
 STREAM_CHUNK_THRESHOLD = _react_config.get("stream_chunk_threshold", 50)
 STREAM_CHARACTER_THRESHOLD = _react_config.get("stream_character_threshold", 2000)
-
-LLM_MAX_TOKENS = env_int("LLM_MAX_TOKENS", 16384)
+_llm_max_tokens_env = os.environ.get("LLM_MAX_TOKENS", "").strip()
+LLM_MAX_TOKENS = int(_llm_max_tokens_env) if _llm_max_tokens_env else 16384
 
 _raw_retry_mode = str(_react_config.get("tool_arguments_retry_mode", "same_turn_llm") or "").strip().lower()
 if _raw_retry_mode in ("same_turn_llm", "next_iteration"):
