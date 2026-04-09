@@ -58,9 +58,14 @@ export class RedisAuthorizationRuleStore implements IAuthorizationRuleStore {
 
     const key = AuthRuleKeys.detail(rule.id);
     const fields = this.serializeRule(rule);
+    // Per-rule TTL from expiresAt, or global default
+    const ruleTtl = input.expiresAt
+      ? Math.max(1, Math.ceil((input.expiresAt - Date.now()) / 1000))
+      : this.ttlSeconds;
+
     const pipeline = this.redis.multi();
     pipeline.hset(key, ...fields);
-    if (this.ttlSeconds) pipeline.expire(key, this.ttlSeconds);
+    if (ruleTtl) pipeline.expire(key, ruleTtl);
     pipeline.zadd(AuthRuleKeys.ALL, String(now), rule.id);
     await pipeline.exec();
 
@@ -74,15 +79,14 @@ export class RedisAuthorizationRuleStore implements IAuthorizationRuleStore {
     return deleted > 0;
   }
 
-  async match(catId: CatId, action: string, threadId: string): Promise<AuthorizationRule | null> {
-    // Fetch all rule IDs (newest first for efficiency — latest wins within scope)
+  async match(catId: CatId, action: string, threadId: string, executionHash?: string): Promise<AuthorizationRule | null> {
     const ruleIds = await this.redis.zrevrange(AuthRuleKeys.ALL, 0, -1);
     if (ruleIds.length === 0) return null;
 
     let bestThread: AuthorizationRule | null = null;
     let bestGlobal: AuthorizationRule | null = null;
+    const expired: string[] = [];
 
-    // Fetch rules in batches using pipeline
     const pipeline = this.redis.pipeline();
     for (const id of ruleIds) {
       pipeline.hgetall(AuthRuleKeys.detail(id));
@@ -96,9 +100,13 @@ export class RedisAuthorizationRuleStore implements IAuthorizationRuleStore {
       if (!record.id) continue;
 
       const rule = this.hydrateRule(record);
+      // Lazy expiry check
+      if (rule.expiresAt && Date.now() > rule.expiresAt) { expired.push(rule.id); continue; }
       const catMatch = rule.catId === '*' || rule.catId === catId;
       if (!catMatch) continue;
       if (!matchAction(rule.action, action)) continue;
+      // Exact-binding: rule with hash only matches same hash
+      if (rule.executionHash && rule.executionHash !== executionHash) continue;
 
       if (rule.scope === 'thread' && rule.threadId === threadId) {
         if (!bestThread || rule.createdAt > bestThread.createdAt) {
@@ -111,7 +119,17 @@ export class RedisAuthorizationRuleStore implements IAuthorizationRuleStore {
       }
     }
 
-    return bestThread ?? bestGlobal ?? null;
+    // Clean up expired (lazy)
+    if (expired.length > 0) {
+      const cleanPipe = this.redis.pipeline();
+      for (const id of expired) { cleanPipe.del(AuthRuleKeys.detail(id)); cleanPipe.zrem(AuthRuleKeys.ALL, id); }
+      void cleanPipe.exec();
+    }
+
+    const matched = bestThread ?? bestGlobal ?? null;
+    // Self-destruct: once-style rules (with expiresAt) remove after first use
+    if (matched?.expiresAt) void this.remove(matched.id);
+    return matched;
   }
 
   async list(filter?: { catId?: CatId; threadId?: string }): Promise<AuthorizationRule[]> {
@@ -170,6 +188,8 @@ export class RedisAuthorizationRuleStore implements IAuthorizationRuleStore {
     ];
     if (rule.threadId) fields.push('threadId', rule.threadId);
     if (rule.reason) fields.push('reason', rule.reason);
+    if (rule.expiresAt) fields.push('expiresAt', String(rule.expiresAt));
+    if (rule.executionHash) fields.push('executionHash', rule.executionHash);
     return fields;
   }
 
@@ -184,6 +204,8 @@ export class RedisAuthorizationRuleStore implements IAuthorizationRuleStore {
       createdBy: data.createdBy!,
       ...(data.threadId ? { threadId: data.threadId } : {}),
       ...(data.reason ? { reason: data.reason } : {}),
+      ...(data.expiresAt ? { expiresAt: parseInt(data.expiresAt, 10) } : {}),
+      ...(data.executionHash ? { executionHash: data.executionHash } : {}),
     };
   }
 }

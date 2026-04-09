@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { ApprovalManager } from '../domains/cats/services/approval/ApprovalManager.js';
 import type { IApprovalStore } from '../domains/cats/services/stores/ports/ApprovalStore.js';
 import type { IToolPolicyStore } from '../domains/cats/services/stores/ports/ToolPolicyStore.js';
+import type { ApprovalChannelGateway } from '../domains/cats/services/approval/ApprovalChannelGateway.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 export interface ApprovalCenterRoutesOptions {
@@ -16,6 +17,7 @@ export interface ApprovalCenterRoutesOptions {
   approvalStore: IApprovalStore;
   policyStore: IToolPolicyStore;
   socketManager: SocketManager;
+  channelGateway?: ApprovalChannelGateway;
 }
 
 function resolveAuthorizationUserId(request: {
@@ -79,7 +81,7 @@ const webhookPayloadSchema = z.object({
 // ── 路由注册 ──
 
 export const approvalCenterRoutes: FastifyPluginAsync<ApprovalCenterRoutesOptions> = async (app, opts) => {
-  const { approvalManager, approvalStore, policyStore, socketManager } = opts;
+  const { approvalManager, approvalStore, policyStore, socketManager, channelGateway } = opts;
 
   // POST /api/approval/respond — 审批人（人类或 Agent）做出决策
   app.post('/api/approval/respond', async (request, reply) => {
@@ -249,6 +251,7 @@ export const approvalCenterRoutes: FastifyPluginAsync<ApprovalCenterRoutesOption
   });
 
   // POST /api/approval/webhook/:channelId — 外部 OA 系统回调入口
+  // 通过 channelGateway 进行签名验证 + 解析，不直接处理 payload
   app.post('/api/approval/webhook/:channelId', async (request, reply) => {
     const { channelId } = request.params as { channelId: string };
     if (!channelId) {
@@ -256,6 +259,32 @@ export const approvalCenterRoutes: FastifyPluginAsync<ApprovalCenterRoutesOption
       return { error: 'Missing channelId' };
     }
 
+    // Prefer channel gateway for verification + parsing
+    if (channelGateway) {
+      const headers = request.headers as Record<string, string>;
+      const rawBody = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+      const result = channelGateway.handleInboundResponse(channelId, request.body, headers, rawBody);
+
+      if ('error' in result) {
+        reply.status(400);
+        return { error: result.error };
+      }
+
+      const updated = await approvalManager.respondToApproval(result.requestId, result.decision);
+      if (!updated) {
+        reply.status(404);
+        return { error: 'Request not found or already resolved' };
+      }
+
+      socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'approval:response', {
+        requestId: result.requestId,
+        decision: result.decision.decision,
+        scope: result.decision.scope,
+      });
+      return { status: 'ok' };
+    }
+
+    // Fallback: direct parsing (backward compat when no gateway configured)
     const parseResult = webhookPayloadSchema.safeParse(request.body);
     if (!parseResult.success) {
       reply.status(400);
@@ -278,12 +307,8 @@ export const approvalCenterRoutes: FastifyPluginAsync<ApprovalCenterRoutesOption
     }
 
     socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'approval:response', {
-      requestId,
-      decision,
-      scope,
-      ...(reason ? { reason } : {}),
+      requestId, decision, scope, ...(reason ? { reason } : {}),
     });
-
     return { status: 'ok' };
   });
 

@@ -19,6 +19,8 @@ export interface IApprovalChannel {
   sendEscalation(request: ApprovalRequest, tier: number): Promise<void>;
   /** 解析外部 OA 回调 (webhook 渠道用) */
   parseInboundResponse?(payload: unknown): ApprovalDecision | null;
+  /** 验证入站 webhook 签名 (HMAC/飞书/钉钉) */
+  verifyInboundSignature?(headers: Readonly<Record<string, string>>, rawBody: string): boolean;
 }
 
 export class ApprovalChannelGateway {
@@ -72,11 +74,41 @@ export class ApprovalChannelGateway {
     }
   }
 
-  /** 处理外部 OA 系统的审批回调 */
-  handleInboundResponse(channelId: string, payload: unknown): ApprovalDecision | null {
+  /** 处理外部 OA 系统的审批回调（含签名验证 + 解析） */
+  handleInboundResponse(
+    channelId: string,
+    payload: unknown,
+    headers?: Readonly<Record<string, string>>,
+    rawBody?: string,
+  ): { decision: ApprovalDecision; requestId: string } | { error: string } {
     const channel = this.channels.get(channelId);
-    if (!channel?.parseInboundResponse) return null;
-    return channel.parseInboundResponse(payload);
+    if (!channel) return { error: `Unknown channel: ${channelId}` };
+
+    // Signature verification (if channel supports it)
+    if (channel.verifyInboundSignature && headers && rawBody) {
+      if (!channel.verifyInboundSignature(headers, rawBody)) {
+        return { error: 'Signature verification failed' };
+      }
+    }
+
+    if (!channel.parseInboundResponse) {
+      return { error: `Channel ${channelId} does not support inbound responses` };
+    }
+
+    const decision = channel.parseInboundResponse(payload);
+    if (!decision) return { error: 'Failed to parse inbound response' };
+
+    // Extract requestId from payload
+    const body = payload as Record<string, unknown>;
+    const requestId = typeof body.requestId === 'string' ? body.requestId : '';
+    if (!requestId) return { error: 'Missing requestId in payload' };
+
+    // Replay protection: reject if timestamp > 5 min old
+    if (typeof body.timestamp === 'number' && Math.abs(Date.now() - body.timestamp) > 300_000) {
+      return { error: 'Payload timestamp too old (replay protection)' };
+    }
+
+    return { decision, requestId };
   }
 
   /** 获取已注册渠道列表 */

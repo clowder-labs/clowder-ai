@@ -33,6 +33,7 @@ export class ResumeQueueAdapter implements IResumeQueue {
       intent: 'execute',
       autoExecute: true,
       resumeCatId: params.catId,
+      approvedToolCall: { toolName: params.toolName, toolArgs: params.toolArgs },
     });
 
     if (result.outcome !== 'full') {

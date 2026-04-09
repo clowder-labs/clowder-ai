@@ -87,9 +87,9 @@ export const callbackApprovalRoutes: FastifyPluginAsync<CallbackApprovalRoutesOp
     return response;
   });
 
-  // GET /api/callbacks/check-tool-policy — 快速检查工具是否需要审批
-  app.get('/api/callbacks/check-tool-policy', async (request, reply) => {
-    const parseResult = checkPolicySchema.safeParse(request.query);
+  // POST /api/callbacks/check-tool-policy — 快速检查工具是否需要审批
+  app.post('/api/callbacks/check-tool-policy', async (request, reply) => {
+    const parseResult = checkPolicySchema.safeParse(request.body);
     if (!parseResult.success) {
       reply.status(400);
       return { error: 'Missing required query parameters' };

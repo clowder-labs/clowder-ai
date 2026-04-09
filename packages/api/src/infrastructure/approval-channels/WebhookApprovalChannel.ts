@@ -5,6 +5,7 @@
  * 支持自定义 payload 模板 — 可对接任意 OA / 工单 / IM 系统。
  */
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { ApprovalDecision, ApprovalRequest, RespondScope } from '@cat-cafe/shared';
 import type { IApprovalChannel } from '../../domains/cats/services/approval/ApprovalChannelGateway.js';
 
@@ -98,6 +99,19 @@ export class WebhookApprovalChannel implements IApprovalChannel {
       });
     } catch {
       // best-effort
+    }
+  }
+
+  /** HMAC-SHA256 签名验证 */
+  verifyInboundSignature(headers: Readonly<Record<string, string>>, rawBody: string): boolean {
+    if (!this.config.hmacSecret) return true; // No secret = skip verification
+    const sig = headers['x-webhook-signature'] ?? headers['x-hub-signature-256'] ?? '';
+    if (!sig) return false;
+    const expected = createHmac('sha256', this.config.hmacSecret).update(rawBody).digest('hex');
+    try {
+      return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+    } catch {
+      return false;
     }
   }
 

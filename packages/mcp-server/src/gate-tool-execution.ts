@@ -44,8 +44,8 @@ async function checkToolPolicy(
     }),
   });
   if (!response.ok) {
-    // On policy-check failure, allow pass-through to avoid blocking agents
-    return { requiresApproval: false };
+    // Fail-closed: governed tools must not execute when policy check fails
+    throw new Error(`Policy check HTTP ${response.status}`);
   }
   return (await response.json()) as PolicyResponse;
 }
@@ -70,9 +70,15 @@ export async function gateToolExecution(
   let policy: PolicyResponse;
   try {
     policy = await checkToolPolicy(config, toolName, args);
-  } catch {
-    // Network error — fail-open to avoid blocking agents
-    return (await handler(args as never)) as ToolResult;
+  } catch (err) {
+    // Fail-closed: governed tools must not execute when policy server is unreachable
+    const msg = err instanceof Error ? err.message : String(err);
+    return successResult(JSON.stringify({
+      status: 'gate_error',
+      toolName,
+      message: `Tool policy check failed (fail-closed): ${msg}. ` +
+        'The tool cannot execute until the policy server is reachable.',
+    }));
   }
 
   if (!policy.requiresApproval) {

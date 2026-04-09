@@ -12,7 +12,7 @@ import { generateSortableId } from './MessageStore.js';
 export interface IAuthorizationRuleStore {
   add(rule: Omit<AuthorizationRule, 'id' | 'createdAt'>): AuthorizationRule | Promise<AuthorizationRule>;
   remove(ruleId: string): boolean | Promise<boolean>;
-  match(catId: CatId, action: string, threadId: string): AuthorizationRule | null | Promise<AuthorizationRule | null>;
+  match(catId: CatId, action: string, threadId: string, executionHash?: string): AuthorizationRule | null | Promise<AuthorizationRule | null>;
   list(filter?: { catId?: CatId; threadId?: string }): AuthorizationRule[] | Promise<AuthorizationRule[]>;
 }
 
@@ -58,14 +58,19 @@ export class AuthorizationRuleStore implements IAuthorizationRuleStore {
    * Match rules: thread-scoped first (more specific), then global.
    * Within same scope, later rules win (higher createdAt).
    */
-  match(catId: CatId, action: string, threadId: string): AuthorizationRule | null {
+  match(catId: CatId, action: string, threadId: string, executionHash?: string): AuthorizationRule | null {
     let bestThread: AuthorizationRule | null = null;
     let bestGlobal: AuthorizationRule | null = null;
+    const expired: string[] = [];
 
     for (const rule of this.rules.values()) {
+      // Lazy expiry check
+      if (rule.expiresAt && Date.now() > rule.expiresAt) { expired.push(rule.id); continue; }
       const catMatch = rule.catId === '*' || rule.catId === catId;
       if (!catMatch) continue;
       if (!matchAction(rule.action, action)) continue;
+      // Exact-binding: rule with hash only matches same hash
+      if (rule.executionHash && rule.executionHash !== executionHash) continue;
 
       if (rule.scope === 'thread' && rule.threadId === threadId) {
         if (!bestThread || rule.createdAt > bestThread.createdAt) {
@@ -78,7 +83,13 @@ export class AuthorizationRuleStore implements IAuthorizationRuleStore {
       }
     }
 
-    return bestThread ?? bestGlobal ?? null;
+    // Clean up expired rules
+    for (const id of expired) this.rules.delete(id);
+
+    const matched = bestThread ?? bestGlobal ?? null;
+    // Self-destruct: once-style rules (with expiresAt) remove after first use
+    if (matched?.expiresAt) this.rules.delete(matched.id);
+    return matched;
   }
 
   list(filter?: { catId?: CatId; threadId?: string }): AuthorizationRule[] {

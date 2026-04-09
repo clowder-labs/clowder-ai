@@ -240,14 +240,30 @@ describe('AuthorizationManager.addRule', () => {
     assert.equal(await mgr.checkRule('codex', 'git_push', 'any-thread'), 'deny');
   });
 
-  test('addRule with ttlSeconds auto-removes rule after timeout', async () => {
-    const { mgr } = createAuthManager();
+  test('addRule with ttlSeconds uses store-level expiresAt (not setTimeout)', async () => {
+    const { mgr, ruleStore } = createAuthManager();
     await mgr.addRule({ catId: 'assistant', action: 'mcp_exec', scope: 'thread', decision: 'allow', threadId: 't1', createdBy: 'user-1', ttlSeconds: 1 });
-    // Rule exists immediately
+    // Rule must have expiresAt set (store-level TTL, survives process restart)
+    const rules = ruleStore.list({ threadId: 't1' });
+    assert.equal(rules.length, 1);
+    assert.ok(rules[0].expiresAt, 'rule must have expiresAt for store-level TTL');
+    assert.ok(rules[0].expiresAt > Date.now(), 'expiresAt should be in the future');
+    // Lazy-expiry check: rule exists immediately
     assert.equal(await mgr.checkRule('assistant', 'mcp_exec', 't1'), 'allow');
-    // After 1.2s it should be gone
+    // After 1.2s, lazy-expiry in match() returns null
     await new Promise(r => setTimeout(r, 1200));
     assert.equal(await mgr.checkRule('assistant', 'mcp_exec', 't1'), null);
+  });
+
+  test('addRule with executionHash binds rule to exact payload', async () => {
+    const { mgr } = createAuthManager();
+    await mgr.addRule({ catId: 'assistant', action: 'run_cmd', scope: 'thread', decision: 'allow', threadId: 't1', createdBy: 'user-1', executionHash: 'abc123' });
+    // Matching hash → allowed
+    assert.equal(await mgr.checkRule('assistant', 'run_cmd', 't1', 'abc123'), 'allow');
+    // Different hash → not matched
+    assert.equal(await mgr.checkRule('assistant', 'run_cmd', 't1', 'xyz789'), null);
+    // No hash passed → not matched (rule has hash)
+    assert.equal(await mgr.checkRule('assistant', 'run_cmd', 't1'), null);
   });
 });
 
@@ -265,8 +281,13 @@ describe('ApprovalManager', () => {
       checkRule: async () => opts.ruleResult ?? null,
       respond: async () => null,
       addRule: async (input) => {
-        const rule = ruleStore.add(input);
-        return rule;
+        // Mirror real AuthorizationManager.addRule() conversion
+        const { ttlSeconds, ...rest } = input;
+        const ruleInput = {
+          ...rest,
+          ...(ttlSeconds ? { expiresAt: Date.now() + ttlSeconds * 1000 } : {}),
+        };
+        ruleStore.add(ruleInput);
       },
       _ruleStore: ruleStore,
     };
@@ -339,30 +360,68 @@ describe('ApprovalManager', () => {
     const { manager, ruleStore } = createManager({ policyResult: mockPolicy() });
     const res = await manager.requestApproval(req);
     await manager.respondToApproval(res.approvalRequestId, mkDecision('user-1', 'approve', 'thread'));
-    // Rule should exist for catId + toolName + threadId
-    const rule = ruleStore.match('codex', 'git_commit', 'thread-1');
+    // Rule has executionHash — must pass matching hash to find it
+    const { computeExecutionHash } = await import('../../shared/dist/utils/execution-hash.js');
+    const hash = computeExecutionHash(req.toolName, req.toolArgs);
+    const rule = ruleStore.match('codex', 'git_commit', 'thread-1', hash);
     assert.ok(rule, 'rule should be created in ruleStore');
     assert.equal(rule.decision, 'allow');
     assert.equal(rule.scope, 'thread');
     assert.equal(rule.threadId, 'thread-1');
+    assert.equal(rule.executionHash, hash);
   });
 
-  test('respondToApproval with scope=once creates ephemeral thread rule', async () => {
+  test('respondToApproval with scope=once creates ephemeral rule with TTL + hash', async () => {
     const { manager, ruleStore } = createManager({ policyResult: mockPolicy() });
     const res = await manager.requestApproval(req);
     await manager.respondToApproval(res.approvalRequestId, mkDecision('user-1', 'approve', 'once'));
-    // once -> mapped to thread scope
-    const rule = ruleStore.match('codex', 'git_commit', 'thread-1');
-    assert.ok(rule, 'once should create a thread-scoped rule');
+    const { computeExecutionHash } = await import('../../shared/dist/utils/execution-hash.js');
+    const hash = computeExecutionHash(req.toolName, req.toolArgs);
+    // List all rules to inspect (without triggering self-destruct match)
+    const rules = ruleStore.list({ catId: 'codex' });
+    assert.equal(rules.length, 1);
+    const rule = rules[0];
     assert.equal(rule.scope, 'thread');
+    assert.equal(rule.executionHash, hash);
+    assert.ok(rule.expiresAt, 'once rule must have expiresAt (store-level TTL)');
+    assert.ok(rule.expiresAt > Date.now(), 'expiresAt should be in the future');
   });
 
-  test('respondToApproval with scope=global creates global rule', async () => {
+  test('respondToApproval with scope=global creates global rule WITHOUT hash', async () => {
     const { manager, ruleStore } = createManager({ policyResult: mockPolicy() });
     const res = await manager.requestApproval(req);
     await manager.respondToApproval(res.approvalRequestId, mkDecision('user-1', 'approve', 'global'));
+    // Global rule has no hash — should match any args
     const rule = ruleStore.match('codex', 'git_commit', 'any-thread');
     assert.ok(rule, 'global rule should match any thread');
     assert.equal(rule.scope, 'global');
+    assert.equal(rule.executionHash, undefined, 'global rule must NOT bind to executionHash');
+  });
+
+  test('exact-hash binding: rule approved for args A does not allow args B', async () => {
+    const { manager, ruleStore } = createManager({ policyResult: mockPolicy() });
+    const res = await manager.requestApproval({ ...req, toolArgs: { message: 'safe commit' } });
+    await manager.respondToApproval(res.approvalRequestId, mkDecision('user-1', 'approve', 'thread'));
+    const { computeExecutionHash } = await import('../../shared/dist/utils/execution-hash.js');
+    const hashA = computeExecutionHash('git_commit', { message: 'safe commit' });
+    const hashB = computeExecutionHash('git_commit', { message: '--force' });
+    // Hash A matches
+    assert.ok(ruleStore.match('codex', 'git_commit', 'thread-1', hashA));
+    // Hash B does NOT match (rule is bound to hash A)
+    assert.equal(ruleStore.match('codex', 'git_commit', 'thread-1', hashB), null);
+  });
+
+  test('scope=once rule self-destructs on first match', async () => {
+    const { manager, ruleStore } = createManager({ policyResult: mockPolicy() });
+    const res = await manager.requestApproval(req);
+    await manager.respondToApproval(res.approvalRequestId, mkDecision('user-1', 'approve', 'once'));
+    const { computeExecutionHash } = await import('../../shared/dist/utils/execution-hash.js');
+    const hash = computeExecutionHash(req.toolName, req.toolArgs);
+    // First match succeeds
+    const first = ruleStore.match('codex', 'git_commit', 'thread-1', hash);
+    assert.ok(first, 'first match should succeed');
+    // Second match fails — rule was self-destructed
+    const second = ruleStore.match('codex', 'git_commit', 'thread-1', hash);
+    assert.equal(second, null, 'once rule should be consumed after first match');
   });
 });

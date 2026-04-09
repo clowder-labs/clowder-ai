@@ -19,6 +19,7 @@ import type {
   SuspendedSessionState,
   ToolRiskLevel,
 } from '@cat-cafe/shared';
+import { computeExecutionHash } from '@cat-cafe/shared/utils';
 import type { Server as SocketIOServer } from 'socket.io';
 import type { AuthorizationManager } from '../auth/AuthorizationManager.js';
 import type { IApprovalStore } from '../stores/ports/ApprovalStore.js';
@@ -103,8 +104,9 @@ export class ApprovalManager {
    * 返回: granted（直接执行）| denied（拒绝）| suspended（等待审批）
    */
   async requestApproval(req: RequestApprovalInput): Promise<ApprovalResponse> {
-    // 1. 快速路径: 查已有授权规则
-    const ruleDecision = await this.authManager.checkRule(req.catId, req.toolName, req.threadId);
+    // 1. 快速路径: 查已有授权规则（含 execution hash 精确匹配）
+    const execHash = computeExecutionHash(req.toolName, req.toolArgs as Record<string, unknown>);
+    const ruleDecision = await this.authManager.checkRule(req.catId, req.toolName, req.threadId, execHash);
     if (ruleDecision === 'allow') return { status: 'granted' };
     if (ruleDecision === 'deny') return { status: 'denied' };
 
@@ -226,10 +228,16 @@ export class ApprovalManager {
       const finalRecord = approved ?? updated;
 
       // 创建授权规则 — 直接写入 ruleStore（不经过 pendingStore）
-      // once → 短暂 thread 规则（60s TTL，用完即焚）
-      // thread/global → 持久规则
+      // once → 60s TTL + exact hash binding + 首次匹配自毁
+      // thread → exact hash binding（持久）
+      // global → 工具级放行，不绑定 hash
       const isOnce = decision.scope === 'once';
+      const isGlobal = decision.scope === 'global';
       const ruleScope: 'thread' | 'global' = isOnce ? 'thread' : decision.scope;
+      const execHash = computeExecutionHash(
+        finalRecord.toolName,
+        finalRecord.toolArgs as Record<string, unknown>,
+      );
       await this.authManager.addRule({
         catId: finalRecord.catId,
         action: finalRecord.toolName,
@@ -239,6 +247,7 @@ export class ApprovalManager {
         createdBy: decision.decidedBy,
         reason: decision.reason ?? `Approved: ${finalRecord.toolName}`,
         ...(isOnce ? { ttlSeconds: 60 } : {}),
+        ...(!isGlobal ? { executionHash: execHash } : {}),
       });
 
       // OA 恢复: 通过 InvocationQueue 自动发起新 agent 调用

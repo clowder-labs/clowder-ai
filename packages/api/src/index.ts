@@ -1003,6 +1003,7 @@ async function main(): Promise<void> {
     approvalStore,
     policyStore: toolPolicyStore,
     socketManager,
+    channelGateway,
   });
   await app.register(threadsRoutes, {
     threadStore,
