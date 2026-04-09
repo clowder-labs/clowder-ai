@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { MarkdownContent } from './MarkdownContent';
+import { NoSearchResultsState } from './shared/NoSearchResultsState';
 
 export interface PromptSelectionItem {
   id: string;
@@ -194,17 +195,14 @@ export function PromptSelectionModal({
             {hasNoMatches ? (
               <section
                 data-testid="prompt-empty-state"
-                className="flex min-h-[420px] flex-1 flex-col items-center justify-center rounded-[10px] border border-[#E7ECF3] bg-white px-8 text-center"
+                className="flex min-h-[420px] flex-1 items-center justify-center rounded-[10px] border border-[#E7ECF3] bg-white px-8 py-10"
               >
-                <h3 className="text-[14px] font-semibold text-[#191919]">暂未匹配到数据</h3>
-                <p className="mt-2 text-[12px] text-[#8C8C8C]">没有匹配到符合条件的数据</p>
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  className="mt-4 inline-flex h-7 min-w-[96px] items-center justify-center rounded-full border border-black bg-white px-6 text-[12px] font-normal text-black transition hover:bg-black/5"
-                >
-                  清除筛选器
-                </button>
+                <NoSearchResultsState
+                  onClear={() => setQuery('')}
+                  title="暂未匹配到数据"
+                  description="没有匹配到符合条件的数据"
+                  clearLabel="清除筛选器"
+                />
               </section>
             ) : (
               <>
