@@ -126,12 +126,14 @@ function autoSlug(name: string): string {
 }
 
 function validateAgentName(name: string): string | null {
-  const trimmedName = name.trim();
-  if (!trimmedName) return '请输入名称';
-  if (!autoSlug(trimmedName)) return '名称需包含中文、字母或数字';
+  if (!name) return '?????';
+  if (name !== name.trim()) return '?????????';
+  if (name.length < 2 || name.length > 64) return '?????? 2-64 ???';
+  if (!/^[\u4e00-\u9fffA-Za-z0-9 _-]+$/.test(name)) {
+    return '????????????????????????';
+  }
   return null;
 }
-
 function normalizeSaveErrorMessage(message: string | null | undefined): string | null {
   if (!message) return null;
 
@@ -788,6 +790,7 @@ export function CreateAgentModal({
                 aria-invalid={Boolean(nameError)}
                 value={draftName}
                 onChange={(event) => setDraftName(event.target.value)}
+                maxLength={64}
                 className="ui-input h-[28px] w-full rounded-[6px] px-4 text-[12px]"
               />
               {nameError ? <div className="text-[12px] text-[var(--state-error-text)]">{nameError}</div> : null}
