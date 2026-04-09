@@ -8,8 +8,8 @@ source_branch: "cat-cafe main"
 target_branch: "playground"
 fork_point: "2026-03-25 (v0.3.0, source commit 4ea75f2c1df0)"
 total_candidates: 40
-safe_cherry_pick: 30
-partial_port: 6
+safe_cherry_pick: 34
+partial_port: 5
 blocked_by_policy: 1
 ---
 
@@ -26,7 +26,7 @@ Clowder AI forked from Cat Café's public repo (`zts212653/clowder-ai`) around M
 - WeChat (weixin) adapter fixes
 - Connector / Routing / Config (shared plumbing)
 - Redis / Infra
-- Web/UI: **only** "stuck bubble" type bugs (socket orphan, execution bar stuck)
+- Web/UI: **only** universal UX bugs — "stuck bubble" (socket orphan, execution bar stuck) and input submission bugs (IME double-submit)
 
 **OUT of scope**:
 - ❌ **ACP module** — Clowder AI restructured their ACP (`acp/` → flat `acp-*.ts`), no longer compatible
@@ -37,7 +37,7 @@ Clowder AI forked from Cat Café's public repo (`zts212653/clowder-ai`) around M
 - ❌ **Most UI fixes** — they have heavy independent UI changes; only universal UX bugs apply
 - ❌ **New dependencies** — FREELANCE.md red line; commits introducing new deps are `blocked-by-policy`
 
-After filtering: **40 candidates** → **30 safe cherry-pick, 6 partial-port, 1 blocked, 3 excluded**.
+After filtering: **40 candidates** → **34 safe cherry-pick, 5 partial-port, 1 blocked** (plus 3 test-only in appendix).
 
 ### Classification Legend
 
@@ -88,13 +88,13 @@ After filtering: **40 candidates** → **30 safe cherry-pick, 6 partial-port, 1 
 > **#13 note**: commit also touches `useChatHistory.ts`, `useSocket.ts`, `chatStore.ts` — web hunks need case-by-case review.
 > **#14 note**: API-side changes (`EventAuditLog.ts`, `SessionSealer.ts`) are safe; Hub UI files (`HubStrategyCard`, `SessionChainPanel`, `hub-cat-editor-advanced`) must be skipped.
 
-## Tier 2 — WeChat (weixin) Fixes (12 safe + 1 blocked)
+## Tier 2 — WeChat (weixin) Fixes (11 safe + 1 partial + 1 blocked)
 
 > 🟡 WeixinAdapter.ts exists at same path, but they have their own WeChat development. Each fix needs a diff comparison before applying. `weixin-cdn.ts` does NOT exist in Clowder AI.
 
 | # | Commit | Description | Class | Risk |
 |---|--------|-------------|-------|------|
-| 15 | `3ea2823bd` | aes_key encoding + SILK sampleRate + decodeAesKey compat | safe | 🟡 |
+| 15 | `3ea2823bd` | aes_key encoding + SILK sampleRate + decodeAesKey compat | **partial** | 🟡 |
 | 16 | `7e7c62f40` | voice 1s fake — WAV parser + voice_item metadata | safe | 🟡 |
 | 17 | `751b79e41` | remove voice_item metadata that triggers WeChat rejection | safe | 🟡 |
 | 18 | `a4e51eaa1` | add bits_per_sample to voice_item — fix 1s fake voice | safe | 🟡 |
@@ -109,6 +109,8 @@ After filtering: **40 candidates** → **30 safe cherry-pick, 6 partial-port, 1 
 | 27 | `ea61aa854` | 4 media bugs — aesKey decode, SILK voice, html_widget fallback, URL download | **⛔ blocked** | 🔴 |
 
 > **#27 BLOCKED**: This commit introduces `silk-wasm` as a new dependency (changes `package.json` + `pnpm-lock.yaml`). Per FREELANCE.md red line: "不要引入新依赖". Needs CVO special approval before porting. The non-dep parts (aesKey decode, html_widget fallback, URL download) could be extracted as a `partial-port` if approved.
+>
+> **#15 note**: This commit touches both `WeixinAdapter.ts` (✅ exists) and `weixin-cdn.ts` (❌ missing in clowder-ai). Port `WeixinAdapter.ts` hunks only; `weixin-cdn.ts` changes and `weixin-cdn.test.js` must be skipped.
 
 ## Tier 3 — Connector / Routing / Config (8 fixes)
 
@@ -176,24 +178,25 @@ After filtering: **40 candidates** → **30 safe cherry-pick, 6 partial-port, 1 
 - [x] Categorize by module and priority
 - [x] Check file existence in clowder-ai
 - [x] Assess conflict risk per tier
-- [x] Review by @codex — P1/P2 findings addressed (v2)
+- [x] Review by @codex — v2 P1/P2 findings addressed; v3 consistency fixes applied
 
-### Phase 2 — Safe Cherry-Picks (Tier 1 safe + Tier 3)
+### Phase 2 — Safe Cherry-Picks (Tier 1 safe + Tier 3 + Tier 4 safe)
 - [ ] Create branch `fix/upstream-invocation-sync` from `playground`
-- [ ] Cherry-pick 12 safe Tier 1 commits + 8 Tier 3 commits (20 total)
+- [ ] Cherry-pick 12 safe Tier 1 + 8 Tier 3 + 3 safe Tier 4 (#37/#38/#39) = 23 total
 - [ ] Run tests, fix conflicts
 - [ ] PR to `playground`
 
 ### Phase 3 — WeChat Fixes (Tier 2 safe)
 - [ ] Diff WeixinAdapter.ts between cat-cafe and clowder-ai
 - [ ] Investigate weixin-cdn.ts absence — is CDN logic inlined?
-- [ ] Cherry-pick 12 safe Tier 2 commits (skip `ea61aa854` unless CVO approves dep)
+- [ ] Cherry-pick 11 safe Tier 2 commits (skip `ea61aa854` unless CVO approves dep)
 - [ ] PR to `playground`
 
 ### Phase 4 — Partial Ports (requires manual extraction)
+- [ ] `3ea2823bd` — extract `WeixinAdapter.ts` hunks only, skip `weixin-cdn.ts` (missing)
 - [ ] `14daa6c00` — extract API-only hunks (EventAuditLog, SessionSealer), skip Hub UI
 - [ ] `ff63c9f1f` — extract API hunks, review web hunks case-by-case
-- [ ] `dff38d585` — extract `ChatInput.tsx` IME fix only
+- [ ] `dff38d585` — extract `ChatInput.tsx` IME fix only (scope: universal input submission bug)
 - [ ] `3ae239a1a` — port test changes only, skip missing script
 - [ ] PR to `playground`
 
@@ -219,3 +222,4 @@ After filtering: **40 candidates** → **30 safe cherry-pick, 6 partial-port, 1 
 | Date | Reviewer | Verdict | Action |
 |------|----------|---------|--------|
 | 2026-04-09 | @codex | Revise — 3×P1 + 2×P2 | v2: P1s fixed (ea61aa854 blocked, dff38d585 partial, 14daa6c00 demoted); P2s fixed (3ae239a1a risk↑, ff63c9f1f files updated) |
+| 2026-04-09 | @codex | Revise — 3×P1 + 1×P2 | v3: P1-1 stats corrected (34/5/1); P1-2 Phase 2 now covers Tier 4 safe; P1-3 scope broadened to include IME input bugs; P2 3ea2823bd→partial (weixin-cdn.ts missing) |
