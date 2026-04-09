@@ -5,6 +5,7 @@ import { apiFetch } from '@/utils/api-client';
 import type { CapabilityBoardItem, CapabilityBoardResponse, CatFamily, ToggleHandler } from './capability-board-ui';
 import { CapabilityCard } from './capability-board-ui';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
 
@@ -261,53 +262,40 @@ export function HubCapabilityTab({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-capability-scroll-region">
-        {filteredDisplayedSkillItems.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filteredDisplayedSkillItems.map((item) => (
-              <CapabilityCard
-                key={`${item.type}:${item.id}`}
-                item={item}
-                catFamilies={catFamilies}
-                toggling={toggling}
-                onToggle={handleToggle}
-                onUninstall={handleUninstall}
-                onClick={
-                  item.type === 'skill'
-                    ? () =>
-                        onSelectSkill?.({
-                          skillName: item.id,
-                          avatarUrl: item.iconUrl ?? null,
-                        })
-                    : undefined
-                }
-                hideSkillMountStatus={hideSkillMountStatus}
-              />
-            ))}
-          </div>
-        ) : skillItems.length > 0 ? (
-          <div className="flex min-h-full items-center justify-center py-16">
-            <NoSearchResultsState onClear={handleClearFilters} />
-          </div>
-        ) : null}
-      </div>
-
-      {skillItems.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--surface-card-muted)]">
-            <svg
-              className="h-8 w-8 text-[var(--text-subtle)]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          </div>
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">暂无数据</h3>
+      {skillItems.length === 0 ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center py-16">
+          <EmptyDataState />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-capability-scroll-region">
+          {filteredDisplayedSkillItems.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredDisplayedSkillItems.map((item) => (
+                <CapabilityCard
+                  key={`${item.type}:${item.id}`}
+                  item={item}
+                  catFamilies={catFamilies}
+                  toggling={toggling}
+                  onToggle={handleToggle}
+                  onUninstall={handleUninstall}
+                  onClick={
+                    item.type === 'skill'
+                      ? () =>
+                          onSelectSkill?.({
+                            skillName: item.id,
+                            avatarUrl: item.iconUrl ?? null,
+                          })
+                      : undefined
+                  }
+                  hideSkillMountStatus={hideSkillMountStatus}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-full items-center justify-center py-16">
+              <NoSearchResultsState onClear={handleClearFilters} />
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -31,6 +31,17 @@ async function flushEffects() {
   });
 }
 
+function deferredResponse() {
+  let resolve: ((value: Response) => void) | null = null;
+  const promise = new Promise<Response>((res) => {
+    resolve = res;
+  });
+  return {
+    promise,
+    resolve: (value: Response) => resolve?.(value),
+  };
+}
+
 async function changeInputValue(input: HTMLInputElement, value: string) {
   await act(async () => {
     const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
@@ -170,6 +181,69 @@ describe('ModelsPanel search', () => {
     await flushEffects();
 
     expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
+  });
+
+  it('keeps the search toolbar outside the scroll region', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
+    const scrollRegion = container.querySelector('[data-testid="models-scroll-region"]') as HTMLDivElement | null;
+
+    expect(searchInput).not.toBeNull();
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.contains(searchInput!)).toBe(false);
+    expect(scrollRegion?.textContent).toContain('gpt-5');
+  });
+
+  it('uses the shared centered loading state while models are still loading', async () => {
+    const pending = deferredResponse();
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/maas-models') {
+        return pending.promise;
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+      await Promise.resolve();
+    });
+
+    const loadingShell = container.querySelector('[data-testid="models-loading-state"]') as HTMLDivElement | null;
+    expect(loadingShell).not.toBeNull();
+    expect(loadingShell?.className).toContain('flex-1');
+    expect(loadingShell?.className).toContain('items-center');
+    expect(loadingShell?.className).toContain('justify-center');
+    expect(container.querySelector('[data-testid="skills-loading-state"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('加载中...');
+
+    pending.resolve(
+      jsonResponse({
+        list: [
+          {
+            id: 'deepseek-r1',
+            object: 'model',
+            name: 'deepseek-r1',
+            description: 'reasoning model',
+            protocol: 'huawei_maas',
+            labels: ['reasoning'],
+            developer: 'DeepSeek',
+          },
+        ],
+      }),
+    );
+
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-loading-state"]')).toBeNull();
+    expect(container.querySelector('[data-testid="skills-loading-state"]')).toBeNull();
+    expect(container.textContent).toContain('deepseek-r1');
   });
 
   it('shows the create-model button only when skip auth is enabled', async () => {

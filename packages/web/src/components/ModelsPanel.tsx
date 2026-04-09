@@ -7,6 +7,8 @@ import { API_URL, apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
 import { NameInitialIcon } from './NameInitialIcon';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
@@ -15,8 +17,7 @@ import { getIsSkipAuth } from '@/utils/userId';
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
 const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
-const LOADING_TEXT = '加载中...';
-const EMPTY_TEXT = '暂无模型信息';
+const EMPTY_STATE_TITLE = '暂无模型';
 const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
@@ -546,50 +547,58 @@ export function ModelsPanel() {
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <section className="flex shrink-0 justify-between gap-2 pb-6" data-testid="models-toolbar">
+        <div className="relative mr-2 flex-1">
+          <input
+            type="search"
+            aria-label="搜索模型"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={SEARCH_PLACEHOLDER}
+            className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openHub('provider-profiles')}
+            className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+          >
+            ACP / 账号配置
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModelModal(true)}
+            className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
+          >
+            {ADD_MODEL}
+          </button>
+          {isSkipAuth ? (
+            <button
+              type="button"
+              onClick={handleOpenCreateModelModal}
+              data-testid="models-open-create-model-modal"
+              className="ui-button-primary"
+            >
+              {CREATE_MODEL_LABEL}
+            </button>
+          ) : null}
+        </div>
+      </section>
+
+      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="models-scroll-region">
         <div className="flex min-h-full flex-col gap-4 pb-2">
-          <section className="flex shrink-0 justify-between gap-2">
-            <div className="relative flex-1 mr-2">
-              <input
-                type="search"
-                aria-label="搜索模型"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px]"
-              />
+          {loading && (
+            <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-loading-state">
+              <CenteredLoadingState />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openHub('provider-profiles')}
-                className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-              >
-                ACP / 账号配置
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAddModelModal(true)}
-                className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
-              >
-                {ADD_MODEL}
-              </button>
-              {isSkipAuth ? (
-                <button
-                  type="button"
-                  onClick={handleOpenCreateModelModal}
-                  data-testid="models-open-create-model-modal"
-                  className="ui-button-primary"
-                >
-                  {CREATE_MODEL_LABEL}
-                </button>
-              ) : null}
+          )}
+
+          {showEmptyData && (
+            <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-empty-state">
+              <EmptyDataState title={EMPTY_STATE_TITLE} />
             </div>
-          </section>
-
-          {loading && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{LOADING_TEXT}</p>}
-
-          {showEmptyData && <p className="py-10 text-center text-sm text-[var(--text-muted)]">{EMPTY_TEXT}</p>}
+          )}
 
           {showNoResults && (
             <div
@@ -603,7 +612,7 @@ export function ModelsPanel() {
           {showGroups &&
             groupedCards.map((group) => (
               <section key={group.key} className="space-y-3">
-                <h3 className="text-[14px] font-semibold text-[var(--text-primary)]" style={{ marginBlock: '24px' }}>
+                <h3 className="text-[14px] font-semibold text-[var(--text-primary)] mb-4">
                   {group.label} ({group.items.length})
                 </h3>
 

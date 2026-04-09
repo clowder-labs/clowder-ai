@@ -119,4 +119,30 @@ describe('ModelsPanel shared empty search state', () => {
     expect((container.querySelector('input[type="search"]') as HTMLInputElement | null)?.value).toBe('');
     expect(container.textContent).toContain('gpt-5');
   });
+
+  it('uses the shared empty-data state when the model list is empty', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/maas-models') {
+        return Promise.resolve(jsonResponse({ list: [] }));
+      }
+      if (url === '/api/model-config-profiles') {
+        return Promise.resolve(jsonResponse({ providers: [] }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const emptyShell = container.querySelector('[data-testid="models-empty-state"]') as HTMLDivElement | null;
+    expect(emptyShell).not.toBeNull();
+    expect(emptyShell?.className).toContain('flex-1');
+    expect(emptyShell?.className).toContain('items-center');
+    expect(emptyShell?.className).toContain('justify-center');
+    expect(container.querySelector('[data-testid="empty-data-state"]')).not.toBeNull();
+    expect(container.textContent).toContain('暂无模型');
+  });
 });
