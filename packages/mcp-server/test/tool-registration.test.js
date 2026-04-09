@@ -13,36 +13,38 @@ import { describe, test } from 'node:test';
 
 const EXPECTED_TOOLS = [
   // Callback tools (chat + task + ack)
-  'cat_cafe_post_message',
-  'cat_cafe_get_pending_mentions',
-  'cat_cafe_ack_mentions',
-  'cat_cafe_get_thread_context',
-  'cat_cafe_list_threads',
-  'cat_cafe_feat_index',
-  'cat_cafe_cross_post_message',
-  'cat_cafe_list_tasks',
-  'cat_cafe_update_task',
-  'cat_cafe_create_rich_block',
-  'cat_cafe_generate_document',
-  'cat_cafe_get_rich_block_rules',
-  'cat_cafe_register_pr_tracking',
+  'office_claw_post_message',
+  'office_claw_get_pending_mentions',
+  'office_claw_ack_mentions',
+  'office_claw_get_thread_context',
+  'office_claw_list_threads',
+  'office_claw_feat_index',
+  'office_claw_cross_post_message',
+  'office_claw_list_tasks',
+  'office_claw_list_skills',
+  'office_claw_load_skill',
+  'office_claw_update_task',
+  'office_claw_create_rich_block',
+  'office_claw_generate_document',
+  'office_claw_get_rich_block_rules',
+  'office_claw_register_pr_tracking',
   // Workflow SOP tools (F073 P1)
-  'cat_cafe_update_workflow',
+  'office_claw_update_workflow',
   // Multi-mention orchestration (F086 M1)
-  'cat_cafe_multi_mention',
+  'office_claw_multi_mention',
   // F079 Gap 4: Cat-initiated voting
-  'cat_cafe_start_vote',
+  'office_claw_start_vote',
   // Permission tools (this is the regression guard)
-  'cat_cafe_request_permission',
-  'cat_cafe_check_permission_status',
+  'office_claw_request_permission',
+  'office_claw_check_permission_status',
   // Bootcamp tools (F087)
-  'cat_cafe_update_bootcamp_state',
-  'cat_cafe_bootcamp_env_check',
+  'office_claw_update_bootcamp_state',
+  'office_claw_bootcamp_env_check',
   // Callback-scoped memory tools
-  'cat_cafe_retain_memory_callback',
+  'office_claw_retain_memory_callback',
   // Direct evidence/reflect tools
-  'cat_cafe_search_evidence',
-  'cat_cafe_reflect',
+  'office_claw_search_evidence',
+  'office_claw_reflect',
   // Signal Hunter tools (F21 S5) + F091 Study tools
   'signal_list_inbox',
   'signal_get_article',
@@ -57,51 +59,64 @@ const EXPECTED_TOOLS = [
   'signal_delete_article',
   'signal_link_thread',
   // Session chain tools
-  'cat_cafe_list_session_chain',
-  'cat_cafe_read_session_events',
-  'cat_cafe_read_session_digest',
-  'cat_cafe_read_invocation_detail',
+  'office_claw_list_session_chain',
+  'office_claw_read_session_events',
+  'office_claw_read_session_digest',
+  'office_claw_read_invocation_detail',
   // Limb tools
   'limb_list_available',
   'limb_invoke',
   'limb_pair_list',
   'limb_pair_approve',
+  // Schedule tools
+  'office_claw_list_scheduled_tasks',
+  'office_claw_list_schedule_templates',
+  'office_claw_preview_scheduled_task',
+  'office_claw_register_scheduled_task',
+  'office_claw_remove_scheduled_task',
   // F101 Phase I: Game action tool
-  'cat_cafe_submit_game_action',
+  'office_claw_submit_game_action',
 ];
 
 const EXPECTED_COLLAB_TOOLS = [
-  'cat_cafe_post_message',
-  'cat_cafe_get_pending_mentions',
-  'cat_cafe_ack_mentions',
-  'cat_cafe_get_thread_context',
-  'cat_cafe_list_threads',
-  'cat_cafe_feat_index',
-  'cat_cafe_cross_post_message',
-  'cat_cafe_list_tasks',
-  'cat_cafe_update_task',
-  'cat_cafe_create_rich_block',
-  'cat_cafe_generate_document',
-  'cat_cafe_get_rich_block_rules',
-  'cat_cafe_request_permission',
-  'cat_cafe_check_permission_status',
-  'cat_cafe_register_pr_tracking',
-  'cat_cafe_update_workflow',
-  'cat_cafe_multi_mention',
-  'cat_cafe_start_vote',
-  'cat_cafe_update_bootcamp_state',
-  'cat_cafe_bootcamp_env_check',
-  'cat_cafe_submit_game_action',
+  'office_claw_post_message',
+  'office_claw_get_pending_mentions',
+  'office_claw_ack_mentions',
+  'office_claw_get_thread_context',
+  'office_claw_list_threads',
+  'office_claw_feat_index',
+  'office_claw_cross_post_message',
+  'office_claw_list_tasks',
+  'office_claw_update_task',
+  'office_claw_create_rich_block',
+  'office_claw_generate_document',
+  'office_claw_get_rich_block_rules',
+  'office_claw_request_permission',
+  'office_claw_check_permission_status',
+  'office_claw_register_pr_tracking',
+  'office_claw_update_workflow',
+  'office_claw_multi_mention',
+  'office_claw_start_vote',
+  'office_claw_update_bootcamp_state',
+  'office_claw_bootcamp_env_check',
+  'office_claw_list_skills',
+  'office_claw_load_skill',
+  'office_claw_list_scheduled_tasks',
+  'office_claw_list_schedule_templates',
+  'office_claw_preview_scheduled_task',
+  'office_claw_register_scheduled_task',
+  'office_claw_remove_scheduled_task',
+  'office_claw_submit_game_action',
 ];
 
 const EXPECTED_MEMORY_TOOLS = [
-  'cat_cafe_retain_memory_callback',
-  'cat_cafe_search_evidence',
-  'cat_cafe_reflect',
-  'cat_cafe_list_session_chain',
-  'cat_cafe_read_session_events',
-  'cat_cafe_read_session_digest',
-  'cat_cafe_read_invocation_detail',
+  'office_claw_retain_memory_callback',
+  'office_claw_search_evidence',
+  'office_claw_reflect',
+  'office_claw_list_session_chain',
+  'office_claw_read_session_events',
+  'office_claw_read_session_digest',
+  'office_claw_read_invocation_detail',
 ];
 
 const EXPECTED_SIGNAL_TOOLS = [
@@ -150,10 +165,10 @@ describe('MCP Server Tool Registration', () => {
     const { createServer } = await import('../dist/index.js');
     const server = createServer();
 
-    const reqTool = server._registeredTools.cat_cafe_request_permission;
+    const reqTool = server._registeredTools.office_claw_request_permission;
     assert.ok(reqTool, 'request_permission tool should exist');
 
-    const checkTool = server._registeredTools.cat_cafe_check_permission_status;
+    const checkTool = server._registeredTools.office_claw_check_permission_status;
     assert.ok(checkTool, 'check_permission_status tool should exist');
   });
 

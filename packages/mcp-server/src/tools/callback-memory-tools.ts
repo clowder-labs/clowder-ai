@@ -60,7 +60,7 @@ export const callbackMemoryTools = [
   // D16: search_evidence_callback and reflect_callback removed — merged into
   // the public search_evidence / reflect tools (route supports both auth modes).
   {
-    name: 'cat_cafe_retain_memory_callback',
+    name: 'office_claw_retain_memory_callback',
     description:
       'Retain a durable memory item through Cat Cafe callback endpoint. ' +
       'Use when you discover an important insight, decision, or lesson that should persist across sessions. ' +

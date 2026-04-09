@@ -10,6 +10,9 @@
  */
 
 import { getCoCreatorMentionPatterns } from '../config/cat-config-loader.js';
+import { createModuleLogger } from '../infrastructure/logger.js';
+
+const log = createModuleLogger('user-mention');
 
 /** Reject if followed by ASCII word character (letter/digit/underscore) */
 const CONTINUATION_RE = /^[a-zA-Z0-9_]/;
@@ -24,7 +27,11 @@ export function detectUserMention(text: string): boolean {
     for (const pattern of patterns) {
       if (trimmed.startsWith(pattern)) {
         const rest = trimmed.slice(pattern.length);
-        if (!CONTINUATION_RE.test(rest)) return true;
+        if (!CONTINUATION_RE.test(rest)) {
+          log.debug({ pattern, lineLen: line.length }, 'Co-creator mention detected');
+          return true;
+        }
+        log.debug({ pattern, restLen: rest.length }, 'Co-creator pattern matched but boundary failed');
       }
     }
   }

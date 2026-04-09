@@ -51,7 +51,7 @@ export async function handleReflect(input: { query: string }): Promise<ToolResul
 
 export const reflectTools = [
   {
-    name: 'cat_cafe_reflect',
+    name: 'office_claw_reflect',
     description:
       'Ask a reflective question about the project. Synthesizes insights from stored project knowledge (SQLite-backed). ' +
       'Use for open-ended "why" questions that benefit from synthesis across multiple sources. ' +

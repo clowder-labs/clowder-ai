@@ -133,7 +133,7 @@ describe('P1: Handoff digest sanitize', () => {
     };
     const fakeReader = {
       readDigest: mock.fn(async () => ({
-        invocations: [{ toolNames: ['cat_cafe_read_session_digest'] }],
+        invocations: [{ toolNames: ['office_claw_read_session_digest'] }],
         filesTouched: [{ path: 'src/hotfix-sentinel.ts', ops: ['write'] }],
         errors: [],
       })),

@@ -1,7 +1,9 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
 import type { IConnectorPermissionStore } from '../infrastructure/connectors/ConnectorPermissionStore.js';
+import { DefaultFeishuQrBindClient, type FeishuQrBindClient } from '../infrastructure/connectors/FeishuQrBindClient.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export interface ConnectorHubRoutesOptions {
@@ -20,6 +22,8 @@ export interface ConnectorHubRoutesOptions {
   disconnectWeixinBotToken?: () => Promise<void> | void;
   /** F134 Phase D: Permission store for group whitelist + admin management */
   permissionStore?: IConnectorPermissionStore | null;
+  envFilePath?: string;
+  feishuQrBindClient?: FeishuQrBindClient;
 }
 
 function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
@@ -214,6 +218,7 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
 
 export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> = async (app, opts) => {
   const { threadStore } = opts;
+  const feishuQrBindClient = opts.feishuQrBindClient ?? new DefaultFeishuQrBindClient();
 
   app.get('/api/connector/hub-threads', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
@@ -272,8 +277,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     const connectionMode = normalizeFeishuConnectionMode(
       readInput('FEISHU_CONNECTION_MODE') ?? readEnv('FEISHU_CONNECTION_MODE'),
     );
-    const verificationToken =
-      readInput('FEISHU_VERIFICATION_TOKEN') ?? readEnv('FEISHU_VERIFICATION_TOKEN');
+    const verificationToken = readInput('FEISHU_VERIFICATION_TOKEN') ?? readEnv('FEISHU_VERIFICATION_TOKEN');
 
     if (!appId || !appSecret) {
       reply.status(400);
@@ -324,6 +328,227 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       return {
         ok: false,
         error: '飞书连接测试失败，请检查 App ID / App Secret 是否正确',
+        details: message,
+      };
+    }
+  });
+
+  // ── Feishu QR code login routes ──
+
+  app.post('/api/connector/feishu/qrcode', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    try {
+      const result = await feishuQrBindClient.create();
+      return result;
+    } catch (err) {
+      app.log.error({ err }, '[Feishu QR] Failed to fetch QR code');
+      reply.status(502);
+      return { error: 'Failed to fetch QR code from Feishu registration service' };
+    }
+  });
+
+  app.get('/api/connector/feishu/qrcode-status', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const { qrPayload } = request.query as { qrPayload?: string };
+    if (!qrPayload) {
+      reply.status(400);
+      return { error: 'qrPayload query parameter required' };
+    }
+
+    try {
+      const status = await feishuQrBindClient.poll(qrPayload);
+      if (status.status !== 'confirmed') {
+        return status;
+      }
+
+      const updates = [
+        { name: 'FEISHU_APP_ID', value: status.appId ?? null },
+        { name: 'FEISHU_APP_SECRET', value: status.appSecret ?? null },
+      ];
+      const currentMode = process.env.FEISHU_CONNECTION_MODE === 'websocket' ? 'websocket' : 'webhook';
+      const verificationToken = process.env.FEISHU_VERIFICATION_TOKEN;
+      if (currentMode === 'webhook' && (!verificationToken || verificationToken.trim() === '')) {
+        updates.push({ name: 'FEISHU_CONNECTION_MODE', value: 'websocket' });
+      }
+      await applyConnectorSecretUpdates(updates, { envFilePath: opts.envFilePath });
+      return { status: 'confirmed' };
+    } catch (err) {
+      app.log.error({ err }, '[Feishu QR] Failed to poll QR status');
+      reply.status(502);
+      return { error: 'Failed to poll Feishu QR status' };
+    }
+  });
+
+  app.post('/api/connector/feishu/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    await applyConnectorSecretUpdates(
+      [
+        { name: 'FEISHU_APP_ID', value: null },
+        { name: 'FEISHU_APP_SECRET', value: null },
+      ],
+      { envFilePath: opts.envFilePath },
+    );
+    app.log.info({ userId }, '[Feishu] Disconnected by user');
+    return { ok: true };
+  });
+
+  // ── DingTalk connectivity test ──
+
+  app.post('/api/connector/test/dingtalk', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) {
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+    }
+
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const readInput = (key: string): string | undefined => {
+      const value = body[key];
+      return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+    };
+    const readEnv = (key: string): string | undefined => {
+      const value = process.env[key];
+      return value && !value.startsWith('(未设置') ? value : undefined;
+    };
+
+    const appKey = readInput('DINGTALK_APP_KEY') ?? readEnv('DINGTALK_APP_KEY');
+    const appSecret = readInput('DINGTALK_APP_SECRET') ?? readEnv('DINGTALK_APP_SECRET');
+
+    if (!appKey || !appSecret) {
+      reply.status(400);
+      return { ok: false, error: '缺少 DINGTALK_APP_KEY 或 DINGTALK_APP_SECRET' };
+    }
+
+    try {
+      const tokenRes = await fetch('https://api.dingtalk.com/v1.0/oauth2/accessToken', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appKey, appSecret }),
+      });
+
+      const tokenData = (await tokenRes.json().catch(() => ({}))) as {
+        accessToken?: string;
+        expireIn?: number;
+        code?: string;
+        message?: string;
+      };
+
+      if (!tokenRes.ok || !tokenData.accessToken) {
+        reply.status(502);
+        return {
+          ok: false,
+          error: '钉钉认证失败，请确认 App Key / App Secret 是否正确',
+          details: tokenData.message ?? `HTTP ${tokenRes.status}`,
+        };
+      }
+
+      return {
+        ok: true,
+        message: '钉钉应用认证成功，AccessToken 可正常获取。',
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      reply.status(502);
+      return {
+        ok: false,
+        error: '钉钉连接测试失败，请检查网络或 App Key / App Secret',
+        details: message,
+      };
+    }
+  });
+
+  // ── XiaoYi connectivity test ──
+
+  app.post('/api/connector/test/xiaoyi', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) {
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+    }
+
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const readInput = (key: string): string | undefined => {
+      const value = body[key];
+      return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+    };
+    const readEnv = (key: string): string | undefined => {
+      const value = process.env[key];
+      return value && !value.startsWith('(未设置') ? value : undefined;
+    };
+
+    const ak = readInput('XIAOYI_AK') ?? readEnv('XIAOYI_AK');
+    const sk = readInput('XIAOYI_SK') ?? readEnv('XIAOYI_SK');
+    const agentId = readInput('XIAOYI_AGENT_ID') ?? readEnv('XIAOYI_AGENT_ID');
+
+    if (!ak || !sk || !agentId) {
+      reply.status(400);
+      return { ok: false, error: '缺少 XIAOYI_AK、XIAOYI_SK 或 XIAOYI_AGENT_ID' };
+    }
+
+    try {
+      const { generateXiaoyiSignature } = await import(
+        '../infrastructure/connectors/adapters/XiaoyiAdapter.js'
+      );
+
+      const timestamp = Date.now().toString();
+      const signature = generateXiaoyiSignature(sk, timestamp);
+
+      const wsUrl = readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1')
+        ?? 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
+
+      // @ts-expect-error — ws has no bundled types; @types/ws not in this project
+      const { WebSocket } = await import('ws');
+
+      const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
+        const timeout = setTimeout(() => {
+          ws.close();
+          resolve({ ok: false, error: 'WebSocket 握手超时（5秒）' });
+        }, 5_000);
+
+        const ws = new WebSocket(wsUrl, {
+          headers: {
+            'x-access-key': ak,
+            'x-sign': signature,
+            'x-ts': timestamp,
+            'x-agent-id': agentId,
+          },
+        });
+
+        ws.on('open', () => {
+          clearTimeout(timeout);
+          ws.close();
+          resolve({ ok: true });
+        });
+
+        ws.on('error', (err: Error) => {
+          clearTimeout(timeout);
+          resolve({ ok: false, error: err.message });
+        });
+      });
+
+      if (!result.ok) {
+        reply.status(502);
+        return {
+          ok: false,
+          error: '小艺平台连接测试失败，请检查 AK / SK / Agent ID',
+          details: result.error,
+        };
+      }
+
+      return {
+        ok: true,
+        message: '小艺平台 WebSocket 握手成功，凭据有效。',
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      reply.status(502);
+      return {
+        ok: false,
+        error: '小艺连接测试失败，请检查 AK / SK / Agent ID',
         details: message,
       };
     }

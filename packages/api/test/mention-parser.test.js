@@ -137,4 +137,9 @@ describe('parseMentions', () => {
     const result = parseMentions('see [@codex]', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'codex');
   });
+
+  it('matches full-width ＠ mention from IM clients', () => {
+    const result = parseMentions('请 ＠缅因猫 看一下', allPatterns, 'opus');
+    assert.equal(result.targetCatId, 'codex');
+  });
 });

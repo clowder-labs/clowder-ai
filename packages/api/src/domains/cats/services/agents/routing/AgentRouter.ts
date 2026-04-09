@@ -655,6 +655,18 @@ export class AgentRouter {
       ? await this.resolveTargets(message, resolvedThreadId)
       : await this.peekTargets(message, resolvedThreadId);
     const intent = parseIntent(message, targetCats.length);
+    log.debug(
+      {
+        threadId: resolvedThreadId,
+        targetCats,
+        intent: intent.intent,
+        explicit: intent.explicit,
+        persist: options?.persist,
+        hasAtSign: message.includes('@'),
+        contentLen: message.length,
+      },
+      '[AgentRouter] resolveTargetsAndIntent result',
+    );
     return { targetCats, intent };
   }
 
