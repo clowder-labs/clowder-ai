@@ -16,11 +16,11 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 当前实现的问题是：登录协议、session、业务副作用和 `X-Cat-Cafe-User` 身份语义揉在一起，导致接入新 provider 时边界不清、流程不统一、身份来源不可信。F140 的目标是把 auth 做成”框架 + 插件”结构：平台负责统一生命周期和鉴权，provider 只负责凭证到身份的转换。
 
-**铲屎官最终验收标准（2026-04-08 19:42 明确）**：
-1. `no-auth` 和 `huawei-iam` 是**独立可打包、可发布**的 provider module
+**铲屎官最终验收标准（2026-04-08 19:42 明确，2026-04-09 设计收敛后修订）**：
+1. `no-auth` 和 `huawei-iam` 是**独立可管理**的 provider module（内建，在主仓维护）
 2. 主项目通过 `.env` 启用某个 auth module，重启后自动生效
 3. 启用哪个 module 就自动得到对应的**前后端完整效果**（no-auth=无登录页，huawei-iam=当前登录体验）
-4. `@cat-cafe/plugin-api` 独立发布，作为第三方开发的唯一依赖
+4. `@cat-cafe/plugin-api/auth` 作为对外唯一稳定入口（内部 contract 层，不单独发 npm）
 5. 有完整的**插件开发文档**，第三方在独立仓库开发 → 打包发布 → 主项目安装+配 env+重启 → 可用
 
 ## What
@@ -43,50 +43,40 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 这一阶段还负责兼容迁移：保留现有 `/api/islogin`、`/api/login`、`/api/logout` 的外壳兼容层，同时引入统一 `/api/auth/session` 等新入口，并逐步移除旧身份路径中的不可信语义。
 
-### Phase D: Provider 独立打包与发布
+### Phase D: 外部 Provider 接入机制与架构文档
 
-将内建 `no-auth` 和 `huawei-iam` 从主仓库 `packages/api/src/auth/providers/` 拆出为独立可发布的 npm 包：
-- `@cat-cafe/provider-no-auth` — 零配置本地开发 provider
-- `@cat-cafe/provider-huawei-iam` — 华为 IAM 登录 provider
+将已有的 provider 运行时基座（registry + module loader + config select）正式化为**对外开放的扩展模型**。核心设计收敛于 2026-04-08 讨论（见 `docs/architecture/auth-provider-extension-model.md`）：
 
-每个 provider package 的结构：
-- `server/` — 实现 `AuthProvider` 契约（Phase A 已定义）
-- `web/` — provider 自带的前端资源（登录页、console 面板等静态文件）
-- `manifest.json` — 声明 provider 的 server entry + web assets + routing
+- `@cat-cafe/plugin-api` 继续作为内部 contract 层，**不单独发布** npm 包
+- 对外暴露**一个稳定的公共入口**（`@cat-cafe/plugin-api/auth` subpath export），外部 provider 只依赖这个
+- 内建 `no-auth` 和 `huawei-iam` 继续在主仓库维护，**不拆为独立包**
+- 外部 provider 用新 `providerId`（A-scheme），通过 `CAT_CAFE_AUTH_PROVIDER_MODULES` 注册
 
-同时将 `@cat-cafe/plugin-api` 去掉 `private: true`，作为第三方唯一依赖公开发布。
+这一阶段的产出是架构文档 + 公共入口的稳定性保障。
 
-### Phase E: Web Manifest + 静态资源路由
+### Phase E: Provider 前端 Surface 扩展
 
-建立 provider 前端 surface 的加载机制。核心思路：**静态资源路径映射**（参考 Java classpath resource mapping），不依赖运行时 React 组件加载。
+建立 provider 前端 surface 的扩展机制。当前 Phase C 已实现 `presentation` 驱动的 schema-form 模式，Phase E 扩展为更丰富的前端集成：
 
-1. **Provider Web Manifest**：每个 provider 包可选声明 web manifest
-   - `mode: 'none' | 'static' | 'schema-form'`
-   - `loginPage`: 登录页入口的相对路径
-   - `assets`: 静态资源目录
-   - `consoleRoutes`: 额外路由（可选）
-
-2. **Host 启动时自动挂载**：
-   - 解析已安装 provider 的 manifest
-   - 用 `@fastify/static` 按 manifest 挂载静态资源路径
-   - `/login` 路由按 active provider 的 mode 决定行为：
-     - `none`（no-auth）：跳过登录
-     - `static`（huawei-iam）：serve provider 自带的登录页
-     - `schema-form`：fallback 到通用表单渲染
-
-3. **端到端效果**：安装不同 provider 包 → 配 env → 重启 → 对应前端体验自动生效
+1. **presentation.mode 扩展**：在现有 `auto / form / redirect` 基础上，未来可选支持 `static` 模式
+2. **静态资源路径映射**（参考 Java classpath resource mapping）：provider 包可选声明 web manifest，host 用 `@fastify/static` 按 manifest 挂载静态资源
+3. **端到端效果**：切换 `CAT_CAFE_AUTH_PROVIDER` + 重启 → 前端登录体验自动随 provider 变化
 
 ### Phase F: 插件开发文档与端到端验证
 
-产出一份完整的 Auth Provider 开发指南，让不了解主仓库实现的开发者只看文档就能：
-1. 在独立仓库创建 provider 项目
-2. 依赖 `@cat-cafe/plugin-api` 实现 `AuthProvider` 接口
-3. 编写 provider 自带的前端登录页（可选）
-4. 配置 web manifest
-5. 打包发布到 npm
-6. 在主项目中 `pnpm add` → 配置 `.env` → 重启 → 可用
+产出两类文档，让不了解主仓库实现的开发者只看文档就能接入：
 
-端到端验证：用一个 mock provider（如 `@cat-cafe/provider-demo-oidc`）走完整个流程。
+**机制文档**（`docs/architecture/auth-provider-extension-model.md` ✅ 已完成）：
+- 边界、注册模型、配置语义、包边界、身份规则、反模式
+
+**开发指南**（`docs/guides/build-auth-provider.md`）：
+1. 在独立仓库创建 provider 项目
+2. 依赖主项目的 `@cat-cafe/plugin-api/auth` 实现 `AuthProvider` 接口
+3. 编写 provider 逻辑（authenticate、presentation、可选 hooks）
+4. 打包发布到 npm
+5. 在主项目中 `pnpm add` → 配置 `.env` → 重启 → 可用
+
+端到端验证：用一个 demo provider 走完整个流程。
 
 ## Acceptance Criteria
 
@@ -110,25 +100,24 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 - [ ] AC-C4: 旧接口保留兼容外壳，新入口以 `/api/auth/session` 为统一查询面。（deferred）
 - [x] AC-C5: `X-Cat-Cafe-User` 从认证路径退役为非凭证字段。
 
-### Phase D（Provider 独立打包与发布）📋
-- [ ] AC-D1: `no-auth` 拆为独立包 `@cat-cafe/provider-no-auth`，可单独版本管理和发布。
-- [ ] AC-D2: `huawei-iam` 拆为独立包 `@cat-cafe/provider-huawei-iam`，可单独版本管理和发布。
-- [ ] AC-D3: `@cat-cafe/plugin-api` 去掉 `private: true`，可公开发布到 npm。
-- [ ] AC-D4: 主项目通过 `pnpm add @cat-cafe/provider-xxx` + `.env` 配置即可启用 provider。
-- [ ] AC-D5: 主仓不再内建 provider 源码（仅依赖已安装的 provider 包）。
+### Phase D（外部 Provider 接入机制与架构文档）📋
+- [x] AC-D1: 架构文档 `auth-provider-extension-model.md` 完成，覆盖边界、注册模型、配置语义、反模式。
+- [ ] AC-D2: `@cat-cafe/plugin-api/auth` subpath export 作为唯一稳定公共入口，外部 provider 只依赖这个。
+- [ ] AC-D3: 外部 provider 通过 `CAT_CAFE_AUTH_PROVIDER_MODULES` + `CAT_CAFE_AUTH_PROVIDER` 接入，无需修改主仓源码。
+- [ ] AC-D4: 内建 `no-auth` 和 `huawei-iam` 继续在主仓维护，不拆为独立包。
+- [ ] AC-D5: 外部 provider 必须使用新 `providerId`（A-scheme），禁止复用内建 ID。
 
-### Phase E（Web Manifest + 静态资源路由）📋
-- [ ] AC-E1: Provider 包可选导出 web manifest，声明 `mode / loginPage / assets`。
-- [ ] AC-E2: Host 启动时按已安装 provider 的 manifest 自动挂载静态资源路由。
-- [ ] AC-E3: `no-auth` 声明 `mode=none`，无登录页，直接进入主页。
-- [ ] AC-E4: `huawei-iam` 声明 `mode=static`，自带登录页，效果等同当前 playground。
-- [ ] AC-E5: 端到端验证：切换 `.env` + 重启 → 前端登录体验自动随 provider 变化。
+### Phase E（Provider 前端 Surface 扩展）📋
+- [ ] AC-E1: 现有 schema-form 模式（`presentation.mode=form`）端到端可用。
+- [ ] AC-E2: `no-auth` 的 `mode=auto` 正确跳过登录页。
+- [ ] AC-E3: 切换 `CAT_CAFE_AUTH_PROVIDER` + 重启 → 前端登录体验自动随 provider 变化。
+- [ ] AC-E4: （远期）Provider 可选声明 web manifest，host 通过 `@fastify/static` 挂载静态资源。
 
 ### Phase F（插件开发文档与端到端验证）📋
-- [ ] AC-F1: 有完整的 Auth Provider 开发文档（从创建项目到发布到集成）。
-- [ ] AC-F2: 一个不了解主仓库的开发者，只看文档就能在独立仓库开发新 provider。
-- [ ] AC-F3: 文档包含 demo provider 示例代码（含 server + web surface）。
-- [ ] AC-F4: 文档说明 TS/pnpm 集成方式（等价于 Java 的 pom.xml + classpath 说明）。
+- [ ] AC-F1: 机制文档完成（边界、注册模型、配置语义、包边界）。
+- [ ] AC-F2: 开发指南完成（从创建项目到发布到集成的完整 walkthrough）。
+- [ ] AC-F3: 文档包含 demo provider 示例代码。
+- [ ] AC-F4: 一个不了解主仓库的开发者，只看文档就能在独立仓库开发新 provider。
 
 ## 需求点 Checklist
 
@@ -140,9 +129,9 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | R4 | “Huawei MaaS 这种应该是 Huawei 自己要做的事儿” | AC-C3 | test + code review | [x] |
 | R5 | “不要一个能力一个 types 包，直接按 plugin-api 做” | AC-A1, AC-D3 | doc review | [x] structure / [ ] publish |
 | R6 | “X-Cat-Cafe-User 这个不能直接当登录凭证” | AC-B1, AC-C5 | test + code review | [x] |
-| R7 | “no-auth+huawei-auth 独立打包发布，项目 .env 启用” | AC-D1, AC-D2, AC-D4 | e2e test | [ ] |
-| R8 | “启用哪个 module 就自动得到对应前后端完整效果” | AC-E3, AC-E4, AC-E5 | e2e test | [ ] |
-| R9 | “plugin-api 独立发布，第三方只依赖它” | AC-D3, AC-F4 | npm publish | [ ] |
+| R7 | “no-auth+huawei-iam 作为独立可管理的 provider module” | AC-D4 | code review | [x] 内建 provider 各自独立实现，共享契约 |
+| R8 | “启用哪个 module 就自动得到对应前后端完整效果” | AC-E1, AC-E2, AC-E3 | e2e test | [ ] |
+| R9 | “plugin-api 作为第三方唯一依赖入口” | AC-D2, AC-D3 | code review + doc | [ ] |
 | R10 | “插件开发文档：新仓库开发→打包→集成→配 env→重启可用” | AC-F1, AC-F2, AC-F3 | doc walkthrough | [ ] |
 
 ### 覆盖检查
@@ -165,7 +154,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | 旧接口兼容期过长，导致双轨身份路径长期并存 | 在 Phase C 明确兼容只作为外壳，认证真相源一律迁到 SessionAuthority |
 | 后续接入更多 provider 时又把 provider-specific 数据塞进业务层 | 把 `providerState` opaque + `AuthContext` 最小四字段写成硬约束并用 review gate 守住 |
 | Provider 自带前端与 Next.js 构建耦合 | 走静态资源路径映射（`@fastify/static`），不要求 provider 嵌入 Next.js 构建流 |
-| `plugin-api` 发布后 breaking change 影响第三方 | 首次发布前冻结 `AuthProvider` 接口，后续走 minor 版本扩展（optional fields only） |
+| 公共入口 subpath 变更影响已接入的外部 provider | `@cat-cafe/plugin-api/auth` 作为唯一对外稳定面，变更需 review gate；扩展走 optional fields |
 
 ## Open Questions
 
@@ -184,6 +173,8 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | KD-5 | `postLoginInit` 采用”provider 声明、平台触发、失败不回滚认证” | 统一生命周期，同时保留 provider 专属初始化 | 2026-04-08 |
 | KD-6 | Provider 前端走静态资源路径映射，不做运行时 React 组件加载 | 铲屎官指出类比 Java classpath 的方式更稳，且不耦合 Next.js 构建 | 2026-04-08 |
 | KD-7 | Provider package = server module + optional web manifest + static assets | 一个包同时覆盖前后端，安装即完整可用 | 2026-04-08 |
+| KD-8 | `plugin-api` 保持内部 contract 层，不单独发布 npm；内建 provider 不拆包 | 设计收敛：多包是内部实现细节，对外只需一个稳定公共入口 | 2026-04-09 |
+| KD-9 | 外部 provider 用新 providerId（A-scheme），禁止同名覆盖内建 | 日志/排障更清晰，无优先级歧义，additive-only 模型 | 2026-04-09 |
 
 ## Timeline
 
@@ -194,6 +185,8 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | 2026-04-08 | PR #249 opened (feat/f140-auth-plugin-api → playground)，等云端 review |
 | 2026-04-08 | 铲屎官明确最终验收标准：独立发包 + provider 自带前端 + 开发文档 |
 | 2026-04-08 | Feature doc 重整：新增 Phase D/E/F，覆盖完整产品化目标 |
+| 2026-04-09 | 设计收敛：plugin-api 保持内部、A-scheme providerId、内建不拆包（gpt52 + CVO 确认） |
+| 2026-04-09 | 架构文档 `auth-provider-extension-model.md` 落仓 |
 
 ## Review Gate
 
@@ -210,4 +203,5 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 |------|------|------|
 | **Feature** | `docs/features/F140-auth-plugin-api-runtime.md` | 本 feature 真相源 |
 | **Plan** | `docs/plans/2026-04-08-auth-provider-abstraction.md` | F140 的实施计划 |
+| **Architecture** | `docs/architecture/auth-provider-extension-model.md` | Auth 扩展模型架构文档（对外开放机制的真相源） |
 | **Discussion** | `docs/discussions/2026-04-08-auth-plugin-api-runtime-convergence.md` | 多猫讨论后的定案收敛记录 |
