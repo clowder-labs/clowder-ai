@@ -19,6 +19,7 @@ export function WeixinQrPanel({
   const [qrState, setQrState] = useState<QrState>(configured ? 'confirmed' : 'idle');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expireRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -105,16 +106,48 @@ export function WeixinQrPanel({
     }
   };
 
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    setErrorMsg(null);
+    try {
+      const res = await apiFetch('/api/connector/weixin/disconnect', { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error ?? '解除绑定失败');
+        return;
+      }
+      stopPolling();
+      setQrState('idle');
+      setQrUrl(null);
+    } catch {
+      setErrorMsg('Network error');
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   if (qrState === 'confirmed') {
     return (
-      <div
-        className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5"
-        data-testid="weixin-connected"
-      >
-        <span className="text-green-600">
-          <CheckCircleIcon />
-        </span>
-        <span className="text-sm font-medium text-green-700">WeChat connected</span>
+      <div className="space-y-2">
+        <div
+          className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5"
+          data-testid="weixin-connected"
+        >
+          <span className="text-green-600">
+            <CheckCircleIcon />
+          </span>
+          <span className="text-sm font-medium text-green-700">WeChat connected</span>
+        </div>
+        {errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
+        <button
+          type="button"
+          onClick={handleDisconnect}
+          disabled={disconnecting}
+          className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-semibold text-red-700 transition-colors disabled:opacity-60"
+          data-testid="weixin-disconnect"
+        >
+          {disconnecting ? '解除绑定中...' : '解除绑定'}
+        </button>
       </div>
     );
   }

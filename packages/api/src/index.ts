@@ -1459,6 +1459,8 @@ async function main(): Promise<void> {
         connectorGatewayHandle.startWeixinPolling;
       (connectorHubOpts as { activateWeixinBotToken?: (token: string) => Promise<void> }).activateWeixinBotToken =
         connectorGatewayHandle.activateWeixinBotToken;
+      (connectorHubOpts as { disconnectWeixinBotToken?: () => Promise<void> }).disconnectWeixinBotToken =
+        connectorGatewayHandle.disconnectWeixinBotToken;
       // F134 Phase D: Wire permission store to hub routes
       (connectorHubOpts as { permissionStore?: unknown }).permissionStore = connectorGatewayHandle.permissionStore;
       app.log.info('[api] Connector gateway started');

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { FeishuQrPanel } from './FeishuQrPanel';
 import {
   DEFAULT_VISUAL,
   ExternalLinkIcon,
@@ -31,6 +32,18 @@ interface PlatformStatus {
   steps: string[];
 }
 
+interface ConnectorTestResult {
+  ok?: boolean;
+  message?: string;
+  error?: string;
+  details?: string;
+  warnings?: string[];
+  bot?: {
+    openId?: string | null;
+    name?: string | null;
+  };
+}
+
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
     const trimmed = step.trim();
@@ -38,9 +51,9 @@ function readStepText(step: unknown): string | null {
   }
   if (!step || typeof step !== 'object') return null;
   const candidate =
-    (step as { text?: unknown; title?: unknown; label?: unknown }).text
-    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).title
-    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).label;
+    (step as { text?: unknown; title?: unknown; label?: unknown }).text ??
+    (step as { text?: unknown; title?: unknown; label?: unknown }).title ??
+    (step as { text?: unknown; title?: unknown; label?: unknown }).label;
   if (typeof candidate !== 'string') return null;
   const trimmed = candidate.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -70,12 +83,14 @@ function normalizePlatform(raw: unknown, index: number): PlatformStatus | null {
     const label = typeof labelRaw === 'string' && labelRaw.trim() ? labelRaw.trim() : envName;
     const currentValueRaw = current.currentValue;
     const currentValue = typeof currentValueRaw === 'string' ? currentValueRaw : null;
-    return [{
-      envName,
-      label,
-      sensitive: Boolean(current.sensitive),
-      currentValue,
-    }];
+    return [
+      {
+        envName,
+        label,
+        sensitive: Boolean(current.sensitive),
+        currentValue,
+      },
+    ];
   });
 
   const stepsRaw = Array.isArray(item.steps) ? item.steps : [];
@@ -112,6 +127,7 @@ export function HubConnectorConfigTab() {
   const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -122,8 +138,8 @@ export function HubConnectorConfigTab() {
       const data = await res.json();
       const nextPlatforms = Array.isArray(data?.platforms)
         ? data.platforms
-          .map((item: unknown, index: number) => normalizePlatform(item, index))
-          .filter((item: unknown): item is PlatformStatus => item !== null)
+            .map((item: unknown, index: number) => normalizePlatform(item, index))
+            .filter((item: unknown): item is PlatformStatus => item !== null)
         : [];
       setPlatforms(nextPlatforms);
     } catch {
@@ -195,6 +211,50 @@ export function HubConnectorConfigTab() {
     }
   };
 
+  const TESTABLE_PLATFORMS = ['feishu', 'dingtalk', 'xiaoyi'];
+
+  const handleTestConnection = async (platform: PlatformStatus) => {
+    if (!TESTABLE_PLATFORMS.includes(platform.id)) {
+      setSaveResult({ type: 'success', message: '该平台测试连接功能即将上线' });
+      return;
+    }
+
+    setTesting(true);
+    setSaveResult(null);
+    try {
+      const payload = Object.fromEntries(
+        platform.fields
+          .map((field) => [field.envName, fieldValues[field.envName]])
+          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
+      );
+      const res = await apiFetch(`/api/connector/test/${platform.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => ({}))) as ConnectorTestResult;
+      if (!res.ok || !data.ok) {
+        const pieces = [data.error ?? '测试失败', data.details].filter(Boolean);
+        setSaveResult({ type: 'error', message: pieces.join('：') });
+        return;
+      }
+
+      const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
+      const warningText = warnings.length > 0 ? `；${warnings.join('；')}` : '';
+      // Feishu includes bot info in response
+      const botSuffix = data.bot?.name?.trim() || data.bot?.openId?.trim();
+      const botText = botSuffix ? ` 已识别 ${botSuffix}` : '';
+      setSaveResult({
+        type: 'success',
+        message: `${data.message ?? '连接测试成功'}${botText}${warningText}`,
+      });
+    } catch {
+      setSaveResult({ type: 'error', message: '网络错误' });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (isLoading) {
     return <p className="py-8 text-center text-sm text-[var(--text-muted)]">加载中...</p>;
   }
@@ -245,126 +305,149 @@ export function HubConnectorConfigTab() {
         })}
       </div>
 
-      <div className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6" data-testid="connector-right-pane">
-        <p className='text-[var(--text-primary)] font-semibold'>配置</p>
-        {selectedPlatform && (() => {
-          const platform = selectedPlatform;
-          const guideSteps = platform.steps.slice(0, -1);
-          const docsLink = parseDocsLink(platform.docsUrl);
-          const saveStepNum = guideSteps.length + 2;
+      <div
+        className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6"
+        data-testid="connector-right-pane"
+      >
+        <p className="text-[var(--text-primary)] font-semibold">配置</p>
+        {selectedPlatform &&
+          (() => {
+            const platform = selectedPlatform;
+            const guideSteps = platform.steps.slice(0, -1);
+            const docsLink = parseDocsLink(platform.docsUrl);
+            const saveStepNum = guideSteps.length + 2;
 
-          return (
-            <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
-              {platform.id === 'weixin' && (
-                <div className="space-y-3.5">
-                  {platform.steps.map((step, idx) => (
-                    <div key={idx} className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <StepBadge num={idx + 1} />
-                        <span className="text-[14px]">{step}</span>
-                      </div>
-                      {idx === 0 && (
-                        <div className="ml-[26px]">
-                          <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+            return (
+              <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
+                {platform.id === 'weixin' && (
+                  <div className="space-y-3.5">
+                    {platform.steps.map((step, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={idx + 1} />
+                          <span className="text-[14px]">{step}</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {platform.id !== 'weixin' && (
-                <div className="space-y-3.5">
-                  {guideSteps.map((step, idx) => (
-                    <div key={idx} className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <StepBadge num={idx + 1} />
-                        <span className="text-[14px]">{step}</span>
+                        {idx === 0 && (
+                          <div className="ml-[26px]">
+                            <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+                          </div>
+                        )}
                       </div>
-                      {idx === 0 && docsLink && (
-                        <a
-                          href={docsLink.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ui-button-default ml-[26px] inline-flex items-center gap-1.5"
-                        >
-                          <ExternalLinkIcon />
-                          <span>{docsLink.hostname} {'->'} 查看官方文档</span>
-                        </a>
-                      )}
-                    </div>
-                  ))}
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <StepBadge num={guideSteps.length + 1} />
-                      <span className="text-[14px]">填写应用凭证</span>
-                    </div>
-                    <div className="ml-[26px] space-y-2.5">
-                      {platform.fields.map((field) => (
-                        <div key={field.envName} className="w-[60%]">
-                          <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
-                            {field.label}
-                            {field.sensitive && (
-                              <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
-                                <LockIcon />
-                              </span>
-                            )}
-                          </label>
-                          <input
-                            id={`config-${field.envName}`}
-                            type={field.sensitive ? 'password' : 'text'}
-                            placeholder={field.sensitive ? (field.currentValue ? '已设置（输入新值覆盖）' : '未设置') : (field.currentValue ?? '未设置')}
-                            value={fieldValues[field.envName] ?? ''}
-                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                            autoComplete={field.sensitive ? 'off' : undefined}
-                            className="ui-input h-9 w-full px-3 text-[13px]"
-                            data-testid={`field-${field.envName}`}
-                          />
-                        </div>
-                      ))}
-                    </div>
+                    ))}
                   </div>
+                )}
 
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <StepBadge num={saveStepNum} />
-                      <span className="text-[14px]">测试连接并保存</span>
+                {platform.id !== 'weixin' && (
+                  <div className="space-y-3.5">
+                    {guideSteps.map((step, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={idx + 1} />
+                          <span className="text-[14px]">{step}</span>
+                        </div>
+                        {idx === 0 && docsLink && (
+                          <a
+                            href={docsLink.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ui-button-default ml-[26px] inline-flex items-center gap-1.5"
+                          >
+                            <ExternalLinkIcon />
+                            <span>
+                              {docsLink.hostname} {'->'} 查看官方文档
+                            </span>
+                          </a>
+                        )}
+                        {idx === 0 && platform.id === 'feishu' && (
+                          <div className="ml-[26px]">
+                            <FeishuQrPanel
+                              configured={platform.configured}
+                              onConfirmed={() => void fetchStatus()}
+                              onDisconnected={() => void fetchStatus()}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <StepBadge num={guideSteps.length + 1} />
+                        <span className="text-[14px]">填写应用凭证</span>
+                      </div>
+                      <div className="ml-[26px] space-y-2.5">
+                        {platform.fields.map((field) => (
+                          <div key={field.envName} className="w-[60%]">
+                            <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
+                              {field.label}
+                              {field.sensitive && (
+                                <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
+                                  <LockIcon />
+                                </span>
+                              )}
+                            </label>
+                            <input
+                              id={`config-${field.envName}`}
+                              type={field.sensitive ? 'password' : 'text'}
+                              placeholder={
+                                field.sensitive
+                                  ? field.currentValue
+                                    ? '已设置（输入新值覆盖）'
+                                    : '未设置'
+                                  : (field.currentValue ?? '未设置')
+                              }
+                              value={fieldValues[field.envName] ?? ''}
+                              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                              autoComplete={field.sensitive ? 'off' : undefined}
+                              className="ui-input h-9 w-full px-3 text-[13px]"
+                              data-testid={`field-${field.envName}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    {saveResult && (
-                      <div
-                        className={`ml-[26px] rounded-[var(--radius-md)] px-3 py-2 text-xs ${saveResult.type === 'success' ? 'ui-status-success' : 'ui-status-error'
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <StepBadge num={saveStepNum} />
+                        <span className="text-[14px]">测试连接并保存</span>
+                      </div>
+                      {saveResult && (
+                        <div
+                          className={`ml-[26px] rounded-[var(--radius-md)] px-3 py-2 text-xs ${
+                            saveResult.type === 'success' ? 'ui-status-success' : 'ui-status-error'
                           }`}
-                        data-testid="save-result"
-                      >
-                        {saveResult.message}
+                          data-testid="save-result"
+                        >
+                          {saveResult.message}
+                        </div>
+                      )}
+                      <div className="ml-[26px] flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="ui-button-default inline-flex items-center gap-1.5"
+                          onClick={() => void handleTestConnection(platform)}
+                          disabled={testing}
+                        >
+                          <WifiIcon />
+                          {testing ? '测试中...' : '测试连接'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSave(platform)}
+                          disabled={saving}
+                          className="ui-button-primary disabled:opacity-50"
+                          data-testid={`save-${platform.id}`}
+                        >
+                          {saving ? '保存中...' : '保存配置'}
+                        </button>
                       </div>
-                    )}
-                    <div className="ml-[26px] flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="ui-button-default inline-flex items-center gap-1.5"
-                        onClick={() => setSaveResult({ type: 'success', message: '连接测试功能即将上线' })}
-                      >
-                        <WifiIcon />
-                        测试连接
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSave(platform)}
-                        disabled={saving}
-                        className="ui-button-primary disabled:opacity-50"
-                        data-testid={`save-${platform.id}`}
-                      >
-                        {saving ? '保存中...' : '保存配置'}
-                      </button>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+                )}
+              </div>
+            );
+          })()}
       </div>
     </div>
   );

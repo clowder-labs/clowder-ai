@@ -165,4 +165,61 @@ describe('HubConnectorConfigTab layout', () => {
     expect(statusCallCount).toBeGreaterThanOrEqual(2);
     expect(container.querySelector('[data-testid="platform-item-weixin"]')?.textContent).toContain('已配置');
   });
+
+  it('calls the Feishu test endpoint and renders the returned status', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'feishu',
+                name: '飞书',
+                nameEn: 'Feishu / Lark',
+                configured: false,
+                docsUrl: 'https://open.feishu.cn/document/home',
+                steps: ['创建应用', '填写凭证', '保存配置'],
+                fields: [
+                  { envName: 'FEISHU_APP_ID', label: 'App ID', sensitive: false, currentValue: null },
+                  { envName: 'FEISHU_APP_SECRET', label: 'App Secret', sensitive: true, currentValue: null },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/connector/test/feishu') {
+        expect(init?.method).toBe('POST');
+        return Promise.resolve(
+          jsonResponse({
+            ok: true,
+            message: '飞书应用认证成功，机器人信息可访问。',
+            warnings: ['当前为 webhook 模式，但未提供 Verification Token；事件订阅仍无法完成。'],
+            bot: { name: 'Clowder Bot' },
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    const testButton = Array.from(container.querySelectorAll('button')).find((node) => node.textContent?.includes('测试连接'));
+    expect(testButton).not.toBeUndefined();
+
+    await act(async () => {
+      testButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/connector/test/feishu',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(container.querySelector('[data-testid="save-result"]')?.textContent).toContain('已识别 Clowder Bot');
+  });
 });
