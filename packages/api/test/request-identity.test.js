@@ -40,8 +40,11 @@ describe('resolveUserId', () => {
     assert.equal(result, null, 'query.userId must not be accepted as identity source');
   });
 
-  it('falls back to options.fallbackUserId', () => {
-    assert.equal(resolveUserId(fakeRequest(), { fallbackUserId: 'from-body' }), 'from-body');
+  it('does NOT accept fallbackUserId — body identity injection blocked (P1)', () => {
+    // After P1 fix, resolveUserId must NOT have a fallbackUserId path.
+    // Caller-controlled identity (body userId) is the same class of injection as query.userId (C2).
+    const result = resolveUserId(fakeRequest(), { fallbackUserId: 'from-body' });
+    assert.equal(result, null, 'body userId via fallbackUserId must not be accepted as identity source');
   });
 
   it('falls back to options.defaultUserId', () => {

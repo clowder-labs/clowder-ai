@@ -258,8 +258,8 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { userId: legacyUserId, title, projectPath, preferredCats, pinned, backlogItemId } = parseResult.data;
-    const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
+    const { title, projectPath, preferredCats, pinned, backlogItemId } = parseResult.data;
+    const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };

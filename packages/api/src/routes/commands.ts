@@ -40,8 +40,8 @@ export const commandsRoutes: FastifyPluginAsync<CommandsRoutesOptions> = async (
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { threadId, userId: legacyUserId, messageCount } = parseResult.data;
-    const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
+    const { threadId, messageCount } = parseResult.data;
+    const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
