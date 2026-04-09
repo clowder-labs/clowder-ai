@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -6,16 +6,41 @@ import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { setIsSkipAuth, setUserId } from '@/utils/userId';
 
+function PasswordEyeIcon({ visible }: { visible: boolean }) {
+  if (visible) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M3 3l18 18" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M10.6 6.2A11.1 11.1 0 0 1 12 6c6.5 0 10 6 10 6a18.8 18.8 0 0 1-3.3 4.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M6.7 6.8C4.1 8.2 2 12 2 12s3.5 6 10 6c1 0 1.9-.1 2.8-.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.9 9.9A3 3 0 0 0 14.1 14.1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function LoginPage() {
-  const [userType, setUserType] = useState<'huawei' | 'iam'>('huawei'); // 默认华为云用户
+  const [userType, setUserType] = useState<'huawei' | 'iam'>('huawei');
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [promotionCode, setPromotionCode] = useState('');
   const [hasCode, setHasCode] = useState(true);
-  const [domainName, setDomainName] = useState(''); // 域名
+  const [domainName, setDomainName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [agreeToTerms, setAgreeToTerms] = useState(true); // 同意条款状态
+  const [agreeToTerms, setAgreeToTerms] = useState(true);
   const promotionCodeRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -29,7 +54,7 @@ export default function LoginPage() {
         setHasCode(Boolean(data?.hascode));
 
         if (data.islogin) {
-          // 已登录，跳转到首页
+          // 已登录则跳转到首页
           router.replace('/');
         }
       } catch (err) {
@@ -38,6 +63,17 @@ export default function LoginPage() {
     };
     void checkLoginStatus();
   }, [router]);
+
+  useEffect(() => {
+    if (!password) {
+      setShowPassword(false);
+    }
+  }, [password]);
+
+  const handleUserTypeChange = (nextUserType: 'huawei' | 'iam') => {
+    setUserType(nextUserType);
+    setError('');
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,9 +96,9 @@ export default function LoginPage() {
       const data = await response.json();
       console.log('login->', data);
       if (data.success) {
-        // 设置用户ID到localStorage
+        // 设置用户 ID 到 localStorage
         setUserId(data.userId);
-        // 登录成功，跳转到首页
+        // 登录成功后跳转到首页
         router.replace('/');
       } else if (data.needCode === true) {
         setHasCode(false);
@@ -105,7 +141,7 @@ export default function LoginPage() {
                 <div className="mb-3">
                   <Image src="/images/login1.svg" alt="AI PPT" width={32} height={32} />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">专业级 AI PPT生产力</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">专业级 AI PPT 生产力</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">行业专业级 AI 生成能力，一键完成高质量 PPT。</p>
               </div>
 
@@ -141,7 +177,7 @@ export default function LoginPage() {
         <div className="w-[clamp(280px,36vw,450px)] flex-shrink-0">
           <div className="mx-auto w-full rounded-xl border border-gray-200 bg-white p-6 shadow-lg sm:p-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎使用OfficeClaw</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">欢迎使用 OfficeClaw</h2>
             </div>
             <form className="space-y-6" onSubmit={handleLogin}>
               <div className="space-y-4">
@@ -176,17 +212,32 @@ export default function LoginPage() {
                 )}
 
                 {/* 密码输入框 */}
-                <div>
+                <div className="relative">
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
                     placeholder="密码"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onCopy={(event) => event.preventDefault()}
+                    onCut={(event) => event.preventDefault()}
                   />
+                  {password ? (
+                    <button
+                      type="button"
+                      data-testid="login-password-visibility-toggle"
+                      aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[#8C95A6] transition-colors hover:text-[#4B5563]"
+                    >
+                      <span className="h-5 w-5">
+                        <PasswordEyeIcon visible={showPassword} />
+                      </span>
+                    </button>
+                  ) : null}
                 </div>
 
                 {!hasCode && (
@@ -256,7 +307,7 @@ export default function LoginPage() {
                       使用 IAM 用户登录？{' '}
                       <button
                         type="button"
-                        onClick={() => setUserType('iam')}
+                        onClick={() => handleUserTypeChange('iam')}
                         className="text-indigo-600 hover:text-indigo-500 font-medium"
                       >
                         切换到 IAM
@@ -267,7 +318,7 @@ export default function LoginPage() {
                       使用华为云账号登录？{' '}
                       <button
                         type="button"
-                        onClick={() => setUserType('huawei')}
+                        onClick={() => handleUserTypeChange('huawei')}
                         className="text-indigo-600 hover:text-indigo-500 font-medium"
                       >
                         切换到华为云
@@ -309,3 +360,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+

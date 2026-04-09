@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+.login-password-input::-ms-reveal,
+.login-password-input::-ms-clear {
+  display: none;
+}
+
 /* === Cat Cafe Design System Variables === */
 :root {
   /* Base Colors */
@@ -131,6 +136,16 @@
   --button-danger-text-hover: #ffffff;
   --button-danger-bg-disabled: #ef4444;
   --button-danger-text-disabled: #ffffff;
+  --input-field-font-size: 13px;
+  --input-border: #c2c2c2;
+  --input-border-hover: #191919;
+  --input-border-active: #191919;
+  --input-radius: 6px;
+  --input-font-size: 12px;
+  --input-line-height: 1.5;
+  --input-padding-y: 5px;
+  --input-padding-x: 12px;
+  --input-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
   --text-field: #191919;
   --text-field-hover: #111111;
   --text-field-disabled: #c2c2c2;
@@ -1042,12 +1057,23 @@ select:-webkit-autofill:focus {
   }
 
   .ui-input {
+    border-color: var(--input-border);
+    border-radius: var(--input-radius);
     color: var(--text-field);
     caret-color: var(--text-field);
+    font-size: var(--input-font-size);
+    line-height: var(--input-line-height);
+    padding: var(--input-padding-y) var(--input-padding-x);
   }
 
   .ui-input:hover {
+    border-color: var(--input-border-hover);
     color: var(--text-field-hover);
+  }
+
+  .ui-input:active,
+  .ui-input:focus {
+    border-color: var(--input-border-active);
   }
 
   .ui-input:disabled {
@@ -1084,12 +1110,14 @@ select:-webkit-autofill:focus {
   .ui-textarea-plain {
     border-color: transparent!important;
     background: transparent!important;
+    border-radius: unset!important;
   }
 
   .ui-input-plain:focus,
   .ui-textarea-plain:focus {
     border-color: transparent!important;
     background: transparent!important;
+    border-radius: unset!important;
   }
 
   .ui-input-underline {

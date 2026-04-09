@@ -10,6 +10,7 @@ import { NameInitialIcon } from './NameInitialIcon';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
+import { getIsSkipAuth } from '@/utils/userId';
 
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
@@ -216,6 +217,7 @@ function resolveUploadedIconUrl(icon?: string | null): string | null {
 
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
+  const [isSkipAuth, setIsSkipAuth] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cards, setCards] = useState<ModelCardData[]>([]);
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
@@ -322,6 +324,10 @@ export function ModelsPanel() {
     },
     [confirm, deletingModelId, currentProjectPath, fetchModels],
   );
+
+  useEffect(() => {
+    setIsSkipAuth(getIsSkipAuth());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -550,7 +556,7 @@ export function ModelsPanel() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+                className="ui-input h-[28px]"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -568,14 +574,16 @@ export function ModelsPanel() {
               >
                 {ADD_MODEL}
               </button>
-              <button
-                type="button"
-                onClick={handleOpenCreateModelModal}
-                data-testid="models-open-create-model-modal"
-                className="ui-button-primary"
-              >
-                {CREATE_MODEL_LABEL}
-              </button>
+              {isSkipAuth ? (
+                <button
+                  type="button"
+                  onClick={handleOpenCreateModelModal}
+                  data-testid="models-open-create-model-modal"
+                  className="ui-button-primary"
+                >
+                  {CREATE_MODEL_LABEL}
+                </button>
+              ) : null}
             </div>
           </section>
 
@@ -751,7 +759,7 @@ export function ModelsPanel() {
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
                   placeholder={'请输入模型名称'}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -779,7 +787,7 @@ export function ModelsPanel() {
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -844,7 +852,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -862,7 +870,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full rounded-[6px] px-3 py-[5px] text-sm"
+                  className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -1010,14 +1018,14 @@ function ModelsCreateModelConfigSource({
         onChange={(event) => setDisplayName(event.target.value)}
         placeholder="显示名称，如 My OpenAI Proxy"
         autoComplete="off"
-        className="ui-input w-full rounded px-3 py-2 text-sm"
+        className="ui-input w-full"
       />
       <input
         value={baseUrl}
         onChange={(event) => setBaseUrl(event.target.value)}
         placeholder="Base URL，如 https://api.example.com/v1"
         autoComplete="off"
-        className="ui-input w-full rounded px-3 py-2 text-sm"
+        className="ui-input w-full"
       />
       <input
         type="password"
