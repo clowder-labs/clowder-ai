@@ -9,6 +9,10 @@ const MENTION_BOUNDARY_RIGHT = '[\\s,.:;!?，。！？；：、)\\]）】」』]
 // Left boundary: @ must not be preceded by word chars or dots (rejects email/domain)
 const MENTION_BOUNDARY_LEFT = '(?<!\\w)';
 
+function normalizeConnectorMentionText(text: string): string {
+  return text.replaceAll('＠', '@');
+}
+
 /**
  * Parse @-mentions from external platform message text.
  * Returns the **first-in-text** matched cat or defaultCatId.
@@ -18,6 +22,7 @@ const MENTION_BOUNDARY_LEFT = '(?<!\\w)';
  * @param defaultCatId — fallback when no mention found
  */
 export function parseMentions(text: string, allPatterns: Map<string, string[]>, defaultCatId: CatId): ParsedMention {
+  const normalizedText = normalizeConnectorMentionText(text);
   let bestIndex = Infinity;
   let bestCatId: string | undefined;
 
@@ -25,7 +30,7 @@ export function parseMentions(text: string, allPatterns: Map<string, string[]>, 
     for (const pattern of patterns) {
       const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`${MENTION_BOUNDARY_LEFT}${escaped}(?=${MENTION_BOUNDARY_RIGHT}|$)`, 'i');
-      const match = regex.exec(text);
+      const match = regex.exec(normalizedText);
       if (match && match.index < bestIndex) {
         bestIndex = match.index;
         bestCatId = catId;
