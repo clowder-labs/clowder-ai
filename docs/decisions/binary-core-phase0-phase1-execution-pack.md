@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F140]
 topics: [architecture, binary-core, phase-0, phase-1, migration, identity]
 doc_kind: decision
 created: 2026-04-06
