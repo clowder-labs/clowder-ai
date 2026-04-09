@@ -105,7 +105,7 @@ interface InteractiveOption {
 - [x] AC-A2: 前端 `InteractiveBlock.tsx` 渲染器，支持 select / multi-select / card-grid / confirm
 - [x] AC-A3: 用户选择后自动发送消息（填入 ChatInput + submit）
 - [x] AC-A4: 交互完成后 block 变为 disabled 状态 + 回显已选
-- [x] AC-A5: `office_claw_create_rich_block` MCP 工具支持 `kind: 'interactive'`
+- [x] AC-A5: `cat_cafe_create_rich_block` MCP 工具支持 `kind: 'interactive'`
 - [x] AC-A6: 后端 Zod 校验支持 interactive block schema
 - [x] AC-A7: card-grid 的 `allowRandom` 实现随机选择动画
 

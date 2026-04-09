@@ -226,10 +226,10 @@ Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 07:25) — team lead看到手动发
 
 ### Scope
 
-新增 MCP 工具 `office_claw_start_vote`，让猫猫通过 MCP 调用发起投票，复用现有 vote API：
+新增 MCP 工具 `cat_cafe_start_vote`，让猫猫通过 MCP 调用发起投票，复用现有 vote API：
 
 ```typescript
-// MCP tool: office_claw_start_vote
+// MCP tool: cat_cafe_start_vote
 {
   question: string;       // 投票问题
   options: string[];      // ≥2 个选项
@@ -245,12 +245,12 @@ Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 07:25) — team lead看到手动发
 - 投票通知消息复用现有 `buildVoteNotification` + routing
 
 **提示词**：
-- Skills 中告知猫猫有 `office_claw_start_vote` 工具
+- Skills 中告知猫猫有 `cat_cafe_start_vote` 工具
 - 使用场景：多猫讨论需要投票决策时
 
 ### Acceptance Criteria
 
-- [ ] MCP 工具 `office_claw_start_vote` 可被猫猫调用
+- [ ] MCP 工具 `cat_cafe_start_vote` 可被猫猫调用
 - [ ] 复用现有 vote API（不重复实现）
 - [ ] 发起者为 catId，不是 'system'
 - [ ] 投票通知正确路由到 voters
