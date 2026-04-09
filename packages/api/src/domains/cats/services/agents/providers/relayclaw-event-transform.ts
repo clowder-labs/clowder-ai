@@ -15,7 +15,7 @@
  *   todo.updated            → (skip)
  */
 
-import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@cat-cafe/shared';
+import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@clowder/shared';
 import type { AgentMessage } from '../../types.js';
 
 function msg(type: AgentMessage['type'], catId: CatId, content?: string): AgentMessage {

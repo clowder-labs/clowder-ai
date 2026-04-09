@@ -1,4 +1,4 @@
-import type { SignalArticle, SignalArticleStatus } from '@cat-cafe/shared';
+import type { SignalArticle, SignalArticleStatus } from '@clowder/shared';
 import { SignalTierBadge } from './SignalTierBadge';
 
 interface SignalArticleListProps {

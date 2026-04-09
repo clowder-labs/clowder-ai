@@ -5,7 +5,7 @@
  * Game-specific logic (resolution, phase transitions) is handled by subclasses.
  */
 
-import type { EventScope, GameAction, GameEvent, GameRuntime, PendingAction, SeatId } from '@cat-cafe/shared';
+import type { EventScope, GameAction, GameEvent, GameRuntime, PendingAction, SeatId } from '@clowder/shared';
 
 type PartialEvent = Omit<GameEvent, 'eventId' | 'timestamp'>;
 

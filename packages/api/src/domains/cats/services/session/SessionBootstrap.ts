@@ -10,7 +10,7 @@
  * 4. MCP tool recall instructions
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import { estimateTokens } from '../../../../utils/token-counter.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { ITaskStore } from '../stores/ports/TaskStore.js';

@@ -4,7 +4,7 @@
  * 无 → PushSubscriptionStore (内存)
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { IPushSubscriptionStore } from '../ports/PushSubscriptionStore.js';
 import { PushSubscriptionStore } from '../ports/PushSubscriptionStore.js';
 import { RedisPushSubscriptionStore } from '../redis/RedisPushSubscriptionStore.js';

@@ -4,7 +4,7 @@
  * Pure function — no side effects, no store writes.
  * Caller is responsible for persisting via ExecutionDigestStore.
  */
-import type { DispatchExecutionDigest, DispatchMissionPack, DoneWhenResult } from '@cat-cafe/shared';
+import type { DispatchExecutionDigest, DispatchMissionPack, DoneWhenResult } from '@clowder/shared';
 
 export interface CompletionData {
   readonly summary: string;

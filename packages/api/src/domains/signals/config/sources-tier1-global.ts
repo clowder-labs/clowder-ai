@@ -1,4 +1,4 @@
-import type { SignalSource } from '@cat-cafe/shared';
+import type { SignalSource } from '@clowder/shared';
 
 /**
  * Tier 1 global AI labs: Anthropic, OpenAI, Google, Meta,

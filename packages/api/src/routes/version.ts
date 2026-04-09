@@ -32,7 +32,7 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
     const version = getPackageVersion(projectRoot);
     return {
       version,
-      name: '@cat-cafe/api',
+      name: '@clowder/api',
       current: true,
     };
   });

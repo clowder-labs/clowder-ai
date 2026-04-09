@@ -4,7 +4,7 @@
  */
 
 import { Server as HttpServer } from 'node:http';
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId } from '@clowder/shared';
 import { Server, Socket } from 'socket.io';
 import { resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
 import type {

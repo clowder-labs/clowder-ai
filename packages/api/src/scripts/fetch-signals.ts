@@ -15,7 +15,7 @@ export interface FetchSignalsCliIo {
 }
 
 const USAGE_LINES = [
-  'Usage: pnpm --filter @cat-cafe/api run fetch-signals -- [options]',
+  'Usage: pnpm --filter @clowder/api run fetch-signals -- [options]',
   '',
   'Options:',
   '  --dry-run            run fetch pipeline without writing articles or notifications',

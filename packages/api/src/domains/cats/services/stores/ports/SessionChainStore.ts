@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, SessionRecord } from '@cat-cafe/shared';
+import type { CatId, SessionRecord } from '@clowder/shared';
 
 export interface CreateSessionInput {
   cliSessionId: string;

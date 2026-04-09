@@ -5,7 +5,7 @@
  * Each role gets different information based on what they should know.
  */
 
-import type { GameView, SeatView } from '@cat-cafe/shared';
+import type { GameView, SeatView } from '@clowder/shared';
 
 export function buildWerewolfPrompt(role: string, view: GameView, round: number): string {
   const base = buildBaseContext(view, round);

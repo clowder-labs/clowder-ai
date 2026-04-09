@@ -1,4 +1,4 @@
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@clowder/shared';
 
 const TELEGRAM_MAX = 4096;
 

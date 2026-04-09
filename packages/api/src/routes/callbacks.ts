@@ -3,8 +3,8 @@
  * 安全: 每个请求都需要 invocationId + callbackToken 验证。
  */
 
-import type { CatId, RichBlock } from '@cat-cafe/shared';
-import { catRegistry, createCatId, normalizeRichBlock } from '@cat-cafe/shared';
+import type { CatId, RichBlock } from '@clowder/shared';
+import { catRegistry, createCatId, normalizeRichBlock } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';

@@ -3,7 +3,7 @@
  * F24: Redis available → RedisSessionChainStore, otherwise in-memory.
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 import { SessionChainStore } from '../ports/SessionChainStore.js';
 import { RedisSessionChainStore } from '../redis/RedisSessionChainStore.js';
 

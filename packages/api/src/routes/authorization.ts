@@ -3,7 +3,7 @@
  * 安全: X-Cat-Cafe-User header（兼容 legacy x-user-id）
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AuthorizationManager } from '../domains/cats/services/auth/AuthorizationManager.js';

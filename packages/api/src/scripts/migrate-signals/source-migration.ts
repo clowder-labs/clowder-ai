@@ -6,8 +6,8 @@ import type {
   SignalSource,
   SignalSourceConfig,
   SignalTier,
-} from '@cat-cafe/shared';
-import { SignalSourceConfigSchema } from '@cat-cafe/shared';
+} from '@clowder/shared';
+import { SignalSourceConfigSchema } from '@clowder/shared';
 import { parse as parseYaml } from 'yaml';
 import { DEFAULT_SIGNAL_SOURCES } from '../../domains/signals/config/default-sources.js';
 import type { LegacyArticle } from './legacy-article-parser.js';

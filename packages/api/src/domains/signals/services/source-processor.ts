@@ -1,4 +1,4 @@
-import type { SignalArticle, SignalSource, SignalSourceConfig } from '@cat-cafe/shared';
+import type { SignalArticle, SignalSource, SignalSourceConfig } from '@clowder/shared';
 import type { FetchError, FetchErrorCode, Fetcher, FetchResult } from '../fetchers/types.js';
 import type { StoreArticleInput } from './article-store.js';
 

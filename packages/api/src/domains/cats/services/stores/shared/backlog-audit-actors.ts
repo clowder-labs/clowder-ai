@@ -1,4 +1,4 @@
-import type { BacklogAuditActor, CreateBacklogItemInput } from '@cat-cafe/shared';
+import type { BacklogAuditActor, CreateBacklogItemInput } from '@clowder/shared';
 
 export function makeUserActor(userId: string): BacklogAuditActor {
   return { kind: 'user', id: userId };

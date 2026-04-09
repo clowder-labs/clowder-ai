@@ -1,6 +1,6 @@
 'use client';
 
-import type { Slice, SliceStatus, SliceType } from '@cat-cafe/shared';
+import type { Slice, SliceStatus, SliceType } from '@clowder/shared';
 import { useCallback, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

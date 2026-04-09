@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import type { EmbeddedAcpConfig } from '@cat-cafe/shared';
+import type { EmbeddedAcpConfig } from '@clowder/shared';
 import type { ModelConfigBinding } from '../config/model-config-profiles.js';
 import type { RuntimeAcpModelProfile } from '../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../config/provider-profiles.js';

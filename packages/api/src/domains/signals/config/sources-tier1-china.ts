@@ -1,4 +1,4 @@
-import type { SignalSource } from '@cat-cafe/shared';
+import type { SignalSource } from '@clowder/shared';
 
 /**
  * Tier 1 China AI labs: DeepSeek, Qwen, Moonshot, Zhipu, ByteDance.

@@ -24,8 +24,8 @@ import type {
   CatFamily,
   McpToolInfo,
   SkillHealthSummary,
-} from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+} from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import {

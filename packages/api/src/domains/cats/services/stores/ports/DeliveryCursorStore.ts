@@ -6,9 +6,9 @@
  * progression can be enforced with string comparison.
  */
 
-import type { CatId } from '@cat-cafe/shared';
-import { catRegistry, createCatId } from '@cat-cafe/shared';
-import type { SessionStore } from '@cat-cafe/shared/utils';
+import type { CatId } from '@clowder/shared';
+import { catRegistry, createCatId } from '@clowder/shared';
+import type { SessionStore } from '@clowder/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 const log = createModuleLogger('delivery-cursor-store');

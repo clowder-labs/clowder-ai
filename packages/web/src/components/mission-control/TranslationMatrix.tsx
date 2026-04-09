@@ -1,6 +1,6 @@
 'use client';
 
-import type { IntentCard, TriageBucket } from '@cat-cafe/shared';
+import type { IntentCard, TriageBucket } from '@clowder/shared';
 import { useMemo, useState } from 'react';
 import { BucketBadge, SourceBadge } from './TriageBadge';
 

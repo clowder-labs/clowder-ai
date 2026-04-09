@@ -1,7 +1,7 @@
 /**
  * F076: ResolutionStore — in-memory store for Stage 3 clarification queue
  */
-import type { AnswerResolutionInput, CreateResolutionInput, ResolutionItem } from '@cat-cafe/shared';
+import type { AnswerResolutionInput, CreateResolutionInput, ResolutionItem } from '@clowder/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export class ResolutionStore {

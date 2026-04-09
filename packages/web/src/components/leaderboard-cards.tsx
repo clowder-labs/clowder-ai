@@ -1,6 +1,6 @@
 'use client';
 
-import type { RankedCat, StreakCat } from '@cat-cafe/shared';
+import type { RankedCat, StreakCat } from '@clowder/shared';
 import { type ReactNode } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { CatAvatar } from './CatAvatar';

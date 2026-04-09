@@ -4,7 +4,7 @@
  */
 
 import { resolve } from 'node:path';
-import type { MessageContent } from '@cat-cafe/shared';
+import type { MessageContent } from '@clowder/shared';
 
 const DEFAULT_UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
 

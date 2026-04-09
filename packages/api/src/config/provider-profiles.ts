@@ -56,43 +56,56 @@ const CAT_CAFE_DIR = '.cat-cafe';
 const META_FILENAME = 'provider-profiles.json';
 const SECRETS_FILENAME = 'provider-profiles.secrets.local.json';
 
-const BUILTIN_ACCOUNT_SPECS = [
+// Account specs are now sourced from the plugin registry.
+// Lazy getter ensures the registry is initialized before first access.
+import { getPluginRegistry } from './plugins/plugin-registry-singleton.js';
+
+function getBuiltinAccountSpecs(): ReadonlyArray<{
+  id: string;
+  displayName: string;
+  client: BuiltinAccountClient;
+  models: readonly string[];
+}> {
+  try {
+    return getPluginRegistry().getAllAccountSpecs();
+  } catch {
+    // Fallback during early initialization (before plugin registry is ready)
+    return FALLBACK_ACCOUNT_SPECS;
+  }
+}
+
+// Fallback for early initialization before plugin registry is set up
+const FALLBACK_ACCOUNT_SPECS = [
   {
     id: 'claude',
     displayName: 'Claude (OAuth)',
-    client: 'anthropic',
+    client: 'anthropic' as BuiltinAccountClient,
     models: ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4-5-20251101', 'claude-sonnet-4-5-20250929'],
   },
   {
     id: 'codex',
     displayName: 'Codex (OAuth)',
-    client: 'openai',
+    client: 'openai' as BuiltinAccountClient,
     models: ['gpt-5.3-codex', 'gpt-5.4', 'gpt-5.3-codex-spark', 'codex'],
   },
   {
     id: 'gemini',
     displayName: 'Gemini (OAuth)',
-    client: 'google',
+    client: 'google' as BuiltinAccountClient,
     models: ['gemini-3.1-pro-preview', 'gemini-2.5-pro'],
   },
-  { id: 'dare', displayName: 'Dare (client-auth)', client: 'dare', models: ['z-ai/glm-5'] },
+  { id: 'dare', displayName: 'Dare (client-auth)', client: 'dare' as BuiltinAccountClient, models: ['z-ai/glm-5'] },
   {
     id: 'opencode',
     displayName: 'OpenCode (client-auth)',
-    client: 'opencode',
+    client: 'opencode' as BuiltinAccountClient,
     models: ['anthropic/claude-opus-4-6', 'anthropic/claude-sonnet-4-5'],
   },
-] as const satisfies ReadonlyArray<{
-  id: string;
-  displayName: string;
-  client: BuiltinAccountClient;
-  models: string[];
-}>;
+] as const;
 
-const BUILTIN_CLIENT_IDS = Object.fromEntries(BUILTIN_ACCOUNT_SPECS.map((spec) => [spec.client, spec.id])) as Record<
-  BuiltinAccountClient,
-  string
->;
+function getBuiltinClientIds(): Record<string, string> {
+  return Object.fromEntries(getBuiltinAccountSpecs().map((spec) => [spec.client, spec.id]));
+}
 
 const LEGACY_BUILTIN_ID_MAP: Record<string, BuiltinAccountClient> = {
   'claude-oauth': 'anthropic',
@@ -109,7 +122,9 @@ const CLIENT_PROTOCOL_MAP: Partial<Record<BuiltinAccountClient, ProviderProfileP
 };
 
 const DEFAULT_BOOTSTRAP_CLIENTS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'dare'];
-const ALL_BUILTIN_CLIENTS = BUILTIN_ACCOUNT_SPECS.map((spec) => spec.client) as BuiltinAccountClient[];
+function getAllBuiltinClients(): BuiltinAccountClient[] {
+  return getBuiltinAccountSpecs().map((spec) => spec.client) as BuiltinAccountClient[];
+}
 const providerStoreLocks = new Map<string, Promise<void>>();
 
 async function withStorageRootLock<T>(storageRoot: string, action: () => Promise<T>): Promise<T> {
@@ -252,7 +267,7 @@ function normalizeModels(models: string[] | undefined): string[] | undefined {
   return Array.from(new Set(models.map((value) => value.trim()).filter((value) => value.length > 0)));
 }
 
-function normalizeBuiltinModels(models: string[] | undefined, builtinModels: string[]): string[] {
+function normalizeBuiltinModels(models: string[] | undefined, builtinModels: readonly string[]): string[] {
   const normalized = normalizeModels(models);
   if (!normalized) return [...builtinModels];
   return Array.from(new Set([...normalized, ...builtinModels]));
@@ -289,7 +304,7 @@ function createUniqueAccountId(existingProfiles: ProviderProfileMeta[], displayN
 }
 
 function createBuiltinProfiles(now = new Date().toISOString()): ProviderProfileMeta[] {
-  return BUILTIN_ACCOUNT_SPECS.map((spec) => ({
+  return getBuiltinAccountSpecs().map((spec) => ({
     id: spec.id,
     displayName: spec.displayName,
     kind: 'builtin',
@@ -305,12 +320,12 @@ function createBuiltinProfiles(now = new Date().toISOString()): ProviderProfileM
 
 function createDefaultBootstrapBindings(): BootstrapBindings {
   const next: BootstrapBindings = {};
-  for (const client of ALL_BUILTIN_CLIENTS) {
+  for (const client of getAllBuiltinClients()) {
     if (DEFAULT_BOOTSTRAP_CLIENTS.includes(client)) {
       next[client] = {
         enabled: true,
         mode: 'oauth',
-        accountRef: BUILTIN_CLIENT_IDS[client],
+        accountRef: getBuiltinClientIds()[client],
       };
     } else {
       next[client] = {
@@ -348,7 +363,7 @@ function normalizeProfile(profile: ProviderProfileMeta): ProviderProfileMeta {
     if (!client) {
       throw new Error(`Unknown builtin client for account ${profile.id}`);
     }
-    const builtin = BUILTIN_ACCOUNT_SPECS.find((spec) => spec.client === client)!;
+    const builtin = getBuiltinAccountSpecs().find((spec) => spec.client === client)!;
     return {
       id: builtin.id,
       displayName: profile.displayName?.trim() || builtin.displayName,
@@ -521,7 +536,7 @@ function normalizeBootstrapBindings(
   const byId = new Map(profiles.map((profile) => [profile.id, profile] as const));
   const next: BootstrapBindings = {};
 
-  for (const client of ALL_BUILTIN_CLIENTS) {
+  for (const client of getAllBuiltinClients()) {
     const candidate = raw?.[client];
     if (!candidate) {
       next[client] = defaults[client];
@@ -535,7 +550,7 @@ function normalizeBootstrapBindings(
           : {
               enabled: true,
               mode: 'oauth',
-              accountRef: BUILTIN_CLIENT_IDS[client],
+              accountRef: getBuiltinClientIds()[client],
             };
       continue;
     }
@@ -559,7 +574,7 @@ function normalizeBootstrapBindings(
 }
 
 function sortProfiles(profiles: ProviderProfileMeta[]): ProviderProfileMeta[] {
-  const builtinOrder = new Map<string, number>(BUILTIN_ACCOUNT_SPECS.map((spec, index) => [spec.id, index]));
+  const builtinOrder = new Map<string, number>(getBuiltinAccountSpecs().map((spec, index) => [spec.id, index]));
   return [...profiles].sort((a, b) => {
     const aBuiltin = builtinOrder.get(a.id);
     const bBuiltin = builtinOrder.get(b.id);
@@ -1034,7 +1049,7 @@ function isReferencedByBootstrapBindings(meta: ProviderProfilesMetaFile, profile
 }
 
 export function builtinAccountIdForClient(client: BuiltinAccountClient): string {
-  return BUILTIN_CLIENT_IDS[client];
+  return getBuiltinClientIds()[client];
 }
 
 export async function readBootstrapBindings(projectRoot: string): Promise<BootstrapBindings> {
@@ -1456,7 +1471,7 @@ function resolveBuiltinFromProtocol(protocol: 'anthropic' | 'openai' | 'google')
 
 function resolveBuiltinFromClient(client: BuiltinAccountClient): ProviderProfileMeta {
   const id = builtinAccountIdForClient(client);
-  const spec = BUILTIN_ACCOUNT_SPECS.find((item) => item.id === id);
+  const spec = getBuiltinAccountSpecs().find((item) => item.id === id);
   if (!spec) {
     throw new Error(`builtin account "${id}" is not registered`);
   }

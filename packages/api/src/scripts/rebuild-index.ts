@@ -2,7 +2,7 @@
  * F102 Phase B: rebuild-index CLI
  * Scans docs/, parses frontmatter, rebuilds evidence.sqlite FTS index.
  *
- * Usage: pnpm --filter @cat-cafe/api rebuild-index [--force]
+ * Usage: pnpm --filter @clowder/api rebuild-index [--force]
  */
 
 import { join } from 'node:path';

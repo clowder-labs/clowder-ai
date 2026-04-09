@@ -17,7 +17,7 @@
 
 import { existsSync } from 'node:fs';
 import { dirname, join, parse, resolve } from 'node:path';
-import { type CatId, createCatId } from '@cat-cafe/shared';
+import { type CatId, createCatId } from '@clowder/shared';
 import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';

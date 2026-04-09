@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, parse } from 'node:path';
-import type { SignalArticle, SignalArticleStatus, SignalSource } from '@cat-cafe/shared';
-import { SignalArticleSchema } from '@cat-cafe/shared';
+import type { SignalArticle, SignalArticleStatus, SignalSource } from '@clowder/shared';
+import { SignalArticleSchema } from '@clowder/shared';
 import type { SignalPaths } from '../config/signal-paths.js';
 import { resolveSignalPaths } from '../config/signal-paths.js';
 import type { RawArticle } from '../fetchers/types.js';

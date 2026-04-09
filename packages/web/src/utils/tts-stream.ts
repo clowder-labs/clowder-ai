@@ -1,4 +1,4 @@
-import type { TtsStreamEvent, TtsStreamRequest } from '@cat-cafe/shared';
+import type { TtsStreamEvent, TtsStreamRequest } from '@clowder/shared';
 import { apiFetch } from './api-client';
 
 export async function* streamTts(request: TtsStreamRequest, signal?: AbortSignal): AsyncGenerator<TtsStreamEvent> {

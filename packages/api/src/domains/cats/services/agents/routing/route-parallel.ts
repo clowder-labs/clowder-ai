@@ -3,8 +3,8 @@
  * All cats respond independently to the same message.
  */
 
-import type { CatConfig, CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import type { CatConfig, CatId } from '@clowder/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
@@ -284,7 +284,7 @@ export async function* routeParallel(
   const catMeta = new Map<string, MessageMetadata>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
   // F060: Collect inline rich blocks per cat from system_info stream
-  const catStreamRichBlocks = new Map<string, import('@cat-cafe/shared').RichBlock[]>();
+  const catStreamRichBlocks = new Map<string, import('@clowder/shared').RichBlock[]>();
   const catHadError = new Set<string>();
   // F22 R2 P1-1: Capture own invocationId per cat from stream
   const catInvocationId = new Map<string, string>();

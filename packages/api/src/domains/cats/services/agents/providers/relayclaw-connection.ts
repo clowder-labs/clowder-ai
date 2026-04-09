@@ -1,4 +1,4 @@
-import type { RelayClawWsFrame } from '@cat-cafe/shared';
+import type { RelayClawWsFrame } from '@clowder/shared';
 // @ts-expect-error - ws declarations are not installed in this workspace
 import { WebSocket as NodeWebSocket } from 'ws';
 

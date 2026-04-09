@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 
 /**
  * A registered invocation record

@@ -6,7 +6,7 @@ import type {
   RefluxPattern,
   ResolutionItem,
   Slice,
-} from '@cat-cafe/shared';
+} from '@clowder/shared';
 import { create } from 'zustand';
 
 interface ExternalProjectState {

@@ -4,7 +4,7 @@
  * F23: 拆分以满足 350 行硬上限
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import type { AgentMessage, TokenUsage } from '../../types.js';
 
 /**

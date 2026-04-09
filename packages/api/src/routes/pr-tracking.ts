@@ -12,7 +12,7 @@
  * BACKLOG #81
  */
 
-import { catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IPrTrackingStore } from '../infrastructure/email/PrTrackingStore.js';

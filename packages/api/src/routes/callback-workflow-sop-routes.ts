@@ -73,7 +73,7 @@ export function registerCallbackWorkflowSopRoutes(
         ...(rest.resumeCapsule !== undefined ? { resumeCapsule: rest.resumeCapsule } : {}),
         ...(rest.checks !== undefined ? { checks: rest.checks } : {}),
         ...(rest.expectedVersion !== undefined ? { expectedVersion: rest.expectedVersion } : {}),
-      } as import('@cat-cafe/shared').UpdateWorkflowSopInput;
+      } as import('@clowder/shared').UpdateWorkflowSopInput;
 
       const sop = await workflowSopStore.upsert(backlogItemId, featureId, input, updatedBy);
       return sop;

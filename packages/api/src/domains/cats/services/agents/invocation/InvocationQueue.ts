@@ -10,7 +10,7 @@
  * 系统级出队（invocation 完成后）通过 *AcrossUsers 方法跨用户 FIFO。
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import { randomUUID } from 'node:crypto';
 
 export interface QueueEntry {

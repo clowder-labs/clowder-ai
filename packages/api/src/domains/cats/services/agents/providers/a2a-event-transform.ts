@@ -9,7 +9,7 @@
  *   Task input-required → system_info
  */
 
-import type { A2APart, A2ATask, CatId } from '@cat-cafe/shared';
+import type { A2APart, A2ATask, CatId } from '@clowder/shared';
 import type { AgentMessage } from '../../types.js';
 
 /** Extract text content from A2A parts */

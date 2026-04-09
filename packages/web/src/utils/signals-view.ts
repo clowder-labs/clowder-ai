@@ -1,4 +1,4 @@
-import type { SignalArticle, SignalArticleStatus, SignalCategory, SignalSource, SignalTier } from '@cat-cafe/shared';
+import type { SignalArticle, SignalArticleStatus, SignalCategory, SignalSource, SignalTier } from '@clowder/shared';
 
 export type SignalArticleStatusFilter = SignalArticleStatus | 'all';
 export type SignalArticleTierFilter = `${SignalTier}` | 'all';

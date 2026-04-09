@@ -1,4 +1,4 @@
-import type { SignalSource } from '@cat-cafe/shared';
+import type { SignalSource } from '@clowder/shared';
 
 /**
  * Academic paper sources: arXiv feeds + HuggingFace daily papers.

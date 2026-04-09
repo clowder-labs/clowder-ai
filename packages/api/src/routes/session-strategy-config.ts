@@ -6,8 +6,8 @@
  * DELETE /api/config/session-strategy/:catId    — remove runtime override (fall back to lower sources)
  */
 
-import type { SessionStrategyConfig } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import type { SessionStrategyConfig } from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { isSessionChainEnabled, sessionStrategySchema } from '../config/cat-config-loader.js';
 import { getSessionStrategyWithSource } from '../config/session-strategy.js';

@@ -11,8 +11,8 @@
  * 或直接修改项目根目录的 cat-config.json
  */
 
-import type { ContextBudget } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import type { ContextBudget } from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 import { resolveBreedId } from './breed-resolver.js';
 import { getAllCatIdsFromConfig, getDefaultVariant, loadCatConfig } from './cat-config-loader.js';
 

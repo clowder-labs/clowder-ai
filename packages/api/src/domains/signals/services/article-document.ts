@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import type { SignalArticle } from '@cat-cafe/shared';
-import { SignalArticleSchema, SignalArticleStatusSchema } from '@cat-cafe/shared';
+import type { SignalArticle } from '@clowder/shared';
+import { SignalArticleSchema, SignalArticleStatusSchema } from '@clowder/shared';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { InboxRecord } from './inbox-records.js';
 

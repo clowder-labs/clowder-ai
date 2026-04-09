@@ -1,4 +1,4 @@
-import type { GameView, SeatId } from '@cat-cafe/shared';
+import type { GameView, SeatId } from '@clowder/shared';
 import { create } from 'zustand';
 
 /** Phase → backend action name mapping (must match WerewolfDefinition.buildActions) */

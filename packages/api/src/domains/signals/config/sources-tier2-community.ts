@@ -1,4 +1,4 @@
-import type { SignalSource } from '@cat-cafe/shared';
+import type { SignalSource } from '@clowder/shared';
 
 /**
  * Tier 2-3 sources: open-source frameworks, tech bloggers,

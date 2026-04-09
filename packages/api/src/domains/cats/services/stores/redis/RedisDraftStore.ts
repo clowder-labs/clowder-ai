@@ -8,8 +8,8 @@
  * TTL 默认 300s (5 分钟), 每次 upsert/touch 时重置。
  */
 
-import type { CatId } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { DraftRecord, IDraftStore } from '../ports/DraftStore.js';
 import { DraftKeys } from '../redis-keys/draft-keys.js';
 

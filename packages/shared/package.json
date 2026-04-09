@@ -1,8 +1,10 @@
 {
-  "name": "@cat-cafe/shared",
+  "name": "@clowder/shared",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "files": ["dist", "README.md", "LICENSE"],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

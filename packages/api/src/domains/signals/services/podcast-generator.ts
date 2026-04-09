@@ -1,6 +1,6 @@
 import { unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { CatId, StudyArtifact } from '@cat-cafe/shared';
+import type { CatId, StudyArtifact } from '@clowder/shared';
 import { createModuleLogger } from '../../../infrastructure/logger.js';
 import { ClaudeAgentService } from '../../cats/services/agents/providers/ClaudeAgentService.js';
 import type { AgentRouter } from '../../cats/services/agents/routing/AgentRouter.js';

@@ -1,6 +1,6 @@
 'use client';
 
-import type { BacklogPriority } from '@cat-cafe/shared';
+import type { BacklogPriority } from '@clowder/shared';
 import { useState } from 'react';
 
 interface QuickCreateFormProps {

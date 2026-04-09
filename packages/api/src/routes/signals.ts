@@ -1,4 +1,4 @@
-import { SignalArticleStatusSchema, type SignalTier } from '@cat-cafe/shared';
+import { SignalArticleStatusSchema, type SignalTier } from '@clowder/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { loadSignalSources, resolveSignalPaths, saveSignalSources } from '../domains/signals/config/sources-loader.js';

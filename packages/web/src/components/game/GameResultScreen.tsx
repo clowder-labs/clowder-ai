@@ -1,6 +1,6 @@
 'use client';
 
-import type { GameResultStats } from '@cat-cafe/shared';
+import type { GameResultStats } from '@clowder/shared';
 
 interface GameResultScreenProps {
   stats: GameResultStats;

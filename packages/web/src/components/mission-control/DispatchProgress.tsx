@@ -1,6 +1,6 @@
 'use client';
 
-import type { DispatchExecutionDigest } from '@cat-cafe/shared';
+import type { DispatchExecutionDigest } from '@clowder/shared';
 
 interface DispatchProgressProps {
   digests: DispatchExecutionDigest[];

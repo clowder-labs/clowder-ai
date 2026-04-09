@@ -1,6 +1,6 @@
 'use client';
 
-import type { Achievement, CvoLevel, GameStats, SillyCatEntry } from '@cat-cafe/shared';
+import type { Achievement, CvoLevel, GameStats, SillyCatEntry } from '@clowder/shared';
 import { CatAvatar } from './CatAvatar';
 import { CafeIcon } from './rich/CafeIcons';
 

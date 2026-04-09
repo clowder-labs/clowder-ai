@@ -4,7 +4,7 @@
  * Builds structured mission context from thread metadata and formats
  * it for system prompt injection when dispatching cats to external projects.
  */
-import type { DispatchMissionPack } from '@cat-cafe/shared';
+import type { DispatchMissionPack } from '@clowder/shared';
 
 export interface ThreadContext {
   title?: string | undefined;

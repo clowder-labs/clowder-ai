@@ -4,7 +4,7 @@
  * 无 → PendingRequestStore (内存)
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { IPendingRequestStore } from '../ports/PendingRequestStore.js';
 import { PendingRequestStore } from '../ports/PendingRequestStore.js';
 import { RedisPendingRequestStore } from '../redis/RedisPendingRequestStore.js';

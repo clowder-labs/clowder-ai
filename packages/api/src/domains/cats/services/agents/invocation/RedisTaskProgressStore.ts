@@ -1,4 +1,4 @@
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import type { Redis } from 'ioredis';
 import type { TaskProgressSnapshot, TaskProgressStore } from './TaskProgressStore.js';
 

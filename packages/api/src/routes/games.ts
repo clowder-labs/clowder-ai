@@ -172,7 +172,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     const seats = buildGameSeats({ humanRole, userId, catIds, playerCount: clampedCount });
 
     // Validate detectiveCatId maps to an actual seat BEFORE creating any persistent resources
-    let resolvedDetectiveSeatId: import('@cat-cafe/shared').SeatId | undefined;
+    let resolvedDetectiveSeatId: import('@clowder/shared').SeatId | undefined;
     if (humanRole === 'detective' && detectiveCatId) {
       const seat = seats.find((s) => s.actorId === detectiveCatId);
       if (!seat) {
@@ -321,7 +321,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
 
       const view = GameViewBuilder.buildView(
         runtime,
-        viewer as import('@cat-cafe/shared').SeatId | 'god' | `detective:${string}`,
+        viewer as import('@clowder/shared').SeatId | 'god' | `detective:${string}`,
       );
       return view;
     },
@@ -357,7 +357,7 @@ export const gameRoutes: FastifyPluginAsync<GameRoutesOptions> = async (app, opt
     }
 
     try {
-      const action: import('@cat-cafe/shared').GameAction = {
+      const action: import('@clowder/shared').GameAction = {
         seatId: seatId as `P${number}`,
         actionName,
         submittedAt: Date.now(),

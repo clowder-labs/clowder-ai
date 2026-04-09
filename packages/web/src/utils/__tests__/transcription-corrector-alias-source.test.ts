@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
-  vi.doUnmock('@cat-cafe/shared');
+  vi.doUnmock('@clowder/shared');
   vi.resetModules();
 });
 
 describe('transcription-corrector alias source', () => {
   it('follows CAT_CONFIGS mentionPatterns dynamically', async () => {
-    vi.doMock('@cat-cafe/shared', async () => {
-      const actual = await vi.importActual<typeof import('@cat-cafe/shared')>('@cat-cafe/shared');
+    vi.doMock('@clowder/shared', async () => {
+      const actual = await vi.importActual<typeof import('@clowder/shared')>('@clowder/shared');
       const codexPatterns = [...actual.CAT_CONFIGS.codex.mentionPatterns, '@测试缅因别名'];
       return {
         ...actual,

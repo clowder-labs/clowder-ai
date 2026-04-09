@@ -5,7 +5,7 @@
  * builds role-specific prompt, calls LLM provider for structured output.
  */
 
-import type { GameAction, GameView } from '@cat-cafe/shared';
+import type { GameAction, GameView } from '@clowder/shared';
 import { buildWerewolfPrompt } from './werewolf-prompts.js';
 
 export interface AIActionResponse {

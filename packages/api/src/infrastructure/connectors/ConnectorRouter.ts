@@ -14,8 +14,8 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { CatId, ConnectorSource, MessageContent } from '@cat-cafe/shared';
-import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent } from '@clowder/shared';
+import { catRegistry, getConnectorDefinition } from '@clowder/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorMessageFormatter } from './ConnectorMessageFormatter.js';

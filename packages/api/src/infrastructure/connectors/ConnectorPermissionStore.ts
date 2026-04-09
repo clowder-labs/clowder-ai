@@ -7,7 +7,7 @@
  * - RedisConnectorPermissionStore: for production (persists across restarts)
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 
 export interface GroupEntry {
   readonly externalChatId: string;

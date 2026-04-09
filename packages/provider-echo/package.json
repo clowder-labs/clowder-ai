@@ -1,0 +1,36 @@
+{
+  "name": "@clowder/provider-echo",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "files": ["dist", "README.md", "LICENSE"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "clowder": {
+    "kind": "provider",
+    "providers": ["echo"]
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@clowder/core": ">=0.1.0",
+    "@clowder/shared": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@clowder/core": "workspace:*",
+    "@clowder/shared": "workspace:*",
+    "typescript": "^5.3.3"
+  }
+}

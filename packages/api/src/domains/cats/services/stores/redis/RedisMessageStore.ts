@@ -12,8 +12,8 @@
  * 消息 TTL 可配置 (默认 7 天)。
  */
 
-import type { CatId } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
 import { DEFAULT_THREAD_ID, generateSortableId, isDelivered } from '../ports/MessageStore.js';

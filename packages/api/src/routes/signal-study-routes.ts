@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
-import type { ArtifactJobState, ArtifactKind } from '@cat-cafe/shared';
-import { SignalArticleStatusSchema } from '@cat-cafe/shared';
+import type { ArtifactJobState, ArtifactKind } from '@clowder/shared';
+import { SignalArticleStatusSchema } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';

@@ -1,6 +1,6 @@
 'use client';
 
-import type { RefluxCategory, RefluxPattern } from '@cat-cafe/shared';
+import type { RefluxCategory, RefluxPattern } from '@clowder/shared';
 import { useCallback, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

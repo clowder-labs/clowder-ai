@@ -1,10 +1,10 @@
 /**
- * @cat-cafe/shared
+ * @clowder/shared
  * 共享类型和 schemas
  *
  * Note: Redis utils are NOT exported from root to avoid pulling
  * Node-only dependencies into frontend bundles.
- * Import from '@cat-cafe/shared/utils' instead.
+ * Import from '@clowder/shared/utils' instead.
  */
 
 // Export registry (CatRegistry, catIdSchema, assertKnownCatId)

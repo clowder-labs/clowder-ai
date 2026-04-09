@@ -1,6 +1,6 @@
 'use client';
 
-import type { ThreadPhase } from '@cat-cafe/shared';
+import type { ThreadPhase } from '@clowder/shared';
 
 export interface SuggestionCatOption {
   id: string;

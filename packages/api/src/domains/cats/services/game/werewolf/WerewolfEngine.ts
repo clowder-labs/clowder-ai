@@ -6,7 +6,7 @@
  * Day: vote, PK, exile, hunter shoot, idiot reveal, speeches, last words.
  */
 
-import type { Ballot, Resolution } from '@cat-cafe/shared';
+import type { Ballot, Resolution } from '@clowder/shared';
 
 import { GameEngine } from '../GameEngine.js';
 

@@ -1,4 +1,4 @@
-import type { SignalTier } from '@cat-cafe/shared';
+import type { SignalTier } from '@clowder/shared';
 
 const tierClassMap: Record<SignalTier, string> = {
   1: 'bg-opus-bg text-opus-dark border-opus-light',

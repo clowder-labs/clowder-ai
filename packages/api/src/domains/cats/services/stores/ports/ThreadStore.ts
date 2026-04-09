@@ -6,8 +6,8 @@
  * Phase 3.3 可扩展 Redis 版本。
  */
 
-import type { CatId, ThreadPhase } from '@cat-cafe/shared';
-import { generateThreadId } from '@cat-cafe/shared';
+import type { CatId, ThreadPhase } from '@clowder/shared';
+import { generateThreadId } from '@clowder/shared';
 
 /** Default thread ID for the lobby (backwards-compatible single-thread mode) */
 export const DEFAULT_THREAD_ID = 'default';

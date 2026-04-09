@@ -5,7 +5,7 @@
  * ID 使用 generateSortableId 保证天然有序。
  */
 
-import type { CreateTaskInput, TaskItem, UpdateTaskInput } from '@cat-cafe/shared';
+import type { CreateTaskInput, TaskItem, UpdateTaskInput } from '@clowder/shared';
 import { generateSortableId } from './MessageStore.js';
 
 const MAX_TASKS = 500;

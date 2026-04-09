@@ -1,4 +1,4 @@
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { IBacklogStore } from '../ports/BacklogStore.js';
 import { BacklogStore } from '../ports/BacklogStore.js';

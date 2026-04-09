@@ -1,6 +1,6 @@
 'use client';
 
-import type { BacklogItem, CatId, ExternalProject, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
+import type { BacklogItem, CatId, ExternalProject, MissionHubSelfClaimScope, ThreadPhase } from '@clowder/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ThreadSidebar } from '@/components/ThreadSidebar';

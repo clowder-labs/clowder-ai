@@ -12,7 +12,7 @@
 import { createHash } from 'node:crypto';
 import { stat as fsStat, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@clowder/shared';
 import { getCatVoice } from '../../../../config/cat-voices.js';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import type { TtsRegistry } from './TtsRegistry.js';

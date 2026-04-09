@@ -9,7 +9,7 @@ import type {
   TriageBucket,
   TriageIntentCardInput,
   TriageResult,
-} from '@cat-cafe/shared';
+} from '@clowder/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export function computeBucket(

@@ -1,6 +1,6 @@
 'use client';
 
-import type { FeatureDocDetail, FeatureDocPhase } from '@cat-cafe/shared';
+import type { FeatureDocDetail, FeatureDocPhase } from '@clowder/shared';
 import { useState } from 'react';
 
 interface FeatureProgressPanelProps {

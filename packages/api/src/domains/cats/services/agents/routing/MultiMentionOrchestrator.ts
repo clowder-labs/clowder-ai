@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import {
   MAX_MULTI_MENTION_TARGETS,
   MAX_TIMEOUT_MINUTES,
@@ -10,7 +10,7 @@ import {
   type MultiMentionResult,
   type MultiMentionStatus,
   type MultiMentionTriggerType,
-} from '@cat-cafe/shared';
+} from '@clowder/shared';
 import { isValidTransition } from './multi-mention-state-machine.js';
 
 // ── Create params ────────────────────────────────────────────────────

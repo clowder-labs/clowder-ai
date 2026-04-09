@@ -1,8 +1,8 @@
 import { stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { SignalSourceConfig } from '@cat-cafe/shared';
-import { SignalSourceConfigSchema } from '@cat-cafe/shared';
-import { createRedisClient } from '@cat-cafe/shared/utils';
+import type { SignalSourceConfig } from '@clowder/shared';
+import { SignalSourceConfigSchema } from '@clowder/shared';
+import { createRedisClient } from '@clowder/shared/utils';
 import { resolveSignalPaths } from '../../domains/signals/config/signal-paths.js';
 import { saveSignalSources } from '../../domains/signals/config/sources-loader.js';
 import { ArticleStoreService, type SignalRedisIndexClient } from '../../domains/signals/services/article-store.js';
@@ -11,7 +11,7 @@ import { slugify } from './shared.js';
 import { createFallbackSource, mergeSources, parseLegacySources, readTargetSourceConfig } from './source-migration.js';
 
 const USAGE = [
-  'Usage: pnpm --filter @cat-cafe/api run migrate-signals -- [options]',
+  'Usage: pnpm --filter @clowder/api run migrate-signals -- [options]',
   '',
   'Options:',
   '  --from <path>       legacy Signal Hunter root (required)',

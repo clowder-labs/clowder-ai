@@ -4,9 +4,10 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
-import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
+import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
+import { createRedisClient, SessionStore } from '@clowder/shared/utils';
+import { ProviderPluginRegistry } from '@clowder/core';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
@@ -32,23 +33,17 @@ import type {
   RouterLike,
 } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
-import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import {
   AgentRouter,
   AuditEventTypes,
-  ClaudeAgentService,
-  CodexAgentService,
   createDraftStore,
   createInvocationRecordStore,
   createSessionChainStore,
-  DareAgentService,
   DeliveryCursorStore,
-  GeminiAgentService,
   getEventAuditLog,
   MemoryGovernanceStore,
-  OpenCodeAgentService,
 } from './domains/cats/services/index.js';
 import { AutoSummarizer } from './domains/cats/services/orchestration/AutoSummarizer.js';
 import { initPushNotificationService } from './domains/cats/services/push/PushNotificationService.js';
@@ -73,7 +68,7 @@ import { initStreamingTtsRegistry } from './domains/cats/services/tts/StreamingT
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
-import type { AgentService } from './domains/cats/services/types.js';
+
 import { PortDiscoveryService } from './domains/preview/port-discovery.js';
 import { collectRuntimePorts } from './domains/preview/port-validator.js';
 import { PreviewGateway } from './domains/preview/preview-gateway.js';
@@ -173,11 +168,6 @@ import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
-import {
-  resolveJiuwenClawAppDir,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} from './utils/jiuwenclaw-paths.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import { resolveUserId } from './utils/request-identity.js';
 import { isSeedCat } from './config/cat-account-binding.js';
@@ -201,7 +191,11 @@ export function getSocketManager(): SocketManager {
 
 const PROCESS_START_AT = Date.now();
 
-async function main(): Promise<void> {
+async function main(): Promise<{
+  app: import('fastify').FastifyInstance;
+  address: string;
+  shutdown: (signal: string) => Promise<void>;
+}> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
   const app = Fastify({ logger: customLogger as unknown as import('fastify').FastifyBaseLogger });
 
@@ -598,7 +592,7 @@ async function main(): Promise<void> {
   } catch (err) {
     app.log.warn(`[api] Failed to load cat template/catalog, falling back to built-in CAT_CONFIGS: ${String(err)}`);
     // Fallback: register from static CAT_CONFIGS
-    const { CAT_CONFIGS } = await import('@cat-cafe/shared');
+    const { CAT_CONFIGS } = await import('@clowder/shared');
     for (const [id, config] of Object.entries(CAT_CONFIGS)) {
       if (!catRegistry.has(id)) catRegistry.register(id, config);
     }
@@ -608,90 +602,59 @@ async function main(): Promise<void> {
   // Each cat gets its own AgentService instance with its catId + model.
   const agentRegistry = new AgentRegistry();
   let router!: AgentRouter;
+
+  // ── Provider Plugin Registry — built-in + auto-discovered ──
+  const pluginRegistry = new ProviderPluginRegistry();
+  // Register built-in providers first (internal plugins, highest priority)
+  const { BUILTIN_PLUGINS } = await import('./config/plugins/builtin-providers.js');
+  for (const plugin of BUILTIN_PLUGINS) {
+    pluginRegistry.register(plugin);
+  }
+  // Then discover @clowder/provider-* packages from node_modules/workspace
+  {
+    const discovery = await pluginRegistry.discoverFromNodeModules();
+    for (const d of discovery.discovered) {
+      if (!d.skipped) app.log.info(`[plugin] discovered ${d.package} → providers: ${d.providers.join(', ')}`);
+    }
+    for (const e of discovery.errors) {
+      app.log.warn(`[plugin] failed to load ${e.package}: ${e.error}`);
+    }
+  }
+  // Make registry available to config modules
+  const { initPluginRegistry } = await import('./config/plugins/plugin-registry-singleton.js');
+  initPluginRegistry(pluginRegistry);
+
   const syncAgentRegistry = async (configs: Record<string, CatConfig>) => {
     agentRegistry.reset();
+    const projectRoot = resolveActiveProjectRoot(process.cwd());
     for (const [id, config] of Object.entries(configs)) {
       const catId = config.id;
+
+      // Embedded ACP runtime override: force route to 'acp' plugin
       const embeddedRuntimeKind = resolveEmbeddedRuntimeKind({
         id,
         provider: config.provider,
-        source: isSeedCat(resolveActiveProjectRoot(process.cwd()), id) ? 'seed' : 'runtime',
+        source: isSeedCat(projectRoot, id) ? 'seed' : 'runtime',
       });
-      // F32-b P1 fix: do NOT pass model here — let constructors resolve via
-      // getCatModel(catId) which respects env override (CAT_*_MODEL > config > fallback)
-      let service: AgentService;
-      if (embeddedRuntimeKind === 'agentteams_acp') {
-        const { ACPAgentService } = await import('./domains/cats/services/agents/providers/ACPAgentService.js');
-        service = new ACPAgentService({ catId });
-        agentRegistry.register(id, service);
+      const resolvedProvider = embeddedRuntimeKind === 'agentteams_acp' ? 'acp' : config.provider;
+
+      const plugin = pluginRegistry.get(resolvedProvider);
+      if (!plugin) {
+        app.log.warn(`[api] No plugin for provider "${resolvedProvider}" (cat "${id}"). It will not be routable.`);
         continue;
       }
-      switch (config.provider) {
-        case 'anthropic':
-          service = new ClaudeAgentService({ catId });
-          break;
-        case 'openai':
-          service = new CodexAgentService({ catId });
-          break;
-        case 'google':
-          service = new GeminiAgentService({ catId });
-          break;
-        case 'dare':
-          service = new DareAgentService({ catId });
-          break;
-        case 'antigravity':
-          service = new AntigravityAgentService({
-            catId,
-            commandArgs: config.commandArgs,
-          });
-          break;
-        case 'opencode':
-          service = new OpenCodeAgentService({ catId });
-          break;
-        case 'a2a': {
-          const { A2AAgentService } = await import('./domains/cats/services/agents/providers/A2AAgentService.js');
-          const envKey = `CAT_${id.toUpperCase()}_A2A_URL`;
-          const a2aUrl = process.env[envKey] ?? '';
-          if (!a2aUrl) {
-            app.log.warn(`[api] A2A cat "${id}" missing ${envKey} env var. It will not be routable.`);
-            continue;
-          }
-          service = new A2AAgentService({ catId, config: { url: a2aUrl } });
-          break;
-        }
-        case 'relayclaw': {
-          const { RelayClawAgentService } = await import(
-            './domains/cats/services/agents/providers/RelayClawAgentService.js'
-          );
-          const wsEnvKey = `CAT_${id.toUpperCase()}_WS_URL`;
-          const wsUrl = process.env[wsEnvKey]?.trim() ?? '';
-          const projectRoot = resolveActiveProjectRoot(process.cwd());
-          const appDir = resolveJiuwenClawAppDir();
-          const executablePath = resolveJiuwenClawExecutable();
-          const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
-          service = new RelayClawAgentService({
-            catId,
-            config: {
-              ...(wsUrl ? { url: wsUrl, autoStart: false } : { autoStart: true }),
-              executablePath,
-              appDir,
-              pythonBin,
-              homeDir: join(projectRoot, '.cat-cafe', 'relayclaw', id),
-              modelName: config.defaultModel,
-            },
-          });
-          break;
-        }
-        case 'acp': {
-          const { ACPAgentService } = await import('./domains/cats/services/agents/providers/ACPAgentService.js');
-          service = new ACPAgentService({ catId });
-          break;
-        }
-        default:
-          app.log.warn(`[api] Unknown provider "${config.provider}" for cat "${id}". It will not be routable.`);
-          continue;
+
+      try {
+        const service = await plugin.createAgentService({
+          catId,
+          catConfig: config,
+          env: process.env,
+          projectRoot,
+        });
+        agentRegistry.register(id, service);
+      } catch (err) {
+        app.log.error({ catId: id, provider: resolvedProvider, err }, 'Failed to create AgentService from plugin');
       }
-      agentRegistry.register(id, service);
     }
     if (router) router.refreshFromRegistry(agentRegistry);
   };
@@ -1097,6 +1060,7 @@ async function main(): Promise<void> {
   await app.register(memoryPublishRoutes, { governanceStore });
 
   // Commands route needs opus service for task extraction
+  const { ClaudeAgentService } = await import('./domains/cats/services/agents/providers/ClaudeAgentService.js');
   const opusService = new ClaudeAgentService();
   await app.register(commandsRoutes, {
     messageStore,
@@ -1560,9 +1524,27 @@ async function main(): Promise<void> {
   process.once('SIGINT', () => {
     void shutdown('SIGINT');
   });
+
+  return { app, address, shutdown };
 }
 
-main().catch((err) => {
-  console.error('[api] Fatal error:', err);
-  process.exit(1);
-});
+/**
+ * Programmatic entry point — used by createClowderServer() in server.ts.
+ * Not intended for direct use by external consumers.
+ */
+export async function _startForProgrammatic(): Promise<{
+  app: import('fastify').FastifyInstance;
+  address: string;
+  shutdown: (signal: string) => Promise<void>;
+}> {
+  return main();
+}
+
+// Auto-start when run directly (not imported programmatically)
+const isDirectRun = !process.env.__CLOWDER_PROGRAMMATIC;
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error('[api] Fatal error:', err);
+    process.exit(1);
+  });
+}

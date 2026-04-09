@@ -1,4 +1,4 @@
-import type { StudyMeta } from '@cat-cafe/shared';
+import type { StudyMeta } from '@clowder/shared';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { PodcastPlayer } from './PodcastPlayer';

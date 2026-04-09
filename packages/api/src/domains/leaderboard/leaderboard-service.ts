@@ -5,8 +5,8 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { LeaderboardRange, LeaderboardStatsResponse } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import type { LeaderboardRange, LeaderboardStatsResponse } from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 import type { AchievementStore } from './achievement-store.js';
 import type { GameStore } from './game-store.js';
 import { computeMentionStats, type MessageLike } from './mention-stats.js';

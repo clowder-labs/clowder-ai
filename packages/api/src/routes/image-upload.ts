@@ -6,7 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { ImageContent } from '@cat-cafe/shared';
+import type { ImageContent } from '@clowder/shared';
 
 const ALLOWED_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB

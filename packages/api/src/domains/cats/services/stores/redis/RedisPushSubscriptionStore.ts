@@ -8,7 +8,7 @@
  * - Set push-subs:all — all endpoint hashes
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { IPushSubscriptionStore, PushSubscriptionRecord } from '../ports/PushSubscriptionStore.js';
 import { hashEndpoint, PushSubKeys } from '../redis-keys/push-keys.js';
 

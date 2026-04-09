@@ -4,7 +4,7 @@
  * F23: 拆分以满足 350 行硬上限
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import type { AgentMessage } from '../../types.js';
 
 const KNOWN_POST_RESPONSE_CANDIDATES_CRASH = "Cannot read properties of undefined (reading 'candidates')";

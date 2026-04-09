@@ -4,7 +4,7 @@
  * F23: 拆分以减少 RedisMessageStore.ts 行数
  */
 
-import type { CatId, ConnectorSource, MessageContent, RichMessageExtra } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent, RichMessageExtra } from '@clowder/shared';
 import type { MessageMetadata } from '../../types.js';
 import type { StoredToolEvent } from '../ports/MessageStore.js';
 

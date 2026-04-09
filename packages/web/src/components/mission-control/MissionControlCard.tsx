@@ -1,6 +1,6 @@
 'use client';
 
-import type { BacklogItem } from '@cat-cafe/shared';
+import type { BacklogItem } from '@clowder/shared';
 
 interface MissionControlCardProps {
   item: BacklogItem;

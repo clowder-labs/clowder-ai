@@ -9,7 +9,7 @@
 import { randomBytes } from 'node:crypto';
 import { copyFile, mkdir, stat, unlink } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@clowder/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';

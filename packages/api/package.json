@@ -1,9 +1,21 @@
 {
-  "name": "@cat-cafe/api",
+  "name": "@clowder/api",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "license": "MIT",
+  "publishConfig": { "access": "public" },
+  "files": ["dist", "README.md", "LICENSE"],
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    }
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "pnpm --dir ../shared build && tsc",
@@ -21,7 +33,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@cat-cafe/shared": "workspace:*",
+    "@clowder/shared": "workspace:*",
+    "@clowder/core": "workspace:*",
     "@fastify/cors": "^9.0.0",
     "@fastify/multipart": "8",
     "@fastify/static": "7",

@@ -1,4 +1,4 @@
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 
 export interface ParsedMention {
   targetCatId: CatId;

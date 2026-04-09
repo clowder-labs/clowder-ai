@@ -1,4 +1,4 @@
-import type { ContextBudget } from '@cat-cafe/shared';
+import type { ContextBudget } from '@clowder/shared';
 
 export type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
 

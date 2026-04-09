@@ -5,7 +5,7 @@
  * connection + tool metadata for the Capability Center UI.
  */
 
-import type { CapabilityEntry, McpToolInfo } from '@cat-cafe/shared';
+import type { CapabilityEntry, McpToolInfo } from '@clowder/shared';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';

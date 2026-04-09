@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { CiBucket, CiCdRouter, CiCheckDetail, CiPollResult } from './CiCdRouter.js';
 import type { ConnectorInvokeTrigger, ConnectorTriggerPolicy } from './ConnectorInvokeTrigger.js';

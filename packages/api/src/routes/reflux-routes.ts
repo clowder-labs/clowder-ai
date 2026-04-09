@@ -2,7 +2,7 @@
  * F076: Reflux Pattern routes — methodology experience capture
  */
 
-import type { CreateRefluxPatternInput, RefluxCategory } from '@cat-cafe/shared';
+import type { CreateRefluxPatternInput, RefluxCategory } from '@clowder/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { RefluxPatternStore } from '../domains/projects/reflux-pattern-store.js';

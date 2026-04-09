@@ -2,7 +2,7 @@
  * F075 — Work stats computation from git log
  * Pure functions: git log output → ranked work stats
  */
-import type { RankedCat, WorkStats } from '@cat-cafe/shared';
+import type { RankedCat, WorkStats } from '@clowder/shared';
 
 export interface GitLogEntry {
   hash: string;

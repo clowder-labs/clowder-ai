@@ -1,4 +1,4 @@
-import type { VoiceChunkEvent, VoiceStreamEndEvent, VoiceStreamStartEvent } from '@cat-cafe/shared';
+import type { VoiceChunkEvent, VoiceStreamEndEvent, VoiceStreamStartEvent } from '@clowder/shared';
 
 export type PlaybackManagerState = 'idle' | 'playing' | 'paused';
 

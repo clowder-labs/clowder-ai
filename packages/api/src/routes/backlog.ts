@@ -1,5 +1,5 @@
-import type { BacklogDependencies, BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
-import { catIdSchema, catRegistry } from '@cat-cafe/shared';
+import type { BacklogDependencies, BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@clowder/shared';
+import { catIdSchema, catRegistry } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { getMissionHubSelfClaimScope } from '../config/cat-config-loader.js';
@@ -357,7 +357,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     const refreshedItemIds: string[] = [];
     let skipped = 0;
     // F058: Read dependencies from feature docs
-    let featureDepsMap: Map<string, import('@cat-cafe/shared').BacklogDependencies>;
+    let featureDepsMap: Map<string, import('@clowder/shared').BacklogDependencies>;
     try {
       featureDepsMap = await readFeatureDocDependencies(opts.featuresDir);
     } catch {

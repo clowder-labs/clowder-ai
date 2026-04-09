@@ -6,7 +6,7 @@
  * creates a RemoteLimbNode to represent them in the LimbRegistry.
  */
 
-import type { ILimbNode, LimbCapability, LimbInvokeResult, LimbNodeStatus } from '@cat-cafe/shared';
+import type { ILimbNode, LimbCapability, LimbInvokeResult, LimbNodeStatus } from '@clowder/shared';
 
 export interface RemoteLimbNodeConfig {
   nodeId: string;

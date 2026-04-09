@@ -17,8 +17,8 @@
 
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
-import type { VoiceConfig } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import type { VoiceConfig } from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 import { resolveBreedId } from './breed-resolver.js';
 import { getAllCatIdsFromConfig, loadCatConfig } from './cat-config-loader.js';
 

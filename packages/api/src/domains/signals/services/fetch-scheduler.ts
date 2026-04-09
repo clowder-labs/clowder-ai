@@ -1,6 +1,6 @@
 import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { SignalArticle, SignalSourceConfig } from '@cat-cafe/shared';
+import type { SignalArticle, SignalSourceConfig } from '@clowder/shared';
 import type { SignalNotificationConfig } from '../config/notifications-loader.js';
 import { loadSignalNotifications } from '../config/notifications-loader.js';
 import type { SignalPaths } from '../config/signal-paths.js';

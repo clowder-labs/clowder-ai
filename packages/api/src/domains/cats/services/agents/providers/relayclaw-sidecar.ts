@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { delimiter, dirname, join } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
+import type { CatId, RelayClawAgentConfig } from '@clowder/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';

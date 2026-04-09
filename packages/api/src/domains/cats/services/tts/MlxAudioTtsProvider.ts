@@ -6,7 +6,7 @@
  * and serves an OpenAI-compatible /v1/audio/speech endpoint.
  */
 
-import type { ITtsProvider, TtsSynthesizeRequest, TtsSynthesizeResult } from '@cat-cafe/shared';
+import type { ITtsProvider, TtsSynthesizeRequest, TtsSynthesizeResult } from '@clowder/shared';
 
 export interface MlxAudioTtsProviderOptions {
   /** Base URL of the Python TTS server (default: http://localhost:9879) */

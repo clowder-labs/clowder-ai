@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { normalizeRichBlock } from '@cat-cafe/shared';
+import { normalizeRichBlock } from '@clowder/shared';
 import { z } from 'zod';
 import { sendCallbackRequest } from './callback-outbox.js';
 import type { ToolResult } from './file-tools.js';

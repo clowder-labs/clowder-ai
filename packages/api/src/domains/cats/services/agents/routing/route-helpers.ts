@@ -3,7 +3,7 @@
  * Shared types, interfaces, and helper functions for route-serial and route-parallel.
  */
 
-import { CAT_CONFIGS, catRegistry, type CatId, type MessageContent, type RichBlock, type RichBlockBase } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry, type CatId, type MessageContent, type RichBlock, type RichBlockBase } from '@clowder/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
@@ -40,7 +40,7 @@ export interface PersistenceContext {
   /** Error details for diagnostics */
   errors: Array<{ catId: string; error: string }>;
   /** F088-P3: Rich blocks consumed during this invocation, for outbound delivery */
-  richBlocks?: import('@cat-cafe/shared').RichBlock[];
+  richBlocks?: import('@clowder/shared').RichBlock[];
 }
 
 /** Common options for both strategies */

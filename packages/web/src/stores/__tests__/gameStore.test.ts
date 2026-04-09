@@ -1,4 +1,4 @@
-import type { GameView, SeatView } from '@cat-cafe/shared';
+import type { GameView, SeatView } from '@clowder/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from '../gameStore';
 

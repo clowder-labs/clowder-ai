@@ -1,4 +1,4 @@
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { CAT_CONFIGS } from '@clowder/shared';
 import { create } from 'zustand';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type {

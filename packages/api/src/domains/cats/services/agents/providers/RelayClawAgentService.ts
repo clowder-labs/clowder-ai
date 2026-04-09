@@ -9,8 +9,8 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { CatId, RelayClawAgentConfig } from '@clowder/shared';
+import { createCatId } from '@clowder/shared';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import { appendLocalImagePathHints } from './image-cli-bridge.js';
 import { extractImagePaths } from './image-paths.js';

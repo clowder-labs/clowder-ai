@@ -1,6 +1,6 @@
 'use client';
 
-import type { BacklogItem, ThreadPhase } from '@cat-cafe/shared';
+import type { BacklogItem, ThreadPhase } from '@clowder/shared';
 
 interface SuggestionDecisionPanelProps {
   item: BacklogItem;

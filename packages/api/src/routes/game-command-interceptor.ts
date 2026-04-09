@@ -6,7 +6,7 @@
  * game lifecycle API.
  */
 
-import type { Seat } from '@cat-cafe/shared';
+import type { Seat } from '@clowder/shared';
 
 /** Known game types that have engine implementations */
 const KNOWN_GAME_TYPES = new Set(['werewolf']);

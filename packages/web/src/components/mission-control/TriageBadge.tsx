@@ -1,6 +1,6 @@
 'use client';
 
-import type { SourceTag, TriageBucket } from '@cat-cafe/shared';
+import type { SourceTag, TriageBucket } from '@clowder/shared';
 
 const BUCKET_STYLES: Record<TriageBucket, { bg: string; text: string; label: string }> = {
   build_now: { bg: 'bg-green-100', text: 'text-green-800', label: 'Build Now' },

@@ -2,7 +2,7 @@
  * F076: Intent Card routes — CRUD + triage + risk detection
  * Extracted from external-projects.ts to stay under 350-line limit.
  */
-import type { IntentCard, RiskSignal } from '@cat-cafe/shared';
+import type { IntentCard, RiskSignal } from '@clowder/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { IntentCardStore } from '../domains/projects/intent-card-store.js';

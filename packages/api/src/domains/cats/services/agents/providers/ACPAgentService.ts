@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import type { CatId } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
+import { createCatId } from '@clowder/shared';
 import { buildACPSubprocessEnv as buildFilteredACPSubprocessEnv } from '../../../../../config/acp-env.js';
 import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../../../config/provider-profiles.js';

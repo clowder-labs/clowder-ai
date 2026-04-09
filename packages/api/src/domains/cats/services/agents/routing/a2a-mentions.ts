@@ -11,8 +11,8 @@
  * 6. 只在猫回复完整结束后解析 (由调用方保证)
  */
 
-import type { CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import { isCatAvailable } from '../../../../../config/cat-config-loader.js';
 
 /** Max A2A chain depth, configurable via env (read at call time for hot-reload) */

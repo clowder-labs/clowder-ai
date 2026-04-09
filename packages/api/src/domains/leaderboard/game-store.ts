@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { GameRecord, GameRecordInput, GameStats, RankedCat } from '@cat-cafe/shared';
+import type { GameRecord, GameRecordInput, GameStats, RankedCat } from '@clowder/shared';
 
 export class GameStore {
   private records: GameRecord[] = [];

@@ -1,5 +1,5 @@
-import type { UpdateWorkflowSopInput, WorkflowSop } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { UpdateWorkflowSopInput, WorkflowSop } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { IWorkflowSopStore } from '../ports/WorkflowSopStore.js';
 import { VersionConflictError } from '../ports/WorkflowSopStore.js';
 import { WorkflowSopKeys } from '../redis-keys/workflow-sop-keys.js';

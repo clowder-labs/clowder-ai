@@ -5,14 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 Object.assign(globalThis as Record<string, unknown>, { React });
 
 afterEach(() => {
-  vi.doUnmock('@cat-cafe/shared');
+  vi.doUnmock('@clowder/shared');
   vi.resetModules();
 });
 
 describe('MarkdownContent alias source', () => {
   it('follows CAT_CONFIGS mentionPatterns dynamically', async () => {
-    vi.doMock('@cat-cafe/shared', async () => {
-      const actual = await vi.importActual<typeof import('@cat-cafe/shared')>('@cat-cafe/shared');
+    vi.doMock('@clowder/shared', async () => {
+      const actual = await vi.importActual<typeof import('@clowder/shared')>('@clowder/shared');
       const opusPatterns = [...actual.CAT_CONFIGS.opus.mentionPatterns, '@测试布偶别名'];
       return {
         ...actual,

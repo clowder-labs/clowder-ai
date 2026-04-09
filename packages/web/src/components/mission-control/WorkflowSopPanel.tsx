@@ -1,6 +1,6 @@
 'use client';
 
-import type { CheckStatus, SopStage, WorkflowSop } from '@cat-cafe/shared';
+import type { CheckStatus, SopStage, WorkflowSop } from '@clowder/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

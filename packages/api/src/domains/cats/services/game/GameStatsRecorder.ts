@@ -5,7 +5,7 @@
  * All game types (werewolf, future games) produce the same stats schema.
  */
 
-import type { GameRuntime } from '@cat-cafe/shared';
+import type { GameRuntime } from '@clowder/shared';
 
 export interface PlayerStats {
   actorId: string;

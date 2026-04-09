@@ -5,8 +5,8 @@
  * Uses optimistic concurrency via version field.
  */
 
-import type { GameRuntime } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { GameRuntime } from '@clowder/shared';
+import type { RedisClient } from '@clowder/shared/utils';
 import type { IGameStore } from '../ports/GameStore.js';
 import { GameKeys } from '../redis-keys/game-keys.js';
 

@@ -4,7 +4,7 @@
  * 从 messages.ts 提取，降低文件复杂度。
  */
 
-import type { ImageContent, MessageContent, TextContent } from '@cat-cafe/shared';
+import type { ImageContent, MessageContent, TextContent } from '@clowder/shared';
 import type { Multipart } from '@fastify/multipart';
 import { ImageUploadError, saveUploadedImages, type UploadImageFile } from './image-upload.js';
 import { sendMessageSchema } from './messages.schema.js';

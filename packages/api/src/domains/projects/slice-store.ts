@@ -1,7 +1,7 @@
 /**
  * F076: SliceStore — in-memory store for Stage 4 slice planning
  */
-import type { CreateSliceInput, Slice, SliceType, UpdateSliceInput } from '@cat-cafe/shared';
+import type { CreateSliceInput, Slice, SliceType, UpdateSliceInput } from '@clowder/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export class SliceStore {

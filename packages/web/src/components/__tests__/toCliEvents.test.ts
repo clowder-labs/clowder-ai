@@ -106,11 +106,11 @@ describe('toCliEvents', () => {
 
   it('extracts command from truncated JSON via regex fallback', () => {
     const truncatedDetail =
-      '{"command":"pnpm --filter @cat-cafe/web test","timeout":60000,"some_other_field":"this gets trunca';
+      '{"command":"pnpm --filter @clowder/web test","timeout":60000,"some_other_field":"this gets trunca';
     const toolEvents: ToolEvent[] = [
       { id: 't1', type: 'tool_use', label: 'opus → Bash', detail: truncatedDetail, timestamp: 1000 },
     ];
     const events = toCliEvents(toolEvents, undefined);
-    expect(events[0].label).toBe('Bash pnpm --filter @cat-cafe/web test');
+    expect(events[0].label).toBe('Bash pnpm --filter @clowder/web test');
   });
 });

@@ -5,7 +5,7 @@
  * GET  /api/callbacks/multi-mention-status — Poll request status
  */
 
-import { type CatId, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@cat-cafe/shared';
+import { type CatId, catRegistry, createCatId, DEFAULT_TIMEOUT_MINUTES } from '@clowder/shared';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';

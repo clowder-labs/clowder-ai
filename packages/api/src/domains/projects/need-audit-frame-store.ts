@@ -1,7 +1,7 @@
 /**
  * F076: NeedAuditFrameStore — in-memory store, one frame per project
  */
-import type { CreateNeedAuditFrameInput, NeedAuditFrame } from '@cat-cafe/shared';
+import type { CreateNeedAuditFrameInput, NeedAuditFrame } from '@clowder/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export class NeedAuditFrameStore {

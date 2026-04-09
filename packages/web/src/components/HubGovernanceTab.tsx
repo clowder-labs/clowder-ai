@@ -1,6 +1,6 @@
 'use client';
 
-import type { GovernanceHealthSummary } from '@cat-cafe/shared';
+import type { GovernanceHealthSummary } from '@clowder/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

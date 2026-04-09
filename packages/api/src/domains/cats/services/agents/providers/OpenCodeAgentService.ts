@@ -14,7 +14,7 @@
  *   error       → error
  */
 
-import { type CatId, createCatId } from '@cat-cafe/shared';
+import { type CatId, createCatId } from '@clowder/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';

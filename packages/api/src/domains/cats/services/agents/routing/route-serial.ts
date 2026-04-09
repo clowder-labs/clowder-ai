@@ -10,8 +10,8 @@
  * A2A only triggers here in routeSerial; routeParallel never chains (MVP safety boundary).
  */
 
-import type { CatConfig, CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import type { CatConfig, CatId } from '@clowder/shared';
+import { CAT_CONFIGS, catRegistry } from '@clowder/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getCatVoice } from '../../../../../config/cat-voices.js';
@@ -319,7 +319,7 @@ export async function* routeSerial(
       let hadError = false;
       const collectedToolEvents: StoredToolEvent[] = [];
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
-      const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
+      const streamRichBlocks: import('@clowder/shared').RichBlock[] = [];
       // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
       let ownInvocationId: string | undefined;
       // F111 Phase B: Streaming TTS chunker for real-time voice (voiceMode only)

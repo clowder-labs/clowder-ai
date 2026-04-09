@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { LimbLease } from '@cat-cafe/shared';
+import type { LimbLease } from '@clowder/shared';
 
 export interface LeaseManagerOptions {
   defaultTtlMs: number;

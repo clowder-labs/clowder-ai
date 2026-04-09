@@ -8,7 +8,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import type { SkillHubInstallRequest, SkillHubInstallResult } from '@cat-cafe/shared';
+import type { SkillHubInstallRequest, SkillHubInstallResult } from '@clowder/shared';
 import { parseSkillFrontmatter } from './frontmatter-parser.js';
 import { addInstalledSkill, loadInstalledRegistry, removeInstalledSkill } from './InstalledSkillRegistry.js';
 import { fetchSkillAllFiles } from './SkillHubService.js';

@@ -10,8 +10,8 @@
  * POST   /api/threads/:threadId/cancel/:catId       → F122B AC-B9: Per-cat cancel
  */
 
-import { createCatId, type CatId } from '@cat-cafe/shared';
-import type { SessionStore } from '@cat-cafe/shared/utils';
+import { createCatId, type CatId } from '@clowder/shared';
+import type { SessionStore } from '@clowder/shared/utils';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';

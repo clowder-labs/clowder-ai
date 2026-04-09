@@ -9,7 +9,7 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@clowder/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { Bot, InputFile } from 'grammy';
 import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';

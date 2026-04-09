@@ -6,7 +6,7 @@
  * regex with all cats (including dynamically added ones).
  */
 
-import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
+import { CAT_CONFIGS, escapeRegExp } from '@clowder/shared';
 import type { CatData } from '@/hooks/useCatData';
 
 // ── Internal builders ───────────────────────────────────

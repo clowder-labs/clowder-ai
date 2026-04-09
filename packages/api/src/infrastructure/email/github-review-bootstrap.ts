@@ -6,7 +6,7 @@
  * BACKLOG #81, #97
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@clowder/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorInvokeTrigger } from './ConnectorInvokeTrigger.js';
 import { GithubReviewWatcher, loadWatcherConfigFromEnv } from './GithubReviewWatcher.js';

@@ -1,6 +1,6 @@
 'use client';
 
-import type { LeaderboardRange, LeaderboardStatsResponse } from '@cat-cafe/shared';
+import type { LeaderboardRange, LeaderboardStatsResponse } from '@clowder/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { CatHeroCard, MiniRanked, SectionCard, StreakRanked, WorkMetric } from './leaderboard-cards';

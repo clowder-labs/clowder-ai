@@ -1,6 +1,6 @@
 'use client';
 
-import type { GameView, SeatId } from '@cat-cafe/shared';
+import type { GameView, SeatId } from '@clowder/shared';
 import { useCountdown } from '@/hooks/useCountdown';
 import { PHASE_NAMES_ZH } from '@/stores/gameStore';
 import { ActionDock } from './ActionDock';

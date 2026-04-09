@@ -1,7 +1,7 @@
 'use client';
 
-import type { ConnectorTailwindTheme } from '@cat-cafe/shared';
-import { getConnectorDefinition } from '@cat-cafe/shared';
+import type { ConnectorTailwindTheme } from '@clowder/shared';
+import { getConnectorDefinition } from '@clowder/shared';
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { API_URL } from '@/utils/api-client';
 import { ConnectorImage, GitHubIcon, SettingsIcon, UsersIcon } from './icons/ConnectorIcons';

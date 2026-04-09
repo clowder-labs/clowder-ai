@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { LimbCapability } from '@cat-cafe/shared';
+import type { LimbCapability } from '@clowder/shared';
 
 export interface PairingRequest {
   requestId: string;

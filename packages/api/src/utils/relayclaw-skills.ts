@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { CapabilitiesConfig, CapabilityEntry } from '@cat-cafe/shared';
+import type { CapabilitiesConfig, CapabilityEntry } from '@clowder/shared';
 
 const CAT_CAFE_SKILLS_MANIFEST = join('cat-cafe-skills', 'manifest.yaml');
 

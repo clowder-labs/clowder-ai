@@ -1,5 +1,5 @@
-import type { GameEvent, GameRuntime, SeatId } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import type { GameEvent, GameRuntime, SeatId } from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 
 const ROLE_DISPLAY: Record<string, string> = {
   wolf: '狼人',

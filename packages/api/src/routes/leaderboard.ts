@@ -2,7 +2,7 @@
  * F075 — Leaderboard API routes
  */
 
-import type { LeaderboardRange } from '@cat-cafe/shared';
+import type { LeaderboardRange } from '@clowder/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import type { AchievementStore } from '../domains/leaderboard/achievement-store.js';
 import type { GameStore } from '../domains/leaderboard/game-store.js';

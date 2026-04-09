@@ -1,4 +1,4 @@
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@clowder/shared';
 
 export function renderRichBlockPlaintext(block: RichBlock): string {
   switch (block.kind) {

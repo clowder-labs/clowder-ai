@@ -14,8 +14,8 @@ import type {
   PendingAction,
   SeatId,
   SeatView,
-} from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+} from '@clowder/shared';
+import { catRegistry } from '@clowder/shared';
 import { GameStatsRecorder } from './GameStatsRecorder.js';
 
 export class GameViewBuilder {

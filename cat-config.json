@@ -97,11 +97,11 @@
       "variants": [
         {
           "id": "office-default",
-          "provider": "relayclaw",
+          "provider": "dare",
           "defaultModel": "gpt-5.4",
           "mcpSupport": true,
           "cli": {
-            "command": "jiuwenclaw-app",
+            "command": "dare",
             "outputFormat": "json"
           },
           "personality": "专业干练，逻辑清晰，善于结构化输出和流程优化",
