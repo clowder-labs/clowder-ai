@@ -218,7 +218,7 @@ export default function LoginPage() {
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
+                    className="ui-input login-password-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
                     placeholder="密码"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

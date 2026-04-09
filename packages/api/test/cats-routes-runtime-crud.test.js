@@ -264,6 +264,130 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.ok(mentions.includes('runtime-spark'), 'new alias should route immediately');
   });
 
+  it('POST /api/cats rejects duplicate names that collide with seed members', async () => {
+    const projectRoot = createProjectRoot();
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const listRes = await app.inject({ method: 'GET', url: '/api/cats' });
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    const seedCat = listBody.cats.find((cat) => cat.id === 'opus');
+    assert.ok(seedCat, 'opus seed cat should appear in /api/cats');
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        catId: 'runtime-duplicate-name',
+        name: seedCat.name,
+        displayName: seedCat.displayName,
+        nickname: 'duplicate-name',
+        avatar: '/avatars/spark.png',
+        color: { primary: '#f97316', secondary: '#fed7aa' },
+        mentionPatterns: ['@runtime-duplicate-name'],
+        roleDescription: 'duplicate name check',
+        personality: 'direct',
+        teamStrengths: 'validation',
+        caution: '',
+        strengths: ['validation'],
+        sessionChain: true,
+        client: 'openai',
+        accountRef: 'codex',
+        defaultModel: 'gpt-5.4',
+        contextBudget: {
+          maxPromptTokens: 24000,
+          maxContextTokens: 16000,
+          maxMessages: 24,
+          maxContentLengthPerMsg: 6000,
+        },
+        mcpSupport: false,
+        cli: { command: 'codex', outputFormat: 'json' },
+      }),
+    });
+
+    assert.equal(createRes.statusCode, 400);
+    assert.match(JSON.parse(createRes.body).error, /名称 .* 已被使用/);
+  });
+
+  it('PATCH /api/cats/:id rejects duplicate names that collide with seed members', async () => {
+    const projectRoot = createProjectRoot();
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+
+    const Fastify = (await import('fastify')).default;
+    const { catsRoutes } = await import('../dist/routes/cats.js');
+
+    const app = Fastify();
+    await app.register(catsRoutes);
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/cats',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        catId: 'runtime-rename-target',
+        name: 'runtime rename target',
+        displayName: 'runtime rename target',
+        nickname: 'rename-target',
+        avatar: '/avatars/spark.png',
+        color: { primary: '#f97316', secondary: '#fed7aa' },
+        mentionPatterns: ['@runtime-rename-target'],
+        roleDescription: 'duplicate name check',
+        personality: 'direct',
+        teamStrengths: 'validation',
+        caution: '',
+        strengths: ['validation'],
+        sessionChain: true,
+        client: 'openai',
+        accountRef: 'codex',
+        defaultModel: 'gpt-5.4',
+        contextBudget: {
+          maxPromptTokens: 24000,
+          maxContextTokens: 16000,
+          maxMessages: 24,
+          maxContentLengthPerMsg: 6000,
+        },
+        mcpSupport: false,
+        cli: { command: 'codex', outputFormat: 'json' },
+      }),
+    });
+    assert.equal(createRes.statusCode, 201);
+
+    const listRes = await app.inject({ method: 'GET', url: '/api/cats' });
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    const seedCat = listBody.cats.find((cat) => cat.id === 'opus');
+    assert.ok(seedCat, 'opus seed cat should appear in /api/cats');
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: '/api/cats/runtime-rename-target',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'codex',
+      },
+      body: JSON.stringify({
+        name: seedCat.name,
+        displayName: seedCat.displayName,
+      }),
+    });
+
+    assert.equal(patchRes.statusCode, 400);
+    assert.match(JSON.parse(patchRes.body).error, /名称 .* 已被使用/);
+  });
+
   it('POST /api/cats falls back to the readable active project root when CAT_TEMPLATE_PATH is stale', async () => {
     const projectRoot = createMonorepoProjectRoot();
     const staleRoot = mkdtempSync(join(tmpdir(), 'cats-route-crud-stale-'));

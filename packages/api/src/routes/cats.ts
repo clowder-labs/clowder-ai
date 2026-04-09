@@ -415,6 +415,45 @@ function resolveMemberLabel(existingId: string, existingConfig: CatConfig): stri
   return existingId;
 }
 
+function loadConfigsForValidation(projectRoot: string): Record<string, CatConfig> {
+  const templatePath = resolveProjectTemplatePath(projectRoot);
+  try {
+    bootstrapCatCatalog(projectRoot, templatePath);
+    return toAllCatConfigs(loadCatConfig(resolveCatCatalogPath(projectRoot)));
+  } catch {
+    return toAllCatConfigs(loadCatConfig(templatePath));
+  }
+}
+
+function normalizeNameForCompare(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+function findNameConflict(
+  allConfigs: Record<string, CatConfig>,
+  candidateNames: Array<string | null | undefined>,
+  skipId?: string,
+): { existingId: string; existingConfig: CatConfig; conflictValue: string } | null {
+  const normalizedCandidates = candidateNames
+    .map((value) => value?.trim() ?? '')
+    .filter((value, index, list) => value.length > 0 && list.indexOf(value) === index);
+
+  if (normalizedCandidates.length === 0) return null;
+
+  for (const candidate of normalizedCandidates) {
+    const normalizedCandidate = normalizeNameForCompare(candidate);
+    for (const [existingId, existingConfig] of Object.entries(allConfigs)) {
+      if (skipId && existingId === skipId) continue;
+      const existingNames = [existingConfig.name, existingConfig.displayName];
+      if (existingNames.some((existingName) => normalizeNameForCompare(existingName) === normalizedCandidate)) {
+        return { existingId, existingConfig, conflictValue: candidate };
+      }
+    }
+  }
+
+  return null;
+}
+
 async function reconcileCatRegistry(
   projectRoot: string,
   managedIdsBefore: ReadonlySet<string>,
@@ -492,10 +531,16 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
     const projectRoot = resolveProjectRoot();
     const managedIdsBefore = getManagedCatalogIds(projectRoot);
     const body = parsed.data;
+    const allConfigs = loadConfigsForValidation(projectRoot);
+
+    const nameConflict = findNameConflict(allConfigs, [body.name, body.displayName]);
+    if (nameConflict) {
+      reply.status(400);
+      return { error: `名称 "${nameConflict.conflictValue}" 已被使用` };
+    }
 
     // Validate alias uniqueness across all existing members
     if (body.mentionPatterns?.length) {
-      const allConfigs = catRegistry.getAllConfigs();
       for (const pattern of body.mentionPatterns) {
         const normalized = pattern.toLowerCase();
         for (const [existingId, existingConfig] of Object.entries(allConfigs)) {
@@ -612,10 +657,16 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
 
     const body = parsed.data;
     const projectRoot = resolveProjectRoot();
+    const allConfigs = loadConfigsForValidation(projectRoot);
+
+    const nameConflict = findNameConflict(allConfigs, [body.name, body.displayName], request.params.id);
+    if (nameConflict) {
+      reply.status(400);
+      return { error: `名称 "${nameConflict.conflictValue}" 已被使用` };
+    }
 
     // Validate alias uniqueness when mentionPatterns are being updated
     if (body.mentionPatterns?.length) {
-      const allConfigs = catRegistry.getAllConfigs();
       for (const pattern of body.mentionPatterns) {
         const normalized = pattern.toLowerCase();
         for (const [existingId, existingConfig] of Object.entries(allConfigs)) {
