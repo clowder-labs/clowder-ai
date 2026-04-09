@@ -500,7 +500,6 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       const wsUrl = readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1')
         ?? 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
 
-      // @ts-expect-error — ws has no bundled types; @types/ws not in this project
       const { WebSocket } = await import('ws');
 
       const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
