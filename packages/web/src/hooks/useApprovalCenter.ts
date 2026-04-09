@@ -19,6 +19,13 @@ export interface ApprovalPendingRequest {
 export type ApprovalDecision = 'approve' | 'deny';
 export type ApprovalScope = 'once' | 'thread' | 'global';
 
+const AUTO_APPROVE_KEY = 'cat-cafe:approval:auto-approve';
+
+function readAutoApprove(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(AUTO_APPROVE_KEY) === '1';
+}
+
 /* -- Desktop notification + tab title flash -- */
 function notifyApprovalRequest(data: ApprovalPendingRequest, catLabel: string) {
   const riskLabels: Record<string, string> = {
@@ -58,8 +65,20 @@ function notifyApprovalRequest(data: ApprovalPendingRequest, catLabel: string) {
 
 export function useApprovalCenter(threadId: string) {
   const [pending, setPending] = useState<ApprovalPendingRequest[]>([]);
+  const [autoApprove, setAutoApproveState] = useState<boolean>(() => readAutoApprove());
+  const autoApproveRef = useRef(autoApprove);
   const { getCatById } = useCatData();
   const permissionRequested = useRef(false);
+
+  // Keep ref in sync so WebSocket handlers see the latest value
+  useEffect(() => {
+    autoApproveRef.current = autoApprove;
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(AUTO_APPROVE_KEY, autoApprove ? '1' : '0');
+    }
+  }, [autoApprove]);
+
+  const setAutoApprove = useCallback((next: boolean) => setAutoApproveState(next), []);
 
   useEffect(() => {
     if (permissionRequested.current) return;
@@ -124,13 +143,18 @@ export function useApprovalCenter(threadId: string) {
         if (prev.some((r) => r.requestId === normalized.requestId)) return prev;
         return [...prev, normalized];
       });
+      // Auto-approve: immediately approve new incoming requests when toggle is on
+      if (autoApproveRef.current) {
+        void respond(normalized.requestId, 'approve', 'once', 'auto-approved');
+        return;
+      }
       if (!notifiedRef.current.has(normalized.requestId)) {
         notifiedRef.current.add(normalized.requestId);
         const label = getCatById(normalized.catId)?.displayName ?? normalized.catId;
         notifyApprovalRequest(normalized, label);
       }
     },
-    [getCatById],
+    [getCatById, respond],
   );
 
   const handleApprovalResponse = useCallback((data: { requestId: string }) => {
@@ -156,5 +180,27 @@ export function useApprovalCenter(threadId: string) {
     await Promise.allSettled(ids.map((id) => cancel(id)));
   }, [pending, cancel]);
 
-  return { pending, respond, cancel, cancelAll, handleApprovalRequest, handleApprovalResponse, fetchPending };
+  const approveAll = useCallback(async () => {
+    const ids = pending.map((r) => r.requestId);
+    await Promise.allSettled(ids.map((id) => respond(id, 'approve', 'once', 'bulk-approved')));
+  }, [pending, respond]);
+
+  // When auto-approve is enabled, also approve any current pending immediately
+  useEffect(() => {
+    if (!autoApprove || pending.length === 0) return;
+    void approveAll();
+  }, [autoApprove, pending.length, approveAll]);
+
+  return {
+    pending,
+    respond,
+    cancel,
+    cancelAll,
+    approveAll,
+    autoApprove,
+    setAutoApprove,
+    handleApprovalRequest,
+    handleApprovalResponse,
+    fetchPending,
+  };
 }

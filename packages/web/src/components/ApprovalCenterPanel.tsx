@@ -40,7 +40,7 @@ interface ApprovalCenterPanelProps {
 }
 
 export function ApprovalCenterPanel({ threadId }: ApprovalCenterPanelProps) {
-  const { pending, respond, cancel, cancelAll, fetchPending } = useApprovalCenter(threadId);
+  const { pending, respond, cancel, cancelAll, approveAll, autoApprove, setAutoApprove, fetchPending } = useApprovalCenter(threadId);
   const [policies, setPolicies] = useState<ToolPolicy[]>([]);
   const [history, setHistory] = useState<AuditEntry[]>([]);
 
@@ -75,9 +75,29 @@ export function ApprovalCenterPanel({ threadId }: ApprovalCenterPanelProps) {
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl mx-auto h-full overflow-y-auto">
-      <div className="flex items-center gap-2">
-        <span className="text-xl">🛡</span>
-        <h2 className="text-lg font-semibold text-gray-800">审查中心</h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🛡</span>
+          <h2 className="text-lg font-semibold text-gray-800">审查中心</h2>
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <span className="text-xs text-gray-600">自动审批</span>
+          <button
+            onClick={() => setAutoApprove(!autoApprove)}
+            role="switch"
+            aria-checked={autoApprove}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              autoApprove ? 'bg-green-500' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                autoApprove ? 'translate-x-5' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          {autoApprove && <span className="text-[10px] text-green-600 font-medium">已开启</span>}
+        </label>
       </div>
 
       {/* Section 1: Pending approvals */}
@@ -85,12 +105,20 @@ export function ApprovalCenterPanel({ threadId }: ApprovalCenterPanelProps) {
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-gray-600">待审批 ({pending.length})</h3>
           {pending.length > 0 && (
-            <button
-              onClick={() => void cancelAll()}
-              className="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
-            >
-              全部取消
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void approveAll()}
+                className="text-[11px] px-2 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors font-medium"
+              >
+                一键批准全部
+              </button>
+              <button
+                onClick={() => void cancelAll()}
+                className="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-colors"
+              >
+                全部取消
+              </button>
+            </div>
           )}
         </div>
         {pending.length === 0 ? (
