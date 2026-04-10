@@ -177,7 +177,7 @@ export function PromptSelectionModal({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={searchPlaceholder}
-                className="ui-input ui-input-plain w-full text-[13px]"
+                className="ui-input ui-input-plain w-full text-[12px] pl-0"
                 data-testid="prompt-search-input"
               />
             </label>
