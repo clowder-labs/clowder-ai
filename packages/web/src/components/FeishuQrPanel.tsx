@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { CheckCircleIcon, QrCodeIcon, SpinnerIcon } from './HubConfigIcons';
+import { CheckCircleIcon, SpinnerIcon } from './HubConfigIcons';
 
 type QrState = 'idle' | 'fetching' | 'waiting' | 'confirmed' | 'error' | 'expired' | 'denied';
 
@@ -13,9 +13,9 @@ interface FeishuQrPanelProps {
 }
 
 function statusMessage(status: QrState, errorMsg: string | null) {
-  if (status === 'expired') return 'QR code expired. Please generate a new one.';
-  if (status === 'denied') return 'Authorization denied. Please retry and confirm in Feishu.';
-  if (status === 'error') return errorMsg ?? 'Failed to fetch QR code';
+  if (status === 'expired') return '二维码已过期，请重新生成';
+  if (status === 'denied') return '授权被拒绝，请重试并在飞书上确认';
+  if (status === 'error') return errorMsg ?? '获取二维码失败';
   return null;
 }
 
@@ -116,7 +116,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
       schedulePoll(data.qrPayload, data.intervalMs ?? 2500);
     } catch {
       setQrState('error');
-      setErrorMsg('Network error');
+      setErrorMsg('网络错误');
     }
   };
 
@@ -142,7 +142,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
           <span className="text-green-600">
             <CheckCircleIcon />
           </span>
-          <span className="text-sm font-medium text-green-700">Feishu connected</span>
+          <span className="text-sm font-medium text-green-700">飞书已连接</span>
           <button
             type="button"
             onClick={handleDisconnect}
@@ -150,7 +150,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
             className="ml-auto text-xs font-medium text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
             data-testid="feishu-disconnect"
           >
-            {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+            {disconnecting ? '解除绑定中...' : '解除绑定'}
           </button>
         </div>
         <p className="text-xs leading-relaxed text-gray-500">
@@ -170,11 +170,10 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
           <button
             type="button"
             onClick={handleFetchQr}
-            className="flex items-center gap-1.5 rounded-lg bg-[#3370FF] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#295ad6]"
+            className="ui-button-primary"
             data-testid="feishu-generate-qr"
           >
-            <QrCodeIcon />
-            {qrState === 'idle' ? 'Generate QR Code' : 'Regenerate QR Code'}
+            {qrState === 'idle' ? '生成二维码' : '重新生成二维码'}
           </button>
         </div>
       )}
@@ -182,7 +181,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
       {qrState === 'fetching' && (
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <SpinnerIcon />
-          <span>Generating QR code...</span>
+          <span>二维码生成中...</span>
         </div>
       )}
 
@@ -191,7 +190,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
           <img src={qrUrl} alt="Feishu QR code" className="h-48 w-48 rounded-lg" data-testid="feishu-qr-image" />
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <SpinnerIcon />
-            <span>Scan the QR code in Feishu and confirm authorization.</span>
+            <span>用飞书扫描二维码并确认授权</span>
           </div>
         </div>
       )}

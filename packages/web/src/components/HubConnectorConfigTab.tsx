@@ -386,6 +386,7 @@ export function HubConnectorConfigTab() {
                             <input
                               id={`config-${field.envName}`}
                               type={field.sensitive ? 'password' : 'text'}
+                              name={`connector-${field.envName}`}
                               placeholder={
                                 field.sensitive
                                   ? field.currentValue
@@ -395,7 +396,13 @@ export function HubConnectorConfigTab() {
                               }
                               value={fieldValues[field.envName] ?? ''}
                               onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                              autoComplete={field.sensitive ? 'off' : undefined}
+                              autoComplete={field.sensitive ? 'new-password' : 'off'}
+                              autoCapitalize="off"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              data-form-type="other"
+                              data-1p-ignore="true"
+                              data-lpignore="true"
                               className="ui-input h-9 w-full px-3 text-[13px]"
                               data-testid={`field-${field.envName}`}
                             />

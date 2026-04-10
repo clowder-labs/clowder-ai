@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { CheckCircleIcon, QrCodeIcon, SpinnerIcon } from './HubConfigIcons';
+import { CheckCircleIcon, SpinnerIcon } from './HubConfigIcons';
 
 type QrState = 'idle' | 'fetching' | 'waiting' | 'scanned' | 'confirmed' | 'error' | 'expired';
 
@@ -102,7 +102,7 @@ export function WeixinQrPanel({
       startPolling(data.qrPayload);
     } catch {
       setQrState('error');
-      setErrorMsg('Network error');
+      setErrorMsg('网络错误');
     }
   };
 
@@ -120,7 +120,7 @@ export function WeixinQrPanel({
       setQrState('idle');
       setQrUrl(null);
     } catch {
-      setErrorMsg('Network error');
+      setErrorMsg('网络错误');
     } finally {
       setDisconnecting(false);
     }
@@ -130,13 +130,13 @@ export function WeixinQrPanel({
     return (
       <div className="space-y-2">
         <div
-          className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5"
+          className="flex items-center gap-2 bg-[#f5f5f5] border border-[var(--card-border)] rounded-lg px-3 py-2.5 w-[60%]"
           data-testid="weixin-connected"
         >
           <span className="text-green-600">
             <CheckCircleIcon />
           </span>
-          <span className="text-sm font-medium text-green-700">WeChat connected</span>
+          <span className="text-sm font-medium text-green-700">微信已连接</span>
         </div>
         {errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
         <button
@@ -157,42 +157,42 @@ export function WeixinQrPanel({
       {(qrState === 'idle' || qrState === 'expired' || qrState === 'error') && (
         <div className="space-y-2">
           {qrState === 'expired' && (
-            <p className="text-xs text-amber-600">QR code expired. Please generate a new one.</p>
+            <p className="text-xs text-amber-600">二维码已过期，请重新生成</p>
           )}
           {qrState === 'error' && errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
           <button
             type="button"
             onClick={handleFetchQr}
-            className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white rounded-lg transition-colors"
-            style={{ backgroundColor: '#07C160' }}
+            className="ui-button-primary"
             data-testid="weixin-generate-qr"
           >
-            <QrCodeIcon />
-            {qrState === 'expired' ? 'Regenerate QR Code' : 'Generate QR Code'}
+            {qrState === 'expired' ? '重新生成二维码' : '生成二维码'}
           </button>
         </div>
       )}
 
       {qrState === 'fetching' && (
-        <div className="flex items-center gap-2 text-gray-500 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <SpinnerIcon />
-          <span>Generating QR code...</span>
+          <span>二维码生成中...</span>
         </div>
       )}
 
       {(qrState === 'waiting' || qrState === 'scanned') && qrUrl && (
-        <div className="flex flex-col gap-3">
-          <img src={qrUrl} alt="WeChat login QR code" className="w-48 h-48 rounded-lg" data-testid="weixin-qr-image" />
+        <div className="flex flex-col gap-3" style={{ width: 'fit-content' }}>
+          <div className='p-3 border-[#f0f0f0] bg-[#fff]' style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
+            <img src={qrUrl} alt="WeChat login QR code" className="w-48 h-48 rounded-lg" data-testid="weixin-qr-image" />
+          </div>
           {qrState === 'waiting' && (
-            <div className="flex items-center gap-2 text-gray-500 text-xs">
+            <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
               <SpinnerIcon />
-              <span>Scan the QR code with WeChat</span>
+              <span>用微信扫描二维码</span>
             </div>
           )}
           {qrState === 'scanned' && (
             <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
               <SpinnerIcon />
-              <span>Scanned! Confirm on your phone...</span>
+              <span>已扫描！请在手机上确认...</span>
             </div>
           )}
         </div>
