@@ -16,7 +16,8 @@ export const metadata: Metadata = {
   description: 'Your AI team collaboration space',
   manifest: '/manifest.json',
   icons: {
-    apple: '/icons/apple-touch-icon.png',
+    icon: '/images/lobster.svg',
+    apple: '/images/lobster.svg',
   },
   appleWebApp: {
     capable: true,

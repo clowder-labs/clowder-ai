@@ -124,18 +124,16 @@ export default function LoginPage() {
       <div className="mx-auto flex w-full max-w-[1280px] flex-row items-center gap-4 sm:gap-6 md:gap-8 min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)] lg:gap-12">
         <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
           <div className="flex w-full max-w-[760px] flex-col items-center">
-            <h1
-              className="text-4xl font-bold leading-[48px] mb-4 text-center"
-              style={{
-                background:
-                  'linear-gradient(224.38deg, rgba(123, 72, 255, 1) 0%, rgba(200, 27, 181, 0.74) 24%, rgba(255, 100, 84, 0.44) 50%, rgba(255, 119, 49, 0.35) 72%, rgba(255, 92, 12, 1) 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              OfficeClaw
-            </h1>
+            <div>
+              <Image
+                data-testid="login-hero-officeclaw-logo"
+                src="/images/OfficeClaw.svg"
+                alt="OfficeClaw"
+                width={248}
+                height={56}
+                className="h-14 w-auto"
+              />
+            </div>
             <p className="mb-10 max-w-xl text-center text-xl font-semibold leading-10 text-gray-600 sm:text-2xl sm:leading-[48px]">
               即刻拥有专属 AI 享 7x24 小时 稳定在线的超级助手
             </p>

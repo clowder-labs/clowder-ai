@@ -58,14 +58,13 @@ export function ChatEmptyState({
       <div className="mx-auto flex min-h-[calc(100vh-21rem)] max-w-4xl items-center justify-center">
         <div className="w-full text-center">
           <div className="mx-auto max-w-2xl">
-            <h2 className="text-[34px] font-semibold leading-tight tracking-[-0.03em] text-[#1F1F24] sm:text-[36px]">
-              <span style={{
-                background:
-                  'linear-gradient(224.38deg, rgba(123, 72, 255, 1), rgba(200, 27, 181, 0.74) 24%, rgba(255, 100, 84, 0.44) 50%, rgba(255, 119, 49, 0.35) 72%, rgba(255, 92, 12, 1) 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>OfficeClaw</span>
+            <h2 className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 text-[34px] font-semibold leading-tight tracking-[-0.03em] text-[#1F1F24] sm:text-[36px]">
+              <img
+                data-testid="chat-empty-officeclaw-logo"
+                src="/images/OfficeClaw.svg"
+                alt="OfficeClaw"
+                className="h-[60px] w-auto shrink-0"
+              />
               <span>，制定目标自动规划执行</span>
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#8E8E98] sm:text-[15px]">
