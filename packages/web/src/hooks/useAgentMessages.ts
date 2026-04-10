@@ -21,6 +21,7 @@ const DEBUG_SKIP_FILE_CHANGE_UI = process.env.NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE
 interface AgentMsg {
   type: string;
   catId: string;
+  threadId?: string;
   content?: string;
   error?: string;
   errorCode?: string;
@@ -423,6 +424,21 @@ export function useAgentMessages() {
 
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
+      const currentThreadId = useChatStore.getState().currentThreadId;
+      if (msg.threadId && currentThreadId && msg.threadId !== currentThreadId) {
+        recordDebugEvent({
+          event: 'agent_message',
+          threadId: msg.threadId,
+          storeThreadId: currentThreadId,
+          timestamp: Date.now(),
+          catId: msg.catId,
+          invocationId: msg.invocationId,
+          action: 'ignored_cross_thread',
+          origin: msg.origin,
+        });
+        return;
+      }
+
       // Reset timeout on any message (keeps timer alive during streaming)
       resetTimeout();
 
@@ -1129,7 +1145,12 @@ export function useAgentMessages() {
   const resetRefs = useCallback(() => {
     activeRefs.current.clear();
     replacedInvocationsRef.current.clear();
-  }, []);
+    finalizedStreamRef.current.clear();
+    sawStreamDataRef.current.clear();
+    pendingTimeoutDiagRef.current.clear();
+    a2aGroupRef.current = null;
+    clearDoneTimeout();
+  }, [clearDoneTimeout]);
 
   return { handleAgentMessage, handleStop, resetRefs, resetTimeout, clearDoneTimeout };
 }

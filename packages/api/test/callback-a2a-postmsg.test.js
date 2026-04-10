@@ -463,6 +463,7 @@ describe('F052: cross-thread A2A mention routing', () => {
       payload: {
         invocationId,
         callbackToken,
+        allowCrossThread: true,
         content: '@codex 请处理这个跨线程任务',
         threadId: targetThread.id,
       },

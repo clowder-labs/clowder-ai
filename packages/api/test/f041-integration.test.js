@@ -365,6 +365,7 @@ describe('F041 Injection互斥', () => {
   it('HTTP callback instructions contain required tool names', () => {
     const instructions = buildMcpCallbackInstructions({});
     assert.ok(instructions.includes('post-message'), 'Should reference post-message');
+    assert.ok(instructions.includes('cross-post-message'), 'Should reference cross-post-message');
     assert.ok(instructions.includes('thread-context'), 'Should reference thread-context');
     assert.ok(instructions.includes('CAT_CAFE_CALLBACK_TOKEN'), 'Should reference callback token');
   });

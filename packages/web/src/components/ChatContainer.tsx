@@ -44,6 +44,7 @@ import { ModelsPanel } from './ModelsPanel';
 import { NewThreadContainer } from './NewThreadContainer';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
+import { RightContentHeader } from './RightContentHeader';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
@@ -253,7 +254,7 @@ function ThreadModeChatContainer({
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
   const { handleScroll, scrollContainerRef, messagesEndRef, scrollToBottom, isLoadingHistory, hasMore } =
     useChatHistory(threadId);
-  const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
+  const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId, { resetRefs });
   const consumedPendingRequestIdsRef = useRef(new Set<string>());
   const {
     pending: authPending,
@@ -642,6 +643,7 @@ function ThreadModeChatContainer({
         </div>
       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+        <RightContentHeader />
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}

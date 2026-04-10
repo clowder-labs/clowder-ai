@@ -72,6 +72,7 @@ export interface FeishuAdapterOptions {
 
 export class FeishuAdapter implements IStreamableOutboundAdapter {
   readonly connectorId = 'feishu';
+  readonly supportsPlaceholderStreaming = false;
   private readonly client: lark.Client;
   private readonly log: FastifyBaseLogger;
   private readonly verificationToken: string | null;
@@ -680,6 +681,51 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
       elements,
     };
     await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
+  }
+
+  /**
+   * Add a reaction to an existing user message.
+   * Used as a lightweight "message accepted" acknowledgement in Feishu.
+   */
+  async addReaction(messageId: string, emojiType = 'THUMBSUP'): Promise<boolean> {
+    const token = await this.tokenManager?.getTenantAccessToken().catch((err) => {
+      this.log.warn({ err, messageId, emojiType }, '[FeishuAdapter] addReaction: token fetch failed');
+      return null;
+    });
+    if (!token) return false;
+
+    try {
+      const res = await this.uploadFetchFn(`https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: JSON.stringify({
+          reaction_type: {
+            emoji_type: emojiType,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '(unreadable)');
+        this.log.warn(
+          { status: res.status, body, messageId, emojiType },
+          '[FeishuAdapter] addReaction: request failed',
+        );
+        return false;
+      }
+
+      const data = (await res.json().catch(() => ({}))) as { code?: number; msg?: string };
+      if (data.code !== undefined && data.code !== 0) {
+        this.log.warn({ data, messageId, emojiType }, '[FeishuAdapter] addReaction: api returned non-zero code');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      this.log.warn({ err, messageId, emojiType }, '[FeishuAdapter] addReaction: request threw');
+      return false;
+    }
   }
 
   async sendPlaceholder(externalChatId: string, text: string): Promise<string> {
