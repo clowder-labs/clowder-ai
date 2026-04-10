@@ -636,6 +636,7 @@ export class ConnectorInvokeTrigger {
             log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed (silent)');
           });
         }
+
       }
 
       log.info(
@@ -673,6 +674,16 @@ export class ConnectorInvokeTrigger {
       this.opts.queueProcessor?.onInvocationComplete(threadId, catId, finalStatus).catch(() => {
         /* best-effort, don't crash background task */
       });
+      // F151: Notify adapters (e.g. XiaoYi) — MUST be after invocationTracker.complete()
+      // so threadStillBusy correctly excludes the just-finished invocation.
+      // Covers success, failure, and cancellation paths via finally.
+      if (this.opts.streamingHook?.notifyDeliveryBatchDone) {
+        const threadStillBusy =
+          invocationTracker.has(threadId) || (this.opts.queueProcessor?.isThreadBusy(threadId) ?? false);
+        this.opts.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+          log.warn({ err, threadId }, '[ConnectorInvokeTrigger] notifyDeliveryBatchDone failed');
+        });
+      }
     }
   }
 }

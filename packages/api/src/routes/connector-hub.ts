@@ -121,7 +121,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { envName: 'DINGTALK_APP_KEY', label: 'App Key', sensitive: false },
       { envName: 'DINGTALK_APP_SECRET', label: 'App Secret', sensitive: true },
     ],
-    docsUrl: 'https://open.dingtalk.com/document/orgapp/create-an-enterprise-internal-application',
+    docsUrl: 'https://open.dingtalk.com/document/dingstart/robot-application-overview',
     steps: [
       { text: '在钉钉开放平台创建企业内部应用，获取 App Key 和 App Secret' },
       { text: '在「机器人与消息推送」中开启机器人能力' },
@@ -500,7 +500,6 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       const wsUrl = readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1')
         ?? 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
 
-      // @ts-expect-error — ws has no bundled types; @types/ws not in this project
       const { WebSocket } = await import('ws');
 
       const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {

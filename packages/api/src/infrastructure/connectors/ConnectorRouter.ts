@@ -197,6 +197,10 @@ export class ConnectorRouter {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
             await adapter.sendReply(externalChatId, '🔒 此群未授权使用 bot。请联系管理员使用 /allow-group 授权。');
+            // F151: close XiaoYi task immediately — no agent invocation will follow
+            if (adapter.onDeliveryBatchDone) {
+              await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+            }
           }
           log.info({ connectorId, externalChatId }, '[ConnectorRouter] Group not in whitelist, skipped');
           return { kind: 'skipped', reason: 'group_not_allowed' };
@@ -214,6 +218,10 @@ export class ConnectorRouter {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
             await adapter.sendReply(externalChatId, '🔒 此命令仅管理员可用。');
+            // F151: close XiaoYi task immediately — no agent invocation will follow
+            if (adapter.onDeliveryBatchDone) {
+              await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+            }
           }
           log.info({ connectorId, senderId: sender.id }, '[ConnectorRouter] Non-admin command in group, blocked');
           return { kind: 'skipped', reason: 'command_admin_only' };
@@ -234,6 +242,10 @@ export class ConnectorRouter {
             await adapter.sendFormattedReply(externalChatId, envelope);
           } else {
             await adapter.sendReply(externalChatId, cmdResult.response);
+          }
+          // F151: close XiaoYi task — command response is the final output
+          if (adapter.onDeliveryBatchDone) {
+            await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
           }
         }
         // ISSUE-8 (8A): Store command exchange in Hub thread, not conversation thread
