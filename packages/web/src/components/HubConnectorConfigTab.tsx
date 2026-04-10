@@ -297,10 +297,8 @@ export function HubConnectorConfigTab() {
               }}
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center">{v.icon}</span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block text-[14px] font-semibold text-[var(--text-primary)]">
-                  {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
-                </span>
+                <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[14px] font-semibold text-[var(--text-primary)]">{platform.name}</span>
                 <span
                   className={`ui-status-badge ${platform.configured ? 'ui-status-badge-configured' : 'ui-status-badge-unconfigured'}`}
                 >

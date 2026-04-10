@@ -327,4 +327,37 @@ describe('HubConnectorConfigTab layout', () => {
     expect(secretInput?.getAttribute('data-1p-ignore')).toBe('true');
     expect(secretInput?.getAttribute('data-lpignore')).toBe('true');
   });
+
+  it('shows only the localized connector name in platform cards', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'weixin',
+                name: '微信',
+                nameEn: 'WeChat',
+                configured: false,
+                docsUrl: '',
+                steps: ['扫码绑定', '完成确认'],
+                fields: [],
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    const weixinItem = container.querySelector('[data-testid="platform-item-weixin"]');
+    expect(weixinItem?.textContent).toContain('微信');
+    expect(weixinItem?.textContent).not.toContain('WeChat');
+  });
 });
