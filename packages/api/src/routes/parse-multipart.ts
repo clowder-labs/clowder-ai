@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Multipart Request Parser
  * 解析 multipart/form-data 请求，提取文本字段和图片文件。

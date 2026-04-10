@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Keyboard shortcut registry — single source of truth for all shortcuts.
  * Used by useSplitPaneKeys, ChatInputActionButton (dispatch) and HubCommandsTab (display).

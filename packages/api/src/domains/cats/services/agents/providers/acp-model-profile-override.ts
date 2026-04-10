@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { RuntimeAcpModelProfile } from '../../../../../config/acp-model-profiles.js';
 
 export interface ACPModelProfileOverridePayload {

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Fail-closed storage guard tests (P1-1)
  * Verifies that assertStorageReady enforces explicit opt-in for memory mode.

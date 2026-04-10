@@ -1,4 +1,10 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useThemeStore } from '../themeStore';
 
 const mockStorage: Record<string, string> = {};

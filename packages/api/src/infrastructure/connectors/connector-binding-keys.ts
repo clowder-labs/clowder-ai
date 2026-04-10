@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis key patterns for connector thread bindings.
  * F088 Multi-Platform Chat Gateway — Redis persistence.

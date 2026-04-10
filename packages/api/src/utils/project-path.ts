@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Project Path Validation
  * 共享的路径安全校验，防止路径遍历和 symlink 逃逸。

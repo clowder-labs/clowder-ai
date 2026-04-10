@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Antigravity Agent Service
  * CDP 桥接入口 — 通过 Chrome DevTools Protocol 与 Antigravity IDE 通信

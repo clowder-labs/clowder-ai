@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { connect } from 'node:net';
 
 /** TCP port probe — resolves true if connection succeeds, false on error/timeout. */

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102: SQLite schema — evidence_docs + evidence_fts + edges + markers + schema_version
 // Phase C adds: embedding_meta (V2) + evidence_vectors (vec0, decoupled)
 

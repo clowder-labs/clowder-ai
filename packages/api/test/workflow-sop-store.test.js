@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * WorkflowSopStore tests (F073 P1)
  * Redis → full suite; no Redis → skip

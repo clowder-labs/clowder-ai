@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Werewolf Day Vote Revision + Lock Tests (F101 Phase F — Task 5)
  *

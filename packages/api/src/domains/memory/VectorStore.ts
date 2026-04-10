@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102 Phase C: VectorStore — vec0 CRUD + embedding_meta version anchor
 // AC-C3 (vec0 operations), AC-C6 (version anchor consistency check)
 

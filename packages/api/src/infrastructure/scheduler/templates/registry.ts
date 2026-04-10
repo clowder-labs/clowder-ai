@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { reminderTemplate } from './reminder.js';
 import { repoActivityTemplate } from './repo-activity.js';
 import type { TaskTemplate } from './types.js';

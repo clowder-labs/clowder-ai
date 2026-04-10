@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F134 Phase D: Connector Permission Store
  * Manages group whitelist + admin list + command restriction settings.

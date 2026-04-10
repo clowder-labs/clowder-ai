@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** Connector platform icons — F056 design language: designed icons replace emoji */
 
 interface IconProps {

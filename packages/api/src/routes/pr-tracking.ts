@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * PR Tracking Routes
  * POST   /api/pr-tracking          — 注册 PR 追踪（猫猫提 PR 时调用）

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Prompt Injector
  * 给没有原生 MCP 支持的猫 (Codex/Gemini) 注入 HTTP callback 指令。

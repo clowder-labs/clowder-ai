@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * PR Tracking Store
  * Maps (repoFullName + prNumber) → { catId, threadId, userId }

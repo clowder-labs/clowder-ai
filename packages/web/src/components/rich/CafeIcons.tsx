@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F096/F056: Café icon set — warm line SVGs for interactive blocks.
  * Replaces raw emoji with design-system-consistent icons.

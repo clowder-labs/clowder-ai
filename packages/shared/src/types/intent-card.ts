@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F076: Intent Card + Need Audit types
  * 需求翻译官 — Intent Card v2 + Triage + Audit Frame

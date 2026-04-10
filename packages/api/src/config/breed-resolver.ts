@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F32-b P4d: Resolve breedId for a catName.
  * Tries catRegistry first (dynamic, includes variants), falls back to

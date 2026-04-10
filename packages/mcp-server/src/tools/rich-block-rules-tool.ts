@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Rich Block Rules Tool
  * MCP 工具: 按需获取富消息块完整使用规范

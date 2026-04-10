@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SignalArticle, SignalSourceConfig } from '@cat-cafe/shared';

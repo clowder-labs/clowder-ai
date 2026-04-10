@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Queue Management API tests (F39 Task 4)
  * Tests: GET/DELETE/POST/PATCH queue endpoints with auth + isolation.

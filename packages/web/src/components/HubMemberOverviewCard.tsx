@@ -1,4 +1,10 @@
-﻿import type { CatData } from '@/hooks/useCatData';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import type { CatData } from '@/hooks/useCatData';
 import type { CatConfig, CoCreatorConfig } from './config-viewer-types';
 
 function safeAvatarSrc(value: string | null | undefined): string | null {

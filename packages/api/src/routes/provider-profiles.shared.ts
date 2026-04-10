@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { realpath, stat } from 'node:fs/promises';
 import { relative, resolve, win32 } from 'node:path';
 import { z } from 'zod';

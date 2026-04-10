@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Prompt Injection E2E Integration Test
  * 验证: 注入的 skill 引用 + 真实凭证 → 回调端点成功响应

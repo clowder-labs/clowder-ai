@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Phase G: Summary compaction configuration.
  * All thresholds are configurable constants (砚砚 nit: no bare literals).

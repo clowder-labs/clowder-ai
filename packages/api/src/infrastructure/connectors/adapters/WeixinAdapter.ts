@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * WeChat Personal (iLink Bot) Adapter
  * Inbound: Long-poll via /ilink/bot/getupdates → parse text messages

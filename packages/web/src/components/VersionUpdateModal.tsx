@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

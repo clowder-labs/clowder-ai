@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
 
 /**
  * Clowder AI MCP Server — Compact entrypoint for narrow-context models.

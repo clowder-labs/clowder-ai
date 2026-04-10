@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { relative, resolve, sep } from 'node:path';
 
 export function isWithinProjectRoot(projectRoot: string, candidatePath: string): boolean {

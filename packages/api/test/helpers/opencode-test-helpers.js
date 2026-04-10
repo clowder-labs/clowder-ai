@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Shared test helpers for opencode tests.
  * Mock process, event emitter, and OMOC fixture factories.

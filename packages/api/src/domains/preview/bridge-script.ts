@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F120 Phase C: Bridge script injected into previewed pages via Preview Gateway.
  * Patches console.* methods → postMessage to parent (Hub).

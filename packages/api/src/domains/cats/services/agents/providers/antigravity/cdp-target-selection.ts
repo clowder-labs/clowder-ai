@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * CDP target discovery and ranking.
  * Extracted from AntigravityCdpClient to keep the main file under 350 lines.

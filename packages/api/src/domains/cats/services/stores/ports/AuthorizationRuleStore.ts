@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Authorization Rule Store
  * 持久化授权规则 — 类似 Claude Code 的 allow/deny 记忆

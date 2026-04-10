@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** F087: Bootcamp icon — cat silhouette with graduation cap */
 export function BootcampIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (

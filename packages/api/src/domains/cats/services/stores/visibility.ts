@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Message Visibility — F35 Whisper
  * Pure functions for determining whether a message is visible to a given viewer.

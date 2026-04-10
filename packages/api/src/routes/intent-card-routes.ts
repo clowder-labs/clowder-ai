@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F076: Intent Card routes — CRUD + triage + risk detection
  * Extracted from external-projects.ts to stay under 350-line limit.

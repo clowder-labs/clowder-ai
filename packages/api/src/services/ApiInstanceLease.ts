@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { randomUUID } from 'node:crypto';
 import { hostname as getHostname } from 'node:os';
 import type { RedisClient } from '@cat-cafe/shared/utils';

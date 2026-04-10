@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // @ts-check
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';

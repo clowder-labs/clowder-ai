@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * S1 Review Fix Tests
  * 缅因猫 review 发现的 3 个问题的回归测试

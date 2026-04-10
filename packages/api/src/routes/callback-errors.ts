@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** Shared 401 error with hint for cats to use text-based @mention instead. */
 export const EXPIRED_CREDENTIALS_ERROR = {
   error: 'Invalid or expired callback credentials',

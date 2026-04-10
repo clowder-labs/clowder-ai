@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Session Transcript Routes — F24 Phase D + F98
  * API endpoints for reading sealed session transcripts.

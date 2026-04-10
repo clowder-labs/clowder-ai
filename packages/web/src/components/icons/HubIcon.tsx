@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** F088 Phase G: IM Hub icon — satellite antenna/dish for connector hub */
 export function HubIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (

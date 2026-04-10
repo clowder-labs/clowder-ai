@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F34: cat-voices.ts tests
  * Per-cat TTS voice configuration — mirrors cat-budgets.test.js pattern

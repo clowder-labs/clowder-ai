@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * opencode Agent Service
  * 通过 opencode CLI 子进程调用 opencode agent（headless JSON 模式）

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { assert, describe, it } from 'vitest';
 import type { CatInvocationInfo, CatStatusType, LivenessWarningSnapshot } from '../chat-types';
 

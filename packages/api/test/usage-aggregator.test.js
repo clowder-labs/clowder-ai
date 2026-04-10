@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Usage Aggregator Tests — F128
  * 测试按日 × 猫聚合 token 消耗的纯函数

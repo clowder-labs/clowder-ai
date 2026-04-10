@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Simplified connector secret updater — writes env vars to .env file
  * and syncs to process.env. Unlike Cat Cafe upstream, this version does

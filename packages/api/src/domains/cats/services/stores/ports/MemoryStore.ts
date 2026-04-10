@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * In-memory implementation of per-thread key-value memory store.
  * Part of F3-lite feature for Phase 4.0.

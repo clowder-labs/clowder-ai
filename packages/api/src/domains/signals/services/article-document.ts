@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { readFile, writeFile } from 'node:fs/promises';
 import type { SignalArticle } from '@cat-cafe/shared';
 import { SignalArticleSchema, SignalArticleStatusSchema } from '@cat-cafe/shared';
