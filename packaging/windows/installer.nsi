@@ -73,6 +73,44 @@ Page custom FinishPageCreate FinishPageLeave
 Var WelcomeDialog
 Var FinishDialog
 Var FinishLaunchCheckbox
+Var DetectedRunningProcesses
+
+; Check if OfficeClaw-related processes are running
+; Returns "1" in $R0 if running, "0" otherwise
+Function CheckOfficeClawRunning
+  StrCpy $R0 "0"
+  
+  ; Check OfficeClaw.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" 2>nul | find /I "OfficeClaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check redis-server.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check node.exe processes that belong to OfficeClaw (from installed dir)
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
+    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
+    Pop $1
+    Pop $2
+    ${If} $2 != ""
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
 
 Function WelcomePageCreate
   !insertmacro MUI_HEADER_TEXT "欢迎安装 ${APP_NAME}" "本向导将引导您完成 ${APP_NAME} v${APP_VERSION} 的安装"
@@ -118,10 +156,27 @@ FunctionEnd
 
 Function .onInit
   SetShellVarContext current
+  
+  ; Check if OfficeClaw is running
+  Call CheckOfficeClawRunning
+  ${If} $R0 == "1"
+    MessageBox MB_ICONQUESTION|MB_YESNO "检测到 OfficeClaw 正在运行。$\r$\n$\r$\n继续安装需要关闭正在运行的 OfficeClaw 及相关进程。$\r$\n$\r$\n是否关闭进程并继续安装？$\r$\n$\r$\n选择「是」将关闭所有相关进程后继续安装。$\r$\n选择「否」将退出安装程序。" IDYES proceed_install
+    Abort
+  proceed_install:
+    StrCpy $DetectedRunningProcesses "1"
+  ${EndIf}
 FunctionEnd
 
 Function un.onInit
   SetShellVarContext current
+  
+  ; Check if OfficeClaw is running before uninstall
+  Call un.CheckOfficeClawRunning
+  ${If} $R0 == "1"
+    MessageBox MB_ICONQUESTION|MB_YESNO "检测到 OfficeClaw 正在运行。$\r$\n$\r$\n卸载需要关闭正在运行的 OfficeClaw 及相关进程。$\r$\n$\r$\n是否关闭进程并继续卸载？$\r$\n$\r$\n选择「是」将关闭所有相关进程后继续卸载。$\r$\n选择「否」将退出卸载程序。" IDYES proceed_uninstall
+    Abort
+  proceed_uninstall:
+  ${EndIf}
 FunctionEnd
 
 Function .onVerifyInstDir
@@ -163,6 +218,42 @@ FunctionEnd
 
 Function un.CloseRunningServices
   !insertmacro _ForceKillInstalledProcesses
+FunctionEnd
+
+; Uninstall version of CheckOfficeClawRunning
+Function un.CheckOfficeClawRunning
+  StrCpy $R0 "0"
+  
+  ; Check OfficeClaw.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" 2>nul | find /I "OfficeClaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check redis-server.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check node.exe processes that belong to OfficeClaw (from installed dir)
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
+    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
+    Pop $1
+    Pop $2
+    ${If} $2 != ""
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+  ${EndIf}
 FunctionEnd
 
 ; Delete all managed dirs/files in $INSTDIR, preserving user-data (.cat-cafe, data, logs, .env, cat-config.json).
@@ -236,7 +327,13 @@ FunctionEnd
 
 Section "Install"
   DetailPrint "正在准备安装环境..."
-  Call CloseRunningServices
+  
+  ; If processes were detected in .onInit, close them now
+  ${If} $DetectedRunningProcesses == "1"
+    DetailPrint "正在关闭正在运行的 OfficeClaw 进程..."
+    Call CloseRunningServices
+  ${EndIf}
+  
   CreateDirectory "$INSTDIR"
   Call CleanupManagedPayload
   DetailPrint "安装环境就绪..."
