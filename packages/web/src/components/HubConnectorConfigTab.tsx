@@ -324,10 +324,8 @@ export function HubConnectorConfigTab() {
               }}
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center">{v.icon}</span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block text-[14px] font-semibold text-[var(--text-primary)]">
-                  {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
-                </span>
+                <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[14px] font-semibold text-[var(--text-primary)]">{platform.name}</span>
                 <span
                   className={`ui-status-badge ${platform.configured ? 'ui-status-badge-configured' : 'ui-status-badge-unconfigured'}`}
                 >
@@ -440,6 +438,7 @@ export function HubConnectorConfigTab() {
                             <input
                               id={`config-${field.envName}`}
                               type={field.sensitive ? 'password' : 'text'}
+                              name={`connector-${field.envName}`}
                               placeholder={
                                 field.sensitive
                                   ? field.currentValue
@@ -449,7 +448,13 @@ export function HubConnectorConfigTab() {
                               }
                               value={fieldValues[field.envName] ?? ''}
                               onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                              autoComplete={field.sensitive ? 'off' : undefined}
+                              autoComplete={field.sensitive ? 'new-password' : 'off'}
+                              autoCapitalize="off"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              data-form-type="other"
+                              data-1p-ignore="true"
+                              data-lpignore="true"
                               className="ui-input h-9 w-full px-3 text-[13px]"
                               data-testid={`field-${field.envName}`}
                             />
