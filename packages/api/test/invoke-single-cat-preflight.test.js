@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Test 2: invoke-single-cat shared-state preflight behavior
  *

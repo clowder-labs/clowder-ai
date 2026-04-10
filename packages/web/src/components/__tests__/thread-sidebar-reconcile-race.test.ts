@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Regression test: toggle-with-reconcile seq guard prevents stale GET from
  * overwriting a newer user intent.

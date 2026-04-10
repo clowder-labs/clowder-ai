@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Tests for reviewer-matcher.ts
  * F032: Dynamic reviewer selection

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export interface FeishuTokenManagerOptions {
   readonly appId: string;
   readonly appSecret: string;

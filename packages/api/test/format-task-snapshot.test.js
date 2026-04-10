@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * formatTaskSnapshot Tests — F065 Phase A
  * Tests for compact task snapshot formatting with injection defense.

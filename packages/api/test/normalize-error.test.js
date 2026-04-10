@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * normalizeErrorMessage unit tests
  * Issue #24: ensure all thrown value types produce useful messages

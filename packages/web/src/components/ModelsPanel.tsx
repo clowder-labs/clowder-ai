@@ -1,4 +1,10 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';

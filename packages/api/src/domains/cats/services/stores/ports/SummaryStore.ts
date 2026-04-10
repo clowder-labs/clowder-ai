@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Summary Store (拍立得照片墙)
  * 内存实现，Map-based，有界 (MAX=200)。

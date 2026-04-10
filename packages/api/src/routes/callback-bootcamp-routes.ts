@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Bootcamp Callback Routes
  * POST /api/callbacks/update-bootcamp-state — update bootcamp phase + state

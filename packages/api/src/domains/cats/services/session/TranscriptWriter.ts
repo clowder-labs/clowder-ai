@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * TranscriptWriter — F24 Phase C
  * Collects invocation events in memory, flushes to JSONL on seal.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import type { IMessageStore } from '../../domains/cats/services/stores/ports/MessageStore.js';
 

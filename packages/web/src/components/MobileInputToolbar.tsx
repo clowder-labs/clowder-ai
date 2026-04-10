@@ -1,4 +1,10 @@
-﻿import { AttachIcon } from './icons/AttachIcon';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import { AttachIcon } from './icons/AttachIcon';
 
 interface MobileInputToolbarProps {
   onAttach: () => void;

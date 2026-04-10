@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { describe, expect, it, vi } from 'vitest';
 import type { HandleBackgroundMessageOptions } from '@/hooks/useSocket-background.types';
 import { consumeBackgroundSystemInfo } from '@/hooks/useSocket-background-system-info';

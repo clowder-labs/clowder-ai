@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Discussion Summary Types (拍立得照片墙)
  * 猫猫讨论纪要 — 记录讨论的结论和待解决问题

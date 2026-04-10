@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { describe, expect, it } from 'vitest';
 import { detectMenuTrigger, GAME_LIST, WEREWOLF_MODES } from '@/components/chat-input-options';
 

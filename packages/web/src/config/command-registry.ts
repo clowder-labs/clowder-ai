@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Slash command registry — single source of truth for all chat commands.
  * Used by useChatCommands (dispatch) and HubCommandsTab (display).

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Review Content Fetcher
  * Fetches GitHub PR review content via `gh` CLI and extracts severity findings.

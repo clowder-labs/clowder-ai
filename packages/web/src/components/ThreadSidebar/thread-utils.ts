@@ -1,4 +1,10 @@
-﻿import type { Thread } from '@/stores/chat-types';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import type { Thread } from '@/stores/chat-types';
 import { getRecentThreads, splitIntoActiveAndArchived } from './active-workspace';
 
 export function formatRelativeTime(ts: number, compact = false): string {

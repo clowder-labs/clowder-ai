@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F079 Gap 4: Cat-initiated vote callback tests
  * Tests POST /api/callbacks/start-vote endpoint

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * InstalledSkillRegistry — .cat-cafe/installed-skills.json 持久化层
  *

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** CDP bridge to Antigravity IDE (Electron). See also cdp-target-selection.ts, cdp-dom-scripts.ts. */
 
 import { createModuleLogger } from '../../../../../../infrastructure/logger.js';

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * DingTalk (钉钉) Enterprise Bot Adapter
  * Inbound: Parse Stream events → extract DM messages

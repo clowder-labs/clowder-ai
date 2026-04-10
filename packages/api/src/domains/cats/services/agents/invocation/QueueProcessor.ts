@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * QueueProcessor
  * 处理 InvocationQueue 中的排队条目：自动出队 + 暂停管理。

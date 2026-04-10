@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { describe, expect, it } from 'vitest';
 import { applyTermDictionary, correctTranscription, removeFillers } from '@/utils/transcription-corrector';
 

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F34/F066/F103: Cat Voice Configuration
  * Per-cat TTS voice settings, mirroring cat-budgets.ts pattern.

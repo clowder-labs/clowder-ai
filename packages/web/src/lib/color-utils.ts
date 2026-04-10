@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Color utilities for dynamic cat theme rendering.
  * Converts hex colors from API to rgba for glow/shadow effects.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Usage Routes — F051 daily consumption
  * GET /api/usage/daily — 按日 × 猫聚合 token 消耗报表

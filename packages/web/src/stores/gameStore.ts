@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { GameView, SeatId } from '@cat-cafe/shared';
 import { create } from 'zustand';
 

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** Clowder AI Logo — 烁烁画的详细线稿版  */
 export function CatCafeLogo({ className = 'w-6 h-6' }: { className?: string }) {
   return (

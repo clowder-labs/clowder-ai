@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SessionBootstrap Tests — F24 Phase E
  * Tests for bootstrap context injection when a cat starts Session #2+.

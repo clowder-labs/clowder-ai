@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Normalize arbitrary thrown values into a human-readable error string.
  * Covers: Error instances, plain strings, objects with .message, and fallback to String().

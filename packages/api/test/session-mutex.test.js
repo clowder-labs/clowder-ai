@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SessionMutex Tests
  * per-cliSessionId 串行锁 — 防止同一 session 被并发 resume

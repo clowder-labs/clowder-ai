@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Codex Agent Service
  * 使用 Codex CLI 子进程调用缅因猫 (Codex)

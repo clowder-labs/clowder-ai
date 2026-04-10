@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Session Hooks Route Tests
  * F24 Session Blindness Fix: POST /api/sessions/seal, GET /api/sessions/latest-digest

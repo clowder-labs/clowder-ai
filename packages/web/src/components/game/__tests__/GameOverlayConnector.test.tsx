@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { GameView } from '@cat-cafe/shared';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';

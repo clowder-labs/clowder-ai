@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Shared helpers for Redis integration tests.
  * Enforces isolated test Redis and provides keyPrefix-safe cleanup.

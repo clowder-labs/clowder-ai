@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F39 Bug 2: QueuePanel should show image count indicator
  * when the associated message has image contentBlocks.

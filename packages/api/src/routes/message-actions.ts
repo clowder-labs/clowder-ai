@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Message Actions Routes
  * DELETE /api/messages/:id       — soft/hard delete (ADR-008 D3 / S5+S6)

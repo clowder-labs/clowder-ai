@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export type ProfileMode = 'subscription' | 'api_key' | 'none';
 export type ProfileAuthType = 'oauth' | 'api_key' | 'none';
 export type ProfileKind = 'builtin' | 'api_key' | 'acp';

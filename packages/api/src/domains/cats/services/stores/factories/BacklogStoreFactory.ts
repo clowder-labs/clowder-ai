@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { IBacklogStore } from '../ports/BacklogStore.js';

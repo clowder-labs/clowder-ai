@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   callbackMemoryTools,

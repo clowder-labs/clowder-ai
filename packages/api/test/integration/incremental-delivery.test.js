@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Incremental Delivery Integration Tests
  * 验证每猫每线程只接收“未发送过”的增量消息，不重复、不漏发。

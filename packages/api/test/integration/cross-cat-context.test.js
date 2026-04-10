@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Cross-Cat Context Integration Tests (Phase 3.6)
  * 暗号测试 — 验证 ContextAssembler 让猫能看到其他猫的历史

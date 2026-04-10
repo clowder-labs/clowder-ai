@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { getNextCronMs } from './cron-utils.js';
 import type { DynamicTaskStore } from './DynamicTaskStore.js';
 import { executeTaskPipeline } from './execute-pipeline.js';

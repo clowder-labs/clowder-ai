@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F045: GET /api/threads/:threadId/task-progress route tests
  * P0/P1 review fix: auth + ownership check

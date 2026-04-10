@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * buildThreadMemory — F065 Phase B
  * Pure function: merges existing ThreadMemory with a new extractive digest,

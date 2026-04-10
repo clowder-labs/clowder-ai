@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { ACPModelAccessMode } from './provider-profiles.types.js';
 
 const ACP_ALWAYS_BLOCKED_ENV_PREFIXES = ['AWS_', 'CAT_CAFE_', 'DATABASE_', 'GITHUB_', 'POSTGRES_', 'REDIS_'];

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * ProcessLivenessProbe — F118 Phase B
  * CPU sampling + liveness state classification for CLI child processes.

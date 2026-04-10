@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Skills Route
  * GET  /api/skills          — Clowder AI 共享 Skills 看板数据

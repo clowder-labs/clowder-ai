@@ -1,4 +1,10 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { getMentionLabel, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import type { ThreadState } from '@/stores/chat-types';

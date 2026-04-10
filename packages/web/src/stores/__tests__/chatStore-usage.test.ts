@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F8: Token usage integration tests
  * Verifies that setCatInvocation correctly stores and merges TokenUsage data,

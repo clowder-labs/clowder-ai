@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Phase 4 (AC-H2): Content fetch with browser-automation routing detection.
  * Server-side fetch for simple HTML; flags JS-heavy sites as needs-browser.

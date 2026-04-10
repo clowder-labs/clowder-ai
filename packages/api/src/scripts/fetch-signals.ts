@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SignalFetchSchedulerSummary } from '../domains/signals/services/fetch-scheduler.js';

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102: IKnowledgeResolver — federated search across project + global indices
 // Phase B: RRF fusion of project + global stores
 

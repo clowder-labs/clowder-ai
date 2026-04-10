@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F097: Thinking UI behavior — updated for CliOutputBlock architecture
  * - Thinking: independent collapsible panel

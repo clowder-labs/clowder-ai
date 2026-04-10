@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F098: Parse direction info from a chat message for display as a pill badge.
  * Priority: whisper > crossPost > @mention in content.

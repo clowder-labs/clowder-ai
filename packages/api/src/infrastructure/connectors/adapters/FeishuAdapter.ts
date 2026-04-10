@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Feishu (飞书/Lark) Bot Adapter
  * Inbound: Parse webhook event → extract private text message

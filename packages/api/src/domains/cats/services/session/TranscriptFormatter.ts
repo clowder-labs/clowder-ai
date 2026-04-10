@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * TranscriptFormatter — F98 Gap 1
  * Formats raw TranscriptEvents into human-readable views.

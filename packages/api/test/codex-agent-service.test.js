@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * CodexAgentService Tests (CLI mode)
  * 测试缅因猫 CLI 子进程调用

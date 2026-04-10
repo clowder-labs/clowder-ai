@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Invocations Retry Tests (ADR-008 S2)
  * POST /api/invocations/:id/retry — 实际执行 retry 全路径

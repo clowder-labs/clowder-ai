@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * GameOrchestrator Tests (F101 Task A5)
  * Tests system-driven tick, action handling, phase advancement, and scoped broadcasts.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Seal Threshold Config + shouldSeal() Tests
  * F24 Phase B: Per-cat seal threshold configuration.

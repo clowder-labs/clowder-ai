@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import http from 'node:http';
 import { createGunzip, createInflate } from 'node:zlib';
 import httpProxy from 'http-proxy';

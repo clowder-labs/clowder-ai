@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Environment variable registry — single source of truth for all user-configurable env vars.
  * Used by GET /api/config/env-summary to report current values to the frontend.

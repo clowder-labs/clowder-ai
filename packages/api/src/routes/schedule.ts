@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Schedule Panel API Routes (F139 Phase 2 + Phase 3A + Phase 3B)
  *
