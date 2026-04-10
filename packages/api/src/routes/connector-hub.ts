@@ -13,6 +13,8 @@ import type { IConnectorPermissionStore } from '../infrastructure/connectors/Con
 import { DefaultFeishuQrBindClient, type FeishuQrBindClient } from '../infrastructure/connectors/FeishuQrBindClient.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
+const DINGTALK_API_BASE_URL = process.env.DINGTALK_API_BASE_URL!;
+
 export interface ConnectorHubRoutesOptions {
   threadStore: IThreadStore;
   /**
@@ -334,7 +336,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     }
 
     try {
-      const tokenRes = await fetch('https://api.dingtalk.com/v1.0/oauth2/accessToken', {
+      const tokenRes = await fetch(`${DINGTALK_API_BASE_URL}/v1.0/oauth2/accessToken`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appKey, appSecret }),
@@ -399,15 +401,13 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     }
 
     try {
-      const { generateXiaoyiSignature } = await import(
-        '../infrastructure/connectors/adapters/XiaoyiAdapter.js'
-      );
+      const { generateXiaoyiSignature } = await import('../infrastructure/connectors/adapters/XiaoyiAdapter.js');
 
       const timestamp = Date.now().toString();
       const signature = generateXiaoyiSignature(sk, timestamp);
 
-      const wsUrl = readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1')
-        ?? 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
+      const wsUrl =
+        readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1') ?? 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
 
       const { WebSocket } = await import('ws');
 
@@ -594,10 +594,10 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) return { error: 'Identity required' };
 
-    const result = await applyConnectorSecretUpdates(
-      [{ name: 'TELEGRAM_BOT_TOKEN', value: null }],
-      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
-    );
+    const result = await applyConnectorSecretUpdates([{ name: 'TELEGRAM_BOT_TOKEN', value: null }], {
+      envFilePath: opts.envFilePath,
+      reconciler: opts.connectorRuntimeManager,
+    });
     app.log.info({ userId }, '[Telegram] Disconnected by user');
     return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
   });

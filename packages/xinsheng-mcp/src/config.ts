@@ -8,9 +8,9 @@ import { existsSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export const DEFAULT_HOME_URL = 'https://xinsheng.huawei.com/next/index/#/home';
-export const DEFAULT_DETAIL_PAGE_URL = 'https://xinsheng.huawei.com/next/detail/#/index';
-export const DEFAULT_SEARCH_PAGE_URL = 'https://xinsheng.huawei.com/next/plus/#/search';
+export const DEFAULT_HOME_URL = process.env.XINSHENG_DEFAULT_HOME_URL!;
+export const DEFAULT_DETAIL_PAGE_URL = process.env.XINSHENG_DEFAULT_DETAIL_PAGE_URL!;
+export const DEFAULT_SEARCH_PAGE_URL = process.env.XINSHENG_DEFAULT_SEARCH_PAGE_URL!;
 export const DEFAULT_NAVIGATION_TIMEOUT_MS = 60_000;
 export const DEFAULT_SEARCH_TIMEOUT_MS = 45_000;
 

@@ -21,6 +21,8 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { MessageEnvelope } from '../ConnectorMessageFormatter.js';
 import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
 
+const DINGTALK_API_BASE_URL = process.env.DINGTALK_API_BASE_URL!;
+
 // ── Types ──
 
 export interface DingTalkAttachment {
@@ -374,7 +376,7 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     if (this.downloadMediaFn) return this.downloadMediaFn(downloadCode);
 
     const accessToken = await this.getAccessToken();
-    const url = 'https://api.dingtalk.com/v1.0/robot/messageFiles/download';
+    const url = `${DINGTALK_API_BASE_URL}/v1.0/robot/messageFiles/download`;
 
     const res = await fetch(url, {
       method: 'POST',
@@ -476,7 +478,7 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     }
 
     const accessToken = await this.getAccessToken();
-    const url = 'https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend';
+    const url = `${DINGTALK_API_BASE_URL}/v1.0/robot/oToMessages/batchSend`;
     const payload = {
       robotCode: this.robotCode,
       userIds: [staffId],
@@ -511,7 +513,7 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     }
 
     const accessToken = await this.getAccessToken();
-    const url = 'https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend';
+    const url = `${DINGTALK_API_BASE_URL}/v1.0/robot/oToMessages/batchSend`;
     const payload = {
       robotCode: this.robotCode,
       userIds: [staffId],
@@ -552,7 +554,7 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     }
 
     const accessToken = await this.getAccessToken();
-    const url = 'https://api.dingtalk.com/v1.0/card/instances/createAndDeliver';
+    const url = `${DINGTALK_API_BASE_URL}/v1.0/card/instances/createAndDeliver`;
 
     const cardData = {
       outTrackId,
@@ -604,7 +606,7 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
     }
 
     const accessToken = await this.getAccessToken();
-    const url = 'https://api.dingtalk.com/v1.0/card/streaming';
+    const url = `${DINGTALK_API_BASE_URL}/v1.0/card/streaming`;
 
     const payload = {
       outTrackId,
@@ -652,7 +654,7 @@ export class DingTalkAdapter implements IStreamableOutboundAdapter {
       return this.cachedToken.token;
     }
 
-    const url = 'https://api.dingtalk.com/v1.0/oauth2/accessToken';
+    const url = `${DINGTALK_API_BASE_URL}/v1.0/oauth2/accessToken`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

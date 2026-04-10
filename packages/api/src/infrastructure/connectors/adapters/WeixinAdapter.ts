@@ -22,7 +22,7 @@ import QRCode from 'qrcode';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
 
-const ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com';
+const ILINK_BASE_URL = process.env.ILINK_BASE_URL!;
 const GETUPDATES_TIMEOUT_MS = 35_000;
 const POLL_ERROR_BACKOFF_MS = 3_000;
 const POLL_MAX_BACKOFF_MS = 60_000;

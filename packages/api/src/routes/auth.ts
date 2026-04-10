@@ -67,7 +67,8 @@ const userInfo: UserInfo = {
   modelInfo: {},
 };
 
-const IAM_URL = 'https://iam.myhuaweicloud.com';
+const IAM_URL = process.env.IAM_URL!;
+const HUAWEI_CLAW_SUBSCRIPTION_URL = process.env.HUAWEI_CLAW_SUBSCRIPTION_URL!;
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 
 const secureConfig = new Conf({
@@ -253,7 +254,7 @@ async function getSecuritytokens(token = ''): Promise<CredentialResult> {
 //开通客户端claw
 async function subscriptionClaw(token = '', promotionCode?: string): Promise<ModelInfoResult> {
   try {
-    const subResponse = await fetch(`https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-subscription`, {
+    const subResponse = await fetch(HUAWEI_CLAW_SUBSCRIPTION_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json;charset=utf8',

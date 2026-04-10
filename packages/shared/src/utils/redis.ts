@@ -20,7 +20,7 @@ export interface RedisConfig {
 
 export function getDefaultRedisConfig(): RedisConfig {
   return {
-    url: process.env['REDIS_URL'] ?? 'redis://localhost:6399',
+    url: process.env['REDIS_URL']!,
     keyPrefix: process.env['REDIS_KEY_PREFIX'] ?? 'cat-cafe:',
   };
 }
