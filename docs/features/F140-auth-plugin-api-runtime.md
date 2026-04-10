@@ -42,7 +42,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 ### Phase C: 同构登录流程、UI 与兼容迁移 ✅
 
-前端登录入口改为由 provider `presentation` 驱动，支持 `auto / form / redirect` 三类模式。`no-auth` 与正常 auth 在接口层完全同构，只允许实现不同；Huawei MaaS 初始化改为 provider 声明、平台触发的 `postLoginInit`，失败不回滚认证成功。
+前端登录入口改为由 provider `presentation` 驱动，当前已实现 `auto` 和 `form` 两类模式（`redirect` 模式 contract 已定义，端到端流程留作后续 phase）。`no-auth` 与正常 auth 在接口层完全同构，只允许实现不同；Huawei MaaS 初始化改为 provider 声明、平台触发的 `postLoginInit`，失败不回滚认证成功。
 
 这一阶段还负责兼容迁移：保留现有 `/api/islogin`、`/api/login`、`/api/logout` 的外壳兼容层，同时引入统一 `/api/auth/session` 等新入口，并逐步移除旧身份路径中的不可信语义。
 
@@ -98,7 +98,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 - [ ] AC-B5: session 过期判定在 store/middleware 内部统一处理，不依赖消费方各自自保。（deferred）
 
 ### Phase C（同构登录流程、UI 与兼容迁移）✅
-- [x] AC-C1: `no-auth`、表单类 provider、跳转类 provider 走统一生命周期，只允许 provider 实现不同。
+- [x] AC-C1: `no-auth`（auto）和表单类 provider（form）走统一生命周期，只允许 provider 实现不同。（`redirect` 模式 contract 已定义，端到端留作后续 phase）
 - [x] AC-C2: provider `presentation` 驱动前端登录 UI，不再硬编码 Huawei 专用页面。
 - [x] AC-C3: Huawei MaaS 初始化通过 `postLoginInit` 机制挂入，遵守”provider 声明、平台触发、失败不回滚认证”的规则。
 - [ ] AC-C4: 旧接口保留兼容外壳，新入口以 `/api/auth/session` 为统一查询面。（deferred）
