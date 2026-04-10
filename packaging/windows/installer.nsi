@@ -50,6 +50,9 @@ BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
 ShowUninstDetails nevershow
 
+; --------------- License page (custom nsDialogs) ---------------
+Page custom LicensePageCreate LicensePageLeave
+
 ; --------------- Welcome page (custom nsDialogs, no left bitmap) ---------------
 Page custom WelcomePageCreate
 
@@ -70,6 +73,10 @@ Page custom FinishPageCreate FinishPageLeave
 ; --------------- Language ---------------
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
+Var LicenseDialog
+Var AgreeRadio
+Var DisagreeRadio
+Var NextButton
 Var WelcomeDialog
 Var FinishDialog
 Var FinishLaunchCheckbox
@@ -110,6 +117,77 @@ Function CheckOfficeClawRunning
       Return
     ${EndIf}
   ${EndIf}
+FunctionEnd
+
+Function LicensePageCreate
+  !insertmacro MUI_HEADER_TEXT "许可协议" "继续安装前请阅读下列重要信息。$\r$\n请仔细阅读下列许可协议，您在继续安装前必须同意这些协议条款。"
+  
+  nsDialogs::Create 1018
+  Pop $LicenseDialog
+  ${If} $LicenseDialog == error
+    Abort
+  ${EndIf}
+
+  GetDlgItem $NextButton $HWNDPARENT 1
+  EnableWindow $NextButton 0
+
+  ${NSD_CreateLabel} 0 10 100% 25 "${APP_NAME}软件许可协议"
+  Pop $0
+
+  ${NSD_CreateLabel} 10 50 75 20 "1.了解和同意"
+  Pop $0
+
+  ${NSD_CreateLink} 85 50 30% 20 "华为云隐私政策声明"
+  Pop $1
+  ${NSD_OnClick} $1 "OnPrivacyLinkClick"
+
+  ${NSD_CreateLabel} 10 80 75 20 "2.了解和同意"
+  Pop $0
+
+  ${NSD_CreateLink} 85 80 30% 20 "AgentArts服务声明"
+  Pop $1
+  ${NSD_OnClick} $1 "OnServiceLinkClick"
+
+  ${NSD_CreateRadioButton} 0 180 100% 20 "我同意此协议(A)"
+  Pop $AgreeRadio
+  ${NSD_Setfocus} $AgreeRadio
+
+  ${NSD_OnClick} $AgreeRadio OnAgreementChanged
+
+  ${NSD_CreateRadioButton} 0 210 100% 20 "我不同意此协议(D)"
+  Pop $DisagreeRadio
+  ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
+
+  nsDialogs::Show
+
+  SendMessage $AgreeRadio ${BM_SETCHECK} 1 0
+  Call UpdateNextButtonState
+FunctionEnd
+
+Function OnPrivacyLinkClick
+  Pop $0
+  ExecShell "open" "https://www.huaweicloud.com/declaration/sa_prp.html"
+FunctionEnd
+
+Function OnServiceLinkClick
+  Pop $0
+  ExecShell "open" "https://www.huaweicloud.com/declaration/agentarts.html"
+FunctionEnd
+
+Function OnAgreementChanged
+  Call UpdateNextButtonState
+FunctionEnd
+
+Function UpdateNextButtonState
+  ${NSD_GetState} $AgreeRadio $0
+  ${If} $0 == 1
+    EnableWindow $NextButton 1
+  ${Else}
+    EnableWindow $NextButton 0
+  ${EndIf}
+FunctionEnd
+
+Function LicensePageLeave
 FunctionEnd
 
 Function WelcomePageCreate
