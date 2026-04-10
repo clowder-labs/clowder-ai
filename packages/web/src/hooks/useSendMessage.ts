@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { useChatCommands } from '@/hooks/useChatCommands';
 import type { DeliveryMode, WhisperOptions as SharedWhisperOptions } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
@@ -14,11 +13,15 @@ export interface SendMessageOptions {
   resumeCatId?: string;
 }
 
+export interface UseSendMessageOptions {
+  resetRefs?: () => void;
+}
+
 /**
  * Hook for sending messages (text + optional attachments + optional whisper).
  * Handles both JSON and multipart form data modes.
  */
-export function useSendMessage(activeThreadId?: string) {
+export function useSendMessage(activeThreadId?: string, options?: UseSendMessageOptions) {
   const {
     addMessage,
     addMessageToThread,
@@ -30,10 +33,10 @@ export function useSendMessage(activeThreadId?: string) {
     setThreadLoading,
     setThreadHasActiveInvocation,
   } = useChatStore();
-  const { resetRefs } = useAgentMessages();
   const { processCommand } = useChatCommands();
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const resetRefs = options?.resetRefs;
 
   const createClientId = useCallback((): string => {
     if (globalThis.crypto?.randomUUID) {
@@ -67,7 +70,7 @@ export function useSendMessage(activeThreadId?: string) {
       const isQueueSend = deliveryMode === 'queue';
 
       // Queue sends don't reset refs — cat is still streaming
-      if (!isQueueSend) resetRefs();
+      if (!isQueueSend) resetRefs?.();
       setUploadError(null);
       setUploadStatus(hasAttachments ? 'uploading' : 'idle');
 

@@ -21,7 +21,7 @@ const messages: ChatMessageType[] = [
     // UI should treat this as a cat message because catId is the stronger signal.
     type: 'user',
     catId: 'gpt52',
-    content: '（fixture）我其实是猫猫消息，但 type 被错误标成 user；UI 仍应显示为缅因猫消息。',
+    content: '（fixture）我其实是消息。',
     timestamp: now - 1000 * 60 * 4,
   },
   {

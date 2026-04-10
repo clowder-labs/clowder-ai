@@ -56,7 +56,7 @@ export const HUB_GROUPS: HubGroup[] = [
     preview: '治理 · 救援 · 命令速查',
     tabs: [
       { id: 'governance', label: '治理看板', icon: 'shield' },
-      { id: 'rescue', label: '布偶猫救援', icon: 'activity' },
+      { id: 'rescue', label: '通用智能体救援', icon: 'activity' },
       { id: 'commands', label: '命令速查', icon: 'terminal' },
     ],
   },

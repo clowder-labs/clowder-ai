@@ -305,7 +305,7 @@ export function ThreadSidebar({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: '🎓 猫猫训练营',
+          title: '🎓 训练营',
           bootcampState: {
             v: 1,
             phase: 'phase-0-select-cat',

@@ -102,6 +102,7 @@ export interface CallbackRoutesOptions {
 const postMessageSchema = callbackAuthSchema.extend({
   content: z.string().min(1).max(50000),
   threadId: z.string().min(1).optional(),
+  allowCrossThread: z.boolean().optional(),
   replyTo: z.string().optional(),
   clientMessageId: z.string().min(1).max(200).optional(),
   targetCats: z.array(z.string().min(1)).optional(),
@@ -335,6 +336,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       callbackToken,
       content,
       threadId,
+      allowCrossThread,
       replyTo,
       clientMessageId,
       targetCats: explicitTargetCats,
@@ -361,9 +363,17 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
           catId: record.catId,
           recordThreadId: record.threadId,
           requestedThreadId: threadId,
+          allowCrossThread: allowCrossThread === true,
         },
         '[DIAG/ghost-thread] post-message: cross-thread detected',
       );
+      if (!allowCrossThread) {
+        reply.status(400);
+        return {
+          error:
+            'Cross-thread post requires explicit allowCrossThread=true. Use the dedicated cross_post_message tool instead of post_message.',
+        };
+      }
       if (!threadStore) {
         reply.status(503);
         return { error: 'Thread store not configured for cross-thread posting' };

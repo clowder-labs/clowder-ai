@@ -853,6 +853,10 @@ export function isConnectorSensitiveEditable(def: EnvDefinition): boolean {
   return def.category === 'connector' && def.sensitive && def.runtimeEditable !== false;
 }
 
+export function isConnectorEnvVarName(name: string): boolean {
+  return ENV_VARS.some((def) => def.name === name && def.category === 'connector');
+}
+
 export function isEditableEnvVarName(name: string): boolean {
   return ENV_VARS.some(
     (def) => def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),

@@ -16,10 +16,6 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-vi.mock('@/hooks/useAgentMessages', () => ({
-  useAgentMessages: () => ({ resetRefs: mockResetRefs }),
-}));
-
 vi.mock('@/hooks/useChatCommands', () => ({
   useChatCommands: () => ({ processCommand: mockProcessCommand }),
 }));
@@ -51,11 +47,16 @@ interface UploadSnapshot {
 function SendWithImageRunner({
   onDone,
   onSnapshot,
+  resetRefs,
 }: {
   onDone: () => void;
   onSnapshot: (snapshot: UploadSnapshot) => void;
+  resetRefs?: () => void;
 }) {
-  const { handleSend, uploadStatus, uploadError } = useSendMessage('thread-route');
+  const { handleSend, uploadStatus, uploadError } = useSendMessage(
+    'thread-route',
+    resetRefs ? { resetRefs } : undefined,
+  );
   const called = useRef(false);
 
   useEffect(() => {
@@ -140,6 +141,7 @@ describe('useSendMessage upload status', () => {
         React.createElement(SendWithImageRunner, {
           onDone: () => {},
           onSnapshot: (s: UploadSnapshot) => snapshots.push(s),
+          resetRefs: mockResetRefs,
         }),
       );
     });

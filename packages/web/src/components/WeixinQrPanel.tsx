@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { CheckCircleIcon, SpinnerIcon } from './HubConfigIcons';
+import { ConnectorConnectedState } from './ConnectorConnectedState';
+import { SpinnerIcon } from './HubConfigIcons';
 
 type QrState = 'idle' | 'fetching' | 'waiting' | 'scanned' | 'confirmed' | 'error' | 'expired';
 
@@ -128,26 +129,15 @@ export function WeixinQrPanel({
 
   if (qrState === 'confirmed') {
     return (
-      <div className="space-y-2">
-        <div
-          className="flex items-center gap-2 bg-[#f5f5f5] border border-[var(--card-border)] rounded-lg px-3 py-2.5 w-[60%]"
-          data-testid="weixin-connected"
+      <div data-testid="weixin-connected">
+        <ConnectorConnectedState
+          label="WeChat connected"
+          disconnecting={disconnecting}
+          onDisconnect={handleDisconnect}
+          disconnectTestId="weixin-disconnect"
         >
-          <span className="text-green-600">
-            <CheckCircleIcon />
-          </span>
-          <span className="text-sm font-medium text-green-700">微信已连接</span>
-        </div>
-        {errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
-        <button
-          type="button"
-          onClick={handleDisconnect}
-          disabled={disconnecting}
-          className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-semibold text-red-700 transition-colors disabled:opacity-60"
-          data-testid="weixin-disconnect"
-        >
-          {disconnecting ? '解除绑定中...' : '解除绑定'}
-        </button>
+          {errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
+        </ConnectorConnectedState>
       </div>
     );
   }

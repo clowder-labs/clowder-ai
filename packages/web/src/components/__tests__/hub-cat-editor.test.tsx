@@ -105,8 +105,8 @@ describe('HubCatEditor', () => {
   it('buildCatPayload keeps name in PATCH payload when editing an existing cat', () => {
     const form: HubCatEditorFormState = {
       catId: 'runtime-codex',
-      name: '运行时缅因猫',
-      displayName: '运行时缅因猫',
+      name: '运行时办公智能体',
+      displayName: '运行时办公智能体',
       nickname: '',
       avatar: '/avatars/codex.png',
       colorPrimary: '#16a34a',
@@ -136,7 +136,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'openai',
       defaultModel: 'gpt-5.4',
       color: { primary: '#16a34a', secondary: '#bbf7d0' },
@@ -146,14 +146,14 @@ describe('HubCatEditor', () => {
     } as CatData;
 
     const payload = buildCatPayload(form, existingCat) as Record<string, unknown>;
-    expect(payload.name).toBe('运行时缅因猫');
+    expect(payload.name).toBe('运行时办公智能体');
   });
 
   it('buildCatPayload recomputes mcpSupport when client changes on existing cat', () => {
     const baseForm: HubCatEditorFormState = {
       catId: 'runtime-codex',
-      name: '运行时缅因猫',
-      displayName: '运行时缅因猫',
+      name: '运行时办公智能体',
+      displayName: '运行时办公智能体',
       nickname: '',
       avatar: '/avatars/codex.png',
       colorPrimary: '#16a34a',
@@ -183,7 +183,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'antigravity',
       defaultModel: 'gemini-bridge',
       color: { primary: '#16a34a', secondary: '#bbf7d0' },
@@ -199,8 +199,8 @@ describe('HubCatEditor', () => {
   it('buildCatPayload seeds default Antigravity command args when the field is still blank', () => {
     const form: HubCatEditorFormState = {
       catId: 'runtime-bridge',
-      name: '桥接猫',
-      displayName: '桥接猫',
+      name: '桥接智能体',
+      displayName: '桥接智能体',
       nickname: '',
       avatar: '/avatars/bridge.png',
       colorPrimary: '#16a34a',
@@ -718,10 +718,10 @@ describe('HubCatEditor', () => {
     expect(container.textContent).toContain('认证信息');
     expect(container.textContent).not.toContain('CLI Command');
 
-    await changeField(queryField(container, 'input[aria-label="Name"]'), '火花猫');
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '火花智能体');
     await changeField(queryField(container, 'input[aria-label="Avatar"]'), '/avatars/spark.png');
     await changeField(queryField(container, 'input[aria-label="Description"]'), '快速执行');
-    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@runtime-spark, @火花猫');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@runtime-spark, @火花智能体');
     await changeField(queryField(container, 'select[aria-label="Client"]'), 'openai', 'change');
     await flushEffects();
     await changeField(queryField(container, 'select[aria-label="认证信息"]'), 'codex-sponsor', 'change');
@@ -738,7 +738,7 @@ describe('HubCatEditor', () => {
     expect(postCall?.[1]?.method).toBe('POST');
     const payload = JSON.parse(String(postCall?.[1]?.body));
     expect(payload.client).toBe('openai');
-    expect(payload.catId).toBe('火花猫');
+    expect(payload.catId).toBe('火花智能体');
     expect(payload.accountRef).toBe('codex-sponsor');
     expect(payload.defaultModel).toBe('gpt-5.4-mini');
     expect(onSaved).toHaveBeenCalledTimes(1);
@@ -788,7 +788,7 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
-    await changeField(queryField(container, 'input[aria-label="Name"]'), '华为猫');
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '华为智能体');
     await changeField(queryField(container, 'input[aria-label="Description"]'), '走 MaaS');
     await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@huawei-maas-cat');
     await changeField(queryField(container, 'select[aria-label="Client"]'), 'dare', 'change');
@@ -864,7 +864,7 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
-    await changeField(queryField(container, 'input[aria-label="Name"]'), '代理猫');
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '代理智能体');
     await changeField(queryField(container, 'input[aria-label="Description"]'), '走自定义 OpenAI');
     await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@proxy-cat');
     await changeField(queryField(container, 'select[aria-label="Client"]'), 'dare', 'change');
@@ -1374,7 +1374,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'openai',
       providerProfileId: 'codex-oauth',
       defaultModel: 'gpt-5.3-codex-spark',
@@ -1452,7 +1452,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
       defaultModel: 'gpt-5.4',
@@ -1509,7 +1509,7 @@ describe('HubCatEditor', () => {
           open: true,
           cat: existingCat,
           configCat: {
-            displayName: '运行时缅因猫',
+            displayName: '运行时办公智能体',
             provider: 'openai',
             model: 'gpt-5.4-mini',
             mcpSupport: true,
@@ -1621,7 +1621,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'openai',
       defaultModel: 'gpt-5.4',
       color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
@@ -1903,7 +1903,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
       defaultModel: 'gpt-5.4',
@@ -1983,7 +1983,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
       defaultModel: 'gpt-5.4',
@@ -2067,7 +2067,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'runtime-codex',
       name: 'runtime-codex',
-      displayName: '运行时缅因猫',
+      displayName: '运行时办公智能体',
       provider: 'openai',
       providerProfileId: 'codex-oauth',
       defaultModel: 'gpt-5.4',
@@ -2194,10 +2194,10 @@ describe('HubCatEditor', () => {
 
     expect(container.textContent).toContain('4 项要么全部留空，要么全部填写');
 
-    await changeField(queryField(container, 'input[aria-label="Name"]'), '火花猫');
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '火花智能体');
     await changeField(queryField(container, 'input[aria-label="Avatar"]'), '/avatars/spark.png');
     await changeField(queryField(container, 'input[aria-label="Description"]'), '快速执行');
-    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@runtime-spark, @火花猫');
+    await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@runtime-spark, @火花智能体');
     await changeField(queryField(container, 'select[aria-label="Client"]'), 'openai', 'change');
     await flushEffects();
     await changeField(queryField(container, 'select[aria-label="认证信息"]'), 'codex-sponsor', 'change');
@@ -2217,8 +2217,8 @@ describe('HubCatEditor', () => {
   it('deletes an existing member only after confirmation', async () => {
     const existingCat: CatData = {
       id: 'runtime-antigravity',
-      name: '运行时桥接猫',
-      displayName: '运行时桥接猫',
+      name: '运行时桥接智能体',
+      displayName: '运行时桥接智能体',
       provider: 'antigravity',
       defaultModel: 'gemini-bridge',
       commandArgs: ['chat', '--mode', 'agent'],
@@ -2326,8 +2326,8 @@ describe('HubCatEditor', () => {
   it('hides delete action for seed members', async () => {
     const existingCat: CatData = {
       id: 'codex',
-      name: '缅因猫',
-      displayName: '缅因猫',
+      name: '办公智能体',
+      displayName: '办公智能体',
       provider: 'openai',
       defaultModel: 'gpt-5.4',
       color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
@@ -2368,13 +2368,13 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'codex',
       name: 'codex',
-      displayName: '缅因猫',
+      displayName: '办公智能体',
       nickname: '砚砚',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
       defaultModel: 'gpt-5.4',
       color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
-      mentionPatterns: ['@codex', '@缅因猫'],
+      mentionPatterns: ['@codex', '@办公智能体'],
       avatar: '/avatars/codex.png',
       roleDescription: 'review',
       personality: 'rigorous',
@@ -2429,7 +2429,7 @@ describe('HubCatEditor', () => {
             cats: [
               {
                 catId: 'codex',
-                displayName: '缅因猫',
+                displayName: '办公智能体',
                 provider: 'openai',
                 effective: {
                   strategy: 'compress',
@@ -2587,12 +2587,12 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'codex',
       name: 'codex',
-      displayName: '缅因猫',
+      displayName: '办公智能体',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
       defaultModel: 'gpt-5.4',
       color: { primary: '#5B8C5A', secondary: '#D4E6D3' },
-      mentionPatterns: ['@codex', '@缅因猫'],
+      mentionPatterns: ['@codex', '@办公智能体'],
       avatar: '/avatars/codex.png',
       roleDescription: 'review',
       sessionChain: true,
@@ -2635,7 +2635,7 @@ describe('HubCatEditor', () => {
             cats: [
               {
                 catId: 'codex',
-                displayName: '缅因猫',
+                displayName: '办公智能体',
                 provider: 'openai',
                 effective: {
                   strategy: 'compress',
@@ -2761,7 +2761,7 @@ describe('HubCatEditor', () => {
     });
     await flushEffects();
 
-    await changeField(queryField(container, 'input[aria-label="Name"]'), '运行时审查猫');
+    await changeField(queryField(container, 'input[aria-label="Name"]'), '运行时审查智能体');
     await changeField(queryField(container, 'input[aria-label="Description"]'), 'review');
     await changeField(queryField(container, 'textarea[aria-label="Aliases"]'), '@runtime-reviewer, @第二别名');
     await changeField(queryField(container, 'select[aria-label="Client"]'), 'openai', 'change');
@@ -2812,7 +2812,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'codex',
       name: 'codex',
-      displayName: '缅因猫',
+      displayName: '办公智能体',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
       defaultModel: 'gpt-5.4',
@@ -2902,7 +2902,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'codex',
       name: 'codex',
-      displayName: '缅因猫',
+      displayName: '办公智能体',
       nickname: '旧昵称',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
@@ -2995,7 +2995,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'codex',
       name: 'codex',
-      displayName: '缅因猫',
+      displayName: '办公智能体',
       nickname: '旧昵称',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
@@ -3099,7 +3099,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'codex',
       name: 'codex',
-      displayName: '缅因猫',
+      displayName: '办公智能体',
       nickname: '旧昵称',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
@@ -3143,7 +3143,7 @@ describe('HubCatEditor', () => {
             cats: [
               {
                 catId: 'codex',
-                displayName: '缅因猫',
+                displayName: '办公智能体',
                 provider: 'openai',
                 effective: {
                   strategy: 'compress',
@@ -3250,7 +3250,7 @@ describe('HubCatEditor', () => {
     const existingCat = {
       id: 'codex',
       name: 'codex',
-      displayName: '缅因猫',
+      displayName: '办公智能体',
       nickname: '旧昵称',
       provider: 'openai',
       providerProfileId: 'codex-sponsor',
@@ -3293,7 +3293,7 @@ describe('HubCatEditor', () => {
             cats: [
               {
                 catId: 'codex',
-                displayName: '缅因猫',
+                displayName: '办公智能体',
                 provider: 'openai',
                 effective: {
                   strategy: 'compress',
