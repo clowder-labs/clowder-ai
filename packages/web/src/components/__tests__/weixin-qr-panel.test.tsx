@@ -81,6 +81,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     expect(queryTestId(container, 'weixin-connected')).not.toBeNull();
     expect(container.textContent).toContain('WeChat connected');
     expect(queryTestId(container, 'weixin-disconnect')).not.toBeNull();
+    expect(container.textContent).toContain('Disconnect');
   });
 
   it('disconnects WeChat and returns to QR generation state', async () => {
@@ -92,7 +93,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     await flushEffects();
 
     await act(async () => {
-      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      queryButton(container, 'Disconnect').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushEffects();
 
@@ -109,7 +110,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     await flushEffects();
 
     await act(async () => {
-      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      queryButton(container, 'Disconnect').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushEffects();
 
