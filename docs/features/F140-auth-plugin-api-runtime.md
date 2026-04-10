@@ -20,7 +20,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 1. `no-auth` 和 `huawei-iam` 是**独立可管理**的 provider module（内建，在主仓维护）
 2. 主项目通过 `.env` 启用某个 auth module，重启后自动生效
 3. 启用哪个 module 就自动得到对应的**前后端完整效果**（no-auth=无登录页，huawei-iam=当前登录体验）
-4. `@cat-cafe/plugin-api/auth` 作为对外唯一稳定入口（内部 contract 层，不单独发 npm）
+4. Auth contract 源码在 `packages/plugin-api`（内部），对外通过已发布的公共包 re-export（目标 `@clowder/core/auth`）
 5. 有完整的**插件开发文档**，第三方在独立仓库开发 → 打包发布 → 主项目安装+配 env+重启 → 可用
 
 ## What
@@ -47,12 +47,13 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 将已有的 provider 运行时基座（registry + module loader + config select）正式化为**对外开放的扩展模型**。核心设计收敛于 2026-04-08 讨论（见 `docs/architecture/auth-provider-extension-model.md`）：
 
-- `@cat-cafe/plugin-api` 继续作为内部 contract 层，**不单独发布** npm 包
-- 对外暴露**一个稳定的公共入口**（`@cat-cafe/plugin-api/auth` subpath export），外部 provider 只依赖这个
+- `packages/plugin-api` 继续作为 auth contract 的**源码归属层**（内部 monorepo 包，不独立发 npm）
+- 对外通过**已发布的公共包 re-export**（目标 `@clowder/core/auth`），外部 provider 只依赖这个
 - 内建 `no-auth` 和 `huawei-iam` 继续在主仓库维护，**不拆为独立包**
 - 外部 provider 用新 `providerId`（A-scheme），通过 `CAT_CAFE_AUTH_PROVIDER_MODULES` 注册
+- 命名空间与 `feat/npm-publish-readiness` 对齐：`@cat-cafe/*` → `@clowder/*`
 
-这一阶段的产出是架构文档 + 公共入口的稳定性保障。
+这一阶段的产出是架构文档 + 公共入口 re-export 面的稳定性保障。
 
 ### Phase E: Provider 前端 Surface 扩展
 
@@ -71,7 +72,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 **开发指南**（`docs/guides/build-auth-provider.md`）：
 1. 在独立仓库创建 provider 项目
-2. 依赖主项目的 `@cat-cafe/plugin-api/auth` 实现 `AuthProvider` 接口
+2. 依赖公共包的 auth 入口（`@clowder/core/auth`）实现 `AuthProvider` 接口
 3. 编写 provider 逻辑（authenticate、presentation、可选 hooks）
 4. 打包发布到 npm
 5. 在主项目中 `pnpm add` → 配置 `.env` → 重启 → 可用
@@ -102,7 +103,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 ### Phase D（外部 Provider 接入机制与架构文档）📋
 - [x] AC-D1: 架构文档 `auth-provider-extension-model.md` 完成，覆盖边界、注册模型、配置语义、反模式。
-- [ ] AC-D2: `@cat-cafe/plugin-api/auth` subpath export 作为唯一稳定公共入口，外部 provider 只依赖这个。
+- [ ] AC-D2: 已发布公共包 re-export auth contract（目标 `@clowder/core/auth`），外部 provider 只依赖这个。
 - [ ] AC-D3: 外部 provider 通过 `CAT_CAFE_AUTH_PROVIDER_MODULES` + `CAT_CAFE_AUTH_PROVIDER` 接入，无需修改主仓源码。
 - [ ] AC-D4: 内建 `no-auth` 和 `huawei-iam` 继续在主仓维护，不拆为独立包。
 - [ ] AC-D5: 外部 provider 必须使用新 `providerId`（A-scheme），禁止复用内建 ID。
@@ -123,15 +124,15 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | “默认是 no-auth；不做登录直接进主页，但流程还是一致” | AC-A4, AC-C1, AC-E3 | manual + test | [x] backend / [ ] standalone pkg |
-| R2 | “第三方实现自己的登录模块，集成后通过 .env 切换就能用” | AC-A3, AC-D4, AC-E5 | test + doc review | [x] runtime loader / [ ] pkg install flow |
+| R1 | “默认是 no-auth；不做登录直接进主页，但流程还是一致” | AC-A4, AC-C1, AC-E2 | manual + test | [x] |
+| R2 | “第三方实现自己的登录模块，集成后通过 .env 切换就能用” | AC-A3, AC-D3, AC-E3 | test + doc review | [x] runtime loader / [ ] e2e |
 | R3 | “业务层不应该感知 provider；后端统一拦截器处理” | AC-B1, AC-B2, AC-B3 | test + code review | [x] |
 | R4 | “Huawei MaaS 这种应该是 Huawei 自己要做的事儿” | AC-C3 | test + code review | [x] |
-| R5 | “不要一个能力一个 types 包，直接按 plugin-api 做” | AC-A1, AC-D3 | doc review | [x] structure / [ ] publish |
+| R5 | “不要一个能力一个 types 包，直接按 plugin-api 做” | AC-A1 | doc review | [x] |
 | R6 | “X-Cat-Cafe-User 这个不能直接当登录凭证” | AC-B1, AC-C5 | test + code review | [x] |
 | R7 | “no-auth+huawei-iam 作为独立可管理的 provider module” | AC-D4 | code review | [x] 内建 provider 各自独立实现，共享契约 |
 | R8 | “启用哪个 module 就自动得到对应前后端完整效果” | AC-E1, AC-E2, AC-E3 | e2e test | [ ] |
-| R9 | “plugin-api 作为第三方唯一依赖入口” | AC-D2, AC-D3 | code review + doc | [ ] |
+| R9 | “对外一个稳定入口，第三方只依赖它” | AC-D2 | code review + doc | [ ] |
 | R10 | “插件开发文档：新仓库开发→打包→集成→配 env→重启可用” | AC-F1, AC-F2, AC-F3 | doc walkthrough | [ ] |
 
 ### 覆盖检查
@@ -154,7 +155,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | 旧接口兼容期过长，导致双轨身份路径长期并存 | 在 Phase C 明确兼容只作为外壳，认证真相源一律迁到 SessionAuthority |
 | 后续接入更多 provider 时又把 provider-specific 数据塞进业务层 | 把 `providerState` opaque + `AuthContext` 最小四字段写成硬约束并用 review gate 守住 |
 | Provider 自带前端与 Next.js 构建耦合 | 走静态资源路径映射（`@fastify/static`），不要求 provider 嵌入 Next.js 构建流 |
-| 公共入口 subpath 变更影响已接入的外部 provider | `@cat-cafe/plugin-api/auth` 作为唯一对外稳定面，变更需 review gate；扩展走 optional fields |
+| 公共 re-export 面变更影响已接入的外部 provider | 公共入口（`@clowder/core/auth`）变更需 review gate；扩展走 optional fields |
 
 ## Open Questions
 
@@ -173,7 +174,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | KD-5 | `postLoginInit` 采用”provider 声明、平台触发、失败不回滚认证” | 统一生命周期，同时保留 provider 专属初始化 | 2026-04-08 |
 | KD-6 | Provider 前端走静态资源路径映射，不做运行时 React 组件加载 | 铲屎官指出类比 Java classpath 的方式更稳，且不耦合 Next.js 构建 | 2026-04-08 |
 | KD-7 | Provider package = server module + optional web manifest + static assets | 一个包同时覆盖前后端，安装即完整可用 | 2026-04-08 |
-| KD-8 | `plugin-api` 保持内部 contract 层，不单独发布 npm；内建 provider 不拆包 | 设计收敛：多包是内部实现细节，对外只需一个稳定公共入口 | 2026-04-09 |
+| KD-8 | `plugin-api` 是源码归属层（不发 npm），对外 re-export 到已发布公共包（`@clowder/core/auth`）；内建 provider 不拆包 | 源码组织和发布面分离，避免"内部包又要外部依赖"的矛盾 | 2026-04-09 |
 | KD-9 | 外部 provider 用新 providerId（A-scheme），禁止同名覆盖内建 | 日志/排障更清晰，无优先级歧义，additive-only 模型 | 2026-04-09 |
 
 ## Timeline
@@ -187,6 +188,7 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | 2026-04-08 | Feature doc 重整：新增 Phase D/E/F，覆盖完整产品化目标 |
 | 2026-04-09 | 设计收敛：plugin-api 保持内部、A-scheme providerId、内建不拆包（gpt52 + CVO 确认） |
 | 2026-04-09 | 架构文档 `auth-provider-extension-model.md` 落仓 |
+| 2026-04-10 | 文档修正：源码归属层（plugin-api）与公共发布面（@clowder/core/auth）分离；与 npm-publish-readiness 对齐命名空间 |
 
 ## Review Gate
 

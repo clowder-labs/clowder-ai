@@ -36,8 +36,8 @@ This model does not support:
 
 ## Core Principles
 
-1. **`plugin-api` is the contract layer** — `@cat-cafe/plugin-api` with subpath `./auth` organizes the auth extension interface. It is an internal contract layer, not a separately published npm package.
-2. **One stable public entry** — the runtime may be split into many pnpm packages internally, but external developers depend on exactly one stable import path.
+1. **`plugin-api` is the source-code home for auth contracts** — `packages/plugin-api` organizes the `AuthProvider` interface and related types as an internal monorepo package. It is not independently published to npm.
+2. **One stable public entry** — external developers depend on exactly one published package that re-exports the auth contract. The current candidate is `@clowder/core/auth` (pending namespace migration from `@cat-cafe/*` to `@clowder/*`). Internal package layout is an implementation detail invisible to plugin authors.
 3. **Built-in and external providers coexist** — built-in providers are host-maintained; external providers use new `providerId` values, never override built-in IDs.
 4. **Config selects, never overrides** — `CAT_CAFE_AUTH_PROVIDER` means "activate this provider", not "replace that one".
 5. **Host owns the skeleton** — session, middleware, lifecycle, registry, and active-provider selection are host responsibilities.
@@ -45,15 +45,21 @@ This model does not support:
 
 ## Public Package Boundary
 
-External provider authors depend on the host project's public auth entry:
+There are two distinct layers:
+
+- **Source home** (internal): `packages/plugin-api` — the monorepo package where `AuthProvider` and related types are defined and maintained. Not published to npm independently.
+- **Public entry** (external): a published package that re-exports the auth contract for external consumption. The target is `@clowder/core/auth` (pending the `@cat-cafe/*` → `@clowder/*` namespace migration tracked in `feat/npm-publish-readiness`).
+
+External provider authors will depend on the public entry only:
 
 ```ts
-import type { AuthProvider } from '@cat-cafe/plugin-api/auth';
+// After namespace migration:
+import type { AuthProvider } from '@clowder/core/auth';
 ```
 
-They must not import from internal implementation packages such as `@cat-cafe/api`, `@cat-cafe/web`, `@cat-cafe/shared`, or internal provider source folders.
+They must not import from internal implementation packages such as `@clowder/api`, `@clowder/web`, `@clowder/shared`, or internal provider source folders.
 
-The exact internal package layout is an implementation detail. The public subpath export `@cat-cafe/plugin-api/auth` is the only stable extension surface.
+> **Transition note**: Until the namespace migration lands, the source-level import path is `@cat-cafe/plugin-api/auth`. This is a monorepo-internal path and should not appear in external developer documentation as a stable dependency target.
 
 ## Runtime Model
 
@@ -121,7 +127,7 @@ The host runtime calls `import()` on each module specifier, expecting a default 
 
 An external TypeScript repository integrates with the host in six steps:
 
-1. **Install** the public auth entry: `pnpm add @cat-cafe/plugin-api`
+1. **Install** the public auth entry package (e.g. `pnpm add @clowder/core`)
 2. **Implement** a provider using the `AuthProvider` contract
 3. **Assign** a new `providerId` (never reuse built-in IDs)
 4. **Export** the provider as the package's default export
@@ -135,7 +141,7 @@ import type {
   AuthProvider,
   AuthenticateInput,
   AuthenticateOutcome,
-} from '@cat-cafe/plugin-api/auth';
+} from '@clowder/core/auth';
 
 const acmeLdapProvider: AuthProvider = {
   id: 'acme-ldap',
@@ -198,7 +204,7 @@ A provider integration is considered valid only when all of the following are tr
 - [ ] Backend auth requests execute against that provider
 - [ ] The frontend login experience matches the provider's `presentation`
 - [ ] No built-in `providerId` was reused
-- [ ] No internal monorepo package import is required by the provider author
+- [ ] Provider author depends only on the published public entry, not on internal monorepo packages
 - [ ] `postLoginInit` (if declared) executes after session issuance
 - [ ] Provider failure in `postLoginInit` does not roll back authentication
 
@@ -210,7 +216,7 @@ The following are explicitly disallowed:
 |---|---|
 | Using `X-Cat-Cafe-User` as a credential | Plaintext userId cannot carry auth semantics |
 | Reusing `huawei-iam` or `no-auth` as an external provider ID | Additive model only; no same-ID override |
-| Importing from internal monorepo packages | Only the public entry is stable |
+| Importing from internal monorepo packages (`plugin-api`, `api`, `shared`) | Only the published public entry is stable |
 | Expressing provider replacement via hidden precedence rules | Config means "select", not "override" |
 | Treating TypeScript interface implementation as runtime discovery | Explicit registration is required |
 | Provider building `AuthContext` | Only the platform builds AuthContext from session |
