@@ -42,6 +42,8 @@ interface ConnectorTestResult {
   };
 }
 
+const QR_ONLY_PLATFORM_IDS = new Set(['feishu', 'weixin']);
+
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
     const trimmed = step.trim();
@@ -217,7 +219,7 @@ export function HubConnectorConfigTab() {
     }
   };
 
-  const TESTABLE_PLATFORMS = ['feishu', 'dingtalk', 'xiaoyi'];
+  const TESTABLE_PLATFORMS = ['dingtalk', 'xiaoyi'];
 
   const handleTestConnection = async (platform: PlatformStatus) => {
     if (!TESTABLE_PLATFORMS.includes(platform.id)) {
@@ -326,7 +328,7 @@ export function HubConnectorConfigTab() {
 
             return (
               <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
-                {platform.id === 'weixin' && (
+                {QR_ONLY_PLATFORM_IDS.has(platform.id) && (
                   <div className="space-y-3.5">
                     {platform.steps.map((step, idx) => (
                       <div key={idx} className="space-y-1.5">
@@ -336,7 +338,15 @@ export function HubConnectorConfigTab() {
                         </div>
                         {idx === 0 && (
                           <div className="ml-[26px]">
-                            <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+                            {platform.id === 'feishu' ? (
+                              <FeishuQrPanel
+                                configured={platform.configured}
+                                onConfirmed={() => void fetchStatus()}
+                                onDisconnected={() => void fetchStatus()}
+                              />
+                            ) : (
+                              <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+                            )}
                           </div>
                         )}
                       </div>
@@ -344,7 +354,7 @@ export function HubConnectorConfigTab() {
                   </div>
                 )}
 
-                {platform.id !== 'weixin' && (
+                {!QR_ONLY_PLATFORM_IDS.has(platform.id) && (
                   <div className="space-y-3.5">
                     {guideSteps.map((step, idx) => (
                       <div key={idx} className="space-y-1.5">
@@ -364,15 +374,6 @@ export function HubConnectorConfigTab() {
                               {docsLink.hostname} {'->'} 查看官方文档
                             </span>
                           </a>
-                        )}
-                        {idx === 0 && platform.id === 'feishu' && (
-                          <div className="ml-[26px]">
-                            <FeishuQrPanel
-                              configured={platform.configured}
-                              onConfirmed={() => void fetchStatus()}
-                              onDisconnected={() => void fetchStatus()}
-                            />
-                          </div>
                         )}
                       </div>
                     ))}

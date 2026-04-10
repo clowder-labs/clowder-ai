@@ -26,6 +26,24 @@ vi.mock('@/components/WeixinQrPanel', () => ({
       configured ? 'connected' : 'idle',
     ),
 }));
+vi.mock('@/components/FeishuQrPanel', () => ({
+  FeishuQrPanel: ({
+    configured,
+    onConfirmed,
+  }: {
+    configured: boolean;
+    onConfirmed?: () => void | Promise<void>;
+  }) =>
+    React.createElement(
+      'button',
+      {
+        'data-testid': 'feishu-qr',
+        'data-configured': configured ? 'true' : 'false',
+        onClick: () => void onConfirmed?.(),
+      },
+      configured ? 'connected' : 'idle',
+    ),
+}));
 
 const mockApiFetch = vi.mocked(apiFetch);
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -117,8 +135,8 @@ describe('HubConnectorConfigTab layout', () => {
     const weixinItem = container.querySelector('[data-testid="platform-item-weixin"]');
     expect(slackItem).not.toBeNull();
     expect(weixinItem).not.toBeNull();
-    expect(slackItem?.querySelector('.ui-status-badge.ui-status-badge-unconfigured')).not.toBeNull();
-    expect(weixinItem?.querySelector('.ui-status-badge.ui-status-badge-unconfigured')).not.toBeNull();
+    expect(slackItem?.textContent).toContain('未配置');
+    expect(weixinItem?.textContent).toContain('未配置');
 
     expect(container.querySelector('input[data-testid="field-SLACK_TOKEN"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="weixin-qr"]')).toBeNull();
@@ -163,7 +181,7 @@ describe('HubConnectorConfigTab layout', () => {
     await flushEffects();
 
     const weixinItem = container.querySelector('[data-testid="platform-item-weixin"]');
-    expect(weixinItem?.querySelector('.ui-status-badge.ui-status-badge-unconfigured')).not.toBeNull();
+    expect(weixinItem?.textContent).toContain('未配置');
 
     await act(async () => {
       (container.querySelector('[data-testid="weixin-qr"]') as HTMLButtonElement | null)?.click();
@@ -171,7 +189,6 @@ describe('HubConnectorConfigTab layout', () => {
     await flushEffects();
 
     expect(statusCallCount).toBeGreaterThanOrEqual(2);
-    expect(container.querySelector('[data-testid="platform-item-weixin"] .ui-status-badge.ui-status-badge-configured')).not.toBeNull();
     expect(container.querySelector('[data-testid="platform-item-weixin"]')?.textContent).toContain('已启用');
   });
 
@@ -183,8 +200,8 @@ describe('HubConnectorConfigTab layout', () => {
     expect(businessThemeBlock).toContain('--status-badge-unconfigured-text: var(--text-label-secondary);');
   });
 
-  it('calls the Feishu test endpoint and renders the returned status', async () => {
-    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+  it('renders Feishu as QR-only flow without credential form or test button', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/connector/status') {
         return Promise.resolve(
@@ -196,24 +213,10 @@ describe('HubConnectorConfigTab layout', () => {
                 nameEn: 'Feishu / Lark',
                 configured: false,
                 docsUrl: 'https://open.feishu.cn/document/home',
-                steps: ['创建应用', '填写凭证', '保存配置'],
-                fields: [
-                  { envName: 'FEISHU_APP_ID', label: 'App ID', sensitive: false, currentValue: null },
-                  { envName: 'FEISHU_APP_SECRET', label: 'App Secret', sensitive: true, currentValue: null },
-                ],
+                steps: ['生成二维码', '扫码授权', '自动连接'],
+                fields: [],
               },
             ],
-          }),
-        );
-      }
-      if (url === '/api/connector/test/feishu') {
-        expect(init?.method).toBe('POST');
-        return Promise.resolve(
-          jsonResponse({
-            ok: true,
-            message: '飞书应用认证成功，机器人信息可访问。',
-            warnings: ['当前为 webhook 模式，但未提供 Verification Token；事件订阅仍无法完成。'],
-            bot: { name: 'Clowder Bot' },
           }),
         );
       }
@@ -225,18 +228,57 @@ describe('HubConnectorConfigTab layout', () => {
     });
     await flushEffects();
 
+    expect(container.querySelector('[data-testid="feishu-qr"]')).not.toBeNull();
+    expect(container.querySelector('input[data-testid^="field-FEISHU_"]')).toBeNull();
     const testButton = Array.from(container.querySelectorAll('button')).find((node) => node.textContent?.includes('测试连接'));
-    expect(testButton).not.toBeUndefined();
+    expect(testButton).toBeUndefined();
+    const saveButton = Array.from(container.querySelectorAll('button')).find((node) => node.textContent?.includes('保存配置'));
+    expect(saveButton).toBeUndefined();
+    expect(mockApiFetch).not.toHaveBeenCalledWith(
+      '/api/connector/test/feishu',
+      expect.anything(),
+    );
+  });
+
+  it('refreshes platform status after Feishu QR panel reports configuration success', async () => {
+    let statusCallCount = 0;
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        statusCallCount += 1;
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'feishu',
+                name: '飞书',
+                nameEn: 'Feishu / Lark',
+                configured: statusCallCount > 1,
+                docsUrl: 'https://open.feishu.cn/document/home',
+                steps: ['生成二维码', '扫码授权', '自动连接'],
+                fields: [],
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
 
     await act(async () => {
-      testButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      root.render(React.createElement(HubConnectorConfigTab));
     });
     await flushEffects();
 
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      '/api/connector/test/feishu',
-      expect.objectContaining({ method: 'POST' }),
-    );
-    expect(container.querySelector('[data-testid="save-result"]')?.textContent).toContain('已识别 Clowder Bot');
+    const feishuItem = container.querySelector('[data-testid="platform-item-feishu"]');
+    expect(feishuItem?.textContent).toContain('未配置');
+
+    await act(async () => {
+      (container.querySelector('[data-testid="feishu-qr"]') as HTMLButtonElement | null)?.click();
+    });
+    await flushEffects();
+
+    expect(statusCallCount).toBeGreaterThanOrEqual(2);
+    expect(container.querySelector('[data-testid="platform-item-feishu"]')?.textContent).toContain('已启用');
   });
 });

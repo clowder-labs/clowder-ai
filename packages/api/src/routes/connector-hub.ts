@@ -67,40 +67,18 @@ interface PlatformDef {
   steps: PlatformStepDef[];
 }
 
-export function normalizeFeishuConnectionMode(value: string | undefined): 'webhook' | 'websocket' {
-  return value === 'websocket' ? 'websocket' : 'webhook';
-}
-
 export const CONNECTOR_PLATFORMS: PlatformDef[] = [
   {
     id: 'feishu',
     name: '飞书',
     nameEn: 'Feishu / Lark',
-    fields: [
-      { envName: 'FEISHU_APP_ID', label: 'App ID', sensitive: false },
-      { envName: 'FEISHU_APP_SECRET', label: 'App Secret', sensitive: true },
-      {
-        envName: 'FEISHU_CONNECTION_MODE',
-        label: '连接模式 (webhook/websocket)',
-        sensitive: false,
-        optional: true,
-        defaultValue: 'webhook',
-      },
-      {
-        envName: 'FEISHU_VERIFICATION_TOKEN',
-        label: 'Verification Token',
-        sensitive: true,
-        requiredWhen: { envName: 'FEISHU_CONNECTION_MODE', value: 'webhook' },
-      },
-    ],
+    fields: [],
     docsUrl:
       'https://open.feishu.cn/document/home/introduction-to-custom-app-development/self-built-application-development-process',
     steps: [
-      { text: '在飞书开放平台创建企业自建应用，获取 App ID 和 App Secret' },
-      { text: '选择连接模式：Webhook（需公网 URL）或 WebSocket（无需公网，推荐内网环境）' },
-      { text: '在「事件订阅」中配置请求地址并获取 Verification Token', mode: 'webhook' },
-      { text: '在「事件订阅」中选择「使用长连接接收事件」，无需 Verification Token', mode: 'websocket' },
-      { text: '填写以下配置并保存，连接器会立即热生效' },
+      { text: '点击「生成二维码」按钮' },
+      { text: '使用飞书扫描二维码并确认授权' },
+      { text: '授权成功后自动连接，无需填写凭证或重启服务' },
     ],
   },
   {
@@ -191,16 +169,13 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
     });
 
     let configured: boolean;
-    if (platform.fields.length === 0) {
+    if (platform.id === 'feishu') {
+      configured = Boolean(env.FEISHU_APP_ID && env.FEISHU_APP_SECRET);
+    } else if (platform.fields.length === 0) {
       configured = false;
     } else {
       configured = platform.fields.every((f) => {
         if (f.optional) return true;
-        if (f.requiredWhen) {
-          const rawCondition = env[f.requiredWhen.envName];
-          const conditionValue = normalizeFeishuConnectionMode(rawCondition);
-          if (conditionValue !== f.requiredWhen.value) return true;
-        }
         const raw = env[f.envName];
         return raw != null && raw !== '' && !raw.startsWith('(未设置');
       });
@@ -258,83 +233,6 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     return { platforms: status };
   });
 
-  app.post('/api/connector/test/feishu', async (request, reply) => {
-    const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
-    }
-
-    const body = (request.body ?? {}) as Record<string, unknown>;
-    const readInput = (key: string): string | undefined => {
-      const value = body[key];
-      return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-    };
-    const readEnv = (key: string): string | undefined => {
-      const value = process.env[key];
-      return value && !value.startsWith('(未设置') ? value : undefined;
-    };
-
-    const appId = readInput('FEISHU_APP_ID') ?? readEnv('FEISHU_APP_ID');
-    const appSecret = readInput('FEISHU_APP_SECRET') ?? readEnv('FEISHU_APP_SECRET');
-    const connectionMode = normalizeFeishuConnectionMode(
-      readInput('FEISHU_CONNECTION_MODE') ?? readEnv('FEISHU_CONNECTION_MODE'),
-    );
-    const verificationToken = readInput('FEISHU_VERIFICATION_TOKEN') ?? readEnv('FEISHU_VERIFICATION_TOKEN');
-
-    if (!appId || !appSecret) {
-      reply.status(400);
-      return { ok: false, error: '缺少 FEISHU_APP_ID 或 FEISHU_APP_SECRET' };
-    }
-
-    try {
-      const { FeishuTokenManager } = await import('../infrastructure/connectors/adapters/FeishuTokenManager.js');
-      const tokenManager = new FeishuTokenManager({ appId, appSecret });
-      const tenantAccessToken = await tokenManager.getTenantAccessToken();
-
-      const botInfoRes = await fetch('https://open.feishu.cn/open-apis/bot/v3/info', {
-        headers: { Authorization: `Bearer ${tenantAccessToken}` },
-      });
-      const botInfoData = (await botInfoRes.json().catch(() => ({}))) as {
-        code?: number;
-        msg?: string;
-        bot?: { open_id?: string; name?: string; app_name?: string };
-      };
-
-      if (!botInfoRes.ok || botInfoData.code) {
-        reply.status(502);
-        return {
-          ok: false,
-          error: '获取机器人信息失败，请确认已在飞书开放平台开启机器人能力',
-          details: botInfoData.msg ?? `HTTP ${botInfoRes.status}`,
-        };
-      }
-
-      const warnings: string[] = [];
-      if (connectionMode === 'webhook' && !verificationToken) {
-        warnings.push('当前为 webhook 模式，但未提供 Verification Token；事件订阅仍无法完成。');
-      }
-
-      return {
-        ok: true,
-        message: '飞书应用认证成功，机器人信息可访问。',
-        connectionMode,
-        warnings,
-        bot: {
-          openId: botInfoData.bot?.open_id ?? null,
-          name: botInfoData.bot?.name ?? botInfoData.bot?.app_name ?? null,
-        },
-      };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
-      reply.status(502);
-      return {
-        ok: false,
-        error: '飞书连接测试失败，请检查 App ID / App Secret 是否正确',
-        details: message,
-      };
-    }
-  });
-
   // ── Feishu QR code login routes ──
 
   app.post('/api/connector/feishu/qrcode', async (request, reply) => {
@@ -370,12 +268,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       const updates = [
         { name: 'FEISHU_APP_ID', value: status.appId ?? null },
         { name: 'FEISHU_APP_SECRET', value: status.appSecret ?? null },
+        { name: 'FEISHU_CONNECTION_MODE', value: 'websocket' },
+        { name: 'FEISHU_VERIFICATION_TOKEN', value: null },
       ];
-      const currentMode = process.env.FEISHU_CONNECTION_MODE === 'websocket' ? 'websocket' : 'webhook';
-      const verificationToken = process.env.FEISHU_VERIFICATION_TOKEN;
-      if (currentMode === 'webhook' && (!verificationToken || verificationToken.trim() === '')) {
-        updates.push({ name: 'FEISHU_CONNECTION_MODE', value: 'websocket' });
-      }
       const result = await applyConnectorSecretUpdates(updates, {
         envFilePath: opts.envFilePath,
         reconciler: opts.connectorRuntimeManager,
@@ -396,6 +291,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       [
         { name: 'FEISHU_APP_ID', value: null },
         { name: 'FEISHU_APP_SECRET', value: null },
+        { name: 'FEISHU_CONNECTION_MODE', value: null },
+        { name: 'FEISHU_VERIFICATION_TOKEN', value: null },
+        { name: 'FEISHU_BOT_OPEN_ID', value: null },
       ],
       { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
     );
