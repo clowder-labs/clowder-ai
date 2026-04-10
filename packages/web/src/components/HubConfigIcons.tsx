@@ -109,20 +109,6 @@ export function TriangleAlertIcon() {
   );
 }
 
-/** QR code icon for the "generate QR" button */
-export function QrCodeIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
-      <rect width="6" height="6" x="3" y="3" rx="1" />
-      <rect width="6" height="6" x="15" y="3" rx="1" />
-      <rect width="6" height="6" x="3" y="15" rx="1" />
-      <path d="M15 15h2v2" />
-      <path d="M21 15h-2v6h6v-2" />
-      <path d="M15 21v-2" />
-    </svg>
-  );
-}
-
 /** Spinning loader indicator */
 export function SpinnerIcon() {
   return (

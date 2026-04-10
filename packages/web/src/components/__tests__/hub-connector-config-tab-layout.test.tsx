@@ -281,4 +281,50 @@ describe('HubConnectorConfigTab layout', () => {
     expect(statusCallCount).toBeGreaterThanOrEqual(2);
     expect(container.querySelector('[data-testid="platform-item-feishu"]')?.textContent).toContain('已启用');
   });
+  it('marks connector credential fields with standard anti-autofill attributes', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'dingtalk',
+                name: '閽夐挐',
+                nameEn: 'DingTalk',
+                configured: false,
+                docsUrl: 'https://open.dingtalk.com/',
+                steps: ['鍒涘缓搴旂敤', '濉啓鍑瘉', '淇濆瓨閰嶇疆'],
+                fields: [
+                  { envName: 'DINGTALK_CLIENT_ID', label: 'Client ID', sensitive: false, currentValue: null },
+                  { envName: 'DINGTALK_CLIENT_SECRET', label: 'Client Secret', sensitive: true, currentValue: null },
+                ],
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    const accountInput = container.querySelector('[data-testid="field-DINGTALK_CLIENT_ID"]') as HTMLInputElement | null;
+    const secretInput = container.querySelector(
+      '[data-testid="field-DINGTALK_CLIENT_SECRET"]',
+    ) as HTMLInputElement | null;
+
+    expect(accountInput).not.toBeNull();
+    expect(secretInput).not.toBeNull();
+    expect(accountInput?.getAttribute('autocomplete')).toBe('off');
+    expect(accountInput?.getAttribute('name')).toBe('connector-DINGTALK_CLIENT_ID');
+    expect(accountInput?.getAttribute('data-form-type')).toBe('other');
+    expect(secretInput?.getAttribute('autocomplete')).toBe('new-password');
+    expect(secretInput?.getAttribute('name')).toBe('connector-DINGTALK_CLIENT_SECRET');
+    expect(secretInput?.getAttribute('data-1p-ignore')).toBe('true');
+    expect(secretInput?.getAttribute('data-lpignore')).toBe('true');
+  });
 });
