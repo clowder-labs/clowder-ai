@@ -24,6 +24,8 @@ export interface ConnectorMediaServiceOptions {
   telegramDownloadFn?: (fileId: string) => Promise<Buffer>;
   dingtalkDownloadFn?: (downloadCode: string) => Promise<Buffer>;
   xiaoyiDownloadFn?: (uri: string) => Promise<Buffer>;
+  wecomBotDownloadFn?: (url: string, aesKey?: string) => Promise<Buffer>;
+  wecomAgentDownloadFn?: (mediaId: string) => Promise<Buffer>;
 }
 
 const TYPE_TO_EXT: Record<string, string> = {
@@ -37,12 +39,16 @@ export class ConnectorMediaService {
   private telegramDl: ConnectorMediaServiceOptions['telegramDownloadFn'];
   private dingtalkDl: ConnectorMediaServiceOptions['dingtalkDownloadFn'];
   private xiaoyiDl: ConnectorMediaServiceOptions['xiaoyiDownloadFn'];
+  private wecomBotDl: ConnectorMediaServiceOptions['wecomBotDownloadFn'];
+  private wecomAgentDl: ConnectorMediaServiceOptions['wecomAgentDownloadFn'];
 
   constructor(private readonly opts: ConnectorMediaServiceOptions) {
     this.feishuDl = opts.feishuDownloadFn;
     this.telegramDl = opts.telegramDownloadFn;
     this.dingtalkDl = opts.dingtalkDownloadFn;
     this.xiaoyiDl = opts.xiaoyiDownloadFn;
+    this.wecomBotDl = opts.wecomBotDownloadFn;
+    this.wecomAgentDl = opts.wecomAgentDownloadFn;
   }
 
   setFeishuDownloadFn(fn: ((key: string, type: string, messageId?: string) => Promise<Buffer>) | undefined): void {
@@ -61,6 +67,14 @@ export class ConnectorMediaService {
     this.xiaoyiDl = fn;
   }
 
+  setWeComBotDownloadFn(fn: (url: string, aesKey?: string) => Promise<Buffer>): void {
+    this.wecomBotDl = fn;
+  }
+
+  setWeComAgentDownloadFn(fn: (mediaId: string) => Promise<Buffer>): void {
+    this.wecomAgentDl = fn;
+  }
+
   async download(connectorId: string, attachment: MediaAttachment): Promise<DownloadedMedia> {
     await mkdir(this.opts.mediaDir, { recursive: true });
 
@@ -73,6 +87,11 @@ export class ConnectorMediaService {
       buffer = await this.dingtalkDl(attachment.platformKey);
     } else if (connectorId === 'xiaoyi' && this.xiaoyiDl) {
       buffer = await this.xiaoyiDl(attachment.platformKey);
+    } else if (connectorId === 'wecom-bot' && this.wecomBotDl) {
+      const [url, aesKey] = attachment.platformKey.split('|aeskey=');
+      buffer = await this.wecomBotDl(url, aesKey);
+    } else if (connectorId === 'wecom-agent' && this.wecomAgentDl) {
+      buffer = await this.wecomAgentDl(attachment.platformKey);
     } else {
       throw new Error(`No download function for connector: ${connectorId}`);
     }

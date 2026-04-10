@@ -1287,9 +1287,12 @@ describe('routeSerial: CLI error without text should not persist empty message (
     const errorMsgs = messages.filter((m) => m.type === 'error');
     assert.ok(errorMsgs.length > 0, 'error message should be yielded to frontend');
 
-    // Error should no longer be persisted into assistant text content.
+    // Error-only response: no cat message, error persisted as system message
     const catAppends = appendCalls.filter((c) => c.catId === 'codex');
-    assert.equal(catAppends.length, 0, 'error-only responses should not persist raw error text as message content');
+    assert.equal(catAppends.length, 0, 'error-only should NOT persist as cat message');
+    const sysAppends = appendCalls.filter((c) => c.userId === 'system' && c.catId === null);
+    assert.equal(sysAppends.length, 1, 'error should be persisted as system message');
+    assert.ok(sysAppends[0].content.startsWith('Error:'), 'system error should start with Error: prefix');
 
     // Done should still be yielded
     const doneMsgs = messages.filter((m) => m.type === 'done');
@@ -1333,11 +1336,18 @@ describe('routeSerial: CLI error without text should not persist empty message (
     for await (const _ of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1')) {
     }
 
-    // Partial text should be preserved, but the raw error suffix should not be appended.
+    // Partial text persisted as cat message (clean, no [错误] contamination)
     const catAppends = appendCalls.filter((c) => c.catId === 'codex');
     assert.equal(catAppends.length, 1, 'partial response with text should still be persisted');
-    assert.ok(catAppends[0].content.startsWith('partial output before error'), 'should start with partial text');
-    assert.equal(catAppends[0].content, 'partial output before error');
+    assert.equal(
+      catAppends[0].content,
+      'partial output before error',
+      'cat content should be clean text without error suffix',
+    );
+    // Error persisted separately as system message
+    const sysAppends = appendCalls.filter((c) => c.userId === 'system' && c.catId === null);
+    assert.equal(sysAppends.length, 1, 'error should be persisted as separate system message');
+    assert.ok(sysAppends[0].content.includes('timeout'), 'system error should contain error text');
   });
 });
 
@@ -1347,6 +1357,16 @@ describe('routeSerial: CLI error without text should not persist empty message (
 function createDoneOnlyService(catId) {
   return {
     async *invoke() {
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
+/** Mock service that yields a visible system_info notice but no text */
+function createVisibleNoticeOnlyService(catId, content) {
+  return {
+    async *invoke() {
+      yield { type: 'system_info', catId, content, timestamp: Date.now() };
       yield { type: 'done', catId, timestamp: Date.now() };
     },
   };
@@ -1370,6 +1390,31 @@ describe('routeSerial: done-only (no text, no error)', () => {
 
     const catAppends = appendCalls.filter((c) => c.catId === 'codex');
     assert.equal(catAppends.length, 0, 'done-only cat should not persist a blank message');
+  });
+
+  it('does not append silent_completion when a visible system notice already exists', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const deps = createMockDeps({
+      codex: createVisibleNoticeOnlyService(
+        'codex',
+        '⚠️ Shared-state files committed but not pushed: docs/BACKLOG.md. Please `git push` soon.',
+      ),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1', {
+      thinkingMode: 'play',
+    })) {
+      messages.push(msg);
+    }
+
+    const notices = messages.filter((m) => m.type === 'system_info' && m.content?.includes('Shared-state files'));
+    assert.equal(notices.length, 1, 'visible notice should be forwarded exactly once');
+    assert.equal(
+      messages.some((m) => m.type === 'system_info' && m.content?.includes('completed without textual output')),
+      false,
+      'should not add a duplicate silent_completion after a visible notice',
+    );
   });
 
   it('still yields a final done event when cat is silent', async () => {
@@ -1418,6 +1463,29 @@ describe('routeParallel: done-only (no text, no error)', () => {
     assert.equal(doneMsgs[0].isFinal, true, 'silent parallel single-cat run should mark done as final');
     const catAppends = appendCalls.filter((c) => c.catId === 'codex');
     assert.equal(catAppends.length, 0, 'silent parallel cat should not persist blank content');
+  });
+
+  it('does not append silent_completion when a visible system notice already exists', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+    const deps = createMockDeps({
+      codex: createVisibleNoticeOnlyService(
+        'codex',
+        '⚠️ Shared-state files committed but not pushed: docs/BACKLOG.md. Please `git push` soon.',
+      ),
+    });
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['codex'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const notices = messages.filter((m) => m.type === 'system_info' && m.content?.includes('Shared-state files'));
+    assert.equal(notices.length, 1, 'visible notice should be forwarded exactly once');
+    assert.equal(
+      messages.some((m) => m.type === 'system_info' && m.content?.includes('completed without textual output')),
+      false,
+      'should not add a duplicate silent_completion after a visible notice',
+    );
   });
 });
 

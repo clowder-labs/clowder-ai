@@ -33,6 +33,13 @@ export interface ConnectorGatewayConfig {
   xiaoyiAgentId?: string | undefined;
   xiaoyiWsUrl1?: string | undefined;
   xiaoyiWsUrl2?: string | undefined;
+  wecomBotId?: string | undefined;
+  wecomBotSecret?: string | undefined;
+  wecomCorpId?: string | undefined;
+  wecomAgentId?: string | undefined;
+  wecomAgentSecret?: string | undefined;
+  wecomToken?: string | undefined;
+  wecomEncodingAesKey?: string | undefined;
   coCreatorUserId?: string | undefined;
   whisperUrl?: string | undefined;
   connectorMediaDir?: string | undefined;
@@ -161,6 +168,13 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     xiaoyiAgentId: process.env.XIAOYI_AGENT_ID,
     xiaoyiWsUrl1: process.env.XIAOYI_WS_URL1,
     xiaoyiWsUrl2: process.env.XIAOYI_WS_URL2,
+    wecomBotId: process.env.WECOM_BOT_ID,
+    wecomBotSecret: process.env.WECOM_BOT_SECRET,
+    wecomCorpId: process.env.WECOM_CORP_ID,
+    wecomAgentId: process.env.WECOM_AGENT_ID,
+    wecomAgentSecret: process.env.WECOM_AGENT_SECRET,
+    wecomToken: process.env.WECOM_TOKEN,
+    wecomEncodingAesKey: process.env.WECOM_ENCODING_AES_KEY,
     coCreatorUserId: process.env.DEFAULT_OWNER_USER_ID,
     whisperUrl: process.env.WHISPER_URL,
     connectorMediaDir: process.env.CONNECTOR_MEDIA_DIR,

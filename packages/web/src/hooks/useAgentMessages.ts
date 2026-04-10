@@ -635,25 +635,48 @@ export function useAgentMessages() {
         // transition it to 'completed'/'interrupted'. Wiping it would remove the
         // cat from PlanBoardPanel and defeat clearCatStatuses' snapshot preservation.
         setCatInvocation(msg.catId, { invocationId: undefined });
-        if (msg.isFinal) {
-          clearDoneTimeout();
-          setLoading(false);
-          // F108: Remove specific invocation slot; fall back to cat-scoped lookup.
-          // Steer/force cancel broadcasts done(isFinal) without invocationId — find and
-          // remove only this cat's latest active slot to avoid clearing other cats' slots
-          // during multi-cat concurrent dispatch.
-          if (msg.invocationId) {
+        // Always remove the finishing cat's invocation slot, regardless of isFinal.
+        // isFinal=false means "more cats coming" but THIS cat is done — its slot must go.
+        // Without this, non-final cats (e.g. 缅因猫 in 缅因猫→布偶猫 sequence) leave
+        // orphan slots that keep ThreadExecutionBar showing "执行中" until F5 refresh.
+        if (msg.invocationId) {
+          const slotState = useChatStore.getState();
+          const primarySlot = slotState.activeInvocations[msg.invocationId];
+          if (primarySlot?.catId === msg.catId) {
             removeActiveInvocation(msg.invocationId);
-          } else {
-            const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
-            if (catSlot) {
-              removeActiveInvocation(catSlot);
-            } else {
-              setHasActiveInvocation(false);
-            }
           }
-          setIntentMode(null);
-          clearCatStatuses();
+          removeActiveInvocation(`${msg.invocationId}-${msg.catId}`);
+          // Hydrated synthetic IDs (hydrated-${threadId}-${catId}) won't match the real
+          // invocationId from the server. Only clean up hydrated- prefixed orphans to
+          // avoid accidentally deleting a NEW invocation's slot during same-cat preempt
+          // (where old done arrives after new invocation starts).
+          const stateAfter = useChatStore.getState();
+          const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
+          if (orphan?.startsWith('hydrated-')) {
+            removeActiveInvocation(orphan);
+          }
+        } else {
+          const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
+          if (catSlot) {
+            removeActiveInvocation(catSlot);
+          } else if (Object.keys(useChatStore.getState().activeInvocations ?? {}).length === 0) {
+            // Only reset global flag when no active invocations remain.
+            // Without this guard, a non-final cat with no slot would incorrectly
+            // clear hasActiveInvocation while other cats are still running.
+            setHasActiveInvocation(false);
+          }
+        }
+        if (msg.isFinal) {
+          // F108 P1 fix: Only clear global state when the LAST active invocation ends.
+          // During concurrent multi-cat execution, cancelling one cat must not wipe
+          // the execution state (loading/intentMode/catStatuses) of remaining cats.
+          const remainingInvocations = Object.keys(useChatStore.getState().activeInvocations ?? {}).length;
+          if (remainingInvocations === 0) {
+            clearDoneTimeout();
+            setLoading(false);
+            setIntentMode(null);
+            clearCatStatuses();
+          }
           // Note: do NOT clear replacedInvocationsRef here. The suppression guard
           // is designed to persist until a *different* invocationId is observed
           // (F123 PR #465, symptom-fixture-matrix.md:23). Clearing on done(isFinal)
@@ -1056,6 +1079,12 @@ export function useAgentMessages() {
           // F108: clear this cat's invocation slot on terminal error
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
+            // Same hydrated-only orphan cleanup as the done(isFinal) path above.
+            const stateAfter = useChatStore.getState();
+            const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
+            if (orphan?.startsWith('hydrated-')) {
+              removeActiveInvocation(orphan);
+            }
           } else {
             const catSlot = findLatestActiveInvocationIdForCat(useChatStore.getState().activeInvocations, msg.catId);
             if (catSlot) {
