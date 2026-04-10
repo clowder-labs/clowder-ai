@@ -12,7 +12,7 @@ import { useConfirm } from './useConfirm';
 const ALL_CATEGORY = '全部';
 const UNCATEGORIZED = '其他';
 const ALL_SOURCES = 'all';
-const SKILL_SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
+const SKILL_SEARCH_PLACEHOLDER = '请输入名称或描述搜索';
 const SKILL_SEARCH_ARIA_LABEL = '搜索我的技能';
 const SOURCE_FILTER_ARIA_LABEL = '筛选来源';
 const IMPORT_LABEL = '导入';

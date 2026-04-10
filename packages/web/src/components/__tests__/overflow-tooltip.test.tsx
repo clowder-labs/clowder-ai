@@ -61,6 +61,8 @@ describe('OverflowTooltip', () => {
     const bubble = tooltip?.firstElementChild as HTMLDivElement | null;
     expect(bubble?.className).toContain('bg-white');
     expect(bubble?.className).toContain('shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)]');
+    expect(bubble?.className).toContain('break-all');
+    expect(bubble?.className).not.toContain('break-words');
     expect(tooltip?.querySelector('[data-testid="overflow-tooltip-arrow"]')).not.toBeNull();
   });
 

@@ -67,6 +67,7 @@ export interface StreamingOutboundHookLike {
   onStreamChunk(threadId: string, accumulatedText: string, invocationId: string): Promise<void>;
   onStreamEnd(threadId: string, finalText: string, invocationId: string): Promise<void>;
   cleanupPlaceholders?(threadId: string, invocationId: string): Promise<void>;
+  notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
 /** Thread metadata for outbound delivery (deep link, title, etc.) */
@@ -159,6 +160,18 @@ export class QueueProcessor {
       if (key.startsWith(`${threadId}:`)) {
         if (this.deps.queue.hasQueuedForThread(threadId)) return true;
       }
+    }
+    return false;
+  }
+
+  /** F151: Check if thread has any queued or processing entries (used by delivery-batch-done signal).
+   *  @param excludeSlot — slot key to ignore (the caller's own slot, which hasn't been released yet in finally). */
+  isThreadBusy(threadId: string, excludeSlot?: string): boolean {
+    if (this.deps.queue.hasQueuedForThread(threadId)) return true;
+    const prefix = `${threadId}:`;
+    for (const key of this.processingSlots) {
+      if (key === excludeSlot) continue;
+      if (key.startsWith(prefix)) return true;
     }
     return false;
   }
@@ -280,6 +293,22 @@ export class QueueProcessor {
    */
   async tryAutoExecute(threadId: string): Promise<void> {
     const entries = (this.deps.queue.listAutoExecute?.(threadId) ?? []).sort((a, b) => a.createdAt - b.createdAt);
+    if (entries.length > 0) {
+      const now = Date.now();
+      this.deps.log.info(
+        {
+          threadId,
+          entryCount: entries.length,
+          entries: entries.map((entry) => ({
+            id: entry.id,
+            targetCat: entry.targetCats[0] ?? 'unknown',
+            createdAt: entry.createdAt,
+            ageMs: now - entry.createdAt,
+          })),
+        },
+        '[DIAG/a2a] tryAutoExecute candidate scan',
+      );
+    }
 
     for (const entry of entries) {
       const entryCat = entry.targetCats[0] ?? 'unknown';
@@ -441,13 +470,8 @@ export class QueueProcessor {
         status: 'running',
       });
 
-      // 5. Broadcast invocation state for queued execution.
-      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
-        threadId,
-        mode: intent,
-        targetCats,
-        invocationId,
-      });
+      // 5. intent_mode deferred to first CLI event (#768: avoid "replying" when CLI never starts)
+      let intentModeBroadcast = false;
 
       // 6. Emit queue_updated (processing)
       socketManager.emitToUser(userId, 'queue_updated', {
@@ -560,6 +584,16 @@ export class QueueProcessor {
           ...(resumeCatId ? { resumeCatId } : {}),
         },
       )) {
+        // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+        if (!intentModeBroadcast) {
+          socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+            threadId,
+            mode: intent,
+            targetCats,
+            invocationId,
+          });
+          intentModeBroadcast = true;
+        }
         if (hook && msg.catId === primaryCat && msg.type === 'text' && (msg as { content?: string }).content) {
           responseText += (msg as { content?: string }).content;
         }
@@ -675,6 +709,17 @@ export class QueueProcessor {
       }
       // Chain auto-dequeue is handled by tryExecuteNext* (calls onInvocationComplete
       // AFTER releasing processingThreads mutex to avoid self-blocking).
+
+      // F151: Notify adapters (e.g. XiaoYi) — MUST be after invocationTracker.complete().
+      // excludeSlot: our own processingSlot hasn't been released yet (that happens in the
+      // outer .then() after executeEntry resolves), so exclude it from the busy check.
+      if (this.deps.streamingHook?.notifyDeliveryBatchDone) {
+        const selfSlot = QueueProcessor.slotKey(threadId, primaryCat);
+        const threadStillBusy = invocationTracker.has(threadId) || this.isThreadBusy(threadId, selfSlot);
+        this.deps.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+          log.warn({ err, threadId }, '[QueueProcessor] notifyDeliveryBatchDone failed');
+        });
+      }
     }
   }
 
@@ -834,6 +879,7 @@ export class QueueProcessor {
         log.warn({ err, threadId }, '[QueueProcessor] StreamingHook.cleanupPlaceholders failed (silent)');
       });
     }
+
   }
 
   /** Emit queue_paused to each user who has queued entries for this thread. */

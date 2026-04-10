@@ -122,7 +122,7 @@ vi.mock('@/hooks/useChatSocketCallbacks', () => ({
   useChatSocketCallbacks: () => ({}),
 }));
 vi.mock('@/hooks/useCatData', () => ({
-  useCatData: () => ({ getCatById: vi.fn() }),
+  useCatData: () => ({ cats: [], getCatById: vi.fn() }),
 }));
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
@@ -223,11 +223,13 @@ describe('ChatContainer empty state', () => {
       root.render(React.createElement(ChatContainer, { threadId: 'default' }));
     });
 
-    expect(container.textContent).toContain('OfficeClaw');
+    const logo = container.querySelector('[data-testid="chat-empty-officeclaw-logo"]') as HTMLImageElement | null;
+    expect(logo).not.toBeNull();
+    expect(logo?.getAttribute('src')).toBe('/images/OfficeClaw.svg');
     expect(container.textContent).toContain('\u5236\u5b9a\u76ee\u6807\u81ea\u52a8\u89c4\u5212\u6267\u884c');
     expect(container.textContent).toContain('\u667a\u80fd\u4f53\u914d\u7f6e');
     expect(container.textContent).toContain('\u4e00\u952e\u63a5\u5165 IM');
-    expect(container.textContent).toContain('\u591a\u732b\u7814\u7a76\u6a21\u5f0f');
+    expect(container.textContent).toContain('\u591a\u667a\u80fd\u4f53\u7814\u7a76\u6a21\u5f0f');
     expect(container.textContent).toContain('multi_mention');
     expect(container.querySelector('[data-testid="empty-state-bootcamp"]')).toBeNull();
     expect(container.querySelector('[data-testid="empty-state-bootcamp-list"]')).toBeNull();

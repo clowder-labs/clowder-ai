@@ -7,9 +7,15 @@ export interface PersistedWeixinSession {
   updatedAt: string;
 }
 
+export interface IWeixinSessionStore {
+  load(): PersistedWeixinSession | null;
+  save(botToken: string): void;
+  clear(): void;
+}
+
 const SESSION_FILENAME = 'weixin-session.local.json';
 
-export class WeixinSessionStore {
+export class WeixinSessionStore implements IWeixinSessionStore {
   private readonly filePath: string;
 
   constructor(hostRoot: string) {
@@ -67,4 +73,14 @@ export class WeixinSessionStore {
       throw err;
     }
   }
+}
+
+export class NoopWeixinSessionStore implements IWeixinSessionStore {
+  load(): PersistedWeixinSession | null {
+    return null;
+  }
+
+  save(_botToken: string): void {}
+
+  clear(): void {}
 }

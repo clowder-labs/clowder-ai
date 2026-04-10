@@ -332,6 +332,11 @@ class JiuClawReActAgent(ReActAgent):
         else:
             raise ValueError("Input must be dict with 'query' or str")
         
+        # Token usage accumulator across ReAct iterations
+        total_input_tokens = 0
+        total_output_tokens = 0
+        total_total_tokens = 0
+
         stripped = user_input.strip()
         stripped = EvolutionService.extract_user_content(stripped)
         # Intercept slash commands (skip ReAct reasoning loop to save tokens)
@@ -407,6 +412,12 @@ class JiuClawReActAgent(ReActAgent):
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
                 )
+                # Accumulate token usage
+                if hasattr(ai_message, 'usage_metadata') and ai_message.usage_metadata:
+                    um = ai_message.usage_metadata
+                    total_input_tokens += getattr(um, 'input_tokens', 0) or 0
+                    total_output_tokens += getattr(um, 'output_tokens', 0) or 0
+                    total_total_tokens += getattr(um, 'total_tokens', 0) or 0
                 # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
                     ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
@@ -427,6 +438,12 @@ class JiuClawReActAgent(ReActAgent):
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
                 )
+                # Accumulate token usage (retry path)
+                if hasattr(ai_message, 'usage_metadata') and ai_message.usage_metadata:
+                    um = ai_message.usage_metadata
+                    total_input_tokens += getattr(um, 'input_tokens', 0) or 0
+                    total_output_tokens += getattr(um, 'output_tokens', 0) or 0
+                    total_total_tokens += getattr(um, 'total_tokens', 0) or 0
                 # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
                     ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
@@ -520,15 +537,31 @@ class JiuClawReActAgent(ReActAgent):
                 ):
                     self._pending_auto_evolution_history = list(history_snapshot)
 
+                usage = None
+                if total_input_tokens or total_output_tokens:
+                    usage = {
+                        "input_tokens": total_input_tokens,
+                        "output_tokens": total_output_tokens,
+                        "total_tokens": total_total_tokens,
+                    }
                 return {
                     "output": ai_message.content,
                     "result_type": "answer",
-                    "_streamed": session is not None,  # Mark if content was streamed
+                    "_streamed": session is not None,
+                    "usage": usage,
                 }
 
+        usage = None
+        if total_input_tokens or total_output_tokens:
+            usage = {
+                "input_tokens": total_input_tokens,
+                "output_tokens": total_output_tokens,
+                "total_tokens": total_total_tokens,
+            }
         return {
             "output": "Max iterations reached without completion",
             "result_type": "error",
+            "usage": usage,
         }
 
     async def stream(
@@ -560,6 +593,8 @@ class JiuClawReActAgent(ReActAgent):
             try:
                 self._pending_auto_evolution_history = None
                 final_result = await self.invoke(inputs, session, _pause_event=pause_event)
+                # Extract usage for injection into final OutputSchema
+                _usage = final_result.get("usage") if isinstance(final_result, dict) else None
 
                 if session is not None:
                     # Extract content and check if it was already streamed
@@ -574,19 +609,22 @@ class JiuClawReActAgent(ReActAgent):
 
                     if was_streamed:
                         # Content was already streamed via _call_llm_stream
-                        # Send final answer marker only
+                        # Send final answer marker only (with usage if available)
+                        payload = {
+                            "output": {
+                                "output": "",
+                                "result_type": "answer",
+                                "streamed": True,
+                            },
+                            "result_type": "answer",
+                        }
+                        if _usage:
+                            payload["usage"] = _usage
                         await session.write_stream(
                             OutputSchema(
                                 type="answer",
                                 index=0,
-                                payload={
-                                    "output": {
-                                        "output": "",
-                                        "result_type": "answer",
-                                        "streamed": True,  # Mark that content was already streamed
-                                    },
-                                    "result_type": "answer",
-                                },
+                                payload=payload,
                             )
                         )
                     elif output_content and len(output_content) > ANSWER_CHUNK_SIZE:
@@ -594,21 +632,24 @@ class JiuClawReActAgent(ReActAgent):
                         chunks = _chunk_text(output_content, ANSWER_CHUNK_SIZE)
                         for i, chunk in enumerate(chunks):
                             if i == 0:
-                                # First chunk: send as answer type
+                                # First chunk: send as answer type (with usage)
+                                first_payload = {
+                                    "output": {
+                                        "output": chunk,
+                                        "result_type": "answer",
+                                        "chunked": True,
+                                        "chunk_index": i,
+                                        "total_chunks": len(chunks),
+                                    },
+                                    "result_type": "answer",
+                                }
+                                if _usage:
+                                    first_payload["usage"] = _usage
                                 await session.write_stream(
                                     OutputSchema(
                                         type="answer",
                                         index=0,
-                                        payload={
-                                            "output": {
-                                                "output": chunk,
-                                                "result_type": "answer",
-                                                "chunked": True,
-                                                "chunk_index": i,
-                                                "total_chunks": len(chunks),
-                                            },
-                                            "result_type": "answer",
-                                        },
+                                        payload=first_payload,
                                     )
                                 )
                             else:

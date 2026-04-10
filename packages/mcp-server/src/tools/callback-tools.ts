@@ -75,11 +75,6 @@ export async function callbackGet(path: string, params?: Record<string, string>)
 
 export const postMessageInputSchema = {
   content: z.string().min(1).describe('The message content to post'),
-  threadId: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Optional target thread ID for cross-thread posting. Omit to post in current thread.'),
   replyTo: z.string().optional().describe('Optional message ID to reply to'),
   clientMessageId: z
     .string()
@@ -97,7 +92,6 @@ export const postMessageInputSchema = {
 
 const postMessageRuntimeInputSchema = z.object({
   content: z.string().trim().min(1).max(50000),
-  threadId: z.string().trim().min(1).optional(),
   replyTo: z.string().trim().min(1).optional(),
   clientMessageId: z.string().trim().min(1).max(200).optional(),
   targetCats: z.array(z.string().trim().min(1)).optional(),
@@ -127,13 +121,11 @@ function normalizePostMessageInput(input: {
   content?: unknown;
   message?: unknown;
   text?: unknown;
-  threadId?: unknown;
   replyTo?: unknown;
   clientMessageId?: unknown;
   targetCats?: unknown;
 }): {
   content: unknown;
-  threadId?: unknown;
   replyTo?: unknown;
   clientMessageId?: unknown;
   targetCats?: unknown;
@@ -142,7 +134,6 @@ function normalizePostMessageInput(input: {
   const normalizedContent = typeof rawContent === 'string' ? rawContent.trim() : rawContent;
   return {
     content: normalizedContent,
-    threadId: normalizeOptionalString(input.threadId),
     replyTo: normalizeOptionalString(input.replyTo),
     clientMessageId: normalizeOptionalString(input.clientMessageId),
     targetCats: normalizeTargetCats(input.targetCats),
@@ -269,7 +260,6 @@ export async function handlePostMessage(input: {
   content?: unknown;
   message?: unknown;
   text?: unknown;
-  threadId?: unknown;
   replyTo?: unknown;
   clientMessageId?: unknown;
   targetCats?: unknown;
@@ -288,7 +278,6 @@ export async function handlePostMessage(input: {
     '/api/callbacks/post-message',
     {
       content: validatedInput.content,
-      ...(validatedInput.threadId ? { threadId: validatedInput.threadId } : {}),
       ...(validatedInput.replyTo ? { replyTo: validatedInput.replyTo } : {}),
       clientMessageId: validatedInput.clientMessageId ?? randomUUID(),
       ...(validatedInput.targetCats?.length ? { targetCats: validatedInput.targetCats } : {}),
@@ -296,6 +285,10 @@ export async function handlePostMessage(input: {
     { enableOutbox: true },
   );
 
+  return finalizePostMessageResult(result, validatedInput.content);
+}
+
+function finalizePostMessageResult(result: ToolResult, content: string): ToolResult {
   // Detect stale_ignored: server returned 200 but message was NOT delivered
   // because a newer invocation for the same thread+cat has superseded this one.
   // The CLI must know this so it doesn't assume the message reached the user.
@@ -317,7 +310,7 @@ export async function handlePostMessage(input: {
   // If post-message failed and content contains @mentions,
   // hint that text-based @mention is always available.
   // Only mention credential issues when the error actually looks like auth failure.
-  if (result.isError && /[@＠]/.test(validatedInput.content)) {
+  if (result.isError && /[@＠]/.test(content)) {
     const original = (result.content[0] as { text: string }).text;
     const lower = original.toLowerCase();
     const looksLikeCredentialFailure =
@@ -408,12 +401,19 @@ export async function handleCrossPostMessage(input: {
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
 }): Promise<ToolResult> {
-  return handlePostMessage({
-    threadId: input.threadId,
-    content: input.content,
-    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
-    ...(input.clientMessageId ? { clientMessageId: input.clientMessageId } : {}),
-  });
+  const result = await callbackPost(
+    '/api/callbacks/post-message',
+    {
+      threadId: input.threadId,
+      allowCrossThread: true,
+      content: input.content,
+      ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+      clientMessageId: input.clientMessageId ?? randomUUID(),
+    },
+    { enableOutbox: true },
+  );
+
+  return finalizePostMessageResult(result, input.content);
 }
 
 export async function handleListTasks(input: {
@@ -820,7 +820,7 @@ export const callbackTools = [
   {
     name: 'office_claw_post_message',
     description:
-      'Post a proactive async message to the Clowder AI chat mid-task (e.g. progress updates, sharing results). ' +
+      'Post a proactive async message to the Clowder AI chat mid-task in the CURRENT thread (e.g. progress updates, sharing results). ' +
       'To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires. ' +
       'GOTCHA: This tool uses callback credentials that expire — if it fails with 401, fall back to inline @mention in your response text. ' +
       'GOTCHA: Do NOT use this for routine replies — only for mid-task proactive messages when you need to share something before your response completes.',

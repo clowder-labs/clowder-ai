@@ -109,7 +109,7 @@ export function HubLeaderboardTab() {
 
           {/* Mention Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <SectionCard title="夜猫子">
+            <SectionCard title="智能体">
               <MiniRanked items={data.mentions.nightOwl} unit="次深夜 @" />
             </SectionCard>
             <SectionCard title="话痨">

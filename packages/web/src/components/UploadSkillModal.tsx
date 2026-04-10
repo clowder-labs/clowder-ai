@@ -26,6 +26,14 @@ function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-4 w-4" />;
 }
 
+function RequiredIndicator() {
+  return (
+    <span className="ml-1 text-red-500" aria-hidden="true" data-testid="required-indicator">
+      *
+    </span>
+  );
+}
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) {
     return `${(bytes / (1024 * 1024)).toFixed(bytes % (1024 * 1024) === 0 ? 0 : 1)} MB`;
@@ -202,18 +210,24 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
         </div>
 
         <div className="mb-4">
-          <label className="mb-1 block text-xs font-medium text-gray-600">技能名称</label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            技能名称
+            <RequiredIndicator />
+          </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="my-custom-skill"
+            placeholder="请输入"
             className="ui-input w-full rounded px-3 py-2 text-xs"
           />
         </div>
 
         <div className="mb-4">
-          <label className="mb-1 block text-xs font-medium text-gray-600">选择文件</label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            选择文件
+            <RequiredIndicator />
+          </label>
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

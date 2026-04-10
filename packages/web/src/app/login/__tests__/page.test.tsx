@@ -145,8 +145,26 @@ describe('LoginPage password visibility toggle', () => {
     expect(container.textContent).toContain('欢迎使用 OfficeClaw');
     expect(container.textContent).toContain('专家团思辨模式');
     expect(container.textContent).toContain('登录');
-    expect(container.textContent).not.toContain('鍗');
-    expect(container.textContent).not.toContain('鐧');
+    expect(container.textContent).not.toContain('�');
+  });
+
+  it('renders OfficeClaw logos and centers the welcome heading group', async () => {
+    await act(async () => {
+      root.render(React.createElement(LoginPage));
+    });
+    await flush();
+
+    const heroLogo = container.querySelector('[data-testid="login-hero-officeclaw-logo"]') as HTMLImageElement | null;
+    const welcomeLogo = container.querySelector('[data-testid="login-welcome-officeclaw-logo"]') as HTMLImageElement | null;
+    const welcomeHeading = container.querySelector('[data-testid="login-welcome-heading"]') as HTMLHeadingElement | null;
+
+    expect(heroLogo).not.toBeNull();
+    expect(heroLogo?.getAttribute('src')).toBe('/images/OfficeClaw.svg');
+    expect(welcomeLogo).not.toBeNull();
+    expect(welcomeLogo?.getAttribute('src')).toBe('/images/OfficeClaw.svg');
+    expect(welcomeHeading?.className).toContain('flex');
+    expect(welcomeHeading?.className).toContain('items-center');
+    expect(welcomeHeading?.className).toContain('justify-center');
   });
 
   it('prevents copying and cutting password content', async () => {
@@ -204,8 +222,8 @@ describe('LoginPage password visibility toggle', () => {
 
     expect(container.textContent).toContain('登录失败');
 
-    const switchButton = Array.from(container.querySelectorAll('button')).find(
-      (button) => button.textContent?.trim() === '切换到 IAM',
+    const switchButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('IAM'),
     );
 
     expect(switchButton).toBeDefined();
@@ -214,5 +232,57 @@ describe('LoginPage password visibility toggle', () => {
     await flush();
 
     expect(container.textContent).not.toContain('登录失败');
+  });
+
+  it('clears password, account, tenant, and iam username inputs when switching account type', async () => {
+    await act(async () => {
+      root.render(React.createElement(LoginPage));
+    });
+    await flush();
+
+    const domainInput = container.querySelector('#domainName') as HTMLInputElement | null;
+    const passwordInput = container.querySelector('#password') as HTMLInputElement | null;
+
+    expect(domainInput).not.toBeNull();
+    expect(passwordInput).not.toBeNull();
+
+    await changeInputValue(domainInput!, 'cloud-account');
+    await changeInputValue(passwordInput!, 'secret');
+
+    const switchToIamButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('IAM'),
+    );
+    expect(switchToIamButton).toBeDefined();
+
+    await clickElement(switchToIamButton!);
+    await flush();
+
+    const tenantInput = container.querySelector('#domainName') as HTMLInputElement | null;
+    const iamUserInput = container.querySelector('#userName') as HTMLInputElement | null;
+    const iamPasswordInput = container.querySelector('#password') as HTMLInputElement | null;
+
+    expect(tenantInput?.value).toBe('');
+    expect(iamUserInput?.value).toBe('');
+    expect(iamPasswordInput?.value).toBe('');
+
+    await changeInputValue(tenantInput!, 'tenant-name');
+    await changeInputValue(iamUserInput!, 'iam-user');
+    await changeInputValue(iamPasswordInput!, 'next-secret');
+
+    const switchToHuaweiButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('华为云'),
+    );
+    expect(switchToHuaweiButton).toBeDefined();
+
+    await clickElement(switchToHuaweiButton!);
+    await flush();
+
+    const huaweiAccountInput = container.querySelector('#domainName') as HTMLInputElement | null;
+    const huaweiPasswordInput = container.querySelector('#password') as HTMLInputElement | null;
+    const hiddenIamUserInput = container.querySelector('#userName') as HTMLInputElement | null;
+
+    expect(huaweiAccountInput?.value).toBe('');
+    expect(huaweiPasswordInput?.value).toBe('');
+    expect(hiddenIamUserInput).toBeNull();
   });
 });

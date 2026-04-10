@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 
 interface EventFlowProps {
   events: GameEvent[];
-  /** Map actorId → enriched display name (e.g. "布偶猫(opus)") for chat bubbles */
+  /** Map actorId → enriched display name (e.g. "通用智能体(opus)") for chat bubbles */
   catDisplayNames?: Record<string, string>;
   /** Map seatId → actorId (e.g. "P1" → "opus") for resolving speech events */
   seatToActor?: Record<string, string>;

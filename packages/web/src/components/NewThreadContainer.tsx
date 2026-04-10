@@ -14,6 +14,7 @@ import { ChatEmptyState } from './ChatEmptyState';
 import { ChatInput } from './ChatInput';
 import { DirectoryBrowserModal } from './DirectoryBrowserModal';
 import { ModelsPanel } from './ModelsPanel';
+import { RightContentHeader } from './RightContentHeader';
 import { SkillsPanel } from './SkillsPanel';
 import { ThreadSidebar } from './ThreadSidebar';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -174,6 +175,7 @@ export function NewThreadContainer() {
 
       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full min-w-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+          <RightContentHeader />
           <div className="relative flex-1 overflow-hidden">
             {sidebarMenu !== 'chat' && (
               <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">

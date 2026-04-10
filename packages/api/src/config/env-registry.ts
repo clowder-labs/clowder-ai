@@ -450,6 +450,46 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'cli',
     sensitive: false,
   },
+  {
+    name: 'CAT_CAFE_API_URL',
+    defaultValue: 'http://localhost:3002',
+    description: 'API 服务地址（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_INVOCATION_ID',
+    defaultValue: '(运行时注入)',
+    description: '当前 invocation ID（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_CAT_ID',
+    defaultValue: '(运行时注入)',
+    description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT',
+    defaultValue: '(未设置)',
+    description: '设为 1 跳过 shared state preflight 检查（CI / 调试用）',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
+  {
+    name: 'CAT_CAFE_PREFLIGHT_TIMEOUT_MS',
+    defaultValue: '30000',
+    description: 'Pre-flight 操作（Redis/store 读取）的超时毫秒数，超时后降级到无 session 模式',
+    category: 'cli',
+    sensitive: false,
+    hubVisible: false,
+  },
 
   // --- proxy ---
   {
@@ -549,6 +589,55 @@ export const ENV_VARS: EnvDefinition[] = [
     name: 'XIAOYI_SK',
     defaultValue: '(未设置)',
     description: '小艺 Secret Key',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_BOT_ID',
+    defaultValue: '(未设置 → 不启用智能机器人模式)',
+    description: '企业微信智能机器人 Bot ID（WebSocket 长连接模式）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WECOM_BOT_SECRET',
+    defaultValue: '(未设置)',
+    description: '企业微信智能机器人 Bot Secret',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_CORP_ID',
+    defaultValue: '(未设置 → 不启用自建应用模式)',
+    description: '企业微信企业 ID（自建应用 HTTP 回调模式）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WECOM_AGENT_ID',
+    defaultValue: '(未设置)',
+    description: '企业微信自建应用 AgentId',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WECOM_AGENT_SECRET',
+    defaultValue: '(未设置)',
+    description: '企业微信自建应用 Secret',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_TOKEN',
+    defaultValue: '(未设置)',
+    description: '企业微信回调 Token（HTTP 模式验签）',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_ENCODING_AES_KEY',
+    defaultValue: '(未设置)',
+    description: '企业微信回调 EncodingAESKey（43字符，HTTP 模式解密用）',
     category: 'connector',
     sensitive: true,
   },
@@ -853,9 +942,14 @@ export function isConnectorSensitiveEditable(def: EnvDefinition): boolean {
   return def.category === 'connector' && def.sensitive && def.runtimeEditable !== false;
 }
 
+export function isConnectorEnvVarName(name: string): boolean {
+  return ENV_VARS.some((def) => def.name === name && def.category === 'connector');
+}
+
 export function isEditableEnvVarName(name: string): boolean {
   return ENV_VARS.some(
-    (def) => def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
+    (def) =>
+      def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
   );
 }
 

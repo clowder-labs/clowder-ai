@@ -200,6 +200,25 @@ describe('ConnectorRouter', () => {
     assert.equal(socketManager.broadcasts[0].event, 'connector_message');
   });
 
+  it('emits nested message protocol (threadId + message.{id,type,content,source,timestamp})', async () => {
+    await router.route('feishu', 'chat-123', 'Hi from IM', 'ext-proto-1');
+    const bc = socketManager.broadcasts.find((b) => b.event === 'connector_message');
+    assert.ok(bc, 'should have a connector_message broadcast');
+    const { data } = bc;
+    // Must have nested message — frontend guard: if (!data?.message?.id) return;
+    assert.ok(data.threadId, 'data.threadId must exist');
+    assert.ok(data.message, 'data.message must exist (nested protocol)');
+    assert.ok(data.message.id, 'data.message.id must exist');
+    assert.equal(data.message.type, 'connector');
+    assert.equal(data.message.content, 'Hi from IM');
+    assert.ok(data.message.source, 'data.message.source must exist');
+    assert.equal(data.message.source.connector, 'feishu');
+    assert.equal(typeof data.message.timestamp, 'number');
+    // Must NOT have flat legacy fields
+    assert.equal(data.messageId, undefined, 'legacy messageId must not exist');
+    assert.equal(data.connectorId, undefined, 'legacy connectorId must not exist');
+  });
+
   describe('command interception', () => {
     let commandRouter;
     let adapterSendCalls;
@@ -275,6 +294,36 @@ describe('ConnectorRouter', () => {
       assert.equal(adapterSendCalls.length, 1);
       assert.ok(adapterSendCalls[0].content.includes('Thread created'));
       assert.equal(cmdTrigger.calls.length, 0);
+    });
+
+    it('command exchange broadcasts nested protocol (not legacy flat fields)', async () => {
+      // Pre-route a normal message so a binding + hub thread exist for chat-cmd-proto
+      await commandRouter.route('feishu', 'chat-cmd-proto', 'setup', 'ext-cmd-setup');
+      socketManager.broadcasts.length = 0; // clear setup broadcasts
+
+      await commandRouter.route('feishu', 'chat-cmd-proto', '/where', 'ext-cmd-proto-1');
+      const cmdBroadcasts = socketManager.broadcasts.filter((b) => b.event === 'connector_message');
+      assert.equal(cmdBroadcasts.length, 2, 'should emit command + response');
+
+      // Command message
+      const cmd = cmdBroadcasts[0].data;
+      assert.ok(cmd.message, 'command broadcast must use nested protocol');
+      assert.ok(cmd.message.id, 'command message.id');
+      assert.equal(cmd.message.type, 'connector');
+      assert.equal(cmd.message.content, '/where');
+      assert.equal(cmd.message.source.connector, 'feishu');
+      assert.equal(typeof cmd.message.timestamp, 'number');
+      assert.equal(cmd.messageId, undefined, 'no legacy messageId');
+
+      // Response message
+      const res = cmdBroadcasts[1].data;
+      assert.ok(res.message, 'response broadcast must use nested protocol');
+      assert.ok(res.message.id, 'response message.id');
+      assert.equal(res.message.type, 'connector');
+      assert.equal(res.message.content, 'You are here');
+      assert.equal(res.message.source.connector, 'system-command');
+      assert.ok(res.message.timestamp >= cmd.message.timestamp, 'response timestamp >= command');
+      assert.equal(res.messageId, undefined, 'no legacy messageId');
     });
 
     it('uses sendFormattedReply (MessageEnvelope) when adapter supports it', async () => {

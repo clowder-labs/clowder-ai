@@ -6,6 +6,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { ConnectorRuntimeApplySummary, ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
 
 export interface ConnectorSecretUpdate {
@@ -15,6 +16,7 @@ export interface ConnectorSecretUpdate {
 
 export interface ConnectorSecretUpdaterOptions {
   envFilePath?: string;
+  reconciler?: ConnectorRuntimeReconciler;
 }
 
 function formatEnvFileValue(value: string): string {
@@ -64,7 +66,7 @@ function applyEnvUpdatesToFile(contents: string, updates: Map<string, string | n
 export async function applyConnectorSecretUpdates(
   updates: ConnectorSecretUpdate[],
   opts: ConnectorSecretUpdaterOptions = {},
-): Promise<{ changedKeys: string[] }> {
+): Promise<{ changedKeys: string[]; runtime?: ConnectorRuntimeApplySummary }> {
   const envFilePath = opts.envFilePath ?? resolve(resolveActiveProjectRoot(), '.env');
   const updatesMap = new Map<string, string | null>(updates.map((update) => [update.name, update.value]));
 
@@ -86,5 +88,6 @@ export async function applyConnectorSecretUpdates(
     .filter(([name, value]) => (value ?? '') !== (oldValues.get(name) ?? ''))
     .map(([name]) => name);
 
-  return { changedKeys };
+  const runtime = opts.reconciler && changedKeys.length > 0 ? await opts.reconciler.reconcile(changedKeys) : undefined;
+  return runtime ? { changedKeys, runtime } : { changedKeys };
 }

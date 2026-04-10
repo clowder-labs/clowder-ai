@@ -63,6 +63,7 @@ interface StreamingHookLike {
   onStreamChunk(threadId: string, accumulatedText: string, invocationId?: string): Promise<void>;
   onStreamEnd(threadId: string, finalText: string, invocationId?: string): Promise<void>;
   cleanupPlaceholders?(threadId: string, invocationId?: string): Promise<void>;
+  notifyDeliveryBatchDone?(threadId: string, chainDone: boolean): Promise<void>;
 }
 
 import { normalizeErrorMessage } from '../utils/normalize-error.js';
@@ -673,7 +674,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       });
 
       // ⑤ Background: execute cat invocation via routeExecution
-      void (async () => {
+      (async () => {
         const HEARTBEAT_INTERVAL_MS = 30_000;
         const heartbeatInterval = setInterval(() => {
           opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'heartbeat', {
@@ -693,12 +694,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             status: 'running',
           });
 
-          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
-            threadId: resolvedThreadId,
-            mode: intent.intent,
-            targetCats,
-            invocationId: createResult.invocationId,
-          });
+          // #768: intent_mode deferred to first CLI event (avoid "replying" when CLI never starts)
+          let intentModeBroadcast = false;
 
           // ADR-008 S3: collect cursor boundaries; ack only after succeeded
           const cursorBoundaries = new Map<string, string>();
@@ -754,6 +751,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
               ...(resumeCatId ? { resumeCatId } : {}),
             },
           )) {
+            // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+            if (!intentModeBroadcast) {
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
+                threadId: resolvedThreadId,
+                mode: intent.intent,
+                targetCats,
+                invocationId: createResult.invocationId,
+              });
+              intentModeBroadcast = true;
+            }
             // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
             if (controller?.signal.aborted) break;
             if (msg.type === 'text' && msg.content) {
@@ -996,7 +1003,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             /* best-effort, don't crash background task */
           });
         }
-      })();
+      })().catch((err) => {
+        console.error('[messages] Background processing error:', err);
+      });
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
       // F122 A.1: Try non-preemptive first. Legacy path has no InvocationQueue so it
@@ -1021,7 +1030,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
       reply.send({ status: 'processing', timestamp: Date.now() });
 
-      void (async () => {
+      (async () => {
         const HEARTBEAT_INTERVAL_MS = 30_000;
         const heartbeatInterval = setInterval(() => {
           opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'heartbeat', {
@@ -1031,12 +1040,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
         }, HEARTBEAT_INTERVAL_MS);
 
         try {
-          opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
-            threadId: resolvedThreadId,
-            mode: intent.intent,
-            targetCats,
-            // Legacy path: no invocationId (no InvocationRecord). Frontend falls back gracefully.
-          });
+          // #768: intent_mode deferred to first CLI event (legacy path)
+          let intentModeBroadcast = false;
 
           for await (const msg of router.route(
             userId,
@@ -1046,6 +1051,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             uploadDir,
             controller?.signal,
           )) {
+            // #768: Broadcast intent_mode on first CLI event (legacy path)
+            if (!intentModeBroadcast) {
+              opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'intent_mode', {
+                threadId: resolvedThreadId,
+                mode: intent.intent,
+                targetCats,
+                // Legacy path: no invocationId (no InvocationRecord). Frontend falls back gracefully.
+              });
+              intentModeBroadcast = true;
+            }
             opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
           }
         } catch (err) {
@@ -1064,7 +1079,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           clearInterval(heartbeatInterval);
           opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
         }
-      })();
+      })().catch((err) => {
+        console.error('[messages] Legacy background processing error:', err);
+      });
     }
   });
 
@@ -1410,6 +1427,15 @@ export async function deliverOutboundFromWeb(
           logger.warn({ err, threadId }, '[messages] Late-success placeholder cleanup failed');
         });
       }
+    });
+  }
+
+  // F151: Notify adapters (e.g. XiaoYi) that delivery batch is complete
+  if (opts.streamingHook?.notifyDeliveryBatchDone) {
+    const threadStillBusy =
+      (opts.invocationTracker?.has(threadId) ?? false) || (opts.queueProcessor?.isThreadBusy(threadId) ?? false);
+    await opts.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+      logger.warn({ err, threadId }, '[messages] notifyDeliveryBatchDone failed');
     });
   }
 }

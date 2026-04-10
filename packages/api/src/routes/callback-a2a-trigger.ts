@@ -82,6 +82,12 @@ export async function enqueueA2ATargets(
     const MAX_A2A_DEPTH = 10;
 
     const enqueued: CatId[] = [];
+    const queueDiagnostics: Array<{
+      catId: CatId;
+      outcome: 'enqueued' | 'merged' | 'full';
+      entryId?: string;
+      createdAt?: number;
+    }> = [];
     for (const catId of targetCats) {
       // Guard 1: A2A depth limit — re-check per target to prevent multi-target overflow
       const currentDepth = deps.invocationQueue.countAgentEntriesForThread(threadId);
@@ -106,6 +112,12 @@ export async function enqueueA2ATargets(
         intent: 'execute',
         autoExecute: true,
         callerCatId: callerCatId ?? undefined,
+      });
+      queueDiagnostics.push({
+        catId,
+        outcome: result.outcome,
+        entryId: result.entry?.id,
+        createdAt: result.entry?.createdAt,
       });
       if (result.outcome === 'enqueued' || result.outcome === 'merged') {
         enqueued.push(catId);
@@ -135,6 +147,17 @@ export async function enqueueA2ATargets(
         action: 'enqueued',
       });
     }
+    log.info(
+      {
+        threadId,
+        triggerMessageId,
+        callerCatId,
+        targetCats,
+        queueDiagnostics,
+        enqueued,
+      },
+      '[DIAG/a2a] enqueueA2ATargets queue scan',
+    );
     // Trigger auto-execute for entries whose target slot is free
     await deps.queueProcessor?.tryAutoExecute?.(threadId);
     log.info({ threadId, triggerMessageId, enqueued, targetCats }, '[F122B] A2A callback: enqueued to InvocationQueue');
@@ -330,7 +353,8 @@ export async function triggerA2AInvocation(
         status: 'running',
       });
 
-      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', { threadId, mode: intent.intent, targetCats });
+      // #768: Defer intent_mode broadcast until CLI produces first event.
+      let intentModeBroadcast = false;
 
       // F070: track governance block errorCode for recoverable failure marking
       let governanceErrorCode: string | undefined;
@@ -339,6 +363,16 @@ export async function triggerA2AInvocation(
         ...(controller?.signal ? { signal: controller.signal } : {}),
         parentInvocationId: createResult.invocationId,
       })) {
+        // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+        if (!intentModeBroadcast) {
+          socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+            threadId,
+            mode: intent.intent,
+            targetCats,
+            invocationId: createResult.invocationId,
+          });
+          intentModeBroadcast = true;
+        }
         if (controller?.signal.aborted) break;
         if (msg.type === 'done' && msg.errorCode) {
           governanceErrorCode = msg.errorCode;

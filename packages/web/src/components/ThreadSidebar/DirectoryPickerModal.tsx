@@ -160,7 +160,7 @@ export function DirectoryPickerModal({
   }, [onCancel]);
 
   const [catsExpanded, setCatsExpanded] = useState(false);
-  const catSummary = selectedCats.length > 0 ? `已选 ${selectedCats.length} 只猫` : '';
+  const catSummary = selectedCats.length > 0 ? `已选 ${selectedCats.length}` : '';
 
   return (
     <div
@@ -279,7 +279,7 @@ export function DirectoryPickerModal({
             onClick={() => setCatsExpanded((v) => !v)}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors ml-auto"
           >
-            <span>{catsExpanded ? '收起猫猫' : '选猫猫'}</span>
+            <span>{catsExpanded ? '收起' : '选择'}</span>
             {catSummary && <span className="text-cocreator-primary">({catSummary})</span>}
             <svg
               aria-hidden="true"

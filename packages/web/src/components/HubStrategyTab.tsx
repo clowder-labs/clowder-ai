@@ -47,7 +47,7 @@ export function HubStrategyTab() {
   return (
     <Section title="Session 策略配置 (F33)">
       <p className="text-[11px] text-gray-500 mb-3">
-        每个 Variant 猫可以独立配置 session 生命周期策略。修改后立即生效，存储在 Redis 中。
+        每个 Variant 智能体可以独立配置 session 生命周期策略。修改后立即生效，存储在 Redis 中。
       </p>
       <div className="space-y-3">
         {cats.map((entry) => (

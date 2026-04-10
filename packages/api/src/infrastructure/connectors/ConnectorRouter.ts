@@ -25,6 +25,23 @@ import type { InboundMessageDedup } from './InboundMessageDedup.js';
 import { parseMentions } from './mention-parser.js';
 import type { IOutboundAdapter } from './OutboundDeliveryHook.js';
 
+function emitConnectorMessage(
+  socketManager: { broadcastToRoom(room: string, event: string, data: unknown): void } | null | undefined,
+  threadId: string,
+  msg: { id: string; content: string; source: ConnectorSource; timestamp: number },
+): void {
+  socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+    threadId,
+    message: {
+      id: msg.id,
+      type: 'connector' as const,
+      content: msg.content,
+      source: msg.source,
+      timestamp: msg.timestamp,
+    },
+  });
+}
+
 export type RouteResult =
   | { kind: 'routed'; threadId: string; messageId: string }
   | { kind: 'skipped'; reason: string }
@@ -197,6 +214,10 @@ export class ConnectorRouter {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
             await adapter.sendReply(externalChatId, '🔒 此群未授权使用 bot。请联系管理员使用 /allow-group 授权。');
+            // F151: close XiaoYi task immediately — no agent invocation will follow
+            if (adapter.onDeliveryBatchDone) {
+              await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+            }
           }
           log.info({ connectorId, externalChatId }, '[ConnectorRouter] Group not in whitelist, skipped');
           return { kind: 'skipped', reason: 'group_not_allowed' };
@@ -214,6 +235,10 @@ export class ConnectorRouter {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
             await adapter.sendReply(externalChatId, '🔒 此命令仅管理员可用。');
+            // F151: close XiaoYi task immediately — no agent invocation will follow
+            if (adapter.onDeliveryBatchDone) {
+              await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+            }
           }
           log.info({ connectorId, senderId: sender.id }, '[ConnectorRouter] Non-admin command in group, blocked');
           return { kind: 'skipped', reason: 'command_admin_only' };
@@ -234,6 +259,10 @@ export class ConnectorRouter {
             await adapter.sendFormattedReply(externalChatId, envelope);
           } else {
             await adapter.sendReply(externalChatId, cmdResult.response);
+          }
+          // F151: close XiaoYi task — command response is the final output
+          if (adapter.onDeliveryBatchDone) {
+            await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
           }
         }
         // ISSUE-8 (8A): Store command exchange in Hub thread, not conversation thread
@@ -267,15 +296,11 @@ export class ConnectorRouter {
             mentions: [targetCatId],
             timestamp: fwdTimestamp,
           });
-          socketManager?.broadcastToRoom(`thread:${fwdThreadId}`, 'connector_message', {
-            threadId: fwdThreadId,
-            message: {
-              id: fwdStored.id,
-              type: 'connector',
-              content: fwdText,
-              source: fwdSource,
-              timestamp: fwdTimestamp,
-            },
+          emitConnectorMessage(socketManager, fwdThreadId, {
+            id: fwdStored.id,
+            content: fwdText,
+            source: fwdSource,
+            timestamp: fwdTimestamp,
           });
           invokeTrigger.trigger(fwdThreadId, targetCatId, this.resolveOwnerUserId(), fwdText, fwdStored.id);
           log.info({ connectorId, threadId: fwdThreadId }, '[ConnectorRouter] /thread message forwarded');
@@ -355,15 +380,11 @@ export class ConnectorRouter {
     });
 
     // 4. Broadcast to WebSocket
-    socketManager?.broadcastToRoom(`thread:${binding.threadId}`, 'connector_message', {
-      threadId: binding.threadId,
-      message: {
-        id: stored.id,
-        type: 'connector',
-        content: resolvedText,
-        source,
-        timestamp: messageTimestamp,
-      },
+    emitConnectorMessage(socketManager, binding.threadId, {
+      id: stored.id,
+      content: resolvedText,
+      source,
+      timestamp: messageTimestamp,
     });
 
     // 5. Trigger cat invocation (use parsed targetCatId)
@@ -525,25 +546,17 @@ export class ConnectorRouter {
     });
 
     // Broadcast both
-    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId,
-      message: {
-        id: cmdMsg.id,
-        type: 'connector',
-        content: commandText,
-        source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? 'message' },
-        timestamp: commandTimestamp,
-      },
+    emitConnectorMessage(socketManager, threadId, {
+      id: cmdMsg.id,
+      content: commandText,
+      source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? 'message' },
+      timestamp: commandTimestamp,
     });
-    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId,
-      message: {
-        id: resMsg.id,
-        type: 'connector',
-        content: responseText,
-        source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },
-        timestamp: responseTimestamp,
-      },
+    emitConnectorMessage(socketManager, threadId, {
+      id: resMsg.id,
+      content: responseText,
+      source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },
+      timestamp: responseTimestamp,
     });
 
     // G+: Update lastCommandAt on the Hub thread for audit visibility

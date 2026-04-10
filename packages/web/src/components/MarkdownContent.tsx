@@ -54,12 +54,14 @@ function renderQuickActionToken(label: string, key: string): ReactNode {
   );
 }
 
+const SKILL_PHRASE_RE = /(使用\s+)([^\n，。！？,.!?]{1,60}?)(\s+技能)/g;
+
 function appendTextWithSkillPhrase(parts: ReactNode[], text: string, keyPrefix: string): void {
   if (!text) return;
-  const phraseRe = /(使用\s+)([^\n，。！？,.!?]{1,60}?)(\s+技能)/g;
   let lastIdx = 0;
   let m: RegExpExecArray | null;
-  while ((m = phraseRe.exec(text)) !== null) {
+  SKILL_PHRASE_RE.lastIndex = 0;
+  while ((m = SKILL_PHRASE_RE.exec(text)) !== null) {
     if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
     const full = m[0];
     const skillName = (m[2] ?? '').trim();
@@ -75,12 +77,8 @@ function appendTextWithSkillPhrase(parts: ReactNode[], text: string, keyPrefix: 
 
 function appendTextWithSkills(parts: ReactNode[], text: string, keyPrefix: string, skillNames: string[]): void {
   if (!text) return;
-  if (skillNames.length === 0) {
-    appendTextWithSkillPhrase(parts, text, keyPrefix);
-    return;
-  }
 
-  const sortedSkills = [...skillNames].sort((a, b) => b.length - a.length);
+  const normalizedSkillNames = new Set(skillNames.map((name) => name.trim().toLowerCase()).filter(Boolean));
   let cursor = 0;
   let plainStart = 0;
 
@@ -90,7 +88,7 @@ function appendTextWithSkills(parts: ReactNode[], text: string, keyPrefix: strin
     if (phraseMatch) {
       const full = phraseMatch[0] ?? '';
       const skillName = (phraseMatch[2] ?? '').trim();
-      if (skillName) {
+      if (skillName && normalizedSkillNames.has(skillName.toLowerCase())) {
         if (cursor > plainStart) parts.push(text.slice(plainStart, cursor));
         parts.push(renderSkillToken(skillName, `${keyPrefix}-phrase-${cursor}`));
         cursor += full.length;
@@ -119,27 +117,7 @@ function appendTextWithSkills(parts: ReactNode[], text: string, keyPrefix: strin
       continue;
     }
 
-    let matchedSkill: string | null = null;
-    for (const skillName of sortedSkills) {
-      if (!skillName) continue;
-      if (!text.startsWith(skillName, cursor)) continue;
-      const prev = cursor > 0 ? text[cursor - 1] : ' ';
-      const next = cursor + skillName.length < text.length ? text[cursor + skillName.length] : ' ';
-      if (/\s/.test(prev) && /\s/.test(next)) {
-        matchedSkill = skillName;
-        break;
-      }
-    }
-
-    if (!matchedSkill) {
-      cursor += 1;
-      continue;
-    }
-
-    if (cursor > plainStart) parts.push(text.slice(plainStart, cursor));
-    parts.push(renderSkillToken(matchedSkill, `${keyPrefix}-s${cursor}`));
-    cursor += matchedSkill.length;
-    plainStart = cursor;
+    cursor += 1;
   }
 
   if (plainStart < text.length) parts.push(text.slice(plainStart));
@@ -427,7 +405,7 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
   return (
     <div
       className={`markdown-content font-sans break-words ${className ?? ''}`}
-      style={{ fontFamily: 'Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif' }}
+      style={{ fontFamily: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif' }}
     >
       {cmdMatch && <span className="text-indigo-500">{cmdMatch[1]}</span>}
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>
@@ -465,4 +443,3 @@ function createWorkspaceLinkComponent(basePath: string, skillNames: string[]): C
     );
   };
 }
-

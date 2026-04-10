@@ -176,7 +176,7 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
       <button
         onClick={toggle}
         className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
-        title={isDebug ? '切换到游戏模式（猫猫互相看不到心里话）' : '切换到调试模式（猫猫互相分享心里话）'}
+        title={isDebug ? '切换到游戏模式（互相看不到心里话）' : '切换到调试模式（互相分享心里话）'}
       >
         {isDebug ? '切换游戏' : '切换调试'}
       </button>
@@ -414,7 +414,7 @@ export function RightStatusPanel({
       {/* ── Active cats: currently working ──────────────── */}
       <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold text-gray-700">{activeCats.length > 0 ? '当前调用' : '猫猫状态'}</h3>
+          <h3 className="text-xs font-semibold text-gray-700">{activeCats.length > 0 ? '当前调用' : '状态'}</h3>
           <button
             onClick={() => openHub()}
             className="text-base text-gray-400 hover:text-blue-600 hover:rotate-45 transition-all duration-200"
@@ -497,7 +497,7 @@ export function RightStatusPanel({
         <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
           <div>总数</div>
           <div className="text-right font-medium">{messageSummary.total}</div>
-          <div>猫猫消息</div>
+          <div>消息</div>
           <div className="text-right font-medium">{messageSummary.assistant}</div>
           <div>系统消息</div>
           <div className="text-right font-medium">{messageSummary.system}</div>

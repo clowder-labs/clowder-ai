@@ -72,4 +72,27 @@ describe('ChatInput folder tooltip', () => {
     expect(tooltip?.textContent).toContain('D:/workspace/projects/very-long-folder-name-for-tooltip');
     expect(tooltip?.querySelector('[data-testid="overflow-tooltip-arrow"]')).not.toBeNull();
   });
+
+  it('shows the unified overflow tooltip for the attach images button', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(ChatInput, {
+          onSend: vi.fn(),
+        }),
+      );
+    });
+
+    const button = container.querySelector('button[aria-label="Attach images"]') as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const tooltip = document.body.querySelector('[role="tooltip"]') as HTMLDivElement | null;
+    expect(tooltip).not.toBeNull();
+    expect(tooltip?.textContent).toContain('上传文件');
+    expect(tooltip?.querySelector('[data-testid="overflow-tooltip-arrow"]')).not.toBeNull();
+  });
 });

@@ -14,6 +14,7 @@ import { delimiter, dirname, extname, isAbsolute, join, resolve } from 'node:pat
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
@@ -155,7 +156,8 @@ function summarizeEnvForLog(env: Record<string, string | null>): Record<string, 
       continue;
     }
     if (/key|secret|token|password|authorization/i.test(key)) {
-      summary[key] = value.length > 8 ? `${value.slice(0, 6)}***(${value.length})` : `${value[0] ?? ''}***(${value.length})`;
+      summary[key] =
+        value.length > 8 ? `${value.slice(0, 6)}***(${value.length})` : `${value[0] ?? ''}***(${value.length})`;
       continue;
     }
     summary[key] = value.length > 160 ? `${value.slice(0, 160)}...(truncated)` : value;
@@ -220,6 +222,8 @@ function buildClaudeStyleDareServers(data: JsonObject): JsonObject[] | null {
   }
   return servers;
 }
+
+const log = createModuleLogger('dare-agent');
 
 interface DareAgentServiceOptions {
   catId?: CatId;
@@ -561,7 +565,9 @@ export class DareAgentService implements AgentService {
 
     const launchSpec = configuredLaunchSpec ?? buildModuleLaunchSpec(this.darePath);
     const endpoint = this.resolveEndpoint(options?.callbackEnv, effectiveAdapter);
-    const mcpPathForDare = options?.callbackEnv ? await this.resolveMcpPathForDare(options?.workingDirectory) : undefined;
+    const mcpPathForDare = options?.callbackEnv
+      ? await this.resolveMcpPathForDare(options?.workingDirectory)
+      : undefined;
     const args = this.buildArgs(prompt, {
       argsPrefix: launchSpec.argsPrefix,
       adapter: effectiveAdapter,
@@ -583,39 +589,31 @@ export class DareAgentService implements AgentService {
     let sessionInitEmitted = false;
 
     const cliMcpPath = extractArgValue(args, '--mcp-path');
-    emitDareDiagnostic(
-      'info',
-      'Invoking DARE CLI',
-      {
-        catId: this.catId,
-        invocationId: options?.invocationId ?? null,
-        workspace: options?.workingDirectory ?? null,
-        adapter: effectiveAdapter ?? null,
-        model: cliModel ?? null,
-        endpoint: endpoint ?? null,
-        configuredMcpServerPath: this.mcpServerPath ?? null,
-        resolvedMcpPathForDare: mcpPathForDare ?? null,
-        cliMcpPath: cliMcpPath ?? null,
-        launch: {
-          command: launchSpec.command,
-          runtimeMode: launchSpec.runtimeMode,
-          cwd: launchSpec.cwd ?? null,
-          argsPrefix: launchSpec.argsPrefix,
-        },
-        hasCallbackEnv: Boolean(options?.callbackEnv),
-        callbackEnvKeys: options?.callbackEnv ? Object.keys(options.callbackEnv).sort() : [],
+    emitDareDiagnostic('info', 'Invoking DARE CLI', {
+      catId: this.catId,
+      invocationId: options?.invocationId ?? null,
+      workspace: options?.workingDirectory ?? null,
+      adapter: effectiveAdapter ?? null,
+      model: cliModel ?? null,
+      endpoint: endpoint ?? null,
+      configuredMcpServerPath: this.mcpServerPath ?? null,
+      resolvedMcpPathForDare: mcpPathForDare ?? null,
+      cliMcpPath: cliMcpPath ?? null,
+      launch: {
+        command: launchSpec.command,
+        runtimeMode: launchSpec.runtimeMode,
+        cwd: launchSpec.cwd ?? null,
+        argsPrefix: launchSpec.argsPrefix,
       },
-    );
-    emitDareDiagnostic(
-      'debug',
-      'DARE CLI args and env summary',
-      {
-        catId: this.catId,
-        invocationId: options?.invocationId ?? null,
-        args: sanitizeArgsForLog(args),
-        envOverrides: summarizeEnvForLog(childEnv),
-      },
-    );
+      hasCallbackEnv: Boolean(options?.callbackEnv),
+      callbackEnvKeys: options?.callbackEnv ? Object.keys(options.callbackEnv).sort() : [],
+    });
+    emitDareDiagnostic('debug', 'DARE CLI args and env summary', {
+      catId: this.catId,
+      invocationId: options?.invocationId ?? null,
+      args: sanitizeArgsForLog(args),
+      envOverrides: summarizeEnvForLog(childEnv),
+    });
 
     try {
       const cliOpts = {
@@ -653,7 +651,7 @@ export class DareAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `DARE CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `DARE CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
@@ -661,6 +659,16 @@ export class DareAgentService implements AgentService {
         }
 
         if (isLivenessWarning(event)) {
+          const warningEvent = event as { level?: string; silenceDurationMs?: number };
+          log.warn(
+            {
+              catId: this.catId,
+              invocationId: options?.invocationId,
+              level: warningEvent.level,
+              silenceMs: warningEvent.silenceDurationMs,
+            },
+            '[DareAgent] liveness warning — CLI may be stuck',
+          );
           yield {
             type: 'system_info' as const,
             catId: this.catId,

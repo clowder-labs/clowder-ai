@@ -296,7 +296,8 @@ export class ConnectorInvokeTrigger {
       // ③ Set status running + broadcast intent
       await invocationRecordStore.update(createResult.invocationId, { status: 'running' });
 
-      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', { threadId, mode: 'execute', targetCats });
+      // #768: Defer intent_mode broadcast until CLI produces first event.
+      let intentModeBroadcast = false;
 
       // ④ Run routeExecution and broadcast each agent message
       const cursorBoundaries = new Map<string, string>();
@@ -337,6 +338,16 @@ export class ConnectorInvokeTrigger {
         persistenceContext,
         parentInvocationId: createResult.invocationId,
       })) {
+        // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+        if (!intentModeBroadcast) {
+          socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+            threadId,
+            mode: 'execute',
+            targetCats,
+            invocationId: createResult.invocationId,
+          });
+          intentModeBroadcast = true;
+        }
         // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
         if (controller?.signal.aborted) break;
         if (msg.type === 'done' && msg.catId) {
@@ -636,6 +647,7 @@ export class ConnectorInvokeTrigger {
             log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.cleanupPlaceholders failed (silent)');
           });
         }
+
       }
 
       log.info(
@@ -673,6 +685,16 @@ export class ConnectorInvokeTrigger {
       this.opts.queueProcessor?.onInvocationComplete(threadId, catId, finalStatus).catch(() => {
         /* best-effort, don't crash background task */
       });
+      // F151: Notify adapters (e.g. XiaoYi) — MUST be after invocationTracker.complete()
+      // so threadStillBusy correctly excludes the just-finished invocation.
+      // Covers success, failure, and cancellation paths via finally.
+      if (this.opts.streamingHook?.notifyDeliveryBatchDone) {
+        const threadStillBusy =
+          invocationTracker.has(threadId) || (this.opts.queueProcessor?.isThreadBusy(threadId) ?? false);
+        this.opts.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+          log.warn({ err, threadId }, '[ConnectorInvokeTrigger] notifyDeliveryBatchDone failed');
+        });
+      }
     }
   }
 }
