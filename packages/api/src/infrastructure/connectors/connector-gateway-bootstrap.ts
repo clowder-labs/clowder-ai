@@ -21,6 +21,8 @@ import { DingTalkAdapter } from './adapters/DingTalkAdapter.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
+import { WeComAgentAdapter } from './adapters/WeComAgentAdapter.js';
+import { WeComBotAdapter } from './adapters/WeComBotAdapter.js';
 import { WeixinAdapter } from './adapters/WeixinAdapter.js';
 import { XiaoyiAdapter } from './adapters/XiaoyiAdapter.js';
 import { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
@@ -62,6 +64,13 @@ export interface ConnectorGatewayConfig {
   xiaoyiAgentId?: string | undefined;
   xiaoyiWsUrl1?: string | undefined;
   xiaoyiWsUrl2?: string | undefined;
+  wecomBotId?: string | undefined;
+  wecomBotSecret?: string | undefined;
+  wecomCorpId?: string | undefined;
+  wecomAgentId?: string | undefined;
+  wecomAgentSecret?: string | undefined;
+  wecomToken?: string | undefined;
+  wecomEncodingAesKey?: string | undefined;
   /** Override co-creator userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
   coCreatorUserId?: string | undefined;
   whisperUrl?: string | undefined;
@@ -189,6 +198,13 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     xiaoyiAgentId: process.env.XIAOYI_AGENT_ID,
     xiaoyiWsUrl1: process.env.XIAOYI_WS_URL1,
     xiaoyiWsUrl2: process.env.XIAOYI_WS_URL2,
+    wecomBotId: process.env.WECOM_BOT_ID,
+    wecomBotSecret: process.env.WECOM_BOT_SECRET,
+    wecomCorpId: process.env.WECOM_CORP_ID,
+    wecomAgentId: process.env.WECOM_AGENT_ID,
+    wecomAgentSecret: process.env.WECOM_AGENT_SECRET,
+    wecomToken: process.env.WECOM_TOKEN,
+    wecomEncodingAesKey: process.env.WECOM_ENCODING_AES_KEY,
     coCreatorUserId: process.env.DEFAULT_OWNER_USER_ID,
     whisperUrl: process.env.WHISPER_URL,
     connectorMediaDir: process.env.CONNECTOR_MEDIA_DIR,
@@ -213,8 +229,16 @@ export async function startConnectorGateway(
   const hasDingTalk = Boolean(config.dingtalkAppKey && config.dingtalkAppSecret);
   const hasWeixin = Boolean(effectiveWeixinBotToken);
   const hasXiaoyi = Boolean(config.xiaoyiAk && config.xiaoyiSk && config.xiaoyiAgentId);
+  const hasWeComBot = Boolean(config.wecomBotId && config.wecomBotSecret);
+  const hasWeComAgent = Boolean(
+    config.wecomCorpId &&
+      config.wecomAgentId &&
+      config.wecomAgentSecret &&
+      config.wecomToken &&
+      config.wecomEncodingAesKey,
+  );
 
-  if (!hasTelegram && !hasFeishu && !hasDingTalk && !hasWeixin && !hasXiaoyi) {
+  if (!hasTelegram && !hasFeishu && !hasDingTalk && !hasWeixin && !hasXiaoyi && !hasWeComBot && !hasWeComAgent) {
     log.info('[ConnectorGateway] No pre-configured connectors — gateway created for WeChat QR login support');
   }
 
@@ -627,6 +651,130 @@ export async function startConnectorGateway(
 
     stopFns.push(async () => xiaoyi.stopConnection());
     log.info('[ConnectorGateway] XiaoYi adapter started (WebSocket A2A)');
+  }
+
+  // ── WeCom Bot (WebSocket mode via @wecom/aibot-node-sdk) ──
+  if (hasWeComBot) {
+    const wecomBot = new WeComBotAdapter(log, {
+      botId: config.wecomBotId!,
+      secret: config.wecomBotSecret!,
+      redis: deps.redis,
+    });
+    adapters.set('wecom-bot', wecomBot);
+
+    await wecomBot.hydrateGroupChatIds();
+
+    mediaService.setWeComBotDownloadFn(async (url: string, aesKey?: string) => {
+      const { buffer } = await wecomBot.downloadMedia(url, aesKey);
+      return buffer;
+    });
+
+    await wecomBot.startStream(async (msg) => {
+      const attachments = msg.attachments
+        ?.filter((a) => a.url)
+        .map((a) => ({
+          type: (a.type === 'voice' ? 'audio' : a.type) as 'image' | 'file' | 'audio',
+          platformKey: `${a.url}${a.aesKey ? `|aeskey=${a.aesKey}` : ''}`,
+          ...(a.fileName ? { fileName: a.fileName } : {}),
+        }));
+
+      if (msg.chatType === 'group') {
+        wecomBot.registerGroupChatId(msg.chatId);
+      }
+
+      await connectorRouter.route(
+        'wecom-bot',
+        msg.chatId,
+        msg.text,
+        msg.messageId,
+        attachments,
+        msg.chatType === 'group' && msg.senderId !== 'unknown' ? { id: msg.senderId } : undefined,
+        msg.chatType,
+      );
+    });
+
+    stopFns.push(async () => wecomBot.stopStream());
+
+    log.info('[ConnectorGateway] WeCom Bot adapter started (WebSocket mode)');
+  }
+
+  // ── WeCom Agent (HTTP callback via webhook) ──
+  if (hasWeComAgent) {
+    const wecomAgent = new WeComAgentAdapter(log, {
+      corpId: config.wecomCorpId!,
+      agentId: config.wecomAgentId!,
+      agentSecret: config.wecomAgentSecret!,
+      token: config.wecomToken!,
+      encodingAesKey: config.wecomEncodingAesKey!,
+    });
+    adapters.set('wecom-agent', wecomAgent);
+
+    mediaService.setWeComAgentDownloadFn(async (mediaId: string) => {
+      return wecomAgent.downloadMedia(mediaId);
+    });
+
+    webhookHandlers.set('wecom-agent', {
+      connectorId: 'wecom-agent',
+      async handleWebhook(body, headers, _rawBody, query): Promise<WebhookHandleResult> {
+        const q = (query ?? {}) as Record<string, string>;
+        const msgSig = q.msg_signature ?? '';
+        const timestamp = q.timestamp ?? '';
+        const nonce = q.nonce ?? '';
+        const echostr = q.echostr;
+
+        if (echostr) {
+          const plainEcho = wecomAgent.verifyCallback({
+            msg_signature: msgSig,
+            timestamp,
+            nonce,
+            echostr,
+          });
+          if (plainEcho !== null) {
+            return { kind: 'challenge', response: plainEcho };
+          }
+          return { kind: 'error', status: 403, message: 'echostr verification failed' };
+        }
+
+        const rawBody = typeof body === 'string' ? body : JSON.stringify(body);
+        const decryptedXml = wecomAgent.decryptInbound(rawBody, {
+          msg_signature: msgSig,
+          timestamp,
+          nonce,
+        });
+        if (!decryptedXml) {
+          return { kind: 'error', status: 403, message: 'Signature verification or decryption failed' };
+        }
+
+        const parsed = wecomAgent.parseEvent(decryptedXml);
+        if (!parsed) {
+          return { kind: 'skipped', reason: 'unsupported_event' };
+        }
+
+        const attachments = parsed.attachments?.map((a) => ({
+          type: (a.type === 'video' ? 'file' : a.type === 'audio' ? 'audio' : a.type) as 'image' | 'file' | 'audio',
+          platformKey: a.mediaId,
+          ...(a.fileName ? { fileName: a.fileName } : {}),
+        }));
+
+        const result = await connectorRouter.route(
+          'wecom-agent',
+          parsed.chatId,
+          parsed.text,
+          parsed.messageId,
+          attachments,
+        );
+
+        if (result.kind === 'skipped') {
+          return { kind: 'skipped', reason: result.reason };
+        }
+        if (result.kind === 'command') {
+          return { kind: 'processed', messageId: 'command' };
+        }
+        return { kind: 'processed', messageId: result.messageId };
+      },
+    });
+
+    log.info('[ConnectorGateway] WeCom Agent adapter registered (webhook mode)');
   }
 
   // R3-P1: Resolve route URLs to local file paths for real media delivery
