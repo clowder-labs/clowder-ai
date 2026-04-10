@@ -548,6 +548,54 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     return { ok: true, configured: adapter.hasBotToken() && adapter.isPolling() };
   });
 
+  // ── DingTalk disconnect ──
+  app.post('/api/connector/dingtalk/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const result = await applyConnectorSecretUpdates(
+      [
+        { name: 'DINGTALK_APP_KEY', value: null },
+        { name: 'DINGTALK_APP_SECRET', value: null },
+      ],
+      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
+    );
+    app.log.info({ userId }, '[DingTalk] Disconnected by user');
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
+  });
+
+  // ── XiaoYi disconnect ──
+  app.post('/api/connector/xiaoyi/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const result = await applyConnectorSecretUpdates(
+      [
+        { name: 'XIAOYI_AK', value: null },
+        { name: 'XIAOYI_SK', value: null },
+        { name: 'XIAOYI_AGENT_ID', value: null },
+        { name: 'XIAOYI_WS_URL1', value: null },
+        { name: 'XIAOYI_WS_URL2', value: null },
+      ],
+      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
+    );
+    app.log.info({ userId }, '[XiaoYi] Disconnected by user');
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
+  });
+
+  // ── Telegram disconnect ──
+  app.post('/api/connector/telegram/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return { error: 'Identity required' };
+
+    const result = await applyConnectorSecretUpdates(
+      [{ name: 'TELEGRAM_BOT_TOKEN', value: null }],
+      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
+    );
+    app.log.info({ userId }, '[Telegram] Disconnected by user');
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
+  });
+
   // ── F134 Phase D: Connector Permission API ──
 
   app.get('/api/connector/permissions/:connectorId', async (request, reply) => {

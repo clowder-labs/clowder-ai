@@ -571,7 +571,9 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
           };
           const parsed = feishu.parseEvent(envelope);
           if (!parsed) return;
-          await routeFeishuParsedEvent(parsed);
+          const result = await routeFeishuParsedEvent(parsed);
+          if (result.kind === 'skipped' || result.kind === 'command') return;
+          void feishu.addReaction(parsed.messageId, 'THUMBSUP');
         },
       });
 

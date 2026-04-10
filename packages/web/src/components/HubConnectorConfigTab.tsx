@@ -12,6 +12,7 @@ import {
   WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
+import { ConnectorConnectedState } from './ConnectorConnectedState';
 
 interface PlatformFieldStatus {
   envName: string;
@@ -129,6 +130,7 @@ export function HubConnectorConfigTab() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
@@ -263,6 +265,31 @@ export function HubConnectorConfigTab() {
     }
   };
 
+  // 断开连接处理
+  const handleDisconnect = async (platformId: string) => {
+    setDisconnecting(platformId);
+    setSaveResult(null);
+    try {
+      const res = await apiFetch(`/api/connector/${platformId}/disconnect`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSaveResult({ type: 'error', message: data.error ?? '断开失败' });
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const runtime = data?.runtime as { applied?: boolean } | undefined;
+      setSaveResult({
+        type: 'success',
+        message: runtime?.applied === false ? '已断开连接，但热生效失败。请查看 API 日志。' : '已断开连接。',
+      });
+      await fetchStatus();
+    } catch {
+      setSaveResult({ type: 'error', message: '网络错误' });
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
   if (isLoading) {
     return <p className="py-8 text-center text-sm text-[var(--text-muted)]">加载中...</p>;
   }
@@ -373,6 +400,24 @@ export function HubConnectorConfigTab() {
                         )}
                       </div>
                     ))}
+
+                    {/* 断开连接按钮 - 当平台已配置时显示 */}
+                    {platform.configured && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={guideSteps.length + 1} />
+                          <span className="text-[14px]">断开连接</span>
+                        </div>
+                        <div className="ml-[26px]">
+                          <ConnectorConnectedState
+                            label={`${platform.name} 已连接`}
+                            disconnecting={disconnecting === platform.id}
+                            onDisconnect={() => handleDisconnect(platform.id)}
+                            disconnectTestId={`disconnect-${platform.id}`}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5">
