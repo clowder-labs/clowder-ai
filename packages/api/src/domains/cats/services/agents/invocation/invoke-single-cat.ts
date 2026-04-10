@@ -35,8 +35,8 @@ import {
   resolveRuntimeProviderProfileForClient,
 } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
-import { resolveHuaweiMaaSRuntimeConfig } from '../../../../../integrations/huawei-maas.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { resolveHuaweiMaaSRuntimeConfig } from '../../../../../integrations/huawei-maas.js';
 import { resolveActiveProjectRoot } from '../../../../../utils/active-project-root.js';
 import {
   buildEmbeddedAgentTeamsModelProfile,
@@ -45,8 +45,8 @@ import {
   embeddedAgentTeamsRuntimeAvailable,
   resolveEmbeddedAgentTeamsExecutable,
 } from '../../../../../utils/agent-teams-bundle.js';
-import { resolveEmbeddedAgentTeamsBinding } from '../../../../../utils/embedded-runtime-bindings.js';
 import { DEFAULT_CLI_TIMEOUT_MS, resolveCliTimeoutMs } from '../../../../../utils/cli-timeout.js';
+import { resolveEmbeddedAgentTeamsBinding } from '../../../../../utils/embedded-runtime-bindings.js';
 import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
 import { tcpProbe } from '../../../../../utils/tcp-probe.js';
@@ -69,9 +69,11 @@ import type { ResumeFailureKind } from './invoke-helpers.js';
 import {
   classifyResumeFailure,
   extractTaskProgress,
+  isCliTimeoutError,
   isMissingClaudeSessionError,
   isPromptTokenLimitExceededError,
   isTransientCliExitCode1,
+  preflightRace,
 } from './invoke-helpers.js';
 import { SessionMutex } from './SessionMutex.js';
 import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './TaskProgressStore.js';
@@ -244,11 +246,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const invocationTimeoutMs =
     (cliTimeoutMs > 0 ? cliTimeoutMs : DEFAULT_CLI_TIMEOUT_MS) * INVOCATION_TIMEOUT_MULTIPLIER;
   const invocationAc = new AbortController();
-  const invocationTimer = setTimeout(() => {
-    log.error({ invocationId, catId, threadId, timeoutMs: invocationTimeoutMs }, 'Invocation hard timeout fired');
-    invocationAc.abort(new Error('invocation_timeout'));
-  }, invocationTimeoutMs);
-  invocationTimer.unref();
+  let invocationTimer: ReturnType<typeof setTimeout> | null = null;
+  const resetInvocationTimeout = (): void => {
+    if (invocationTimer) clearTimeout(invocationTimer);
+    invocationTimer = setTimeout(() => {
+      log.error({ invocationId, catId, threadId, timeoutMs: invocationTimeoutMs }, 'Invocation hard timeout fired');
+      invocationAc.abort(new Error('invocation_timeout'));
+    }, invocationTimeoutMs);
+    invocationTimer.unref();
+  };
+  resetInvocationTimeout();
 
   // Merge caller signal (user cancel) with invocation timeout — neither loses semantics.
   const signal: AbortSignal | undefined = callerSignal
@@ -285,6 +292,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   let didWriteAudit = false;
   let didComplete = false;
   let didResetRestoreFailures = false;
+  let openCodeRuntimeConfigPath: string | undefined;
+  const hostProjectRoot = findMonorepoRoot(process.cwd());
 
   // Shared-state preflight — covers ALL cats (Claude/Codex/Gemini), vendor-agnostic.
   // Three-layer defense model (shared-rules §14):
@@ -296,33 +305,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   // need to exercise routing/invocation behavior without having local git state turn
   // every invocation into a governance block, so test runners can opt out explicitly.
   if (process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1') {
-    // L2 behavior splits by issue type:
-    //   unpushedFiles → FAIL-CLOSED (stop invocation). These are committed but not
-    //     pushed — L1 can't catch them (already committed), L3 can't see them (not
-    //     pushed). L2 is the only layer that can enforce. The cat must push first.
-    //   uncommittedFiles → WARN-ONLY. Cat can still be invoked to help commit+push.
+    // L2 behavior is warn-only during interactive invocation. Hard safety still lives
+    // in L1/L3 (`pre-commit` + CI / merge gate); blocking regular chat invocations on
+    // local git state made multi-cat routing unusable whenever shared-state lagged.
     try {
       const { checkSharedStatePreflight } = await import('../../../../../config/shared-state-preflight.js');
       const projectRoot = findMonorepoRoot(process.cwd());
       const ssCheck = checkSharedStatePreflight(projectRoot);
       if (!ssCheck.ok) {
-        // Fail-closed: unpushed shared-state commits must be pushed before any cat runs
         if (ssCheck.unpushedFiles?.length) {
           const msg =
             `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
-            'Run `git push` before invoking any cat (shared-rules §14).';
-          log.warn({ catId, unpushedFiles: ssCheck.unpushedFiles }, 'Shared-state preflight BLOCKED');
+            'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+          log.warn({ catId, unpushedFiles: ssCheck.unpushedFiles }, 'Shared-state preflight: unpushed files');
           yield {
             type: 'system_info' as const,
             catId,
-            content: `🚫 ${msg}`,
+            content: `⚠️ ${msg}`,
             timestamp: Date.now(),
           };
-          yield { type: 'done', catId, isFinal: params.isLastCat, timestamp: Date.now() };
-          didComplete = true; // F118 AC-C5: Normal early exit (governance block), not force-return
-          return;
         }
-        // Warn-only: uncommitted changes — cat can help fix this
         if (ssCheck.uncommittedFiles?.length) {
           const msg = `uncommitted shared-state files: ${ssCheck.uncommittedFiles.join(', ')}`;
           log.warn({ catId, uncommittedFiles: ssCheck.uncommittedFiles }, 'Shared-state preflight: uncommitted files');
@@ -452,9 +454,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // All cats read sessionId so the CLI can --resume/--session into prior context.
     // sessionChain only gates advanced chain management (sealing, bootstrap, digest).
     try {
-      sessionId = await sessionManager.get(userId, catId, threadId);
-    } catch {
-      // Redis read failure — continue without session
+      sessionId = await preflightRace(sessionManager.get(userId, catId, threadId), 'sessionManager.get', signal);
+    } catch (err) {
+      // Redis read failure or preflight timeout — continue without session
+      log.warn({ catId, threadId, invocationId, err }, 'Session get failed (timeout or Redis), proceeding without');
     }
 
     // R8 P1: Read-side short-circuit — if sessionChainStore has sealed/sealing sessions
@@ -474,13 +477,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       // Reaper: reconcile any sessions stuck in 'sealing' > 5 minutes (best-effort).
       if (deps.sessionSealer) {
         try {
-          await deps.sessionSealer.reconcileStuck(catId, threadId);
+          await preflightRace(deps.sessionSealer.reconcileStuck(catId, threadId), 'reconcileStuck', signal);
         } catch {
-          /* best-effort reconcile */
+          /* best-effort reconcile — timeout or error */
         }
       }
       try {
-        const chain = await deps.sessionChainStore.getChain(catId, threadId);
+        const chain = await preflightRace(
+          Promise.resolve(deps.sessionChainStore.getChain(catId, threadId)),
+          'getChain',
+          signal,
+        );
         if (chain.length > 0) {
           const activeRec = chain.find((s) => s.status === 'active');
           if (!activeRec) {
@@ -495,10 +502,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             if (isOverflow && deps.sessionSealer) {
               let sealOk = false;
               try {
-                const result = await deps.sessionSealer.requestSeal({
-                  sessionId: activeRec.id,
-                  reason: 'overflow_circuit_breaker',
-                });
+                const result = await preflightRace(
+                  deps.sessionSealer.requestSeal({ sessionId: activeRec.id, reason: 'overflow_circuit_breaker' }),
+                  'requestSeal',
+                  signal,
+                );
                 sealOk = result.accepted;
                 if (sealOk) {
                   // Must finalize to write transcript + digest to disk,
@@ -548,20 +556,80 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Resolve workingDirectory from thread's projectPath
     let workingDirectory: string | undefined;
     if (threadStore) {
-      const thread = await threadStore.get(threadId);
-      if (thread?.projectPath && thread.projectPath !== 'default') {
-        // F101: Game threads use virtual projectPaths (e.g. 'games/werewolf') for
-        // categorization only — they are not real filesystem directories. Skip them
-        // to avoid triggering the F070 governance gate on a non-existent path.
-        if (!thread.projectPath.startsWith('games/') && isUnderAllowedRoot(thread.projectPath)) {
-          workingDirectory = thread.projectPath;
+      try {
+        const thread = await preflightRace(Promise.resolve(threadStore.get(threadId)), 'threadStore.get', signal);
+        if (thread?.projectPath && thread.projectPath !== 'default') {
+          // F101: Game threads use virtual projectPaths (e.g. 'games/werewolf') for
+          // categorization only — they are not real filesystem directories. Skip them
+          // to avoid triggering the F070 governance gate on a non-existent path.
+          if (!thread.projectPath.startsWith('games/') && isUnderAllowedRoot(thread.projectPath)) {
+            workingDirectory = thread.projectPath;
+          }
         }
+      } catch {
+        // Thread store timeout or error — proceed without workingDirectory
+      }
+    }
+    const workingProjectRoot = workingDirectory ? findMonorepoRoot(workingDirectory) : undefined;
+
+    // Shared-state preflight — covers ALL cats (Claude/Codex/Gemini), vendor-agnostic.
+    // Three-layer defense model (shared-rules §14):
+    //   L1 .githooks/pre-commit = hard block (prevents committing on wrong branch)
+    //   L2 this check = see below
+    //   L3 CI guard = hard block (prevents merging PRs with shared-state changes)
+    //
+    // Scope: only check the host Cat Café repo (or its worktrees). External projects /
+    // fork playgrounds may be routed by this runtime, but they must not inherit
+    // shared-state warnings from the repo that launched the API process.
+    if (
+      process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
+      (!workingProjectRoot || isSameProject(workingProjectRoot, hostProjectRoot))
+    ) {
+      // L2 behavior is warn-only during interactive invocation. Hard safety still lives
+      // in L1/L3 (`pre-commit` + CI / merge gate); blocking regular chat invocations on
+      // local git state made multi-cat routing unusable whenever shared-state lagged.
+      try {
+        const { checkSharedStatePreflight } = await import('../../../../../config/shared-state-preflight.js');
+        const preflightRoot = workingProjectRoot ?? hostProjectRoot;
+        const ssCheck = checkSharedStatePreflight(preflightRoot);
+        if (!ssCheck.ok) {
+          if (ssCheck.unpushedFiles?.length) {
+            const msg =
+              `Shared-state files committed but not pushed: ${ssCheck.unpushedFiles.join(', ')}. ` +
+              'Please `git push` soon so other cats see the latest shared state (shared-rules §14).';
+            log.warn(
+              { catId, preflightRoot, unpushedFiles: ssCheck.unpushedFiles },
+              'Shared-state preflight: unpushed files',
+            );
+            yield {
+              type: 'system_info' as const,
+              catId,
+              content: `⚠️ ${msg}`,
+              timestamp: Date.now(),
+            };
+          }
+          if (ssCheck.uncommittedFiles?.length) {
+            const msg = `uncommitted shared-state files: ${ssCheck.uncommittedFiles.join(', ')}`;
+            log.warn(
+              { catId, preflightRoot, uncommittedFiles: ssCheck.uncommittedFiles },
+              'Shared-state preflight: uncommitted files',
+            );
+            yield {
+              type: 'system_info' as const,
+              catId,
+              content: `⚠️ Shared-state preflight: ${msg}. Please commit+push before continuing (shared-rules §14).`,
+              timestamp: Date.now(),
+            };
+          }
+        }
+      } catch {
+        // Don't block on preflight errors
       }
     }
 
     // F070: Governance gate for external project dispatch
-    if (workingDirectory && !isSameProject(workingDirectory, findMonorepoRoot(process.cwd()))) {
-      const catCafeRoot = findMonorepoRoot(process.cwd());
+    if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot)) {
+      const catCafeRoot = hostProjectRoot;
       const { tryGovernanceBootstrap } = await import('../../../../../config/capabilities/capability-orchestrator.js');
       await tryGovernanceBootstrap(workingDirectory, catCafeRoot);
       const { checkGovernancePreflight } = await import('../../../../../config/governance/governance-preflight.js');
@@ -602,18 +670,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F070 Phase 2: Inject dispatch mission context for external projects
     let missionPrefix = '';
     let capturedMissionPack: import('@cat-cafe/shared').DispatchMissionPack | undefined;
-    if (workingDirectory && !isSameProject(workingDirectory, findMonorepoRoot(process.cwd())) && threadStore) {
-      const thread = await threadStore.get(threadId);
-      if (thread) {
-        const { buildMissionPack, formatMissionPackPrompt } = await import(
-          '../../../../../config/governance/mission-pack.js'
+    if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot) && threadStore) {
+      try {
+        const thread = await preflightRace(
+          Promise.resolve(threadStore.get(threadId)),
+          'threadStore.get:mission',
+          signal,
         );
-        capturedMissionPack = buildMissionPack({
-          title: thread.title ?? undefined,
-          phase: thread.phase ?? undefined,
-          backlogItemId: thread.backlogItemId ?? undefined,
-        });
-        missionPrefix = formatMissionPackPrompt(capturedMissionPack);
+        if (thread) {
+          const { buildMissionPack, formatMissionPackPrompt } = await import(
+            '../../../../../config/governance/mission-pack.js'
+          );
+          capturedMissionPack = buildMissionPack({
+            title: thread.title ?? undefined,
+            phase: thread.phase ?? undefined,
+            backlogItemId: thread.backlogItemId ?? undefined,
+          });
+          missionPrefix = formatMissionPackPrompt(capturedMissionPack);
+        }
+      } catch {
+        // Thread store timeout — proceed without mission context
       }
     }
 
@@ -639,7 +715,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         ? await findProjectModelConfigBinding(configProjectRoot, rawBoundAccountRef)
         : null;
     const boundAccountRef = embeddedAcpRuntime
-      ? embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id
+      ? (embeddedAgentTeamsBinding?.accountRef ?? embeddedModelConfigBinding?.id)
       : rawBoundAccountRef;
     const modelConfigBinding = embeddedAcpRuntime
       ? embeddedModelConfigBinding
@@ -654,7 +730,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         throw new Error(`unsupported model config source "${modelConfigBinding.id}"`);
       }
       if (!embeddedAcpRuntime && provider !== 'dare' && provider !== 'relayclaw') {
-        throw new Error(`client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`);
+        throw new Error(
+          `client "${provider ?? 'unknown'}" does not support model config source "${modelConfigBinding.id}"`,
+        );
       }
       if (defaultModel && modelConfigBinding.models.length && !modelConfigBinding.models.includes(defaultModel)) {
         throw new Error(`model "${defaultModel}" is not available on provider "${modelConfigBinding.id}"`);
@@ -730,8 +808,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const effectiveProtocol =
       resolvedAccount?.kind !== 'builtin' && resolvedAccount?.protocol
         ? resolvedAccount.protocol
-        : modelConfigBinding?.protocol ??
-          (provider ? (defaultProtocolForProvider[provider] ?? null) : null);
+        : (modelConfigBinding?.protocol ?? (provider ? (defaultProtocolForProvider[provider] ?? null) : null));
 
     // Pass protocol hint to CLI via callbackEnv (used by OpenCode/Claude for model prefix)
     if (effectiveProtocol) {
@@ -945,16 +1022,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Prepend staticIdentity to prompt when injection is needed
     // F070-P2: missionPrefix (dispatch context) is prepended for external projects
-    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter((part) => typeof part === 'string' && part.trim());
+    const promptParts = [acpRuntimeSkillHint, missionPrefix, prompt].filter(
+      (part) => typeof part === 'string' && part.trim(),
+    );
     const promptWithMission = promptParts.join('\n\n');
-    const relayClawQueryPrompt =
-      provider === 'relayclaw' ? (params.userPrompt?.trim() || promptWithMission) : undefined;
+    const relayClawQueryPrompt = provider === 'relayclaw' ? params.userPrompt?.trim() || promptWithMission : undefined;
     const relayClawSystemPrompt =
       provider === 'relayclaw'
-        ? [
-            injectSystemPrompt && params.systemPrompt ? params.systemPrompt : '',
-            promptWithMission,
-          ]
+        ? [injectSystemPrompt && params.systemPrompt ? params.systemPrompt : '', promptWithMission]
             .filter((part) => typeof part === 'string' && part.trim())
             .join('\n\n---\n\n') || undefined
         : undefined;
@@ -962,8 +1037,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       provider === 'relayclaw'
         ? (relayClawQueryPrompt ?? promptWithMission)
         : injectSystemPrompt && params.systemPrompt
-        ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
-        : promptWithMission;
+          ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
+          : promptWithMission;
 
     // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
@@ -1002,7 +1077,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(sessionId ? { cliSessionId: sessionId } : {}),
       ...(params.resumeSession ? { resumeSession: true } : {}),
       // F118 Phase B: Enable liveness probe with defaults for all CLI providers
-      livenessProbe: {},
+      // #774: stallAutoKill — auto-kill on idle-silent stall instead of waiting 30min
+      // Cold-start protection is in cli-spawn (firstEventAt guard), so all providers
+      // can use the same default stallWarningMs safely.
+      livenessProbe: { stallAutoKill: true },
       ...(catConfig?.cliConfigArgs?.length ? { cliConfigArgs: catConfig.cliConfigArgs } : {}),
       ...(resolvedProviderProfileForService ? { providerProfile: resolvedProviderProfileForService } : {}),
       ...(resolvedAcpModelProfile ? { acpModelProfile: resolvedAcpModelProfile } : {}),
@@ -1451,9 +1529,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       let suppressedMissingSessionError: AgentMessage | undefined;
       let suppressedPromptLimitError: AgentMessage | undefined;
       let suppressedTransientCliError: AgentMessage | undefined;
+      let suppressedTimeoutError: AgentMessage | undefined;
       let shouldRetryWithoutSession = false;
       let shouldRetryOnTransientCliExit = false;
       let attemptHasContentOutput = false;
+      // Substantive = real model output (text/tool), excludes system_info/session_init/error/done.
+      // Used for timeout-retry: system_info (e.g. timeout_diagnostics) must NOT block retry.
+      let attemptHasSubstantiveOutput = false;
 
       // F089: Use abortableNext instead of `for await` so the invocation timeout
       // can break out even when the service generator is stuck on an unresolvable await.
@@ -1466,6 +1548,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         const iterResult = await abortableNext(serviceIter, signal);
         if (iterResult.done) break;
         const msg = iterResult.value;
+        resetInvocationTimeout();
         if (msg.type === 'error') {
           log.error(
             {
@@ -1508,10 +1591,31 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           suppressedTransientCliError = msg;
           continue;
         }
+        // #774 self-heal: CLI timeout during session resume with no substantive output
+        // → likely stale/unreachable session. Suppress and retry without session.
+        // Uses attemptHasSubstantiveOutput (not attemptHasContentOutput) because
+        // timeout_diagnostics (system_info) must NOT block the retry path.
+        if (
+          allowSessionRetry &&
+          options.sessionId &&
+          !attemptHasSubstantiveOutput &&
+          msg.type === 'error' &&
+          isCliTimeoutError(msg.error)
+        ) {
+          suppressedTimeoutError = msg;
+          continue;
+        }
 
-        if (suppressedMissingSessionError || suppressedPromptLimitError || suppressedTransientCliError) {
+        if (
+          suppressedMissingSessionError ||
+          suppressedPromptLimitError ||
+          suppressedTransientCliError ||
+          suppressedTimeoutError
+        ) {
           if (msg.type === 'done') {
-            shouldRetryWithoutSession = Boolean(suppressedMissingSessionError || suppressedPromptLimitError);
+            shouldRetryWithoutSession = Boolean(
+              suppressedMissingSessionError || suppressedPromptLimitError || suppressedTimeoutError,
+            );
             shouldRetryOnTransientCliExit = Boolean(suppressedTransientCliError);
             break;
           }
@@ -1534,6 +1638,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             }
             suppressedTransientCliError = undefined;
           }
+          if (suppressedTimeoutError) {
+            for await (const out of streamProcessedOutputs(suppressedTimeoutError)) {
+              yield out;
+            }
+            suppressedTimeoutError = undefined;
+          }
         }
 
         for await (const out of streamProcessedOutputs(msg)) {
@@ -1541,6 +1651,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         }
         if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
           attemptHasContentOutput = true;
+          // Substantive = real model output, excludes system_info (e.g. timeout_diagnostics).
+          if (msg.type !== 'system_info') {
+            attemptHasSubstantiveOutput = true;
+          }
           // F118 AC-C6: Reset consecutive restore failure counter on successful content
           if (deps.sessionChainStore && !didResetRestoreFailures) {
             didResetRestoreFailures = true; // only reset once per invocation
@@ -1705,7 +1819,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {
     // F089: Clear invocation hard timeout
-    clearTimeout(invocationTimer);
+    if (invocationTimer) clearTimeout(invocationTimer);
 
     // F118: Release session mutex (idempotent — safe if never acquired)
     sessionMutexRelease?.();

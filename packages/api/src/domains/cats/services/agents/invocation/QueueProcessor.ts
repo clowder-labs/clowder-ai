@@ -293,6 +293,22 @@ export class QueueProcessor {
    */
   async tryAutoExecute(threadId: string): Promise<void> {
     const entries = (this.deps.queue.listAutoExecute?.(threadId) ?? []).sort((a, b) => a.createdAt - b.createdAt);
+    if (entries.length > 0) {
+      const now = Date.now();
+      this.deps.log.info(
+        {
+          threadId,
+          entryCount: entries.length,
+          entries: entries.map((entry) => ({
+            id: entry.id,
+            targetCat: entry.targetCats[0] ?? 'unknown',
+            createdAt: entry.createdAt,
+            ageMs: now - entry.createdAt,
+          })),
+        },
+        '[DIAG/a2a] tryAutoExecute candidate scan',
+      );
+    }
 
     for (const entry of entries) {
       const entryCat = entry.targetCats[0] ?? 'unknown';
@@ -454,13 +470,8 @@ export class QueueProcessor {
         status: 'running',
       });
 
-      // 5. Broadcast invocation state for queued execution.
-      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
-        threadId,
-        mode: intent,
-        targetCats,
-        invocationId,
-      });
+      // 5. intent_mode deferred to first CLI event (#768: avoid "replying" when CLI never starts)
+      let intentModeBroadcast = false;
 
       // 6. Emit queue_updated (processing)
       socketManager.emitToUser(userId, 'queue_updated', {
@@ -573,6 +584,16 @@ export class QueueProcessor {
           ...(resumeCatId ? { resumeCatId } : {}),
         },
       )) {
+        // #768: Broadcast intent_mode on first CLI event — proves CLI is alive.
+        if (!intentModeBroadcast) {
+          socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', {
+            threadId,
+            mode: intent,
+            targetCats,
+            invocationId,
+          });
+          intentModeBroadcast = true;
+        }
         if (hook && msg.catId === primaryCat && msg.type === 'text' && (msg as { content?: string }).content) {
           responseText += (msg as { content?: string }).content;
         }

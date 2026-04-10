@@ -45,6 +45,7 @@ import {
   assembleIncrementalContext,
   detectContextDegradation,
   getService,
+  isUserFacingSystemInfoContent,
   routeContentBlocksForCat,
   sanitizeInjectedContent,
   stripLeadingDirectCatMention,
@@ -255,7 +256,31 @@ export async function* routeSerial(
       if (incrementalMode) {
         // Serial incremental mode depends on AgentRouter having appended current user message first.
         // We still explicitly include `message` when that message is not present in unseen rows.
-        const inc = await assembleIncrementalContext(deps, userId, threadId, catId, currentUserMessageId, thinkingMode);
+
+        // A+ fix: calculate effective context budget by deducting ALL system parts from maxPromptTokens.
+        // Without this, context (up to maxContextTokens=160k) + system parts (~15-20k) can exceed maxPromptTokens.
+        const catModePromptForBudget = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+        const incBudget = getCatContextBudget(catId as string);
+        const incSystemTokens = estimateTokens(
+          [staticIdentity, invocationContext, catModePromptForBudget, bootstrapContext, mcpInstructions]
+            .filter(Boolean)
+            .join('\n'),
+        );
+        const incMessageTokens = estimateTokens(message);
+        const effectiveContextBudget = Math.min(
+          Math.max(0, incBudget.maxPromptTokens - incSystemTokens - incMessageTokens - 200),
+          incBudget.maxContextTokens,
+        );
+
+        const inc = await assembleIncrementalContext(
+          deps,
+          userId,
+          threadId,
+          catId,
+          currentUserMessageId,
+          thinkingMode,
+          { effectiveMaxContextTokens: effectiveContextBudget },
+        );
         deliveryBoundaryId = inc.boundaryId;
         if (inc.degradation) {
           yield {
@@ -278,8 +303,12 @@ export async function* routeSerial(
         if (history && history.length > 0 && !contextHistory) {
           const budget = getCatContextBudget(catId as string);
           // F8: token-based budget — estimate non-context tokens, remainder goes to context
+          // A+ fix: include catModePrompt + bootstrapContext in system parts estimate (P2-1)
+          const catModePromptLegacyForBudget = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
           const systemPartsTokens = estimateTokens(
-            [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),
+            [staticIdentity, invocationContext, catModePromptLegacyForBudget, bootstrapContext, mcpInstructions]
+              .filter(Boolean)
+              .join('\n'),
           );
           const promptTokens = estimateTokens(prompt);
           const budgetForContext = Math.max(0, budget.maxPromptTokens - systemPartsTokens - promptTokens - 200);
@@ -317,6 +346,9 @@ export async function* routeSerial(
       let firstMetadata: MessageMetadata | undefined;
       let doneMsg: AgentMessage | undefined;
       let hadError = false;
+      let sawUserFacingSystemInfo = false;
+      // Collect error text separately for system-message persistence (F5 reload)
+      let collectedErrorText = '';
       const collectedToolEvents: StoredToolEvent[] = [];
       // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
       const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
@@ -407,6 +439,9 @@ export async function* routeSerial(
         }
         // F045: Accumulate thinking blocks for persistence (F5 recovery)
         if (msg.type === 'system_info' && msg.content) {
+          if (isUserFacingSystemInfoContent(msg.content)) {
+            sawUserFacingSystemInfo = true;
+          }
           try {
             const parsed = parseSystemInfoContent(msg.content);
             if (!parsed) throw new Error('not parseable system_info');
@@ -486,6 +521,9 @@ export async function* routeSerial(
 
         if (msg.type === 'error') {
           hadError = true;
+          if (msg.error) {
+            collectedErrorText += `${collectedErrorText ? '\n' : ''}${msg.error}`;
+          }
         }
         // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
         // state — mark hadError so we don't fall through to silent_completion.
@@ -831,6 +869,7 @@ export async function* routeSerial(
             catId: catId as string,
             threadId,
             hasRichBlocks,
+            sawUserFacingSystemInfo,
             toolCount: collectedToolEvents.length,
             shouldPersist: shouldPersistNoTextMessage,
             thinkingLen: thinkingContent?.length ?? 0,
@@ -839,7 +878,7 @@ export async function* routeSerial(
         );
         // Diagnostic: if cat ran tools but produced no text, emit a system_info so the
         // user sees *something* instead of a silent vanish (bugfix: silent-exit P1).
-        if (collectedToolEvents.length > 0 && !hasRichBlocks) {
+        if (collectedToolEvents.length > 0 && !hasRichBlocks && !sawUserFacingSystemInfo) {
           yield {
             type: 'system_info' as AgentMessageType,
             catId,
@@ -900,7 +939,7 @@ export async function* routeSerial(
               });
             }
           }
-        } else {
+        } else if (!sawUserFacingSystemInfo) {
           yield {
             type: 'system_info' as AgentMessageType,
             catId,
@@ -915,6 +954,8 @@ export async function* routeSerial(
           if (deps.draftStore && ownInvocationId) {
             deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
           }
+        } else if (deps.draftStore && ownInvocationId) {
+          deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
         }
       } else if (collectedToolEvents.length > 0) {
         // hadError && textContent === '' but toolEvents exist — persist tool record so
@@ -960,9 +1001,34 @@ export async function* routeSerial(
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
         }
+        // Update activity for error-only responses (no text/tools branch handles it)
+        if (deps.invocationDeps.threadStore) {
+          try {
+            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId);
+          } catch (activityErr) {
+            log.warn({ catId: catId as string, err: activityErr }, 'updateParticipantActivity failed');
+          }
+        }
       }
-      // hadError && textContent === '' && no toolEvents → skip persistence
-      // Error events were already yielded to frontend via the stream.
+
+      // Persist error as system message so it survives F5 reload.
+      // During streaming, errors render as red badges via ephemeral frontend state.
+      // Without persistence, they vanish on page refresh.
+      if (collectedErrorText) {
+        try {
+          await deps.messageStore.append({
+            userId: 'system',
+            catId: null,
+            content: `Error: ${collectedErrorText}`,
+            mentions: [],
+            origin: 'stream',
+            timestamp: Date.now(),
+            threadId,
+          });
+        } catch (err) {
+          log.error({ catId: catId as string, err }, 'messageStore.append (error system msg) failed');
+        }
+      }
 
       // Ack cursor regardless of hadError: messages were assembled into the prompt
       // and delivered to the cat. Not acking causes infinite re-delivery on subsequent
