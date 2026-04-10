@@ -37,7 +37,7 @@ describe('auth module', () => {
   });
 
   test('loads third-party auth providers from external modules and resolves them by env id', async () => {
-    const fixtureModuleUrl = pathToFileURL(resolve(process.cwd(), 'test/fixtures/custom-auth-provider.mjs')).href;
+    const fixtureModuleUrl = pathToFileURL(resolve(new URL('.', import.meta.url).pathname, 'fixtures/custom-auth-provider.mjs')).href;
     const authModule = await createAuthModule({
       env: {
         CAT_CAFE_AUTH_PROVIDER: 'external-sso',
