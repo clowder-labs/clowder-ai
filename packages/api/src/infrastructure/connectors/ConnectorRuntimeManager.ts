@@ -36,7 +36,7 @@ import {
 } from './OutboundDeliveryHook.js';
 import { RedisConnectorThreadBindingStore } from './RedisConnectorThreadBindingStore.js';
 import { StreamingOutboundHook } from './StreamingOutboundHook.js';
-import { WeixinSessionStore } from './WeixinSessionStore.js';
+import { NoopWeixinSessionStore, type IWeixinSessionStore, WeixinSessionStore } from './WeixinSessionStore.js';
 
 type ConnectorId = 'telegram' | 'feishu' | 'dingtalk' | 'weixin' | 'xiaoyi';
 
@@ -68,7 +68,7 @@ interface SharedContext {
   readonly mediaService: ConnectorMediaService;
   readonly connectorRouter: ConnectorRouter;
   readonly cleanupJob: MediaCleanupJob;
-  readonly weixinSessionStore: WeixinSessionStore;
+  readonly weixinSessionStore: IWeixinSessionStore;
   readonly weixinAdapter: WeixinAdapter;
   readonly messageLookup:
     | ((messageId: string) => Promise<{ source?: { sender?: { id: string; name?: string } } } | null>)
@@ -190,7 +190,7 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
   private readonly connectorRouter: ConnectorRouter;
   private readonly mediaService: ConnectorMediaService;
   private readonly cleanupJob: MediaCleanupJob;
-  private readonly weixinSessionStore: WeixinSessionStore;
+  private readonly weixinSessionStore: IWeixinSessionStore;
   private readonly runtimes = new Map<ConnectorId, ConnectorRuntimeState>();
   private reconcileChain: Promise<ConnectorRuntimeApplySummary> = Promise.resolve(emptySummary());
 
@@ -853,7 +853,7 @@ async function createSharedContext(
   cleanupJob.start();
   log.info('[ConnectorGateway] Media cleanup job started (24h TTL, 1h sweep)');
 
-  const weixinSessionStore = new WeixinSessionStore(hostRoot);
+  const weixinSessionStore = deps.hostRoot ? new WeixinSessionStore(hostRoot) : new NoopWeixinSessionStore();
   const persistedWeixinSession = !config.weixinBotToken ? weixinSessionStore.load() : null;
   const effectiveWeixinBotToken = config.weixinBotToken || persistedWeixinSession?.botToken;
   const weixinAdapter = new WeixinAdapter(effectiveWeixinBotToken ?? '', log);

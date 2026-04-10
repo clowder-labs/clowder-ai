@@ -305,6 +305,27 @@ describe('ConnectorGateway Bootstrap', () => {
     }
   });
 
+  it('does not restore persisted WeChat bot token when hostRoot is not explicitly provided', async () => {
+    const { WeixinSessionStore } = await import('../dist/infrastructure/connectors/WeixinSessionStore.js');
+    const originalLoad = WeixinSessionStore.prototype.load;
+    let loadCalls = 0;
+
+    WeixinSessionStore.prototype.load = function mockedLoad() {
+      loadCalls++;
+      return { version: 1, botToken: 'should-not-load', updatedAt: new Date().toISOString() };
+    };
+
+    try {
+      const handle = await startConnectorGateway({}, baseDeps);
+      assert.ok(handle);
+      assert.equal(loadCalls, 0, 'Implicit gateway starts must not restore a persisted WeChat session');
+      assert.equal(handle.weixinAdapter.hasBotToken(), false);
+      await handle.stop();
+    } finally {
+      WeixinSessionStore.prototype.load = originalLoad;
+    }
+  });
+
   it('feishu webhook handler routes card action button click (AC-14)', async () => {
     const triggerCalls = [];
     const deps = {

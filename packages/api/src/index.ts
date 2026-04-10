@@ -1433,6 +1433,7 @@ async function main(): Promise<void> {
       redis: redisClient ?? undefined,
       log: app.log,
       frontendBaseUrl,
+      hostRoot: resolveCatCafeHostRoot(process.cwd()),
       webhookHandlers: connectorWebhookHandlers,
     });
     if (connectorGatewayHandle) {
