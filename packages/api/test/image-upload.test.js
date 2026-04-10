@@ -113,6 +113,27 @@ describe('saveUploadedImages', () => {
     assert.ok(saved[0].absPath.endsWith('.png'), `expected .png, got ${saved[0].absPath}`);
     assert.ok(saved[0].urlPath.endsWith('.png'), `expected .png URL, got ${saved[0].urlPath}`);
   });
+
+  it('can save images into a workspace-backed chat uploads directory', async () => {
+    const { saveUploadedImagesToWorkspace } = await import('../dist/routes/image-upload.js');
+    const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
+
+    const entry = ensureRegisteredWorktreeRoot(uploadDir, 'workspace');
+    const fakeFile = createMockFile('test.png', 'image/png', Buffer.from('fake-png'));
+    const saved = await saveUploadedImagesToWorkspace([fakeFile], {
+      kind: 'workspace',
+      worktreeId: entry.id,
+      workspaceRoot: uploadDir,
+      directoryPath: '.cat-cafe/chat-uploads/thread-1',
+    });
+
+    assert.equal(saved.length, 1);
+    assert.ok(saved[0].absPath.startsWith(resolve(uploadDir)));
+    assert.match(saved[0].urlPath, /^\/api\/workspace\/file\/raw\?/);
+
+    const files = await readdir(join(uploadDir, '.cat-cafe', 'chat-uploads', 'thread-1'));
+    assert.equal(files.length, 1);
+  });
 });
 
 describe('saveUploadedAttachments', () => {
@@ -198,6 +219,28 @@ describe('extractImagePaths', () => {
     const paths = extractImagePaths(blocks, '/custom/upload/dir');
     assert.equal(paths.length, 1);
     assert.equal(paths[0], resolve('/custom/upload/dir', 'test.png'));
+  });
+
+  it('extracts workspace-backed image paths when the worktree root is registered', async () => {
+    const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
+    const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
+
+    const workspaceRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-workspace-image-root-'));
+    const entry = ensureRegisteredWorktreeRoot(workspaceRoot, 'workspace');
+    const blocks = [
+      {
+        type: 'image',
+        url: `/api/workspace/file/raw?worktreeId=${encodeURIComponent(entry.id)}&path=${encodeURIComponent('images/demo.png')}`,
+      },
+    ];
+
+    try {
+      const paths = extractImagePaths(blocks);
+      assert.equal(paths.length, 1);
+      assert.equal(paths[0], resolve(workspaceRoot, 'images', 'demo.png'));
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
   });
 });
 
