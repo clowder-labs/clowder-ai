@@ -42,6 +42,8 @@ interface ConnectorTestResult {
   };
 }
 
+const QR_ONLY_PLATFORM_IDS = new Set(['feishu', 'weixin']);
+
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
     const trimmed = step.trim();
@@ -192,13 +194,21 @@ export function HubConnectorConfigTab() {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      const hasSensitive = updates.some((u) => platform.fields.find((f) => f.envName === u.name)?.sensitive);
-      const restartHint = data.requiresRestart || hasSensitive;
+      const runtime = data?.runtime as
+        | {
+            applied?: boolean;
+            failedConnectors?: Array<{ connectorId?: string; message?: string }>;
+          }
+        | undefined;
+      const failedConnectors = Array.isArray(runtime?.failedConnectors) ? runtime.failedConnectors : [];
       setSaveResult({
         type: 'success',
-        message: restartHint
-          ? '配置已保存。包含敏感字段，需重启 API 服务使连接器生效。'
-          : '配置已保存。需重启 API 服务使连接器生效。',
+        message:
+          runtime && runtime.applied === false
+            ? `配置已保存，但热生效失败：${failedConnectors
+                .map((item) => item.connectorId || 'unknown')
+                .join('、')}。请查看 API 日志。`
+            : '配置已保存并立即生效。',
       });
       setFieldValues({});
       await fetchStatus();
@@ -209,7 +219,7 @@ export function HubConnectorConfigTab() {
     }
   };
 
-  const TESTABLE_PLATFORMS = ['feishu', 'dingtalk', 'xiaoyi'];
+  const TESTABLE_PLATFORMS = ['dingtalk', 'xiaoyi'];
 
   const handleTestConnection = async (platform: PlatformStatus) => {
     if (!TESTABLE_PLATFORMS.includes(platform.id)) {
@@ -292,9 +302,7 @@ export function HubConnectorConfigTab() {
                   {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
                 </span>
                 <span
-                  className={`flex items-center gap-1 text-xs ${
-                    platform.configured ? 'text-[var(--state-success-text)]' : 'text-[var(--text-muted)]'
-                  }`}
+                  className={`ui-status-badge ${platform.configured ? 'ui-status-badge-configured' : 'ui-status-badge-unconfigured'}`}
                 >
                   {platform.configured ? '已启用' : '未配置'}
                 </span>
@@ -318,7 +326,7 @@ export function HubConnectorConfigTab() {
 
             return (
               <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
-                {platform.id === 'weixin' && (
+                {QR_ONLY_PLATFORM_IDS.has(platform.id) && (
                   <div className="space-y-3.5">
                     {platform.steps.map((step, idx) => (
                       <div key={idx} className="space-y-1.5">
@@ -328,7 +336,15 @@ export function HubConnectorConfigTab() {
                         </div>
                         {idx === 0 && (
                           <div className="ml-[26px]">
-                            <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+                            {platform.id === 'feishu' ? (
+                              <FeishuQrPanel
+                                configured={platform.configured}
+                                onConfirmed={() => void fetchStatus()}
+                                onDisconnected={() => void fetchStatus()}
+                              />
+                            ) : (
+                              <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+                            )}
                           </div>
                         )}
                       </div>
@@ -336,7 +352,7 @@ export function HubConnectorConfigTab() {
                   </div>
                 )}
 
-                {platform.id !== 'weixin' && (
+                {!QR_ONLY_PLATFORM_IDS.has(platform.id) && (
                   <div className="space-y-3.5">
                     {guideSteps.map((step, idx) => (
                       <div key={idx} className="space-y-1.5">
@@ -356,15 +372,6 @@ export function HubConnectorConfigTab() {
                               {docsLink.hostname} {'->'} 查看官方文档
                             </span>
                           </a>
-                        )}
-                        {idx === 0 && platform.id === 'feishu' && (
-                          <div className="ml-[26px]">
-                            <FeishuQrPanel
-                              configured={platform.configured}
-                              onConfirmed={() => void fetchStatus()}
-                              onDisconnected={() => void fetchStatus()}
-                            />
-                          </div>
                         )}
                       </div>
                     ))}

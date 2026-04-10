@@ -125,12 +125,15 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
+const AGENT_NAME_VALIDATION_MESSAGE =
+  '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
+
 function validateAgentName(name: string): string | null {
-  if (!name) return 请输入名称;
-  if (name !== name.trim()) return '请输入名称';
-  if (name.length < 2 || name.length > 64) return '名称长度为2-64';
+  if (!name) return AGENT_NAME_VALIDATION_MESSAGE;
+  if (name !== name.trim()) return AGENT_NAME_VALIDATION_MESSAGE;
+  if (name.length < 2 || name.length > 64) return AGENT_NAME_VALIDATION_MESSAGE;
   if (!/^[\u4e00-\u9fffA-Za-z0-9 _-]+$/.test(name)) {
-    return '名称需包含中文、字母或数字';
+    return AGENT_NAME_VALIDATION_MESSAGE;
   }
   return null;
 }

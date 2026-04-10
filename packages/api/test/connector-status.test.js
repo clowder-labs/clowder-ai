@@ -10,18 +10,7 @@ describe('buildConnectorStatus', () => {
     const feishu = result.find((p) => p.id === 'feishu');
     assert.ok(feishu);
     assert.equal(feishu.configured, false);
-    assert.equal(feishu.fields.length, 4);
-    for (const f of feishu.fields) {
-      if (f.envName === 'FEISHU_CONNECTION_MODE') {
-        assert.equal(f.currentValue, 'webhook', 'CONNECTION_MODE should default to webhook');
-      } else {
-        assert.equal(f.currentValue, null);
-      }
-    }
-
-    const telegram = result.find((p) => p.id === 'telegram');
-    assert.ok(telegram);
-    assert.equal(telegram.configured, false);
+    assert.equal(feishu.fields.length, 0);
 
     const dingtalk = result.find((p) => p.id === 'dingtalk');
     assert.ok(dingtalk);
@@ -33,28 +22,18 @@ describe('buildConnectorStatus', () => {
     assert.equal(weixin.fields.length, 0);
   });
 
-  it('marks feishu as configured when all 3 fields are set', () => {
+  it('marks feishu as configured when QR-bound credentials are present', () => {
     const result = buildConnectorStatus({
       FEISHU_APP_ID: 'cli_abcdef123456',
       FEISHU_APP_SECRET: 'secretvalue123',
-      FEISHU_VERIFICATION_TOKEN: 'tokenvalue789',
     });
     const feishu = result.find((p) => p.id === 'feishu');
     assert.ok(feishu);
     assert.equal(feishu.configured, true);
-
-    const appId = feishu.fields.find((f) => f.envName === 'FEISHU_APP_ID');
-    assert.ok(appId);
-    assert.equal(appId.currentValue, 'cli_abcdef123456');
-    assert.equal(appId.sensitive, false);
-
-    const appSecret = feishu.fields.find((f) => f.envName === 'FEISHU_APP_SECRET');
-    assert.ok(appSecret);
-    assert.equal(appSecret.currentValue, '••••••••');
-    assert.equal(appSecret.sensitive, true);
+    assert.equal(feishu.fields.length, 0);
   });
 
-  it('marks feishu as not configured when only partial fields are set', () => {
+  it('marks feishu as not configured when only partial QR-bound credentials are present', () => {
     const result = buildConnectorStatus({
       FEISHU_APP_ID: 'cli_abc',
     });
@@ -63,24 +42,26 @@ describe('buildConnectorStatus', () => {
     assert.equal(feishu.configured, false);
   });
 
-  it('marks telegram as configured when token is set', () => {
+  it('marks dingtalk as configured when both credentials are set', () => {
     const result = buildConnectorStatus({
-      TELEGRAM_BOT_TOKEN: '123456:ABC-DEF-tokenfull',
+      DINGTALK_APP_KEY: 'ding-app-key',
+      DINGTALK_APP_SECRET: 'ding-secret',
     });
-    const telegram = result.find((p) => p.id === 'telegram');
-    assert.ok(telegram);
-    assert.equal(telegram.configured, true);
-    assert.equal(telegram.fields[0].currentValue, '••••••••');
+    const dingtalk = result.find((p) => p.id === 'dingtalk');
+    assert.ok(dingtalk);
+    assert.equal(dingtalk.configured, true);
+    assert.equal(dingtalk.fields[0].currentValue, 'ding-app-key');
+    assert.equal(dingtalk.fields[1].currentValue, '••••••••');
   });
 
   it('treats placeholder default values as not configured', () => {
     const result = buildConnectorStatus({
-      TELEGRAM_BOT_TOKEN: '(未设置 → 不启用)',
+      DINGTALK_APP_KEY: '(未设置 → 不启用)',
     });
-    const telegram = result.find((p) => p.id === 'telegram');
-    assert.ok(telegram);
-    assert.equal(telegram.configured, false);
-    assert.equal(telegram.fields[0].currentValue, null);
+    const dingtalk = result.find((p) => p.id === 'dingtalk');
+    assert.ok(dingtalk);
+    assert.equal(dingtalk.configured, false);
+    assert.equal(dingtalk.fields[0].currentValue, null);
   });
 
   it('fully masks sensitive values without leaking suffix', () => {
@@ -112,58 +93,33 @@ describe('buildConnectorStatus', () => {
     }
   });
 
-  it('feishu steps are filtered by connection mode', () => {
+  it('feishu exposes QR-only setup steps', () => {
     const result = buildConnectorStatus({});
     const feishu = result.find((p) => p.id === 'feishu');
     assert.ok(feishu);
-    const webhookOnly = feishu.steps.filter((s) => s.mode === 'webhook');
-    const wsOnly = feishu.steps.filter((s) => s.mode === 'websocket');
-    const common = feishu.steps.filter((s) => !s.mode);
-    assert.ok(webhookOnly.length >= 1, 'Should have webhook-only steps');
-    assert.ok(wsOnly.length >= 1, 'Should have websocket-only steps');
-    assert.ok(common.length >= 2, 'Should have common steps');
+    assert.deepEqual(
+      feishu.steps.map((s) => s.text),
+      ['点击「生成二维码」按钮', '使用飞书扫描二维码并确认授权', '授权成功后自动连接，无需重启服务'],
+    );
   });
 
-  it('marks feishu as configured in websocket mode without verification token', () => {
+  it('ignores legacy Feishu mode flags when QR-bound credentials are absent', () => {
     const result = buildConnectorStatus({
-      FEISHU_APP_ID: 'cli_abcdef123456',
-      FEISHU_APP_SECRET: 'secretvalue123',
-      FEISHU_CONNECTION_MODE: 'websocket',
-    });
-    const feishu = result.find((p) => p.id === 'feishu');
-    assert.ok(feishu);
-    assert.equal(feishu.configured, true, 'Websocket mode should not require FEISHU_VERIFICATION_TOKEN');
-  });
-
-  it('normalizes invalid FEISHU_CONNECTION_MODE to webhook (requires token)', () => {
-    // 'ws' is not a valid mode — runtime normalizes to 'webhook', status page must agree
-    const result = buildConnectorStatus({
-      FEISHU_APP_ID: 'cli_abcdef123456',
-      FEISHU_APP_SECRET: 'secretvalue123',
-      FEISHU_CONNECTION_MODE: 'ws',
-    });
-    const feishu = result.find((p) => p.id === 'feishu');
-    assert.ok(feishu);
-    assert.equal(feishu.configured, false, 'Invalid mode "ws" should normalize to webhook and require token');
-  });
-
-  it('marks feishu as not configured in webhook mode without verification token', () => {
-    const result = buildConnectorStatus({
-      FEISHU_APP_ID: 'cli_abcdef123456',
-      FEISHU_APP_SECRET: 'secretvalue123',
       FEISHU_CONNECTION_MODE: 'webhook',
+      FEISHU_VERIFICATION_TOKEN: 'legacy-token',
     });
     const feishu = result.find((p) => p.id === 'feishu');
     assert.ok(feishu);
-    assert.equal(feishu.configured, false, 'Webhook mode requires FEISHU_VERIFICATION_TOKEN');
+    assert.equal(feishu.configured, false);
   });
 
-  it('feishu fields include FEISHU_CONNECTION_MODE', () => {
-    const result = buildConnectorStatus({});
+  it('keeps feishu QR-only even when legacy mode flags are set', () => {
+    const result = buildConnectorStatus({
+      FEISHU_CONNECTION_MODE: 'websocket',
+      FEISHU_VERIFICATION_TOKEN: 'legacy-token',
+    });
     const feishu = result.find((p) => p.id === 'feishu');
     assert.ok(feishu);
-    const modeField = feishu.fields.find((f) => f.envName === 'FEISHU_CONNECTION_MODE');
-    assert.ok(modeField, 'FEISHU_CONNECTION_MODE should be in feishu fields');
-    assert.equal(modeField.sensitive, false);
+    assert.equal(feishu.fields.length, 0);
   });
 });

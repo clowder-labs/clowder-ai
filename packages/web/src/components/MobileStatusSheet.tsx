@@ -82,7 +82,7 @@ export function MobileStatusSheet({
           {/* ── Cat status ── */}
           <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
             <h3 className="text-xs font-semibold text-gray-700 mb-2">
-              {activeCats.length > 0 ? '当前调用' : '猫猫状态'}
+              {activeCats.length > 0 ? '当前调用' : '状态'}
             </h3>
             {activeCats.length > 0 ? (
               <div className="space-y-2">
@@ -138,7 +138,7 @@ export function MobileStatusSheet({
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700">
               <div>总数</div>
               <div className="text-right font-medium">{messageSummary.total}</div>
-              <div>猫猫消息</div>
+              <div>消息</div>
               <div className="text-right font-medium">{messageSummary.assistant}</div>
               <div>系统消息</div>
               <div className="text-right font-medium">{messageSummary.system}</div>

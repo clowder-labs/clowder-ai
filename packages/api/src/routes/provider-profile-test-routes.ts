@@ -5,6 +5,7 @@ import { runACPProviderProbe } from '../domains/cats/services/agents/providers/A
 import { resolveUserId } from '../utils/request-identity.js';
 import { buildProbeHeaders, isInvalidModelProbeError, readProbeError } from './provider-profiles-probe.js';
 import {
+  draftTestBodySchema,
   inferProbeProtocol,
   probeUrl,
   resolveProjectRoot,
@@ -12,8 +13,138 @@ import {
   type ProviderProfilesRoutesOptions,
 } from './provider-profiles.shared.js';
 
+async function runApiKeyProviderProbe(
+  fetchImpl: typeof fetch,
+  input: {
+    protocol: 'anthropic' | 'openai' | 'google';
+    baseUrl: string;
+    apiKey: string;
+  },
+): Promise<{ ok: true; status: number; message?: string } | { ok: false; status?: number; error: string }> {
+  const modelProbePaths = input.protocol === 'google' ? ['/v1beta/models', '/models', '/v1/models'] : ['/v1/models'];
+  let modelsRes: Response | null = null;
+  let modelsError: string | null = null;
+
+  for (const path of modelProbePaths) {
+    const next = await fetchImpl(probeUrl(input.baseUrl, path), {
+      method: 'GET',
+      headers: buildProbeHeaders(input.protocol, input.apiKey),
+    });
+    modelsRes = next;
+    if (next.ok) {
+      return { ok: true, status: next.status };
+    }
+    modelsError = await readProbeError(next);
+    if (next.status !== 404) break;
+  }
+
+  if (!modelsRes) {
+    return {
+      ok: false,
+      error: 'Provider test did not execute',
+    };
+  }
+
+  if (input.protocol === 'anthropic' && modelsRes.status === 404) {
+    const messagesRes = await fetchImpl(probeUrl(input.baseUrl, '/v1/messages'), {
+      method: 'POST',
+      headers: {
+        ...buildProbeHeaders(input.protocol, input.apiKey),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-latest',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'ping' }],
+      }),
+    });
+    if (messagesRes.ok) {
+      return {
+        ok: true,
+        status: messagesRes.status,
+      };
+    }
+    const messagesError = await readProbeError(messagesRes);
+    if (messagesRes.status === 400 && isInvalidModelProbeError(messagesError)) {
+      return {
+        ok: true,
+        status: 200,
+        message: 'baseUrl and apiKey are valid; gateway rejected the probe model identifier',
+      };
+    }
+    return {
+      ok: false,
+      status: messagesRes.status,
+      error: messagesError,
+    };
+  }
+
+  return {
+    ok: false,
+    status: modelsRes.status,
+    error: modelsError ?? (await readProbeError(modelsRes)),
+  };
+}
+
 export const providerProfileTestRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions> = async (app, opts) => {
   const fetchImpl = opts.fetchImpl ?? fetch;
+
+  app.post('/api/provider-profiles/test-draft', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const parsed = draftTestBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid body', details: parsed.error.issues };
+    }
+
+    const projectRoot = await resolveProjectRoot(parsed.data.projectPath);
+    if (!projectRoot) {
+      reply.status(400);
+      return { error: 'Invalid project path: must be an existing directory under allowed roots' };
+    }
+
+    const probeProtocol = inferProbeProtocol(
+      parsed.data.baseUrl,
+      parsed.data.protocol,
+      parsed.data.models,
+      parsed.data.displayName,
+    );
+
+    try {
+      const probe = await runApiKeyProviderProbe(fetchImpl, {
+        protocol: probeProtocol,
+        baseUrl: parsed.data.baseUrl,
+        apiKey: parsed.data.apiKey,
+      });
+      if (probe.ok) {
+        return {
+          ok: true,
+          mode: 'api_key',
+          status: probe.status,
+          ...(probe.message ? { message: probe.message } : {}),
+        };
+      }
+      reply.status(probe.status ?? 500);
+      return {
+        ok: false,
+        mode: 'api_key',
+        ...(probe.status ? { status: probe.status } : {}),
+        error: probe.error,
+      };
+    } catch (err) {
+      reply.status(500);
+      return {
+        ok: false,
+        mode: 'api_key',
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
 
   app.post('/api/provider-profiles/:profileId/test', async (request, reply) => {
     const userId = resolveUserId(request);
@@ -108,77 +239,26 @@ export const providerProfileTestRoutes: FastifyPluginAsync<ProviderProfilesRoute
         profile.provider,
         profile.id,
       );
-    const modelProbePaths = probeProtocol === 'google' ? ['/v1beta/models', '/models', '/v1/models'] : ['/v1/models'];
-    let modelsRes: Response | null = null;
-    let modelsError: string | null = null;
     try {
-      for (const path of modelProbePaths) {
-        const next = await fetchImpl(probeUrl(runtime.baseUrl, path), {
-          method: 'GET',
-          headers: buildProbeHeaders(probeProtocol, runtime.apiKey),
-        });
-        modelsRes = next;
-        if (next.ok) {
-          return {
-            ok: true,
-            mode: 'api_key',
-            status: next.status,
-          };
-        }
-        modelsError = await readProbeError(next);
-        if (next.status !== 404) break;
-      }
-
-      if (!modelsRes) {
+      const probe = await runApiKeyProviderProbe(fetchImpl, {
+        protocol: probeProtocol,
+        baseUrl: runtime.baseUrl,
+        apiKey: runtime.apiKey,
+      });
+      if (probe.ok) {
         return {
-          ok: false,
           mode: 'api_key',
-          error: 'Provider test did not execute',
+          ok: true,
+          status: probe.status,
+          ...(probe.message ? { message: probe.message } : {}),
         };
       }
-
-      if (probeProtocol === 'anthropic' && modelsRes.status === 404) {
-        const messagesRes = await fetchImpl(probeUrl(runtime.baseUrl, '/v1/messages'), {
-          method: 'POST',
-          headers: {
-            ...buildProbeHeaders(probeProtocol, runtime.apiKey),
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'claude-3-5-haiku-latest',
-            max_tokens: 1,
-            messages: [{ role: 'user', content: 'ping' }],
-          }),
-        });
-        if (messagesRes.ok) {
-          return {
-            ok: true,
-            mode: 'api_key',
-            status: messagesRes.status,
-          };
-        }
-        const messagesError = await readProbeError(messagesRes);
-        if (messagesRes.status === 400 && isInvalidModelProbeError(messagesError)) {
-          return {
-            ok: true,
-            mode: 'api_key',
-            status: 200,
-            message: 'baseUrl and apiKey are valid; gateway rejected the probe model identifier',
-          };
-        }
-        return {
-          ok: false,
-          mode: 'api_key',
-          status: messagesRes.status,
-          error: messagesError,
-        };
-      }
-
+      reply.status(probe.status ?? 500);
       return {
         ok: false,
         mode: 'api_key',
-        status: modelsRes.status,
-        error: modelsError ?? (await readProbeError(modelsRes)),
+        ...(probe.status ? { status: probe.status } : {}),
+        error: probe.error,
       };
     } catch (err) {
       reply.status(500);

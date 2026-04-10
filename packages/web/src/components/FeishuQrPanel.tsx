@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { CheckCircleIcon, QrCodeIcon, SpinnerIcon } from './HubConfigIcons';
+import { ConnectorConnectedState } from './ConnectorConnectedState';
+import { QrCodeIcon, SpinnerIcon } from './HubConfigIcons';
 
 type QrState = 'idle' | 'fetching' | 'waiting' | 'confirmed' | 'error' | 'expired' | 'denied';
 
@@ -137,25 +138,14 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
 
   if (qrState === 'confirmed') {
     return (
-      <div className="space-y-2" data-testid="feishu-connected">
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
-          <span className="text-green-600">
-            <CheckCircleIcon />
-          </span>
-          <span className="text-sm font-medium text-green-700">Feishu connected</span>
-          <button
-            type="button"
-            onClick={handleDisconnect}
-            disabled={disconnecting}
-            className="ml-auto text-xs font-medium text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
-            data-testid="feishu-disconnect"
-          >
-            {disconnecting ? 'Disconnecting...' : 'Disconnect'}
-          </button>
-        </div>
-        <p className="text-xs leading-relaxed text-gray-500">
-          扫码绑定已完成。后续如需切换凭证，仍可继续通过下方表单手动覆盖。
-        </p>
+      <div data-testid="feishu-connected">
+        <ConnectorConnectedState
+          label="Feishu connected"
+          disconnecting={disconnecting}
+          onDisconnect={handleDisconnect}
+          disconnectTestId="feishu-disconnect"
+        >
+        </ConnectorConnectedState>
       </div>
     );
   }

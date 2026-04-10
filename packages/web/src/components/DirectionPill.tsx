@@ -7,7 +7,7 @@ interface DirectionPillProps {
 }
 
 /**
- * F098: Direction pill badge — shows "→ @猫名" in breed color.
+ * F098: Direction pill badge — shows "→ @智能体" in breed color.
  * Placed in ChatMessage header row, after timestamp.
  */
 export function DirectionPill({ direction, getCatById }: DirectionPillProps) {

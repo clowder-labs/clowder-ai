@@ -72,6 +72,10 @@ export default function LoginPage() {
 
   const handleUserTypeChange = (nextUserType: 'huawei' | 'iam') => {
     setUserType(nextUserType);
+    setDomainName('');
+    setUserName('');
+    setPassword('');
+    setShowPassword(false);
     setError('');
   };
 
@@ -249,7 +253,7 @@ export default function LoginPage() {
                       type="text"
                       required
                       className="ui-input appearance-none relative block w-full px-3 py-2 rounded-md sm:text-sm"
-                      placeholder="请输入邀请码"
+                      placeholder="邀请码"
                       value={promotionCode}
                       onChange={(e) => setPromotionCode(e.target.value)}
                     />

@@ -121,7 +121,7 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
         {/* Cat selection */}
         <div className="px-6 py-4 border-t border-ww-subtle">
           <div className="text-sm text-ww-muted font-medium mb-3">
-            选择参赛猫猫（点击添加）
+            选择参赛智能体（点击添加）
             <span className="ml-2 text-xs">
               ({selectedCatList.length}/{catSeatsNeeded} 席位
               {selectedCatList.length < catSeatsNeeded && (
@@ -161,8 +161,8 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
         {mode === 'detective' && (
           <div className="px-6 py-4 border-t border-ww-subtle">
             <div className="text-sm text-ww-muted font-medium mb-3">
-              选择绑定猫猫
-              <span className="ml-2 text-xs opacity-70">（只能看到这只猫的视角）</span>
+              选择绑定智能体
+              <span className="ml-2 text-xs opacity-70">（只能看到该智能体的视角）</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {selectedCatList.map((cat) => (
@@ -188,7 +188,7 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
                 </button>
               ))}
             </div>
-            {!detectiveCatId && <div className="text-xs text-ww-danger mt-2">请选择一只猫猫绑定视角</div>}
+            {!detectiveCatId && <div className="text-xs text-ww-danger mt-2">请选择智能体绑定视角</div>}
           </div>
         )}
 

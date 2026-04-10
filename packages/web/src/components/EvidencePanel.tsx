@@ -43,7 +43,7 @@ export function EvidencePanel({ data }: { data: EvidenceData }) {
         {/* Results */}
         {data.results.length === 0 ? (
           <div className="text-xs text-slate-400 text-center py-6 font-medium italic">
-            喵... 翻遍了猫砂盆也没找到相关证据
+            ... 也没找到相关证据
           </div>
         ) : (
           <div className="space-y-2">

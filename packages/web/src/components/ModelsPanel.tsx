@@ -27,7 +27,7 @@ const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
-const CREATE_MODEL_CONFIRM_LABEL = '确定';
+const CREATE_MODEL_CONFIRM_LABEL = '测试并保存';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
 const EMPTY_MODEL_ICON_DATA_URL =
@@ -214,6 +214,66 @@ function resolveUploadedIconUrl(icon?: string | null): string | null {
   const trimmed = icon?.trim();
   if (!trimmed) return null;
   return trimmed.startsWith('/uploads/') ? `${API_URL}${trimmed}` : trimmed;
+}
+
+function normalizeModelConnectionError(raw: string | null | undefined): string {
+  const message = raw?.trim();
+  if (!message) return '测试失败，请稍后重试';
+
+  const lower = message.toLowerCase();
+  if (lower.includes('invalid body')) return '模型配置填写不完整，请检查地址、API Key 和模型名';
+  if (lower.includes('invalid project path')) return '当前项目路径无效，无法测试该模型配置';
+  if (lower.includes('identity required')) return '身份校验失败，请刷新页面后重试';
+  if (lower.includes('provider test did not execute')) return '测试请求未成功发出，请检查 Base URL 是否正确';
+  if (lower.includes('fetch failed') || lower.includes('network') || lower.includes('econn') || lower.includes('enotfound')) {
+    return '无法连接到模型服务，请检查 Base URL、网络或代理配置';
+  }
+  if (
+    lower.includes('401') ||
+    lower.includes('unauthorized') ||
+    lower.includes('invalid api key') ||
+    lower.includes('incorrect api key')
+  ) {
+    return 'API Key 无效或已失效，请检查后重试';
+  }
+  if (lower.includes('403') || lower.includes('forbidden')) {
+    return '模型服务拒绝了本次请求，请检查 API Key 权限或网关策略';
+  }
+  if (lower.includes('404')) return '没有找到对应的模型服务接口，请检查 Base URL 是否填写正确';
+  if (lower.includes('429') || lower.includes('rate limit')) return '模型服务当前限流，稍后再试';
+  if (lower.includes('500') || lower.includes('502') || lower.includes('503') || lower.includes('504')) {
+    return '模型服务暂时不可用，请稍后再试';
+  }
+  if (lower.includes('gateway rejected the probe model identifier')) {
+    return '连接已通，但默认探测模型未被网关接受。通常说明地址和 API Key 是有效的，可以继续保存';
+  }
+
+  return `测试失败：${message}`;
+}
+
+async function runDraftModelConfigProbe(input: {
+  projectPath?: string;
+  baseUrl: string;
+  apiKey: string;
+  models: string[];
+  displayName?: string;
+}): Promise<void> {
+  const res = await apiFetch('/api/provider-profiles/test-draft', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      ...(input.projectPath ? { projectPath: input.projectPath } : {}),
+      protocol: 'openai',
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey,
+      models: input.models,
+      ...(input.displayName ? { displayName: input.displayName } : {}),
+    }),
+  });
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) {
+    throw new Error(normalizeModelConnectionError(body.error ?? `请求失败 (${res.status})`));
+  }
 }
 
 export function ModelsPanel() {
@@ -487,6 +547,13 @@ export function ModelsPanel() {
           ...(projectPath ? { projectPath } : {}),
         };
       } else {
+        await runDraftModelConfigProbe({
+          ...(projectPath ? { projectPath } : {}),
+          baseUrl: modelUrlInput.trim(),
+          apiKey: modelApiKeyInput.trim(),
+          models: [modelNameInput.trim()],
+          displayName: displayName || modelNameInput.trim(),
+        });
         payload = {
           sourceId: generateModelConfigSourceId(),
           ...(displayName ? { displayName } : {}),
@@ -565,13 +632,6 @@ export function ModelsPanel() {
             className="hidden rounded-[16px] border border-[#DCE1E8] px-3 py-1.5 text-[12px] font-medium text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
           >
             ACP / 账号配置
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAddModelModal(true)}
-            className="hidden rounded-[16px] bg-[#101317] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#262C34]"
-          >
-            {ADD_MODEL}
           </button>
           {isSkipAuth ? (
             <button
@@ -911,7 +971,7 @@ export function ModelsPanel() {
                 data-testid="models-create-model-confirm"
                 className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {createModelBusy ? '创建中...' : CREATE_MODEL_CONFIRM_LABEL}
+                {createModelBusy ? (isEditMode ? '保存中...' : '测试中...') : isEditMode ? '保存' : CREATE_MODEL_CONFIRM_LABEL}
               </button>
             </div>
           </div>
@@ -1071,6 +1131,13 @@ function ModelsCreateModelConfigSource({
           setBusy(true);
           try {
             const headers = parseHeadersJson(headersText);
+            await runDraftModelConfigProbe({
+              ...(projectPath ? { projectPath } : {}),
+              baseUrl: baseUrl.trim(),
+              apiKey: apiKey.trim(),
+              models,
+              displayName: displayName.trim(),
+            });
             const res = await apiFetch('/api/model-config-profiles', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
@@ -1098,7 +1165,7 @@ function ModelsCreateModelConfigSource({
         }}
         className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
       >
-        {busy ? '创建中...' : '创建'}
+        {busy ? '测试中...' : '测试并保存'}
       </button>
     </div>
   );
