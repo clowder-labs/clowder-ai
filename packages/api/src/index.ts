@@ -1026,7 +1026,8 @@ async function main(): Promise<void> {
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
-  await app.register(configRoutes);
+  const configRouteOpts: Parameters<typeof configRoutes>[1] = {};
+  await app.register(configRoutes, configRouteOpts);
   await app.register(featureDocDetailRoutes);
   await app.register(modelConfigProfilesRoutes);
   await app.register(providerProfilesRoutes);
@@ -1407,7 +1408,7 @@ async function main(): Promise<void> {
   });
 
   // F088: Start connector gateway (best-effort, after listen)
-  let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
+  let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> | null = null;
   try {
     const gatewayConfig = loadConnectorGatewayConfig();
     connectorGatewayHandle = await startConnectorGateway(gatewayConfig, {
@@ -1432,6 +1433,8 @@ async function main(): Promise<void> {
       redis: redisClient ?? undefined,
       log: app.log,
       frontendBaseUrl,
+      hostRoot: resolveCatCafeHostRoot(process.cwd()),
+      webhookHandlers: connectorWebhookHandlers,
     });
     if (connectorGatewayHandle) {
       invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
@@ -1459,9 +1462,6 @@ async function main(): Promise<void> {
           deepLinkUrl: `${frontendBaseUrl}/threads/${threadId}`,
         };
       });
-      for (const [id, handler] of connectorGatewayHandle.webhookHandlers) {
-        connectorWebhookHandlers.set(id, handler);
-      }
       // F137: Wire WeChat adapter to hub routes for QR login
       (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = connectorGatewayHandle.weixinAdapter;
       (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling =
@@ -1470,6 +1470,8 @@ async function main(): Promise<void> {
         connectorGatewayHandle.activateWeixinBotToken;
       (connectorHubOpts as { disconnectWeixinBotToken?: () => Promise<void> }).disconnectWeixinBotToken =
         connectorGatewayHandle.disconnectWeixinBotToken;
+      (connectorHubOpts as { connectorRuntimeManager?: unknown }).connectorRuntimeManager = connectorGatewayHandle;
+      (configRouteOpts as { connectorRuntimeManager?: unknown }).connectorRuntimeManager = connectorGatewayHandle;
       // F134 Phase D: Wire permission store to hub routes
       (connectorHubOpts as { permissionStore?: unknown }).permissionStore = connectorGatewayHandle.permissionStore;
       app.log.info('[api] Connector gateway started');

@@ -34,6 +34,8 @@ export interface IOutboundAdapter {
 
 /** Adapter that supports edit-in-place streaming (placeholder → progressive edits). */
 export interface IStreamableOutboundAdapter extends IOutboundAdapter {
+  /** Set false to opt out of placeholder/edit/delete streaming on platforms where recall UX is noisy. */
+  readonly supportsPlaceholderStreaming?: boolean;
   /** Send a placeholder message and return its platform-level message ID. */
   sendPlaceholder(externalChatId: string, text: string): Promise<string>;
   /** Edit an already-sent message in place. */

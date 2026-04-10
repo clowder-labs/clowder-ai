@@ -254,7 +254,7 @@ function ThreadModeChatContainer({
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
   const { handleScroll, scrollContainerRef, messagesEndRef, scrollToBottom, isLoadingHistory, hasMore } =
     useChatHistory(threadId);
-  const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
+  const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId, { resetRefs });
   const consumedPendingRequestIdsRef = useRef(new Set<string>());
   const {
     pending: authPending,

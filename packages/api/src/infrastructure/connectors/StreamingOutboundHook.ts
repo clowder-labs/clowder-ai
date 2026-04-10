@@ -45,6 +45,7 @@ export class StreamingOutboundHook {
     for (const binding of bindings) {
       const adapter = this.opts.adapters.get(binding.connectorId);
       if (!adapter?.sendPlaceholder) continue;
+      if (adapter.supportsPlaceholderStreaming === false) continue;
       try {
         const catEntry = catId ? catRegistry.tryGet(catId) : undefined;
         const prefix = catEntry ? `[${catEntry.config.displayName}] ` : '';

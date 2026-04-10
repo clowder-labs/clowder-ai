@@ -266,7 +266,7 @@ describe('Callback Routes', () => {
     assert.equal(socketManager.getMessages().length, 1);
   });
 
-  test('POST post-message supports cross-thread send with threadId', async () => {
+  test('POST post-message rejects cross-thread send without explicit allowCrossThread', async () => {
     const app = await createApp();
     const threadA = await threadStore.create('user-1', 'thread-a');
     const threadB = await threadStore.create('user-1', 'thread-b');
@@ -283,43 +283,14 @@ describe('Callback Routes', () => {
       },
     });
 
-    assert.equal(response.statusCode, 200);
+    assert.equal(response.statusCode, 400);
     const body = JSON.parse(response.body);
-    assert.equal(body.status, 'ok');
-    assert.equal(body.threadId, threadB.id);
+    assert.match(body.error, /allowCrossThread=true/);
 
     const threadAMessages = messageStore.getByThread(threadA.id, 20, 'user-1');
     const threadBMessages = messageStore.getByThread(threadB.id, 20, 'user-1');
     assert.equal(threadAMessages.length, 0);
-    assert.equal(threadBMessages.length, 1);
-    assert.equal(threadBMessages[0].content, 'cross-thread hello');
-  });
-
-  test('POST post-message routes cross-paragraph @mention (no keyword gate)', async () => {
-    const app = await createApp();
-    const threadA = await threadStore.create('user-1', 'thread-a');
-    const threadB = await threadStore.create('user-1', 'thread-b');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
-
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/callbacks/post-message',
-      payload: {
-        invocationId,
-        callbackToken,
-        threadId: threadB.id,
-        content: '@缅因猫\n\n请 review 这个改动',
-      },
-    });
-
-    assert.equal(response.statusCode, 200);
-    const body = JSON.parse(response.body);
-    assert.equal(body.status, 'ok');
-    assert.equal(body.threadId, threadB.id);
-
-    const threadBMessages = messageStore.getByThread(threadB.id, 20, 'user-1');
-    assert.equal(threadBMessages.length, 1);
-    assert.deepEqual(threadBMessages[0].mentions, ['codex']);
+    assert.equal(threadBMessages.length, 0);
   });
 
   test('POST post-message stores targetCats in extra and uses as mentions (F098-C1)', async () => {
@@ -409,6 +380,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
+        allowCrossThread: true,
         threadId: foreignThread.id,
         content: 'should fail',
       },
@@ -2241,6 +2213,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
+        allowCrossThread: true,
         content: 'Hello from source thread',
         threadId: targetThread.id,
       },

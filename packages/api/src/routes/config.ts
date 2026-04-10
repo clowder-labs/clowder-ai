@@ -10,10 +10,11 @@ import os from 'node:os';
 import { resolve } from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
-import { buildEnvSummary, ENV_CATEGORIES, isEditableEnvVarName, requiresRestartEnvVar } from '../config/env-registry.js';
+import { buildEnvSummary, ENV_CATEGORIES, isConnectorEnvVarName, isEditableEnvVarName } from '../config/env-registry.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
@@ -51,6 +52,7 @@ interface ConfigRoutesOptions {
   };
   envFilePath?: string;
   projectRoot?: string;
+  connectorRuntimeManager?: ConnectorRuntimeReconciler;
 }
 
 function getSnapshotValue(snapshot: ConfigSnapshot, key: string): unknown {
@@ -273,16 +275,18 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     const next = applyEnvUpdatesToFile(current, updates);
     writeFileSync(envFilePath, next, 'utf8');
 
-    let needsRestart = false;
+    const changedKeys: string[] = [];
     for (const [name, value] of updates) {
-      if (requiresRestartEnvVar(name)) {
-        // Connector adapters cache credentials at startup — flag restart needed.
-        // But still update process.env so test-connection reads fresh values.
-        needsRestart = true;
-      }
+      changedKeys.push(name);
       if (value == null || value === '') delete process.env[name];
       else process.env[name] = value;
     }
+
+    const runtime = opts.connectorRuntimeManager && changedKeys.length > 0
+      ? await opts.connectorRuntimeManager.reconcile(changedKeys)
+      : undefined;
+    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
+    const needsRestart = changedConnectorEnv && (!runtime || !runtime.applied);
 
     try {
       await auditLog.append({
@@ -297,6 +301,6 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       request.log.warn({ err, keys: [...updates.keys()] }, 'env config audit append failed');
     }
 
-    return { ok: true, requiresRestart: needsRestart, envFilePath, summary: buildEnvSummary() };
+    return { ok: true, requiresRestart: needsRestart, runtime, envFilePath, summary: buildEnvSummary() };
   });
 }

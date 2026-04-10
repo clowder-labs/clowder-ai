@@ -45,19 +45,19 @@ export class ConnectorMediaService {
     this.xiaoyiDl = opts.xiaoyiDownloadFn;
   }
 
-  setFeishuDownloadFn(fn: (key: string, type: string, messageId?: string) => Promise<Buffer>): void {
+  setFeishuDownloadFn(fn: ((key: string, type: string, messageId?: string) => Promise<Buffer>) | undefined): void {
     this.feishuDl = fn;
   }
 
-  setTelegramDownloadFn(fn: (fileId: string) => Promise<Buffer>): void {
+  setTelegramDownloadFn(fn: ((fileId: string) => Promise<Buffer>) | undefined): void {
     this.telegramDl = fn;
   }
 
-  setDingtalkDownloadFn(fn: (downloadCode: string) => Promise<Buffer>): void {
+  setDingtalkDownloadFn(fn: ((downloadCode: string) => Promise<Buffer>) | undefined): void {
     this.dingtalkDl = fn;
   }
 
-  setXiaoyiDownloadFn(fn: (uri: string) => Promise<Buffer>): void {
+  setXiaoyiDownloadFn(fn: ((uri: string) => Promise<Buffer>) | undefined): void {
     this.xiaoyiDl = fn;
   }
 
