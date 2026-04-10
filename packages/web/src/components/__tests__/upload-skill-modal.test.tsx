@@ -127,5 +127,13 @@ describe('UploadSkillModal', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('marks skill name and file selection as required fields', () => {
+    renderModal();
+
+    const requiredMarkers = Array.from(container.querySelectorAll('[data-testid="required-indicator"]'));
+    expect(requiredMarkers).toHaveLength(2);
+    expect(requiredMarkers.every((marker) => marker.textContent === '*')).toBe(true);
+  });
 });
 

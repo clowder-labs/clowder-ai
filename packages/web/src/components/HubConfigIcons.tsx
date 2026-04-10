@@ -17,7 +17,7 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
   feishu: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/feishu.svg" alt="Feishu" className="h-11 w-11" />
+      <img src="/images/connectors/feishu.svg" alt="飞书" className="h-11 w-11" />
     ),
   },
   telegram: {
@@ -29,19 +29,19 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
   weixin: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/weixin.svg" alt="WeChat" className="h-11 w-11" />
+      <img src="/images/connectors/weixin.svg" alt="微信" className="h-11 w-11" />
     ),
   },
   dingtalk: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/dingtalk.svg" alt="DingTalk" className="h-11 w-11" />
+      <img src="/images/connectors/dingtalk.svg" alt="钉钉" className="h-11 w-11" />
     ),
   },
   xiaoyi: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/xiaoyi.svg" alt="Huawei XiaoYi" className="h-11 w-11" />
+      <img src="/images/connectors/xiaoyi.svg" alt="小艺" className="h-11 w-11" />
     ),
   },
 };
