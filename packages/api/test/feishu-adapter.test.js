@@ -609,6 +609,11 @@ describe('FeishuAdapter', () => {
       const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
       assert.equal(adapter.connectorId, 'feishu');
     });
+
+    it('opts out of placeholder streaming to avoid visible recall churn', () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      assert.equal(adapter.supportsPlaceholderStreaming, false);
+    });
   });
 
   describe('sendRichMessage()', () => {
@@ -921,6 +926,43 @@ describe('FeishuAdapter', () => {
       await adapter.deleteMessage('om_msg_to_delete');
       assert.equal(deleteCalls.length, 1);
       assert.equal(deleteCalls[0].messageId, 'om_msg_to_delete');
+    });
+  });
+
+  describe('addReaction()', () => {
+    it('posts THUMBSUP reaction to Feishu message API', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const fetchCalls = [];
+      adapter._injectTokenManager({ getTenantAccessToken: async () => 'mock-token' });
+      adapter._injectUploadFetch(async (url, init) => {
+        fetchCalls.push({ url, init });
+        return {
+          ok: true,
+          json: async () => ({ code: 0 }),
+        };
+      });
+
+      const ok = await adapter.addReaction('om_msg_123');
+      assert.equal(ok, true);
+      assert.equal(fetchCalls.length, 1);
+      assert.equal(fetchCalls[0].url, 'https://open.feishu.cn/open-apis/im/v1/messages/om_msg_123/reactions');
+      assert.equal(fetchCalls[0].init.method, 'POST');
+      assert.equal(fetchCalls[0].init.headers.Authorization, 'Bearer mock-token');
+      const body = JSON.parse(fetchCalls[0].init.body);
+      assert.equal(body.reaction_type.emoji_type, 'THUMBSUP');
+    });
+
+    it('returns false when no token manager is configured', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      let called = false;
+      adapter._injectUploadFetch(async () => {
+        called = true;
+        return { ok: true, json: async () => ({ code: 0 }) };
+      });
+
+      const ok = await adapter.addReaction('om_msg_123');
+      assert.equal(ok, false);
+      assert.equal(called, false);
     });
   });
 
