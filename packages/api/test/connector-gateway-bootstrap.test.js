@@ -615,6 +615,98 @@ describe('ConnectorGateway Bootstrap', () => {
     assert.ok(mockWsClient.closed, 'Mock WSClient should have been closed on stop');
   });
 
+  it('feishu websocket mode adds THUMBSUP reaction after successful inbound processing', async () => {
+    const triggerCalls = [];
+    const fetchCalls = [];
+    let wsEventDispatcher;
+    const deps = {
+      ...baseDeps,
+      invokeTrigger: {
+        trigger(...args) {
+          triggerCalls.push(args);
+        },
+      },
+      _wsClientFactory: () => ({
+        async start(opts) {
+          wsEventDispatcher = opts.eventDispatcher;
+        },
+        close() {},
+      }),
+    };
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const href = String(url);
+      fetchCalls.push({ url: href, init });
+      if (href.includes('/auth/v3/tenant_access_token/internal')) {
+        return {
+          ok: true,
+          json: async () => ({ tenant_access_token: 'tenant-token', expire: 7200 }),
+        };
+      }
+      if (href.includes('/bot/v3/info')) {
+        return {
+          ok: true,
+          json: async () => ({ bot: { open_id: 'ou_bot_123' } }),
+        };
+      }
+      if (href.includes('/reactions')) {
+        return {
+          ok: true,
+          json: async () => ({ code: 0 }),
+        };
+      }
+      throw new Error(`Unexpected fetch: ${href}`);
+    };
+
+    try {
+      const handle = await startConnectorGateway(
+        {
+          feishuAppId: 'test-app-id',
+          feishuAppSecret: 'test-app-secret',
+          feishuConnectionMode: 'websocket',
+        },
+        deps,
+      );
+      assert.ok(handle);
+      assert.ok(wsEventDispatcher, 'WebSocket mode should start an event dispatcher');
+
+      const onMessage = wsEventDispatcher.handles.get('im.message.receive_v1');
+      assert.ok(onMessage, 'message receive handler should be registered');
+
+      await onMessage({
+        sender: {
+          sender_id: { open_id: 'ou_user' },
+          sender_type: 'user',
+        },
+        message: {
+          message_id: 'om_msg_ws_react_1',
+          chat_id: 'oc_chat_1',
+          chat_type: 'p2p',
+          content: JSON.stringify({ text: 'Hello cat!' }),
+          message_type: 'text',
+        },
+      });
+
+      assert.equal(triggerCalls.length, 1);
+
+      for (let i = 0; i < 20; i++) {
+        if (fetchCalls.some((call) => call.url.includes('/messages/om_msg_ws_react_1/reactions'))) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      const reactionCall = fetchCalls.find((call) => call.url.includes('/messages/om_msg_ws_react_1/reactions'));
+      assert.ok(reactionCall, 'reaction API should be called in websocket mode');
+      assert.equal(reactionCall.init.method, 'POST');
+      const body = JSON.parse(reactionCall.init.body);
+      assert.equal(body.reaction_type.emoji_type, 'THUMBSUP');
+
+      await handle.stop();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('feishu websocket mode still allows webhook mode when explicitly set', async () => {
     const config = {
       feishuAppId: 'test-app-id',
