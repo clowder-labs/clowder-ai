@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { CatId } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 export interface QueueEntry {
   id: string;
@@ -46,6 +47,7 @@ export interface EnqueueResult {
 const MAX_QUEUE_DEPTH = 5;
 
 export class InvocationQueue {
+  private readonly log = createModuleLogger('invocation-queue');
   private queues = new Map<string, QueueEntry[]>();
 
   /** Last pre-merge content per entryId, for rollback */

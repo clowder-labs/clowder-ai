@@ -351,8 +351,6 @@ export async function assembleIncrementalContext(
   const relevant = unseen.filter((m) => {
     // System-generated messages (persisted error badges) are display-only — never enter prompt
     if (m.userId === 'system') return false;
-    // F148 Phase E: briefing messages are non-routing — never enter incremental context (AC-E2)
-    if (m.origin === 'briefing') return false;
     // F35: Exclude whispers not intended for this cat (play mode only)
     if (!canViewMessage(m, viewer)) return false;
     // Exclude own messages (only include user messages and other cats' messages)
@@ -477,4 +475,3 @@ export async function assembleIncrementalContext(
     degradation,
   };
 }
-
