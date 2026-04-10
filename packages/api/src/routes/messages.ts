@@ -673,7 +673,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
       });
 
       // ⑤ Background: execute cat invocation via routeExecution
-      void (async () => {
+      (async () => {
         const HEARTBEAT_INTERVAL_MS = 30_000;
         const heartbeatInterval = setInterval(() => {
           opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'heartbeat', {
@@ -996,7 +996,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
             /* best-effort, don't crash background task */
           });
         }
-      })();
+      })().catch((err) => {
+        console.error('[messages] Background processing error:', err);
+      });
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
       // F122 A.1: Try non-preemptive first. Legacy path has no InvocationQueue so it
@@ -1021,7 +1023,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
       reply.send({ status: 'processing', timestamp: Date.now() });
 
-      void (async () => {
+      (async () => {
         const HEARTBEAT_INTERVAL_MS = 30_000;
         const heartbeatInterval = setInterval(() => {
           opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'heartbeat', {
@@ -1064,7 +1066,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
           clearInterval(heartbeatInterval);
           opts.invocationTracker?.complete(resolvedThreadId, primaryCat, controller);
         }
-      })();
+      })().catch((err) => {
+        console.error('[messages] Legacy background processing error:', err);
+      });
     }
   });
 
