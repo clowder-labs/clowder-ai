@@ -103,16 +103,15 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
       <div
-        className="relative w-[360px] max-w-[90vw] rounded-lg bg-white text-center shadow-lg"
+        className="relative w-[360px] max-w-[90vw] rounded-[16px] bg-white text-center shadow-lg"
         style={{
           backgroundImage: 'url("/images/version-bg.svg")',
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
         }}
       >
         <button className="absolute right-5 top-5 text-gray-400 hover:text-gray-600" onClick={handleCancel}>
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
@@ -122,7 +121,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
             <img src="/images/lobster.svg" alt="版本更新" className="h-[64px] w-[64px] object-contain" />
           </div>
 
-          <div className="mb-2">
+          <div className="mb-1">
             {isLoading ? (
               <span className="text-base font-bold">检查版本中...</span>
             ) : hasNewVersion ? (
@@ -137,7 +136,7 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
           <div className="mb-4 text-sm text-gray-500">当前版本V{currentVersion}</div>
 
           {hasNewVersion && versionInfo && (
-            <div className="mb-6 max-h-[150px] overflow-y-auto rounded-lg bg-gray-50 p-4 text-left text-sm text-gray-600">
+            <div className="mb-6 max-h-[150px] overflow-y-auto rounded-lg text-left text-sm">
               <pre className="whitespace-pre-wrap font-sans">{versionInfo.description}</pre>
             </div>
           )}

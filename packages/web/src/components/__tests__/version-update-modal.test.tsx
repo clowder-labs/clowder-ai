@@ -69,6 +69,24 @@ describe('VersionUpdateModal', () => {
     expect(image?.className).toContain('h-[64px]');
   });
 
+  it('uses a 24x24 close icon', async () => {
+    mockVersionResponse({
+      curversion: '1.0.0',
+      lastversion: '1.0.1',
+      description: 'bug fixes',
+    });
+
+    await act(async () => {
+      root.render(React.createElement(VersionUpdateModal, { open: true, onCancel: vi.fn() }));
+      await Promise.resolve();
+    });
+
+    const closeIcon = container.querySelector('button svg');
+    expect(closeIcon).not.toBeNull();
+    expect(closeIcon?.getAttribute('class')).toContain('h-6');
+    expect(closeIcon?.getAttribute('class')).toContain('w-6');
+  });
+
   it('uses version-bg.svg as the dialog card background', async () => {
     mockVersionResponse({
       curversion: '1.0.0',
@@ -102,6 +120,23 @@ describe('VersionUpdateModal', () => {
     const card = container.querySelector('.shadow-lg');
     expect(card).not.toBeNull();
     expect(card?.className).toContain('w-[360px]');
+  });
+
+  it('uses a 16px dialog corner radius', async () => {
+    mockVersionResponse({
+      curversion: '1.0.0',
+      lastversion: '1.0.1',
+      description: 'bug fixes',
+    });
+
+    await act(async () => {
+      root.render(React.createElement(VersionUpdateModal, { open: true, onCancel: vi.fn() }));
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('.shadow-lg');
+    expect(card).not.toBeNull();
+    expect(card?.className).toContain('rounded-[16px]');
   });
 
   it('left aligns the icon when a new version is available', async () => {
