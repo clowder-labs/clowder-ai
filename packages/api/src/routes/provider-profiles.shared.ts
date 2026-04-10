@@ -93,6 +93,15 @@ export const testBodySchema = z.object({
   protocol: protocolEnum.optional(),
 });
 
+export const draftTestBodySchema = z.object({
+  projectPath: z.string().optional(),
+  protocol: protocolEnum.exclude(['acp']),
+  baseUrl: z.string().trim().min(1),
+  apiKey: z.string().trim().min(1),
+  models: z.array(z.string().trim().min(1)).optional(),
+  displayName: z.string().trim().min(1).optional(),
+});
+
 export const createAcpModelProfileBodySchema = z
   .object({
     projectPath: z.string().optional(),

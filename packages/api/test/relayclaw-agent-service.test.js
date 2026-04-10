@@ -892,4 +892,167 @@ describe('RelayClawAgentService', () => {
     assert.equal(sentSessionIds[0], firstMessages[0].sessionId);
     assert.equal(sentSessionIds[1], secondMessages[0].sessionId);
   });
+
+  it('extracts token usage from frame.metadata and attaches to done message', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+          modelName: 'glm-5',
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: 'OK' },
+            metadata: { usage: { input_tokens: 150, output_tokens: 80, total_tokens: 230 } },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('hi'));
+    const done = messages.find((m) => m.type === 'done');
+    assert.ok(done?.metadata, 'done message should have metadata');
+    assert.equal(done.metadata.provider, 'jiuwen');
+    assert.equal(done.metadata.model, 'glm-5');
+    assert.equal(done.metadata.usage.inputTokens, 150);
+    assert.equal(done.metadata.usage.outputTokens, 80);
+    assert.equal(done.metadata.usage.totalTokens, 230);
+  });
+
+  it('done message has metadata even without usage data', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+          modelName: 'glm-5',
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: 'No usage' },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('hi'));
+    const done = messages.find((m) => m.type === 'done');
+    assert.ok(done?.metadata, 'done should have metadata even without usage');
+    assert.equal(done.metadata.provider, 'jiuwen');
+    assert.equal(done.metadata.model, 'glm-5');
+    assert.equal(done.metadata.usage, undefined);
+  });
+
+  it('extracts usage from metadata on non-final frames too', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: { url: 'ws://127.0.0.1:65535', autoStart: false },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.delta', content: 'Hello' },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: '' },
+            metadata: { usage: { input_tokens: 200, output_tokens: 100, total_tokens: 300 } },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('hi'));
+    const done = messages.find((m) => m.type === 'done');
+    assert.ok(done.metadata?.usage, 'usage should be extracted from metadata');
+    assert.equal(done.metadata.usage.inputTokens, 200);
+    assert.equal(done.metadata.usage.outputTokens, 100);
+  });
+
+  it('returns independent usage for consecutive invocations on the same service', async () => {
+    let callCount = 0;
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: { url: 'ws://127.0.0.1:65535', autoStart: false, modelName: 'glm-5' },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          callCount++;
+          const usage =
+            callCount === 1
+              ? { input_tokens: 100, output_tokens: 50, total_tokens: 150 }
+              : { input_tokens: 999, output_tokens: 888, total_tokens: 1887 };
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: `reply-${callCount}` },
+            metadata: { usage },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const msgs1 = await collect(service.invoke('first'));
+    const done1 = msgs1.find((m) => m.type === 'done');
+    assert.equal(done1.metadata.usage.inputTokens, 100);
+    assert.equal(done1.metadata.usage.outputTokens, 50);
+
+    const msgs2 = await collect(service.invoke('second'));
+    const done2 = msgs2.find((m) => m.type === 'done');
+    assert.equal(done2.metadata.usage.inputTokens, 999);
+    assert.equal(done2.metadata.usage.outputTokens, 888);
+  });
 });
