@@ -92,7 +92,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     await flushEffects();
 
     await act(async () => {
-      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      queryButton(container, 'Disconnect').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushEffects();
 
@@ -109,7 +109,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     await flushEffects();
 
     await act(async () => {
-      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      queryButton(container, 'Disconnect').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushEffects();
 

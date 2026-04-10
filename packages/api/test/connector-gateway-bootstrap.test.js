@@ -3,8 +3,24 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, it } from 'node:test';
+import { afterEach, describe, it } from 'node:test';
 import { startConnectorGateway } from '../dist/infrastructure/connectors/connector-gateway-bootstrap.js';
+
+const envKeysToRestore = [
+  'FEISHU_APP_ID',
+  'FEISHU_APP_SECRET',
+  'FEISHU_VERIFICATION_TOKEN',
+  'FEISHU_CONNECTION_MODE',
+  'DINGTALK_APP_KEY',
+  'DINGTALK_APP_SECRET',
+  'WEIXIN_BOT_TOKEN',
+  'XIAOYI_AK',
+  'XIAOYI_SK',
+  'XIAOYI_AGENT_ID',
+  'XIAOYI_WS_URL1',
+  'XIAOYI_WS_URL2',
+];
+const originalEnv = Object.fromEntries(envKeysToRestore.map((key) => [key, process.env[key]]));
 
 function noopLog() {
   const noop = () => {};
@@ -40,6 +56,14 @@ const baseDeps = {
   defaultCatId: 'opus',
   log: noopLog(),
 };
+
+afterEach(() => {
+  for (const key of envKeysToRestore) {
+    const value = originalEnv[key];
+    if (value == null) delete process.env[key];
+    else process.env[key] = value;
+  }
+});
 
 describe('ConnectorGateway Bootstrap', () => {
   it('creates gateway in QR-only mode when no connectors configured', async () => {
@@ -372,6 +396,27 @@ describe('ConnectorGateway Bootstrap', () => {
     }
   });
 
+  it('does not restore persisted WeChat bot token when hostRoot is not explicitly provided', async () => {
+    const { WeixinSessionStore } = await import('../dist/infrastructure/connectors/WeixinSessionStore.js');
+    const originalLoad = WeixinSessionStore.prototype.load;
+    let loadCalls = 0;
+
+    WeixinSessionStore.prototype.load = function mockedLoad() {
+      loadCalls++;
+      return { version: 1, botToken: 'should-not-load', updatedAt: new Date().toISOString() };
+    };
+
+    try {
+      const handle = await startConnectorGateway({}, baseDeps);
+      assert.ok(handle);
+      assert.equal(loadCalls, 0, 'Implicit gateway starts must not restore a persisted WeChat session');
+      assert.equal(handle.weixinAdapter.hasBotToken(), false);
+      await handle.stop();
+    } finally {
+      WeixinSessionStore.prototype.load = originalLoad;
+    }
+  });
+
   it('feishu webhook handler routes card action button click (AC-14)', async () => {
     const triggerCalls = [];
     const deps = {
@@ -599,5 +644,165 @@ describe('ConnectorGateway Bootstrap', () => {
     delete process.env.FEISHU_CONNECTION_MODE;
     const config3 = loadConnectorGatewayConfig();
     assert.equal(config3.feishuConnectionMode, 'webhook', 'Should default to webhook when not set');
+  });
+
+  it('reconcile hot-swaps feishu webhook verification token without API restart', async () => {
+    process.env.FEISHU_APP_ID = 'test-app-id';
+    process.env.FEISHU_APP_SECRET = 'test-app-secret';
+    process.env.FEISHU_VERIFICATION_TOKEN = 'new-token';
+
+    const sharedHandlers = new Map();
+    const handle = await startConnectorGateway(
+      {
+        feishuAppId: 'test-app-id',
+        feishuAppSecret: 'test-app-secret',
+        feishuVerificationToken: 'old-token',
+      },
+      { ...baseDeps, webhookHandlers: sharedHandlers },
+    );
+    assert.equal(sharedHandlers, handle.webhookHandlers);
+
+    const firstHandler = sharedHandlers.get('feishu');
+    assert.ok(firstHandler);
+    const firstResult = await firstHandler.handleWebhook(
+      {
+        header: { event_type: 'im.message.receive_v1', token: 'old-token' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_user' } },
+          message: {
+            message_id: 'om_old_token',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify({ text: 'hello' }),
+            message_type: 'text',
+          },
+        },
+      },
+      {},
+    );
+    assert.equal(firstResult.kind, 'processed');
+
+    const summary = await handle.reconcile(['FEISHU_VERIFICATION_TOKEN']);
+    assert.equal(summary.applied, true);
+    assert.deepEqual(summary.appliedConnectors, ['feishu']);
+
+    const nextHandler = sharedHandlers.get('feishu');
+    assert.ok(nextHandler);
+    const staleTokenResult = await nextHandler.handleWebhook(
+      {
+        header: { event_type: 'im.message.receive_v1', token: 'old-token' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_user' } },
+          message: {
+            message_id: 'om_stale_token',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify({ text: 'hello' }),
+            message_type: 'text',
+          },
+        },
+      },
+      {},
+    );
+    assert.equal(staleTokenResult.kind, 'error');
+
+    const newTokenResult = await nextHandler.handleWebhook(
+      {
+        header: { event_type: 'im.message.receive_v1', token: 'new-token' },
+        event: {
+          sender: { sender_id: { open_id: 'ou_user' } },
+          message: {
+            message_id: 'om_new_token',
+            chat_id: 'oc_chat',
+            chat_type: 'p2p',
+            content: JSON.stringify({ text: 'hello' }),
+            message_type: 'text',
+          },
+        },
+      },
+      {},
+    );
+    assert.equal(newTokenResult.kind, 'processed');
+    await handle.stop();
+  });
+
+  it('reconcile restarts dingtalk stream in place', async () => {
+    const { DingTalkAdapter } = await import('../dist/infrastructure/connectors/adapters/DingTalkAdapter.js');
+    const originalStart = DingTalkAdapter.prototype.startStream;
+    const originalStop = DingTalkAdapter.prototype.stopStream;
+    let starts = 0;
+    let stops = 0;
+
+    DingTalkAdapter.prototype.startStream = async function mockedStart() {
+      starts++;
+    };
+    DingTalkAdapter.prototype.stopStream = async function mockedStop() {
+      stops++;
+    };
+
+    process.env.DINGTALK_APP_KEY = 'next-key';
+    process.env.DINGTALK_APP_SECRET = 'next-secret';
+
+    try {
+      const handle = await startConnectorGateway(
+        {
+          dingtalkAppKey: 'old-key',
+          dingtalkAppSecret: 'old-secret',
+        },
+        baseDeps,
+      );
+      assert.equal(starts, 1);
+
+      const summary = await handle.reconcile(['DINGTALK_APP_KEY', 'DINGTALK_APP_SECRET']);
+      assert.equal(summary.applied, true);
+      assert.deepEqual(summary.appliedConnectors, ['dingtalk']);
+      assert.equal(stops, 1);
+      assert.equal(starts, 2);
+      await handle.stop();
+    } finally {
+      DingTalkAdapter.prototype.startStream = originalStart;
+      DingTalkAdapter.prototype.stopStream = originalStop;
+    }
+  });
+
+  it('reconcile restarts xiaoyi stream in place', async () => {
+    const { XiaoyiAdapter } = await import('../dist/infrastructure/connectors/adapters/XiaoyiAdapter.js');
+    const originalStart = XiaoyiAdapter.prototype.startStream;
+    const originalStop = XiaoyiAdapter.prototype.stopStream;
+    let starts = 0;
+    let stops = 0;
+
+    XiaoyiAdapter.prototype.startStream = async function mockedStart() {
+      starts++;
+    };
+    XiaoyiAdapter.prototype.stopStream = async function mockedStop() {
+      stops++;
+    };
+
+    process.env.XIAOYI_AK = 'next-ak';
+    process.env.XIAOYI_SK = 'next-sk';
+    process.env.XIAOYI_AGENT_ID = 'next-agent';
+
+    try {
+      const handle = await startConnectorGateway(
+        {
+          xiaoyiAk: 'old-ak',
+          xiaoyiSk: 'old-sk',
+          xiaoyiAgentId: 'old-agent',
+        },
+        baseDeps,
+      );
+      assert.equal(starts, 1);
+
+      const summary = await handle.reconcile(['XIAOYI_AK', 'XIAOYI_SK', 'XIAOYI_AGENT_ID']);
+      assert.equal(summary.applied, true);
+      assert.deepEqual(summary.appliedConnectors, ['xiaoyi']);
+      assert.equal(stops, 1);
+      assert.equal(starts, 2);
+      await handle.stop();
+    } finally {
+      XiaoyiAdapter.prototype.startStream = originalStart;
+      XiaoyiAdapter.prototype.stopStream = originalStop;
+    }
   });
 });
