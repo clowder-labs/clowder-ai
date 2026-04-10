@@ -16,12 +16,15 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 
 当前实现的问题是：登录协议、session、业务副作用和 `X-Cat-Cafe-User` 身份语义揉在一起，导致接入新 provider 时边界不清、流程不统一、身份来源不可信。F140 的目标是把 auth 做成”框架 + 插件”结构：平台负责统一生命周期和鉴权，provider 只负责凭证到身份的转换。
 
-**铲屎官最终验收标准（2026-04-08 19:42 明确，2026-04-09 设计收敛后修订）**：
-1. `no-auth` 和 `huawei-iam` 是**独立可管理**的 provider module（内建，在主仓维护）
-2. 主项目通过 `.env` 启用某个 auth module，重启后自动生效
-3. 启用哪个 module 就自动得到对应的**前后端完整效果**（no-auth=无登录页，huawei-iam=当前登录体验）
-4. Auth contract 源码在 `packages/plugin-api`（内部），对外通过已发布的公共包 re-export（目标 `@clowder/core/auth`）
-5. 有完整的**插件开发文档**，第三方在独立仓库开发 → 打包发布 → 主项目安装+配 env+重启 → 可用
+**铲屎官最终验收标准（2026-04-10 14:35 重新明确）**：
+
+> auth + client 模块的公共接口抽出来；对应的实现是独立的；支持后续将整个项目作为 npm 被其他项目集成；然后实现对应的接口来开发自己的 provider；然后这个完整的流程和机制可行文档清晰。
+
+拆解为四个验收条件：
+1. **公共接口已抽出** — auth + client surface 的 contract 稳定，有明确的 public entry 可依赖
+2. **实现与接口解耦** — `no-auth`、`huawei-iam` 及第三方 provider 都是接口之上的独立实现，不和主业务硬绑
+3. **外部项目可集成并自研 provider** — 外部 TS 仓库可依赖公共接口实现 provider，通过配置接入
+4. **完整流程和机制清楚可行** — 有清晰文档，且至少走通过一次真实接入流程
 
 ## What
 
@@ -189,6 +192,9 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | 2026-04-09 | 设计收敛：plugin-api 保持内部、A-scheme providerId、内建不拆包（gpt52 + CVO 确认） |
 | 2026-04-09 | 架构文档 `auth-provider-extension-model.md` 落仓 |
 | 2026-04-10 | 文档修正：源码归属层（plugin-api）与公共发布面（@clowder/core/auth）分离；与 npm-publish-readiness 对齐命名空间 |
+| 2026-04-10 | 开发指南 `build-auth-provider.md` 落仓（AC-F1/F2/F3），gpt52 review 3 issues 已修 |
+| 2026-04-10 | 铲屎官重新明确最终验收目标：公共接口抽出 + 实现解耦 + 外部可集成 + 流程实证 |
+| 2026-04-10 | PR #249 定位为"基座完成"，后续补：public entry 落地 + 外部仓 walkthrough + 完整集成验证 |
 
 ## Review Gate
 
