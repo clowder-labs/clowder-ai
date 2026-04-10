@@ -395,7 +395,7 @@ export async function startConnectorGateway(
           ? { id: parsed.senderId, ...(senderName ? { name: senderName } : {}) }
           : undefined;
 
-      return connectorRouter.route(
+      const result = await connectorRouter.route(
         'feishu',
         parsed.chatId,
         parsed.text,
@@ -405,6 +405,12 @@ export async function startConnectorGateway(
         parsed.chatType,
         chatName,
       );
+
+      if (result.kind !== 'skipped') {
+        void feishu.addReaction(parsed.messageId, 'THUMBSUP');
+      }
+
+      return result;
     }
 
     if (feishuWsMode) {

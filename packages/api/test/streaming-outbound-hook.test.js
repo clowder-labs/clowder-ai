@@ -92,6 +92,13 @@ describe('StreamingOutboundHook', () => {
     assert.equal(adapter._calls.sendPlaceholder.length, 0);
   });
 
+  it('onStreamStart skips adapters that disable placeholder streaming', async () => {
+    const { hook, adapter } = createHook();
+    adapter.supportsPlaceholderStreaming = false;
+    await hook.onStreamStart('thread-1', 'opus');
+    assert.equal(adapter._calls.sendPlaceholder.length, 0);
+  });
+
   it('onStreamChunk edits message when thresholds met', async () => {
     const { hook, adapter } = createHook({ updateIntervalMs: 0, minDeltaChars: 0 });
     await hook.onStreamStart('thread-1');

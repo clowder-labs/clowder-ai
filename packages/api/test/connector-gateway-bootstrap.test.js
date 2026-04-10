@@ -43,12 +43,17 @@ const baseDeps = {
 
 describe('ConnectorGateway Bootstrap', () => {
   it('creates gateway in QR-only mode when no connectors configured', async () => {
-    const result = await startConnectorGateway({}, baseDeps);
-    assert.ok(result, 'Gateway should be created even without env tokens (for WeChat QR login)');
-    assert.ok(result.weixinAdapter);
-    assert.equal(result.weixinAdapter.hasBotToken(), false);
-    assert.equal(result.webhookHandlers.size, 0);
-    await result.stop();
+    const hostRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-gateway-qr-only-'));
+    try {
+      const result = await startConnectorGateway({}, { ...baseDeps, hostRoot });
+      assert.ok(result, 'Gateway should be created even without env tokens (for WeChat QR login)');
+      assert.ok(result.weixinAdapter);
+      assert.equal(result.weixinAdapter.hasBotToken(), false);
+      assert.equal(result.webhookHandlers.size, 0);
+      await result.stop();
+    } finally {
+      rmSync(hostRoot, { recursive: true, force: true });
+    }
   });
 
   it('creates gateway without feishu when verification token missing (fail-closed)', async () => {
@@ -144,6 +149,97 @@ describe('ConnectorGateway Bootstrap', () => {
     assert.equal(result.kind, 'processed');
     assert.equal(triggerCalls.length, 1);
     await handle.stop();
+  });
+
+  it('feishu webhook handler adds THUMBSUP reaction after successful inbound processing', async () => {
+    const triggerCalls = [];
+    const fetchCalls = [];
+    const deps = {
+      ...baseDeps,
+      invokeTrigger: {
+        trigger(...args) {
+          triggerCalls.push(args);
+        },
+      },
+    };
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const href = String(url);
+      fetchCalls.push({ url: href, init });
+      if (href.includes('/auth/v3/tenant_access_token/internal')) {
+        return {
+          ok: true,
+          json: async () => ({ tenant_access_token: 'tenant-token', expire: 7200 }),
+        };
+      }
+      if (href.includes('/bot/v3/info')) {
+        return {
+          ok: true,
+          json: async () => ({ bot: { open_id: 'ou_bot_123' } }),
+        };
+      }
+      if (href.includes('/reactions')) {
+        return {
+          ok: true,
+          json: async () => ({ code: 0 }),
+        };
+      }
+      throw new Error(`Unexpected fetch: ${href}`);
+    };
+
+    try {
+      const config = {
+        feishuAppId: 'test-app-id',
+        feishuAppSecret: 'test-app-secret',
+        feishuVerificationToken: 'test-token',
+      };
+      const handle = await startConnectorGateway(config, deps);
+      assert.ok(handle);
+
+      const feishuHandler = handle.webhookHandlers.get('feishu');
+      const result = await feishuHandler.handleWebhook(
+        {
+          header: {
+            event_type: 'im.message.receive_v1',
+            event_id: 'evt-react-1',
+            token: 'test-token',
+          },
+          event: {
+            sender: {
+              sender_id: { open_id: 'ou_user' },
+              sender_type: 'user',
+            },
+            message: {
+              message_id: 'om_msg_react_1',
+              chat_id: 'oc_chat_1',
+              chat_type: 'p2p',
+              content: JSON.stringify({ text: 'Hello cat!' }),
+              message_type: 'text',
+            },
+          },
+        },
+        {},
+      );
+
+      assert.equal(result.kind, 'processed');
+      assert.equal(triggerCalls.length, 1);
+
+      for (let i = 0; i < 20; i++) {
+        if (fetchCalls.some((call) => call.url.includes('/messages/om_msg_react_1/reactions'))) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      const reactionCall = fetchCalls.find((call) => call.url.includes('/messages/om_msg_react_1/reactions'));
+      assert.ok(reactionCall, 'reaction API should be called');
+      assert.equal(reactionCall.init.method, 'POST');
+      const body = JSON.parse(reactionCall.init.body);
+      assert.equal(body.reaction_type.emoji_type, 'THUMBSUP');
+
+      await handle.stop();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it('feishu webhook handler skips unsupported events', async () => {
