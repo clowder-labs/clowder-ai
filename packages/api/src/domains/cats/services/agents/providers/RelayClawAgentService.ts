@@ -11,7 +11,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
-import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
+import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 import { appendLocalImagePathHints } from './image-cli-bridge.js';
 import { extractImagePaths } from './image-paths.js';
 import {
@@ -227,10 +227,21 @@ export class RelayClawAgentService implements AgentService {
   ): AsyncIterable<AgentMessage> {
     let sawError = false;
     let streamedText = '';
+    let usage: TokenUsage | undefined;
 
     while (!signal.aborted) {
       const frame = await queue.take();
       if (frame === null) break;
+
+      // Extract usage from frame metadata (typically on chat.final frame)
+      if (frame.metadata?.usage) {
+        const u = frame.metadata.usage as Record<string, unknown>;
+        usage = {
+          inputTokens: typeof u.input_tokens === 'number' ? u.input_tokens : undefined,
+          outputTokens: typeof u.output_tokens === 'number' ? u.output_tokens : undefined,
+          totalTokens: typeof u.total_tokens === 'number' ? u.total_tokens : undefined,
+        };
+      }
 
       const payload = frame.payload;
       const message = transformRelayClawChunk(frame, this.catId);
@@ -253,6 +264,13 @@ export class RelayClawAgentService implements AgentService {
       if (frame.is_complete === true || payload?.is_complete === true) break;
     }
 
+    // Build metadata for done message (consistent with Claude/Codex providers)
+    const metadata: MessageMetadata = {
+      provider: 'jiuwen',
+      model: this.config.modelName ?? 'unknown',
+      usage,
+    };
+
     if (!sawError && signal.aborted && !callerSignal?.aborted) {
       sawError = true;
       yield {
@@ -263,8 +281,7 @@ export class RelayClawAgentService implements AgentService {
       };
     }
 
-    if (!sawError) yield agentMsg('done', this.catId);
-    else yield agentMsg('done', this.catId);
+    yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
   }
 }
 

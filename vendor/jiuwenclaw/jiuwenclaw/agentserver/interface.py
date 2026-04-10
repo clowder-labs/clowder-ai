@@ -1525,11 +1525,17 @@ class JiuWenClaw:
                             timestamp=time.time(),
                             extra={"event_payload": dict(data)},
                         )
+                    # Promote usage from payload to chunk metadata for WS frame
+                    chunk_metadata = None
+                    if isinstance(data, dict) and data.get("usage"):
+                        chunk_metadata = {"usage": data.pop("usage")}
+
                     yield AgentResponseChunk(
                         request_id=rid,
                         channel_id=cid,
                         payload=data,
                         is_complete=False,
+                        metadata=chunk_metadata,
                     )
         except asyncio.CancelledError:
             logger.info("[JiuWenClaw] 流式处理被中断: request_id=%s", rid)
@@ -1586,12 +1592,20 @@ class JiuWenClaw:
                     }
 
                 if chunk_type == "answer":
+                    # Extract usage from payload (top-level or nested in output)
+                    usage = None
                     if isinstance(payload, dict):
+                        usage = payload.get("usage")
                         if payload.get("result_type") == "error":
-                            return {
+                            result = {
                                 "event_type": "chat.error",
                                 "error": payload.get("output", "未知错误"),
                             }
+                            if not usage and isinstance(payload.get("output"), dict):
+                                usage = payload["output"].get("usage")
+                            if usage:
+                                result["usage"] = usage
+                            return result
                         output = payload.get("output", {})
                         content = (
                             output.get("output", "")
@@ -1604,24 +1618,40 @@ class JiuWenClaw:
                             if isinstance(output, dict)
                             else False
                         )
+                        if not usage and isinstance(output, dict):
+                            usage = output.get("usage")
                     else:
                         content = str(payload)
                         is_chunked = False
                     if not content:
+                        # Even if content is empty, return chat.final when usage is present
+                        if usage:
+                            return {
+                                "event_type": "chat.final",
+                                "content": "",
+                                "source_chunk_type": chunk_type,
+                                "usage": usage,
+                            }
                         return None
                     # For chunked answers, return as delta (will be accumulated)
                     # For non-chunked, return as final
                     if is_chunked:
-                        return {
+                        result = {
                             "event_type": "chat.delta",
                             "content": content,
                             "source_chunk_type": chunk_type,
                         }
-                    return {
+                        if usage:
+                            result["usage"] = usage
+                        return result
+                    result = {
                         "event_type": "chat.final",
                         "content": content,
                         "source_chunk_type": chunk_type,
                     }
+                    if usage:
+                        result["usage"] = usage
+                    return result
 
                 if chunk_type == "tool_call":
                     tool_info = (
