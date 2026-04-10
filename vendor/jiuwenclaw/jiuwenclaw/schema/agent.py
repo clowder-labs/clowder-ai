@@ -41,3 +41,4 @@ class AgentResponseChunk:
     channel_id: str
     payload: dict | None = None
     is_complete: bool = False
+    metadata: dict[str, Any] | None = None
