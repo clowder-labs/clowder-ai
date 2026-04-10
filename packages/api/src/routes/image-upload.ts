@@ -5,8 +5,9 @@
 
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import type { FileContent, ImageContent } from '@cat-cafe/shared';
+import { resolveWorkspacePath } from '../domains/workspace/workspace-security.js';
 
 const ALLOWED_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 const ALLOWED_ATTACHMENT_MIMES = new Set([
@@ -36,6 +37,13 @@ export interface UploadImageFile {
   filename?: string;
   mimetype: string;
   toBuffer: () => Promise<Buffer>;
+}
+
+export interface WorkspaceUploadTarget {
+  kind: 'workspace';
+  worktreeId: string;
+  workspaceRoot: string;
+  directoryPath: string;
 }
 
 /**
@@ -71,6 +79,49 @@ export async function saveUploadedImages(files: UploadImageFile[], uploadDir: st
       absPath,
       urlPath: `/uploads/${filename}`,
       content: { type: 'image', url: `/uploads/${filename}` },
+    });
+  }
+
+  return saved;
+}
+
+export async function saveUploadedImagesToWorkspace(
+  files: UploadImageFile[],
+  target: WorkspaceUploadTarget,
+): Promise<SavedImage[]> {
+  if (files.length > MAX_FILES) {
+    throw new ImageUploadError(`Too many files (max ${MAX_FILES})`);
+  }
+
+  const saved: SavedImage[] = [];
+  for (const file of files) {
+    if (!ALLOWED_MIMES.has(file.mimetype)) {
+      throw new ImageUploadError(`Unsupported file type: ${file.mimetype}`);
+    }
+
+    const buffer = await file.toBuffer();
+    if (buffer.byteLength > MAX_FILE_SIZE) {
+      throw new ImageUploadError(`File too large: ${buffer.byteLength} bytes (max ${MAX_FILE_SIZE})`);
+    }
+
+    const ext = mimeToExt(file.mimetype);
+    const diskName = `${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+    const workspacePath = toWorkspaceChildPath(target.directoryPath, diskName);
+    const absPath = await resolveWorkspacePath(target.workspaceRoot, workspacePath);
+
+    await mkdir(dirname(absPath), { recursive: true });
+    await writeFile(absPath, buffer);
+
+    const query = new URLSearchParams({
+      worktreeId: target.worktreeId,
+      path: workspacePath,
+    }).toString();
+    const urlPath = `/api/workspace/file/raw?${query}`;
+
+    saved.push({
+      absPath,
+      urlPath,
+      content: { type: 'image', url: urlPath },
     });
   }
 
@@ -115,6 +166,56 @@ export async function saveUploadedAttachments(
       content: {
         type: 'file',
         url: `/uploads/${filename}`,
+        fileName: originalFileName,
+        mimeType: file.mimetype,
+        fileSize: buffer.byteLength,
+      },
+    });
+  }
+
+  return saved;
+}
+
+export async function saveUploadedAttachmentsToWorkspace(
+  files: UploadImageFile[],
+  target: WorkspaceUploadTarget,
+): Promise<SavedAttachment[]> {
+  if (files.length > MAX_FILES) {
+    throw new ImageUploadError(`Too many files (max ${MAX_FILES})`);
+  }
+
+  const saved: SavedAttachment[] = [];
+  for (const file of files) {
+    if (!ALLOWED_ATTACHMENT_MIMES.has(file.mimetype)) {
+      throw new ImageUploadError(`Unsupported file type: ${file.mimetype}`);
+    }
+
+    const buffer = await file.toBuffer();
+    if (buffer.byteLength > MAX_FILE_SIZE) {
+      throw new ImageUploadError(`File too large: ${buffer.byteLength} bytes (max ${MAX_FILE_SIZE})`);
+    }
+
+    const originalFileName = sanitizeAttachmentName(file.filename, file.mimetype);
+    const ext = attachmentMimeToExt(file.mimetype);
+    const diskName = `file-${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+    const workspacePath = toWorkspaceChildPath(target.directoryPath, diskName);
+    const absPath = await resolveWorkspacePath(target.workspaceRoot, workspacePath);
+
+    await mkdir(dirname(absPath), { recursive: true });
+    await writeFile(absPath, buffer);
+
+    const query = new URLSearchParams({
+      worktreeId: target.worktreeId,
+      path: workspacePath,
+    }).toString();
+    const urlPath = `/api/workspace/download?${query}`;
+
+    saved.push({
+      absPath,
+      urlPath,
+      content: {
+        type: 'file',
+        url: urlPath,
         fileName: originalFileName,
         mimeType: file.mimetype,
         fileSize: buffer.byteLength,
@@ -170,6 +271,11 @@ function sanitizeAttachmentName(filename: string | undefined, mime: string): str
   const base = extname(cleaned) ? cleaned.slice(0, -extname(cleaned).length) : cleaned;
   const safeBase = base.trim() || 'attachment';
   return `${safeBase}${attachmentMimeToExt(mime)}`;
+}
+
+function toWorkspaceChildPath(directoryPath: string, filename: string): string {
+  const trimmed = directoryPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  return trimmed ? `${trimmed}/${filename}` : filename;
 }
 
 export class ImageUploadError extends Error {
