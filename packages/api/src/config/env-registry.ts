@@ -552,6 +552,55 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'connector',
     sensitive: true,
   },
+  {
+    name: 'WECOM_BOT_ID',
+    defaultValue: '(未设置 → 不启用智能机器人模式)',
+    description: '企业微信智能机器人 Bot ID（WebSocket 长连接模式）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WECOM_BOT_SECRET',
+    defaultValue: '(未设置)',
+    description: '企业微信智能机器人 Bot Secret',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_CORP_ID',
+    defaultValue: '(未设置 → 不启用自建应用模式)',
+    description: '企业微信企业 ID（自建应用 HTTP 回调模式）',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WECOM_AGENT_ID',
+    defaultValue: '(未设置)',
+    description: '企业微信自建应用 AgentId',
+    category: 'connector',
+    sensitive: false,
+  },
+  {
+    name: 'WECOM_AGENT_SECRET',
+    defaultValue: '(未设置)',
+    description: '企业微信自建应用 Secret',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_TOKEN',
+    defaultValue: '(未设置)',
+    description: '企业微信回调 Token（HTTP 模式验签）',
+    category: 'connector',
+    sensitive: true,
+  },
+  {
+    name: 'WECOM_ENCODING_AES_KEY',
+    defaultValue: '(未设置)',
+    description: '企业微信回调 EncodingAESKey（43字符，HTTP 模式解密用）',
+    category: 'connector',
+    sensitive: true,
+  },
 
   // --- codex ---
   {
@@ -855,7 +904,8 @@ export function isConnectorSensitiveEditable(def: EnvDefinition): boolean {
 
 export function isEditableEnvVarName(name: string): boolean {
   return ENV_VARS.some(
-    (def) => def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
+    (def) =>
+      def.name === name && isHubVisibleEnvVar(def) && (isEditableEnvVar(def) || isConnectorSensitiveEditable(def)),
   );
 }
 
