@@ -115,9 +115,9 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 - [ ] AC-E4: （远期）Provider 可选声明 web manifest，host 通过 `@fastify/static` 挂载静态资源。
 
 ### Phase F（插件开发文档与端到端验证）📋
-- [ ] AC-F1: 机制文档完成（边界、注册模型、配置语义、包边界）。
-- [ ] AC-F2: 开发指南完成（从创建项目到发布到集成的完整 walkthrough）。
-- [ ] AC-F3: 文档包含 demo provider 示例代码。
+- [x] AC-F1: 机制文档完成（边界、注册模型、配置语义、包边界）。
+- [x] AC-F2: 开发指南完成（从创建项目到发布到集成的完整 walkthrough）。
+- [x] AC-F3: 文档包含 demo provider 示例代码。
 - [ ] AC-F4: 一个不了解主仓库的开发者，只看文档就能在独立仓库开发新 provider。
 
 ## 需求点 Checklist
@@ -206,4 +206,5 @@ team lead 明确要求把当前 Huawei 专用登录改造成**可插拔的 auth 
 | **Feature** | `docs/features/F140-auth-plugin-api-runtime.md` | 本 feature 真相源 |
 | **Plan** | `docs/plans/2026-04-08-auth-provider-abstraction.md` | F140 的实施计划 |
 | **Architecture** | `docs/architecture/auth-provider-extension-model.md` | Auth 扩展模型架构文档（对外开放机制的真相源） |
+| **Guide** | `docs/guides/build-auth-provider.md` | 外部开发者 Auth Provider 开发指南 |
 | **Discussion** | `docs/discussions/2026-04-08-auth-plugin-api-runtime-convergence.md` | 多猫讨论后的定案收敛记录 |
