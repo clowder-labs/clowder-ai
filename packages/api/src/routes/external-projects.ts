@@ -10,6 +10,7 @@ import type { IBacklogStore } from '../domains/cats/services/stores/ports/Backlo
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { NeedAuditFrameStore } from '../domains/projects/need-audit-frame-store.js';
 import { buildBacklogInputFromFeature, getFeatureTagId, parseActiveFeaturesFromBacklog } from './backlog-doc-import.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export interface ExternalProjectRoutesOptions {
   externalProjectStore: ExternalProjectStore;
@@ -22,7 +23,7 @@ export const externalProjectRoutes: FastifyPluginAsync<ExternalProjectRoutesOpti
 
   /** Returns userId or sends 401 and returns null */
   function requireUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-    const userId = request.headers['x-cat-cafe-user'] as string | undefined;
+    const userId = resolveHeaderUserId(request);
     if (!userId) {
       void reply.status(401).send({ error: 'Identity required' });
       return null;

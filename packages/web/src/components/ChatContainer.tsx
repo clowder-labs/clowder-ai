@@ -25,7 +25,7 @@ import { useGameStore } from '@/stores/gameStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { getUserId, setIsSkipAuth } from '@/utils/userId';
+import { getUserId, setIsSkipAuth, setUserId } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsPanel } from './AgentsPanel';
 import { AuthorizationCard } from './AuthorizationCard';
@@ -106,6 +106,9 @@ export function ChatContainer(props: ChatContainerProps) {
         if (cancelled) return;
         setIsSkipAuth(Boolean(data?.isskip));
         if (data?.islogin) {
+          if (typeof data.userId === 'string' && data.userId.length > 0) {
+            setUserId(data.userId);
+          }
           setIsLoggedIn(true);
         } else {
           router.replace('/login');

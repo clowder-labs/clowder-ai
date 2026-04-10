@@ -11,6 +11,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import { runEnvironmentCheck } from '../domains/cats/services/bootcamp/env-check.js';
 import type { BootcampStateV1, IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { BOOTCAMP_PHASE_ACHIEVEMENTS } from '../domains/leaderboard/achievement-defs.js';
+import { authSessionStore } from '../auth/session-store.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 
@@ -144,7 +145,7 @@ export function registerCallbackBootcampRoutes(
         const eventRes = await app.inject({
           method: 'POST',
           url: '/api/leaderboard/events',
-          headers: { 'x-cat-cafe-user': record.userId },
+          headers: { authorization: `Bearer ${authSessionStore.getByUserId(record.userId)?.sessionId ?? ''}` },
           payload: {
             eventId,
             source: 'bootcamp',

@@ -1,296 +1,163 @@
 /**
- * Authentication Routes — 用户登录认证
+ * Authentication Routes — unified auth lifecycle endpoints.
+ *
+ * These routes are the thin orchestration layer between:
+ * - AuthProvider (plugin-api contract)
+ * - SessionStore (platform-owned)
+ * - AuthMiddleware (platform-owned)
  */
 
-import Conf from 'conf';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { getErrorMessage } from '../utils/index.js';
+import type { AuthProvider, AuthSessionInfo } from '@cat-cafe/plugin-api/auth';
+import { createAuthModule, type AuthModule } from '../auth/module.js';
+import type { AuthSessionRecord } from '../auth/types.js';
+import { authSessionStore, InMemoryAuthSessionStore } from '../auth/session-store.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 export interface AuthRoutesOptions {
-  // 可以在这里添加认证相关的配置
+  authModule?: AuthModule;
+  sessionStore?: InMemoryAuthSessionStore;
+  fetchImpl?: typeof fetch;
+  /** Platform-level hook called after login completes. Provider-specific post-processing belongs here. */
+  onPostLogin?: (request: FastifyRequest, session: AuthSessionRecord) => Promise<void>;
 }
 
-interface UserInfo {
-  userId: string;
-  token: string;
-  expiresAt: string;
-  credential: Record<string, string>;
-  modelInfo: Record<string, any>;
+/** Backward-compat alias — exposes session lookup by userId for legacy consumers. */
+export const sessions = authSessionStore.sessionsByUserId;
+
+function serializePresentation(provider: AuthProvider) {
+  return {
+    id: provider.id,
+    displayName: provider.displayName,
+    mode: provider.presentation.mode,
+    fields: provider.presentation.fields,
+    ...(provider.presentation.submitLabel ? { submitLabel: provider.presentation.submitLabel } : {}),
+    ...(provider.presentation.description ? { description: provider.presentation.description } : {}),
+  };
 }
 
-interface TokenResult {
-  success: boolean;
-  token?: string;
-  expiresAt?: string;
-  message?: string;
-  domainId?: string;
+async function buildPublicStatus(provider: AuthProvider) {
+  const config = (await provider.getPublicConfig?.()) ?? {};
+  return {
+    ...(config.hascode !== undefined ? { hascode: config.hascode } : { hascode: true }),
+    isskip: provider.presentation.mode === 'auto',
+    provider: serializePresentation(provider),
+  };
 }
 
-interface CredentialResult {
-  success: boolean;
-  credential?: Record<string, string>;
-  message?: string;
+function toSessionInfo(record: { sessionId: string; userId: string; providerId: string; expiresAt: string | null; providerState?: unknown }): AuthSessionInfo {
+  return {
+    sessionId: record.sessionId,
+    userId: record.userId,
+    providerId: record.providerId,
+    providerState: record.providerState,
+    expiresAt: record.expiresAt ? new Date(record.expiresAt) : null,
+  };
 }
 
-interface ModelInfoResult {
-  success: boolean;
-  modelInfo?: Record<string, unknown>;
-  message?: string;
-  needCode?: boolean;
+async function resolveCurrentSession(
+  request: FastifyRequest,
+  provider: AuthProvider,
+  sessionStore: InMemoryAuthSessionStore,
+) {
+  // auto-mode providers (no-auth): authenticate automatically
+  if (provider.presentation.mode === 'auto') {
+    const result = await provider.authenticate({ credentials: {} });
+    if (!result.success) return null;
+    const existing = sessionStore.getByUserId(result.principal.userId);
+    return existing ?? sessionStore.create(provider.id, result.principal);
+  }
+
+  // For form/redirect providers: check if user has an existing session
+  const userId = resolveHeaderUserId(request);
+  if (!userId) return null;
+
+  const existing = sessionStore.getByUserId(userId);
+  if (existing?.providerId === provider.id) return existing;
+
+  // Try session restore (e.g., after server restart)
+  const restored = await provider.restoreSession?.(userId);
+  if (!restored) return null;
+  return sessionStore.create(provider.id, restored);
 }
 
-interface LoginBody {
-  domainName: string;
-  userName?: string;
-  password: string;
-  userType: 'huawei' | 'iam';
-  promotionCode?: string;
-}
+export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app, opts) => {
+  const authModule = opts.authModule ?? (await createAuthModule({ fetchImpl: opts.fetchImpl }));
+  const sessionStore = opts.sessionStore ?? authSessionStore;
+  const provider = authModule.getActiveProvider();
 
-interface PromotionCodeBody {
-  code?: string;
-  promotionCode?: string;
-  inviteCode?: string;
-}
-
-const userInfo: UserInfo = {
-  userId: '',
-  token: '',
-  expiresAt: '',
-  credential: {},
-  modelInfo: {},
-};
-
-const IAM_URL = 'https://iam.myhuaweicloud.com';
-const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
-
-const secureConfig = new Conf({
-  projectName: 'secure-config',
-  encryptionKey: 'clowder-ai-secure-key',
-  encryptionAlgorithm: 'aes-256-gcm',
-});
-
-// 简单的session存储（生产环境应该使用Redis或数据库）
-export const sessions = new Map<string, UserInfo>();
-
-export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => {
-
-  const skipAuth = process.env.CAT_CAFE_SKIP_AUTH === '1' || process.env.CAT_CAFE_SKIP_AUTH === 'true';
-
-  // 检查登录状态接口
+  // ── GET /api/islogin ─────────────────────────────────────────────
   app.get('/api/islogin', async (request) => {
-    if (skipAuth) {
-      return { islogin: true, hascode: true, userId: 'debug-user', isskip: true };
+    const status = await buildPublicStatus(provider);
+    const session = await resolveCurrentSession(request, provider, sessionStore);
+
+    if (!session) {
+      return { islogin: false, userId: null, ...status };
     }
-    const hascode = secureConfig.get('lastPromotionCode') ? true : false;
-    const userId = request.headers['x-cat-cafe-user'] as string;
-    if (!userId) {
-      return { islogin: false, hascode, isskip: false };
-    }
-    const userInfo: UserInfo = secureConfig.get(`${userId}-new`) as UserInfo;
-    const expiresAt = secureConfig.get(userId) || userInfo?.expiresAt;
-    if (!expiresAt || new Date(userInfo.expiresAt).getTime() < new Date().getTime()) {
-      return { islogin: false, hascode, isskip: false };
-    }
-    const isFirstIsLoginCall = !sessions.has(userInfo.userId);
-    if (isFirstIsLoginCall) {
-      await refreshMaaSModelsAfterLogin(request, userInfo.userId);
-    }
-    sessions.set(userInfo.userId, { ...userInfo });
-    return { islogin: true, hascode, userId, isskip: false };
+
+    return { islogin: true, userId: session.userId, sessionId: session.sessionId, ...status };
   });
 
-  /**
-   * 用户登录接口
-   * 1. 验证用户名和密码
-   * 2. 获取临时Token和临时访问密钥
-   * 3. 创建session并返回用户信息
-   */
+  // ── POST /api/login ──────────────────────────────────────────────
   app.post('/api/login', async (request, reply) => {
-    const { domainName, userName, password, userType, promotionCode } = request.body as LoginBody;
-    const name = userType === 'huawei' ? domainName : userName;
-    if (!domainName || !password || !name) {
-      return { success: false, message: '用户名或密码错误' };
+    const rawPayload = (request.body ?? {}) as Record<string, unknown>;
+
+    // Wrap in AuthenticateInput format
+    const result = await provider.authenticate({ credentials: rawPayload });
+    if (!result.success) {
+      return result;
     }
 
-    const tokenResult = await getTokens(domainName, name, password);
+    const session = sessionStore.create(provider.id, result.principal);
 
-    if (!tokenResult?.success) {
-      return { success: false, message: tokenResult?.message || '登录失败' };
-    }
-
-    // const credentialResult = await getSecuritytokens(tokenResult.token);
-    // if (!credentialResult?.success) {
-    //   return { success: false, message: credentialResult?.message || '登录失败' };
-    // }
-
-    const id = tokenResult.domainId || domainName;
-    let modelInfo = secureConfig.get(id);
-    if (!modelInfo) {
-      const modelInfoResult = await subscriptionClaw(tokenResult.token, promotionCode);
-      if (!modelInfoResult?.success) {
-        return { success: false, needCode: modelInfoResult?.needCode, message: modelInfoResult?.message || '登录失败' };
+    // Platform-triggered post-login init (provider-declared, failure non-fatal)
+    if (provider.postLoginInit) {
+      try {
+        await provider.postLoginInit(toSessionInfo(session));
+      } catch (error) {
+        request.log.warn({ error, userId: session.userId }, 'postLoginInit failed (non-fatal)');
       }
-      modelInfo = modelInfoResult.modelInfo;
-      secureConfig.set(id, modelInfo);
     }
 
-    userInfo.userId = `${domainName}:${name ?? ''}`;
-    userInfo.expiresAt = tokenResult.expiresAt ?? '';
-    userInfo.modelInfo = modelInfo ?? {};
-    secureConfig.set(userInfo.userId, userInfo.expiresAt);
-    secureConfig.set(`${userInfo.userId}-new`, userInfo);
-    sessions.set(userInfo.userId, { ...userInfo });
-    await refreshMaaSModelsAfterLogin(request, userInfo.userId);
+    // Platform-level post-login hook (e.g., model cache refresh)
+    if (opts.onPostLogin) {
+      try {
+        await opts.onPostLogin(request, session);
+      } catch (error) {
+        request.log.warn({ error, userId: session.userId }, 'onPostLogin hook failed (non-fatal)');
+      }
+    }
 
-    // 创建session（简单实现，生产环境应该生成JWT token）
-    const sessionId = `session-${Date.now()}-${Math.random()}`;
-    // 设置header返回给前端
-    reply.header('X-Cat-Cafe-User', userInfo.userId);
-    reply.header('X-Session-Id', sessionId);
+    reply.header('X-Session-Id', session.sessionId);
 
-    return { success: true, userId: userInfo.userId, message: '登录成功' };
+    return {
+      success: true,
+      userId: session.userId,
+      sessionId: session.sessionId,
+      providerId: provider.id,
+      message: '登录成功',
+    };
   });
 
-  // 退出登录接口
+  // ── POST /api/logout ─────────────────────────────────────────────
   app.post('/api/logout', async (request) => {
-    const userId = request.headers['x-cat-cafe-user'] as string;
+    // Session identity only — no body.userId fallback (SessionAuthority is sole truth source)
+    const userId = resolveHeaderUserId(request);
 
-    if (userId) {
-      // 删除 session
-      sessions.delete(userId);
-      secureConfig.delete(userId);
-      secureConfig.delete(`${userId}-new`);
+    if (!userId) {
       return { success: true, message: '退出登录成功' };
     }
 
-    return { success: false, message: '退出登录成功' };
+    const session = sessionStore.deleteByUserId(userId);
+    if (session && provider.logout) {
+      try {
+        await provider.logout(toSessionInfo(session));
+      } catch (error) {
+        // Log but don't fail the logout response
+        console.warn('Provider logout hook failed:', error);
+      }
+    }
+
+    return { success: true, message: '退出登录成功' };
   });
 };
-
-// 获取IAM用户Token
-async function getTokens(domainName = '', userName = '', password = ''): Promise<TokenResult> {
-  // 调用华为云认证接口
-  try {
-    const authResponse = await fetch(`${IAM_URL}/v3/auth/tokens`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json;charset=utf8',
-      },
-      body: JSON.stringify({
-        auth: {
-          identity: {
-            methods: ['password'],
-            password: {
-              user: {
-                domain: {
-                  name: domainName // IAM用户所属账号名
-                },
-                name: userName, // IAM用户名
-                password: password // IAM用户密码
-              }
-            }
-          },
-          scope: {
-            project: {
-              name: 'cn-north-4' // 项目名称
-            }
-          }
-        }
-      })
-    });
-
-    if (!authResponse.ok) {
-      const { error_code, error_message } = await getErrorMessage(authResponse);
-      throw new Error(`认证失败，错误码: ${error_code}, 错误信息: ${error_message}`);
-    }
-    const data: any = await authResponse.json();
-    const domainId = data.token?.user?.domain?.id || domainName;
-    const expiresAt = data.token?.expires_at || new Date().toISOString();
-    return { success: true, token: authResponse.headers.get('x-subject-token') as string, expiresAt, domainId };
-  } catch (error) {
-    console.error('获取IAM Token失败:', error);
-    return { success: false, message: '登录失败' };
-  }
-}
-
-//获取用户的临时访问密钥
-async function getSecuritytokens(token = ''): Promise<CredentialResult> {
-  try {
-    const authResponse = await fetch(`${IAM_URL}/v3.0/OS-CREDENTIAL/securitytokens`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json;charset=utf8',
-        'X-Auth-Token': token
-      },
-      body: JSON.stringify({
-        auth: {
-          identity: {
-            methods: ["token"]
-          }
-        }
-      })
-    });
-
-    if (!authResponse.ok) {
-      const { error_code, error_message } = await getErrorMessage(authResponse);
-      throw new Error(`获取IAM临时访问密钥失败，错误码: ${error_code}, 错误信息: ${error_message}`);
-    }
-    const data: any = await authResponse.json();
-    return { success: true, credential: data.credential };
-  } catch (error) {
-    console.error('获取IAM临时访问密钥失败:', error);
-    return { success: false, message: '登录失败' };
-  }
-}
-
-//开通客户端claw
-async function subscriptionClaw(token = '', promotionCode?: string): Promise<ModelInfoResult> {
-  try {
-    const subResponse = await fetch(`https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-subscription`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json;charset=utf8',
-        'X-Auth-Token': token,
-      },
-      body: JSON.stringify({
-        promotion_code: promotionCode || secureConfig.get('lastPromotionCode') || DEFAULT_PROMOTION_CODE
-      })
-    });
-    
-    if (!subResponse.ok) {
-      const { error_code, error_message } = await getErrorMessage(subResponse);
-      const needCode = ['AgentArts.11000008', 'AgentArts.11000009'].includes(error_code);
-      needCode && secureConfig.delete('lastPromotionCode');
-      console.error(`开通客户端失败，错误码: ${error_code}, 错误信息: ${error_message}`);
-      return { success: false, message: needCode ? `邀请码无效，请重新输入` : `开通失败`, needCode };
-    }
-    
-    const data: any = await subResponse.json();
-    promotionCode && secureConfig.set('lastPromotionCode', promotionCode);
-    return { success: true, modelInfo: data.model_info };
-  } catch (error) {
-    console.error('开通客户端claw失败:', error);
-    return { success: false, message: '开通失败' };
-  }
-}
-async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: string) {
-  try {
-    const refreshResponse = await request.server.inject({
-      method: 'GET',
-      url: '/api/maas-models',
-      headers: {
-        'x-cat-cafe-user': userId,
-        'x-refresh': 'true',
-      },
-    });
-    if (refreshResponse.statusCode >= 400) {
-      request.log.warn(
-        { statusCode: refreshResponse.statusCode, userId },
-        'refresh maas models failed after login',
-      );
-    }
-  } catch (error) {
-    request.log.warn({ error, userId }, 'refresh maas models errored after login');
-  }
-}

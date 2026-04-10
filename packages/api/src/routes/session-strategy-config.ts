@@ -16,18 +16,10 @@ import {
   getAllRuntimeOverrides,
   setRuntimeOverride,
 } from '../config/session-strategy-overrides.js';
+import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 /** Providers that support compression event signaling (PreCompact hook) */
 const HOOK_CAPABLE_PROVIDERS = new Set(['anthropic']);
-
-function resolveOperator(raw: unknown): string | null {
-  if (typeof raw === 'string' && raw.trim().length > 0) return raw.trim();
-  if (Array.isArray(raw)) {
-    const first = raw.find((value) => typeof value === 'string' && value.trim().length > 0);
-    if (typeof first === 'string') return first.trim();
-  }
-  return null;
-}
 
 export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: FastifyPluginOptions): Promise<void> {
   /**
@@ -69,7 +61,7 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
    * The override is deep-merged with the base strategy at read time.
    */
   app.patch<{ Params: { catId: string } }>('/api/config/session-strategy/:catId', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveHeaderUserId(request);
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
@@ -127,7 +119,7 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
    * Remove a runtime override for a variant cat — it falls back to lower-priority sources.
    */
   app.delete<{ Params: { catId: string } }>('/api/config/session-strategy/:catId', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveHeaderUserId(request);
     if (!operator) {
       reply.status(400);
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
