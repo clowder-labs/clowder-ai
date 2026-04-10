@@ -120,7 +120,7 @@ test('parseMultipart stores attachments in the resolved workspace target when av
       kind: 'workspace',
       worktreeId: 'workspace_test_123',
       workspaceRoot,
-      directoryPath: `.cat-cafe/chat-uploads/${threadId}`,
+      directoryPath: '',
     }));
 
     assert.ok(!('error' in parsed), 'expected multipart parse success');
