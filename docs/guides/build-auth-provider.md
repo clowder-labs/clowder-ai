@@ -9,6 +9,8 @@ created: 2026-04-10
 
 This guide walks you through building a custom auth provider for Clowder AI in an independent repository. By the end you will have a working npm package that the host project can install, configure, and use.
 
+> **Status**: This guide describes the **target-state** integration flow. The public package `@clowder/core` with subpath `./auth` is not yet published — it is pending the `@cat-cafe/*` to `@clowder/*` namespace migration. Until then, the auth contract is only available as the internal monorepo package `@cat-cafe/plugin-api/auth`. Once the migration lands, the import paths in this guide will work as written. See [`auth-provider-extension-model.md`](../architecture/auth-provider-extension-model.md) for the current transition state.
+
 **Prerequisites**: TypeScript, npm/pnpm, basic understanding of authentication flows.
 
 ## Overview
@@ -180,22 +182,22 @@ async function ldapBind(
 
 ### Presentation modes
 
-| Mode | When to use | What happens |
-|---|---|---|
-| `auto` | No user interaction needed (e.g., API key auth) | Host auto-calls `authenticate()`, skips login page |
-| `form` | Username/password or similar form-based login | Host renders form from `presentation.fields` |
-| `redirect` | OAuth/OIDC external redirect flow | Host redirects to `presentation.redirectUrl` |
+| Mode | When to use | What happens | Status |
+|---|---|---|---|
+| `auto` | No user interaction needed (e.g., API key auth) | Host auto-calls `authenticate()`, skips login page | Available |
+| `form` | Username/password or similar form-based login | Host renders form from `presentation.fields` | Available |
+| `redirect` | OAuth/OIDC external redirect flow | Host redirects to `presentation.redirectUrl` | **Reserved** — contract defined, end-to-end flow not yet implemented |
 
 ### Optional hooks
 
 | Hook | When called | Failure behavior |
 |---|---|---|
-| `bootstrap()` | Once at startup | Throws = provider not registered |
+| `bootstrap()` | Once at startup, only for the active provider | Throws = provider activation fails |
 | `postLoginInit(session)` | After session issuance | Throws = logged, auth NOT rolled back |
 | `logout(session)` | On user logout | Throws = logged, logout still succeeds |
 | `refresh(session)` | Before credential expiry | Returns null = session expires normally |
 | `restoreSession(userId)` | After server restart | Returns null = user must re-login |
-| `handleCallback(params)` | OAuth redirect callback | Same as `authenticate()` |
+| `handleCallback(params)` | OAuth redirect callback (**reserved**, not yet wired) | Same as `authenticate()` |
 | `getPublicConfig()` | On unauthenticated requests | Returns provider-specific public metadata |
 
 ### Key types
@@ -254,10 +256,11 @@ CAT_CAFE_AUTH_PROVIDER_MODULES=@acme/auth-provider-ldap
 Restart the host. The runtime will:
 
 1. `import()` your module from `CAT_CAFE_AUTH_PROVIDER_MODULES`
-2. Register your provider (calls `bootstrap()` if defined)
-3. Activate it because `CAT_CAFE_AUTH_PROVIDER` matches your `id`
-4. Render the login UI from your `presentation`
-5. Route `/api/login` to your `authenticate()`
+2. Register your provider in the registry
+3. Select it as active because `CAT_CAFE_AUTH_PROVIDER` matches your `id`
+4. Call `bootstrap()` on the active provider (if defined)
+5. Render the login UI from your `presentation`
+6. Route `/api/login` to your `authenticate()`
 
 ## Step 7: Verify
 
@@ -308,11 +311,24 @@ async refresh(session: AuthSessionInfo) {
 }
 ```
 
-### Handling auth failure with custom UI hints
+### Handling auth failure with invite/promotion code
 
-Return `needCode: true` to prompt the frontend for an invite/promotion code:
+Return `needCode: true` to prompt the frontend for an invite code. **Prerequisite**: your `presentation.fields` must include a field named `promotionCode` — the frontend only renders the invite code input when this field exists in the schema.
 
 ```ts
+// In your provider definition:
+presentation: {
+  mode: 'form',
+  fields: [
+    { name: 'username', label: 'Username', type: 'text', required: true },
+    { name: 'password', label: 'Password', type: 'password', required: true },
+    // This field is hidden by default; shown when needCode is returned
+    { name: 'promotionCode', label: 'Invite Code', type: 'text', required: false },
+  ],
+  // ...
+},
+
+// In authenticate(), when invite code is required:
 return {
   success: false,
   message: 'Invite code required',
