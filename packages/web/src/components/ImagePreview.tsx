@@ -36,6 +36,17 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
   // Create object URLs once per file set, revoke on cleanup
   const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
 
+  const resolveFileIcon = (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (ext === 'pdf') return '/icons/file-pdf.svg';
+    if (ext === 'doc' || ext === 'docx') return '/icons/file-docx.svg';
+    if (ext === 'xls' || ext === 'xlsx') return '/icons/file-xlsx.svg';
+    if (ext === 'ppt' || ext === 'pptx') return '/icons/file-ppt.svg';
+    if (ext === 'csv') return '/icons/file-csv.svg';
+    if (ext === 'txt') return '/icons/file-txt.svg';
+    return '/icons/file-html.svg';
+  };
+
   useEffect(() => {
     return () => {
       for (const url of urls) {
@@ -50,14 +61,23 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
     <>
       <div className="flex gap-2 border-b pt-5 border-gray-100 overflow-visible pb-3 mb-0 mx-5">
         {files.map((file, i) => (
-          <div key={`${getFileBaseName(file.name)}-${i}`} className="relative inline-flex gap-[10px] py-2 flex-shrink-0 group border border-gray-200 rounded-lg px-2  hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)] hover:border-[rgb(240,240,240)] w-[201px]  w-auto h-[56px]" title={getFileBaseName(file.name)}>
-            <img
-              src={urls[i]}
-              alt={getFileBaseName(file.name)}
-              className="w-10 h-10 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={() => setLightboxIdx(i)}
-            />
-            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setLightboxIdx(i)}>
+          <div key={`${getFileBaseName(file.name)}-${i}`} className="relative inline-flex gap-[10px] py-2 flex-shrink-0 group border border-gray-200 rounded-lg px-2  hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)] hover:border-[rgb(240,240,240)] w-[201px] h-[56px]" title={getFileBaseName(file.name)}>
+            {file.type.startsWith('image/') ? (
+              <img
+                src={urls[i]}
+                alt={getFileBaseName(file.name)}
+                className="w-10 h-10 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setLightboxIdx(i)}
+              />
+            ) : (
+              <img src={resolveFileIcon(file)} alt="" aria-hidden="true" className="w-10 h-10 rounded-lg" />
+            )}
+            <div
+              className={`flex-1 min-w-0 ${file.type.startsWith('image/') ? 'cursor-pointer' : ''}`}
+              onClick={() => {
+                if (file.type.startsWith('image/')) setLightboxIdx(i);
+              }}
+            >
               <div
                 className="truncate max-w-[120px] text-ellipsis overflow-hidden"
                 style={{ color: '#191919', fontSize: 12, fontWeight: 400, lineHeight: '18px' }}
@@ -81,7 +101,7 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
           </div>
         ))}
       </div>
-      {lightboxIdx !== null && urls[lightboxIdx] && (
+      {lightboxIdx !== null && urls[lightboxIdx] && files[lightboxIdx]?.type.startsWith('image/') && (
         <Lightbox
           url={urls[lightboxIdx]}
           alt={files[lightboxIdx]?.name ?? 'preview'}
