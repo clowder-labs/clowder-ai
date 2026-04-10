@@ -148,6 +148,25 @@ describe('LoginPage password visibility toggle', () => {
     expect(container.textContent).not.toContain('�');
   });
 
+  it('renders OfficeClaw logos and centers the welcome heading group', async () => {
+    await act(async () => {
+      root.render(React.createElement(LoginPage));
+    });
+    await flush();
+
+    const heroLogo = container.querySelector('[data-testid="login-hero-officeclaw-logo"]') as HTMLImageElement | null;
+    const welcomeLogo = container.querySelector('[data-testid="login-welcome-officeclaw-logo"]') as HTMLImageElement | null;
+    const welcomeHeading = container.querySelector('[data-testid="login-welcome-heading"]') as HTMLHeadingElement | null;
+
+    expect(heroLogo).not.toBeNull();
+    expect(heroLogo?.getAttribute('src')).toBe('/images/OfficeClaw.svg');
+    expect(welcomeLogo).not.toBeNull();
+    expect(welcomeLogo?.getAttribute('src')).toBe('/images/OfficeClaw.svg');
+    expect(welcomeHeading?.className).toContain('flex');
+    expect(welcomeHeading?.className).toContain('items-center');
+    expect(welcomeHeading?.className).toContain('justify-center');
+  });
+
   it('prevents copying and cutting password content', async () => {
     await act(async () => {
       root.render(React.createElement(LoginPage));
