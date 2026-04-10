@@ -63,7 +63,30 @@ interface ChatInputProps {
   onOpenFolderPicker?: () => void;
 }
 
-const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
+const ACCEPTED_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'text/plain',
+  'text/csv',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.xlsx',
+  '.xls',
+  '.ppt',
+  '.pptx',
+  '.txt',
+  '.csv',
+].join(',');
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
@@ -104,11 +127,23 @@ function normalizeSkillsForSend(input: string, skillOptions: SkillOption[]): str
     const name = skill.name.trim();
     if (!name) continue;
     const escaped = escapeRegExp(name);
-    const re = new RegExp(`(^|\\s)${escaped}(?=\\s|$)`, 'g');
-    output = output.replace(re, (full: string, leadingWhitespace: string) => {
-      const replacement = `使用 ${name} 技能`;
-      return `${leadingWhitespace}${replacement}`;
+    // Standalone skill names are normalized to the explicit trigger phrase.
+    // Skip names that are already inside "使用 xxx 技能".
+    const standaloneRe = new RegExp(`(^|\\s)${escaped}(?=\\s|$)`, 'gi');
+    output = output.replace(standaloneRe, (full, leadingWhitespace: string | undefined, offset: number, source: string) => {
+      const leading = leadingWhitespace ?? '';
+      const matchedName = full.slice(leading.length);
+      const start = offset + leading.length;
+      const end = start + matchedName.length;
+      const before = source.slice(0, start);
+      const after = source.slice(end);
+      if (/使用\s*$/.test(before) && /^\s*技能/.test(after)) return full;
+      return `${leading}使用 ${name} 技能`;
     });
+
+    // Canonicalize any explicit trigger phrase spacing.
+    const phraseRe = new RegExp(`使用\\s*${escaped}\\s*技能`, 'gi');
+    output = output.replace(phraseRe, `使用 ${name} 技能`);
   }
   return output.replace(/\s+/g, ' ').trim();
 }
@@ -118,6 +153,21 @@ function getSkillInitial(name: string): string {
   if (!trimmed) return '?';
   const [initial] = Array.from(trimmed);
   return /[a-z]/i.test(initial) ? initial.toUpperCase() : initial;
+}
+
+function mergeFilesByName(prev: File[], incoming: File[], maxCount = 5): File[] {
+  const next = [...prev];
+  for (const file of incoming) {
+    const normalizedName = file.name.toLowerCase();
+    const existingIndex = next.findIndex((item) => item.name.toLowerCase() === normalizedName);
+    if (existingIndex >= 0) {
+      next[existingIndex] = file;
+      continue;
+    }
+    if (next.length >= maxCount) continue;
+    next.push(file);
+  }
+  return next.slice(0, maxCount);
 }
 
 function SkillOptionIcon({ name, iconUrl }: { name: string; iconUrl?: string | null }) {
@@ -501,14 +551,15 @@ export function ChatInput({
       const leftJoiner = before.endsWith(' ') ? '' : ' ';
       const rightJoiner = ' ';
       const normalizedAfter = after.replace(/^\s+/, '');
-      const next = `${before}${leftJoiner}${skillName}${rightJoiner}${normalizedAfter}`;
+      const triggerText = skillName;
+      const next = `${before}${leftJoiner}${triggerText}${rightJoiner}${normalizedAfter}`;
       setInput(next);
       setShowSkillMenu(false);
       setSkillFilter('');
       setTimeout(() => {
         const el = textareaRef.current;
         if (!el) return;
-        const cursorPos = (before + leftJoiner + skillName + rightJoiner).length;
+        const cursorPos = (before + leftJoiner + triggerText + rightJoiner).length;
         skillInsertAnchorRef.current = { start: cursorPos, end: cursorPos };
         el.focus();
         el.setSelectionRange(cursorPos, cursorPos);
@@ -727,16 +778,21 @@ export function ChatInput({
       setIsPreparingImages(true);
       try {
         const toAdd: File[] = [];
-        for (let i = 0; i < files.length && images.length + toAdd.length < 5; i++) {
-          toAdd.push(await compressImage(files[i]));
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (file.type.startsWith('image/')) {
+            toAdd.push(await compressImage(file));
+          } else {
+            toAdd.push(file);
+          }
         }
-        setImages((prev) => [...prev, ...toAdd].slice(0, 5));
+        setImages((prev) => mergeFilesByName(prev, toAdd, 5));
       } finally {
         setIsPreparingImages(false);
       }
       e.target.value = '';
     },
-    [images],
+    [],
   );
 
   const handlePaste = useCallback(
@@ -756,15 +812,14 @@ export function ChatInput({
       try {
         const toAdd: File[] = [];
         for (const file of imageFiles) {
-          if (images.length + toAdd.length >= 5) break;
           toAdd.push(await compressImage(file));
         }
-        setImages((prev) => [...prev, ...toAdd].slice(0, 5));
+        setImages((prev) => mergeFilesByName(prev, toAdd, 5));
       } finally {
         setIsPreparingImages(false);
       }
     },
-    [images],
+    [],
   );
 
   const handleTextareaScroll = useCallback((_e: React.UIEvent<HTMLDivElement>) => {}, []);
@@ -916,7 +971,7 @@ export function ChatInput({
     <div className="relative safe-area-bottom bg-transparent">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-0 left-1/2 z-0 h-[100px] -translate-x-1/2 opacity-[0.5] blur-[80px]"
+        className="pointer-events-none absolute bottom-0 left-1/2 z-0 h-[100px] -translate-x-1/2 opacity-[0.25] blur-[50px]"
         style={{
           borderRadius: '490px',
           width: 'calc(80% - 80px)',
@@ -981,17 +1036,17 @@ export function ChatInput({
 
       {imageLifecycleStatus === 'preparing' && (
         <div className="px-4 pt-2 text-xs text-gray-500 mx-auto w-[80%]" role="status">
-          图片处理中，完成后可发送
+          文件处理中，完成后可发送
         </div>
       )}
       {imageLifecycleStatus === 'uploading' && (
         <div className="px-4 pt-2 text-xs text-indigo-500 mx-auto w-[80%]" role="status">
-          图片上传中，请稍候...
+          文件上传中，请稍候...
         </div>
       )}
       {imageLifecycleStatus === 'failed' && uploadError && (
         <div className="px-4 pt-2 text-xs text-red-500 mx-auto w-[80%]" role="alert">
-          图片发送失败：{uploadError}
+          文件发送失败：{uploadError}
         </div>
       )}
 
