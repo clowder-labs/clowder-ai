@@ -606,9 +606,7 @@ skills:
 
   pptx-craft:
     description: >
-      PPT 全流程技能，由主 agent 直接完成研究、规划、页面内容生成与演示文稿产出，适合需要端到端生成 .pptx 的场景。
-      Use when: 需要创建、编辑、读取演示文稿，或希望从主题到成品完成整套 PPT pipeline。
-      Not for: 只做零散文案润色、与演示文稿无关的普通文档任务。
+      pptx-craft是一个通过多agent协作及研究规划与生成一体的高效演示文稿全流程自动化技能，致力于支持专业化，结构化，高质量的ppt生成工作。
     triggers:
       - "ppt"
       - "pptx"
