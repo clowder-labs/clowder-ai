@@ -145,7 +145,6 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
           onDisconnect={handleDisconnect}
           disconnectTestId="feishu-disconnect"
         >
-          <p className="text-xs leading-relaxed text-gray-500">扫码绑定已完成。后续重新扫码即可切换账号。</p>
         </ConnectorConnectedState>
       </div>
     );
