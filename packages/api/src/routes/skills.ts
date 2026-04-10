@@ -18,6 +18,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
+import type { InstalledSkillRecord } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
 import {
   fetchSkillContent,
@@ -152,6 +153,140 @@ function resolveCatCafeSkillsSourceDir(): string {
 
 const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();
 const CAT_CAFE_ROOT = dirname(CAT_CAFE_SKILLS_SRC);
+
+function normalizeInstalledSkillKey(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return trimmed.toLowerCase();
+}
+
+export function buildInstalledSkillKeySet(records: InstalledSkillRecord[], localSkillNames: string[] = []): Set<string> {
+  const keys = new Set<string>();
+  for (const localSkillName of localSkillNames) {
+    const localKey = normalizeInstalledSkillKey(localSkillName);
+    if (localKey) keys.add(localKey);
+  }
+  for (const record of records) {
+    const localName = normalizeInstalledSkillKey(record.name);
+    if (localName) keys.add(localName);
+
+    const remoteName = normalizeInstalledSkillKey(record.remoteSkillName);
+    if (remoteName) keys.add(remoteName);
+  }
+  return keys;
+}
+
+function isInstalledSkill(installedKeys: Set<string>, slug: string): boolean {
+  const slugKey = normalizeInstalledSkillKey(slug);
+  if (!slugKey) return false;
+  return installedKeys.has(slugKey);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function normalizeErrorMessage(message: string): string {
+  return message.replace(/^Error:\s*/, '').trim();
+}
+
+function translateKnownErrorDetail(message: string): string | null {
+  const normalized = normalizeErrorMessage(message);
+  if (!normalized) return null;
+
+  if (normalized === 'ZIP does not contain SKILL.md') {
+    return '技能压缩包中缺少 SKILL.md';
+  }
+  if (normalized === 'SKILL.md content is empty') {
+    return 'SKILL.md 内容不能为空';
+  }
+
+  let match = normalized.match(/^Invalid skill name "(.+)": contains path traversal$/);
+  if (match) {
+    return `技能名称“${match[1]}”不合法`;
+  }
+
+  match = normalized.match(/^Local skill "(.+)" already exists\. Cannot overwrite a local skill\.$/);
+  if (match) {
+    return `本地技能“${match[1]}”已存在，不能覆盖本地技能`;
+  }
+
+  match = normalized.match(/^Failed to download skill: (.+)$/);
+  if (match) {
+    const nested = translateErrorDetail(match[1]);
+    return nested ? `下载技能失败：${nested}` : '下载技能失败，请稍后重试';
+  }
+
+  match = normalized.match(/^SKILL\.md exceeds (\d+) bytes$/);
+  if (match) {
+    return `SKILL.md 超出大小限制（${match[1]} 字节）`;
+  }
+
+  match = normalized.match(/^Skill "(.+)" is not installed via SkillHub$/);
+  if (match) {
+    return `技能“${match[1]}”不是通过技能广场安装的`;
+  }
+
+  match = normalized.match(/^Skill "(.+)" is a local skill\. Cannot uninstall local skills\.$/);
+  if (match) {
+    return `技能“${match[1]}”是本地技能，不能卸载`;
+  }
+
+  match = normalized.match(/^Tencent SkillHub error (\d+):/);
+  if (match) {
+    return `技能广场服务异常（状态码 ${match[1]}）`;
+  }
+
+  match = normalized.match(/^Tencent SkillHub API error: (.+)$/);
+  if (match) {
+    const nested = translateErrorDetail(match[1]);
+    return nested ? `技能广场接口返回错误：${nested}` : '技能广场接口返回错误';
+  }
+
+  match = normalized.match(/^Tencent skill download failed: (\d+)$/);
+  if (match) {
+    return `技能下载失败（状态码 ${match[1]}）`;
+  }
+
+  match = normalized.match(/^Skill "(.+)" not found$/);
+  if (match) {
+    return `未找到技能“${match[1]}”`;
+  }
+
+  match = normalized.match(/^File (.+) exceeds (\d+)MB limit$/);
+  if (match) {
+    return `文件“${match[1]}”超过 ${match[2]}MB 限制`;
+  }
+
+  match = normalized.match(/^Total upload size exceeds (\d+)MB limit$/);
+  if (match) {
+    return `上传文件总大小超过 ${match[1]}MB 限制`;
+  }
+
+  return null;
+}
+
+export function translateSkillErrorMessage(message: string): string | null {
+  return translateKnownErrorDetail(message);
+}
+
+function translateErrorDetail(error: unknown): string | null {
+  const message = normalizeErrorMessage(getErrorMessage(error));
+  if (!message) return null;
+
+  const translated = translateKnownErrorDetail(message);
+  if (translated) return translated;
+  if (SKILL_NAME_CHINESE_RE.test(message)) return message;
+  if (/^\d+$/.test(message)) return message;
+  return null;
+}
+
+function formatErrorMessage(prefix: string, error: unknown): string {
+  const detail = translateErrorDetail(error);
+  if (!detail) return `${prefix}，请稍后重试`;
+  return `${prefix}：${detail}`;
+}
 
 async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promise<boolean> {
   try {
@@ -319,7 +454,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const [sourceSkills, bootstrapEntries, manifestMeta, installedRecords] = await Promise.all([
@@ -405,13 +540,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const query = (request.query as { keyword?: string }).keyword;
     if (!query) {
       reply.status(400);
-      return { error: 'Missing required query parameter: keyword' };
+      return { error: '缺少必填查询参数：keyword' };
     }
 
     const page = Number((request.query as { page?: string }).page) || 1;
@@ -420,16 +555,20 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const result = await searchSkills(query, { page, limit, category });
-      const installedNames = new Set((await getInstalledRecords(CAT_CAFE_ROOT)).map((r) => r.name));
+      const [installedRecords, localSkillNames] = await Promise.all([
+        getInstalledRecords(CAT_CAFE_ROOT),
+        listSkillDirs(CAT_CAFE_SKILLS_SRC),
+      ]);
+      const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
       return {
-        skills: result.data.map((s) => ({ ...s, isInstalled: installedNames.has(s.slug) })),
+        skills: result.data.map((s) => ({ ...s, isInstalled: isInstalledSkill(installedKeys, s.slug) })),
         total: result.total,
         page: result.page,
         hasMore: result.hasMore,
       };
     } catch (err) {
       reply.status(502);
-      return { error: `SkillHub unavailable: ${err instanceof Error ? err.message : String(err)}` };
+      return { error: formatErrorMessage('技能广场暂时不可用', err) };
     }
   });
 
@@ -440,21 +579,25 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     try {
       const result = await trendingSkills();
-      const installedNames = new Set((await getInstalledRecords(CAT_CAFE_ROOT)).map((r) => r.name));
+      const [installedRecords, localSkillNames] = await Promise.all([
+        getInstalledRecords(CAT_CAFE_ROOT),
+        listSkillDirs(CAT_CAFE_SKILLS_SRC),
+      ]);
+      const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
       return {
-        skills: result.data.map((s) => ({ ...s, isInstalled: installedNames.has(s.slug) })),
+        skills: result.data.map((s) => ({ ...s, isInstalled: isInstalledSkill(installedKeys, s.slug) })),
         total: result.total,
         page: result.page,
         hasMore: result.hasMore,
       };
     } catch (err) {
       reply.status(502);
-      return { error: `SkillHub unavailable: ${err instanceof Error ? err.message : String(err)}` };
+      return { error: formatErrorMessage('技能广场暂时不可用', err) };
     }
   });
 
@@ -465,7 +608,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const q = request.query as { page?: string; limit?: string; category?: string };
@@ -475,18 +618,21 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const result = await listAllSkills({ page, limit, category });
-      const installed = await getInstalledRecords(CAT_CAFE_ROOT);
-      const installedNames = new Set(installed.map((r) => r.name));
+      const [installedRecords, localSkillNames] = await Promise.all([
+        getInstalledRecords(CAT_CAFE_ROOT),
+        listSkillDirs(CAT_CAFE_SKILLS_SRC),
+      ]);
+      const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
 
       return {
-        skills: result.data.map((s) => ({ ...s, isInstalled: installedNames.has(s.slug) })),
+        skills: result.data.map((s) => ({ ...s, isInstalled: isInstalledSkill(installedKeys, s.slug) })),
         total: result.total,
         page: result.page,
         hasMore: result.hasMore,
       };
     } catch (err) {
       reply.status(502);
-      return { error: `SkillHub unavailable: ${err instanceof Error ? err.message : String(err)}` };
+      return { error: formatErrorMessage('技能广场暂时不可用', err) };
     }
   });
 
@@ -497,7 +643,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     try {
@@ -505,7 +651,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { categories };
     } catch (err) {
       reply.status(502);
-      return { error: `SkillHub unavailable: ${err instanceof Error ? err.message : String(err)}` };
+      return { error: formatErrorMessage('技能广场暂时不可用', err) };
     }
   });
 
@@ -516,13 +662,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const q = request.query as { owner?: string; repo?: string; skill?: string };
     if (!q.owner || !q.repo || !q.skill) {
       reply.status(400);
-      return { error: 'Missing: owner, repo, skill' };
+      return { error: '缺少必填参数：owner、repo、skill' };
     }
 
     try {
@@ -530,7 +676,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { content, owner: q.owner, repo: q.repo, skill: q.skill };
     } catch (err) {
       reply.status(502);
-      return { error: `Failed: ${err instanceof Error ? err.message : String(err)}` };
+      return { error: formatErrorMessage('获取技能预览失败', err) };
     }
   });
 
@@ -541,7 +687,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const body = request.body as {
@@ -553,7 +699,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     };
     if (!body.owner || !body.repo || !body.skill) {
       reply.status(400);
-      return { error: 'Missing: owner, repo, skill' };
+      return { error: '缺少必填参数：owner、repo、skill' };
     }
 
     try {
@@ -574,10 +720,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           DOWNLOAD: 502,
         };
         reply.status(map[err.code] ?? 500);
-        return { success: false, error: err.message, code: err.code };
+        return { success: false, error: translateSkillErrorMessage(err.message) ?? '安装技能失败，请稍后重试', code: err.code };
       }
       reply.status(500);
-      return { success: false, error: String(err) };
+      return { success: false, error: formatErrorMessage('安装技能失败', err) };
     }
   });
 
@@ -588,13 +734,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const body = request.body as { name?: string };
     if (!body.name) {
       reply.status(400);
-      return { error: 'Missing: name' };
+      return { error: '缺少必填参数：name' };
     }
 
     try {
@@ -611,10 +757,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           DOWNLOAD: 502,
         };
         reply.status(map[err.code] ?? 500);
-        return { success: false, error: err.message, code: err.code };
+        return { success: false, error: translateSkillErrorMessage(err.message) ?? '卸载技能失败，请稍后重试', code: err.code };
       }
       reply.status(500);
-      return { success: false, error: String(err) };
+      return { success: false, error: formatErrorMessage('卸载技能失败', err) };
     }
   });
 
@@ -625,13 +771,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const q = request.query as { name?: string };
     if (!q.name) {
       reply.status(400);
-      return { error: 'Missing required parameter: name' };
+      return { error: '缺少必填参数：name' };
     }
 
     const skillName = q.name.trim();
@@ -639,7 +785,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     // Security: prevent path traversal
     if (!skillName || /[\\/]|(\.\.)/.test(skillName)) {
       reply.status(400);
-      return { error: 'Invalid skill name' };
+      return { error: '技能名称不合法' };
     }
 
     const skillDir = join(CAT_CAFE_SKILLS_SRC, skillName);
@@ -668,7 +814,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       // If skill directory doesn't exist and not in capabilities, return 404
       if (!skillDirExists && !capabilityEntry) {
         reply.status(404);
-        return { error: `Skill "${skillName}" not found` };
+        return { error: `未找到技能“${skillName}”` };
       }
 
       // Determine source: check capabilities.json first, then installed records
@@ -742,7 +888,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return response;
     } catch (err) {
       reply.status(500);
-      return { error: `Failed to get skill detail: ${err instanceof Error ? err.message : String(err)}` };
+      return { error: formatErrorMessage('获取技能详情失败', err) };
     }
   });
 
@@ -753,13 +899,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const q = request.query as { name?: string; path?: string };
     if (!q.name || !q.path) {
       reply.status(400);
-      return { error: 'Missing required parameters: name, path' };
+      return { error: '缺少必填参数：name、path' };
     }
 
     const skillName = q.name.trim();
@@ -768,18 +914,18 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     // Security: prevent path traversal
     if (!skillName || /[\\/]|(\.\.)/.test(skillName)) {
       reply.status(400);
-      return { error: 'Invalid skill name' };
+      return { error: '技能名称不合法' };
     }
     if (filePath.includes('..') || filePath.startsWith('/')) {
       reply.status(400);
-      return { error: 'Invalid file path' };
+      return { error: '文件路径不合法' };
     }
 
     // Security: prevent reading hidden files (consistent with directory tree behavior)
     const fileName = filePath.split(/[/\\]/).pop() ?? '';
     if (fileName.startsWith('.')) {
       reply.status(403);
-      return { error: 'Cannot read hidden files' };
+      return { error: '不允许读取隐藏文件' };
     }
 
     const skillDir = join(CAT_CAFE_SKILLS_SRC, skillName);
@@ -790,20 +936,20 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const resolvedSkillDir = resolve(skillDir);
     if (!resolvedPath.startsWith(resolvedSkillDir + sep) && resolvedPath !== resolvedSkillDir) {
       reply.status(403);
-      return { error: 'Path traversal detected' };
+      return { error: '检测到非法路径访问' };
     }
 
     // Check if skill exists
     if (!existsSync(skillDir)) {
       reply.status(404);
-      return { error: `Skill "${skillName}" not found` };
+      return { error: `未找到技能“${skillName}”` };
     }
 
     try {
       const fileStat = await stat(resolvedPath);
       if (fileStat.isDirectory()) {
         reply.status(400);
-        return { error: 'Path is a directory' };
+        return { error: '该路径是目录，不能直接预览' };
       }
 
       const mime = guessMime(resolvedPath);
@@ -811,7 +957,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       // Check if text file
       if (!TEXT_MIME_TYPES.has(mime) && !mime.startsWith('text/')) {
         reply.status(415);
-        return { error: 'File type not supported for preview. Only text files are supported.' };
+        return { error: '当前文件类型不支持预览，仅支持文本文件' };
       }
 
       // Read file with size limit
@@ -829,10 +975,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
         reply.status(404);
-        return { error: 'File not found' };
+        return { error: '文件不存在' };
       }
       reply.status(500);
-      return { error: 'Internal error' };
+      return { error: formatErrorMessage('读取文件失败', e) };
     }
   });
 
@@ -843,7 +989,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required' };
+      return { error: '缺少用户身份信息' };
     }
 
     const body = request.body as {
@@ -853,28 +999,28 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
     if (!body.name || !body.files?.length) {
       reply.status(400);
-      return { success: false, error: 'Missing name or files' };
+      return { success: false, error: '缺少技能名称或文件内容' };
     }
     if (body.files.length > SKILL_UPLOAD_MAX_FILES) {
       reply.status(422);
-      return { success: false, error: `Too many files. Limit is ${SKILL_UPLOAD_MAX_FILES}.` };
+      return { success: false, error: `文件数量过多，最多允许 ${SKILL_UPLOAD_MAX_FILES} 个` };
     }
 
     const skillName = body.name.trim();
     if (!skillName || /[\\/]|(\.\.)/.test(skillName)) {
       reply.status(422);
-      return { success: false, error: 'Invalid skill name' };
+      return { success: false, error: '技能名称不合法' };
     }
     if (SKILL_NAME_CHINESE_RE.test(skillName)) {
       reply.status(422);
-      return { success: false, error: 'Skill name cannot contain Chinese characters' };
+      return { success: false, error: '技能名称不能包含中文字符' };
     }
 
     const skillsDir = resolve(CAT_CAFE_SKILLS_SRC);
     const skillDir = join(skillsDir, skillName);
     if (existsSync(skillDir)) {
       reply.status(409);
-      return { success: false, error: `Skill "${skillName}" already exists` };
+      return { success: false, error: `技能“${skillName}”已存在` };
     }
     let createdSkillDir = false;
 
@@ -904,7 +1050,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           reply.status(422);
           return {
             success: false,
-            error: `File ${stripped} exceeds ${Math.floor(SKILL_UPLOAD_MAX_FILE_BYTES / (1024 * 1024))}MB limit`,
+            error: `文件“${stripped}”超过 ${Math.floor(SKILL_UPLOAD_MAX_FILE_BYTES / (1024 * 1024))}MB 限制`,
           };
         }
         totalBytes += content.length;
@@ -912,7 +1058,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           reply.status(422);
           return {
             success: false,
-            error: `Total upload size exceeds ${Math.floor(SKILL_UPLOAD_MAX_TOTAL_BYTES / (1024 * 1024))}MB limit`,
+            error: `上传文件总大小超过 ${Math.floor(SKILL_UPLOAD_MAX_TOTAL_BYTES / (1024 * 1024))}MB 限制`,
           };
         }
         preparedFiles.push({ originalPath: file.path, strippedPath: stripped, fullPath, content });
@@ -932,7 +1078,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           await rm(skillDir, { recursive: true, force: true }).catch(() => {});
         }
         reply.status(422);
-        return { success: false, error: 'Uploaded files must include SKILL.md' };
+        return { success: false, error: '上传的文件中必须包含 SKILL.md' };
       }
 
       // Create symlinks
@@ -963,7 +1109,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         await rm(skillDir, { recursive: true, force: true }).catch(() => {});
       }
       reply.status(500);
-      return { success: false, error: String(err) };
+      return { success: false, error: formatErrorMessage('上传技能失败', err) };
     }
   });
 };

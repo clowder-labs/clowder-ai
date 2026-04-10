@@ -29,7 +29,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 401);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Identity required'));
+    assert.ok(body.error.includes('缺少用户身份信息'));
 
     await app.close();
   });
@@ -165,7 +165,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Missing required parameter'));
+    assert.ok(body.error.includes('缺少必填参数'));
     await app.close();
   });
 
@@ -197,7 +197,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Invalid skill name'));
+    assert.ok(body.error.includes('技能名称不合法'));
     await app.close();
   });
 
@@ -230,7 +230,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Missing required parameters'));
+    assert.ok(body.error.includes('缺少必填参数'));
     await app.close();
   });
 
