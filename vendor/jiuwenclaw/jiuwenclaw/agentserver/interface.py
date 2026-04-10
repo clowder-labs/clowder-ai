@@ -206,8 +206,6 @@ class JiuWenClaw:
         self._todo_tool_sessions_registered: set[str] = set()
         self._sysop_card_id: str | None = None
 
-        self._session_tool = None
-
     @staticmethod
     async def set_checkpoint():
         try:
@@ -609,7 +607,7 @@ class JiuWenClaw:
             mode="plan",
             project_dir: str | None = None,
             cat_cafe_mcp: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> MultiSessionToolkit | None:
         """Register per-request tools for current agent execution."""
         if self._instance is None:
             raise RuntimeError("JiuWenClaw 未初始化，请先调用 create_instance()")
@@ -624,7 +622,7 @@ class JiuWenClaw:
             set_request_workspace(None)  # fall back to default ~/.jiuwenclaw workspace
 
         prompt_workspace_dir = project_dir or str(get_workspace_dir())
-        self._session_tool = None
+        session_toolkits: MultiSessionToolkit | None = None
 
         tool_list = self._instance.ability_manager.list()
         for tool in tool_list:
@@ -704,7 +702,6 @@ class JiuWenClaw:
                 request_id=request_id,
                 sub_agent_config=self._load_react_config(config_base)
             )
-            self._session_tool = session_toolkits
             for tool in session_toolkits.get_tools():
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
@@ -797,6 +794,8 @@ class JiuWenClaw:
                 workspace_dir=prompt_workspace_dir,
             ),
         }]
+
+        return session_toolkits
 
     async def process_interrupt(self, request: AgentRequest) -> AgentResponse:
         """处理 interrupt 请求.
@@ -1443,6 +1442,7 @@ class JiuWenClaw:
 
         rid = request.request_id
         cid = request.channel_id
+        session_tool: MultiSessionToolkit | None = None
 
         # 创建流式输出队列
         stream_queue = asyncio.Queue()
@@ -1451,8 +1451,9 @@ class JiuWenClaw:
         # 创建流式任务函数
         async def run_stream_task():
             """执行流式任务，将产生的 chunk 放入队列."""
+            nonlocal session_tool
             try:
-                await self._register_runtime_tools(
+                session_tool = await self._register_runtime_tools(
                     session_id,
                     request.channel_id,
                     request.request_id,
@@ -1544,11 +1545,18 @@ class JiuWenClaw:
                 is_complete=True,
             )
         else:
+            if session_tool is None:
+                logger.warning(
+                    "[JiuWenClaw] stream completed without session toolkit: request_id=%s session_id=%s mode=%s",
+                    rid,
+                    session_id,
+                    request.params.get("mode", "plan"),
+                )
             yield AgentResponseChunk(
                 request_id=rid,
                 channel_id=cid,
                 payload={"is_complete": True},
-                is_complete=True and self._session_tool.all_tasks_done(),
+                is_complete=session_tool.all_tasks_done() if session_tool is not None else True,
             )
 
     # ------------------------------------------------------------------
