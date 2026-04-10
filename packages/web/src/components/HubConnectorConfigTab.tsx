@@ -12,6 +12,7 @@ import {
   WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
+import { ConnectorConnectedState } from './ConnectorConnectedState';
 
 interface PlatformFieldStatus {
   envName: string;
@@ -410,18 +411,12 @@ export function HubConnectorConfigTab() {
                           <span className="text-[14px]">断开连接</span>
                         </div>
                         <div className="ml-[26px]">
-                          <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
-                            <span className="text-sm font-medium text-green-700">{platform.name} 已连接</span>
-                            <button
-                              type="button"
-                              onClick={() => void handleDisconnect(platform.id)}
-                              disabled={disconnecting === platform.id}
-                              className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
-                              data-testid={`disconnect-${platform.id}`}
-                            >
-                              {disconnecting === platform.id ? '断开中...' : '断开连接'}
-                            </button>
-                          </div>
+                          <ConnectorConnectedState
+                            label={`${platform.name} 已连接`}
+                            disconnecting={disconnecting === platform.id}
+                            onDisconnect={() => handleDisconnect(platform.id)}
+                            disconnectTestId={`disconnect-${platform.id}`}
+                          />
                         </div>
                       </div>
                     )}
