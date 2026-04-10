@@ -19,7 +19,10 @@ import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
 import type { InstalledSkillRecord } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
-import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
+import {
+  resolveOfficialSkillsRoot,
+  resolveUserSkillsRoot,
+} from '../domains/cats/services/skillhub/SkillPaths.js';
 import {
   fetchSkillContent,
   getSkillCategories,
@@ -147,12 +150,9 @@ function guessMime(filepath: string): string {
 // Max file size for preview (1MB)
 const MAX_PREVIEW_SIZE = 1024 * 1024;
 
-function resolveCatCafeSkillsSourceDir(): string {
-  return resolve(resolveCatCafeHostRoot(process.cwd()), 'cat-cafe-skills');
-}
-
-const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();
-const CAT_CAFE_ROOT = dirname(CAT_CAFE_SKILLS_SRC);
+const CAT_CAFE_ROOT = resolveCatCafeHostRoot(process.cwd());
+const CAT_CAFE_SKILLS_SRC = resolveOfficialSkillsRoot(CAT_CAFE_ROOT);
+const USER_SKILLS_SRC = resolveUserSkillsRoot(CAT_CAFE_ROOT);
 
 function normalizeInstalledSkillKey(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -326,6 +326,33 @@ async function listSkillDirs(skillsSrc: string): Promise<string[]> {
   }
 }
 
+async function listInstalledLocalSkillNames(): Promise<string[]> {
+  const [officialSkillNames, userSkillNames] = await Promise.all([
+    listSkillDirs(CAT_CAFE_SKILLS_SRC),
+    listSkillDirs(USER_SKILLS_SRC),
+  ]);
+  return [...new Set([...officialSkillNames, ...userSkillNames])];
+}
+
+async function listAllInstalledSkillNames(): Promise<string[]> {
+  const [officialSkillNames, userSkillNames] = await Promise.all([
+    listSkillDirs(CAT_CAFE_SKILLS_SRC),
+    listSkillDirs(USER_SKILLS_SRC),
+  ]);
+  const officialSkillNameSet = new Set(officialSkillNames);
+  return [...officialSkillNames, ...userSkillNames.filter((name) => !officialSkillNameSet.has(name))];
+}
+
+function resolveExistingSkillDir(skillName: string): string | null {
+  const officialSkillDir = join(CAT_CAFE_SKILLS_SRC, skillName);
+  if (existsSync(officialSkillDir)) return officialSkillDir;
+
+  const userSkillDir = join(USER_SKILLS_SRC, skillName);
+  if (existsSync(userSkillDir)) return userSkillDir;
+
+  return null;
+}
+
 interface BootstrapEntry {
   name: string;
   category: string;
@@ -458,7 +485,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const [sourceSkills, bootstrapEntries, manifestMeta, installedRecords] = await Promise.all([
-      listSkillDirs(CAT_CAFE_SKILLS_SRC),
+      listAllInstalledSkillNames(),
       parseBootstrap(join(CAT_CAFE_SKILLS_SRC, 'BOOTSTRAP.md')),
       parseManifestSkillMeta(CAT_CAFE_SKILLS_SRC),
       getInstalledRecords(CAT_CAFE_ROOT),
@@ -478,7 +505,9 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
     await Promise.all(
       sourceSkills.map(async (name) => {
-        const expectedTarget = join(CAT_CAFE_SKILLS_SRC, name);
+        const skillDir = resolveExistingSkillDir(name);
+        if (!skillDir) return;
+        const expectedTarget = skillDir;
         const [claude, codex, gemini] = await Promise.all([
           isCorrectSymlink(join(catDirs.claude, name), expectedTarget),
           isCorrectSymlink(join(catDirs.codex, name), expectedTarget),
@@ -495,7 +524,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         let skillhubUrl: string | undefined;
 
         if (isRemote) {
-          const frontmatter = await parseSkillFrontmatter(join(CAT_CAFE_SKILLS_SRC, name));
+          const frontmatter = await parseSkillFrontmatter(skillDir);
           trigger = frontmatter.triggers?.join('、') ?? '';
           category = 'Skill 扩展';
           source = 'skillhub';
@@ -557,7 +586,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       const result = await searchSkills(query, { page, limit, category });
       const [installedRecords, localSkillNames] = await Promise.all([
         getInstalledRecords(CAT_CAFE_ROOT),
-        listSkillDirs(CAT_CAFE_SKILLS_SRC),
+        listInstalledLocalSkillNames(),
       ]);
       const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
       return {
@@ -586,7 +615,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       const result = await trendingSkills();
       const [installedRecords, localSkillNames] = await Promise.all([
         getInstalledRecords(CAT_CAFE_ROOT),
-        listSkillDirs(CAT_CAFE_SKILLS_SRC),
+        listInstalledLocalSkillNames(),
       ]);
       const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
       return {
@@ -620,7 +649,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       const result = await listAllSkills({ page, limit, category });
       const [installedRecords, localSkillNames] = await Promise.all([
         getInstalledRecords(CAT_CAFE_ROOT),
-        listSkillDirs(CAT_CAFE_SKILLS_SRC),
+        listInstalledLocalSkillNames(),
       ]);
       const installedKeys = buildInstalledSkillKeySet(installedRecords, localSkillNames);
 
@@ -788,12 +817,12 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { error: '技能名称不合法' };
     }
 
-    const skillDir = join(CAT_CAFE_SKILLS_SRC, skillName);
-    const skillDirExists = existsSync(skillDir);
+    const skillDir = resolveExistingSkillDir(skillName);
+    const skillDirExists = !!skillDir;
 
     // For cat-cafe skills, require SKILL.md to exist
     // For external skills (from capabilities.json), allow missing files
-    if (skillDirExists && !existsSync(join(skillDir, 'SKILL.md'))) {
+    if (skillDir && !existsSync(join(skillDir, 'SKILL.md'))) {
       // Directory exists but no SKILL.md - still allow for external skills
       // We'll check capabilities.json later to determine if it's a valid skill
     }
@@ -804,7 +833,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         parseBootstrap(join(CAT_CAFE_SKILLS_SRC, 'BOOTSTRAP.md')),
         parseManifestSkillMeta(CAT_CAFE_SKILLS_SRC),
         getInstalledRecords(CAT_CAFE_ROOT),
-        skillDirExists ? buildSkillFileTree(skillDir) : Promise.resolve([]),
+        skillDir ? buildSkillFileTree(skillDir) : Promise.resolve([]),
         readCapabilitiesConfig(CAT_CAFE_ROOT),
       ]);
 
@@ -850,7 +879,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
 
       // Check mount status (symlinks)
       const home = homedir();
-      const expectedTarget = join(CAT_CAFE_SKILLS_SRC, skillName);
+      const expectedTarget = skillDir ?? join(CAT_CAFE_SKILLS_SRC, skillName);
       const [claude, codex, gemini] = await Promise.all([
         isCorrectSymlink(join(home, '.claude', 'skills', skillName), expectedTarget),
         isCorrectSymlink(join(home, '.codex', 'skills', skillName), expectedTarget),
@@ -911,7 +940,6 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
     const skillName = q.name.trim();
     const filePath = q.path.trim();
 
-    // Security: prevent path traversal
     if (!skillName || /[\\/]|(\.\.)/.test(skillName)) {
       reply.status(400);
       return { error: '技能名称不合法' };
@@ -921,28 +949,24 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { error: '文件路径不合法' };
     }
 
-    // Security: prevent reading hidden files (consistent with directory tree behavior)
     const fileName = filePath.split(/[/\\]/).pop() ?? '';
     if (fileName.startsWith('.')) {
       reply.status(403);
       return { error: '不允许读取隐藏文件' };
     }
 
-    const skillDir = join(CAT_CAFE_SKILLS_SRC, skillName);
-    const fullPath = join(skillDir, filePath);
+    const skillDir = resolveExistingSkillDir(skillName);
+    if (!skillDir) {
+      reply.status(404);
+      return { error: `未找到技能“${skillName}”` };
+    }
 
-    // Security: ensure path is within skill directory
+    const fullPath = join(skillDir, filePath);
     const resolvedPath = resolve(fullPath);
     const resolvedSkillDir = resolve(skillDir);
     if (!resolvedPath.startsWith(resolvedSkillDir + sep) && resolvedPath !== resolvedSkillDir) {
       reply.status(403);
       return { error: '检测到非法路径访问' };
-    }
-
-    // Check if skill exists
-    if (!existsSync(skillDir)) {
-      reply.status(404);
-      return { error: `未找到技能“${skillName}”` };
     }
 
     try {
@@ -953,14 +977,11 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const mime = guessMime(resolvedPath);
-
-      // Check if text file
       if (!TEXT_MIME_TYPES.has(mime) && !mime.startsWith('text/')) {
         reply.status(415);
         return { error: '当前文件类型不支持预览，仅支持文本文件' };
       }
 
-      // Read file with size limit
       const truncated = fileStat.size > MAX_PREVIEW_SIZE;
       const content = await readFile(resolvedPath, 'utf-8');
       const displayContent = truncated ? content.slice(0, MAX_PREVIEW_SIZE) : content;
@@ -1016,9 +1037,9 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return { success: false, error: '技能名称不能包含中文字符' };
     }
 
-    const skillsDir = resolve(CAT_CAFE_SKILLS_SRC);
+    const skillsDir = resolve(USER_SKILLS_SRC);
     const skillDir = join(skillsDir, skillName);
-    if (existsSync(skillDir)) {
+    if (resolveExistingSkillDir(skillName)) {
       reply.status(409);
       return { success: false, error: `技能“${skillName}”已存在` };
     }
@@ -1100,7 +1121,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return {
         success: true,
         name: skillName,
-        localPath: `cat-cafe-skills/${skillName}`,
+        localPath: `.cat-cafe/skills/${skillName}`,
         files: preparedFiles.map((f) => f.originalPath),
         mounts,
       };

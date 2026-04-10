@@ -17,8 +17,9 @@ describe('callback-skill-routes', () => {
     process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
 
     const skillsRoot = join(tempRoot, 'cat-cafe-skills');
+    const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
     mkdirSync(skillsRoot, { recursive: true });
-    mkdirSync(join(tempRoot, '.cat-cafe'), { recursive: true });
+    mkdirSync(userSkillsRoot, { recursive: true });
 
     writeFileSync(
       join(skillsRoot, 'BOOTSTRAP.md'),
@@ -59,9 +60,9 @@ triggers:
       'utf-8',
     );
 
-    mkdirSync(join(skillsRoot, 'remote-skill', 'scripts'), { recursive: true });
+    mkdirSync(join(userSkillsRoot, 'remote-skill', 'scripts'), { recursive: true });
     writeFileSync(
-      join(skillsRoot, 'remote-skill', 'SKILL.md'),
+      join(userSkillsRoot, 'remote-skill', 'SKILL.md'),
       `---
 name: remote-skill
 description: 远程安装 skill 描述
@@ -76,7 +77,7 @@ Use this skill carefully.
 `,
       'utf-8',
     );
-    writeFileSync(join(skillsRoot, 'remote-skill', 'scripts', 'helper.sh'), '#!/usr/bin/env bash\n', 'utf-8');
+    writeFileSync(join(userSkillsRoot, 'remote-skill', 'scripts', 'helper.sh'), '#!/usr/bin/env bash\n', 'utf-8');
 
     writeFileSync(
       join(tempRoot, '.cat-cafe', 'installed-skills.json'),
@@ -158,7 +159,7 @@ Use this skill carefully.
 
     assert.equal(remoteSkill.name, 'remote-skill');
     assert.equal(remoteSkill.source, 'skillhub');
-    assert.equal(remoteSkill.category, 'SkillHub');
+    assert.equal(remoteSkill.category, 'Skill 扩展');
     assert.deepEqual(remoteSkill.triggers, ['远程搜索', 'SkillHub']);
   });
 
@@ -329,8 +330,12 @@ Use this skill carefully.
     assert.equal(body.name, 'remote-skill');
     assert.equal(body.source, 'skillhub');
     assert.ok(body.skillMarkdown.includes('# Remote Skill'));
-    assert.ok(body.skillDir.endsWith('/cat-cafe-skills/remote-skill'));
-    assert.ok(body.files.some((filePath) => filePath.endsWith('/cat-cafe-skills/remote-skill/scripts/helper.sh')));
+    assert.ok(body.skillDir.replaceAll('\\', '/').endsWith('/.cat-cafe/skills/remote-skill'));
+    assert.ok(
+      body.files.some((filePath) =>
+        filePath.replaceAll('\\', '/').endsWith('/.cat-cafe/skills/remote-skill/scripts/helper.sh'),
+      ),
+    );
     assert.equal(body.filesOmittedCount, 0);
   });
 
