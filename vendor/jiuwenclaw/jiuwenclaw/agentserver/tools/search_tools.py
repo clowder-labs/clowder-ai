@@ -251,7 +251,14 @@ def _search_free_sync(
 async def _search_free_async(
     query: str, max_results: int, timeout_seconds: int, overall_timeout: int
 ) -> tuple[str, list[dict[str, str]]]:
-    """Concurrent search across multiple engines, return first successful result."""
+    """Concurrent search with quality-first fallback strategy.
+
+    Quality ranking: DDG = DDG-jina > Bing
+
+    Strategy:
+    - If DDG/DDG-jina returns first and succeeds: use it (best quality)
+    - If Bing returns first and succeeds: wait for DDG/DDG-jina up to 2s
+    """
     engines = [
         ("duckduckgo", _search_duckduckgo_sync),
         ("duckduckgo-jina", _search_duckduckgo_via_jina_sync),
@@ -272,28 +279,65 @@ async def _search_free_async(
         except Exception:
             return None
 
-    tasks = [asyncio.create_task(run_engine(name, fn)) for name, fn in engines]
+    tasks = {asyncio.create_task(run_engine(name, fn)): name for name, fn in engines}
+    results: dict[str, tuple[str, list[dict[str, str]]]] = {}
 
     try:
         async with asyncio.timeout(overall_timeout):
-            for coro in asyncio.as_completed(tasks):
-                result = await coro
-                if result is not None:
-                    engine_name, rows = result
-                    for t in tasks:
-                        if not t.done():
-                            t.cancel()
-                    return engine_name, rows
+            pending = set(tasks.keys())
+            while pending:
+                done, pending = await asyncio.wait(
+                    pending, return_when=asyncio.FIRST_COMPLETED
+                )
+
+                for task in done:
+                    result = task.result()
+                    if result:
+                        engine_name, rows = result
+                        results[engine_name] = result
+
+                        if engine_name in ("duckduckgo", "duckduckgo-jina"):
+                            for t in pending:
+                                t.cancel()
+                            return engine_name, rows
+
+                if (
+                    "bing" in results
+                    and "duckduckgo" not in results
+                    and "duckduckgo-jina" not in results
+                ):
+                    try:
+                        async with asyncio.timeout(1):
+                            while pending:
+                                done2, pending = await asyncio.wait(
+                                    pending, return_when=asyncio.FIRST_COMPLETED
+                                )
+                                for task in done2:
+                                    result = task.result()
+                                    if result:
+                                        engine_name, rows = result
+                                        if engine_name in (
+                                            "duckduckgo",
+                                            "duckduckgo-jina",
+                                        ):
+                                            return engine_name, rows
+                    except asyncio.TimeoutError:
+                        pass
+
+                    return results["bing"]
+
     except asyncio.TimeoutError:
-        for t in tasks:
-            if not t.done():
-                t.cancel()
-        raise RuntimeError(f"All engines timed out after {overall_timeout}s")
+        pass
     except Exception:
+        pass
+    finally:
         for t in tasks:
             if not t.done():
                 t.cancel()
-        raise
+
+    for engine in ("duckduckgo", "duckduckgo-jina", "bing"):
+        if engine in results:
+            return results[engine]
 
     raise RuntimeError("All engines returned empty results")
 
@@ -436,16 +480,16 @@ def _jina_search_sync(query: str, timeout_seconds: int) -> dict[str, Any]:
 async def mcp_free_search(
     query: str,
     max_results: int = 8,
-    timeout_seconds: int = 15,
-    overall_timeout: int = 25,
+    timeout_seconds: int = 5,
+    overall_timeout: int = 5,
 ) -> str:
     query = (query or "").strip()
     if not query:
         return "[ERROR]: query cannot be empty."
 
     max_results = max(1, min(max_results, 20))
-    timeout_seconds = max(5, min(timeout_seconds, 30))
-    overall_timeout = max(timeout_seconds + 5, min(overall_timeout, 60))
+    timeout_seconds = max(3, min(timeout_seconds, 10))
+    overall_timeout = 5
 
     try:
         engine_used, rows = await _search_free_async(
