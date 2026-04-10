@@ -18,7 +18,7 @@ import { createPortal } from 'react-dom';
 const VIEWPORT_PADDING = 12;
 const TOOLTIP_GAP = 10;
 const TOOLTIP_ARROW_SIZE = 6;
-const TOOLTIP_MAX_WIDTH = 480;
+const TOOLTIP_MAX_WIDTH = 328;
 
 type TooltipPlacement = 'top' | 'bottom';
 
@@ -154,7 +154,7 @@ function TooltipPortal({
       onMouseEnter={onTooltipEnter}
       onMouseLeave={onTooltipLeave}
     >
-      <div className="relative rounded-lg bg-white px-3 py-2 text-xs leading-5 text-[#222222] shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)] whitespace-normal break-words">
+      <div className="relative rounded-lg bg-white px-3 py-2 text-xs leading-5 text-[#222222] shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)] whitespace-normal break-all">
         <div className="flex items-center gap-1.5">
           <span className={`min-w-0 flex-1 ${copyable ? 'select-text' : ''}`}>{content}</span>
           {copyable && (
