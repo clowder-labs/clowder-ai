@@ -44,6 +44,18 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
       <img src="/images/connectors/xiaoyi.svg" alt="小艺" className="h-11 w-11" />
     ),
   },
+  'wecom-bot': {
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/wecom-bot.png" alt="WeCom" className="h-11 w-11" />
+    ),
+  },
+  'wecom-agent': {
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/wecom-agent.png" alt="WeCom Agent" className="h-11 w-11" />
+    ),
+  },
 };
 
 export const DEFAULT_VISUAL: PlatformVisual = {
@@ -55,11 +67,7 @@ export const DEFAULT_VISUAL: PlatformVisual = {
 };
 
 export function StepBadge({ num }: { num: number }) {
-  return (
-    <span className="text-[14px]">
-      {num}、
-    </span>
-  );
+  return <span className="text-[14px]">{num}、</span>;
 }
 
 export function ChevronRight() {

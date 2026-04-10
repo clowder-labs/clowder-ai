@@ -34,6 +34,7 @@ import {
   assembleIncrementalContext,
   detectContextDegradation,
   getService,
+  isUserFacingSystemInfoContent,
   routeContentBlocksForCat,
   sanitizeInjectedContent,
   stripLeadingDirectCatMention,
@@ -198,7 +199,29 @@ export async function* routeParallel(
 
       let prompt: string;
       if (incrementalMode) {
-        const inc = await assembleIncrementalContext(deps, userId, threadId, catId, currentUserMessageId, thinkingMode);
+        // A+ fix: calculate effective context budget by deducting ALL system parts from maxPromptTokens.
+        const parCatModePromptForBudget = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+        const parIncBudget = getCatContextBudget(catId as string);
+        const parIncSystemTokens = estimateTokens(
+          [staticIdentity, invocationContext, parCatModePromptForBudget, bootstrapCtx, mcpInstructions]
+            .filter(Boolean)
+            .join('\n'),
+        );
+        const parIncMessageTokens = estimateTokens(message);
+        const parEffectiveContextBudget = Math.min(
+          Math.max(0, parIncBudget.maxPromptTokens - parIncSystemTokens - parIncMessageTokens - 200),
+          parIncBudget.maxContextTokens,
+        );
+
+        const inc = await assembleIncrementalContext(
+          deps,
+          userId,
+          threadId,
+          catId,
+          currentUserMessageId,
+          thinkingMode,
+          { effectiveMaxContextTokens: parEffectiveContextBudget },
+        );
         boundaryByCat.set(catId, inc.boundaryId);
         if (inc.degradation) {
           degradationMsgs.push({
@@ -221,8 +244,12 @@ export async function* routeParallel(
         if (history && history.length > 0 && !contextHistory) {
           const budget = getCatContextBudget(catId as string);
           // F8: token-based budget — estimate non-context tokens, remainder goes to context
+          // A+ fix: include catModePrompt + bootstrapCtx in system parts estimate (P2-1)
+          const parCatModePromptLegacyForBudget = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
           const parSystemTokens = estimateTokens(
-            [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),
+            [staticIdentity, invocationContext, parCatModePromptLegacyForBudget, bootstrapCtx, mcpInstructions]
+              .filter(Boolean)
+              .join('\n'),
           );
           const parPromptTokens = estimateTokens(message);
           const budgetForContext = Math.max(0, budget.maxPromptTokens - parSystemTokens - parPromptTokens - 200);
@@ -282,9 +309,11 @@ export async function* routeParallel(
   const catText = new Map<string, string>();
   const catThinking = new Map<string, string>();
   const catMeta = new Map<string, MessageMetadata>();
+  const catSawUserFacingSystemInfo = new Map<string, boolean>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
   // F060: Collect inline rich blocks per cat from system_info stream
   const catStreamRichBlocks = new Map<string, import('@cat-cafe/shared').RichBlock[]>();
+  const catErrorText = new Map<string, string>();
   const catHadError = new Set<string>();
   // F22 R2 P1-1: Capture own invocationId per cat from stream
   const catInvocationId = new Map<string, string>();
@@ -337,6 +366,9 @@ export async function* routeParallel(
     }
     // F045: Accumulate thinking blocks per cat for persistence (F5 recovery)
     if (msg.type === 'system_info' && msg.content && msg.catId) {
+      if (isUserFacingSystemInfoContent(msg.content)) {
+        catSawUserFacingSystemInfo.set(msg.catId, true);
+      }
       try {
         const parsed = parseSystemInfoContent(msg.content);
         if (!parsed) throw new Error('not parseable system_info');
@@ -357,6 +389,10 @@ export async function* routeParallel(
     }
     if (msg.type === 'error' && msg.catId) {
       catHadError.add(msg.catId);
+      if (msg.error) {
+        const prev = catErrorText.get(msg.catId) ?? '';
+        catErrorText.set(msg.catId, `${prev}${prev ? '\n' : ''}${msg.error}`);
+      }
     }
     // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
     // state — mark catHadError so we don't fall through to silent_completion.
@@ -621,12 +657,13 @@ export async function* routeParallel(
         const thinking = catThinking.get(msg.catId);
         const noTextBlocks = [...bufferedBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
         const hasRichBlocks = noTextBlocks.length > 0;
+        const sawUserFacingSystemInfo = catSawUserFacingSystemInfo.get(msg.catId) === true;
         const shouldPersistNoTextMessage =
           hasRichBlocks || (catTools?.length ?? 0) > 0 || Boolean(thinking?.trim().length ?? 0);
 
         // Diagnostic: if cat ran tools but produced no text, emit a system_info so the
         // user sees *something* instead of a silent vanish (bugfix: silent-exit P1).
-        if (catTools && catTools.length > 0 && !hasRichBlocks) {
+        if (catTools && catTools.length > 0 && !hasRichBlocks && !sawUserFacingSystemInfo) {
           yield {
             type: 'system_info' as AgentMessageType,
             catId: msg.catId,
@@ -686,7 +723,7 @@ export async function* routeParallel(
               });
             }
           }
-        } else {
+        } else if (!sawUserFacingSystemInfo) {
           yield {
             type: 'system_info' as AgentMessageType,
             catId: msg.catId,
@@ -701,6 +738,8 @@ export async function* routeParallel(
           if (deps.draftStore && ownInvId) {
             deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
           }
+        } else if (deps.draftStore && ownInvId) {
+          deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
         }
       } else {
         // hadError but toolEvents exist — persist tool record so refresh shows what was attempted
@@ -744,6 +783,27 @@ export async function* routeParallel(
               });
             }
           }
+        }
+      }
+
+      // Persist error as system message so it survives F5 reload but does NOT
+      // re-enter the prompt as a cat message (aligned with route-serial.ts).
+      // Previously errors were mixed into catText and persisted with userId=user,
+      // which polluted the conversation history and caused "context poisoning".
+      const errorText = catErrorText.get(msg.catId);
+      if (errorText) {
+        try {
+          await deps.messageStore.append({
+            userId: 'system',
+            catId: null,
+            content: `Error: ${errorText}`,
+            mentions: [],
+            origin: 'stream',
+            timestamp: Date.now(),
+            threadId,
+          });
+        } catch (err) {
+          log.error({ catId: msg.catId, err }, 'messageStore.append (error system msg) failed');
         }
       }
 

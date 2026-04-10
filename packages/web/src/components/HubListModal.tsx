@@ -14,6 +14,8 @@ const CONNECTOR_LABELS: Record<string, string> = {
   wechat: '微信',
   slack: 'Slack',
   discord: 'Discord',
+  'wecom-bot': '企业微信',
+  'wecom-agent': '企微自建应用',
 };
 
 type HubTab = 'threads' | 'config' | 'permissions';
@@ -84,10 +86,7 @@ export function HubListModal({ open, onClose, currentThreadId }: HubListModalPro
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      data-testid="hub-list-modal"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="hub-list-modal">
       <div className="bg-white rounded-2xl shadow-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2.5">

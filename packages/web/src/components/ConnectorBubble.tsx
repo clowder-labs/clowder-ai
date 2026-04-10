@@ -61,6 +61,10 @@ function ConnectorIcon({ connector, fallbackIcon }: { connector: string; fallbac
       return <ConnectorImage src="/images/connectors/weixin.png" alt="WeChat" className="w-5 h-5" />;
     case 'dingtalk':
       return <ConnectorImage src="/images/connectors/dingtalk.png" alt="DingTalk" className="w-5 h-5" />;
+    case 'wecom-bot':
+      return <ConnectorImage src="/images/connectors/wecom-bot.png" alt="WeCom" className="w-5 h-5" />;
+    case 'wecom-agent':
+      return <ConnectorImage src="/images/connectors/wecom-agent.png" alt="WeCom Agent" className="w-5 h-5" />;
     case 'github-review':
     case 'github-ci':
       // Preserve legacy non-default icons (e.g., triage stored ⚠️ instead of 🔔)
@@ -130,9 +134,7 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
           {source.sender && <span className="text-xs text-gray-500">{source.sender.name || source.sender.id} 说</span>}
           <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
         </div>
-        <div
-          className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 overflow-hidden`}
-        >
+        <div className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 overflow-hidden`}>
           {hasBlocks ? renderContentBlocks(message.contentBlocks!) : <MarkdownContent content={message.content} />}
           {richBlocks && richBlocks.length > 0 && <RichBlocks blocks={richBlocks} />}
         </div>
