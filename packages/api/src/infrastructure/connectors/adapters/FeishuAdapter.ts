@@ -614,6 +614,30 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     await this.sendLarkMessage(externalChatId, 'text', JSON.stringify({ text }));
   }
 
+  async addReaction(messageId: string, emojiType: string): Promise<void> {
+    const token = await this.tokenManager?.getTenantAccessToken();
+    if (!token) return;
+
+    const res = await (this.uploadFetchFn ?? globalThis.fetch)(
+      `https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/reactions`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reaction_type: {
+            emoji_type: emojiType,
+          },
+        }),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`Feishu addReaction failed: ${res.status} ${res.statusText}`);
+    }
+  }
+
   async sendRichMessage(
     externalChatId: string,
     textContent: string,

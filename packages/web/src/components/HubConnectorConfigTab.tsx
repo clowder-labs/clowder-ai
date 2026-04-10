@@ -192,13 +192,21 @@ export function HubConnectorConfigTab() {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      const hasSensitive = updates.some((u) => platform.fields.find((f) => f.envName === u.name)?.sensitive);
-      const restartHint = data.requiresRestart || hasSensitive;
+      const runtime = data?.runtime as
+        | {
+            applied?: boolean;
+            failedConnectors?: Array<{ connectorId?: string; message?: string }>;
+          }
+        | undefined;
+      const failedConnectors = Array.isArray(runtime?.failedConnectors) ? runtime.failedConnectors : [];
       setSaveResult({
         type: 'success',
-        message: restartHint
-          ? '配置已保存。包含敏感字段，需重启 API 服务使连接器生效。'
-          : '配置已保存。需重启 API 服务使连接器生效。',
+        message:
+          runtime && runtime.applied === false
+            ? `配置已保存，但热生效失败：${failedConnectors
+                .map((item) => item.connectorId || 'unknown')
+                .join('、')}。请查看 API 日志。`
+            : '配置已保存并立即生效。',
       });
       setFieldValues({});
       await fetchStatus();

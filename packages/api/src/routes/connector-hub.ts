@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
 import type { IConnectorPermissionStore } from '../infrastructure/connectors/ConnectorPermissionStore.js';
 import { DefaultFeishuQrBindClient, type FeishuQrBindClient } from '../infrastructure/connectors/FeishuQrBindClient.js';
@@ -24,6 +25,7 @@ export interface ConnectorHubRoutesOptions {
   permissionStore?: IConnectorPermissionStore | null;
   envFilePath?: string;
   feishuQrBindClient?: FeishuQrBindClient;
+  connectorRuntimeManager?: ConnectorRuntimeReconciler;
 }
 
 function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
@@ -98,7 +100,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { text: '选择连接模式：Webhook（需公网 URL）或 WebSocket（无需公网，推荐内网环境）' },
       { text: '在「事件订阅」中配置请求地址并获取 Verification Token', mode: 'webhook' },
       { text: '在「事件订阅」中选择「使用长连接接收事件」，无需 Verification Token', mode: 'websocket' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '填写以下配置并保存，连接器会立即热生效' },
     ],
   },
   {
@@ -125,7 +127,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     steps: [
       { text: '在钉钉开放平台创建企业内部应用，获取 App Key 和 App Secret' },
       { text: '在「机器人与消息推送」中开启机器人能力' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '填写以下配置并保存，连接器会立即热生效' },
     ],
   },
   {
@@ -141,7 +143,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     steps: [
       { text: '在华为小艺开放平台创建智能体，新建凭证获取 AK / SK' },
       { text: '配置白名单分组，添加调试用华为账号' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '填写以下配置并保存，连接器会立即热生效' },
     ],
   },
 ];
@@ -374,8 +376,11 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       if (currentMode === 'webhook' && (!verificationToken || verificationToken.trim() === '')) {
         updates.push({ name: 'FEISHU_CONNECTION_MODE', value: 'websocket' });
       }
-      await applyConnectorSecretUpdates(updates, { envFilePath: opts.envFilePath });
-      return { status: 'confirmed' };
+      const result = await applyConnectorSecretUpdates(updates, {
+        envFilePath: opts.envFilePath,
+        reconciler: opts.connectorRuntimeManager,
+      });
+      return { status: 'confirmed', ...(result.runtime ? { runtime: result.runtime } : {}) };
     } catch (err) {
       app.log.error({ err }, '[Feishu QR] Failed to poll QR status');
       reply.status(502);
@@ -387,15 +392,15 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) return { error: 'Identity required' };
 
-    await applyConnectorSecretUpdates(
+    const result = await applyConnectorSecretUpdates(
       [
         { name: 'FEISHU_APP_ID', value: null },
         { name: 'FEISHU_APP_SECRET', value: null },
       ],
-      { envFilePath: opts.envFilePath },
+      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
     );
     app.log.info({ userId }, '[Feishu] Disconnected by user');
-    return { ok: true };
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
   });
 
   // ── DingTalk connectivity test ──
