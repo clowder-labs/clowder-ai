@@ -28,8 +28,6 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
   const router = useRouter();
 
   const isUser = message.type === 'user' && !message.catId;
-  const isAssistant = message.type === 'assistant' || (message.type === 'user' && !!message.catId);
-  const canAct = (isUser || isAssistant) && !message.isStreaming;
   const toolbarPositionClass = isUser ? 'top-8' : 'top-1';
 
   const handleSoftDelete = useCallback(() => setDialog({ type: 'soft-delete' }), []);
@@ -167,7 +165,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
             <button
               onClick={handleEdit}
               className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-500 transition-colors"
-              title="编辑 (创建分支)"
+              title="编辑（创建分支）"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -196,7 +194,6 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         </div>
       )}
 
-      {/* Soft delete confirmation */}
       <ConfirmDialog
         open={dialog.type === 'soft-delete'}
         title="删除消息"
@@ -207,20 +204,18 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         onCancel={close}
       />
 
-      {/* Hard delete confirmation — requires title input */}
       <ConfirmDialog
         open={dialog.type === 'hard-delete'}
         title="永久删除"
         message="此操作不可恢复。请输入对话标题以确认。"
         requireInput={dialog.type === 'hard-delete' ? (dialog.threadTitle ?? '确认删除') : undefined}
-        inputPlaceholder={dialog.type === 'hard-delete' && dialog.threadTitle ? '输入对话标题' : '输入 "确认删除"'}
+        inputPlaceholder={dialog.type === 'hard-delete' && dialog.threadTitle ? '输入对话标题' : '输入 \"确认删除\"'}
         confirmLabel="永久删除"
         variant="danger"
         onConfirm={confirmHardDelete}
         onCancel={close}
       />
 
-      {/* Edit: inline textarea */}
       {dialog.type === 'edit' && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4">
@@ -246,7 +241,6 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         </div>
       )}
 
-      {/* Branch confirmation (from edit) */}
       <ConfirmDialog
         open={dialog.type === 'branch-confirm'}
         title="创建分支"
@@ -256,7 +250,6 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         onCancel={close}
       />
 
-      {/* Direct branch confirmation (no edit) */}
       <ConfirmDialog
         open={dialog.type === 'branch-direct'}
         title="从这里分支"

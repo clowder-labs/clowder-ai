@@ -31,7 +31,7 @@ export function SuggestionDecisionPanel({
         </p>
       )}
       <div className="rounded-lg bg-[#F8F3EA] p-2 text-xs text-[#5F4D3C]">
-        <p>建议猫猫：@{item.suggestion?.catId}</p>
+        <p>建议：@{item.suggestion?.catId}</p>
         <p>Why：{item.suggestion?.why}</p>
         <p>Plan：{item.suggestion?.plan}</p>
       </div>

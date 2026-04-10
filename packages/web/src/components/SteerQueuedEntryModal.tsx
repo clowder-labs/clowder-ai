@@ -42,9 +42,9 @@ export function SteerQueuedEntryModal({
                 : 'border-gray-200 hover:border-gray-300 bg-white'
             }`}
           >
-            <div className="text-sm font-medium text-gray-800">立即执行（必要时中断目标猫）</div>
+            <div className="text-sm font-medium text-gray-800">立即执行（必要时中断目标智能体）</div>
             <div className="text-xs text-gray-500 mt-1">
-              若目标猫正在执行，会先 cancel 该猫当前 invocation；若目标猫空闲，则直接执行这条排队消息。
+              若目标智能体正在执行，会先 cancel 该智能体当前 invocation；若目标智能体空闲，则直接执行这条排队消息。
             </div>
           </button>
 
@@ -57,7 +57,7 @@ export function SteerQueuedEntryModal({
             }`}
           >
             <div className="text-sm font-medium text-gray-800">提到队首（不取消）</div>
-            <div className="text-xs text-gray-500 mt-1">只调整顺序；当前猫跑完后优先执行这条消息。</div>
+            <div className="text-xs text-gray-500 mt-1">只调整顺序；当前智能体跑完后优先执行这条消息。</div>
           </button>
         </div>
 

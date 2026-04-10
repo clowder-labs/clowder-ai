@@ -18,7 +18,7 @@ export interface UseSendMessageOptions {
 }
 
 /**
- * Hook for sending messages (text + optional images + optional whisper).
+ * Hook for sending messages (text + optional attachments + optional whisper).
  * Handles both JSON and multipart form data modes.
  */
 export function useSendMessage(activeThreadId?: string, options?: UseSendMessageOptions) {
@@ -66,13 +66,13 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
     ) => {
       const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
       const threadId = overrideThreadId ?? activeThread;
-      const hasImages = Boolean(images && images.length > 0);
+      const hasAttachments = Boolean(images && images.length > 0);
       const isQueueSend = deliveryMode === 'queue';
 
       // Queue sends don't reset refs — cat is still streaming
       if (!isQueueSend) resetRefs?.();
       setUploadError(null);
-      setUploadStatus(hasImages ? 'uploading' : 'idle');
+      setUploadStatus(hasAttachments ? 'uploading' : 'idle');
 
       const wasCommand = await processCommand(content, threadId);
       if (wasCommand) return;
@@ -91,10 +91,22 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
       if (images && images.length > 0) {
         userMsg.contentBlocks = [
           { type: 'text' as const, text: content },
-          ...images.map((img) => ({
-            type: 'image' as const,
-            url: URL.createObjectURL(img),
-          })),
+          ...images.map((file) => {
+            const previewUrl = URL.createObjectURL(file);
+            if (file.type.startsWith('image/')) {
+              return {
+                type: 'image' as const,
+                url: previewUrl,
+              };
+            }
+            return {
+              type: 'file' as const,
+              url: previewUrl,
+              fileName: file.name,
+              mimeType: file.type,
+              fileSize: file.size,
+            };
+          }),
         ];
       }
       // F117: Queue sends skip optimistic insert — bubble appears only on messages_delivered
@@ -159,8 +171,8 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
               formData.append('whisperTo', catId);
             }
           }
-          for (const img of images) {
-            formData.append('images', img);
+          for (const file of images) {
+            formData.append(file.type.startsWith('image/') ? 'images' : 'attachments', file);
           }
           const res = await apiFetch('/api/messages', {
             method: 'POST',
@@ -209,7 +221,7 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
           setThreadHasActiveInvocation(threadId, false);
         }
         const errorMessage = err instanceof Error ? err.message : 'Unknown';
-        if (hasImages) {
+        if (hasAttachments) {
           setUploadStatus('failed');
           setUploadError(errorMessage);
         } else {

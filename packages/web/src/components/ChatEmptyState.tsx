@@ -114,7 +114,7 @@ export function ChatEmptyState({
                 data-testid="empty-state-bootcamp"
               >
                 <BootcampIcon className="h-4 w-4" />
-                第一次来？开始猫猫训练营
+                第一次来？开始训练营
               </button>
             ))}
         </div>
