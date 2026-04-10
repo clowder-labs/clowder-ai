@@ -184,7 +184,13 @@ export class InvocationQueue {
   dequeue(threadId: string, userId: string): QueueEntry | null {
     const q = this.queues.get(this.scopeKey(threadId, userId));
     if (!q || q.length === 0) return null;
-    return q.shift()!;
+    const entry = q.shift()!;
+    this.originalContents.delete(entry.id);
+    this.preMergeSnapshots.delete(entry.id);
+    if (q.length === 0) {
+      this.queues.delete(this.scopeKey(threadId, userId));
+    }
+    return entry;
   }
 
   /** Look at the first entry without removing. */
