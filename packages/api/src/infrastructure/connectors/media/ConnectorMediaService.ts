@@ -23,6 +23,7 @@ export interface ConnectorMediaServiceOptions {
   feishuDownloadFn?: (key: string, type: string, messageId?: string) => Promise<Buffer>;
   telegramDownloadFn?: (fileId: string) => Promise<Buffer>;
   dingtalkDownloadFn?: (downloadCode: string) => Promise<Buffer>;
+  xiaoyiDownloadFn?: (uri: string) => Promise<Buffer>;
 }
 
 const TYPE_TO_EXT: Record<string, string> = {
@@ -35,11 +36,13 @@ export class ConnectorMediaService {
   private feishuDl: ConnectorMediaServiceOptions['feishuDownloadFn'];
   private telegramDl: ConnectorMediaServiceOptions['telegramDownloadFn'];
   private dingtalkDl: ConnectorMediaServiceOptions['dingtalkDownloadFn'];
+  private xiaoyiDl: ConnectorMediaServiceOptions['xiaoyiDownloadFn'];
 
   constructor(private readonly opts: ConnectorMediaServiceOptions) {
     this.feishuDl = opts.feishuDownloadFn;
     this.telegramDl = opts.telegramDownloadFn;
     this.dingtalkDl = opts.dingtalkDownloadFn;
+    this.xiaoyiDl = opts.xiaoyiDownloadFn;
   }
 
   setFeishuDownloadFn(fn: (key: string, type: string, messageId?: string) => Promise<Buffer>): void {
@@ -54,6 +57,10 @@ export class ConnectorMediaService {
     this.dingtalkDl = fn;
   }
 
+  setXiaoyiDownloadFn(fn: (uri: string) => Promise<Buffer>): void {
+    this.xiaoyiDl = fn;
+  }
+
   async download(connectorId: string, attachment: MediaAttachment): Promise<DownloadedMedia> {
     await mkdir(this.opts.mediaDir, { recursive: true });
 
@@ -64,6 +71,8 @@ export class ConnectorMediaService {
       buffer = await this.telegramDl(attachment.platformKey);
     } else if (connectorId === 'dingtalk' && this.dingtalkDl) {
       buffer = await this.dingtalkDl(attachment.platformKey);
+    } else if (connectorId === 'xiaoyi' && this.xiaoyiDl) {
+      buffer = await this.xiaoyiDl(attachment.platformKey);
     } else {
       throw new Error(`No download function for connector: ${connectorId}`);
     }
