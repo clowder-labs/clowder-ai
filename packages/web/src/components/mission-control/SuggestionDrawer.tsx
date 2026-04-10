@@ -151,10 +151,10 @@ export function SuggestionDrawer({
               Self-claim policy：<span className="font-semibold">{currentSelfClaimScope}</span>
             </p>
             {currentSelfClaimScope === 'once' && (
-              <p className="mt-1 text-[11px] text-[#846D55]">once：每只猫只允许一次非幂等自领。</p>
+              <p className="mt-1 text-[11px] text-[#846D55]">once：每个智能体只允许一次非幂等自领。</p>
             )}
             {currentSelfClaimScope === 'thread' && (
-              <p className="mt-1 text-[11px] text-[#846D55]">thread：同一只猫同一时间只允许一个 active lease 线程。</p>
+              <p className="mt-1 text-[11px] text-[#846D55]">thread：同一个智能体同一时间只允许一个 active lease 线程。</p>
             )}
             {selfClaimPolicyBlocker === 'once' && (
               <p className="mt-1 text-[11px] text-[#A14A2D]" data-testid="mc-self-claim-blocker-once">
@@ -163,7 +163,7 @@ export function SuggestionDrawer({
             )}
             {selfClaimPolicyBlocker === 'thread' && (
               <p className="mt-1 text-[11px] text-[#A14A2D]" data-testid="mc-self-claim-blocker-thread">
-                当前阻断原因：该猫已有 active lease 线程。
+                当前阻断原因：该智能体已有 active lease 线程。
               </p>
             )}
             {canSelfClaim ? (

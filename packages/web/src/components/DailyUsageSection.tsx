@@ -32,18 +32,18 @@ interface DailyUsageReport {
 }
 
 const CAT_LABELS: Record<string, string> = {
-  opus: '布偶猫 Opus',
-  sonnet: '布偶猫 Sonnet',
-  'opus-45': '布偶猫 Opus 4.5',
-  codex: '缅因猫 Codex',
-  gpt52: '缅因猫 GPT-5.4',
-  spark: '缅因猫 Spark',
-  gemini: '暹罗猫 Gemini',
-  gemini25: '暹罗猫 Gemini 2.5',
-  dare: '狸花猫',
-  antigravity: '孟加拉猫',
-  'antig-opus': '孟加拉猫 Opus',
-  opencode: '金渐层',
+  opus: '通用智能体 Opus',
+  sonnet: '通用智能体 Sonnet',
+  'opus-45': '通用智能体 Opus 4.5',
+  codex: '办公智能体 Codex',
+  gpt52: '办公智能体 GPT-5.4',
+  spark: '办公智能体 Spark',
+  gemini: '协作智能体 Gemini',
+  gemini25: '协作智能体 Gemini 2.5',
+  dare: '通用智能体',
+  antigravity: '通用智能体',
+  'antig-opus': '通用智能体 Opus',
+  opencode: '通用智能体',
 };
 
 function formatTokens(n: number): string {
@@ -89,7 +89,7 @@ export function DailyUsageSection() {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800">近 7 日猫粮消耗</h3>
+        <h3 className="text-sm font-semibold text-gray-800">近 7 日消耗</h3>
         <button
           type="button"
           onClick={() => fetchUsage(true)}

@@ -15,7 +15,7 @@ describe('F075 leaderboard avatar pipeline', () => {
       React.createElement(CatHeroCard, {
         cat: {
           catId: 'gpt52',
-          displayName: '缅因猫',
+          displayName: '办公智能体',
           count: 829,
           rank: 3,
         },
@@ -33,7 +33,7 @@ describe('F075 leaderboard avatar pipeline', () => {
         items: [
           {
             catId: 'gpt52',
-            displayName: '缅因猫',
+            displayName: '办公智能体',
             count: 3,
             rank: 1,
           },
@@ -47,7 +47,7 @@ describe('F075 leaderboard avatar pipeline', () => {
         entries: [
           {
             catId: 'gpt52',
-            displayName: '缅因猫',
+            displayName: '办公智能体',
             label: '社死王',
             description: '被铲屎官吐槽',
             count: 2,

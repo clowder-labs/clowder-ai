@@ -36,7 +36,7 @@ export function CatSelector({ selectedCats, onSelectionChange }: CatSelectorProp
 
   return (
     <div className="space-y-2">
-      <div className="text-xs text-gray-500 font-medium">默认猫猫 (可选)</div>
+      <div className="text-xs text-gray-500 font-medium">默认智能体 (可选)</div>
       {[...groups.entries()].map(([breedId, cats]) => {
         const breedName = cats[0].breedDisplayName ?? cats[0].displayName;
         return (

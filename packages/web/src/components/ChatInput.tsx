@@ -1075,7 +1075,7 @@ export function ChatInput({
               </button>
             );
           })}
-          {whisperTargets.size === 0 && <span className="text-xs text-red-400">请至少选一只猫猫</span>}
+          {whisperTargets.size === 0 && <span className="text-xs text-red-400">请至少选一个智能体</span>}
         </div>
       )}
 
