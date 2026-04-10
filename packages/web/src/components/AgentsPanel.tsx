@@ -745,7 +745,11 @@ export function AgentsPanel() {
       type="button"
       onClick={handleStartEdit}
       disabled={!canEditActiveTab}
-      className="ui-button-default inline-flex items-center gap-1.5"
+      className={`inline-flex h-[18px] w-[44px] items-center justify-center gap-1 text-[12px] font-normal transition ${
+        canEditActiveTab
+          ? 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
+          : 'cursor-not-allowed text-[var(--text-subtle)]'
+      }`}
     >
       <EditIcon className="h-3.5 w-3.5" />
       <span>编辑</span>
@@ -1064,14 +1068,14 @@ export function AgentsPanel() {
 
       <div className="ui-panel min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0">
-          <aside className="relative flex h-full w-[322px] shrink-0 flex-col border-r border-[var(--connector-tab-border-default)] px-4 py-6">
+          <aside className="relative flex h-full w-[322px] shrink-0 flex-col px-4 py-6">
             <label className="mb-3 mr-1 flex h-[28px] min-h-[28px] w-[calc(100%-4px)] items-center gap-2 rounded-[6px] border border-[rgba(194,194,194,1)] bg-[var(--surface-panel)] px-3 text-[var(--text-muted)]">
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="搜索智能体"
-                className="ui-input ui-input-plain min-w-0 flex-1 text-[12px]"
+                className="ui-input ui-input-plain min-w-0 flex-1 text-[12px] pl-0"
               />
             </label>
 
@@ -1216,8 +1220,8 @@ export function AgentsPanel() {
             ) : null}
           </aside>
 
-          <section className="relative z-0 flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center justify-between gap-4 px-4 py-3">
+          <section className="relative z-0 flex min-w-0 flex-1 flex-col border-l border-[var(--panel-divider)]">
+            <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-[var(--panel-divider)]">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {AGENT_TABS.map((tab) => {
                   const TabIcon = tab.icon;
