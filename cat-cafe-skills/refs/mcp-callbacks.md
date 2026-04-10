@@ -20,7 +20,20 @@ curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/post-message \
 ```
 
 可选 body 参数：
-- `threadId`：跨 thread 发消息。省略时默认发到当前 invocation 的 thread。
+- `replyTo`：可选，回复某条同 thread 消息。
+- `clientMessageId`：可选，幂等键。
+- `targetCats`：可选，显式目标猫列表。
+
+注意：
+- `post-message` 只能发到当前 invocation 所属 thread。
+- 跨 thread 发消息请用 `office_claw_cross_post_message`，不要给 `post-message` 传 `threadId`。
+
+### Cross Post Message
+```bash
+curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/post-message \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg thread "目标threadId" --arg c "消息内容" '{invocationId:$i,callbackToken:$t,threadId:$thread,allowCrossThread:true,content:$c}')"
+```
 
 ### Get Thread Context
 ```bash

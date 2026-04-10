@@ -206,7 +206,7 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 - office_claw_list_session_chain / office_claw_read_session_digest / office_claw_read_session_events / office_claw_read_invocation_detail：session drill-down
 
 **协作工具：**
-- office_claw_post_message / office_claw_register_pr_tracking / office_claw_get_pending_mentions / office_claw_get_thread_context / office_claw_list_threads / office_claw_update_task：异步协作
+- office_claw_post_message / office_claw_cross_post_message / office_claw_register_pr_tracking / office_claw_get_pending_mentions / office_claw_get_thread_context / office_claw_list_threads / office_claw_update_task：异步协作
 - office_claw_create_rich_block / office_claw_get_rich_block_rules：富消息
 - office_claw_generate_document：生成报告/导出文档/发 PDF 时用；不要手动 pandoc + create_rich_block
 - office_claw_multi_mention：并行拉 1-3 个 agent（先搜后问，需 searchEvidenceRefs 或 overrideReason）

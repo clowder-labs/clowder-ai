@@ -213,6 +213,27 @@ describe('useAgentMessages loading lifecycle', () => {
     expect(mockSetStreaming).toHaveBeenCalledWith('bg-msg-1', false);
   });
 
+  it('ignores agent messages from a different thread', () => {
+    storeState.currentThreadId = 'thread-B';
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-A',
+        content: 'should be ignored',
+      });
+    });
+
+    expect(mockSetCatStatus).not.toHaveBeenCalled();
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    expect(mockAddMessage).not.toHaveBeenCalled();
+  });
+
   it('keeps handleAgentMessage stable when only messages change', () => {
     act(() => {
       root.render(React.createElement(Harness));
