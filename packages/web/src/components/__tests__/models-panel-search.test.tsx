@@ -159,6 +159,9 @@ describe('ModelsPanel search', () => {
           }),
         );
       }
+      if (url === '/api/provider-profiles/test-draft') {
+        return Promise.resolve(jsonResponse({ ok: true, mode: 'api_key', status: 200 }));
+      }
       return Promise.resolve(jsonResponse({}));
     });
   });
@@ -450,6 +453,15 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
+    const probeCall = mockApiFetch.mock.calls.find(
+      ([input, init]) =>
+        String(input) === '/api/provider-profiles/test-draft' &&
+        typeof init === 'object' &&
+        init !== null &&
+        (init as RequestInit).method === 'POST',
+    );
+    expect(probeCall).toBeTruthy();
+    expect(mockApiFetch.mock.calls.indexOf(probeCall!)).toBeLessThan(mockApiFetch.mock.calls.indexOf(postCall!));
     const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
     expect(payload.description).toBe('custom description for test');
     expect(Object.prototype.hasOwnProperty.call(payload, 'icon')).toBe(false);
