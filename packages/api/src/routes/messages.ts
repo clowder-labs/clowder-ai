@@ -119,14 +119,7 @@ const getMessagesSchema = z.object({
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
-const CHAT_UPLOAD_ROOT = '.cat-cafe/chat-uploads';
-
 const DECISION_NOTIFICATION_RE = /\b(review|lgtm|merge|pr)\b/i;
-
-function buildThreadWorkspaceUploadPath(threadId: string): string {
-  const safeThreadId = threadId.replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
-  return `${CHAT_UPLOAD_ROOT}/${safeThreadId}`;
-}
 
 async function resolveMultipartWorkspaceTarget(
   threadId: string | undefined,
@@ -143,7 +136,7 @@ async function resolveMultipartWorkspaceTarget(
     kind: 'workspace' as const,
     worktreeId: worktree.id,
     workspaceRoot: worktree.root,
-    directoryPath: buildThreadWorkspaceUploadPath(resolvedThreadId),
+    directoryPath: '',
   };
 }
 

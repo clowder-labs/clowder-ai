@@ -118,14 +118,14 @@ describe('saveUploadedImages', () => {
       kind: 'workspace',
       worktreeId: entry.id,
       workspaceRoot: uploadDir,
-      directoryPath: '.cat-cafe/chat-uploads/thread-1',
+      directoryPath: '',
     });
 
     assert.equal(saved.length, 1);
     assert.ok(saved[0].absPath.startsWith(resolve(uploadDir)));
     assert.match(saved[0].urlPath, /^\/api\/workspace\/file\/raw\?/);
 
-    const files = await readdir(join(uploadDir, '.cat-cafe', 'chat-uploads', 'thread-1'));
+    const files = await readdir(uploadDir);
     assert.equal(files.length, 1);
   });
 });
