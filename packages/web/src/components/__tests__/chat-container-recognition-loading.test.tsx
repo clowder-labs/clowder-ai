@@ -9,6 +9,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatContainer } from '@/components/ChatContainer';
 
+const mockHandleSend = vi.fn();
+
 type MockMessage = {
   id: string;
   type: 'user' | 'assistant' | 'system';
@@ -123,12 +125,13 @@ vi.mock('@/hooks/useChatHistory', () => ({
     handleScroll: vi.fn(),
     scrollContainerRef: { current: null },
     messagesEndRef: { current: null },
+    scrollToBottom: vi.fn(),
     isLoadingHistory: false,
     hasMore: false,
   }),
 }));
 vi.mock('@/hooks/useSendMessage', () => ({
-  useSendMessage: () => ({ handleSend: vi.fn(), uploadStatus: null, uploadError: null }),
+  useSendMessage: () => ({ handleSend: mockHandleSend, uploadStatus: null, uploadError: null }),
 }));
 vi.mock('@/hooks/useAuthorization', () => ({
   useAuthorization: () => ({ pending: [], respond: vi.fn(), handleAuthRequest: vi.fn(), handleAuthResponse: vi.fn() }),
@@ -139,6 +142,18 @@ vi.mock('@/hooks/useChatSocketCallbacks', () => ({
 }));
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
+    cats: [
+      {
+        id: 'jiuwenclaw',
+        displayName: '办公助理',
+        roster: { available: true },
+      },
+      {
+        id: 'codex',
+        displayName: 'Codex',
+        roster: { available: true },
+      },
+    ],
     getCatById: (id: string) =>
       id === 'jiuwenclaw'
         ? {
@@ -180,19 +195,39 @@ vi.mock('@/components/ChatContainerHeader', () => ({
   ChatContainerHeader: () => React.createElement('div', { 'data-testid': 'chat-header' }),
 }));
 vi.mock('@/components/ChatInput', () => ({
-  ChatInput: ({ onStop }: { onStop?: () => void }) =>
+  ChatInput: ({
+    onSend,
+    onStop,
+  }: {
+    onSend?: (content: string, images?: unknown[], whisper?: boolean, deliveryMode?: string) => void;
+    onStop?: () => void;
+  }) =>
     React.createElement(
-      'button',
-      {
-        'data-testid': 'chat-stop',
-        onClick: () => {
-          mockState.isLoading = false;
-          mockState.hasActiveInvocation = false;
-          mockState.intentMode = null;
-          onStop?.();
+      React.Fragment,
+      null,
+      React.createElement(
+        'button',
+        {
+          'data-testid': 'chat-stop',
+          onClick: () => {
+            mockState.isLoading = false;
+            mockState.hasActiveInvocation = false;
+            mockState.intentMode = null;
+            onStop?.();
+          },
         },
-      },
-      'stop',
+        'stop',
+      ),
+      React.createElement(
+        'button',
+        {
+          'data-testid': 'chat-send',
+          onClick: () => {
+            onSend?.('继续帮我总结', [], false, 'direct');
+          },
+        },
+        'send',
+      ),
     ),
 }));
 vi.mock('@/components/ChatMessage', () => ({
@@ -253,6 +288,7 @@ describe('ChatContainer recognition loading placeholder', () => {
 
   beforeEach(() => {
     mockState = createMockStoreState();
+    mockHandleSend.mockClear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -338,6 +374,55 @@ describe('ChatContainer recognition loading placeholder', () => {
     expect(container.querySelector('[data-testid="intent-recognition-placeholder"]')?.getAttribute('data-cat-id')).toBe('codex');
     expect(container.textContent).toContain('已停止对话');
     expect(container.textContent).not.toContain('正在识别你的需求');
+  });
+
+  it('persists the stopped recognition bubble before sending the next user message', () => {
+    const userTimestamp = new Date(2026, 1, 26, 19, 35, 0).getTime();
+    mockState.messages = [
+      {
+        id: 'user-1',
+        type: 'user',
+        content: '@codex 帮我整理一个汇报方案',
+        timestamp: userTimestamp,
+      },
+    ];
+    mockState.isLoading = true;
+    mockState.hasActiveInvocation = true;
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    const stopButton = container.querySelector('[data-testid="chat-stop"]') as HTMLButtonElement | null;
+    expect(stopButton).toBeTruthy();
+
+    act(() => {
+      stopButton?.click();
+    });
+
+    const sendButton = container.querySelector('[data-testid="chat-send"]') as HTMLButtonElement | null;
+    expect(sendButton).toBeTruthy();
+
+    act(() => {
+      sendButton?.click();
+    });
+
+    expect(mockState.addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: `intent-recognition-stopped-${userTimestamp}`,
+        type: 'assistant',
+        catId: 'codex',
+        content: 'stopped',
+        timestamp: userTimestamp + 1,
+        variant: 'intent_recognition',
+      }),
+    );
+    expect(mockHandleSend).toHaveBeenCalledWith('继续帮我总结', [], undefined, false, 'direct');
+
+    const persistOrder = mockState.addMessage.mock.invocationCallOrder[0];
+    const sendOrder = mockHandleSend.mock.invocationCallOrder[0];
+    expect(persistOrder).toBeLessThan(sendOrder);
+    expect(container.querySelector('[data-testid="intent-recognition-placeholder"]')).toBeFalsy();
   });
 
   it('switches from recognition placeholder to thinking indicator after assistant output begins', () => {
