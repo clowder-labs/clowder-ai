@@ -247,6 +247,14 @@ export class ConnectorInvokeTrigger {
     await this.executeInBackground(threadId, catId, userId, message, messageId, createResult.invocationId);
   }
 
+  private buildConnectorFailureReply(errorMsg: string): string {
+    const normalized = errorMsg.toLowerCase();
+    if (normalized.includes('huawei maas session not found') || normalized.includes('huawei maas session expired')) {
+      return '当前 Huawei MaaS 登录会话已失效，请在网页端重新登录后再试。';
+    }
+    return '抱歉，刚刚处理消息失败了，请稍后重试。';
+  }
+
   private async executeInBackground(
     threadId: string,
     catId: CatId,
@@ -683,6 +691,38 @@ export class ConnectorInvokeTrigger {
         },
         threadId,
       );
+
+      if (this.opts.outboundHook) {
+        let threadMeta: ThreadMeta | undefined;
+        try {
+          const LOOKUP_TIMEOUT_MS = 2_000;
+          const rawResult = this.opts.threadMetaLookup?.(threadId);
+          if (rawResult) {
+            const lookupPromise = Promise.resolve(rawResult).catch((lookupErr: unknown) => {
+              log.warn({ err: lookupErr, threadId }, '[ConnectorInvokeTrigger] threadMetaLookup late rejection');
+              return undefined;
+            });
+            const timeout = new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), LOOKUP_TIMEOUT_MS));
+            threadMeta = await Promise.race([lookupPromise, timeout]);
+          }
+        } catch (lookupErr) {
+          log.warn({ err: lookupErr, threadId }, '[ConnectorInvokeTrigger] threadMetaLookup failed for error reply');
+        }
+
+        try {
+          await this.opts.outboundHook.deliver(
+            threadId,
+            this.buildConnectorFailureReply(errorMsg),
+            undefined,
+            undefined,
+            threadMeta,
+            undefined,
+            messageId,
+          );
+        } catch (deliveryErr) {
+          log.warn({ err: deliveryErr, threadId }, '[ConnectorInvokeTrigger] Error reply delivery failed');
+        }
+      }
     } finally {
       if (heartbeatInterval) clearInterval(heartbeatInterval);
       invocationTracker.complete(threadId, catId, controller);
@@ -694,10 +734,14 @@ export class ConnectorInvokeTrigger {
       // F151: Notify adapters (e.g. XiaoYi) — MUST be after invocationTracker.complete()
       // so threadStillBusy correctly excludes the just-finished invocation.
       // Covers success, failure, and cancellation paths via finally.
-      if (this.opts.streamingHook?.notifyDeliveryBatchDone) {
-        const threadStillBusy =
-          invocationTracker.has(threadId) || (this.opts.queueProcessor?.isThreadBusy(threadId) ?? false);
-        this.opts.streamingHook.notifyDeliveryBatchDone(threadId, !threadStillBusy).catch((err) => {
+      const threadStillBusy = invocationTracker.has(threadId) || (this.opts.queueProcessor?.isThreadBusy(threadId) ?? false);
+      const chainDone = !threadStillBusy;
+      if (this.opts.outboundHook?.notifyDeliveryBatchDone) {
+        this.opts.outboundHook.notifyDeliveryBatchDone(threadId, chainDone).catch((err) => {
+          log.warn({ err, threadId }, '[ConnectorInvokeTrigger] notifyDeliveryBatchDone failed');
+        });
+      } else if (this.opts.streamingHook?.notifyDeliveryBatchDone) {
+        this.opts.streamingHook.notifyDeliveryBatchDone(threadId, chainDone).catch((err) => {
           log.warn({ err, threadId }, '[ConnectorInvokeTrigger] notifyDeliveryBatchDone failed');
         });
       }

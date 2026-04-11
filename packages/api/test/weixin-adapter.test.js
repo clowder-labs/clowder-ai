@@ -514,6 +514,28 @@ describe('WeixinAdapter', () => {
       assert.equal(fetchCalled, false);
     });
 
+    it('stops typing when skipping send because context_token is missing', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const calls = [];
+      adapter._injectFetch(async (url, opts) => {
+        const body = opts?.body ? JSON.parse(opts.body) : {};
+        calls.push({ url: String(url), body });
+        return { ok: true, json: async () => ({ ret: 0 }) };
+      });
+
+      // Simulate typing already started for this chat.
+      adapter.typingTickets.set('unknown-user', 'ticket-1');
+      adapter.startTyping('unknown-user');
+
+      await adapter.sendReply('unknown-user', 'This should not send');
+
+      assert.ok(
+        calls.some((c) => c.url.includes('/ilink/bot/sendtyping') && c.body?.status === 2),
+        'should send typing stop (status=2) when reply is skipped',
+      );
+      assert.equal(adapter.typingTimers.has('unknown-user'), false, 'typing timer should be cleared');
+    });
+
     it('strips markdown before sending', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-token-1');

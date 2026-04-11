@@ -522,6 +522,11 @@ export class WeixinAdapter implements IOutboundAdapter {
 
   // ── Outbound: Send reply ──
 
+  async onDeliveryBatchDone(externalChatId: string, chainDone: boolean): Promise<void> {
+    if (!chainDone) return;
+    this.stopTyping(externalChatId);
+  }
+
   async sendReply(externalChatId: string, content: string): Promise<void> {
     const currentToken = this.contextTokens.get(externalChatId) ?? '';
     this.log.info(
@@ -535,6 +540,7 @@ export class WeixinAdapter implements IOutboundAdapter {
         { chatId: externalChatId },
         '[WeixinAdapter] No context_token and no pending bucket — skipping reply',
       );
+      this.stopTyping(externalChatId);
       return;
     }
 

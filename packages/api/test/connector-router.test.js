@@ -150,6 +150,18 @@ describe('ConnectorRouter', () => {
     assert.equal(r1.threadId, r2.threadId);
   });
 
+  it('uses binding userId for routed messages when binding already exists', async () => {
+    process.env.DEFAULT_OWNER_USER_ID = 'default-user';
+    try {
+      bindingStore.bind('feishu', 'chat-bound-user', 'thread-bound-user', 'owner-bound');
+      await router.route('feishu', 'chat-bound-user', 'hello', 'ext-bound-user-1');
+      assert.equal(messageStore.messages[0].userId, 'owner-bound');
+      assert.equal(trigger.calls[0].userId, 'owner-bound');
+    } finally {
+      delete process.env.DEFAULT_OWNER_USER_ID;
+    }
+  });
+
   it('posts message to message store with ConnectorSource', async () => {
     await router.route('feishu', 'chat-123', 'Hello', 'ext-1');
     assert.equal(messageStore.messages.length, 1);
