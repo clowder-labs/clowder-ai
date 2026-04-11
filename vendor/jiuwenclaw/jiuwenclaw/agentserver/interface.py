@@ -704,13 +704,15 @@ class JiuWenClaw:
                 logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
-        if mode == "plan":
-            todo_toolkit = TodoToolkit(session_id=effective_session_id)
-            for tool in todo_toolkit.get_tools():
-                Runner.resource_mgr.add_tool(tool)
-                self._instance.ability_manager.add(tool.card)
-            self._todo_tool_sessions_registered.add(effective_session_id)
-        else:
+        # Todo 工具：两种模式都注册，用于 skill 步骤追踪
+        todo_toolkit = TodoToolkit(session_id=effective_session_id)
+        for tool in todo_toolkit.get_tools():
+            Runner.resource_mgr.add_tool(tool)
+            self._instance.ability_manager.add(tool.card)
+        self._todo_tool_sessions_registered.add(effective_session_id)
+
+        if mode != "plan":
+            # agent 模式额外注册并行子任务工具
             config_base = get_config()
             session_toolkits = MultiSessionToolkit(
                 session_id=effective_session_id,
