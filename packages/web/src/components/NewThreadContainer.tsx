@@ -184,7 +184,7 @@ export function NewThreadContainer() {
           <RightContentHeader />
           <div className="relative flex-1 overflow-hidden">
             {sidebarMenu !== 'chat' && (
-              <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
+              <div className="ui-shell-surface h-full overflow-hidden px-8 pt-6 pb-5">
                 {sidebarMenu === 'models' && <ModelsPanel />}
                 {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
