@@ -33,6 +33,10 @@ def _prompt_skill_dirs() -> list[Path]:
     return workspace_dirs if workspace_dirs else registered_dirs
 
 
+def _should_show_cron_tools() -> bool:
+    return os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") != "1"
+
+
 def _memory_prompt(language: str, is_cron: bool = False) -> str:
     """Build system prompt for the agent.
     Args:
@@ -355,6 +359,21 @@ def _tool_prompt(mode, language: str) -> str:
 | `todo_remove` | 移除任务 |
 | `todo_list` | 查看所有任务 |
 """
+        else:
+            todo_prompt = ""
+        cron_prompt = """### 定时任务
+
+| 工具名称 | 功能说明 |
+|---------|---------|
+| `cron_list_jobs` | 列出所有定时任务 |
+| `cron_get_job` | 获取单个任务详情 |
+| `cron_create_job` | 创建定时任务 |
+| `cron_update_job` | 更新定时任务 |
+| `cron_delete_job` | 删除定时任务 |
+| `cron_toggle_job` | 启用/禁用任务 |
+| `cron_preview_job` | 预览下次执行时间 |
+
+""" if _should_show_cron_tools() else ""
 
         return f"""## 工具
 
@@ -391,17 +410,7 @@ def _tool_prompt(mode, language: str) -> str:
 | `experience_learn` | 记录关键发现并自动将任务条目提炼为可复用记忆 |
 | `experience_clear` | 清空 task-data.json 中存储的所有任务记忆 |
 
-### 定时任务
-
-| 工具名称 | 功能说明 |
-|---------|---------|
-| `cron_list_jobs` | 列出所有定时任务 |
-| `cron_get_job` | 获取单个任务详情 |
-| `cron_create_job` | 创建定时任务 |
-| `cron_update_job` | 更新定时任务 |
-| `cron_delete_job` | 删除定时任务 |
-| `cron_toggle_job` | 启用/禁用任务 |
-| `cron_preview_job` | 预览下次执行时间 |
+{cron_prompt}
 
 ### 浏览器自动化
 
@@ -432,6 +441,21 @@ def _tool_prompt(mode, language: str) -> str:
 | `todo_remove` | Remove a task |
 | `todo_list` | View all tasks |
 """
+        else:
+            todo_prompt = ""
+        cron_prompt = """### Scheduled Tasks
+
+| Tool Name | Description |
+|-----------|-------------|
+| `cron_list_jobs` | List all scheduled jobs |
+| `cron_get_job` | Get details of a single job |
+| `cron_create_job` | Create a scheduled job |
+| `cron_update_job` | Update a scheduled job |
+| `cron_delete_job` | Delete a scheduled job |
+| `cron_toggle_job` | Enable or disable a job |
+| `cron_preview_job` | Preview next execution time |
+
+""" if _should_show_cron_tools() else ""
 
         return f"""# Tools
 
@@ -468,17 +492,7 @@ Tools are built-in methods.
 | `experience_learn` | Record a key finding and consolidate task entries into reusable memory |
 | `experience_clear` | Wipe all stored task memory from task-data.json |
 
-### Scheduled Tasks
-
-| Tool Name | Description |
-|-----------|-------------|
-| `cron_list_jobs` | List all scheduled jobs |
-| `cron_get_job` | Get details of a single job |
-| `cron_create_job` | Create a scheduled job |
-| `cron_update_job` | Update a scheduled job |
-| `cron_delete_job` | Delete a scheduled job |
-| `cron_toggle_job` | Enable or disable a job |
-| `cron_preview_job` | Preview next execution time |
+{cron_prompt}
 
 ### Browser Automation
 
