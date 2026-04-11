@@ -20,14 +20,14 @@ const THEME_OPTIONS: Array<{
 }> = [
   {
     id: 'business',
-    label: '灰白浅色',
+    label: '灰白',
     swatchBackground:
       'linear-gradient(-50.71deg, rgba(237, 244, 246, 1), rgba(235, 235, 235, 1) 100%)',
     selectedBadgeBackground: 'rgb(59,130,246)',
   },
   {
     id: 'warm',
-    label: '橙白浅色',
+    label: '橙白',
     swatchBackground:
       'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
     selectedBadgeBackground: 'rgb(204,109,26)',
