@@ -8,6 +8,7 @@ uses the session's Claude Code auth, no separate ANTHROPIC_API_KEY needed).
 
 import argparse
 import json
+import logging
 import os
 import re
 import subprocess
@@ -76,7 +77,12 @@ def improve_description(
     else:
         scores_summary = f"Train: {train_score}"
 
-    prompt = f"""You are optimizing a skill description for a Claude Code skill called "{skill_name}". A "skill" is sort of like a prompt, but with progressive disclosure -- there's a title and description that Claude sees when deciding whether to use the skill, and then if it does use the skill, it reads the .md file which has lots more details and potentially links to other resources in the skill folder like helper files and scripts and additional documentation or examples.
+    prompt = f"""You are optimizing a skill description for a 
+    Claude Code skill called "{skill_name}". A "skill" is sort of like a prompt, 
+    but with progressive disclosure -- there's a title and description that Claude sees when 
+    deciding whether to use the skill, and then if it does use the skill, it reads the .md 
+    file which has lots more details and potentially links to other resources in the skill 
+    folder like helper files and scripts and additional documentation or examples.
 
 The description appears in Claude's "available_skills" list. When a user sends a query, Claude decides whether to invoke the skill based solely on the title and on this description. Your goal is to write a description that triggers for relevant queries, and doesn't trigger for irrelevant ones.
 
@@ -103,7 +109,8 @@ Current scores ({scores_summary}):
     if history:
         prompt += "PREVIOUS ATTEMPTS (do NOT repeat these — try something structurally different):\n\n"
         for h in history:
-            train_s = f"{h.get('train_passed', h.get('passed', 0))}/{h.get('train_total', h.get('total', 0))}"
+            train_s = f"{h.get('train_passed', 
+                               h.get('passed', 0))}/{h.get('train_total', h.get('total', 0))}"
             test_s = f"{h.get('test_passed', '?')}/{h.get('test_total', '?')}" if h.get('test_passed') is not None else None
             score_str = f"train={train_s}" + (f", test={test_s}" if test_s else "")
             prompt += f'<attempt {score_str}>\n'
@@ -202,7 +209,7 @@ def main():
 
     skill_path = Path(args.skill_path)
     if not (skill_path / "SKILL.md").exists():
-        print(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
+        logging.info(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
         sys.exit(1)
 
     eval_results = json.loads(Path(args.eval_results).read_text())
@@ -214,8 +221,8 @@ def main():
     current_description = eval_results["description"]
 
     if args.verbose:
-        print(f"Current: {current_description}", file=sys.stderr)
-        print(f"Score: {eval_results['summary']['passed']}/{eval_results['summary']['total']}", file=sys.stderr)
+        logging.info(f"Current: {current_description}", file=sys.stderr)
+        logging.info(f"Score: {eval_results['summary']['passed']}/{eval_results['summary']['total']}", file=sys.stderr)
 
     new_description = improve_description(
         skill_name=name,
@@ -227,7 +234,7 @@ def main():
     )
 
     if args.verbose:
-        print(f"Improved: {new_description}", file=sys.stderr)
+        logging.info(f"Improved: {new_description}", file=sys.stderr)
 
     # Output as JSON with both the new description and updated history
     output = {
@@ -240,7 +247,7 @@ def main():
             "results": eval_results["results"],
         }],
     }
-    print(json.dumps(output, indent=2))
+    logging.info(json.dumps(output, indent=2))
 
 
 if __name__ == "__main__":

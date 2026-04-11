@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -113,12 +114,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         trace_paths = _resolve_trace_paths(args)
     except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        logging.info(f"Error: {exc}", file=sys.stderr)
         return 1
 
     missing_paths = [path for path in trace_paths if not path.exists()]
     if missing_paths:
-        print(f"Error: trace file not found: {missing_paths[0]}", file=sys.stderr)
+        logging.info(f"Error: trace file not found: {missing_paths[0]}", file=sys.stderr)
         return 1
 
     aggregate = {
@@ -137,21 +138,21 @@ def main(argv: list[str] | None = None) -> int:
         aggregate["duration_ms"] += float(summary.get("duration_ms", 0.0))
 
     if len(trace_paths) == 1:
-        print(f"Trace: {trace_paths[0]}")
+        logging.info(f"Trace: {trace_paths[0]}")
     else:
-        print(f"Trace dir: {Path(args.trace_dir).expanduser()}")
-        print(f"Trace files: {len(trace_paths)}")
-    print(f"Model calls: {aggregate['model_calls']}")
-    print(f"Prompt tokens: {aggregate['prompt_tokens']}")
-    print(f"Completion tokens: {aggregate['completion_tokens']}")
-    print(f"Total tokens: {aggregate['total_tokens']}")
-    print(f"Total duration (ms): {aggregate['duration_ms']:.2f}")
+        logging.info(f"Trace dir: {Path(args.trace_dir).expanduser()}")
+        logging.info(f"Trace files: {len(trace_paths)}")
+    logging.info(f"Model calls: {aggregate['model_calls']}")
+    logging.info(f"Prompt tokens: {aggregate['prompt_tokens']}")
+    logging.info(f"Completion tokens: {aggregate['completion_tokens']}")
+    logging.info(f"Total tokens: {aggregate['total_tokens']}")
+    logging.info(f"Total duration (ms): {aggregate['duration_ms']:.2f}")
 
     if args.show_calls:
         records: list[dict[str, Any]] = []
         for trace_path in trace_paths:
             records.extend(_load_records(trace_path))
-        print("\nCalls:")
+        logging.info("\nCalls:")
         for index, record in enumerate(records, start=1):
             iteration = record.get("iteration", index)
             request = record.get("request", {})
@@ -165,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
             history_suffix = ""
             if args.show_history and user_history:
                 history_suffix = f" history='{_preview(' || '.join(user_history))}'"
-            print(
+            logging.info(
                 f"- iter={iteration} tokens={total_tokens} "
                 f"input='{_preview(latest_user)}' output='{_preview(output)}'{history_suffix}"
             )

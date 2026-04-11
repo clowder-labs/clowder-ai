@@ -13,6 +13,7 @@ After running, add markers to document.xml:
   <w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:commentReference w:id="0"/></w:r>
 """
 
+import logging
 import argparse
 import random
 import shutil
@@ -100,7 +101,8 @@ def _find_para_id(comments_path: Path, comment_id: int) -> str | None:
     for c in dom.getElementsByTagName("w:comment"):
         if c.getAttribute("w:id") == str(comment_id):
             for p in c.getElementsByTagName("w:p"):
-                if pid := p.getAttribute("w14:paraId"):
+                pid = p.getAttribute("w14:paraId")
+                if pid :
                     return pid
     return None
 
@@ -308,11 +310,11 @@ if __name__ == "__main__":
         args.initials,
         args.parent,
     )
-    print(msg)
+    logging.info(msg)
     if "Error" in msg:
         sys.exit(1)
     cid = args.comment_id
     if args.parent is not None:
-        print(REPLY_MARKER_TEMPLATE.format(pid=args.parent, cid=cid))
+        logging.info(REPLY_MARKER_TEMPLATE.format(pid=args.parent, cid=cid))
     else:
-        print(COMMENT_MARKER_TEMPLATE.format(cid=cid))
+        logging.info(COMMENT_MARKER_TEMPLATE.format(cid=cid))

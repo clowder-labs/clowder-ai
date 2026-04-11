@@ -359,9 +359,8 @@ def _tool_prompt(mode, language: str) -> str:
 | `todo_remove` | 移除任务 |
 | `todo_list` | 查看所有任务 |
 """
-        else:
-            todo_prompt = ""
-        cron_prompt = """### 定时任务
+        if _should_show_cron_tools():
+            cron_prompt = """### 定时任务
 
 | 工具名称 | 功能说明 |
 |---------|---------|
@@ -373,7 +372,9 @@ def _tool_prompt(mode, language: str) -> str:
 | `cron_toggle_job` | 启用/禁用任务 |
 | `cron_preview_job` | 预览下次执行时间 |
 
-""" if _should_show_cron_tools() else ""
+"""
+        else:
+            cron_prompt = ""
 
         return f"""## 工具
 
@@ -441,9 +442,8 @@ def _tool_prompt(mode, language: str) -> str:
 | `todo_remove` | Remove a task |
 | `todo_list` | View all tasks |
 """
-        else:
-            todo_prompt = ""
-        cron_prompt = """### Scheduled Tasks
+        if _should_show_cron_tools():
+            cron_prompt = """### Scheduled Tasks
 
 | Tool Name | Description |
 |-----------|-------------|
@@ -455,7 +455,9 @@ def _tool_prompt(mode, language: str) -> str:
 | `cron_toggle_job` | Enable or disable a job |
 | `cron_preview_job` | Preview next execution time |
 
-""" if _should_show_cron_tools() else ""
+"""
+        else:
+            cron_prompt = ""
 
         return f"""# Tools
 

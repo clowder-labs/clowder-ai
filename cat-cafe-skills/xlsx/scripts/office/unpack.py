@@ -14,6 +14,7 @@ Examples:
 """
 
 import argparse
+import logging
 import sys
 import zipfile
 from pathlib import Path
@@ -84,7 +85,8 @@ def _pretty_print_xml(xml_file: Path) -> None:
         content = xml_file.read_text(encoding="utf-8")
         dom = defusedxml.minidom.parseString(content)
         xml_file.write_bytes(dom.toprettyxml(indent="  ", encoding="utf-8"))
-    except Exception:
+    except Exception as e:
+        logging.error(f"handle error {e}", exc_info=True)
         pass  
 
 
@@ -94,7 +96,8 @@ def _escape_smart_quotes(xml_file: Path) -> None:
         for char, entity in SMART_QUOTE_REPLACEMENTS.items():
             content = content.replace(char, entity)
         xml_file.write_text(content, encoding="utf-8")
-    except Exception:
+    except Exception as e:
+        logging.error(f"handle error {e}", exc_info=True)
         pass
 
 
@@ -126,7 +129,7 @@ if __name__ == "__main__":
         merge_runs=args.merge_runs,
         simplify_redlines=args.simplify_redlines,
     )
-    print(message)
+    logging.info(message)
 
     if "Error" in message:
         sys.exit(1)

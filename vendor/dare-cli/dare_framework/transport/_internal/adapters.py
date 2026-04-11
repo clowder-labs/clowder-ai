@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from typing import Any, Callable
 
 from dare_framework.context.types import MessageKind, MessageRole
@@ -56,7 +57,7 @@ class StdioClientChannel(ClientChannel):
                 output = _render_control_output(payload)
             else:
                 output = payload
-            print(f"\nAssistant: {output}\n", flush=True)
+            logging.info(f"\nAssistant: {output}\n")
 
         return recv
 

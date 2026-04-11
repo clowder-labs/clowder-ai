@@ -24,7 +24,7 @@ def main() -> None:
     target = init_user_workspace(overwrite=True)
     if target == "cancelled":
         sys.exit(1)
-    print(f"[jiuwenclaw-init] initialized: {target}")
+    logging.info(f"[jiuwenclaw-init] initialized: {target}")
 
 
 if __name__ == "__main__":

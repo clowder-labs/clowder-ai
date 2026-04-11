@@ -74,6 +74,7 @@ class RawDataLongTermMemory(ILongTermMemory):
     """
 
     def __init__(self, storage: IRawDataStore, name: str = "rawdata_ltm") -> None:
+        super().__init__()
         self._storage = storage
         self._name = name
 

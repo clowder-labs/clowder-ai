@@ -2,11 +2,11 @@
 """
 生成带序号的时间戳目录
 """
-
+import logging
 import sys
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def generate_timestamp_dir(base_dir: str = "output") -> Path:
@@ -20,7 +20,7 @@ def generate_timestamp_dir(base_dir: str = "output") -> Path:
         创建的时间戳目录路径
     """
     base_path = Path(base_dir)
-    now = datetime.now()
+    now = datetime.now(tz=timezone.utc)
 
     # 生成时间戳前缀
     timestamp_prefix = (
@@ -51,7 +51,7 @@ def generate_timestamp_dir(base_dir: str = "output") -> Path:
 def main():
     base_dir = sys.argv[2] if len(sys.argv) > 2 else "output"
     timestamp_dir = generate_timestamp_dir(base_dir)
-    print(timestamp_dir)
+    logging.info(timestamp_dir)
 
 
 if __name__ == "__main__":

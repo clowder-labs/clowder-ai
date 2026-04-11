@@ -385,7 +385,6 @@ FunctionEnd
 Function WriteShellShortcuts
   CreateDirectory "${STARTMENU_DIR}"
   CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
-  CreateShortCut "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"' "$INSTDIR\assets\app.ico"
   CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
   CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
 FunctionEnd
@@ -490,7 +489,6 @@ Section "Uninstall"
   Call un.CloseRunningServices
 
   Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
-  Delete "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk"
   Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
   RMDir "${STARTMENU_DIR}"
   Delete "$DESKTOP\${APP_NAME}.lnk"

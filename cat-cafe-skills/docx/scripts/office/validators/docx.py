@@ -1,7 +1,7 @@
 """
 Validator for Word document XML files against XSD schemas.
 """
-
+import logging
 import random
 import re
 import tempfile
@@ -91,7 +91,8 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                                 )
                                 errors.append(
                                     f"  {xml_file.relative_to(self.unpacked_dir)}: "
-                                    f"Line {elem.sourceline}: w:t element with whitespace missing xml:space='preserve': {text_preview}"
+                                    f"Line {elem.sourceline}: w:t element with "
+                                    f"whitespace missing xml:space='preserve': {text_preview}"
                                 )
 
             except (lxml.etree.XMLSyntaxError, Exception) as e:
@@ -100,13 +101,13 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 )
 
         if errors:
-            print(f"FAILED - Found {len(errors)} whitespace preservation violations:")
+            logging.info(f"FAILED - Found {len(errors)} whitespace preservation violations:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - All whitespace is properly preserved")
+                logging.info("PASSED - All whitespace is properly preserved")
             return True
 
     def validate_deletions(self):
@@ -142,7 +143,8 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                     )
                     errors.append(
                         f"  {xml_file.relative_to(self.unpacked_dir)}: "
-                        f"Line {instr_elem.sourceline}: <w:instrText> found within <w:del> (use <w:delInstrText>): {text_preview}"
+                        f"Line {instr_elem.sourceline}: <w:instrText> found "
+                        f"within <w:del> (use <w:delInstrText>): {text_preview}"
                     )
 
             except (lxml.etree.XMLSyntaxError, Exception) as e:
@@ -151,13 +153,13 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 )
 
         if errors:
-            print(f"FAILED - Found {len(errors)} deletion validation violations:")
+            logging.info(f"FAILED - Found {len(errors)} deletion validation violations:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - No w:t elements found within w:del elements")
+                logging.info("PASSED - No w:t elements found within w:del elements")
             return True
 
     def count_paragraphs_in_unpacked(self):
@@ -172,7 +174,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 paragraphs = root.findall(f".//{{{self.WORD_2006_NAMESPACE}}}p")
                 count = len(paragraphs)
             except Exception as e:
-                print(f"Error counting paragraphs in unpacked document: {e}")
+                logging.info(f"Error counting paragraphs in unpacked document: {e}")
 
         return count
 
@@ -195,7 +197,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 count = len(paragraphs)
 
         except Exception as e:
-            print(f"Error counting paragraphs in original document: {e}")
+            logging.info(f"Error counting paragraphs in original document: {e}")
 
         return count
 
@@ -231,13 +233,13 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 )
 
         if errors:
-            print(f"FAILED - Found {len(errors)} insertion validation violations:")
+            logging.info(f"FAILED - Found {len(errors)} insertion validation violations:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - No w:delText elements within w:ins elements")
+                logging.info("PASSED - No w:delText elements within w:ins elements")
             return True
 
     def compare_paragraph_counts(self):
@@ -246,7 +248,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
 
         diff = new_count - original_count
         diff_str = f"+{diff}" if diff > 0 else str(diff)
-        print(f"\nParagraphs: {original_count} → {new_count} ({diff_str})")
+        logging.info(f"\nParagraphs: {original_count} → {new_count} ({diff_str})")
 
     def _parse_id_value(self, val: str, base: int = 16) -> int:
         return int(val, base)
@@ -259,13 +261,15 @@ class DOCXSchemaValidator(BaseSchemaValidator):
         for xml_file in self.xml_files:
             try:
                 for elem in lxml.etree.parse(str(xml_file)).iter():
-                    if val := elem.get(para_id_attr):
+                    val = elem.get(para_id_attr)
+                    if val:
                         if self._parse_id_value(val, base=16) >= 0x80000000:
                             errors.append(
                                 f"  {xml_file.name}:{elem.sourceline}: paraId={val} >= 0x80000000"
                             )
 
-                    if val := elem.get(durable_id_attr):
+                    val = elem.get(durable_id_attr)
+                    if val:
                         if xml_file.name == "numbering.xml":
                             try:
                                 if self._parse_id_value(val, base=10) >= 0x7FFFFFFF:
@@ -284,15 +288,16 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                                     f"  {xml_file.name}:{elem.sourceline}: "
                                     f"durableId={val} >= 0x7FFFFFFF"
                                 )
-            except Exception:
+            except Exception as e:
+                logging.error(f"handle error: {e}", exc_info=True)
                 pass
 
         if errors:
-            print(f"FAILED - {len(errors)} ID constraint violations:")
+            logging.info(f"FAILED - {len(errors)} ID constraint violations:")
             for e in errors:
-                print(e)
+                logging.info(e)
         elif self.verbose:
-            print("PASSED - All paraId/durableId values within constraints")
+            logging.info("PASSED - All paraId/durableId values within constraints")
         return not errors
 
     def validate_comment_markers(self):
@@ -308,7 +313,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
 
         if not document_xml:
             if self.verbose:
-                print("PASSED - No document.xml found (skipping comment validation)")
+                logging.info("PASSED - No document.xml found (skipping comment validation)")
             return True
 
         try:
@@ -374,13 +379,13 @@ class DOCXSchemaValidator(BaseSchemaValidator):
             errors.append(f"  Error parsing XML: {e}")
 
         if errors:
-            print(f"FAILED - {len(errors)} comment marker violations:")
+            logging.info(f"FAILED - {len(errors)} comment marker violations:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - All comment markers properly paired")
+                logging.info("PASSED - All comment markers properly paired")
             return True
 
     def repair(self) -> int:
@@ -427,7 +432,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                             new_id = f"{value:08X}"  
 
                         elem.setAttribute("w16cid:durableId", new_id)
-                        print(
+                        logging.info(
                             f"  Repaired: {xml_file.name}: durableId {durable_id} → {new_id}"
                         )
                         repairs += 1
@@ -436,7 +441,8 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 if modified:
                     xml_file.write_bytes(dom.toxml(encoding="UTF-8"))
 
-            except Exception:
+            except Exception as e:
+                logging.error(f"handle error: {e}", exc_info=True)
                 pass
 
         return repairs

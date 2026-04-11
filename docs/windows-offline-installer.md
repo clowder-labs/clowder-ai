@@ -65,7 +65,7 @@ pnpm package:windows
 - Default install path: `C:\CAI`
 - Upgrade: rerun a newer installer and install into the same directory
 - Start: desktop shortcut or Start Menu shortcut
-- Stop: Start Menu shortcut or `scripts\stop-windows.ps1`
+- Stop: `scripts\stop-windows.ps1`
 
 The installer intentionally defaults to a short path because the bundled production dependency tree includes some long `pnpm` paths. If you change the destination, keep it short; the installer now blocks paths that would exceed Windows path limits for this build.
 

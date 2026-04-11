@@ -13,7 +13,7 @@ import re
 import sys
 import uuid
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import tiktoken
 from openjiuwen.core.context_engine.schema.messages import OffloadMixin
@@ -47,6 +47,12 @@ from jiuwenclaw.utils import (
     logger,
 )
 from jiuwenclaw.config import get_config
+from jiuwenclaw.agentserver.context_window_unload import (
+    context_engine_compression_enabled,
+    effective_token_budget,
+    resolve_model_context_window,
+    shrink_messages_for_context_window,
+)
 import os
 from dotenv import load_dotenv
 
@@ -79,6 +85,9 @@ def _parse_skill_bash_commands(skill_md_text: str) -> list:
             if line and not line.startswith('#'):
                 commands.append(line)
     return commands
+
+# Default truncation length (characters) for tool result content
+DEFAULT_TRUNCATE_LENGTH = 20000
 
 
 def _deduplicate_tools_by_name(tools: List[Any]) -> List[Any]:
@@ -165,6 +174,37 @@ class JiuClawReActAgent(ReActAgent):
         """Set workspace directory and Agent ID."""
         self._workspace_dir = workspace_dir
         self._agent_id = agent_id
+
+    def _apply_pre_llm_context_window_budget(
+        self,
+        system_messages: List,
+        history_messages: List,
+        context_window: Any,
+        session_id: str,
+        session: Optional[Session],
+    ) -> Tuple[List[Any], Optional[Dict[str, Any]]]:
+        """After get_context_window: optionally trim oldest user rounds to fit MODEL_CONTEXT_WINDOW.
+
+        Skipped when context_engine compression is enabled (mutual exclusion) or env unset.
+        """
+        tools = context_window.get_tools() or None
+        messages = [*system_messages, *history_messages]
+        if context_engine_compression_enabled(get_config):
+            return messages, None
+        model_window = resolve_model_context_window()
+        budget = effective_token_budget(model_window, LLM_MAX_TOKENS)
+        request_id = (getattr(session, "request_id", "") or "") if session else ""
+        model_name = getattr(self._config, "model_name", "") or ""
+        return shrink_messages_for_context_window(
+            system_messages=system_messages,
+            history_messages=history_messages,
+            tools=tools,
+            budget_tokens=budget,
+            model_window=model_window,
+            session_id=session_id or "",
+            request_id=request_id,
+            model_name=model_name,
+        )
 
     async def _call_llm(
         self,
@@ -428,7 +468,15 @@ class JiuClawReActAgent(ReActAgent):
             history_snapshot = list(history_messages)
             # Filter out SystemMessage from history to avoid "System message must be at the beginning" error
             history_messages = [m for m in history_messages if not isinstance(m, SystemMessage)]
-            messages = [*system_messages, *history_messages]
+            messages, _cw_err = self._apply_pre_llm_context_window_budget(
+                system_messages,
+                history_messages,
+                context_window,
+                session_id,
+                session,
+            )
+            if _cw_err is not None:
+                return _cw_err
 
             compression_to_show = []
             uncompressed = []
@@ -471,7 +519,15 @@ class JiuClawReActAgent(ReActAgent):
                 history_snapshot = list(history_messages)
                 # Filter out SystemMessage from history to avoid "System message must be at the beginning" error
                 history_messages = [m for m in history_messages if not isinstance(m, SystemMessage)]
-                messages = [*system_messages, *history_messages]
+                messages, _cw_err2 = self._apply_pre_llm_context_window_budget(
+                    system_messages,
+                    history_messages,
+                    context_window,
+                    session_id,
+                    session,
+                )
+                if _cw_err2 is not None:
+                    return _cw_err2
                 ai_message = await self._call_llm(
                     messages,
                     context_window.get_tools() or None,
@@ -595,6 +651,7 @@ class JiuClawReActAgent(ReActAgent):
                                 self._maybe_track_active_skill(tc, tool_msg)
                                 self._maybe_inject_skill_compliance(tool_msg, getattr(tc, "name", ""))
                                 self._detect_script_failure(tc, tool_msg)
+                                self._truncate_tool_message(tool_msg, tc.name)
                             await context.add_messages(tool_msg)
                             if session is not None:
                                 await self._emit_tool_result(session, tc, _result)
@@ -1089,7 +1146,7 @@ class JiuClawReActAgent(ReActAgent):
         If an assistant message with tool_calls exists without corresponding tool messages,
         add placeholder tool messages to keep context valid for OpenAI API.
         """
-        from openjiuwen.core.foundation.llm import ToolMessage, AssistantMessage
+        from openjiuwen.core.foundation.llm import ToolMessage
 
         try:
             messages = context.get_messages()
@@ -1205,8 +1262,8 @@ class JiuClawReActAgent(ReActAgent):
                 header = (
                     "# Skills\n"
                     "You are equipped with a set of skills that include instructions may help you "
-                    "with current task. Before attempting any task, read the relevant skill document "
-                    "(SKILL.MD) using view_file and follow its workflow.\n\n"
+                    "with current task. Before attempting any task, load the relevant skill document "
+                    "using skill_initial_load and follow its workflow.\n\n"
                     "Here are the skills available:\n"
                 )
                 augmented: List[str] = []
@@ -1227,7 +1284,36 @@ class JiuClawReActAgent(ReActAgent):
 
         return [SystemMessage(content="\n\n".join(prompt_parts))]
 
-    _SKILL_MD_RE = re.compile(r"[/\\]([^/\\]+)[/\\]SKILL\.md", re.IGNORECASE)
+    def _get_truncate_length(self, tool_name: str) -> int:
+        """Get truncate_length for a tool from its ToolCard properties.
+
+        Returns the tool-specific truncate_length if set, otherwise DEFAULT_TRUNCATE_LENGTH.
+        """
+        try:
+            tool_card = self.ability_manager.get(tool_name)
+            if tool_card is not None and hasattr(tool_card, "properties"):
+                truncate_length = tool_card.properties.get("truncate_length")
+                if truncate_length is not None:
+                    return int(truncate_length)
+        except Exception:
+            pass
+        return DEFAULT_TRUNCATE_LENGTH
+
+    def _truncate_tool_message(self, tool_msg: Any, tool_name: str) -> None:
+        """Truncate tool_msg.content based on the tool's registered truncate_length.
+
+        If content length exceeds truncate_length, it is truncated in place and a suffix is appended.
+        """
+        content = getattr(tool_msg, "content", None)
+        if not content or not isinstance(content, str):
+            return
+        truncate_length = self._get_truncate_length(tool_name)
+        if len(content) <= truncate_length:
+            return
+        tool_msg.content = (
+            content[:truncate_length]
+            + f"\n\n[...truncated: {len(content) - truncate_length} chars omitted]"
+        )
     _STEP_DECL_RE = re.compile(r'\[(?:当前步骤|[Cc]urrent\s*[Ss]tep)[：:]\s*(.+?)\]')
     _STAGE_NUM_RE = re.compile(r'[Ss]tage\s*(\d+)|阶段\s*(\d+)|[Ss]tep\s*(\d+)')
 
@@ -1311,24 +1397,20 @@ class JiuClawReActAgent(ReActAgent):
         return None
 
     def _maybe_inject_body_experience(self, tc: Any, tool_msg: Any) -> Any:
-        """Append body-experience text when the agent reads a SKILL.md via view_file."""
+        """Append body-experience text when the agent loads a skill via skill_initial_load."""
         if self._evolution_service is None:
             return tool_msg
-        if getattr(tc, "name", "") != "view_file":
+        if getattr(tc, "name", "") != "skill_initial_load":
             return tool_msg
 
         try:
             import json as _json
             args = fix_json_arguments(tc.arguments)
-            file_path: str = args.get("file_path", "")
+            skill_name = args.get("skill_name", "")
+            if not skill_name:
+                return tool_msg
         except Exception:
             return tool_msg
-
-        m = self._SKILL_MD_RE.search(file_path)
-        if not m:
-            return tool_msg
-
-        skill_name = m.group(1)
         body_text = self._evolution_service.store.format_body_experience_text(skill_name)
         if not body_text:
             return tool_msg
@@ -1417,7 +1499,7 @@ class JiuClawReActAgent(ReActAgent):
         if not self._current_session_id:
             return {"state": "no_session"}
         try:
-            from jiuwenclaw.agentserver.tools.todo_toolkits import TodoToolkit, TaskStatus
+            from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus
             toolkit = TodoToolkit(session_id=self._current_session_id)
             tasks = toolkit._load_tasks()
         except Exception:

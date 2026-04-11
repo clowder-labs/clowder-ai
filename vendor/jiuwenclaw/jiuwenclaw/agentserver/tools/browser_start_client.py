@@ -23,6 +23,7 @@ browser:
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import platform
 import shutil
@@ -202,14 +203,14 @@ def start_browser(*, dry_run: bool = False, config_file: str = "") -> int:
         kwargs["start_new_session"] = True
 
     if dry_run:
-        print("Dry run: browser launch command prepared.")
-        print(" ".join(args))
+        logging.info("Dry run: browser launch command prepared.")
+        logging.info(" ".join(args))
         return 0
 
     proc = subprocess.Popen(args, **kwargs)
-    print(f"Chrome started (pid={proc.pid}) at {host}:{port}")
-    print(f"Executable: {chrome_exec}")
-    print(f"Profile dir: {user_data_dir}")
+    logging.info(f"Chrome started (pid={proc.pid}) at {host}:{port}")
+    logging.info(f"Executable: {chrome_exec}")
+    logging.info(f"Profile dir: {user_data_dir}")
     return 0
 
 
@@ -229,7 +230,7 @@ def main() -> int:
     try:
         return start_browser(dry_run=args.dry_run, config_file=args.config)
     except Exception as exc:
-        print(f"Failed to start Chrome: {exc}", file=sys.stderr)
+        logging.info(f"Failed to start Chrome: {exc}", file=sys.stderr)
         return 1
 
 
