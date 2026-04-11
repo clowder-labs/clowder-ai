@@ -818,7 +818,7 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'GITHUB_REVIEW_IMAP_USER',
     defaultValue: '(未设置 → 监控不启用)',
-    description: 'QQ 邮箱地址 (xxx@qq.com)',
+    description: 'QQ 邮箱地址',
     category: 'github_review',
     sensitive: false,
   },

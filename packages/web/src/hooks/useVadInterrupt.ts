@@ -18,8 +18,8 @@ import type { MicVAD as MicVADType } from '@ricky0123/vad-web';
 import { useEffect, useRef, useState } from 'react';
 import { useVoiceSessionStore } from '@/stores/voiceSessionStore';
 
-const ONNX_WASM_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
-const VAD_ASSETS_CDN = 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/';
+const ONNX_WASM_CDN = process.env.NEXT_PUBLIC_JSDELIVR_HOST! + '/npm/onnxruntime-web@1.22.0/dist/';
+const VAD_ASSETS_CDN = process.env.NEXT_PUBLIC_JSDELIVR_HOST! + '/npm/@ricky0123/vad-web@0.0.30/dist/';
 
 export type VadState = 'inactive' | 'loading' | 'listening' | 'paused' | 'error';
 

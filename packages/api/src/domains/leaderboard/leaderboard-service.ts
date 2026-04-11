@@ -21,6 +21,12 @@ import { computeWorkStats, type GitLogEntry, parseGitLog } from './work-stats.js
 
 const execFileAsync = promisify(execFile);
 
+const ANTHROPIC_SUFFIX = process.env.ANTHROPIC_SUFFIX!;
+const OPENAI_SUFFIX = process.env.OPENAI_SUFFIX!;
+const GOOGLE_SUFFIX = process.env.GOOGLE_SUFFIX!;
+const OWNER_SUFFIX_LOCAL = process.env.OWNER_SUFFIX_LOCAL!;
+const OWNER_SUFFIX_EXAMPLE = process.env.OWNER_SUFFIX_EXAMPLE!;
+
 /** Build catId → displayName map from registry */
 function getCatNames(): Record<string, string> {
   const names: Record<string, string> = {};
@@ -33,11 +39,11 @@ function getCatNames(): Record<string, string> {
 /** Build email → catId map for git attribution */
 function getAuthorMap(): Record<string, string> {
   return {
-    'noreply@anthropic.com': 'opus',
-    'codex@openai.com': 'codex',
-    'gemini@google.com': 'gemini',
-    'owner@localhost': 'owner',
-    'owner@example.com': 'owner',
+    [ANTHROPIC_SUFFIX]: 'opus',
+    [OPENAI_SUFFIX]: 'codex',
+    [GOOGLE_SUFFIX]: 'gemini',
+    [OWNER_SUFFIX_LOCAL]: 'owner',
+    [OWNER_SUFFIX_EXAMPLE]: 'owner',
   };
 }
 

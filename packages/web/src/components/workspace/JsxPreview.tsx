@@ -9,6 +9,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API_URL } from '@/utils/api-client';
 
+const UNPKG_URL = process.env.NEXT_PUBLIC_UNPKG_URL!;
+const ESM_SH_URL = process.env.NEXT_PUBLIC_ESM_SH_URL!;
+
 // Dynamic import to avoid polluting test environment (esbuild-wasm checks TextEncoder at import time)
 type EsbuildModule = typeof import('esbuild-wasm');
 let esbuildReady: Promise<EsbuildModule> | null = null;
@@ -19,7 +22,7 @@ function ensureEsbuild(): Promise<EsbuildModule> {
       .then(async (mod) => {
         await mod
           .initialize({
-            wasmURL: 'https://unpkg.com/esbuild-wasm@0.27.3/esbuild.wasm',
+            wasmURL: UNPKG_URL + '/esbuild-wasm@0.27.3/esbuild.wasm',
           })
           .catch((err) => {
             if (!String(err).includes('already')) throw err;
@@ -36,11 +39,11 @@ function ensureEsbuild(): Promise<EsbuildModule> {
 
 /** Known React-ecosystem packages → esm.sh CDN URLs */
 const ESM_SH_MAP: Record<string, string> = {
-  react: 'https://esm.sh/react@18?dev',
-  'react/jsx-runtime': 'https://esm.sh/react@18/jsx-runtime?dev',
-  'react/jsx-dev-runtime': 'https://esm.sh/react@18/jsx-dev-runtime?dev',
-  'react-dom': 'https://esm.sh/react-dom@18?dev',
-  'react-dom/client': 'https://esm.sh/react-dom@18/client?dev',
+  react: ESM_SH_URL + '/react@18?dev',
+  'react/jsx-runtime': ESM_SH_URL + '/react@18/jsx-runtime?dev',
+  'react/jsx-dev-runtime': ESM_SH_URL + '/react@18/jsx-dev-runtime?dev',
+  'react-dom': ESM_SH_URL + '/react-dom@18?dev',
+  'react-dom/client': ESM_SH_URL + '/react-dom@18/client?dev',
 };
 
 /** Fetch file content from workspace API */
@@ -111,7 +114,7 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
               return { path: ESM_SH_MAP[args.path], external: true };
             }
             // Unknown npm package → esm.sh fallback
-            return { path: `https://esm.sh/${args.path}?dev`, external: true };
+            return { path: ESM_SH_URL + '/' + args.path + '?dev', external: true };
           });
 
           // Resolve relative imports via workspace API
@@ -167,8 +170,8 @@ export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
 <body>
   <div id="root"></div>
   <script type="module">
-    import { createElement } from 'https://esm.sh/react@18?dev';
-    import { createRoot } from 'https://esm.sh/react-dom@18/client?dev';
+    import { createElement } from '${ESM_SH_URL}/react@18?dev';
+    import { createRoot } from '${ESM_SH_URL}/react-dom@18/client?dev';
     try {
       const code = ${JSON.stringify(js)};
       const blob = new Blob([code], { type: 'text/javascript' });
