@@ -294,11 +294,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: 'Dynamic task not found' };
     }
 
-    if (!body.enabled) {
-      // Pause: unregister from runtime
-      taskRunner.unregister(id);
-    } else {
-      // Resume: re-register in runtime
+    // Keep dynamic task in runtime summaries; toggle execution state only.
+    // If runtime entry is missing (e.g. legacy state), re-register from store.
+    const toggled = taskRunner.setDynamicEnabled(id, body.enabled);
+    if (!toggled) {
       const def = dynamicTaskStore.getById(id);
       if (def) {
         const template = templateRegistry.get(def.templateId);
@@ -310,7 +309,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
           });
           spec.display = def.display;
           try {
-            taskRunner.registerDynamic(spec, def.id);
+            taskRunner.registerDynamic(spec, def.id, def.enabled);
           } catch {
             // Already registered — ignore
           }
