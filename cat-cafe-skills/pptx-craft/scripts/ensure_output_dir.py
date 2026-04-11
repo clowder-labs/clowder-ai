@@ -2,7 +2,7 @@
 """
 确保输出目录存在并返回绝对路径
 """
-
+import logging
 import sys
 import os
 from pathlib import Path
@@ -25,7 +25,7 @@ def ensure_output_dir(output_dir: str) -> Path:
 
     # 防护检查：拒绝已包含 pages 的路径
     if resolved_path.name == "pages":
-        print("Error: Do not pass a path ending in 'pages' to this script", file=sys.stderr)
+        logging.info("Error: Do not pass a path ending in 'pages' to this script", file=sys.stderr)
         sys.exit(1)
 
     # 始终在传入目录下创建 "pages" 子目录
@@ -34,7 +34,7 @@ def ensure_output_dir(output_dir: str) -> Path:
 
     # 验证目录存在
     if not pages_dir.is_dir():
-        print(f"Error: Failed to create directory {pages_dir}", file=sys.stderr)
+        logging.info(f"Error: Failed to create directory {pages_dir}", file=sys.stderr)
         sys.exit(1)
 
     return pages_dir.resolve()
@@ -42,12 +42,12 @@ def ensure_output_dir(output_dir: str) -> Path:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python ensure_output_dir.py <output_dir>", file=sys.stderr)
+        logging.info("Usage: python ensure_output_dir.py <output_dir>", file=sys.stderr)
         sys.exit(1)
 
     output_dir = sys.argv[1]
     pages_dir = ensure_output_dir(output_dir)
-    print(pages_dir)
+    logging.info(pages_dir)
 
 
 if __name__ == "__main__":

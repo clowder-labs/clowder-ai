@@ -1146,7 +1146,7 @@ class JiuClawReActAgent(ReActAgent):
         If an assistant message with tool_calls exists without corresponding tool messages,
         add placeholder tool messages to keep context valid for OpenAI API.
         """
-        from openjiuwen.core.foundation.llm import ToolMessage, AssistantMessage
+        from openjiuwen.core.foundation.llm import ToolMessage
 
         try:
             messages = context.get_messages()
@@ -1499,7 +1499,7 @@ class JiuClawReActAgent(ReActAgent):
         if not self._current_session_id:
             return {"state": "no_session"}
         try:
-            from jiuwenclaw.agentserver.tools.todo_toolkits import TodoToolkit, TaskStatus
+            from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus
             toolkit = TodoToolkit(session_id=self._current_session_id)
             tasks = toolkit._load_tasks()
         except Exception:

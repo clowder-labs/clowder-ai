@@ -26,7 +26,7 @@ Common Commands (can be copied and used directly)
 
 ======================================================================
 """
-
+import logging
 import sys
 import re
 import math
@@ -302,7 +302,8 @@ class BarChartCalculator:
         lines.append("----  ----------  --------  -------  -------  -------  -------")
 
         for p in positions:
-            lines.append(f"{p.index:4d}  {p.label:<10s}  {p.value:>8.1f}  {p.x:>7.1f}  {p.y:>7.1f}  {p.width:>7.1f}  {p.height:>7.1f}")
+            lines.append(f"{p.index:4d}  {p.label:<10s}  {p.value:>8.1f}  "
+                         f"{p.x:>7.1f}  {p.y:>7.1f}  {p.width:>7.1f}  {p.height:>7.1f}")
 
         return "\n".join(lines)
 
@@ -956,9 +957,9 @@ def parse_data_string(data_str: str) -> Dict[str, float]:
             try:
                 result[label.strip()] = float(value.strip())
             except ValueError:
-                print(f"[Warning] Unable to parse value: '{value.strip()}', skipped")
+                logging.info(f"[Warning] Unable to parse value: '{value.strip()}', skipped")
         else:
-            print(f"[Warning] Invalid format (expected 'label:value'): '{item}'")
+            logging.info(f"[Warning] Invalid format (expected 'label:value'): '{item}'")
     return result
 
 
@@ -974,9 +975,9 @@ def parse_xy_data_string(data_str: str) -> List[Tuple[float, float]]:
             try:
                 result.append((float(x.strip()), float(y.strip())))
             except ValueError:
-                print(f"[Warning] Unable to parse coordinates: '{item}', skipped")
+                logging.info(f"[Warning] Unable to parse coordinates: '{item}', skipped")
         else:
-            print(f"[Warning] Invalid format (expected 'x:y'): '{item}'")
+            logging.info(f"[Warning] Invalid format (expected 'x:y'): '{item}'")
     return result
 
 
@@ -996,20 +997,20 @@ def analyze_svg_file(svg_file: str) -> None:
     """Analyze all chart elements in an SVG file"""
     svg_path = Path(svg_file)
     if not svg_path.exists():
-        print(f"[Error] File does not exist: {svg_file}")
+        logging.info(f"[Error] File does not exist: {svg_file}")
         return
 
     with open(svg_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    print(f"\n{'='*70}")
-    print(f"SVG File Analysis: {svg_path.name}")
-    print(f"{'='*70}")
+    logging.info(f"\n{'='*70}")
+    logging.info(f"SVG File Analysis: {svg_path.name}")
+    logging.info(f"{'='*70}")
 
     # Extract viewBox
     viewbox_match = re.search(r'viewBox="([^"]+)"', content)
     if viewbox_match:
-        print(f"Canvas viewBox: {viewbox_match.group(1)}")
+        logging.info(f"Canvas viewBox: {viewbox_match.group(1)}")
 
     # Use more robust element extraction (attribute order independent)
     # Extract all rect elements
@@ -1039,81 +1040,81 @@ def analyze_svg_file(svg_file: str) -> None:
     # Extract path elements
     paths = re.findall(r'<path[^>]*d="([^"]*)"', content)
 
-    print(f"\nElement statistics:")
-    print(f"  - rect (rectangle): {len(rects)}")
-    print(f"  - circle: {len(circles)}")
-    print(f"  - polyline/polygon: {len(polylines)}")
-    print(f"  - path: {len(paths)}")
+    logging.info(f"\nElement statistics:")
+    logging.info(f"  - rect (rectangle): {len(rects)}")
+    logging.info(f"  - circle: {len(circles)}")
+    logging.info(f"  - polyline/polygon: {len(polylines)}")
+    logging.info(f"  - path: {len(paths)}")
 
     # List rect elements in detail
     if rects:
-        print(f"\n=== Rectangle Elements (rect) ===")
-        print(f"{'Index':<6}{'X':<8}  {'Y':<8}  {'Width':<8}  {'Height':<8}")
-        print("-" * 45)
+        logging.info(f"\n=== Rectangle Elements (rect) ===")
+        logging.info(f"{'Index':<6}{'X':<8}  {'Y':<8}  {'Width':<8}  {'Height':<8}")
+        logging.info("-" * 45)
         for i, (x, y, w, h) in enumerate(rects[:20], 1):  # Only show first 20
             w_str = w if w else '-'
             h_str = h if h else '-'
-            print(f"{i:<6}{x:<8}  {y:<8}  {w_str:<8}  {h_str:<8}")
+            logging.info(f"{i:<6}{x:<8}  {y:<8}  {w_str:<8}  {h_str:<8}")
         if len(rects) > 20:
-            print(f"... and {len(rects) - 20} more rectangle(s)")
+            logging.info(f"... and {len(rects) - 20} more rectangle(s)")
 
     # List circle elements in detail
     if circles:
-        print(f"\n=== Circle Elements (circle) ===")
-        print(f"{'Index':<6}{'CX':<10}  {'CY':<10}  {'Radius':<8}")
-        print("-" * 40)
+        logging.info(f"\n=== Circle Elements (circle) ===")
+        logging.info(f"{'Index':<6}{'CX':<10}  {'CY':<10}  {'Radius':<8}")
+        logging.info("-" * 40)
         for i, (cx, cy, r) in enumerate(circles[:20], 1):
             r_str = r if r else '-'
-            print(f"{i:<6}{cx:<10}  {cy:<10}  {r_str:<8}")
+            logging.info(f"{i:<6}{cx:<10}  {cy:<10}  {r_str:<8}")
         if len(circles) > 20:
-            print(f"... and {len(circles) - 20} more circle(s)")
+            logging.info(f"... and {len(circles) - 20} more circle(s)")
 
     # List polyline points
     if polylines:
-        print(f"\n=== Polyline/Polygon (polyline/polygon) ===")
+        logging.info(f"\n=== Polyline/Polygon (polyline/polygon) ===")
         for i, points in enumerate(polylines, 1):
             point_list = points.strip().split()
-            print(f"\nPolyline {i} ({len(point_list)} points):")
+            logging.info(f"\nPolyline {i} ({len(point_list)} points):")
             # Parse and show first few points
             parsed_points = []
             for p in point_list[:5]:
                 if ',' in p:
                     x, y = p.split(',')
                     parsed_points.append(f"({x},{y})")
-            print(f"  Start points: {' -> '.join(parsed_points)}")
+            logging.info(f"  Start points: {' -> '.join(parsed_points)}")
             if len(point_list) > 5:
-                print(f"  ... {len(point_list)} points total")
+                logging.info(f"  ... {len(point_list)} points total")
 
-    print(f"\n{'='*70}")
+    logging.info(f"\n{'='*70}")
 
 
 def interactive_mode() -> None:
     """Interactive calculation mode"""
-    print("\n" + "="*60)
-    print("SVG Position Calculator - Interactive Mode")
-    print("="*60)
-    print("\nSelect chart type:")
-    print("  1. Bar chart (bar)")
-    print("  2. Pie chart (pie)")
-    print("  3. Radar chart (radar)")
-    print("  4. Line chart (line)")
-    print("  5. Grid layout (grid)")
-    print("  6. Custom line (custom)")
-    print("  0. Exit")
+    logging.info("\n" + "=" * 60)
+    logging.info("SVG Position Calculator - Interactive Mode")
+    logging.info("=" * 60)
+    logging.info("\nSelect chart type:")
+    logging.info("  1. Bar chart (bar)")
+    logging.info("  2. Pie chart (pie)")
+    logging.info("  3. Radar chart (radar)")
+    logging.info("  4. Line chart (line)")
+    logging.info("  5. Grid layout (grid)")
+    logging.info("  6. Custom line (custom)")
+    logging.info("  0. Exit")
 
     while True:
         try:
             choice = input("\nSelect [1-6, 0 to exit]: ").strip()
 
             if choice == '0':
-                print("Exiting interactive mode")
+                logging.info("Exiting interactive mode")
                 break
 
             elif choice == '1':
-                print("\n=== Bar Chart Calculation ===")
+                logging.info("\n=== Bar Chart Calculation ===")
                 data_str = input("Enter data (format: label1:value1,label2:value2): ").strip()
                 if not data_str:
-                    print("Example: East:185,South:142,North:128")
+                    logging.info("Example: East:185,South:142,North:128")
                     continue
 
                 canvas = input("Canvas format [ppt169]: ").strip() or 'ppt169'
@@ -1121,14 +1122,13 @@ def interactive_mode() -> None:
                 calc = BarChartCalculator(coord)
                 data = parse_data_string(data_str)
                 positions = calc.calculate(data)
-                print()
-                print(calc.format_table(positions))
+                logging.info(calc.format_table(positions))
 
             elif choice == '2':
-                print("\n=== Pie Chart Calculation ===")
+                logging.info("\n=== Pie Chart Calculation ===")
                 data_str = input("Enter data (format: label1:value1,label2:value2): ").strip()
                 if not data_str:
-                    print("Example: A:35,B:25,C:20,D:12,Other:8")
+                    logging.info("Example: A:35,B:25,C:20,D:12,Other:8")
                     continue
 
                 center_str = input("Center coordinates [420,400]: ").strip() or '420,400'
@@ -1138,14 +1138,13 @@ def interactive_mode() -> None:
                 calc = PieChartCalculator(center, radius)
                 data = parse_data_string(data_str)
                 slices = calc.calculate(data)
-                print()
-                print(calc.format_table(slices))
+                logging.info(calc.format_table(slices))
 
             elif choice == '3':
-                print("\n=== Radar Chart Calculation ===")
+                logging.info("\n=== Radar Chart Calculation ===")
                 data_str = input("Enter data (format: dim1:value1,dim2:value2): ").strip()
                 if not data_str:
-                    print("Example: Performance:90,Security:85,Usability:75,Price:70")
+                    logging.info("Example: Performance:90,Security:85,Usability:75,Price:70")
                     continue
 
                 center_str = input("Center coordinates [640,400]: ").strip() or '640,400'
@@ -1155,14 +1154,13 @@ def interactive_mode() -> None:
                 calc = RadarChartCalculator(center, radius)
                 data = parse_data_string(data_str)
                 points = calc.calculate(data)
-                print()
-                print(calc.format_table(points))
+                logging.info(calc.format_table(points))
 
             elif choice == '4':
-                print("\n=== Line Chart Calculation ===")
+                logging.info("\n=== Line Chart Calculation ===")
                 data_str = input("Enter data (format: x1:y1,x2:y2): ").strip()
                 if not data_str:
-                    print("Example: 0:50,10:80,20:120,30:95")
+                    logging.info("Example: 0:50,10:80,20:120,30:95")
                     continue
 
                 canvas = input("Canvas format [ppt169]: ").strip() or 'ppt169'
@@ -1170,11 +1168,10 @@ def interactive_mode() -> None:
                 calc = LineChartCalculator(coord)
                 data = parse_xy_data_string(data_str)
                 points = calc.calculate(data)
-                print()
-                print(calc.format_table(points))
+                logging.info(calc.format_table(points))
 
             elif choice == '5':
-                print("\n=== Grid Layout Calculation ===")
+                logging.info("\n=== Grid Layout Calculation ===")
                 rows = int(input("Rows: ").strip() or '2')
                 cols = int(input("Columns: ").strip() or '3')
                 canvas = input("Canvas format [ppt169]: ").strip() or 'ppt169'
@@ -1182,12 +1179,11 @@ def interactive_mode() -> None:
                 coord = CoordinateSystem(canvas)
                 calc = GridLayoutCalculator(coord)
                 cells = calc.calculate(rows, cols)
-                print()
-                print(calc.format_table(cells))
+                logging.info(calc.format_table(cells))
 
             elif choice == '6':
-                print("\n=== Custom Line Calculation ===")
-                print("For custom formula line charts, such as price index charts")
+                logging.info("\n=== Custom Line Calculation ===")
+                logging.info("For custom formula line charts, such as price index charts")
 
                 base_x = float(input("X start value [170]: ").strip() or '170')
                 step_x = float(input("X step [40]: ").strip() or '40')
@@ -1195,18 +1191,18 @@ def interactive_mode() -> None:
                 scale_y = float(input("Y scale factor [20]: ").strip() or '20')
                 ref_value = float(input("Reference baseline value [100]: ").strip() or '100')
 
-                print(f"\nFormula: X = {base_x} + index * {step_x}")
-                print(f"         Y = {base_y} - (value - {ref_value}) * {scale_y}")
+                logging.info(f"\nFormula: X = {base_x} + index * {step_x}")
+                logging.info(f"         Y = {base_y} - (value - {ref_value}) * {scale_y}")
 
                 data_str = input("\nEnter data (comma-separated values): ").strip()
                 if data_str:
                     values = [float(v.strip()) for v in data_str.split(',')]
-                    print(f"\n{'Index':<6}{'Value':<10}  {'X':<8}  {'Y':<8}")
-                    print("-" * 35)
+                    logging.info(f"\n{'Index':<6}{'Value':<10}  {'X':<8}  {'Y':<8}")
+                    logging.info("-" * 35)
                     for i, v in enumerate(values, 1):
                         x = base_x + i * step_x
                         y = base_y - (v - ref_value) * scale_y
-                        print(f"{i:<6}{v:<10.1f}  {x:<8.0f}  {y:<8.0f}")
+                        logging.info(f"{i:<6}{v:<10.1f}  {x:<8.0f}  {y:<8.0f}")
 
                     # Generate polyline points
                     points_list = []
@@ -1214,17 +1210,17 @@ def interactive_mode() -> None:
                         x = base_x + i * step_x
                         y = base_y - (v - ref_value) * scale_y
                         points_list.append(f"{int(x)},{int(y)}")
-                    print(f"\npolyline points:")
-                    print(" ".join(points_list))
+                    logging.info(f"\npolyline points:")
+                    logging.info(" ".join(points_list))
 
             else:
-                print("Invalid selection, please enter 1-6 or 0")
+                logging.info("Invalid selection, please enter 1-6 or 0")
 
         except KeyboardInterrupt:
-            print("\nExiting interactive mode")
+            logging.info("\nExiting interactive mode")
             break
         except Exception as e:
-            print(f"Error: {e}")
+            logging.info(f"Error: {e}")
 
 
 def from_json_config(config_file: str) -> None:
@@ -1233,7 +1229,7 @@ def from_json_config(config_file: str) -> None:
 
     config_path = Path(config_file)
     if not config_path.exists():
-        print(f"[Error] Config file does not exist: {config_file}")
+        logging.info(f"[Error] Config file does not exist: {config_file}")
         return
 
     with open(config_path, 'r', encoding='utf-8') as f:
@@ -1242,22 +1238,22 @@ def from_json_config(config_file: str) -> None:
     chart_type = config.get('type', 'bar')
     data = config.get('data', {})
 
-    print(f"\nLoaded from config file: {config_path.name}")
-    print(f"Chart type: {chart_type}")
+    logging.info(f"\nLoaded from config file: {config_path.name}")
+    logging.info(f"Chart type: {chart_type}")
 
     if chart_type == 'bar':
         canvas = config.get('canvas', 'ppt169')
         coord = CoordinateSystem(canvas)
         calc = BarChartCalculator(coord)
         positions = calc.calculate(data)
-        print(calc.format_table(positions))
+        logging.info(calc.format_table(positions))
 
     elif chart_type == 'pie':
         center = tuple(config.get('center', [420, 400]))
         radius = config.get('radius', 200)
         calc = PieChartCalculator(center, radius)
         slices = calc.calculate(data)
-        print(calc.format_table(slices))
+        logging.info(calc.format_table(slices))
 
     elif chart_type == 'line':
         canvas = config.get('canvas', 'ppt169')
@@ -1266,7 +1262,7 @@ def from_json_config(config_file: str) -> None:
         # data should be list of [x, y] pairs
         points_data = [(p[0], p[1]) for p in data]
         points = calc.calculate(points_data)
-        print(calc.format_table(points))
+        logging.info(calc.format_table(points))
 
     elif chart_type == 'custom_line':
         # Custom line chart
@@ -1277,20 +1273,20 @@ def from_json_config(config_file: str) -> None:
         ref_value = config.get('ref_value', 100)
         values = config.get('values', [])
 
-        print(f"\nFormula: X = {base_x} + index * {step_x}")
-        print(f"         Y = {base_y} - (value - {ref_value}) * {scale_y}")
-        print(f"\n{'Index':<6}{'Value':<10}  {'X':<8}  {'Y':<8}")
-        print("-" * 35)
+        logging.info(f"\nFormula: X = {base_x} + index * {step_x}")
+        logging.info(f"         Y = {base_y} - (value - {ref_value}) * {scale_y}")
+        logging.info(f"\n{'Index':<6}{'Value':<10}  {'X':<8}  {'Y':<8}")
+        logging.info("-" * 35)
 
         points_list = []
         for i, v in enumerate(values, 1):
             x = base_x + i * step_x
             y = base_y - (v - ref_value) * scale_y
-            print(f"{i:<6}{v:<10.1f}  {x:<8.0f}  {y:<8.0f}")
+            logging.info(f"{i:<6}{v:<10.1f}  {x:<8.0f}  {y:<8.0f}")
             points_list.append(f"{int(x)},{int(y)}")
 
-        print(f"\npolyline points:")
-        print(" ".join(points_list))
+        logging.info(f"\npolyline points:")
+        logging.info(" ".join(points_list))
 
 
 def main():
@@ -1394,12 +1390,11 @@ Common commands:
             data = parse_data_string(args.data)
             positions = calc.calculate(data, bar_width=args.bar_width, horizontal=args.horizontal)
 
-            print(f"\n=== Bar Chart Coordinate Calculation ===")
-            print(f"Canvas: {CANVAS_FORMATS.get(canvas, {}).get('dimensions', canvas)}")
-            print(f"Chart area: ({coord.chart_area.x_min}, {coord.chart_area.y_min}) - "
+            logging.info(f"\n=== Bar Chart Coordinate Calculation ===")
+            logging.info(f"Canvas: {CANVAS_FORMATS.get(canvas, {}).get('dimensions', canvas)}")
+            logging.info(f"Chart area: ({coord.chart_area.x_min}, {coord.chart_area.y_min}) - "
                   f"({coord.chart_area.x_max}, {coord.chart_area.y_max})")
-            print()
-            print(calc.format_table(positions))
+            logging.info(calc.format_table(positions))
 
         elif args.chart_type == 'pie':
             center = parse_tuple(args.center)
@@ -1407,8 +1402,8 @@ Common commands:
             data = parse_data_string(args.data)
             slices = calc.calculate(data, start_angle=args.start_angle, inner_radius=args.inner_radius)
 
-            print(f"\n=== Pie Chart Slice Calculation ===")
-            print(calc.format_table(slices))
+            logging.info(f"\n=== Pie Chart Slice Calculation ===")
+            logging.info(calc.format_table(slices))
 
         elif args.chart_type == 'radar':
             center = parse_tuple(args.center)
@@ -1416,8 +1411,8 @@ Common commands:
             data = parse_data_string(args.data)
             points = calc.calculate(data, max_value=args.max_value)
 
-            print(f"\n=== Radar Chart Vertex Calculation ===")
-            print(calc.format_table(points))
+            logging.info(f"\n=== Radar Chart Vertex Calculation ===")
+            logging.info(calc.format_table(points))
 
         elif args.chart_type == 'line':
             canvas = args.canvas if hasattr(args, 'canvas') else 'ppt169'
@@ -1430,9 +1425,9 @@ Common commands:
 
             points = calc.calculate(data, x_range, y_range)
 
-            print(f"\n=== Line / Scatter Chart Coordinate Calculation ===")
-            print(f"Canvas: {CANVAS_FORMATS.get(canvas, {}).get('dimensions', canvas)}")
-            print(calc.format_table(points))
+            logging.info(f"\n=== Line / Scatter Chart Coordinate Calculation ===")
+            logging.info(f"Canvas: {CANVAS_FORMATS.get(canvas, {}).get('dimensions', canvas)}")
+            logging.info(calc.format_table(points))
 
         elif args.chart_type == 'grid':
             canvas = args.canvas if hasattr(args, 'canvas') else 'ppt169'
@@ -1440,9 +1435,9 @@ Common commands:
             calc = GridLayoutCalculator(coord)
             cells = calc.calculate(args.rows, args.cols, args.padding, args.gap)
 
-            print(f"\n=== Grid Layout Calculation ({args.rows}x{args.cols}) ===")
-            print(f"Canvas: {CANVAS_FORMATS.get(canvas, {}).get('dimensions', canvas)}")
-            print(calc.format_table(cells))
+            logging.info(f"\n=== Grid Layout Calculation ({args.rows}x{args.cols}) ===")
+            logging.info(f"Canvas: {CANVAS_FORMATS.get(canvas, {}).get('dimensions', canvas)}")
+            logging.info(calc.format_table(cells))
 
         else:
             parser.print_help()
@@ -1457,16 +1452,15 @@ Common commands:
 
             positions = validator.extract_all_positions(content)
 
-            print(f"\n=== Extracted Element Positions ===")
-            print(f"File: {args.svg_file}")
-            print()
+            logging.info(f"\n=== Extracted Element Positions ===")
+            logging.info(f"File: {args.svg_file}")
 
             for element_id, attrs in positions.items():
-                print(f"{element_id}:")
+                logging.info(f"{element_id}:")
                 for attr, value in attrs.items():
-                    print(f"  {attr}: {value}")
+                    logging.info(f"  {attr}: {value}")
         else:
-            print("Validation mode requires an expected coordinates file; use --extract to extract coordinates first")
+            logging.info("Validation mode requires an expected coordinates file; use --extract to extract coordinates first")
 
     elif args.command == 'analyze':
         analyze_svg_file(args.svg_file)

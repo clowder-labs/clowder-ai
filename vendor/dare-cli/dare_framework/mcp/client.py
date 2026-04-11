@@ -404,6 +404,7 @@ class _MCPRemoteTool(ITool):
         tool_name: str,
         full_name: str,
     ) -> None:
+        super().__init__()
         self._client = client
         self._tool_def = tool_def
         self._tool_name = tool_name

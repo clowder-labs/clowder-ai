@@ -23,6 +23,7 @@ Then run this test: uv run -m src.super_agent.test.test_with_mcp
 """
 from __future__ import annotations
 
+import logging
 import sys
 import os
 import time
@@ -365,7 +366,7 @@ async def build_main_agent_with_mcp_subs(
 
         if key == BROWSER_MCP_KEY:
             # Browser: sub-agent only
-            print(f"  Registering sub-agent {key}_sub at port {config['port']} (browser)...")
+            logging.info(f"  Registering sub-agent {key}_sub at port {config['port']} (browser)...")
             await register_mcp_server_to_resource_mgr(mcp_cfg, tag=f"agent.{key}_sub")
             sub_agent = build_mcp_sub_agent(
                 agent_id=f"agent.{key}_sub",
@@ -383,13 +384,13 @@ async def build_main_agent_with_mcp_subs(
             agent.ability_manager.add(sub_agent.card)
         else:
             # Non-browser: main agent MCP tools (only add to ability_manager if registration succeeded)
-            print(f"  Registering MCP tools for main agent: {key} at port {config['port']}...")
+            logging.info(f"  Registering MCP tools for main agent: {key} at port {config['port']}...")
             result = await register_mcp_server_to_resource_mgr(mcp_cfg, tag=agent.card.id)
             if result is not None and getattr(result, "is_ok", lambda: False)():
                 agent.ability_manager.add(mcp_cfg)
             else:
                 err = getattr(result, "value", result) if result is not None else "connection failed"
-                print(f"  [WARN] Skipping {key} (MCP server not available): {err}")
+                logging.info(f"  [WARN] Skipping {key} (MCP server not available): {err}")
 
     return agent
 
@@ -419,28 +420,28 @@ async def main():
     # MCP server host
     mcp_host = os.getenv("MCP_SERVER_HOST", "127.0.0.1")
 
-    print(f"\n{'='*70}")
-    print(f"Testing Main Agent + MCP Sub-Agents")
-    print(f"{'='*70}")
-    print(f"Backend: {model_provider} (client provider: {provider})")
-    print(f"Model: {model_name}")
-    print(f"MCP Host: {mcp_host}")
+    logging.info(f"\n{'='*70}")
+    logging.info(f"Testing Main Agent + MCP Sub-Agents")
+    logging.info(f"{'='*70}")
+    logging.info(f"Backend: {model_provider} (client provider: {provider})")
+    logging.info(f"Model: {model_name}")
+    logging.info(f"MCP Host: {mcp_host}")
     if not api_key:
         raise RuntimeError(
             "No API key found. Set OPENROUTER_API_KEY (for OpenRouter) or OPENAI_API_KEY (for OpenAI) in .env"
         )
-    print(f"\nEnabled MCP Servers:")
+    logging.info(f"\nEnabled MCP Servers:")
     for key, info in AVAILABLE_MCP_SERVERS.items():
         if not info["enabled"]:
-            print(f"  ⏭️  {key:15} @ port {info['port']} - disabled")
+            logging.info(f"  ⏭️  {key:15} @ port {info['port']} - disabled")
         elif key == BROWSER_MCP_KEY:
-            print(f"  ✅  {key:15} @ port {info['port']} - sub-agent (browser)")
+            logging.info(f"  ✅  {key:15} @ port {info['port']} - sub-agent (browser)")
         else:
-            print(f"  ✅  {key:15} @ port {info['port']} - main agent tools")
-    print(f"{'='*70}\n")
+            logging.info(f"  ✅  {key:15} @ port {info['port']} - main agent tools")
+    logging.info(f"{'='*70}\n")
 
     # Build main agent (direct MCP tools + browser sub-agent)
-    print("Building main agent (MCP tools + browser sub-agent)...")
+    logging.info("Building main agent (MCP tools + browser sub-agent)...")
     agent = await build_main_agent_with_mcp_subs(
         provider=provider,
         api_key=api_key,
@@ -449,17 +450,16 @@ async def main():
         mcp_host=mcp_host,
     )
     
-    print("\nDiscovering available tools and sub-agents...")
+    logging.info("\nDiscovering available tools and sub-agents...")
     tools = await agent.ability_manager.list_tool_info()
-    print(f"✅ Main agent has {len(tools)} capabilities\n")
+    logging.info(f"✅ Main agent has {len(tools)} capabilities\n")
     
     # Show available capabilities
-    print("Main agent capabilities:")
+    logging.info("Main agent capabilities:")
     for tool in tools:
         tool_name = getattr(tool, 'name', 'unknown')
         tool_desc = getattr(tool, 'description', '')[:100]
-        print(f"  - {tool_name}: {tool_desc}")
-    print()
+        logging.info(f"  - {tool_name}: {tool_desc}")
 
     # Default: main agent uses an MCP tool directly (reasoning or search), not a local tool.
     # Override with EXAMPLE_QUERY env var (e.g. for browser sub-agent: "Open https://example.com and tell me the title").
@@ -468,16 +468,16 @@ async def main():
     Use that value of x to open https://www.roastful.com/top-roasters#top-50 and find the position of the roaster on the list.
     Reply with the name of the roaster that sits in that position.
     """
-    print(f"Test Query: {query}\n")
-    print("Running main agent (will call MCP tools or delegate to sub-agent as needed)...\n")
+    logging.info(f"Test Query: {query}\n")
+    logging.info("Running main agent (will call MCP tools or delegate to sub-agent as needed)...\n")
     
     result = await agent.invoke({"query": query}, session=None)
 
-    print("\n" + "="*70)
-    print("FINAL RESULT")
-    print("="*70)
-    print(result)
-    print("="*70)
+    logging.info("\n" + "="*70)
+    logging.info("FINAL RESULT")
+    logging.info("="*70)
+    logging.info(result)
+    logging.info("="*70)
 
 
 if __name__ == "__main__":
@@ -486,7 +486,7 @@ if __name__ == "__main__":
     except RuntimeError as e:
         # Swallow the specific MCP/anyio shutdown bug so tests can continue
         if "Attempted to exit cancel scope in a different task than it was entered in" in str(e):
-            print(f"Ignoring MCP shutdown error: {e}", file=sys.stderr)
+            logging.info(f"Ignoring MCP shutdown error: {e}", file=sys.stderr)
         else:
             # Re-raise anything else so real errors still fail
             raise

@@ -53,7 +53,7 @@ def load_project_dir(session_id: str) -> str | None:
             )
             return None
         return str(Path(project_dir.strip()).resolve())
-    except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+    except (OSError, TypeError, ValueError) as exc:
         logger.warning(
             "[JiuWenClaw] Failed to load session metadata for session_id=%s path=%s: %s",
             session_id,

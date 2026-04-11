@@ -15,7 +15,7 @@ Usage:
     from svg_to_shapes import convert_svg_to_slide_shapes
     slide_xml, media_files, rel_entries = convert_svg_to_slide_shapes(svg_path, slide_num=1)
 """
-
+import logging
 import math
 import re
 import base64
@@ -1791,7 +1791,7 @@ def convert_image(elem: ET.Element, ctx: ConvertContext) -> str:
             # Also try relative to project root (parent of svg_final/)
             img_path = ctx.svg_dir.parent / href
         if not img_path.exists():
-            print(f'  Warning: External image not found: {href}')
+            logging.info(f'  Warning: External image not found: {href}')
             return ''
         img_format = img_path.suffix.lstrip('.').lower()
         if img_format == 'jpeg':
@@ -2029,7 +2029,7 @@ def convert_element(elem: ET.Element, ctx: ConvertContext) -> str:
         try:
             return converter(elem, ctx)
         except Exception as e:
-            print(f'  Warning: Failed to convert <{tag}>: {e}')
+            logging.info(f'  Warning: Failed to convert <{tag}>: {e}')
             return ''
 
     # Skip known non-visual elements silently
@@ -2085,7 +2085,7 @@ def convert_svg_to_slide_shapes(
                 skipped += 1
 
     if verbose:
-        print(f'  Converted {converted} elements, skipped {skipped}')
+        logging.info(f'  Converted {converted} elements, skipped {skipped}')
 
     shapes_xml = '\n'.join(shapes)
 

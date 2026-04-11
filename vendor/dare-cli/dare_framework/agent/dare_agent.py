@@ -1340,7 +1340,6 @@ class DareAgent(BaseAgent):
             description = ""
         skill_path = output.get("skill_path")
         scripts = output.get("scripts")
-        from pathlib import Path
 
         skill_dir = Path(skill_path) if isinstance(skill_path, str) and skill_path else None
         script_map: dict[str, Path] = {}

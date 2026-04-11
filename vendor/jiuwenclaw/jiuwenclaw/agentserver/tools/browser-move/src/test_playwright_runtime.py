@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import re
 import sys
@@ -258,7 +259,7 @@ def main() -> int:
         env_info = _autoload_env()
         smoke_result = run_smoke_checks()
         smoke_result["dotenv"] = env_info
-        print(json.dumps(smoke_result, ensure_ascii=False, indent=2))
+        logging.info(json.dumps(smoke_result, ensure_ascii=False, indent=2))
 
         if not args.live:
             return 0
@@ -278,10 +279,10 @@ def main() -> int:
             live_result = asyncio.run(
                 run_live_check(query=args.query, session_id=args.session_id, cancel_after_s=args.cancel_after_s)
             )
-        print(json.dumps(live_result, ensure_ascii=False, indent=2))
+        logging.info(json.dumps(live_result, ensure_ascii=False, indent=2))
         return 0 if live_result.get("ok") else 2
     except Exception as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2))
+        logging.info(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2))
         return 1
 
 

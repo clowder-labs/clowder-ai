@@ -155,7 +155,7 @@ class OutputFacade:
     def emit_data(self, payload: Any) -> None:
         self._logger.info("result=%s", json.dumps(_serialize(payload), ensure_ascii=False))
         if self._human is not None:
-            print(json.dumps(payload, ensure_ascii=False, indent=2), flush=True)
+            self._logger.info(json.dumps(payload, ensure_ascii=False, indent=2))
             return
         if self._emit_headless("result", payload):
             return
@@ -1496,7 +1496,6 @@ async def _run_chat(
                 # Offload blocking stdin reads so background tasks/event pump keep running.
                 raw = await asyncio.to_thread(input, "dare> ")
             except (EOFError, KeyboardInterrupt):
-                print("", flush=True)
                 break
             raw = raw.strip()
             if not raw:

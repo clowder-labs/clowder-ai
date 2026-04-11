@@ -223,7 +223,7 @@ class ManagedBrowserDriver:
                 payload = json.loads(response.read().decode("utf-8", errors="ignore"))
                 if isinstance(payload, dict):
                     return bool(payload.get("webSocketDebuggerUrl") or payload.get("Browser"))
-        except (URLError, TimeoutError, OSError, ValueError):
+        except (OSError, ValueError):
             return False
         return False
 

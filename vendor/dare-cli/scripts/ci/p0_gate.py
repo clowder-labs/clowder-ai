@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
@@ -144,11 +145,11 @@ def main() -> int:
     for result in results:
         if result.passed or not result.raw_output:
             continue
-        print(f"== {result.spec.label} raw output ==", file=sys.stderr)
-        print(result.raw_output, file=sys.stderr)
+        logging.info(f"== {result.spec.label} raw output ==", file=sys.stderr)
+        logging.info(result.raw_output, file=sys.stderr)
 
     summary = format_summary(results)
-    print(summary)
+    logging.info(summary)
     _write_step_summary(summary)
     return 0 if all(result.passed for result in results) else 1
 

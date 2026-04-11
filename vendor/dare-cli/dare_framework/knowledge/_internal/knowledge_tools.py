@@ -34,6 +34,7 @@ class KnowledgeGetTool(ITool):
     """Tool: retrieve knowledge by query (IKnowledge.get)."""
 
     def __init__(self, knowledge: IKnowledge) -> None:
+        super().__init__()
         self._knowledge = knowledge
 
     @property
@@ -115,6 +116,7 @@ class KnowledgeAddTool(ITool):
     """Tool: add content to knowledge base (IKnowledge.add)."""
 
     def __init__(self, knowledge: IKnowledge) -> None:
+        super().__init__()
         self._knowledge = knowledge
 
     @property

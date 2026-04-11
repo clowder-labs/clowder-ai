@@ -15,6 +15,7 @@ No dependencies beyond the Python stdlib are required.
 import argparse
 import base64
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -303,7 +304,8 @@ def _kill_port(port: int) -> None:
     except subprocess.TimeoutExpired:
         pass
     except FileNotFoundError:
-        print("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
+        logging.info("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
+
 
 class ReviewHandler(BaseHTTPRequestHandler):
     """Serves the review HTML and handles feedback saves.
@@ -369,7 +371,7 @@ class ReviewHandler(BaseHTTPRequestHandler):
                 self.feedback_path.write_text(json.dumps(data, indent=2) + "\n")
                 resp = b'{"ok":true}'
                 self.send_response(200)
-            except (json.JSONDecodeError, OSError, ValueError) as e:
+            except (OSError, ValueError) as e:
                 resp = json.dumps({"error": str(e)}).encode()
                 self.send_response(500)
             self.send_header("Content-Type", "application/json")
@@ -405,12 +407,12 @@ def main() -> None:
 
     workspace = args.workspace.resolve()
     if not workspace.is_dir():
-        print(f"Error: {workspace} is not a directory", file=sys.stderr)
+        logging.info(f"Error: {workspace} is not a directory", file=sys.stderr)
         sys.exit(1)
 
     runs = find_runs(workspace)
     if not runs:
-        print(f"No runs found in {workspace}", file=sys.stderr)
+        logging.info(f"No runs found in {workspace}", file=sys.stderr)
         sys.exit(1)
 
     skill_name = args.skill_name or workspace.name.replace("-workspace", "")
@@ -432,7 +434,7 @@ def main() -> None:
         html = generate_html(runs, skill_name, previous, benchmark)
         args.static.parent.mkdir(parents=True, exist_ok=True)
         args.static.write_text(html)
-        print(f"\n  Static viewer written to: {args.static}\n")
+        logging.info(f"\n  Static viewer written to: {args.static}\n")
         sys.exit(0)
 
     # Kill any existing process on the target port
@@ -447,23 +449,23 @@ def main() -> None:
         port = server.server_address[1]
 
     url = f"http://localhost:{port}"
-    print(f"\n  Eval Viewer")
-    print(f"  ─────────────────────────────────")
-    print(f"  URL:       {url}")
-    print(f"  Workspace: {workspace}")
-    print(f"  Feedback:  {feedback_path}")
+    logging.info(f"\n  Eval Viewer")
+    logging.info(f"  ─────────────────────────────────")
+    logging.info(f"  URL:       {url}")
+    logging.info(f"  Workspace: {workspace}")
+    logging.info(f"  Feedback:  {feedback_path}")
     if previous:
-        print(f"  Previous:  {args.previous_workspace} ({len(previous)} runs)")
+        logging.info(f"  Previous:  {args.previous_workspace} ({len(previous)} runs)")
     if benchmark_path:
-        print(f"  Benchmark: {benchmark_path}")
-    print(f"\n  Press Ctrl+C to stop.\n")
+        logging.info(f"  Benchmark: {benchmark_path}")
+    logging.info(f"\n  Press Ctrl+C to stop.\n")
 
     webbrowser.open(url)
 
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nStopped.")
+        logging.info("\nStopped.")
         server.server_close()
 
 

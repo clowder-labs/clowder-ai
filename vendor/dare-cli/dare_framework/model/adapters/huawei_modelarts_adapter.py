@@ -30,6 +30,7 @@ class HuaweiModelArtsModelAdapter(IModelAdapter):
         http_client_options: dict[str, Any] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
+        super().__init__()
         self._name = name or "huawei-modelarts"
         self._api_key = api_key or os.getenv("HUAWEI_MODELARTS_API_KEY")
         self._model = model

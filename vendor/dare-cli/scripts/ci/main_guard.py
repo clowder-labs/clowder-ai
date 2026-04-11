@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import urllib.error
@@ -251,7 +252,7 @@ def main() -> int:
     _write_output("unlinked_commits", _comma_join(decision.unlinked_commits))
     _write_output("associated_pr_numbers", _int_join(decision.associated_pr_numbers))
 
-    print(json.dumps(asdict(decision), ensure_ascii=True))
+    logging.info(json.dumps(asdict(decision), ensure_ascii=True))
     return 0
 
 

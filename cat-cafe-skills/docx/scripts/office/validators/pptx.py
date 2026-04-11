@@ -1,7 +1,7 @@
 """
 Validator for PowerPoint presentation XML files against XSD schemas.
 """
-
+import logging
 import re
 
 from .base import BaseSchemaValidator
@@ -79,7 +79,8 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                                 if not uuid_pattern.match(value):
                                     errors.append(
                                         f"  {xml_file.relative_to(self.unpacked_dir)}: "
-                                        f"Line {elem.sourceline}: ID '{value}' appears to be a UUID but contains invalid hex characters"
+                                        f"Line {elem.sourceline}: ID '{value}' appears "
+                                        f"to be a UUID but contains invalid hex characters"
                                     )
 
             except (lxml.etree.XMLSyntaxError, Exception) as e:
@@ -88,13 +89,13 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                 )
 
         if errors:
-            print(f"FAILED - Found {len(errors)} UUID ID validation errors:")
+            logging.info(f"FAILED - Found {len(errors)} UUID ID validation errors:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - All UUID-like IDs contain valid hex values")
+                logging.info("PASSED - All UUID-like IDs contain valid hex values")
             return True
 
     def _looks_like_uuid(self, value):
@@ -110,7 +111,7 @@ class PPTXSchemaValidator(BaseSchemaValidator):
 
         if not slide_masters:
             if self.verbose:
-                print("PASSED - No slide masters found")
+                logging.info("PASSED - No slide masters found")
             return True
 
         for slide_master in slide_masters:
@@ -157,16 +158,16 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                 )
 
         if errors:
-            print(f"FAILED - Found {len(errors)} slide layout ID validation errors:")
+            logging.info(f"FAILED - Found {len(errors)} slide layout ID validation errors:")
             for error in errors:
-                print(error)
-            print(
+                logging.info(error)
+            logging.info(
                 "Remove invalid references or add missing slide layouts to the relationships file."
             )
             return False
         else:
             if self.verbose:
-                print("PASSED - All slide layout IDs reference valid slide layouts")
+                logging.info("PASSED - All slide layout IDs reference valid slide layouts")
             return True
 
     def validate_no_duplicate_slide_layouts(self):
@@ -198,13 +199,13 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                 )
 
         if errors:
-            print("FAILED - Found slides with duplicate slideLayout references:")
+            logging.info("FAILED - Found slides with duplicate slideLayout references:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - All slides have exactly one slideLayout reference")
+                logging.info("PASSED - All slides have exactly one slideLayout reference")
             return True
 
     def validate_notes_slide_references(self):
@@ -217,7 +218,7 @@ class PPTXSchemaValidator(BaseSchemaValidator):
 
         if not slide_rels_files:
             if self.verbose:
-                print("PASSED - No slide relationship files found")
+                logging.info("PASSED - No slide relationship files found")
             return True
 
         for rels_file in slide_rels_files:
@@ -258,16 +259,17 @@ class PPTXSchemaValidator(BaseSchemaValidator):
                     errors.append(f"    - {rels_file.relative_to(self.unpacked_dir)}")
 
         if errors:
-            print(
-                f"FAILED - Found {len([e for e in errors if not e.startswith('    ')])} notes slide reference validation errors:"
+            logging.info(
+                f"FAILED - Found {len([e for e in errors if not e.startswith('    ')])} notes "
+                f"slide reference validation errors:"
             )
             for error in errors:
-                print(error)
-            print("Each slide may optionally have its own slide file.")
+                logging.info(error)
+            logging.info("Each slide may optionally have its own slide file.")
             return False
         else:
             if self.verbose:
-                print("PASSED - All notes slide references are unique")
+                logging.info("PASSED - All notes slide references are unique")
             return True
 
 

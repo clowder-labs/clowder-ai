@@ -6,10 +6,11 @@ ENFORCES: Consolidation Rule - All credentials in ~/.openclaw/.env ONLY.
 Removes scattered .env files from workspace, skills, and scripts directories.
 See CONSOLIDATION-RULE.md for details.
 """
-
+import logging
 import argparse
 from pathlib import Path
 from typing import List
+
 
 def find_old_files() -> List[Path]:
     """Find old credential files (excluding the new .env)."""
@@ -27,70 +28,72 @@ def find_old_files() -> List[Path]:
     
     return old_files
 
+
 def cleanup(confirm: bool = False, keep_backups: bool = True, dry_run: bool = True):
     """Clean up old credential files."""
     old_files = find_old_files()
     
     if not old_files:
-        print("✅ No old credential files to clean up")
+        logging.info("✅ No old credential files to clean up")
         return {'status': 'no_files'}
     
-    print(f"\n📋 Found {len(old_files)} old credential file(s):\n")
+    logging.info(f"\n📋 Found {len(old_files)} old credential file(s):\n")
     for f in old_files:
-        print(f"   • {f}")
+        logging.info(f"   • {f}")
     
     if not confirm:
-        print(f"\n⚠️  DRY RUN - No files will be deleted")
-        print(f"   Run with --confirm to actually delete files")
+        logging.info(f"\n⚠️  DRY RUN - No files will be deleted")
+        logging.info(f"   Run with --confirm to actually delete files")
         return {'status': 'dry_run'}
     
     # Final confirmation
-    print(f"\n⚠️  WARNING: This will permanently delete {len(old_files)} file(s)")
+    logging.info(f"\n⚠️  WARNING: This will permanently delete {len(old_files)} file(s)")
     
     if keep_backups:
         backup_dir = Path.home() / '.openclaw' / 'backups'
         if backup_dir.exists():
             backups = list(backup_dir.glob('credentials-old-*'))
             if backups:
-                print(f"\n📦 Backups exist in: {backup_dir}")
+                logging.info(f"\n📦 Backups exist in: {backup_dir}")
                 for backup in backups:
-                    print(f"   • {backup.name}")
+                    logging.info(f"   • {backup.name}")
     
     response = input(f"\n   Type 'DELETE' to confirm: ")
     if response != 'DELETE':
-        print("   ❌ Cancelled")
+        logging.info("   ❌ Cancelled")
         return {'status': 'cancelled'}
     
     # Delete files
     deleted = []
     errors = []
     
-    print(f"\n🗑️  Deleting files...")
+    logging.info(f"\n🗑️  Deleting files...")
     for f in old_files:
         try:
             f.unlink()
             deleted.append(f)
-            print(f"   ✅ Deleted: {f}")
+            logging.info(f"   ✅ Deleted: {f}")
         except Exception as e:
             errors.append((f, str(e)))
-            print(f"   ❌ Error: {f} - {e}")
+            logging.info(f"   ❌ Error: {f} - {e}")
     
     # Summary
-    print(f"\n📊 Summary:")
-    print(f"   Deleted: {len(deleted)}")
+    logging.info(f"\n📊 Summary:")
+    logging.info(f"   Deleted: {len(deleted)}")
     if errors:
-        print(f"   Errors: {len(errors)}")
+        logging.info(f"   Errors: {len(errors)}")
     
     if deleted and keep_backups:
-        print(f"\n💡 Backups preserved in ~/.openclaw/backups/")
+        logging.info(f"\n💡 Backups preserved in ~/.openclaw/backups/")
     
-    print(f"\n{'✅' if not errors else '⚠️'} Cleanup {'complete' if not errors else 'finished with errors'}")
+    logging.info(f"\n{'✅' if not errors else '⚠️'} Cleanup {'complete' if not errors else 'finished with errors'}")
     
     return {
         'status': 'success' if not errors else 'partial',
         'deleted': len(deleted),
         'errors': len(errors)
     }
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -106,7 +109,7 @@ def main():
     args = parser.parse_args()
     
     if args.force and not args.confirm:
-        print("❌ --force requires --confirm")
+        logging.info("❌ --force requires --confirm")
         return 1
     
     result = cleanup(args.confirm, args.keep_backups, not args.confirm)
