@@ -18,6 +18,8 @@ import type { SkillHubInstallRequest, SkillHubInstallResult } from '@cat-cafe/sh
 import { parseSkillFrontmatter } from './frontmatter-parser.js';
 import { addInstalledSkill, loadInstalledRegistry, removeInstalledSkill } from './InstalledSkillRegistry.js';
 import { resolveOfficialSkillPath, resolveUserSkillsRoot } from './SkillPaths.js';
+
+const SKILLHUB_BASE_URL = process.env.SKILLHUB_BASE_URL!;
 import { fetchSkillAllFiles } from './SkillHubService.js';
 import { createProviderSymlinks, removeProviderSymlinks } from './SymlinkManager.js';
 
@@ -114,7 +116,7 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
   await addInstalledSkill(catCafeRoot, {
     name: localName,
     source: 'skillhub',
-    skillhubUrl: `https://skillhub.tencent.com/skills/${encodeURIComponent(req.skill)}`,
+    skillhubUrl: SKILLHUB_BASE_URL + '/skills/' + encodeURIComponent(req.skill),
     owner: req.owner,
     repo: req.repo,
     remoteSkillName: req.skill,

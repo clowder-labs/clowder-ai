@@ -12,8 +12,10 @@ export interface WarnLoggerLike {
   warn: (...args: unknown[]) => void;
 }
 
-const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3003';
-const DEFAULT_CORS_ORIGINS = ['http://localhost:3000', 'http://localhost:3003', 'https://cafe.clowder-ai.com'];
+const PROD_CORS_ORIGIN = process.env.PROD_CORS_ORIGIN!;
+const DEFAULT_FRONTEND_BASE_URL = process.env.DEFAULT_FRONTEND_BASE_URL!;
+const DEFAULT_FRONTEND_BASE_URL_ANOTHER = process.env.DEFAULT_FRONTEND_BASE_URL_ANOTHER!;
+const DEFAULT_CORS_ORIGINS = [DEFAULT_FRONTEND_BASE_URL_ANOTHER, DEFAULT_FRONTEND_BASE_URL, PROD_CORS_ORIGIN];
 
 /**
  * Match origins from private networks (RFC 1918 + Tailscale CGNAT 100.64/10 + loopback).
