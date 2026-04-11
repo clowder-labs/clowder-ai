@@ -324,7 +324,7 @@ async def _fetch_webpage_async(
                                 jina_result = await jina_task
                                 if jina_result and jina_result.get("content"):
                                     return jina_result
-                        except (asyncio.TimeoutError, Exception):
+                        except asyncio.TimeoutError:
                             pass
 
                         return direct_result

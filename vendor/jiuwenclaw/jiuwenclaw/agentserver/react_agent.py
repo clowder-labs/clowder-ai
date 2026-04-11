@@ -1417,7 +1417,7 @@ class JiuClawReActAgent(ReActAgent):
         if not self._current_session_id:
             return {"state": "no_session"}
         try:
-            from jiuwenclaw.agentserver.tools.todo_toolkits import TodoToolkit, TaskStatus
+            from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus
             toolkit = TodoToolkit(session_id=self._current_session_id)
             tasks = toolkit._load_tasks()
         except Exception:
