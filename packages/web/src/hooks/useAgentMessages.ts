@@ -118,6 +118,8 @@ export function useAgentMessages() {
   const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
   /** Track callback-replaced invocations so delayed stream chunks do not recreate ghost bubbles. */
   const replacedInvocationsRef = useRef<Map<string, string>>(new Map());
+  /** Suppress late stream fragments after a terminal error until a new invocation starts. */
+  const terminalStreamSuppressionRef = useRef<Map<string, string | null>>(new Map());
 
   /** #586 follow-up: Track just-finalized stream bubble per cat. Set on done when
    *  activeRefs entry existed, consumed by callback replacement or next invocation start.
@@ -433,6 +435,39 @@ export function useAgentMessages() {
     [getCurrentInvocationIdForCat],
   );
 
+  const clearTerminalStreamSuppression = useCallback((catId: string, nextInvocationId?: string) => {
+    const suppressedInvocationId = terminalStreamSuppressionRef.current.get(catId);
+    if (suppressedInvocationId === undefined) return;
+    if (nextInvocationId && suppressedInvocationId === nextInvocationId) return;
+    terminalStreamSuppressionRef.current.delete(catId);
+  }, []);
+
+  const shouldSuppressLateTerminalStreamEvent = useCallback(
+    (catId: string, invocationId?: string): boolean => {
+      const suppressedInvocationId = terminalStreamSuppressionRef.current.get(catId);
+      if (suppressedInvocationId === undefined) return false;
+
+      const currentInvocationId = invocationId ?? getCurrentInvocationIdForCat(catId) ?? null;
+      if (currentInvocationId && suppressedInvocationId !== currentInvocationId) {
+        terminalStreamSuppressionRef.current.delete(catId);
+        return false;
+      }
+
+      recordDebugEvent({
+        event: 'bubble_lifecycle',
+        threadId: useChatStore.getState().currentThreadId,
+        timestamp: Date.now(),
+        action: 'drop',
+        reason: 'late_stream_after_terminal_error',
+        catId,
+        invocationId: suppressedInvocationId ?? undefined,
+        origin: 'stream',
+      });
+      return true;
+    },
+    [getCurrentInvocationIdForCat],
+  );
+
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
       const currentThreadId = useChatStore.getState().currentThreadId;
@@ -462,7 +497,11 @@ export function useAgentMessages() {
       }
 
       if (msg.type === 'text' && msg.content) {
-        if (msg.origin !== 'callback' && shouldSuppressLateStreamChunk(msg.catId, msg.invocationId)) {
+        if (
+          msg.origin !== 'callback' &&
+          (shouldSuppressLateStreamChunk(msg.catId, msg.invocationId) ||
+            shouldSuppressLateTerminalStreamEvent(msg.catId, msg.invocationId))
+        ) {
           return;
         }
         setCatStatus(msg.catId, 'streaming');
@@ -576,6 +615,9 @@ export function useAgentMessages() {
           }
         }
       } else if (msg.type === 'tool_use') {
+        if (msg.origin !== 'callback' && shouldSuppressLateTerminalStreamEvent(msg.catId, msg.invocationId)) {
+          return;
+        }
         setCatStatus(msg.catId, 'streaming');
         sawStreamDataRef.current.add(msg.catId);
         const toolName = msg.toolName ?? 'unknown';
@@ -614,6 +656,9 @@ export function useAgentMessages() {
           });
         }
       } else if (msg.type === 'tool_result') {
+        if (msg.origin !== 'callback' && shouldSuppressLateTerminalStreamEvent(msg.catId, msg.invocationId)) {
+          return;
+        }
         setCatStatus(msg.catId, 'streaming');
         const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
@@ -627,6 +672,7 @@ export function useAgentMessages() {
         });
       } else if (msg.type === 'done') {
         setCatStatus(msg.catId, 'done');
+        const suppressedAfterTerminalError = terminalStreamSuppressionRef.current.has(msg.catId);
         const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
         if (currentProgress?.tasks?.length) {
           setCatInvocation(msg.catId, {
@@ -707,7 +753,7 @@ export function useAgentMessages() {
           // so the user sees the response without needing F5.
           // P2: Only trigger if stream data was actually received (avoids false
           // catch-up on callback-only flows where addMessage handles delivery).
-          if (!messageId && sawStreamDataRef.current.has(msg.catId)) {
+          if (!messageId && sawStreamDataRef.current.has(msg.catId) && !suppressedAfterTerminalError) {
             const tid = useChatStore.getState().currentThreadId;
             console.warn('[stream-catchup] done(isFinal) with no active bubble — requesting catch-up', {
               catId: msg.catId,
@@ -741,6 +787,13 @@ export function useAgentMessages() {
         try {
           const parsed = parseSystemInfoContent(sysContent);
           if (!parsed) throw new Error('not parseable system_info');
+          if (parsed?.type === 'invocation_created') {
+            const targetCatId = parsed.catId ?? msg.catId;
+            const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+            clearTerminalStreamSuppression(targetCatId, invocationId);
+          } else if (msg.origin !== 'callback' && shouldSuppressLateTerminalStreamEvent(msg.catId, msg.invocationId)) {
+            return;
+          }
           if (parsed?.type === 'a2a_followup_available') {
             const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
@@ -1014,6 +1067,9 @@ export function useAgentMessages() {
             sysContent = `${parsed.catId} 的会话 #${parsed.sessionSeq} 已封存（上下文 ${pct}%），下次调用将自动创建新会话`;
           }
         } catch {
+          if (msg.origin !== 'callback' && shouldSuppressLateTerminalStreamEvent(msg.catId, msg.invocationId)) {
+            return;
+          }
           /* not JSON, use raw content */
         }
         if (!consumed) {
@@ -1027,6 +1083,7 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
+        terminalStreamSuppressionRef.current.set(msg.catId, msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId) ?? null);
         const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
         if (currentProgress?.tasks?.length) {
           setCatInvocation(msg.catId, {
@@ -1149,8 +1206,10 @@ export function useAgentMessages() {
       getCurrentInvocationStateForCat,
       getOrRecoverActiveAssistantMessageId,
       ensureActiveAssistantMessage,
+      clearTerminalStreamSuppression,
       recordLateBindBubbleCreate,
       shouldSuppressLateStreamChunk,
+      shouldSuppressLateTerminalStreamEvent,
       setHasActiveInvocation,
       setMessageUsage,
       requestStreamCatchUp,
@@ -1206,6 +1265,7 @@ export function useAgentMessages() {
       for (const [invId] of Object.entries(activeInvocations)) {
         cancelledInvocationsRef.current.add(invId);
       }
+      terminalStreamSuppressionRef.current.clear();
     },
     [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout, setCatInvocation],
   );
@@ -1215,6 +1275,7 @@ export function useAgentMessages() {
     replacedInvocationsRef.current.clear();
     finalizedStreamRef.current.clear();
     sawStreamDataRef.current.clear();
+    terminalStreamSuppressionRef.current.clear();
     pendingTimeoutDiagRef.current.clear();
     cancelledInvocationsRef.current.clear();
     a2aGroupRef.current = null;

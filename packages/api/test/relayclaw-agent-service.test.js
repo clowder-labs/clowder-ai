@@ -863,6 +863,57 @@ describe('RelayClawAgentService', () => {
     assert.match(messages[1].error, /connection closed unexpectedly/i);
   });
 
+  it('suppresses raw transport error text streamed as chat.delta', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.delta',
+              content: '[错误]jiuwen WebSocket connection closed unexpectedly',
+            },
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.error',
+              error: 'jiuwen WebSocket connection closed unexpectedly',
+              is_complete: true,
+            },
+            is_complete: true,
+          });
+          queue.abort();
+        }),
+      },
+    );
+
+    const messages = [];
+    for await (const msg of service.invoke('This will close')) {
+      messages.push(msg);
+    }
+
+    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
+    assert.equal(messages.some((msg) => msg.type === 'text'), false);
+  });
+
+  it('detects raw transport error text variants for suppression', () => {
+    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('[错误]jiuwen WebSocket connection closed unexpectedly'), true);
+    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('jiuwen WebSocket connection closed unexpectedly'), true);
+    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('normal model output'), false);
+  });
+
   it('reuses provided cliSessionId for relayclaw requests', async () => {
     let capturedRequest = null;
     const service = new RelayClawAgentService(
