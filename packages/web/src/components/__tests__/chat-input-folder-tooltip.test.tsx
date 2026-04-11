@@ -79,7 +79,7 @@ describe('ChatInput folder tooltip', () => {
     expect(tooltip?.querySelector('[data-testid="overflow-tooltip-arrow"]')).not.toBeNull();
   });
 
-  it('shows the unified overflow tooltip for the attach images button', async () => {
+  it('shows a non-copyable tooltip for the attach file button', async () => {
     await act(async () => {
       root.render(
         React.createElement(ChatInput, {
@@ -88,7 +88,7 @@ describe('ChatInput folder tooltip', () => {
       );
     });
 
-    const button = container.querySelector('button[aria-label="Attach images"]') as HTMLButtonElement | null;
+    const button = container.querySelector('[data-testid="attach-file-button"]') as HTMLButtonElement | null;
     expect(button).not.toBeNull();
 
     await act(async () => {
@@ -97,8 +97,7 @@ describe('ChatInput folder tooltip', () => {
     });
 
     const tooltip = document.body.querySelector('[role="tooltip"]') as HTMLDivElement | null;
-    expect(tooltip).not.toBeNull();
     expect(tooltip?.textContent).toContain('上传文件');
-    expect(tooltip?.querySelector('[data-testid="overflow-tooltip-arrow"]')).not.toBeNull();
+    expect(tooltip?.querySelector('button')).toBeNull();
   });
 });

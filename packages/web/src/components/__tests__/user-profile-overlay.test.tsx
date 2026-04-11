@@ -6,6 +6,7 @@
 
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserProfile } from '../UserProfile';
 
@@ -72,6 +73,17 @@ describe('UserProfile overlay classes', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
   }
+
+  it('renders a stable fallback name on the server before browser user state loads', async () => {
+    expect(renderToString(React.createElement(UserProfile))).toContain('未登录');
+
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    expect(container.textContent).toContain('Alice');
+  });
 
   it('opens the theme popover on click instead of hover', async () => {
     act(() => {

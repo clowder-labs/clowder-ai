@@ -196,7 +196,7 @@ export function UserProfile({ className }: UserProfileProps) {
         </div>
 
         <svg
-          className={`h-4 w-4 shrink-0 text-[#191919] transition-transform ${showPanel ? 'rotate-90' : ''}`}
+          className="h-4 w-4 shrink-0 text-[#191919] transition-transform"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -208,7 +208,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showPanel && (
         <div
-          className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 mb-2 rounded-[var(--radius-lg)]"
+          className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 -mb-[4px] rounded-[var(--radius-lg)]"
           data-testid="user-profile-panel"
           ref={profilePanelRef}
         >
@@ -219,7 +219,7 @@ export function UserProfile({ className }: UserProfileProps) {
                   <span className="text-base font-bold text-[#191919]">{avatarLetter}</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-base font-normal text-gray-900" title={userName}>
+                  <div className="truncate text-[16px] font-normal text-gray-900" title={userName}>
                     {userName}
                   </div>
                 </div>
@@ -274,7 +274,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 <button
                   onClick={handleLogout}
                   disabled={isLoading}
-                  className="ui-button-default mt-4 h-7 w-full text-sm"
+                  className="ui-button-default mt-4 h-7 w-full text-[12px]"
                 >
                   {isLoading ? '退出中...' : '退出登录'}
                 </button>
