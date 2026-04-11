@@ -345,8 +345,7 @@ Before outputting your final text reply, **you must silently execute this tool c
 
 def _tool_prompt(mode, language: str) -> str:
     if language == "zh":
-        if mode == "plan":
-            todo_prompt = """### 任务记录与追踪 （一切用户要求必须追踪）
+        todo_prompt = """### 任务记录与追踪 （一切用户要求必须追踪）
 
 | 工具名称 | 功能说明 |
 |---------|---------|
@@ -356,8 +355,6 @@ def _tool_prompt(mode, language: str) -> str:
 | `todo_remove` | 移除任务 |
 | `todo_list` | 查看所有任务 |
 """
-        else:
-            todo_prompt = ""
 
         return f"""## 工具
 
@@ -425,8 +422,7 @@ def _tool_prompt(mode, language: str) -> str:
 
 """
     else:
-        if mode == "plan":
-            todo_prompt = """### Task Recording & Tracking (All user requests must be tracked)
+        todo_prompt = """### Task Recording & Tracking (All user requests must be tracked)
 
 | Tool Name | Description |
 |-----------|-------------|
@@ -436,8 +432,6 @@ def _tool_prompt(mode, language: str) -> str:
 | `todo_remove` | Remove a task |
 | `todo_list` | View all tasks |
 """
-        else:
-            todo_prompt = ""
 
         return f"""# Tools
 
@@ -505,16 +499,40 @@ Tools are built-in methods.
 """
 
 
+def _read_skill_description(skill_dir: Path) -> str:
+    """Read description from SKILL.md YAML frontmatter."""
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return ""
+    try:
+        content = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    if not content.startswith("---"):
+        return ""
+    end = content.find("---", 3)
+    if end < 0:
+        return ""
+    for line in content[3:end].split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("description:"):
+            return stripped.split(":", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
 def _skills_prompt(language: str) -> str:
     disabled_names = get_disabled_agent_skill_names()
     seen_names: set[str] = set()
-    skills: list[str] = []
+    skill_entries: list[str] = []
+    dir_info: list[str] = []
     for base_dir in _prompt_skill_dirs():
         if not base_dir.exists():
             continue
         try:
             children = sorted(base_dir.iterdir(), key=lambda item: item.name)
+            dir_info.append(f"- `{base_dir}`: {len(children)} skills")
         except Exception:
+            dir_info.append(f"- `{base_dir}`: (failed to read)")
             continue
         for child in children:
             if not child.is_dir() or child.name.startswith("_"):
@@ -524,29 +542,61 @@ def _skills_prompt(language: str) -> str:
             if not (child / "SKILL.md").is_file():
                 continue
             seen_names.add(child.name)
-            skills.append(child.name)
+            desc = _read_skill_description(child)
+            if desc:
+                skill_entries.append(f"- **{child.name}**: {desc}")
+            else:
+                skill_entries.append(f"- **{child.name}**")
 
-    skills_str = "\n".join(skills) if skills else "（无）" if language == "zh" else "(none)"
-    skill_dirs = ", ".join(str(path) for path in _prompt_skill_dirs())
+    dirs_str = "\n".join(dir_info)
+    skills_str = "\n".join(skill_entries) if skill_entries else "（无）" if language == "zh" else "(none)"
     if language == "zh":
         return f"""## 技能
 
-当前可访问的技能目录：`{skill_dirs}`。
-查看技能说明时，只从这些目录中读取对应技能的 `SKILL.md`。
-不要尝试读取当前工作区之外的 skill 源码目录。
+你配备了一组技能，每个技能包含详细的工作流程。**在执行任何与技能相关的任务之前，必须先使用 view_file 工具阅读对应技能的 SKILL.md 文档，并严格按照其中定义的工作流程执行。**
+
+技能存放在以下目录下：
+{dirs_str}
 
 当前可用技能：
 {skills_str}
+
+### 技能执行规范（强制）
+
+1. **声明步骤**：每次行动前，必须在回复开头声明当前所在步骤，格式：`[当前步骤: <步骤名称>]`
+2. **创建步骤级 todo**：读完 SKILL.md 后，立即调用 todo_create 为文档中定义的每个步骤创建一个 todo 项，作为执行路线图
+3. **严格顺序**：按 SKILL.md 定义的顺序逐步执行，**禁止跳过、合并或重排步骤**
+4. **原子级拆分**：开始执行某个步骤前，先用 todo_insert 将该步骤拆解为原子级子任务——每个 todo 项应对应单一、可独立验证的操作，不可再拆才算合格。如果步骤包含循环（如逐项处理），每轮循环的每个动作都应是独立 todo。禁止创建笼统的聚合型 todo
+5. **逐项完成**：严格按 todo 列表顺序执行，每完成一项立即标记完成。**所有子任务 todo 完成后才能标记该步骤 todo 为完成**
+6. **闸门等待**：遇到需要用户确认/审批的步骤时，**必须等待用户回复，禁止自行假设用户同意**
+7. **不确定时重读**：如果不确定当前进度或下一步要求，立即使用 view_file 重新阅读 SKILL.md
+8. **内容忠实**：SKILL.md 是规格说明，不是参考建议。其中定义的选项列表、参数值、标签文本、推荐标记等必须**原样使用**，禁止自行添加、删除、修改或重新措辞
+9. **错误处理**：执行子任务出错时，**禁止自行决定跳过该任务或后续步骤**。必须先尝试修复（如安装缺失依赖、修正参数），修复失败则询问用户如何处理，等待用户指示后再继续
+10. **工具降级**：SKILL.md 中提到的工具如果在当前环境中不存在，必须先告知用户该工具不可用并说明你打算如何替代，获得用户同意后再继续。不要花时间反复检查工具列表
 """
     else:
         return f"""## Skills
 
-Currently accessible skill directories: `{skill_dirs}`.
-When you need to read a skill description, open that skill's `SKILL.md` only from these directories.
-Do not attempt to read skill directories outside the current workspace.
+You are equipped with a set of skills that include detailed workflows. **Before attempting any task related to a skill, you MUST first read the relevant skill document (SKILL.md) using view_file and strictly follow its workflow.**
+
+Skills live under the following directories:
+{dirs_str}
 
 Available skills:
 {skills_str}
+
+### Skill Execution Protocol (Mandatory)
+
+1. **Declare step**: Before each action, state your current step at the start of your reply: `[Current Step: <step name>]`
+2. **Create step-level todos**: After reading SKILL.md, immediately call todo_create with one todo item per step defined in the document as your execution roadmap.
+3. **Strict order**: Execute steps in the exact order defined in SKILL.md. **Never skip, merge, or reorder steps.**
+4. **Atomic breakdown**: Before starting a step, use todo_insert to break it into atomic sub-tasks — each todo item should correspond to a single, independently verifiable action that cannot be broken down further. If a step contains a loop (e.g. process items one by one), each action in each iteration must be a separate todo. Never create vague, aggregated todos.
+5. **Complete sequentially**: Execute todo items in order, marking each done immediately upon completion. **All sub-task todos must be completed before marking the step todo as done.**
+6. **Gate enforcement**: When a step requires user confirmation/approval, **you MUST wait for the user's response. Never assume approval.**
+7. **Re-read when unsure**: If uncertain about progress or next requirements, immediately re-read SKILL.md using view_file.
+8. **Content fidelity**: SKILL.md is a specification, not a suggestion. Option lists, parameter values, label text, and recommendation markers defined therein must be used **verbatim** — never add, remove, modify, or rephrase them.
+9. **Error handling**: When a sub-task fails, **never decide on your own to skip it or subsequent steps**. First attempt to fix the issue (e.g. install missing dependencies, correct parameters). If the fix fails, ask the user how to proceed and wait for their instructions.
+10. **Tool fallback**: If a tool mentioned in SKILL.md does not exist in your current environment, you MUST first inform the user that the tool is unavailable and explain how you plan to substitute it. Only proceed after the user agrees. Do not spend time repeatedly checking the tool list.
 """
 
 
@@ -901,8 +951,7 @@ def build_system_prompt(mode: str, language: str, channel: str, workspace_dir: P
         system_prompt += _memory_prompt(language, is_cron=False) + '\n'
 
     system_prompt += """\n---\n\n"""
-    if mode == "plan":
-        system_prompt += _todo_prompt(language) + '\n'
+    system_prompt += _todo_prompt(language) + '\n'
 
     system_prompt += """---
 
