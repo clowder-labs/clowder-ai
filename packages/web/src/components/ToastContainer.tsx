@@ -37,7 +37,7 @@ function ToastCard({ toast }: { toast: ToastItem }) {
       className={`
         ${toneClass} box-border text-black rounded-[8px] border
         shadow-[-2px_0px_12px_0px_rgba(0,0,0,0.16)]
-        px-4 py-2 max-w-xs pointer-events-auto
+        px-4 py-2 max-w-lg pointer-events-auto
         ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}
       `}
       role="alert"
@@ -54,7 +54,7 @@ function ToastCard({ toast }: { toast: ToastItem }) {
         ) : null}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-black">{toast.title}</p>
-          <p className="mt-0.5 line-clamp-2 text-xs text-black/80">{toast.message}</p>
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-black/80">{toast.message}</p>
         </div>
         <button
           onClick={dismiss}
