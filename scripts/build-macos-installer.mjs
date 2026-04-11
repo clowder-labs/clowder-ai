@@ -65,19 +65,24 @@ const MACOS_MANAGED_TOP_LEVEL_PATHS = [
 
 const EXCLUDED_TOP_LEVEL_SEGMENTS = new Set(['.git', 'node_modules']);
 const EXCLUDED_EXACT_PATHS = new Set([
-  '.env', 'data', 'logs', 'dist',
-  'packages/api/dist', 'packages/mcp-server/dist', 'packages/web/.next',
+  '.env',
+  'data',
+  'logs',
+  'dist',
+  'packages/api/dist',
+  'packages/mcp-server/dist',
+  'packages/web/.next',
 ]);
 const EXCLUDED_PREFIXES = [
-  'data/', 'logs/', 'dist/',
-  'packages/api/dist/', 'packages/mcp-server/dist/', 'packages/web/.next/',
+  'data/',
+  'logs/',
+  'dist/',
+  'packages/api/dist/',
+  'packages/mcp-server/dist/',
+  'packages/web/.next/',
 ];
 
-const RUNTIME_SCRIPT_FILES = [
-  'install-auth-config.mjs',
-  'start-entry.mjs',
-  'start-macos.sh',
-];
+const RUNTIME_SCRIPT_FILES = ['install-auth-config.mjs', 'start-entry.mjs', 'start-macos.sh'];
 
 const MACOS_ARCH = process.arch === 'arm64' ? 'arm64' : 'x64';
 const NODE_PLATFORM_SUFFIX = MACOS_ARCH === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
@@ -85,8 +90,13 @@ const NODE_PLATFORM_SUFFIX = MACOS_ARCH === 'arm64' ? 'darwin-arm64' : 'darwin-x
 const PYTHON_EMBED_VERSION = '3.13.4';
 
 const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
-  'better-sqlite3', 'node-pty', 'pino', 'pino-roll',
-  'puppeteer', 'sharp', 'sqlite-vec',
+  'better-sqlite3',
+  'node-pty',
+  'pino',
+  'pino-roll',
+  'puppeteer',
+  'sharp',
+  'sqlite-vec',
 ];
 const WEB_RUNTIME_DEPENDENCIES = ['next', 'react', 'react-dom', 'sharp'];
 
@@ -242,7 +252,10 @@ function walkFiles(rootDir, visitor) {
     const current = stack.pop();
     for (const entry of readdirSync(current, { withFileTypes: true })) {
       const fullPath = join(current, entry.name);
-      if (entry.isDirectory()) { stack.push(fullPath); continue; }
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+        continue;
+      }
       visitor(fullPath, entry);
     }
   }
@@ -274,17 +287,32 @@ function removePaths(rootDir, relativePaths) {
 
 function pruneRuntimePackage(targetDir, options = {}) {
   removePaths(targetDir, options.removePaths ?? []);
-  removeNamedDirectoriesRecursive(targetDir, [
-    'test', 'tests', '__tests__', 'example', 'examples', 'doc', 'docs',
-  ]);
+  removeNamedDirectoriesRecursive(targetDir, ['test', 'tests', '__tests__', 'example', 'examples', 'doc', 'docs']);
   walkFiles(targetDir, (fullPath, entry) => {
     const name = entry.name;
-    if (name === 'package-lock.json' || name === '.package-lock.json') { rmSync(fullPath, { force: true }); return; }
-    if (name.endsWith('.d.ts') || name.endsWith('.d.ts.map') || name.endsWith('.map')) { rmSync(fullPath, { force: true }); return; }
-    if (name.endsWith('.ts') || name.endsWith('.cts') || name.endsWith('.mts')) { rmSync(fullPath, { force: true }); return; }
-    if (name.endsWith('.md') || name.endsWith('.yml') || name.endsWith('.yaml')) { rmSync(fullPath, { force: true }); return; }
-    if (/^(README|CHANGELOG|CONTRIBUTING)(\..+)?$/i.test(name)) { rmSync(fullPath, { force: true }); return; }
-    if (/^\.(eslintrc|prettierrc|editorconfig|babelrc)/i.test(name)) { rmSync(fullPath, { force: true }); }
+    if (name === 'package-lock.json' || name === '.package-lock.json') {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (name.endsWith('.d.ts') || name.endsWith('.d.ts.map') || name.endsWith('.map')) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (name.endsWith('.ts') || name.endsWith('.cts') || name.endsWith('.mts')) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (name.endsWith('.md') || name.endsWith('.yml') || name.endsWith('.yaml')) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (/^(README|CHANGELOG|CONTRIBUTING)(\..+)?$/i.test(name)) {
+      rmSync(fullPath, { force: true });
+      return;
+    }
+    if (/^\.(eslintrc|prettierrc|editorconfig|babelrc)/i.test(name)) {
+      rmSync(fullPath, { force: true });
+    }
   });
 }
 
@@ -295,7 +323,11 @@ function pruneNativePrebuilds(rootDir) {
   while (stack.length > 0) {
     const current = stack.pop();
     let entries;
-    try { entries = readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const fullPath = join(current, entry.name);
@@ -332,15 +364,33 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
-      case '--bundle-only': options.bundleOnly = true; break;
-      case '--skip-build': options.skipBuild = true; break;
-      case '--skip-python': options.skipPython = true; break;
-      case '--skip-launcher': options.skipLauncher = true; break;
-      case '--launcher-only': options.launcherOnly = true; break;
-      case '--dmg-only': options.dmgOnly = true; break;
-      case '--output-dir': options.outputDir = resolve(argv[++i]); break;
-      case '--cache-dir': options.cacheDir = resolve(argv[++i]); break;
-      case '--node-version': options.nodeVersion = argv[++i]; break;
+      case '--bundle-only':
+        options.bundleOnly = true;
+        break;
+      case '--skip-build':
+        options.skipBuild = true;
+        break;
+      case '--skip-python':
+        options.skipPython = true;
+        break;
+      case '--skip-launcher':
+        options.skipLauncher = true;
+        break;
+      case '--launcher-only':
+        options.launcherOnly = true;
+        break;
+      case '--dmg-only':
+        options.dmgOnly = true;
+        break;
+      case '--output-dir':
+        options.outputDir = resolve(argv[++i]);
+        break;
+      case '--cache-dir':
+        options.cacheDir = resolve(argv[++i]);
+        break;
+      case '--node-version':
+        options.nodeVersion = argv[++i];
+        break;
     }
   }
 
@@ -358,8 +408,13 @@ function parseArgs(argv) {
 
 function copyTopLevelProject(bundleDir) {
   const entries = [
-    'cat-cafe-skills', 'LICENSE', '.env.example',
-    'cat-template.json', 'modelarts-preset.json', 'pnpm-workspace.yaml',
+    'cat-cafe-skills',
+    'LICENSE',
+    '.env.example',
+    '.inner.env',
+    'cat-template.json',
+    'modelarts-preset.json',
+    'pnpm-workspace.yaml',
   ];
   for (const entry of entries) {
     const source = join(repoRoot, entry);
@@ -392,8 +447,17 @@ function stageInstallerSeed(bundleDir) {
 
 function stageVendorPythonSources(bundleDir) {
   const excludeDirs = new Set([
-    'dist', '.venv', '.build-venv', '__pycache__', 'tests', 'test',
-    '.git', 'node_modules', 'build', '.mypy_cache', '.pytest_cache',
+    'dist',
+    '.venv',
+    '.build-venv',
+    '__pycache__',
+    'tests',
+    'test',
+    '.git',
+    'node_modules',
+    'build',
+    '.mypy_cache',
+    '.pytest_cache',
   ]);
   const excludeFiles = new Set(['uv.lock']);
 
@@ -486,7 +550,10 @@ async function stageBundledApiRuntime(targetRootDir) {
 
   run(esbuild, [
     join(repoRoot, 'packages', 'api', 'src', 'index.ts'),
-    '--bundle', '--platform=node', '--target=node20', '--format=esm',
+    '--bundle',
+    '--platform=node',
+    '--target=node20',
+    '--format=esm',
     `--outfile=${join(distDir, 'index.js')}`,
     `--banner:js=${banner}`,
     '--sourcemap=external',
@@ -532,12 +599,17 @@ function stageStandaloneWebRuntime(targetRootDir) {
   const runtimeDeps = {};
   for (const dep of WEB_RUNTIME_DEPENDENCIES) {
     const ver = webPkg.dependencies?.[dep];
-    if (ver) { runtimeDeps[dep] = ver; continue; }
+    if (ver) {
+      runtimeDeps[dep] = ver;
+      continue;
+    }
     // Fall back to installed version in standalone node_modules
     try {
       const installed = readJson(join(WEB_STANDALONE_NODE_MODULES_DIR, dep, 'package.json'));
       runtimeDeps[dep] = installed.version;
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
   writeJson(join(targetDir, 'package.json'), {
     name: webPkg.name,
@@ -564,7 +636,8 @@ async function stageWorkspacePackages(targetRootDir) {
 // ─── Node.js ────────────────────────────────────────────────────────
 
 async function stageMacosNode(bundleDir, options) {
-  const nodeUrl = options.nodeUrl ??
+  const nodeUrl =
+    options.nodeUrl ??
     `https://nodejs.org/dist/${options.nodeVersion}/node-${options.nodeVersion}-${NODE_PLATFORM_SUFFIX}.tar.gz`;
   const archiveName = basename(new URL(nodeUrl).pathname);
   const archivePath = join(options.cacheDir, archiveName);
@@ -717,7 +790,8 @@ async function stageMacosPython(bundleDir, options) {
     const pipExe = join(targetDir, 'bin', 'pip3');
     if (existsSync(pipExe)) {
       const upgradeResult = spawnSync(pipExe, ['install', '-q', '--upgrade', 'pip', 'setuptools', 'wheel'], {
-        stdio: 'inherit', cwd: repoRoot,
+        stdio: 'inherit',
+        cwd: repoRoot,
       });
       if (upgradeResult.status !== 0) {
         console.warn('  ⚠ pip upgrade failed, continuing with existing version');
@@ -747,15 +821,26 @@ function installSharedPythonDeps(bundleDir) {
 
   // DARE dependencies
   const dareDeps = [
-    'anthropic', 'langchain-openai', 'langchain-core',
-    'httpx>=0.27.0', 'starlette>=0.37.0', 'uvicorn>=0.30.0', 'chromadb>=0.4.0',
+    'anthropic',
+    'langchain-openai',
+    'langchain-core',
+    'httpx>=0.27.0',
+    'starlette>=0.37.0',
+    'uvicorn>=0.30.0',
+    'chromadb>=0.4.0',
   ];
   tryPipInstall(pipExe, [...pipArgs, ...dareDeps], 'DARE deps');
 
   // JiuwenClaw core runtime deps (openjiuwen may not be on PyPI — non-fatal)
   const jiuwenCoreDeps = [
-    'psutil>=7.0', 'loguru>=0.7', 'ruamel.yaml>=0.18', 'python-dotenv>=1.0',
-    'websockets>=12.0', 'aiosqlite>=0.22', 'croniter>=2.0', 'mutagen>=1.47',
+    'psutil>=7.0',
+    'loguru>=0.7',
+    'ruamel.yaml>=0.18',
+    'python-dotenv>=1.0',
+    'websockets>=12.0',
+    'aiosqlite>=0.22',
+    'croniter>=2.0',
+    'mutagen>=1.47',
     'greenlet>=3.0',
   ];
   tryPipInstall(pipExe, [...pipArgs, ...jiuwenCoreDeps], 'JiuwenClaw core deps');
@@ -763,10 +848,7 @@ function installSharedPythonDeps(bundleDir) {
   tryPipInstall(pipExe, [...pipArgs, '--no-deps', join(repoRoot, 'vendor', 'jiuwenclaw')], 'JiuwenClaw package');
 
   // Office automation
-  const officeDeps = [
-    'python-pptx', 'openpyxl', 'python-docx', 'xlsxwriter',
-    'pypdf', 'reportlab', 'markitdown',
-  ];
+  const officeDeps = ['python-pptx', 'openpyxl', 'python-docx', 'xlsxwriter', 'pypdf', 'reportlab', 'markitdown'];
   tryPipInstall(pipExe, [...pipArgs, ...officeDeps], 'Office deps');
 
   // Relay-teams CLI
@@ -798,7 +880,9 @@ function installMacosRuntimeDependencies(bundleDir) {
         cpSync(join(bundlePackagesDir, 'shared'), sharedLink, { recursive: true, force: true });
         pruneRuntimePackage(sharedLink);
       }
-    } catch { /* not a symlink */ }
+    } catch {
+      /* not a symlink */
+    }
 
     pruneRuntimePackage(join(pkgDir));
     pruneNativePrebuilds(join(pkgDir, 'node_modules'));
@@ -818,12 +902,16 @@ function buildSwiftLauncher(appContentsDir) {
 
   run('swiftc', [
     swiftSource,
-    '-o', join(macosDir, 'ClowderAI'),
+    '-o',
+    join(macosDir, 'ClowderAI'),
     '-parse-as-library',
-    '-framework', 'Cocoa',
-    '-framework', 'WebKit',
+    '-framework',
+    'Cocoa',
+    '-framework',
+    'WebKit',
     '-O',
-    '-target', `${MACOS_ARCH}-apple-macosx13.0`,
+    '-target',
+    `${MACOS_ARCH}-apple-macosx13.0`,
   ]);
 
   console.log('  Swift launcher compiled successfully.');
@@ -833,18 +921,12 @@ function buildSwiftLauncher(appContentsDir) {
 
 function codesignApp(appPath) {
   const entitlements = join(appPath, 'Contents', 'ClowderAI.entitlements');
-  const entArgs = existsSync(entitlements)
-    ? ['--entitlements', entitlements]
-    : [];
+  const entArgs = existsSync(entitlements) ? ['--entitlements', entitlements] : [];
 
   // Ad-hoc sign the entire .app so Gatekeeper doesn't silently block it.
   // --deep signs nested code (frameworks, helpers) as well.
   // --force replaces any existing linker-only signature on the binary.
-  run('codesign', [
-    '--force', '--deep', '--sign', '-',
-    ...entArgs,
-    appPath,
-  ]);
+  run('codesign', ['--force', '--deep', '--sign', '-', ...entArgs, appPath]);
   console.log('  Ad-hoc codesign complete.');
 }
 
@@ -856,20 +938,18 @@ function assembleAppBundle(bundleDir, appPath) {
   ensureDir(resourcesDir);
 
   // Copy Info.plist with version substitution
-  const infoPlistTemplate = readFileSync(
-    join(repoRoot, 'packaging', 'macos', 'desktop', 'Info.plist'), 'utf8'
-  );
+  const infoPlistTemplate = readFileSync(join(repoRoot, 'packaging', 'macos', 'desktop', 'Info.plist'), 'utf8');
   writeFileSync(
     join(contentsDir, 'Info.plist'),
     infoPlistTemplate.replace(/__VERSION__/g, packageJson.version),
-    'utf8'
+    'utf8',
   );
 
   // Copy entitlements (for future codesigning)
   cpSync(
     join(repoRoot, 'packaging', 'macos', 'desktop', 'ClowderAI.entitlements'),
     join(contentsDir, 'ClowderAI.entitlements'),
-    { force: true }
+    { force: true },
   );
 
   // Copy the staged bundle into Resources
@@ -896,14 +976,7 @@ function createDmg(appPath, dmgPath, volumeName) {
   cpSync(appPath, join(dmgRoot, basename(appPath)), { recursive: true, force: true });
   spawnSync('ln', ['-s', '/Applications', join(dmgRoot, 'Applications')]);
 
-  run('hdiutil', [
-    'create',
-    '-volname', volumeName,
-    '-srcfolder', dmgRoot,
-    '-ov',
-    '-format', 'UDZO',
-    dmgPath,
-  ]);
+  run('hdiutil', ['create', '-volname', volumeName, '-srcfolder', dmgRoot, '-ov', '-format', 'UDZO', dmgPath]);
 
   rmSync(dmgRoot, { recursive: true, force: true });
 }

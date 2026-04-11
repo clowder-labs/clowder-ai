@@ -56,8 +56,29 @@ try {
     Write-InstallerExceptionDetails -Context "Skills mount" -ErrorRecord $_
 }
 
-# -- Load .env -----------------------------------------------
+# -- Load .inner.env (internal defaults) then .env (user overrides) --
+# Load order: .inner.env first, .env second
+# User values in .env override internal defaults from .inner.env
+$innerEnvFile = Join-Path $ProjectRoot ".inner.env"
 $envFile = Join-Path $ProjectRoot ".env"
+
+# Load .inner.env first (internal defaults)
+if (Test-Path $innerEnvFile) {
+    Get-Content $innerEnvFile -Encoding UTF8 | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#")) {
+            $parts = $line -split "=", 2
+            if ($parts.Count -eq 2) {
+                $key = $parts[0].Trim()
+                $val = $parts[1].Trim().Trim('"').Trim("'")
+                [System.Environment]::SetEnvironmentVariable($key, $val, "Process")
+            }
+        }
+    }
+    Write-Ok ".inner.env loaded (internal defaults)"
+}
+
+# Load .env second (user overrides - highest priority)
 if (Test-Path $envFile) {
     Get-Content $envFile -Encoding UTF8 | ForEach-Object {
         $line = $_.Trim()
@@ -70,7 +91,7 @@ if (Test-Path $envFile) {
             }
         }
     }
-    Write-Ok ".env loaded"
+    Write-Ok ".env loaded (user overrides)"
 } else {
     Write-Warn ".env not found - using defaults"
 }
@@ -507,17 +528,30 @@ $runtimeEnvOverrides = @{
     })
 
     # API Server
-    # Env vars are loaded into this process (line 42-53) and inherited by Start-Job.
+    # Env vars are loaded into this process (line 60-90) and inherited by Start-Job.
     # No --env-file needed - avoids depending on Node's --env-file support here.
     Write-Host "  Starting API Server (port $ApiPort)..."
     $apiJob = Start-Job -Name "api" -ScriptBlock {
-        param($root, $envFile, $runtimeEnvOverrides, $apiEntry, $nodeCommand, $debugFlag)
+        param($root, $innerEnvFile, $envFile, $runtimeEnvOverrides, $apiEntry, $nodeCommand, $debugFlag)
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         [Console]::InputEncoding = [System.Text.Encoding]::UTF8
         $OutputEncoding = [System.Text.Encoding]::UTF8
         Set-Location (Join-Path $root "packages/api")
-        # Load .env into job process (Start-Job inherits parent env,
-        # but re-load to be safe if process env was not fully propagated)
+        # Load .inner.env first (internal defaults), then .env (user overrides)
+        # Start-Job inherits parent env, but re-load to be safe if process env was not fully propagated
+        if (Test-Path $innerEnvFile) {
+            Get-Content $innerEnvFile -Encoding UTF8 | ForEach-Object {
+                $line = $_.Trim()
+                if ($line -and -not $line.StartsWith("#")) {
+                    $parts = $line -split "=", 2
+                    if ($parts.Count -eq 2) {
+                        $k = $parts[0].Trim()
+                        $v = $parts[1].Trim().Trim('"').Trim("'")
+                        [System.Environment]::SetEnvironmentVariable($k, $v, "Process")
+                    }
+                }
+            }
+        }
         if (Test-Path $envFile) {
             Get-Content $envFile -Encoding UTF8 | ForEach-Object {
                 $line = $_.Trim()
@@ -544,7 +578,7 @@ $runtimeEnvOverrides = @{
         } else {
             & $nodeCommand $apiEntry 2>&1
         }
-    } -ArgumentList $ProjectRoot, $envFile, $runtimeEnvOverrides, $apiEntry, $nodeCommand, $Debug.IsPresent
+    } -ArgumentList $ProjectRoot, $innerEnvFile, $envFile, $runtimeEnvOverrides, $apiEntry, $nodeCommand, $Debug.IsPresent
     $jobs += $apiJob
 
     Start-Sleep -Seconds 2

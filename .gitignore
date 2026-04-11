@@ -6,6 +6,7 @@ dist/
 docs/.doc-index.json
 build/
 .next/
+jiuwenclaw.egg-info
 
 # PWA generated service worker files
 packages/web/public/sw.js
