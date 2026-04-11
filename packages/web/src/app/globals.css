@@ -1334,6 +1334,17 @@ select:-webkit-autofill:focus {
     background: transparent;
     color: inherit;
     line-height: 0;
+    cursor: pointer;
+    transition: opacity 160ms ease;
+  }
+
+  .ui-content-header-action:hover {
+    opacity: 0.72;
+  }
+
+  .ui-content-header-action:disabled {
+    cursor: default;
+    opacity: 0.4;
   }
 
   .ui-content-header-divider {
