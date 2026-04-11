@@ -76,13 +76,18 @@ describe('ToastContainer status styling', () => {
     expect(successToast?.className).toContain('shadow-[-2px_0px_12px_0px_rgba(0,0,0,0.16)]');
     expect(successToast?.className).toContain('px-4');
     expect(successToast?.className).toContain('py-2');
+    expect(successToast?.className).toContain('max-w-lg');
     expect(successToast?.className).toContain('text-black');
     expect(successToast?.textContent).not.toContain('⚠');
     expect(errorToast?.textContent).not.toContain('⚠');
 
     const contentRow = successToast?.firstElementChild as HTMLDivElement | null;
     expect(contentRow?.className).toContain('items-start');
-    expect(contentRow?.className).toContain('gap-4');
+    expect(contentRow?.className).toContain('gap-2');
+    const messageNode = successToast?.querySelectorAll('p')[1] as HTMLParagraphElement | undefined;
+    expect(messageNode?.className).toContain('whitespace-pre-wrap');
+    expect(messageNode?.className).toContain('break-words');
+    expect(messageNode?.className).not.toContain('line-clamp-2');
     expect(successToast?.querySelector('[data-testid="toast-status-icon"]')?.getAttribute('src')).toBe(
       '/icons/message-success.svg',
     );

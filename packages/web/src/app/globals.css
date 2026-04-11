@@ -370,7 +370,7 @@
   --status-badge-unconfigured-text: var(--text-label-secondary);
 
   --state-success-surface: rgba(230, 242, 213, 1);
-  --state-success-text: #6a8f22;
+  --state-success-text: #029931;
   --state-error-surface: rgba(252, 227, 225, 1);
   --state-error-text: #c43b3b;
   --state-warning-surface: #fff2d8;
