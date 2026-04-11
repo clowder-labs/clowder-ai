@@ -18,11 +18,17 @@ const DEFAULT_FRONTEND_BASE_URL_ANOTHER = process.env.DEFAULT_FRONTEND_BASE_URL_
 const DEFAULT_CORS_ORIGINS = [DEFAULT_FRONTEND_BASE_URL_ANOTHER, DEFAULT_FRONTEND_BASE_URL, PROD_CORS_ORIGIN];
 
 /**
- * Match origins from private networks (RFC 1918 + Tailscale CGNAT 100.64/10 + loopback).
- * Safe to auto-accept: these IPs never appear on the public internet.
+ * Match loopback origins (127.x.x.x).
+ * Always safe: loopback means same machine — different threat model from LAN.
+ */
+const LOOPBACK_ORIGIN = /^https?:\/\/127\.\d+\.\d+\.\d+(:\d+)?$/;
+
+/**
+ * Match origins from private networks (RFC 1918 + Tailscale CGNAT 100.64/10).
+ * Only included when explicitly opted in via CORS_ALLOW_PRIVATE_NETWORK=true.
  */
 const PRIVATE_NETWORK_ORIGIN =
-  /^https?:\/\/(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+|127\.\d+\.\d+\.\d+)(:\d+)?$/;
+  /^https?:\/\/(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+)(:\d+)?$/;
 
 function normalizeConfiguredUrl(rawUrl: string): string | null {
   try {
@@ -112,7 +118,23 @@ export function resolveFrontendCorsOrigins(env: NodeJS.ProcessEnv, logger?: Warn
   }
 
   const result: (string | RegExp)[] = [...origins];
-  // Auto-accept private/Tailscale networks (safe for home/dev environments)
-  result.push(PRIVATE_NETWORK_ORIGIN);
+
+  // Loopback (127.x.x.x) is always safe — same machine, different threat model
+  result.push(LOOPBACK_ORIGIN);
+
+  // RFC 1918 private networks only with explicit opt-in
+  if (env.CORS_ALLOW_PRIVATE_NETWORK === 'true') {
+    result.push(PRIVATE_NETWORK_ORIGIN);
+  }
+
   return result;
+}
+
+/**
+ * Check if a given origin is allowed by the origin list.
+ * Used by Socket.IO `allowRequest` hook to guard WebSocket upgrades —
+ * Socket.IO's `cors` config does NOT protect WebSocket transport.
+ */
+export function isOriginAllowed(origin: string, allowedOrigins: (string | RegExp)[]): boolean {
+  return allowedOrigins.some((allowed) => (allowed instanceof RegExp ? allowed.test(origin) : allowed === origin));
 }

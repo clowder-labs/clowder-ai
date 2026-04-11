@@ -278,7 +278,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
-      auth: { userId: userIdRef.current },
     });
 
     const getTransportName = () => {

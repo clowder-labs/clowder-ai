@@ -39,6 +39,8 @@ SetFont "Segoe UI" 9
 !define COMPANY_KEY "ClowderLabs"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define INSTALL_KEY "Software\${COMPANY_KEY}\${APP_NAME}"
+!define AUTOSTART_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
+!define AUTOSTART_VALUE "${APP_NAME}"
 !define STARTMENU_DIR "$SMPROGRAMS\${APP_NAME}"
 !define DEFAULT_INSTALL_DIR "$LOCALAPPDATA\Programs\${APP_NAME}"
 
@@ -65,6 +67,9 @@ Page custom WelcomePageCreate
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave
 !insertmacro MUI_PAGE_DIRECTORY
 
+; --------------- Options page ---------------
+Page custom OptionsPageCreate OptionsPageLeave
+
 ; --------------- Install page ---------------
 !insertmacro MUI_PAGE_INSTFILES
 
@@ -79,12 +84,18 @@ Page custom FinishPageCreate FinishPageLeave
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
 Var LicenseDialog
-Var AgreeRadio
-Var DisagreeRadio
+Var AgreementCheckbox
 Var NextButton
 Var WelcomeDialog
+Var OptionsDialog
+Var StartMenuShortcutCheckbox
+Var DesktopShortcutCheckbox
+Var AutoStartCheckbox
 Var FinishDialog
 Var FinishLaunchCheckbox
+Var CreateStartMenuShortcut
+Var CreateDesktopShortcut
+Var EnableAutoStart
 Var DetectedRunningProcesses
 
 ; Check if OfficeClaw-related processes are running
@@ -150,37 +161,41 @@ Function LicensePageCreate
   GetDlgItem $NextButton $HWNDPARENT 1
   EnableWindow $NextButton 0
 
-  ${NSD_CreateLabel} 0 10u 100% 12u "${APP_NAME}软件许可协议"
+  ${NSD_CreateLabel} 0 6u 100% 12u "${APP_NAME} 软件许可与服务声明"
   Pop $0
 
-  ${NSD_CreateLabel} 10u 25u 44u 10u "1.了解和同意"
+  ${NSD_CreateGroupBox} 0 22u 100% 92u "请先阅读以下文档"
   Pop $0
 
-  ${NSD_CreateLink} 54u 25u 30% 10u "华为云隐私政策声明"
+  ${NSD_CreateLabel} 12u 38u 88% 18u "继续安装前，请点击查看以下协议与声明。相关链接将在默认浏览器中打开。"
+  Pop $0
+
+  ${NSD_CreateLabel} 12u 60u 88% 10u "1. 隐私政策声明"
+  Pop $0
+
+  ${NSD_CreateLink} 20u 72u 76% 12u "查看华为云隐私政策声明"
   Pop $1
   ${NSD_OnClick} $1 "OnPrivacyLinkClick"
 
-  ${NSD_CreateLabel} 10u 40u 44u 10u "2.了解和同意"
+  ${NSD_CreateLabel} 12u 90u 88% 10u "2. 服务声明"
   Pop $0
 
-  ${NSD_CreateLink} 54u 40u 30% 10u "AgentArts服务声明"
+  ${NSD_CreateLink} 20u 102u 76% 12u "查看 AgentArts 服务声明"
   Pop $1
   ${NSD_OnClick} $1 "OnServiceLinkClick"
 
-  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(A)"
-  Pop $AgreeRadio
-  ${NSD_Setfocus} $AgreeRadio
+  ${NSD_CreateCheckbox} 0 124u 100% 12u "我已阅读并同意上述协议与声明(A)"
+  Pop $AgreementCheckbox
+  ${NSD_Uncheck} $AgreementCheckbox
+  ${NSD_Setfocus} $AgreementCheckbox
+  ${NSD_OnClick} $AgreementCheckbox OnAgreementChanged
 
-  ${NSD_OnClick} $AgreeRadio OnAgreementChanged
+  ${NSD_CreateLabel} 12u 140u 88% 18u "勾选后才可以继续安装。若不同意上述协议与声明，请取消安装。"
+  Pop $0
 
-  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(D)"
-  Pop $DisagreeRadio
-  ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
+  Call UpdateNextButtonState
 
   nsDialogs::Show
-
-  SendMessage $AgreeRadio ${BM_SETCHECK} 1 0
-  Call UpdateNextButtonState
 FunctionEnd
 
 Function OnPrivacyLinkClick
@@ -198,8 +213,8 @@ Function OnAgreementChanged
 FunctionEnd
 
 Function UpdateNextButtonState
-  ${NSD_GetState} $AgreeRadio $0
-  ${If} $0 == 1
+  ${NSD_GetState} $AgreementCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
     EnableWindow $NextButton 1
   ${Else}
     EnableWindow $NextButton 0
@@ -221,6 +236,61 @@ Function WelcomePageCreate
   Pop $0
 
   nsDialogs::Show
+FunctionEnd
+
+Function OptionsPageCreate
+  !insertmacro MUI_HEADER_TEXT "安装选项" "请选择快捷方式和启动方式"
+  nsDialogs::Create 1018
+  Pop $OptionsDialog
+  ${If} $OptionsDialog == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 24u "请选择 ${APP_NAME} 的安装附加选项。您后续也可以通过重新运行安装包修改这些设置。"
+  Pop $0
+
+  ${NSD_CreateCheckbox} 0 32u 100% 12u "创建开始菜单快捷方式"
+  Pop $StartMenuShortcutCheckbox
+  ${If} $CreateStartMenuShortcut == "1"
+    ${NSD_Check} $StartMenuShortcutCheckbox
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 50u 100% 12u "创建桌面快捷方式"
+  Pop $DesktopShortcutCheckbox
+  ${If} $CreateDesktopShortcut == "1"
+    ${NSD_Check} $DesktopShortcutCheckbox
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 68u 100% 12u "开机自动启动 ${APP_NAME}"
+  Pop $AutoStartCheckbox
+  ${If} $EnableAutoStart == "1"
+    ${NSD_Check} $AutoStartCheckbox
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+Function OptionsPageLeave
+  ${NSD_GetState} $StartMenuShortcutCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $CreateStartMenuShortcut "1"
+  ${Else}
+    StrCpy $CreateStartMenuShortcut "0"
+  ${EndIf}
+
+  ${NSD_GetState} $DesktopShortcutCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $CreateDesktopShortcut "1"
+  ${Else}
+    StrCpy $CreateDesktopShortcut "0"
+  ${EndIf}
+
+  ${NSD_GetState} $AutoStartCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $EnableAutoStart "1"
+  ${Else}
+    StrCpy $EnableAutoStart "0"
+  ${EndIf}
 FunctionEnd
 
 Function FinishPageCreate
@@ -254,6 +324,7 @@ FunctionEnd
 Function .onInit
   SetShellVarContext current
   Call ResolveExistingInstallDir
+  Call ResolveInstallOptionDefaults
   ${If} $ExistingInstallDir != ""
     StrCpy $INSTDIR $ExistingInstallDir
     StrCpy $SelectedInstallDir $ExistingInstallDir
@@ -305,6 +376,27 @@ Function ResolveExistingInstallDir
 
 existing_install:
   StrCpy $ExistingInstallDir $0
+FunctionEnd
+
+Function ResolveInstallOptionDefaults
+  StrCpy $CreateStartMenuShortcut "1"
+  StrCpy $CreateDesktopShortcut "1"
+  StrCpy $EnableAutoStart "0"
+
+  ${If} $ExistingInstallDir == ""
+    Return
+  ${EndIf}
+
+  IfFileExists "${STARTMENU_DIR}\${APP_NAME}.lnk" +2 0
+    StrCpy $CreateStartMenuShortcut "0"
+
+  IfFileExists "$DESKTOP\${APP_NAME}.lnk" +2 0
+    StrCpy $CreateDesktopShortcut "0"
+
+  ReadRegStr $0 HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
+  ${If} $0 != ""
+    StrCpy $EnableAutoStart "1"
+  ${EndIf}
 FunctionEnd
 
 Function RestoreInstallDirSelection
@@ -486,10 +578,29 @@ Function un.CleanupManagedPayload
 FunctionEnd
 
 Function WriteShellShortcuts
-  CreateDirectory "${STARTMENU_DIR}"
-  CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
-  CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
-  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+  ${If} $CreateStartMenuShortcut == "1"
+    CreateDirectory "${STARTMENU_DIR}"
+    CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+    CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
+  ${Else}
+    Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
+    Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
+    RMDir "${STARTMENU_DIR}"
+  ${EndIf}
+
+  ${If} $CreateDesktopShortcut == "1"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+  ${Else}
+    Delete "$DESKTOP\${APP_NAME}.lnk"
+  ${EndIf}
+FunctionEnd
+
+Function WriteAutoStartRegistry
+  ${If} $EnableAutoStart == "1"
+    WriteRegStr HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}" '"$INSTDIR\OfficeClaw.exe"'
+  ${Else}
+    DeleteRegValue HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
+  ${EndIf}
 FunctionEnd
 
 Function WriteUninstallRegistry
@@ -584,6 +695,7 @@ init_config_done:
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
   Call WriteShellShortcuts
+  Call WriteAutoStartRegistry
   Call WriteUninstallRegistry
 SectionEnd
 
@@ -596,6 +708,7 @@ Section "Uninstall"
   Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
   RMDir "${STARTMENU_DIR}"
   Delete "$DESKTOP\${APP_NAME}.lnk"
+  DeleteRegValue HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
 
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "${INSTALL_KEY}"
