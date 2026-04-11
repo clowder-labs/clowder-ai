@@ -13,7 +13,7 @@ import re
 import sys
 import uuid
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 
 import tiktoken
 from openjiuwen.core.context_engine.schema.messages import OffloadMixin
@@ -47,6 +47,12 @@ from jiuwenclaw.utils import (
     logger,
 )
 from jiuwenclaw.config import get_config
+from jiuwenclaw.agentserver.context_window_unload import (
+    context_engine_compression_enabled,
+    effective_token_budget,
+    resolve_model_context_window,
+    shrink_messages_for_context_window,
+)
 import os
 from dotenv import load_dotenv
 
@@ -142,6 +148,37 @@ class JiuClawReActAgent(ReActAgent):
         """Set workspace directory and Agent ID."""
         self._workspace_dir = workspace_dir
         self._agent_id = agent_id
+
+    def _apply_pre_llm_context_window_budget(
+        self,
+        system_messages: List,
+        history_messages: List,
+        context_window: Any,
+        session_id: str,
+        session: Optional[Session],
+    ) -> Tuple[List[Any], Optional[Dict[str, Any]]]:
+        """After get_context_window: optionally trim oldest user rounds to fit MODEL_CONTEXT_WINDOW.
+
+        Skipped when context_engine compression is enabled (mutual exclusion) or env unset.
+        """
+        tools = context_window.get_tools() or None
+        messages = [*system_messages, *history_messages]
+        if context_engine_compression_enabled(get_config):
+            return messages, None
+        model_window = resolve_model_context_window()
+        budget = effective_token_budget(model_window, LLM_MAX_TOKENS)
+        request_id = (getattr(session, "request_id", "") or "") if session else ""
+        model_name = getattr(self._config, "model_name", "") or ""
+        return shrink_messages_for_context_window(
+            system_messages=system_messages,
+            history_messages=history_messages,
+            tools=tools,
+            budget_tokens=budget,
+            model_window=model_window,
+            session_id=session_id or "",
+            request_id=request_id,
+            model_name=model_name,
+        )
 
     async def _call_llm(
         self,
@@ -389,7 +426,15 @@ class JiuClawReActAgent(ReActAgent):
             history_snapshot = list(history_messages)
             # Filter out SystemMessage from history to avoid "System message must be at the beginning" error
             history_messages = [m for m in history_messages if not isinstance(m, SystemMessage)]
-            messages = [*system_messages, *history_messages]
+            messages, _cw_err = self._apply_pre_llm_context_window_budget(
+                system_messages,
+                history_messages,
+                context_window,
+                session_id,
+                session,
+            )
+            if _cw_err is not None:
+                return _cw_err
 
             compression_to_show = []
             uncompressed = []
@@ -432,7 +477,15 @@ class JiuClawReActAgent(ReActAgent):
                 history_snapshot = list(history_messages)
                 # Filter out SystemMessage from history to avoid "System message must be at the beginning" error
                 history_messages = [m for m in history_messages if not isinstance(m, SystemMessage)]
-                messages = [*system_messages, *history_messages]
+                messages, _cw_err2 = self._apply_pre_llm_context_window_budget(
+                    system_messages,
+                    history_messages,
+                    context_window,
+                    session_id,
+                    session,
+                )
+                if _cw_err2 is not None:
+                    return _cw_err2
                 ai_message = await self._call_llm(
                     messages,
                     context_window.get_tools() or None,
