@@ -21,6 +21,48 @@ const repoRoot = resolve(__dirname, '..');
 const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const DEFAULT_WEBVIEW2_VERSION = process.env.CLOWDER_WEBVIEW2_VERSION ?? '1.0.3856.49';
 const WEBVIEW2_BOOTSTRAPPER_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+
+const stepTimings = [];
+let currentStepName = null;
+let currentStepStart = null;
+
+function startStep(name) {
+  if (currentStepName !== null) {
+    const elapsed = Date.now() - currentStepStart;
+    stepTimings.push({ name: currentStepName, elapsed });
+  }
+  currentStepName = name;
+  currentStepStart = Date.now();
+}
+
+function endCurrentStep() {
+  if (currentStepName !== null) {
+    const elapsed = Date.now() - currentStepStart;
+    stepTimings.push({ name: currentStepName, elapsed });
+    currentStepName = null;
+  }
+}
+
+function formatDuration(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60000)}m ${((ms % 60000) / 1000).toFixed(0)}s`;
+}
+
+function printTimingSummary() {
+  if (stepTimings.length === 0) return;
+  const total = stepTimings.reduce((a, b) => a + b.elapsed, 0);
+  process.stdout.write('\n[windows-installer] Timing Summary:\n');
+  process.stdout.write('─'.repeat(50) + '\n');
+  const sorted = [...stepTimings].sort((a, b) => b.elapsed - a.elapsed);
+  for (const { name, elapsed } of sorted) {
+    const pct = ((elapsed / total) * 100).toFixed(1);
+    process.stdout.write(`  ${name.padEnd(35)} ${formatDuration(elapsed).padStart(8)} (${pct}%)\n`);
+  }
+  process.stdout.write('─'.repeat(50) + '\n');
+  process.stdout.write(`  ${'TOTAL'.padEnd(35)} ${formatDuration(total).padStart(8)}\n\n`);
+}
+
 const WINDOWS_RUNTIME_NPM_ARGS = [
   'install',
   '--omit=dev',
@@ -355,6 +397,7 @@ Options:
 }
 
 function logStep(message) {
+  startStep(message);
   process.stdout.write(`\n[windows-installer] ${message}\n`);
 }
 
@@ -1444,7 +1487,9 @@ async function main() {
     createPayloadTar(bundleDir, payloadTar);
     logStep('Compiling NSIS installer');
     invokeMakensis(installerScript, outputExe, payloadTar, packageJson.version);
-    logStep(`Installer ready at ${outputExe}`);
+    endCurrentStep();
+    process.stdout.write(`\n[windows-installer] Installer ready at ${outputExe}\n`);
+    printTimingSummary();
     return;
   }
 
@@ -1456,7 +1501,9 @@ async function main() {
     logStep('Building WebView2 desktop launcher');
     buildWindowsDesktopLauncher(bundleDir, options);
     stageWindowsDesktopAssets(bundleDir);
-    logStep(`Launcher rebuilt in ${bundleDir}`);
+    endCurrentStep();
+    process.stdout.write(`\n[windows-installer] Launcher rebuilt in ${bundleDir}\n`);
+    printTimingSummary();
     return;
   }
 
@@ -1534,7 +1581,9 @@ async function main() {
   });
 
   if (options.bundleOnly) {
-    logStep(`Offline bundle ready at ${bundleDir}`);
+    endCurrentStep();
+    process.stdout.write(`\n[windows-installer] Offline bundle ready at ${bundleDir}\n`);
+    printTimingSummary();
     return;
   }
 
@@ -1544,7 +1593,9 @@ async function main() {
 
   logStep('Compiling NSIS installer');
   invokeMakensis(installerScript, outputExe, payloadTar, packageJson.version);
-  logStep(`Installer ready at ${outputExe}`);
+  endCurrentStep();
+  process.stdout.write(`\n[windows-installer] Installer ready at ${outputExe}\n`);
+  printTimingSummary();
 }
 
 const isMainModule = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

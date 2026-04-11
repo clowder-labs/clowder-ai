@@ -96,6 +96,15 @@ Function CheckOfficeClawRunning
     Return
   ${EndIf}
   
+  ; Check jiuwenclaw.exe (sidecar agent)
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" 2>nul | find /I "jiuwenclaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
   ; Check redis-server.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
   Pop $0
@@ -106,16 +115,21 @@ Function CheckOfficeClawRunning
   ${EndIf}
   
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
-  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
-  ${If} $0 != ""
-    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
-    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
-    Pop $1
-    Pop $2
-    ${If} $2 != ""
-      StrCpy $R0 "1"
-      Return
-    ${EndIf}
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check python.exe processes that belong to OfficeClaw (from installed dir tools\python or vendor\.venv)
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
   ${EndIf}
 FunctionEnd
 
@@ -272,21 +286,46 @@ Function VerifyInstallDirLeave
   ${EndIf}
 FunctionEnd
 
-; Force-kill every process related to $INSTDIR (launcher, node API, Redis).
+; Force-kill every process related to installed OfficeClaw (launcher, node API, Redis, jiuwenclaw, python).
 ; Uses env var to pass the path safely (avoids quoting issues with spaces/parens).
+; IMPORTANT: Uses registry InstallDir (old install path) for path-based kills, not $INSTDIR (new path).
+; This ensures processes from previous installation are killed even when reinstalling to a different directory.
 !macro _ForceKillInstalledProcesses
   ; 1. Kill desktop launcher by name only when it exists
   nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" | find /I "OfficeClaw.exe" >nul && taskkill /F /IM OfficeClaw.exe >nul 2>&1'
   Pop $0
-  ; 2. Kill Redis server by name only when it exists
-  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+  ; 2. Kill jiuwenclaw.exe (sidecar agent) by name
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" | find /I "jiuwenclaw.exe" >nul && taskkill /F /IM jiuwenclaw.exe >nul 2>&1'
   Pop $0
-  ; 3. Kill all node.exe processes whose executable path starts with $INSTDIR
-  ;    (covers start-entry, API server, Next.js — anything spawned from tools\node)
-  System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$INSTDIR")i'
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+  
+  ; 3. Redis: try graceful shutdown via redis-cli first (preserves data), then force-kill if needed
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    ; Try redis-cli shutdown save (graceful, preserves data)
+    nsExec::ExecToLog 'cmd /c if exist "$0\tools\redis\redis-cli.exe" ( "$0\tools\redis\redis-cli.exe" -p 6399 shutdown save 2>nul ) else if exist "$0\vendor\redis\redis-cli.exe" ( "$0\vendor\redis\redis-cli.exe" -p 6399 shutdown save 2>nul )'
+    Pop $1
+    ; Wait briefly for graceful shutdown
+    Sleep 500
+    ; Check if Redis still running, force-kill if needed
+    nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+    Pop $1
+  ${Else}
+    ; No registry path, just force-kill by name
+    nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+    Pop $0
+  ${EndIf}
+  
+  ; 4. Kill all node.exe processes whose executable path starts with the OLD install directory (from registry)
+  ;    Uses PowerShell to read registry directly instead of env var (more reliable)
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
   Pop $0
-  ; 4. Wait long enough for SQLite WAL/shm to be released before any file ops
+  
+  ; 5. Kill all python.exe/pythonw.exe processes whose executable path starts with the OLD install directory
+  ;    Also read registry directly for reliability
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
+  Pop $0
+  
+  ; 6. Wait long enough for SQLite WAL/shm to be released before any file ops
   Sleep 3000
 !macroend
 
@@ -311,6 +350,15 @@ Function un.CheckOfficeClawRunning
     Return
   ${EndIf}
   
+  ; Check jiuwenclaw.exe (sidecar agent)
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" 2>nul | find /I "jiuwenclaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
   ; Check redis-server.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
   Pop $0
@@ -321,16 +369,21 @@ Function un.CheckOfficeClawRunning
   ${EndIf}
   
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
-  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
-  ${If} $0 != ""
-    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
-    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
-    Pop $1
-    Pop $2
-    ${If} $2 != ""
-      StrCpy $R0 "1"
-      Return
-    ${EndIf}
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check python.exe processes that belong to OfficeClaw (from installed dir)
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
   ${EndIf}
 FunctionEnd
 
