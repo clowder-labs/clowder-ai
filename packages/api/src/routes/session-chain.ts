@@ -9,6 +9,7 @@
  * F24: API endpoints for session chain + context health data.
  *
  * GET   /api/threads/:threadId/sessions            - List sessions (optional catId filter)
+ * GET   /api/threads/:threadId/usage               - Thread-level token usage aggregation
  * GET   /api/sessions/:sessionId                   - Get single session record
  * POST  /api/sessions/:sessionId/unseal            - Manual unseal fallback (#F062)
  * PATCH /api/threads/:threadId/sessions/:catId/bind - Manual bind CLI session ID (#72)
@@ -25,6 +26,46 @@ import type { IMessageStore } from '../domains/cats/services/stores/ports/Messag
 import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+
+interface CatUsageBucket {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  costUsd: number;
+  sessions: number;
+}
+
+function aggregateSessionUsage(
+  threadId: string,
+  sessions: {
+    catId: string;
+    lastUsage?: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; costUsd?: number };
+  }[],
+) {
+  const byCat: Record<string, CatUsageBucket> = {};
+  for (const s of sessions) {
+    if (!s.lastUsage) continue;
+    if (!byCat[s.catId]) {
+      byCat[s.catId] = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, costUsd: 0, sessions: 0 };
+    }
+    const c = byCat[s.catId];
+    c.inputTokens += s.lastUsage.inputTokens ?? 0;
+    c.outputTokens += s.lastUsage.outputTokens ?? 0;
+    c.cacheReadTokens += s.lastUsage.cacheReadTokens ?? 0;
+    c.costUsd += s.lastUsage.costUsd ?? 0;
+    c.sessions += 1;
+  }
+  const total = Object.values(byCat).reduce(
+    (acc, c) => ({
+      inputTokens: acc.inputTokens + c.inputTokens,
+      outputTokens: acc.outputTokens + c.outputTokens,
+      cacheReadTokens: acc.cacheReadTokens + c.cacheReadTokens,
+      costUsd: acc.costUsd + c.costUsd,
+    }),
+    { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, costUsd: 0 },
+  );
+  return { threadId, total, byCat, sessionCount: sessions.length };
+}
 
 const bindSessionSchema = z.object({
   cliSessionId: z.string().min(1).max(500),
@@ -78,6 +119,34 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     // No catId filter at all (hub UI god-view) — return all sessions for the thread
     const sessions = await sessionChainStore.getChainByThread(threadId);
     return reply.send({ sessions });
+  });
+
+  // GET /api/threads/:threadId/usage — Thread-level token usage aggregation
+  app.get<{
+    Params: { threadId: string };
+    Querystring: { catId?: string };
+  }>('/api/threads/:threadId/usage', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) return reply.status(401).send({ error: 'Identity required' });
+
+    const { threadId } = request.params;
+    const thread = await threadStore.get(threadId);
+    if (!thread || !canAccessThread(thread.createdBy, userId)) {
+      return reply.status(403).send({ error: 'Access denied' });
+    }
+
+    // x-cat-id isolation: cat-scoped callers (MCP tools) can only see own usage
+    const { catId } = request.query;
+    const callerCatId = request.headers['x-cat-id'] as string | undefined;
+    const effectiveCatId = callerCatId ?? catId;
+    if (callerCatId && catId && catId !== callerCatId) {
+      return reply.status(403).send({ error: `Cannot query usage for cat '${catId}' — you are '${callerCatId}'` });
+    }
+
+    const allSessions = await sessionChainStore.getChainByThread(threadId);
+    const sessions = effectiveCatId ? allSessions.filter((s) => s.catId === effectiveCatId) : allSessions;
+
+    return aggregateSessionUsage(threadId, sessions);
   });
 
   app.get<{

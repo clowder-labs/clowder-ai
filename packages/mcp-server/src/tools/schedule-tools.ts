@@ -9,6 +9,7 @@
  *
  * office_claw_list_schedule_templates  — list available task templates
  * office_claw_register_scheduled_task  — create a dynamic scheduled task from template
+ * office_claw_set_scheduled_task_enabled — enable/disable a dynamic scheduled task
  * office_claw_remove_scheduled_task    — delete a dynamic scheduled task
  */
 
@@ -42,6 +43,33 @@ async function callbackDelete(path: string): Promise<ToolResult> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return errorResult(`Delete request failed: ${message}`);
+  }
+}
+
+async function callbackPatch(path: string, body: Record<string, unknown>): Promise<ToolResult> {
+  const { getCallbackConfig, NO_CONFIG_ERROR } = await import('./callback-tools.js');
+  const config = getCallbackConfig();
+  if (!config) return errorResult(NO_CONFIG_ERROR);
+
+  try {
+    const response = await fetch(`${config.apiUrl}${path}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-invocation-id': config.invocationId,
+        'x-callback-token': config.callbackToken,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      return errorResult(`Patch failed (${response.status}): ${text}`);
+    }
+    const { successResult: ok } = await import('./file-tools.js');
+    return ok(JSON.stringify(await response.json()));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return errorResult(`Patch request failed: ${message}`);
   }
 }
 
@@ -192,6 +220,19 @@ export async function handleRemoveScheduledTask(input: { taskId: string }): Prom
   return callbackDelete(`/api/schedule/tasks/${encodeURIComponent(input.taskId)}`);
 }
 
+// ─── Enable/disable scheduled task ─────────────────────────
+
+export const setScheduledTaskEnabledInputSchema = {
+  taskId: z.string().min(1).describe('The dynamic task ID to update (e.g. "dyn-1711504800000-abc123")'),
+  enabled: z
+    .boolean()
+    .describe('Whether the task should be enabled. false pauses the task without deleting it.'),
+};
+
+export async function handleSetScheduledTaskEnabled(input: { taskId: string; enabled: boolean }): Promise<ToolResult> {
+  return callbackPatch(`/api/schedule/tasks/${encodeURIComponent(input.taskId)}`, { enabled: input.enabled });
+}
+
 // ─── Tool definitions ───────────────────────────────────────
 
 export const scheduleTools = [
@@ -231,6 +272,14 @@ export const scheduleTools = [
       'trigger and params must be JSON strings, not objects.',
     inputSchema: registerScheduledTaskInputSchema,
     handler: handleRegisterScheduledTask,
+  },
+  {
+    name: 'office_claw_set_scheduled_task_enabled',
+    description:
+      'Enable or disable a dynamic scheduled task by task ID without deleting it. ' +
+      'Use this for pause/resume. Call remove_scheduled_task only when you want permanent deletion.',
+    inputSchema: setScheduledTaskEnabledInputSchema,
+    handler: handleSetScheduledTaskEnabled,
   },
   {
     name: 'office_claw_remove_scheduled_task',

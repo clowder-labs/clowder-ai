@@ -348,4 +348,145 @@ describe('Session Chain Routes', () => {
     const body = JSON.parse(res.payload);
     assert.equal(body.activeSessionId, active.id);
   });
+
+  // --- GET /api/threads/:threadId/usage tests ---
+
+  it('GET /api/threads/:threadId/usage returns 401 without identity', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/usage',
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  it('GET /api/threads/:threadId/usage returns 403 when user is not thread owner', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/usage',
+      headers: { 'x-cat-cafe-user': 'other-user' },
+    });
+    assert.equal(res.statusCode, 403);
+  });
+
+  it('GET /api/threads/:threadId/usage returns zero totals for thread with no sessions', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/unknown-thread/usage',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.threadId, 'unknown-thread');
+    assert.equal(body.sessionCount, 0);
+    assert.equal(body.total.inputTokens, 0);
+    assert.equal(body.total.outputTokens, 0);
+    assert.deepEqual(body.byCat, {});
+  });
+
+  it('GET /api/threads/:threadId/usage aggregates across sessions and cats', async () => {
+    const store = await setup();
+    const s1 = store.create({ cliSessionId: 'cli-1', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(s1.id, { lastUsage: { inputTokens: 1000, outputTokens: 200, cacheReadTokens: 500, costUsd: 0.10 } });
+    const s2 = store.create({ cliSessionId: 'cli-2', threadId: 'thread-1', catId: 'codex', userId: 'user-1' });
+    store.update(s2.id, { lastUsage: { inputTokens: 3000, outputTokens: 800, cacheReadTokens: 1000, costUsd: 0.30 } });
+    // Seal s1 and create a second opus session
+    store.update(s1.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now() });
+    const s3 = store.create({ cliSessionId: 'cli-3', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(s3.id, { lastUsage: { inputTokens: 2000, outputTokens: 400, cacheReadTokens: 800, costUsd: 0.15 } });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/usage',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.sessionCount, 3);
+    // opus: 1000+2000=3000 input, 200+400=600 output
+    assert.equal(body.byCat['opus'].inputTokens, 3000);
+    assert.equal(body.byCat['opus'].outputTokens, 600);
+    assert.equal(body.byCat['opus'].sessions, 2);
+    // codex: 3000 input, 800 output
+    assert.equal(body.byCat['codex'].inputTokens, 3000);
+    assert.equal(body.byCat['codex'].outputTokens, 800);
+    assert.equal(body.byCat['codex'].sessions, 1);
+    // total: 6000 input, 1400 output
+    assert.equal(body.total.inputTokens, 6000);
+    assert.equal(body.total.outputTokens, 1400);
+    assert.equal(body.total.cacheReadTokens, 2300);
+    assert.equal(body.total.costUsd, 0.55);
+  });
+
+  it('GET /api/threads/:threadId/usage?catId=opus filters by cat', async () => {
+    const store = await setup();
+    const s1 = store.create({ cliSessionId: 'cli-1', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(s1.id, { lastUsage: { inputTokens: 1000, outputTokens: 200 } });
+    const s2 = store.create({ cliSessionId: 'cli-2', threadId: 'thread-1', catId: 'codex', userId: 'user-1' });
+    store.update(s2.id, { lastUsage: { inputTokens: 5000, outputTokens: 1000 } });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/usage?catId=opus',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.sessionCount, 1);
+    assert.equal(body.total.inputTokens, 1000);
+    assert.ok(!body.byCat['codex']);
+  });
+
+  it('GET /api/threads/:threadId/usage x-cat-id forces own-cat filter', async () => {
+    const store = await setup();
+    const s1 = store.create({ cliSessionId: 'cli-1', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(s1.id, { lastUsage: { inputTokens: 1000, outputTokens: 200 } });
+    const s2 = store.create({ cliSessionId: 'cli-2', threadId: 'thread-1', catId: 'codex', userId: 'user-1' });
+    store.update(s2.id, { lastUsage: { inputTokens: 5000, outputTokens: 1000 } });
+
+    // x-cat-id=opus without catId query → should only see opus data
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/usage',
+      headers: { 'x-cat-cafe-user': 'user-1', 'x-cat-id': 'opus' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.sessionCount, 1);
+    assert.equal(body.total.inputTokens, 1000);
+    assert.ok(!body.byCat['codex']);
+  });
+
+  it('GET /api/threads/:threadId/usage x-cat-id rejects cross-cat query', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/usage?catId=codex',
+      headers: { 'x-cat-cafe-user': 'user-1', 'x-cat-id': 'opus' },
+    });
+    assert.equal(res.statusCode, 403);
+    const body = JSON.parse(res.payload);
+    assert.match(body.error, /Cannot query usage/);
+  });
+
+  it('GET /api/threads/:threadId/usage skips sessions without lastUsage', async () => {
+    const store = await setup();
+    // Session with no usage data (newly created, no invocation yet)
+    store.create({ cliSessionId: 'cli-1', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    const s2 = store.create({ cliSessionId: 'cli-2', threadId: 'thread-1', catId: 'codex', userId: 'user-1' });
+    store.update(s2.id, { lastUsage: { inputTokens: 2000, outputTokens: 500 } });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/usage',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.sessionCount, 2); // both counted
+    assert.equal(body.total.inputTokens, 2000); // only s2 contributes
+    assert.ok(!body.byCat['opus']); // opus has no usage bucket
+  });
 });

@@ -7,7 +7,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { SpinnerIcon } from './HubConfigIcons';
@@ -20,13 +19,10 @@ const QR_EXPIRE_MS = 60_000;
 export function WeixinQrPanel({
   configured,
   onConfigured,
-  onDisconnected,
 }: {
   configured: boolean;
   onConfigured?: () => void | Promise<void>;
-  onDisconnected?: () => void | Promise<void>;
 }) {
-  const addToast = useToastStore((s) => s.addToast);
   const [qrState, setQrState] = useState<QrState>(configured ? 'confirmed' : 'idle');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -80,7 +76,7 @@ export function WeixinQrPanel({
             setQrUrl(null);
           }
         } catch {
-          // Network hiccup; keep polling.
+          /* network hiccup — keep polling */
         }
       };
 
@@ -99,7 +95,6 @@ export function WeixinQrPanel({
   const handleFetchQr = async () => {
     setQrState('fetching');
     setErrorMsg(null);
-
     try {
       const res = await apiFetch('/api/connector/weixin/qrcode', { method: 'POST' });
       if (!res.ok) {
@@ -108,7 +103,6 @@ export function WeixinQrPanel({
         setErrorMsg(data.error ?? '获取二维码失败');
         return;
       }
-
       const data = await res.json();
       setQrUrl(data.qrUrl);
       setQrState('waiting');
@@ -122,7 +116,6 @@ export function WeixinQrPanel({
   const handleDisconnect = async () => {
     setDisconnecting(true);
     setErrorMsg(null);
-
     try {
       const res = await apiFetch('/api/connector/weixin/disconnect', { method: 'POST' });
       if (!res.ok) {
@@ -137,7 +130,6 @@ export function WeixinQrPanel({
         });
         return;
       }
-
       stopPolling();
       setQrState('idle');
       setQrUrl(null);
@@ -147,7 +139,6 @@ export function WeixinQrPanel({
         message: '已断开连接。',
         duration: 3000,
       });
-      await onDisconnected?.();
     } catch {
       setErrorMsg('网络错误');
       addToast({
@@ -182,12 +173,7 @@ export function WeixinQrPanel({
         <div className="space-y-2">
           {qrState === 'expired' && <p className="text-xs text-amber-600">二维码已过期，请重新生成</p>}
           {qrState === 'error' && errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
-          <button
-            type="button"
-            onClick={handleFetchQr}
-            className="ui-button-primary"
-            data-testid="weixin-generate-qr"
-          >
+          <button type="button" onClick={handleFetchQr} className="ui-button-primary" data-testid="weixin-generate-qr">
             {qrState === 'expired' ? '重新生成二维码' : '生成二维码'}
           </button>
         </div>
@@ -202,8 +188,13 @@ export function WeixinQrPanel({
 
       {(qrState === 'waiting' || qrState === 'scanned') && qrUrl && (
         <div className="flex flex-col gap-3" style={{ width: 'fit-content' }}>
-          <div className="border-[#f0f0f0] bg-[#fff] p-3" style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
-            <img src={qrUrl} alt="微信二维码" className="h-48 w-48 rounded-lg" data-testid="weixin-qr-image" />
+          <div className="p-3 border-[#f0f0f0] bg-[#fff]" style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
+            <img
+              src={qrUrl}
+              alt="WeChat login QR code"
+              className="w-48 h-48 rounded-lg"
+              data-testid="weixin-qr-image"
+            />
           </div>
           {qrState === 'waiting' && (
             <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
