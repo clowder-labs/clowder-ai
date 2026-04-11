@@ -20,16 +20,19 @@ export function ConnectorConnectedState({
 }: ConnectorConnectedStateProps) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
-        <span className="text-green-600">
+      <div
+        className=" text-xs flex h-[34px] w-1/2 items-center gap-2 rounded-[8px] border border-[#e6e6e6] bg-[#f5f5f5] px-3"
+        data-testid="connector-connected-pill"
+      >
+        <span className="shrink-0 text-green-600">
           <CheckCircleIcon />
         </span>
-        <span className="text-sm font-medium text-green-700">{label}</span>
+        <span className="min-w-0 truncate">{label}</span>
         <button
           type="button"
           onClick={() => void onDisconnect()}
           disabled={disconnecting}
-          className="ml-auto text-xs font-medium text-red-500 transition-colors hover:text-red-700 disabled:opacity-50"
+          className="ml-auto shrink-0 font-medium text-[var(--text-accent)] disabled:opacity-50"
           data-testid={disconnectTestId}
         >
           {disconnecting ? '断开中...' : '断开连接'}
