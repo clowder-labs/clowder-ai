@@ -22,7 +22,7 @@ import QRCode from 'qrcode';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
 
-const ILINK_BASE_URL = process.env.ILINK_BASE_URL!;
+const DEFAULT_ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com';
 const GETUPDATES_TIMEOUT_MS = 35_000;
 const POLL_ERROR_BACKOFF_MS = 3_000;
 const POLL_MAX_BACKOFF_MS = 60_000;
@@ -40,6 +40,13 @@ const QRCODE_POLL_INTERVAL_MS = 2_000;
 const QRCODE_STATUS_POLL_TIMEOUT_MS = 40_000;
 /** QR code timeout (5 minutes) */
 const QRCODE_TIMEOUT_MS = 5 * 60 * 1000;
+
+function getIlinkBaseUrl(): string {
+  const raw = process.env.ILINK_BASE_URL;
+  const candidate = typeof raw === 'string' ? raw.trim() : '';
+  const base = candidate || DEFAULT_ILINK_BASE_URL;
+  return base.replace(/\/+$/, '');
+}
 
 function generateClientId(): string {
   return `cat-cafe-weixin-${crypto.randomUUID()}`;
@@ -347,7 +354,7 @@ export class WeixinAdapter implements IOutboundAdapter {
             base_info: { channel_version: '1.0.0' },
           };
 
-          const res = await this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/getupdates`, {
+          const res = await this.fetchFn(`${getIlinkBaseUrl()}/ilink/bot/getupdates`, {
             method: 'POST',
             headers: this.getHeaders(),
             body: JSON.stringify(body),
@@ -443,7 +450,7 @@ export class WeixinAdapter implements IOutboundAdapter {
 
   async fetchTypingTicket(chatId: string, contextToken: string): Promise<void> {
     try {
-      const res = await this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/getconfig`, {
+      const res = await this.fetchFn(`${getIlinkBaseUrl()}/ilink/bot/getconfig`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
@@ -474,7 +481,7 @@ export class WeixinAdapter implements IOutboundAdapter {
     const oldTimer = this.typingTimers.get(chatId);
     if (oldTimer) clearInterval(oldTimer);
     const send = () => {
-      this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/sendtyping`, {
+      this.fetchFn(`${getIlinkBaseUrl()}/ilink/bot/sendtyping`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
@@ -500,7 +507,7 @@ export class WeixinAdapter implements IOutboundAdapter {
     }
     const ticket = this.typingTickets.get(chatId);
     if (!ticket) return;
-    this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/sendtyping`, {
+    this.fetchFn(`${getIlinkBaseUrl()}/ilink/bot/sendtyping`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({
@@ -667,7 +674,7 @@ export class WeixinAdapter implements IOutboundAdapter {
 
     this.log.info({ chatId, textLen: text.length }, '[WeixinAdapter] sendMessageApi() calling iLink API');
 
-    const res = await this.fetchFn(`${ILINK_BASE_URL}/ilink/bot/sendmessage`, {
+    const res = await this.fetchFn(`${getIlinkBaseUrl()}/ilink/bot/sendmessage`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(body),
@@ -809,7 +816,7 @@ export class WeixinAdapter implements IOutboundAdapter {
   private static staticFetchFn: typeof fetch = globalThis.fetch;
 
   static async fetchQrCode(): Promise<WeixinQrCodeResult> {
-    const url = `${ILINK_BASE_URL}/ilink/bot/get_bot_qrcode?bot_type=3`;
+    const url = `${getIlinkBaseUrl()}/ilink/bot/get_bot_qrcode?bot_type=3`;
     const res = await WeixinAdapter.staticFetchFn(url, {
       method: 'GET',
       signal: AbortSignal.timeout(10_000),
@@ -834,7 +841,7 @@ export class WeixinAdapter implements IOutboundAdapter {
   }
 
   static async pollQrCodeStatus(qrPayload: string): Promise<WeixinQrCodeStatus> {
-    const url = `${ILINK_BASE_URL}/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrPayload)}`;
+    const url = `${getIlinkBaseUrl()}/ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(qrPayload)}`;
     const res = await WeixinAdapter.staticFetchFn(url, {
       method: 'GET',
       signal: AbortSignal.timeout(QRCODE_STATUS_POLL_TIMEOUT_MS),

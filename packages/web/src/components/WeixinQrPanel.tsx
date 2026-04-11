@@ -7,6 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { SpinnerIcon } from './HubConfigIcons';
@@ -16,74 +17,113 @@ type QrState = 'idle' | 'fetching' | 'waiting' | 'scanned' | 'confirmed' | 'erro
 const QR_POLL_INTERVAL_MS = 2500;
 const QR_EXPIRE_MS = 60_000;
 
-export function WeixinQrPanel({
-  configured,
-  onConfigured,
-}: {
+interface WeixinQrPanelProps {
   configured: boolean;
   onConfigured?: () => void | Promise<void>;
-}) {
+  onDisconnected?: () => void | Promise<void>;
+}
+
+export function WeixinQrPanel({ configured, onConfigured, onDisconnected }: WeixinQrPanelProps) {
+  const addToast = useToastStore((s) => s.addToast);
   const [qrState, setQrState] = useState<QrState>(configured ? 'confirmed' : 'idle');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const expireRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const terminalRef = useRef(configured);
+  const requestSeqRef = useRef(0);
+  const confirmedNotifiedRef = useRef(configured);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
-      clearInterval(pollRef.current);
+      clearTimeout(pollRef.current);
       pollRef.current = null;
     }
     if (expireRef.current) {
       clearTimeout(expireRef.current);
       expireRef.current = null;
     }
+    requestSeqRef.current += 1;
   }, []);
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
   useEffect(() => {
     if (configured) {
+      terminalRef.current = true;
+      confirmedNotifiedRef.current = true;
       stopPolling();
       setQrState('confirmed');
       setQrUrl(null);
       setErrorMsg(null);
+      return;
     }
+    terminalRef.current = false;
+    confirmedNotifiedRef.current = false;
+    setQrState((prev) => (prev === 'confirmed' ? 'idle' : prev));
   }, [configured, stopPolling]);
 
   const startPolling = useCallback(
     (payload: string) => {
       stopPolling();
+      terminalRef.current = false;
+      confirmedNotifiedRef.current = false;
+
+      const scheduleNextPoll = () => {
+        if (terminalRef.current) return;
+        pollRef.current = setTimeout(() => {
+          void poll();
+        }, QR_POLL_INTERVAL_MS);
+      };
 
       const poll = async () => {
+        if (terminalRef.current) return;
+        const requestId = ++requestSeqRef.current;
         try {
           const res = await apiFetch(`/api/connector/weixin/qrcode-status?qrPayload=${encodeURIComponent(payload)}`);
-          if (!res.ok) return;
+          if (!res.ok) {
+            scheduleNextPoll();
+            return;
+          }
           const data = await res.json();
+          if (terminalRef.current || requestId !== requestSeqRef.current) return;
 
           if (data.status === 'scanned') {
-            setQrState('scanned');
+            setQrState((prev) => (prev === 'scanned' ? prev : 'scanned'));
+            scheduleNextPoll();
+          } else if (data.status === 'waiting') {
+            setQrState((prev) => (prev === 'waiting' ? prev : 'waiting'));
+            scheduleNextPoll();
           } else if (data.status === 'confirmed') {
+            terminalRef.current = true;
             stopPolling();
             setQrState('confirmed');
             setQrUrl(null);
             setErrorMsg(null);
-            await onConfigured?.();
+            if (!confirmedNotifiedRef.current) {
+              confirmedNotifiedRef.current = true;
+              await onConfigured?.();
+            }
           } else if (data.status === 'expired') {
+            terminalRef.current = true;
             stopPolling();
             setQrState('expired');
             setQrUrl(null);
+          } else {
+            scheduleNextPoll();
           }
         } catch {
+          if (terminalRef.current || requestId !== requestSeqRef.current) return;
+          scheduleNextPoll();
           /* network hiccup — keep polling */
         }
       };
 
-      pollRef.current = setInterval(poll, QR_POLL_INTERVAL_MS);
-      poll();
+      void poll();
 
       expireRef.current = setTimeout(() => {
+        terminalRef.current = true;
         stopPolling();
         setQrState('expired');
         setQrUrl(null);
@@ -93,6 +133,9 @@ export function WeixinQrPanel({
   );
 
   const handleFetchQr = async () => {
+    stopPolling();
+    terminalRef.current = false;
+    confirmedNotifiedRef.current = false;
     setQrState('fetching');
     setErrorMsg(null);
     try {
@@ -131,8 +174,11 @@ export function WeixinQrPanel({
         return;
       }
       stopPolling();
+      terminalRef.current = false;
+      confirmedNotifiedRef.current = false;
       setQrState('idle');
       setQrUrl(null);
+      await onDisconnected?.();
       addToast({
         type: 'success',
         title: '断开连接成功',

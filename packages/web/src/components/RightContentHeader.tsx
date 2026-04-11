@@ -539,7 +539,7 @@ export function RightContentHeader() {
           payload?.message?.trim() ||
           payload?.msg?.trim() ||
           payload?.error_code ||
-          payload?.errorCode;
+          payload?.errorCode || '';
         setSubmitErrorMessage(message);
         addToast({
           type: 'error',

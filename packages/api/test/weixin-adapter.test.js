@@ -858,6 +858,70 @@ describe('WeixinAdapter', () => {
     });
 
     describe('fetchQrCode', () => {
+      it('falls back to official iLink base URL when ILINK_BASE_URL is unset', async () => {
+        const originalBase = process.env.ILINK_BASE_URL;
+        delete process.env.ILINK_BASE_URL;
+        let capturedUrl = null;
+        WeixinAdapter._injectStaticFetch(async (url) => {
+          capturedUrl = url;
+          return {
+            ok: true,
+            json: async () => ({
+              errcode: 0,
+              qrcode: 'payload-default-base',
+              qrcode_img_content: 'https://liteapp.weixin.qq.com/q/default',
+            }),
+          };
+        });
+
+        try {
+          await WeixinAdapter.fetchQrCode();
+          assert.equal(
+            capturedUrl,
+            'https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3',
+            'should use default official iLink base URL',
+          );
+        } finally {
+          if (typeof originalBase === 'string') {
+            process.env.ILINK_BASE_URL = originalBase;
+          } else {
+            delete process.env.ILINK_BASE_URL;
+          }
+        }
+      });
+
+      it('normalizes trailing slash in ILINK_BASE_URL to avoid double slash URLs', async () => {
+        const originalBase = process.env.ILINK_BASE_URL;
+        process.env.ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com/';
+        let capturedUrl = null;
+        WeixinAdapter._injectStaticFetch(async (url) => {
+          capturedUrl = url;
+          return {
+            ok: true,
+            json: async () => ({
+              errcode: 0,
+              qrcode: 'payload-trailing-slash',
+              qrcode_img_content: 'https://liteapp.weixin.qq.com/q/trailing',
+            }),
+          };
+        });
+
+        try {
+          await WeixinAdapter.fetchQrCode();
+          assert.equal(
+            capturedUrl,
+            'https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3',
+            'should not contain double slash between host and path',
+          );
+        } finally {
+          if (typeof originalBase === 'string') {
+            process.env.ILINK_BASE_URL = originalBase;
+          } else {
+            delete process.env.ILINK_BASE_URL;
+          }
+        }
+      });
+
       it('returns qrUrl and qrPayload on success', async () => {
         WeixinAdapter._injectStaticFetch(async () => ({
           ok: true,

@@ -242,6 +242,51 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     expect(queryTestId(container, 'weixin-connected')).not.toBeNull();
   });
 
+  it('ignores late confirmed poll result after configured prop flips to true', async () => {
+    const onConfigured = vi.fn();
+    let resolveStatus: ((value: Response | PromiseLike<Response>) => void) | null = null;
+    const pendingStatus = new Promise<Response>((resolve) => {
+      resolveStatus = resolve;
+    });
+
+    mockApiFetch.mockImplementation((url) => {
+      if (typeof url === 'string' && url.includes('/api/connector/weixin/qrcode-status')) {
+        return pendingStatus;
+      }
+      if (url === '/api/connector/weixin/qrcode') {
+        return Promise.resolve(jsonResponse({ qrUrl: 'https://example.com/qr.png', qrPayload: 'abc123' }));
+      }
+      throw new Error(`Unexpected apiFetch call: ${String(url)}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(WeixinQrPanel, { configured: false, onConfigured }));
+    });
+    await flushEffects();
+
+    await act(async () => {
+      const generateButton = queryTestId(container, 'weixin-generate-qr') as HTMLButtonElement | null;
+      expect(generateButton).not.toBeNull();
+      generateButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+    expect(queryTestId(container, 'weixin-qr-image')).not.toBeNull();
+
+    await act(async () => {
+      root.render(React.createElement(WeixinQrPanel, { configured: true, onConfigured }));
+    });
+    await flushEffects();
+
+    await act(async () => {
+      resolveStatus?.(jsonResponse({ status: 'confirmed' }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(onConfigured).toHaveBeenCalledTimes(0);
+    expect(queryTestId(container, 'weixin-connected')).not.toBeNull();
+  });
+
   it('syncs to connected state when configured prop flips to true', async () => {
     await act(async () => {
       root.render(React.createElement(WeixinQrPanel, { configured: false }));
