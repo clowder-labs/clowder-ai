@@ -34,8 +34,8 @@ import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
-import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
-import { extractImagePaths } from '../providers/image-paths.js';
+import { appendLocalUploadPathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
+import { extractUploadRefs } from '../providers/image-paths.js';
 import { findGitBashPath } from './claude-agent-win.js';
 import { extractClaudeUsage, isResultErrorEvent, transformClaudeEvent } from './claude-ndjson-parser.js';
 
@@ -187,10 +187,10 @@ export class ClaudeAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     let effectivePrompt = prompt;
-    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
-    const imageAccessDirs = collectImageAccessDirectories(imagePaths);
-    // Claude CLI print mode has no direct image attach flag; provide path hints and grant dir access.
-    effectivePrompt = appendLocalImagePathHints(effectivePrompt, imagePaths);
+    const uploadRefs = extractUploadRefs(options?.contentBlocks, options?.uploadDir);
+    const imageAccessDirs = collectImageAccessDirectories(uploadRefs.map((ref) => ref.path));
+    // Claude CLI print mode has no direct file attach flag; provide local path hints and grant dir access.
+    effectivePrompt = appendLocalUploadPathHints(effectivePrompt, uploadRefs);
 
     // Profile-level model override (e.g. "opus[1m]") takes precedence over constructor model
     const effectiveModel = options?.callbackEnv?.[ANTHROPIC_MODEL_OVERRIDE_KEY]?.trim() || this.model;

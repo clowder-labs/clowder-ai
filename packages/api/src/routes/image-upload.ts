@@ -26,6 +26,9 @@ const ALLOWED_ATTACHMENT_MIMES = new Set([
 ]);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
+const MAX_ATTACHMENT_BASE_LENGTH = 120;
+const MAX_UNIQUE_NAME_ATTEMPTS = 1000;
+const WINDOWS_RESERVED_BASENAME_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 export interface SavedImage {
   absPath: string;
@@ -160,18 +163,15 @@ export async function saveUploadedAttachments(
     }
 
     const originalFileName = sanitizeAttachmentName(file.filename, file.mimetype);
-    const ext = attachmentMimeToExt(file.mimetype);
-    const filename = `file-${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
-    const absPath = resolve(join(uploadDir, filename));
-
-    await writeFile(absPath, buffer);
+    const { filename, absPath } = await writeUniqueUploadFile(uploadDir, originalFileName, buffer);
+    const urlPath = buildUploadUrlPath(filename);
 
     saved.push({
       absPath,
-      urlPath: `/uploads/${filename}`,
+      urlPath,
       content: {
         type: 'file',
-        url: `/uploads/${filename}`,
+        url: urlPath,
         fileName: originalFileName,
         mimeType: file.mimetype,
         fileSize: buffer.byteLength,
@@ -202,13 +202,7 @@ export async function saveUploadedAttachmentsToWorkspace(
     }
 
     const originalFileName = sanitizeAttachmentName(file.filename, file.mimetype);
-    const ext = attachmentMimeToExt(file.mimetype);
-    const diskName = `file-${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
-    const workspacePath = toWorkspaceChildPath(target.directoryPath, diskName);
-    const absPath = await resolveWorkspacePath(target.workspaceRoot, workspacePath);
-
-    await mkdir(dirname(absPath), { recursive: true });
-    await writeFile(absPath, buffer);
+    const { filename, absPath, workspacePath } = await writeUniqueWorkspaceUploadFile(target, originalFileName, buffer);
 
     const query = new URLSearchParams({
       worktreeId: target.worktreeId,
@@ -247,6 +241,63 @@ function mimeToExt(mime: string): string {
   }
 }
 
+function buildUploadUrlPath(filename: string): string {
+  return `/uploads/${encodeURIComponent(filename)}`;
+}
+
+function splitFileName(filename: string): { base: string; ext: string } {
+  const ext = extname(filename);
+  return ext ? { base: filename.slice(0, -ext.length), ext } : { base: filename, ext: '' };
+}
+
+function buildDuplicateName(filename: string, index: number): string {
+  const { base, ext } = splitFileName(filename);
+  return `${base} (${index})${ext}`;
+}
+
+async function writeUniqueUploadFile(
+  uploadDir: string,
+  preferredName: string,
+  buffer: Buffer,
+): Promise<{ filename: string; absPath: string }> {
+  for (let index = 0; index < MAX_UNIQUE_NAME_ATTEMPTS; index += 1) {
+    const filename = index === 0 ? preferredName : buildDuplicateName(preferredName, index);
+    const absPath = resolve(join(uploadDir, filename));
+    try {
+      await writeFile(absPath, buffer, { flag: 'wx' });
+      return { filename, absPath };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
+      throw error;
+    }
+  }
+
+  throw new ImageUploadError('Unable to allocate a unique attachment filename');
+}
+
+async function writeUniqueWorkspaceUploadFile(
+  target: WorkspaceUploadTarget,
+  preferredName: string,
+  buffer: Buffer,
+): Promise<{ filename: string; absPath: string; workspacePath: string }> {
+  for (let index = 0; index < MAX_UNIQUE_NAME_ATTEMPTS; index += 1) {
+    const filename = index === 0 ? preferredName : buildDuplicateName(preferredName, index);
+    const workspacePath = toWorkspaceChildPath(target.directoryPath, filename);
+    const absPath = await resolveWorkspacePath(target.workspaceRoot, workspacePath);
+
+    try {
+      await mkdir(dirname(absPath), { recursive: true });
+      await writeFile(absPath, buffer, { flag: 'wx' });
+      return { filename, absPath, workspacePath };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
+      throw error;
+    }
+  }
+
+  throw new ImageUploadError('Unable to allocate a unique attachment filename');
+}
+
 function attachmentMimeToExt(mime: string): string {
   switch (mime) {
     case 'application/pdf':
@@ -275,7 +326,15 @@ function sanitizeAttachmentName(filename: string | undefined, mime: string): str
   if (!cleaned) return fallback;
 
   const base = extname(cleaned) ? cleaned.slice(0, -extname(cleaned).length) : cleaned;
-  const safeBase = base.trim() || 'attachment';
+  const normalizedBase = base.replace(/[. ]+$/g, '').trim();
+  let safeBase = normalizedBase || 'attachment';
+  if (safeBase.length > MAX_ATTACHMENT_BASE_LENGTH) {
+    safeBase = safeBase.slice(0, MAX_ATTACHMENT_BASE_LENGTH).trim();
+  }
+  if (!safeBase) safeBase = 'attachment';
+  if (WINDOWS_RESERVED_BASENAME_RE.test(safeBase)) {
+    safeBase = `_${safeBase}`;
+  }
   return `${safeBase}${attachmentMimeToExt(mime)}`;
 }
 
