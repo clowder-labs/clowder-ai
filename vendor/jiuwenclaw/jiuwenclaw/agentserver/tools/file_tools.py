@@ -200,6 +200,7 @@ class FileToolkit:
                     name="file_read",
                     description=FILE_READ_DESC,
                     input_params=FILE_READ_PARAMS,
+                    properties={"truncate_length": 50000},
                 ),
                 func=self._file_read,
             ),

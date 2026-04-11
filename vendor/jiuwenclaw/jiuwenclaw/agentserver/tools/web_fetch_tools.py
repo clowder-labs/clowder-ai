@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
 import trafilatura
-from openjiuwen.core.foundation.tool import tool
+from openjiuwen.core.foundation.tool import ToolCard, tool
 
 from .ssl_config import get_requests_verify
 
@@ -347,8 +347,12 @@ async def _fetch_webpage_async(
 
 
 @tool(
-    name="mcp_fetch_webpage",
-    description="Fetch webpage text content from URL with concurrent fallback. Returns status/title/plain text content.",
+    card=ToolCard(
+        id="mcp_fetch_webpage",
+        name="mcp_fetch_webpage",
+        description="Fetch webpage text content from URL with concurrent fallback. Returns status/title/plain text content.",
+        properties={"truncate_length": 5000},
+    ),
 )
 async def mcp_fetch_webpage(
     url: str, max_chars: int = 12000, timeout_seconds: int = 5
