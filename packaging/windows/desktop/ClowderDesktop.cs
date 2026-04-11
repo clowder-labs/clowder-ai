@@ -89,6 +89,11 @@ internal sealed class LauncherForm : Form
 
     private const int SW_RESTORE = 9;
     private const int SW_SHOWMINIMIZED = 2;
+    private const string WindowMinimizeMessage = "window.minimize";
+    private const string WindowToggleMaximizeMessage = "window.toggleMaximize";
+    private const string WindowCloseMessage = "window.close";
+    private const string WindowSyncStateMessage = "window.syncState";
+    private const string WindowStateMessageType = "window.state";
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
@@ -170,6 +175,7 @@ internal sealed class LauncherForm : Form
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
         _trayRestorePlacement = CreateEmptyWindowPlacement();
+        Resize += (_, __) => PublishWindowState();
 
         _splashBox = new PictureBox
         {
@@ -329,6 +335,93 @@ internal sealed class LauncherForm : Form
         StopManagedServices();
     }
 
+    private void OnWebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs eventArgs)
+    {
+        string message;
+        try
+        {
+            message = eventArgs.TryGetWebMessageAsString();
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed reading WebView2 message: " + ex.Message);
+            return;
+        }
+
+        HandleWindowMessage(message);
+    }
+
+    private void HandleWindowMessage(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        switch (message)
+        {
+            case WindowMinimizeMessage:
+                WindowState = FormWindowState.Minimized;
+                PublishWindowState();
+                return;
+            case WindowToggleMaximizeMessage:
+                ToggleMaximize();
+                return;
+            case WindowCloseMessage:
+                HideToTray();
+                return;
+            case WindowSyncStateMessage:
+                PublishWindowState();
+                return;
+            default:
+                AppendLog("Ignoring unknown WebView2 message: " + message);
+                return;
+        }
+    }
+
+    private void ToggleMaximize()
+    {
+        if (WindowState == FormWindowState.Maximized)
+        {
+            WindowState = FormWindowState.Normal;
+        }
+        else
+        {
+            WindowState = FormWindowState.Maximized;
+        }
+
+        PublishWindowState();
+    }
+
+    private void PublishWindowState()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)PublishWindowState);
+            return;
+        }
+
+        if (_webView == null || _webView.IsDisposed || _webView.CoreWebView2 == null)
+        {
+            return;
+        }
+
+        var isMaximized = WindowState == FormWindowState.Maximized ? "true" : "false";
+        var isMinimized = WindowState == FormWindowState.Minimized ? "true" : "false";
+        var canMaximize = MaximizeBox ? "true" : "false";
+        var payload =
+            "{\"type\":\"" + WindowStateMessageType + "\",\"payload\":{\"isMaximized\":" + isMaximized + ",\"isMinimized\":" + isMinimized + ",\"canMaximize\":" + canMaximize + "}}";
+
+        try
+        {
+            _webView.CoreWebView2.PostWebMessageAsJson(payload);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed posting WebView2 window state: " + ex.Message);
+        }
+    }
+
     private static WINDOWPLACEMENT CreateEmptyWindowPlacement()
     {
         return new WINDOWPLACEMENT
@@ -378,6 +471,12 @@ internal sealed class LauncherForm : Form
 
     private void HideToTray()
     {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)HideToTray);
+            return;
+        }
+
         CaptureTrayRestorePlacement();
 
         _isHiddenToTray = true;
@@ -385,6 +484,7 @@ internal sealed class LauncherForm : Form
         WindowState = FormWindowState.Minimized;
         Hide();
         _notifyIcon.Visible = true;
+        PublishWindowState();
         if (!_trayHintShown)
         {
             _notifyIcon.ShowBalloonTip(
@@ -411,6 +511,7 @@ internal sealed class LauncherForm : Form
         RestoreFromTrayPlacement();
         SetForegroundWindow(Handle);
         Activate();
+        PublishWindowState();
     }
 
 
@@ -433,6 +534,7 @@ internal sealed class LauncherForm : Form
             ShowInTaskbar = true;
             ShowWindow(Handle, SW_RESTORE);
             SetForegroundWindow(Handle);
+            PublishWindowState();
             return;
         }
 
@@ -443,6 +545,7 @@ internal sealed class LauncherForm : Form
 
         ShowInTaskbar = true;
         Activate();
+        PublishWindowState();
     }
 
 
@@ -721,10 +824,12 @@ internal sealed class LauncherForm : Form
         settings.IsSwipeNavigationEnabled = false;
 
         _webView.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
+        _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
         _webView.CoreWebView2.ProcessFailed += (_, eventArgs) =>
         {
             AppendLog("WebView2 process failed: " + eventArgs.ProcessFailedKind);
         };
+        _webView.CoreWebView2.NavigationCompleted += (_, __) => PublishWindowState();
         _webView.Source = new Uri(_frontendUrl);
     }
 
