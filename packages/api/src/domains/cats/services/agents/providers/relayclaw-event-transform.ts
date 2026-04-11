@@ -22,7 +22,10 @@
  */
 
 import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage } from '../../types.js';
+
+const log = createModuleLogger('relayclaw-event-transform');
 
 function msg(type: AgentMessage['type'], catId: CatId, content?: string): AgentMessage {
   return { type, catId, content, timestamp: Date.now() };
@@ -31,10 +34,7 @@ function msg(type: AgentMessage['type'], catId: CatId, content?: string): AgentM
 /**
  * Transform a single relay-claw WS chunk into an AgentMessage (or null to skip).
  */
-export function transformRelayClawChunk(
-  frame: RelayClawWsFrame,
-  catId: CatId,
-): AgentMessage | null {
+export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): AgentMessage | null {
   // connection.ack is handled at connection level, not yielded as a message
   if (frame.type === 'event' && frame.event === 'connection.ack') {
     return null;
@@ -114,6 +114,7 @@ export function transformRelayClawChunk(
 
     default: {
       // Unknown event: extract content if present, otherwise skip
+      log.warn({ eventType, requestId: frame.request_id }, 'jiuwen unknown event type — possible protocol drift');
       const content = payload.content;
       if (content) return msg('text', catId, content);
       return null;

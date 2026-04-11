@@ -167,9 +167,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       ? Number.parseInt(modelContextWindowRaw, 10)
       : Number.NaN;
     const modelContextWindow =
-      Number.isFinite(modelContextWindowParsed) && modelContextWindowParsed > 0
-        ? modelContextWindowParsed
-        : undefined;
+      Number.isFinite(modelContextWindowParsed) && modelContextWindowParsed > 0 ? modelContextWindowParsed : undefined;
 
     return {
       executablePath,
@@ -288,9 +286,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
           exitSignal,
           logChars: this.recentLogs.length,
           ...(tail ? { logTail: tail } : {}),
-          ...(this.recentLogs.length > 0
-            ? { stderrPreview: this.recentLogs.slice(-1500) }
-            : {}),
+          ...(this.recentLogs.length > 0 ? { stderrPreview: this.recentLogs.slice(-1500) } : {}),
         },
         'relayclaw sidecar exited',
       );
@@ -304,7 +300,10 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       throw new Error('jiuwen sidecar startup aborted');
     }
 
-    const timeoutAt = Date.now() + (this.config.startupTimeoutMs ?? 180_000);
+    const startupTs = Date.now();
+    const timeoutAt = startupTs + (this.config.startupTimeoutMs ?? 180_000);
+    let tcpReady = false;
+    let appReady = false;
     while (Date.now() < timeoutAt) {
       if (signal?.aborted) {
         this.stop('startup_aborted_signal');
@@ -319,17 +318,29 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
             exitCode: this.child?.exitCode ?? null,
             logChars: this.recentLogs.length,
             ...(tail ? { logTail: tail } : {}),
-            ...(this.recentLogs.length > 0
-              ? { stderrPreview: this.recentLogs.slice(-1500) }
-              : {}),
+            ...(this.recentLogs.length > 0 ? { stderrPreview: this.recentLogs.slice(-1500) } : {}),
           },
           'relayclaw sidecar startup failed: process exited before ready',
         );
-        throw new Error(
-          `jiuwen sidecar exited during startup${this.recentLogs ? `: ${tail}` : ''}`,
-        );
+        throw new Error(`jiuwen sidecar exited during startup${this.recentLogs ? `: ${tail}` : ''}`);
       }
+
+      // Stage 1: TCP probe on agent port
+      if (!tcpReady && (await this.tcpProbeFn('127.0.0.1', agentPort, 400))) {
+        tcpReady = true;
+        log.info({ catId: this.catId, agentPort, elapsedMs: Date.now() - startupTs }, 'jiuwen sidecar tcp_ready');
+      }
+      // Stage 2: App-level readiness (log marker)
+      if (tcpReady && !appReady && isSidecarReady(this.recentLogs)) {
+        appReady = true;
+        log.info({ catId: this.catId, elapsedMs: Date.now() - startupTs }, 'jiuwen sidecar app_ready');
+      }
+
       if (await isRelayClawRuntimeReady(runtime, this.tcpProbeFn, this.recentLogs, agentPort, webPort)) {
+        log.info(
+          { catId: this.catId, agentPort, webPort, elapsedMs: Date.now() - startupTs },
+          'jiuwen sidecar fully ready',
+        );
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -348,9 +359,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
       'relayclaw sidecar startup failed: readiness timeout',
     );
     this.stop('readiness_timeout');
-    throw new Error(
-      `jiuwen sidecar did not become ready in time${this.recentLogs ? `: ${tail}` : ''}`,
-    );
+    throw new Error(`jiuwen sidecar did not become ready in time${this.recentLogs ? `: ${tail}` : ''}`);
   }
 }
 
