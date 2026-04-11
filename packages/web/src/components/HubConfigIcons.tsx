@@ -137,11 +137,9 @@ export function CheckCircleIcon() {
   );
 }
 
-export function LockIcon() {
+export function ConnectorLockIcon({ platformId }: { platformId: string }) {
   return (
-    <svg className="w-3 h-3" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
-      <rect width="18" height="11" x="3" y="11" rx="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/icons/lock.svg" alt="" aria-hidden="true" className="h-4 w-4" />
   );
 }

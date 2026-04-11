@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { FeishuQrPanel } from './FeishuQrPanel';
 import {
+  ConnectorLockIcon,
   DEFAULT_VISUAL,
   ExternalLinkIcon,
-  LockIcon,
   PLATFORM_VISUALS,
   StepBadge,
   WifiIcon,
@@ -430,8 +430,11 @@ export function HubConnectorConfigTab() {
                             <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
                               {field.label}
                               {field.sensitive && (
-                                <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
-                                  <LockIcon />
+                                <span
+                                  className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]"
+                                  data-testid={`connector-lock-${platform.id}`}
+                                >
+                                  <ConnectorLockIcon platformId={platform.id} />
                                 </span>
                               )}
                             </label>

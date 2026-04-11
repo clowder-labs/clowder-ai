@@ -176,7 +176,7 @@ export function WeixinQrPanel({
           {qrState === 'waiting' && (
             <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
               <SpinnerIcon />
-              <span>用微信扫描二维码</span>
+              <span>用微信扫描二维码并确认授权</span>
             </div>
           )}
           {qrState === 'scanned' && (
