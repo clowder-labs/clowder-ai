@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * XiaoYi (小艺) Connector Adapter — OpenClaw A2A over dual-WS.
  *

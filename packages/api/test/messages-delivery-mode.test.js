@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * POST /api/messages deliveryMode tests (F39)
  * Tests queue/force/immediate routing logic.

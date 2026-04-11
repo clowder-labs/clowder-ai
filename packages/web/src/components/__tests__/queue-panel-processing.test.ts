@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * QueuePanel: processing entries should NOT be visible
  * (processing = already executing, user sees it in chat area)

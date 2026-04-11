@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis InvocationRecord Store
  * Redis-backed invocation record storage with Lua atomic create.

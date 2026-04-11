@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { FastifyPluginAsync } from 'fastify';
 import type { PortDiscoveryService } from '../domains/preview/port-discovery.js';
 import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.js';

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type Database from 'better-sqlite3';
 import type { RunLedgerRow, RunStats } from './types.js';
 

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Regression test: BrowserPanel Strict Mode tab dedup (Bug B from F120 Alpha)
  *

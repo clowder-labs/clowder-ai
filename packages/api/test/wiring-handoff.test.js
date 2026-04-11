@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Task 5: Wiring tests — verify handoffConfig flows into SessionSealer
  * and bootstrapDepth flows into buildSessionBootstrap calls.

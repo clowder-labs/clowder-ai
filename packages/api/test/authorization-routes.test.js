@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Authorization Routes Tests
  * 猫猫授权 HTTP 端点 — callback-auth (猫端) + authorization (铲屎官端)

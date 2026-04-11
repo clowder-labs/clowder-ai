@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Claude Agent Service
  * 使用 Claude CLI 子进程调用布偶猫 (Opus)

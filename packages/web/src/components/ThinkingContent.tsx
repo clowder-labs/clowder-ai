@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -149,7 +155,7 @@ export function ThinkingContent({
         onClick={() => {
           setExpanded((v) => !v);
         }}
-        className="thinking-button w-full flex items-center gap-2 text-[14px] font-mono transition-colors"
+        className="thinking-button w-full flex items-center gap-2 px-2 text-[14px] font-mono transition-colors"
       >
         {status === 'streaming' && <LoadingPointStyle className="w-4 h-4 flex-shrink-0" />}
         { status === 'done' && 

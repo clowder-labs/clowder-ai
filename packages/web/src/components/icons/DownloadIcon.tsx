@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export function DownloadIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg

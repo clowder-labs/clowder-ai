@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
@@ -63,6 +69,7 @@ describe('POST /api/connector/test/xiaoyi', () => {
     });
 
     assert.equal(res.statusCode, 401);
+    assert.equal(res.json().error, '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头');
 
     await app.close();
   });

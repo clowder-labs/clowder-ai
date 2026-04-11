@@ -40,6 +40,7 @@ class RegistryPlanValidator(IValidator):
         tool_manager: IToolManager | None = None,
         name: str = "registry_plan_validator",
     ) -> None:
+        super().__init__()
         if tool_gateway is None and tool_manager is None:
             raise ValueError("RegistryPlanValidator requires a tool gateway or tool manager")
         self._tool_gateway = tool_gateway

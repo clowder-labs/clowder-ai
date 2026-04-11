@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ChatMessage } from '@/stores/chatStore';
 

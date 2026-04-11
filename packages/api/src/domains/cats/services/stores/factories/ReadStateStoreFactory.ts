@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * ReadState Store Factory (F069)
  * REDIS_URL 有值 → RedisThreadReadStateStore

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { type SVGProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -1264,7 +1270,7 @@ export function AgentsPanel() {
                 </div>
               ) : null}
 
-              <div className="min-h-0 flex-1 overflow-hidden">{renderDetailBody()}</div>
+              <div className="min-h-0 flex-1 overflow-auto">{renderDetailBody()}</div>
             </div>
           </section>
         </div>

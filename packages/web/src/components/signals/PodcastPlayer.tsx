@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { StudyArtifact } from '@cat-cafe/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPlaybackManager } from '@/hooks/useVoiceStream';

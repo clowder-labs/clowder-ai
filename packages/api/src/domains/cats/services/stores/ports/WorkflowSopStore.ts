@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { UpdateWorkflowSopInput, WorkflowSop } from '@cat-cafe/shared';
 
 export class VersionConflictError extends Error {

@@ -22,7 +22,7 @@ Notes:
     - SVG is embedded in native vector format, preserving editability
     - Requires PowerPoint 2016+ to display correctly
 """
-
+import logging
 import sys
 import os
 import argparse
@@ -39,8 +39,8 @@ try:
     from pptx import Presentation
     from pptx.util import Emu
 except ImportError:
-    print("Error: python-pptx library is missing")
-    print("Please run: pip install python-pptx")
+    logging.info("Error: python-pptx library is missing")
+    logging.info("Please run: pip install python-pptx")
     sys.exit(1)
 
 # Import project utility modules
@@ -87,6 +87,7 @@ except (ImportError, OSError):
         PNG_RENDERER = 'svglib'
     except (ImportError, OSError):
         pass
+
 
 def get_png_renderer_info() -> tuple:
     """Get PNG renderer information"""
@@ -185,7 +186,8 @@ def detect_format_from_svg(svg_path: Path) -> Optional[str]:
             for fmt_key, fmt_info in CANVAS_FORMATS.items():
                 if fmt_info['viewbox'] == viewbox:
                     return fmt_key
-    except Exception:
+    except Exception as e:
+        logging.error(f"handle error {e}", exc_info=True)
         pass
     return None
 
@@ -221,7 +223,7 @@ def convert_svg_to_png(svg_path: Path, png_path: Path, width: int = None, height
             # Use svglib (lightweight, but limited gradient support)
             drawing = svg2rlg(str(svg_path))
             if drawing is None:
-                print(f"  Warning: Unable to parse SVG ({svg_path.name})")
+                logging.info(f"  Warning: Unable to parse SVG ({svg_path.name})")
                 return False
 
             # Render to PNG
@@ -234,7 +236,7 @@ def convert_svg_to_png(svg_path: Path, png_path: Path, width: int = None, height
             return True
 
     except Exception as e:
-        print(f"  Warning: SVG to PNG conversion failed ({svg_path.name}): {e}")
+        logging.info(f"  Warning: SVG to PNG conversion failed ({svg_path.name}): {e}")
         return False
 
     return False
@@ -347,7 +349,8 @@ def find_notes_files(project_path: Path, svg_files: List[Path] = None) -> dict:
             # Match by filename (overrides backward compatible format)
             if stem in svg_stems_mapping:
                 notes[stem] = content
-        except Exception:
+        except Exception as e:
+            logging.error(f"handle error {e}", exc_info=True)
             pass
 
     return notes
@@ -606,7 +609,8 @@ def create_slide_xml_with_svg(
 </p:sld>'''
 
 
-def create_slide_rels_xml(png_rid: str, png_filename: str, svg_rid: str, svg_filename: str, use_compat_mode: bool = True) -> str:
+def create_slide_rels_xml(png_rid: str, png_filename: str,
+                          svg_rid: str, svg_filename: str, use_compat_mode: bool = True) -> str:
     """
     Create slide relationship file XML
 
@@ -662,14 +666,14 @@ def create_pptx_with_native_svg(
         use_native_shapes: Convert SVG to native DrawingML shapes (directly editable)
     """
     if not svg_files:
-        print("Error: No SVG files found")
+        logging.info("Error: No SVG files found")
         return False
 
     # Native shapes mode takes priority over compat mode
     if use_native_shapes:
         if not NATIVE_SHAPES_AVAILABLE:
-            print("Error: svg_to_shapes module not available, cannot use native shapes mode")
-            print("  Falling back to SVG embedding mode")
+            logging.info("Error: svg_to_shapes module not available, cannot use native shapes mode")
+            logging.info("  Falling back to SVG embedding mode")
             use_native_shapes = False
         else:
             # Native shapes mode doesn't use compat/PNG
@@ -678,9 +682,9 @@ def create_pptx_with_native_svg(
     # Check compatibility mode dependencies
     renderer_name, renderer_status, renderer_hint = get_png_renderer_info()
     if not use_native_shapes and use_compat_mode and PNG_RENDERER is None:
-        print("Warning: No PNG rendering library installed, cannot use compatibility mode")
-        print(f"  {renderer_hint}")
-        print("  Will use pure SVG mode (may not display in Office LTSC 2021 and similar versions)")
+        logging.info("Warning: No PNG rendering library installed, cannot use compatibility mode")
+        logging.info(f"  {renderer_hint}")
+        logging.info("  Will use pure SVG mode (may not display in Office LTSC 2021 and similar versions)")
         use_compat_mode = False
 
     # Auto-detect canvas format or get dimensions from viewBox
@@ -689,41 +693,40 @@ def create_pptx_with_native_svg(
         canvas_format = detect_format_from_svg(svg_files[0])
         if canvas_format and verbose:
             format_name = CANVAS_FORMATS.get(canvas_format, {}).get('name', canvas_format)
-            print(f"  Detected canvas format: {format_name}")
+            logging.info(f"  Detected canvas format: {format_name}")
 
     if canvas_format is None:
         custom_pixels = get_viewbox_dimensions(svg_files[0])
         if custom_pixels and verbose:
-            print(f"  Using SVG viewBox dimensions: {custom_pixels[0]} x {custom_pixels[1]} px")
+            logging.info(f"  Using SVG viewBox dimensions: {custom_pixels[0]} x {custom_pixels[1]} px")
 
     if canvas_format is None and custom_pixels is None:
         canvas_format = 'ppt169'
         if verbose:
-            print(f"  Using default format: PPT 16:9")
+            logging.info(f"  Using default format: PPT 16:9")
 
     width_emu, height_emu = get_slide_dimensions(canvas_format or 'ppt169', custom_pixels)
     pixel_width, pixel_height = get_pixel_dimensions(canvas_format or 'ppt169', custom_pixels)
 
     if verbose:
-        print(f"  Slide dimensions: {pixel_width} x {pixel_height} px")
-        print(f"  SVG file count: {len(svg_files)}")
+        logging.info(f"  Slide dimensions: {pixel_width} x {pixel_height} px")
+        logging.info(f"  SVG file count: {len(svg_files)}")
         if use_native_shapes:
-            print(f"  Mode: Native DrawingML shapes (directly editable)")
+            logging.info(f"  Mode: Native DrawingML shapes (directly editable)")
         elif use_compat_mode:
-            print(f"  Compatibility mode: Enabled (PNG + SVG dual format)")
-            print(f"  PNG renderer: {renderer_name} {renderer_status}")
+            logging.info(f"  Compatibility mode: Enabled (PNG + SVG dual format)")
+            logging.info(f"  PNG renderer: {renderer_name} {renderer_status}")
         else:
-            print(f"  Compatibility mode: Disabled (pure SVG)")
+            logging.info(f"  Compatibility mode: Disabled (pure SVG)")
         if transition:
             trans_name = TRANSITIONS.get(transition, {}).get('name', transition) if TRANSITIONS else transition
-            print(f"  Transition effect: {trans_name}")
+            logging.info(f"  Transition effect: {trans_name}")
         if enable_notes and notes:
-            print(f"  Speaker notes: {len(notes)} page(s)")
+            logging.info(f"  Speaker notes: {len(notes)} page(s)")
         elif enable_notes:
-            print(f"  Speaker notes: Enabled (no notes files found)")
+            logging.info(f"  Speaker notes: Enabled (no notes files found)")
         else:
-            print(f"  Speaker notes: Disabled")
-        print()
+            logging.info(f"  Speaker notes: Disabled")
 
     # Create temporary directory
     temp_dir = Path(tempfile.mkdtemp())
@@ -795,7 +798,8 @@ def create_pptx_with_native_svg(
 
                     extra_rels = ''
                     for rel in rel_entries:
-                        extra_rels += f'\n  <Relationship Id="{rel["id"]}" Type="{rel["type"]}" Target="{rel["target"]}"/>'
+                        extra_rels += (f'\n  <Relationship Id="{rel["id"]}" '
+                                       f'Type="{rel["type"]}" Target="{rel["target"]}"/>')
 
                     rels_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -836,7 +840,8 @@ def create_pptx_with_native_svg(
                         else:
                             # PNG generation failed, fall back to pure SVG
                             if verbose:
-                                print(f"  [{i}/{len(svg_files)}] {svg_path.name} - PNG generation failed, using pure SVG")
+                                logging.info(f"  [{i}/{len(svg_files)}] {svg_path.name} "
+                                             f"- PNG generation failed, using pure SVG")
                             svg_rid = 'rId2'
 
                     # Update slide XML
@@ -901,7 +906,9 @@ def create_pptx_with_native_svg(
                     # Update slide.xml.rels to add notes association
                     with open(rels_path, 'r', encoding='utf-8') as f:
                         slide_rels_content = f.read()
-                    notes_rel = f'  <Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide{slide_num}.xml"/>'
+                    notes_rel = (f'  <Relationship Id="rId10" '
+                                 f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" '
+                                 f'Target="../notesSlides/notesSlide{slide_num}.xml"/>')
                     slide_rels_content = slide_rels_content.replace('</Relationships>', notes_rel + '\n</Relationships>')
                     with open(rels_path, 'w', encoding='utf-8') as f:
                         f.write(slide_rels_content)
@@ -915,13 +922,13 @@ def create_pptx_with_native_svg(
                         mode_str = " (SVG)"
                     has_notes = enable_notes and bool(notes_content)
                     notes_str = " +notes" if has_notes else ""
-                    print(f"  [{i}/{len(svg_files)}] {svg_path.name}{mode_str}{notes_str}")
+                    logging.info(f"  [{i}/{len(svg_files)}] {svg_path.name}{mode_str}{notes_str}")
 
                 success_count += 1
 
             except Exception as e:
                 if verbose:
-                    print(f"  [{i}/{len(svg_files)}] {svg_path.name} - Error: {e}")
+                    logging.info(f"  [{i}/{len(svg_files)}] {svg_path.name} - Error: {e}")
 
         # Update [Content_Types].xml to add media types
         content_types_path = extract_dir / '[Content_Types].xml'
@@ -952,7 +959,8 @@ def create_pptx_with_native_svg(
         # Add notesSlides content types
         if enable_notes:
             for i in range(1, len(svg_files) + 1):
-                override = f'  <Override PartName="/ppt/notesSlides/notesSlide{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>'
+                override = (f'  <Override PartName="/ppt/notesSlides/notesSlide{i}.xml" '
+                            f'ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>')
                 if override not in content_types:
                     content_types = content_types.replace('</Types>', override + '\n</Types>')
             with open(content_types_path, 'w', encoding='utf-8') as f:
@@ -966,14 +974,13 @@ def create_pptx_with_native_svg(
                     zf.write(file_path, arcname)
 
         if verbose:
-            print()
-            print(f"[Done] Saved: {output_path}")
-            print(f"  Succeeded: {success_count}, Failed: {len(svg_files) - success_count}")
+            logging.info(f"[Done] Saved: {output_path}")
+            logging.info(f"  Succeeded: {success_count}, Failed: {len(svg_files) - success_count}")
             if use_compat_mode and any_png_generated:
-                print(f"  Mode: Office compatibility mode (supports all Office versions)")
+                logging.info(f"  Mode: Office compatibility mode (supports all Office versions)")
                 # If using svglib, provide upgrade hint
                 if PNG_RENDERER == 'svglib' and renderer_hint:
-                    print(f"  [Tip] {renderer_hint}")
+                    logging.info(f"  [Tip] {renderer_hint}")
 
         return success_count == len(svg_files)
 
@@ -1028,7 +1035,8 @@ Speaker notes (enabled by default):
     parser.add_argument('-o', '--output', type=str, default=None, help='Output file path')
     parser.add_argument('-s', '--source', type=str, default='pages',
                         help='SVG source: pages/output/final or any subdirectory name (default: pages)')
-    parser.add_argument('-f', '--format', type=str, choices=list(CANVAS_FORMATS.keys()), default=None, help='Specify canvas format')
+    parser.add_argument('-f',
+                        '--format', type=str, choices=list(CANVAS_FORMATS.keys()), default=None, help='Specify canvas format')
     parser.add_argument('-q', '--quiet', action='store_true', help='Quiet mode')
 
     # Compatibility mode arguments
@@ -1051,7 +1059,7 @@ Speaker notes (enabled by default):
 
     project_path = Path(args.project_path)
     if not project_path.exists():
-        print(f"Error: Path does not exist: {project_path}")
+        logging.info(f"Error: Path does not exist: {project_path}")
         sys.exit(1)
 
     try:
@@ -1069,7 +1077,7 @@ Speaker notes (enabled by default):
     svg_files, source_dir_name = find_svg_files(project_path, args.source)
 
     if not svg_files:
-        print("Error: No SVG files found")
+        logging.info("Error: No SVG files found")
         sys.exit(1)
 
     # Output path: explicit -o takes priority, otherwise use pages.pptx in project dir
@@ -1104,12 +1112,11 @@ Speaker notes (enabled by default):
     success = True
 
     if verbose:
-        print("PPT Master - SVG to PPTX Tool")
-        print("=" * 50)
-        print(f"  Project path: {project_path}")
-        print(f"  SVG directory: {source_dir_name}")
-        print(f"  Output file: {output_path}")
-        print()
+        logging.info("PPT Master - SVG to PPTX Tool")
+        logging.info("=" * 50)
+        logging.info(f"  Project path: {project_path}")
+        logging.info(f"  SVG directory: {source_dir_name}")
+        logging.info(f"  Output file: {output_path}")
 
     ok = create_pptx_with_native_svg(
         output_path=output_path,

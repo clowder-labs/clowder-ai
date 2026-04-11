@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis 连接和 Session 存储
  * 用于管理三只猫猫的 Session 状态
@@ -14,7 +20,7 @@ export interface RedisConfig {
 
 export function getDefaultRedisConfig(): RedisConfig {
   return {
-    url: process.env['REDIS_URL'] ?? 'redis://localhost:6399',
+    url: process.env['REDIS_URL']!,
     keyPrefix: process.env['REDIS_KEY_PREFIX'] ?? 'cat-cafe:',
   };
 }

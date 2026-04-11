@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { ChevronIcon, HubIcon } from './hub-icons';
@@ -31,7 +37,7 @@ export const HUB_GROUPS: HubGroup[] = [
       { id: 'capabilities', label: '能力中心', icon: 'sparkles' },
       { id: 'routing', label: '配额看板', icon: 'chart-pie' },
       { id: 'leaderboard', label: '排行榜', icon: 'trophy' },
-      { id: 'skills', label: 'Skill 扩展', icon: 'sparkles' },
+      { id: 'skills', label: '技能扩展', icon: 'sparkles' },
     ],
   },
   {

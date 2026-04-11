@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -61,8 +67,8 @@ export function ExportButton({ threadId }: { threadId: string }) {
         onClick={() => setMenuOpen((v) => !v)}
         disabled={loading}
         className="p-1 rounded-lg hover:bg-cocreator-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title="导出对话"
-        aria-label="导出对话"
+        title="导出会话"
+        aria-label="导出会话"
       >
         {loading ? (
           <svg

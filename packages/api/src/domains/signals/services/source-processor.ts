@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { SignalArticle, SignalSource, SignalSourceConfig } from '@cat-cafe/shared';
 import type { FetchError, FetchErrorCode, Fetcher, FetchResult } from '../fetchers/types.js';
 import type { StoreArticleInput } from './article-store.js';

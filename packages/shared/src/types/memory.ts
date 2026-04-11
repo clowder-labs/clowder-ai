@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Explicit per-thread key-value memory store types.
  * Part of F3-lite feature for Phase 4.0.

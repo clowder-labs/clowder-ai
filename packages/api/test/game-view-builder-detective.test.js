@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { GameViewBuilder } from '../dist/domains/cats/services/game/GameViewBuilder.js';

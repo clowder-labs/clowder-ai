@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F102 Phase B: Route DI — callback-memory-routes accepts IEvidenceStore/IMarkerQueue/IReflectionService
  * Tests the new SQLite-backed path for callback memory routes.

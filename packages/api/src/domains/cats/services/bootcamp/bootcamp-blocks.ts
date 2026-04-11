@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F087: Predefined Interactive Rich Block configurations for bootcamp phases.
  * These are used by the bootcamp-guide skill to present selection UIs.

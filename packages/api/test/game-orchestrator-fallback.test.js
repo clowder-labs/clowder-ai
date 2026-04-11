@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * GameOrchestrator Fallback + Action Lifecycle Tests (F101 Phase F — Task 3)
  *

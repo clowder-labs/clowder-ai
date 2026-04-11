@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * invoke-single-cat Tests
  * P1 fix: audit should emit CAT_ERROR when error was yielded during stream

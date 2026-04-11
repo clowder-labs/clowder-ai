@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { ReactNode } from 'react';
 
 // ── Per-platform visual config (matches .pen wireframe Screen C) ──

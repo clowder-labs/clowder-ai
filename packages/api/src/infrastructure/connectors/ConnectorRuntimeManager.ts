@@ -28,6 +28,8 @@ import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
 import { ConnectorMediaService } from './media/ConnectorMediaService.js';
+
+const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
 import { MediaCleanupJob } from './media/MediaCleanupJob.js';
 import {
   type IOutboundAdapter,
@@ -120,7 +122,11 @@ function connectorConfigured(config: ConnectorGatewayConfig, connectorId: Connec
   }
 }
 
-function connectorSliceChanged(connectorId: ConnectorId, prev: ConnectorGatewayConfig, next: ConnectorGatewayConfig): boolean {
+function connectorSliceChanged(
+  connectorId: ConnectorId,
+  prev: ConnectorGatewayConfig,
+  next: ConnectorGatewayConfig,
+): boolean {
   switch (connectorId) {
     case 'telegram':
       return (prev.telegramBotToken ?? '') !== (next.telegramBotToken ?? '');
@@ -168,7 +174,13 @@ export function inferConnectorsFromEnvKeys(changedKeys: readonly string[]): Conn
       ids.push('dingtalk');
     } else if (key === 'WEIXIN_BOT_TOKEN') {
       ids.push('weixin');
-    } else if (key === 'XIAOYI_AK' || key === 'XIAOYI_SK' || key === 'XIAOYI_AGENT_ID' || key === 'XIAOYI_WS_URL1' || key === 'XIAOYI_WS_URL2') {
+    } else if (
+      key === 'XIAOYI_AK' ||
+      key === 'XIAOYI_SK' ||
+      key === 'XIAOYI_AGENT_ID' ||
+      key === 'XIAOYI_WS_URL1' ||
+      key === 'XIAOYI_WS_URL2'
+    ) {
       ids.push('xiaoyi');
     }
   }
@@ -234,10 +246,7 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
     });
   }
 
-  static async start(
-    config: ConnectorGatewayConfig,
-    deps: ConnectorGatewayDeps,
-  ): Promise<ConnectorRuntimeManager> {
+  static async start(config: ConnectorGatewayConfig, deps: ConnectorGatewayDeps): Promise<ConnectorRuntimeManager> {
     const ctx = await createSharedContext(config, deps);
     const manager = new ConnectorRuntimeManager(ctx, config);
     const initialConnectors = CONNECTOR_IDS.filter((connectorId) => {
@@ -494,7 +503,7 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
         .getTenantAccessToken()
         .then(async (token) => {
           try {
-            const res = await fetch('https://open.feishu.cn/open-apis/bot/v3/info', {
+            const res = await fetch(`${FEISHU_OPEN_API_BASE_URL}/bot/v3/info`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) return;
@@ -515,7 +524,7 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       const token = await feishuTokenManager.getTenantAccessToken();
       if (!messageId) throw new Error('Feishu download requires messageId');
       const resourceType = type === 'image' ? 'image' : 'file';
-      const url = `https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/resources/${fileKey}?type=${resourceType}`;
+      const url = `${FEISHU_OPEN_API_BASE_URL}/im/v1/messages/${messageId}/resources/${fileKey}?type=${resourceType}`;
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -790,10 +799,7 @@ function mergeConnectorConfig(
   }
 }
 
-async function createSharedContext(
-  config: ConnectorGatewayConfig,
-  deps: ConnectorGatewayDeps,
-): Promise<SharedContext> {
+async function createSharedContext(config: ConnectorGatewayConfig, deps: ConnectorGatewayDeps): Promise<SharedContext> {
   const { log } = deps;
   const hostRoot = deps.hostRoot ?? resolveCatCafeHostRoot(process.cwd());
   const bindingStore =

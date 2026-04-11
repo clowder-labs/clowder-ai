@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SessionBootstrap — F24 Phase E + F065 Phase A
  * Builds bootstrap context for Session #2+ so cats know what happened

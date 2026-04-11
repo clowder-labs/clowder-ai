@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Thread Wiring Integration Tests
  * 验证对话管理 + 图片 + WebSocket 分房间的完整闭环

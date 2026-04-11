@@ -1,4 +1,10 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';

@@ -20,6 +20,7 @@ class CompositeValidator(IValidator):
         return "composite-validator"
 
     def __init__(self, validators: list[IValidator]) -> None:
+        super().__init__()
         self._validators = list(validators)
 
     async def validate_plan(self, plan: Any, ctx: Any) -> Any:

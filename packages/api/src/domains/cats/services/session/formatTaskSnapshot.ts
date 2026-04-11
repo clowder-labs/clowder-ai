@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * formatTaskSnapshot — F065 Phase A
  * Formats thread tasks into a compact bootstrap-injectable snapshot.

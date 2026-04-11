@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { randomUUID } from 'node:crypto';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
@@ -32,6 +38,16 @@ import {
   resolveProviderProfilesRootSync,
 } from './provider-profiles-root.js';
 import { normalizeACPEnvEntries } from './acp-env.js';
+import {
+  buildProviderProfileApiKeyRef,
+  buildProviderProfileEnvRef,
+  decodeProviderProfileEnvSecret,
+  deleteSecretRef,
+  encodeProviderProfileEnvSecret,
+  isLocalSecretStorageEnabled,
+  readSecretRef,
+  writeSecretRef,
+} from './local-secret-store.js';
 
 export type {
   ACPModelAccessMode,
@@ -342,6 +358,95 @@ function createDefaultSecrets(): ProviderProfilesSecretsFile {
     version: 3,
     profiles: {},
   };
+}
+
+type ProviderProfileSecretEntry = ProviderProfilesSecretsFile['profiles'][string];
+
+function resolveStoredApiKey(entry: ProviderProfileSecretEntry | undefined): string | undefined {
+  if (!entry) return undefined;
+  if (entry.apiKey) return entry.apiKey;
+  if (entry.apiKeyRef) {
+    const resolved = readSecretRef(entry.apiKeyRef);
+    return resolved ?? undefined;
+  }
+  return undefined;
+}
+
+function resolveStoredEnv(entry: ProviderProfileSecretEntry | undefined): Record<string, string> | undefined {
+  if (!entry) return undefined;
+  if (entry.env) return entry.env;
+  if (entry.envRef) {
+    return decodeProviderProfileEnvSecret(readSecretRef(entry.envRef));
+  }
+  return undefined;
+}
+
+function setStoredApiKey(
+  secrets: ProviderProfilesSecretsFile,
+  profileId: string,
+  apiKey: string,
+): ProviderProfileSecretEntry {
+  const nextEntry = { ...(secrets.profiles[profileId] ?? {}) };
+  if (isLocalSecretStorageEnabled()) {
+    const ref = nextEntry.apiKeyRef ?? buildProviderProfileApiKeyRef(profileId);
+    writeSecretRef(ref, apiKey);
+    nextEntry.apiKeyRef = ref;
+    delete nextEntry.apiKey;
+  } else {
+    nextEntry.apiKey = apiKey;
+    delete nextEntry.apiKeyRef;
+  }
+  secrets.profiles[profileId] = nextEntry;
+  return nextEntry;
+}
+
+function clearStoredApiKey(secrets: ProviderProfilesSecretsFile, profileId: string): ProviderProfileSecretEntry | undefined {
+  const nextEntry = { ...(secrets.profiles[profileId] ?? {}) };
+  if (nextEntry.apiKeyRef) {
+    deleteSecretRef(nextEntry.apiKeyRef);
+    delete nextEntry.apiKeyRef;
+  }
+  delete nextEntry.apiKey;
+  if (nextEntry.env || nextEntry.envRef) {
+    secrets.profiles[profileId] = nextEntry;
+    return nextEntry;
+  }
+  delete secrets.profiles[profileId];
+  return undefined;
+}
+
+function setStoredEnv(
+  secrets: ProviderProfilesSecretsFile,
+  profileId: string,
+  env: Record<string, string>,
+): ProviderProfileSecretEntry {
+  const nextEntry = { ...(secrets.profiles[profileId] ?? {}) };
+  if (isLocalSecretStorageEnabled()) {
+    const ref = nextEntry.envRef ?? buildProviderProfileEnvRef(profileId);
+    writeSecretRef(ref, encodeProviderProfileEnvSecret(env));
+    nextEntry.envRef = ref;
+    delete nextEntry.env;
+  } else {
+    nextEntry.env = env;
+    delete nextEntry.envRef;
+  }
+  secrets.profiles[profileId] = nextEntry;
+  return nextEntry;
+}
+
+function clearStoredEnv(secrets: ProviderProfilesSecretsFile, profileId: string): ProviderProfileSecretEntry | undefined {
+  const nextEntry = { ...(secrets.profiles[profileId] ?? {}) };
+  if (nextEntry.envRef) {
+    deleteSecretRef(nextEntry.envRef);
+    delete nextEntry.envRef;
+  }
+  delete nextEntry.env;
+  if (nextEntry.apiKey || nextEntry.apiKeyRef) {
+    secrets.profiles[profileId] = nextEntry;
+    return nextEntry;
+  }
+  delete secrets.profiles[profileId];
+  return undefined;
 }
 
 function isBuiltinClient(value: string | undefined | null): value is BuiltinAccountClient {
@@ -862,20 +967,15 @@ function syncAcpEnvMetadata(meta: ProviderProfilesMetaFile, secrets: ProviderPro
         delete profile.envKeys;
         dirty = true;
       }
-      if (existingSecretEntry?.env !== undefined) {
-        const nextEntry = { ...existingSecretEntry };
-        delete nextEntry.env;
-        if (nextEntry.apiKey) {
-          secrets.profiles[profile.id] = nextEntry;
-        } else {
-          delete secrets.profiles[profile.id];
-        }
+      if (existingSecretEntry?.env !== undefined || existingSecretEntry?.envRef !== undefined) {
+        clearStoredEnv(secrets, profile.id);
         dirty = true;
       }
       continue;
     }
 
-    const normalizedEnv = normalizeACPEnvEntries(existingSecretEntry?.env, profile.modelAccessMode, { strict: false }).env;
+    const resolvedEnv = resolveStoredEnv(existingSecretEntry);
+    const normalizedEnv = normalizeACPEnvEntries(resolvedEnv, profile.modelAccessMode, { strict: false }).env;
     const nextEnvKeys = normalizedEnv ? Object.keys(normalizedEnv) : undefined;
     if (JSON.stringify(profile.envKeys ?? []) !== JSON.stringify(nextEnvKeys ?? [])) {
       if (nextEnvKeys?.length) profile.envKeys = nextEnvKeys;
@@ -883,20 +983,9 @@ function syncAcpEnvMetadata(meta: ProviderProfilesMetaFile, secrets: ProviderPro
       dirty = true;
     }
 
-    const currentEnv = existingSecretEntry?.env;
-    if (JSON.stringify(currentEnv ?? null) !== JSON.stringify(normalizedEnv ?? null)) {
-      if (existingSecretEntry) {
-        const nextEntry = { ...existingSecretEntry };
-        if (normalizedEnv) nextEntry.env = normalizedEnv;
-        else delete nextEntry.env;
-        if (nextEntry.apiKey || nextEntry.env) {
-          secrets.profiles[profile.id] = nextEntry;
-        } else {
-          delete secrets.profiles[profile.id];
-        }
-      } else if (normalizedEnv) {
-        secrets.profiles[profile.id] = { env: normalizedEnv };
-      }
+    if (JSON.stringify(resolvedEnv ?? null) !== JSON.stringify(normalizedEnv ?? null)) {
+      if (normalizedEnv) setStoredEnv(secrets, profile.id, normalizedEnv);
+      else clearStoredEnv(secrets, profile.id);
       dirty = true;
     }
   }
@@ -921,7 +1010,7 @@ function toViewProfile(profile: ProviderProfileMeta, secrets: ProviderProfilesSe
     provider: profile.id,
     name: profile.displayName,
     mode: authTypeToMode(profile.authType),
-    hasApiKey: Boolean(secrets.profiles[profile.id]?.apiKey),
+    hasApiKey: Boolean(resolveStoredApiKey(secrets.profiles[profile.id])),
   };
 }
 
@@ -1153,7 +1242,7 @@ export async function createProviderProfile(
         updatedAt: now,
       };
       if (env) {
-        secrets.profiles[profile.id] = { ...(secrets.profiles[profile.id] ?? {}), env };
+        setStoredEnv(secrets, profile.id, env);
       }
     } else {
       const protocol = normalizeProtocol(input.protocol);
@@ -1181,7 +1270,7 @@ export async function createProviderProfile(
       };
 
       if (apiKey) {
-        secrets.profiles[profile.id] = { apiKey };
+        setStoredApiKey(secrets, profile.id, apiKey);
       }
       if (input.setActive) {
         const client = resolveClientFromSelector(input.provider ?? input.protocol, profile);
@@ -1245,14 +1334,8 @@ export async function updateProviderProfile(
       }
       if (input.env !== undefined) {
         const normalizedEnv = normalizeACPEnvEntries(input.env, profile.modelAccessMode).env;
-        const nextSecretEntry = { ...(secrets.profiles[profile.id] ?? {}) };
-        if (normalizedEnv) nextSecretEntry.env = normalizedEnv;
-        else delete nextSecretEntry.env;
-        if (nextSecretEntry.apiKey || nextSecretEntry.env) {
-          secrets.profiles[profile.id] = nextSecretEntry;
-        } else {
-          delete secrets.profiles[profile.id];
-        }
+        if (normalizedEnv) setStoredEnv(secrets, profile.id, normalizedEnv);
+        else clearStoredEnv(secrets, profile.id);
         if (normalizedEnv) profile.envKeys = Object.keys(normalizedEnv);
         else delete profile.envKeys;
       }
@@ -1260,17 +1343,11 @@ export async function updateProviderProfile(
         throw new Error('defaultModelProfileRef is required when modelAccessMode=clowder_default_profile');
       }
       if (input.env === undefined) {
-        const normalizedEnv = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.modelAccessMode, {
+        const normalizedEnv = normalizeACPEnvEntries(resolveStoredEnv(secrets.profiles[profile.id]), profile.modelAccessMode, {
           strict: false,
         }).env;
-        const nextSecretEntry = { ...(secrets.profiles[profile.id] ?? {}) };
-        if (normalizedEnv) nextSecretEntry.env = normalizedEnv;
-        else delete nextSecretEntry.env;
-        if (nextSecretEntry.apiKey || nextSecretEntry.env) {
-          secrets.profiles[profile.id] = nextSecretEntry;
-        } else {
-          delete secrets.profiles[profile.id];
-        }
+        if (normalizedEnv) setStoredEnv(secrets, profile.id, normalizedEnv);
+        else clearStoredEnv(secrets, profile.id);
         if (normalizedEnv) profile.envKeys = Object.keys(normalizedEnv);
         else delete profile.envKeys;
       }
@@ -1330,7 +1407,7 @@ export async function updateProviderProfile(
       profile.models = normalizeModels(input.models);
     }
     if (typeof input.apiKey === 'string' && input.apiKey.trim()) {
-      secrets.profiles[profile.id] = { apiKey: input.apiKey.trim() };
+      setStoredApiKey(secrets, profile.id, input.apiKey.trim());
       profile.authType = 'api_key';
     }
     profile.updatedAt = new Date().toISOString();
@@ -1391,7 +1468,8 @@ export async function deleteProviderProfile(
       throw new Error(`provider profile "${profileId}" is still referenced by bootstrap bindings`);
     }
     meta.providers = meta.providers.filter((item) => item.id !== profileId);
-    delete secrets.profiles[profileId];
+    clearStoredApiKey(secrets, profileId);
+    clearStoredEnv(secrets, profileId);
     await writeRaw(metaPath, secretsPath, meta, secrets);
   });
 }
@@ -1416,7 +1494,9 @@ function toRuntimeProviderProfile(
   secrets: ProviderProfilesSecretsFile,
 ): RuntimeProviderProfile | null {
   if (profile.kind === 'acp') {
-    const env = normalizeACPEnvEntries(secrets.profiles[profile.id]?.env, profile.modelAccessMode, { strict: false }).env;
+    const env = normalizeACPEnvEntries(resolveStoredEnv(secrets.profiles[profile.id]), profile.modelAccessMode, {
+      strict: false,
+    }).env;
     return {
       id: profile.id,
       kind: 'acp',
@@ -1431,7 +1511,7 @@ function toRuntimeProviderProfile(
     };
   }
   if (profile.kind === 'api_key') {
-    const apiKey = secrets.profiles[profile.id]?.apiKey;
+    const apiKey = resolveStoredApiKey(secrets.profiles[profile.id]);
     if (!apiKey) return null;
     return {
       id: profile.id,

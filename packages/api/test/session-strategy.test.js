@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F33: Session Strategy — shouldTakeAction() + getSessionStrategy()
  * Unit tests for the pure strategy decision function.

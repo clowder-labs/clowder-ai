@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export function MicIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32.000000" height="32.000000" fill="none">

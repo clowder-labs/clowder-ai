@@ -1,4 +1,10 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
@@ -106,7 +112,7 @@ export function ChatInputActionButton({
   const showIdleMic = !hideIdleMic && voice.state === 'idle';
 
   return (
-    <div className="relative flex shrink-0 items-center justify-end ml-2">
+    <div className="relative flex shrink-0 items-center justify-end">
       {/* Voice recording status */}
       {voice.state === 'recording' && (
         <div className="absolute top-0 right-4 -mt-6 flex items-center gap-2">
@@ -142,7 +148,7 @@ export function ChatInputActionButton({
       {hasActiveInvocation && !disabled && onStop && (
         <button
           onClick={() => onStop()}
-          className="inline-flex shrink-0 items-center bg-[rgba(20,118,255,0.1)] gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium text-[rgba(20,118,255,1)] transition-colors hover:bg-blue-50"
+          className="inline-flex ml-2 shrink-0 items-center bg-[rgba(20,118,255,0.1)] gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium text-[rgba(20,118,255,1)] transition-colors hover:bg-blue-50"
           title="停止回答"
           aria-label="Stop generation"
         >
@@ -198,7 +204,7 @@ export function ChatInputActionButton({
             <button
               onClick={onForceSend}
               disabled={isSendDisabled}
-              className="inline-flex hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs text-red-500 hover:bg-red-50 disabled:opacity-40 transition-colors"
+              className="inline-flex hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs text-red-500 hover:bg-red-50 disabled:opacity-40 transition-colors  ml-2"
               aria-label="强制发送"
               title="强制发送 — 中断"
             >
@@ -216,7 +222,7 @@ export function ChatInputActionButton({
         <button
           onClick={onSend}
           disabled={isSendDisabled}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[20px] bg-[rgba(20,118,255,1)] text-white hover:bg-[rgba(20,118,255,0.9)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[20px] bg-[rgba(20,118,255,1)] text-white hover:bg-[rgba(20,118,255,0.9)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors  ml-2"
           title="发送消息"
           aria-label="Send message"
         >

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F097: Integration — ChatMessage renders CliOutputBlock instead of ToolEventsPanel + 💭心里话
  */

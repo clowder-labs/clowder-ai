@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Single Cat Invocation
  * 单猫调用的核心逻辑，从 AgentRouter 提取。
@@ -22,6 +28,7 @@ import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-mod
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { resolveRelayModelContextWindow } from '../../../../../config/relay-model-context-window.js';
 import {
   findProjectModelConfigBinding,
   HUAWEI_MAAS_MODEL_SOURCE_ID,
@@ -905,6 +912,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     } else if (provider === 'anthropic' || provider === 'opencode') {
       // Fallback for unresolved accounts on anthropic/opencode providers
       callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
+    }
+
+    // Scheme A: jiuwen sidecar reads MODEL_CONTEXT_WINDOW from spawn env (relayclaw only).
+    if (provider === 'relayclaw') {
+      const relayCtx = resolveRelayModelContextWindow({
+        defaultModel,
+        embeddedAcpContextWindow: embeddedAcpConfig?.contextWindow,
+      });
+      if (relayCtx != null && relayCtx > 0) {
+        callbackEnv.MODEL_CONTEXT_WINDOW = String(relayCtx);
+      }
     }
 
     // Dare has its own env vars regardless of protocol-based injection above

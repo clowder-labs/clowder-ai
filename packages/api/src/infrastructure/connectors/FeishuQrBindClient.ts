@@ -1,7 +1,13 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import QRCode from 'qrcode';
 
-const FEISHU_ACCOUNTS_BASE_URL = 'https://accounts.feishu.cn';
-const LARK_ACCOUNTS_BASE_URL = 'https://accounts.larksuite.com';
+const FEISHU_ACCOUNTS_BASE_URL = process.env.FEISHU_ACCOUNTS_BASE_URL!;
+const LARK_ACCOUNTS_BASE_URL = process.env.LARK_ACCOUNTS_BASE_URL!;
 
 interface FeishuRegistrationResponse {
   supported_auth_methods?: unknown;

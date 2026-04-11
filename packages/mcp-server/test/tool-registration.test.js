@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Tool Registration Tests
  * 回归测试: 确认所有预期工具都注册到 MCP server

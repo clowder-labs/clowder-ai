@@ -1,4 +1,10 @@
-﻿@tailwind base;
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -195,7 +201,10 @@
   --cli-output-border-strong: rgba(255, 255, 255, 0.12);
   --cli-output-border-soft: rgba(255, 255, 255, 0.08);
   --cli-output-code-surface: rgba(255, 255, 255, 0.08);
-  --chat-scrollbar-thumb: rgba(31, 41, 55, 0.32);
+  --chat-scrollbar-thumb: #dbdbdb;
+  --chat-scrollbar-thumb-size: 4px;
+  --chat-scrollbar-padding-end: 2px;
+  --chat-scrollbar-track-size: calc(var(--chat-scrollbar-thumb-size) + var(--chat-scrollbar-padding-end));
   --content-header-height: 36px;
   --content-header-padding-y: 6px;
   --content-header-padding-left: 24px;
@@ -485,27 +494,45 @@ select:-webkit-autofill:focus {
   transition: background-color 99999s ease-in-out 0s;
 }
 
-/* Global scrollbar style: thumb color #DBDBDB (from rgba(219,219,219,1)),
-   effective thumb width 4px with 2px side padding */
+/* Global scrollbar style: reserve gutter to avoid layout shift; keep the thumb
+   invisible by default, then reveal it on hover with a 4px thumb and 2px
+   right/bottom padding. */
 * {
-  scrollbar-color: #dbdbdb transparent;
+  scrollbar-color: transparent transparent;
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+*:hover {
+  scrollbar-color: var(--chat-scrollbar-thumb) transparent;
 }
 
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: var(--chat-scrollbar-track-size);
+  height: var(--chat-scrollbar-track-size);
 }
 
-*::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
   background: transparent;
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #dbdbdb;
-  border: 2px solid transparent;
+  background: transparent;
   border-radius: 999px;
-  background-clip: content-box;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--chat-scrollbar-thumb);
+  border-style: solid;
+  border-width: 0 var(--chat-scrollbar-padding-end) 0 0;
+  border-color: transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+*:hover::-webkit-scrollbar-thumb:horizontal {
+  border-width: 0 0 var(--chat-scrollbar-padding-end) 0;
 }
 
 @layer components {
@@ -1328,6 +1355,17 @@ select:-webkit-autofill:focus {
     background: transparent;
     color: inherit;
     line-height: 0;
+    cursor: pointer;
+    transition: opacity 160ms ease;
+  }
+
+  .ui-content-header-action:hover {
+    opacity: 0.72;
+  }
+
+  .ui-content-header-action:disabled {
+    cursor: default;
+    opacity: 0.4;
   }
 
   .ui-content-header-divider {
@@ -1598,11 +1636,17 @@ select:-webkit-autofill:focus {
 /* Chat input scrollbar: slim thumb, no arrow buttons */
 .chat-input-textarea {
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+}
+
+.chat-input-textarea:hover {
   scrollbar-color: var(--chat-scrollbar-thumb) transparent;
 }
 
 .chat-input-textarea::-webkit-scrollbar {
-  width: 6px;
+  width: var(--chat-scrollbar-track-size);
+  height: var(--chat-scrollbar-track-size);
 }
 
 .chat-input-textarea::-webkit-scrollbar-track {
@@ -1610,8 +1654,20 @@ select:-webkit-autofill:focus {
 }
 
 .chat-input-textarea::-webkit-scrollbar-thumb {
-  background: var(--chat-scrollbar-thumb);
+  background: transparent;
   border-radius: 9999px;
+}
+
+.chat-input-textarea:hover::-webkit-scrollbar-thumb {
+  background: var(--chat-scrollbar-thumb);
+  border-style: solid;
+  border-width: 0 var(--chat-scrollbar-padding-end) 0 0;
+  border-color: transparent;
+  background-clip: padding-box;
+}
+
+.chat-input-textarea:hover::-webkit-scrollbar-thumb:horizontal {
+  border-width: 0 0 var(--chat-scrollbar-padding-end) 0;
 }
 
 .chat-input-textarea::-webkit-scrollbar-button {
@@ -1619,6 +1675,3 @@ select:-webkit-autofill:focus {
   width: 0;
   height: 0;
 }
-
-
-

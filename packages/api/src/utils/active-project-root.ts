@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { accessSync, constants, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { findMonorepoRoot } from './monorepo-root.js';

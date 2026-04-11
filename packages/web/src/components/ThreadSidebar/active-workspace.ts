@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F095 Phase B: Active workspace logic (pure functions, no React).
  * Splits project groups into active vs archived based on recency + user pins.

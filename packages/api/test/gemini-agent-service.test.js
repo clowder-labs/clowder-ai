@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * GeminiAgentService Tests (CLI dual adapter mode)
  * 测试暹罗猫 CLI 子进程调用 (gemini-cli + antigravity-desktop)

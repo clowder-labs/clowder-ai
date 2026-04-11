@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F34: MLX-Audio TTS Provider
  *
@@ -24,7 +30,7 @@ export class MlxAudioTtsProvider implements ITtsProvider {
   private readonly timeoutMs: number;
 
   constructor(options?: MlxAudioTtsProviderOptions) {
-    this.baseUrl = options?.baseUrl ?? process.env.TTS_URL ?? 'http://localhost:9879';
+    this.baseUrl = options?.baseUrl ?? process.env.TTS_URL!;
     this.model = options?.model ?? 'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16';
     this.timeoutMs = options?.timeoutMs ?? 30_000;
   }

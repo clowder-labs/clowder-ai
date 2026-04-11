@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
 import { apiFetch } from '@/utils/api-client';
@@ -174,7 +180,7 @@ export function DirectoryPickerModal({
         {/* ── Header + Title ── */}
         <div className="px-5 pt-4 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-cafe-black">新建对话</h2>
+            <h2 className="text-base font-semibold text-cafe-black">新建会话</h2>
             <button
               type="button"
               onClick={onCancel}
@@ -193,7 +199,7 @@ export function DirectoryPickerModal({
             type="text"
             value={threadTitle}
             onChange={(e) => setThreadTitle(e.target.value)}
-            placeholder="对话标题（可选）"
+            placeholder="会话标题（可选）"
             maxLength={200}
             className="ui-input w-full text-sm px-3 py-2 rounded-lg"
           />
@@ -423,7 +429,7 @@ export function DirectoryPickerModal({
               disabled={selectedPath === null}
               className="ml-auto px-5 py-2 rounded-lg bg-cocreator-primary hover:bg-cocreator-dark text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              创建对话
+              创建会话
             </button>
           </div>
         </div>

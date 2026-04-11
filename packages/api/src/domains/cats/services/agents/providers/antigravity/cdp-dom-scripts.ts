@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Inline JavaScript strings evaluated inside the Antigravity page via CDP Runtime.evaluate.
  *

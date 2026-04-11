@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Integration tests for GET /api/workspace/file/raw — F063 AC-8 image preview + Gap 5 media
  *

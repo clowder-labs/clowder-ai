@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -401,13 +402,13 @@ class AgentStateCheckpointer:
         checkpoints = self._mgr.list()
         if print_to_stdout:
             if not checkpoints:
-                print("[checkpoint] 当前没有可恢复的 checkpoint。", flush=True)
+                logging.info("[checkpoint] 当前没有可恢复的 checkpoint。")
             else:
-                print("\n[checkpoint] 可用 checkpoint（最新在下方）:", flush=True)
+                logging.info("\n[checkpoint] 可用 checkpoint（最新在下方）:")
                 for idx, cp in enumerate(checkpoints, 1):
                     ts = datetime.fromtimestamp(cp.created_at).strftime("%Y-%m-%d %H:%M:%S")
                     summary = (cp.summary or "").strip() or "(无对话内容)"
-                    print(f"  [{idx}] {cp.checkpoint_id} | {ts} | {summary}", flush=True)
+                    logging.info(f"  [{idx}] {cp.checkpoint_id} | {ts} | {summary}")
         return checkpoints
 
     def clear(self) -> None:

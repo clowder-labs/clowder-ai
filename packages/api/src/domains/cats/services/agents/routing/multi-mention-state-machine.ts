@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { ALL_MULTI_MENTION_STATUSES, MULTI_MENTION_TERMINAL_STATES, type MultiMentionStatus } from '@cat-cafe/shared';
 
 /**

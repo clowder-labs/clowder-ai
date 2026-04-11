@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Route Helpers
  * Shared types, interfaces, and helper functions for route-serial and route-parallel.

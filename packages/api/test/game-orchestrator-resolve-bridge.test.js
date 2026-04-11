@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * GameOrchestrator Resolution Bridge Tests (F101 Phase F — Review Fix)
  *

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { FeatureDocDetail } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import {

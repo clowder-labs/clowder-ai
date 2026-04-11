@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import type { EmbeddedAcpConfig } from '@cat-cafe/shared';

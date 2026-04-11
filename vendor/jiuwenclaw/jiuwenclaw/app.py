@@ -146,6 +146,7 @@ _CONFIG_SET_ENV_MAP = {
     # default 模型（主对话）
     "model_provider": "MODEL_PROVIDER",
     "model": "MODEL_NAME",
+    "model_context_window": "MODEL_CONTEXT_WINDOW",
     "api_base": "API_BASE",
     "api_key": "API_KEY",
     # video 模型

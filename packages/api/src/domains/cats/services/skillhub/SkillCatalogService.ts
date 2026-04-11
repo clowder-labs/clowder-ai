@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -5,6 +11,7 @@ import { parse as parseYaml } from 'yaml';
 import { resolveCatCafeHostRoot } from '../../../../utils/cat-cafe-root.js';
 import { parseFrontmatterString } from './frontmatter-parser.js';
 import { loadInstalledRegistry } from './InstalledSkillRegistry.js';
+import { resolveOfficialSkillsRoot, resolveUserSkillsRoot } from './SkillPaths.js';
 
 interface BootstrapEntry {
   name: string;
@@ -45,7 +52,8 @@ interface SkillCatalogServiceOptions {
 
 interface SkillRoots {
   hostRoot: string;
-  skillsRoot: string;
+  officialSkillsRoot: string;
+  userSkillsRoot: string;
 }
 
 interface ResolvedSkillEntry extends RuntimeSkillCatalogEntry {
@@ -158,7 +166,8 @@ function resolveSkillRoots(options?: SkillCatalogServiceOptions): SkillRoots {
   const hostRoot = options?.hostRoot ? resolve(options.hostRoot) : resolveCatCafeHostRoot(process.cwd());
   return {
     hostRoot,
-    skillsRoot: join(hostRoot, 'cat-cafe-skills'),
+    officialSkillsRoot: resolveOfficialSkillsRoot(hostRoot),
+    userSkillsRoot: resolveUserSkillsRoot(hostRoot),
   };
 }
 
@@ -326,12 +335,15 @@ async function collectRelatedFiles(skillDir: string): Promise<string[]> {
 
 async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): Promise<ResolvedSkillEntry[]> {
   const roots = resolveSkillRoots(options);
-  const [skillNames, bootstrapEntries, manifestMeta, installedRegistry] = await Promise.all([
-    listSkillDirs(roots.skillsRoot),
-    parseBootstrap(roots.skillsRoot),
-    parseManifestSkillMeta(roots.skillsRoot),
+  const [officialSkillNames, userSkillNames, bootstrapEntries, manifestMeta, installedRegistry] = await Promise.all([
+    listSkillDirs(roots.officialSkillsRoot),
+    listSkillDirs(roots.userSkillsRoot),
+    parseBootstrap(roots.officialSkillsRoot),
+    parseManifestSkillMeta(roots.officialSkillsRoot),
     loadInstalledRegistry(roots.hostRoot),
   ]);
+  const officialSkillNameSet = new Set(officialSkillNames);
+  const skillNames = [...officialSkillNames, ...userSkillNames.filter((name) => !officialSkillNameSet.has(name))];
 
   const installedByName = new Map(installedRegistry.skills.map((record) => [record.name, record]));
   const orderedNames: string[] = [];
@@ -352,7 +364,9 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
 
   const entries = await Promise.all(
     orderedNames.map(async (name): Promise<ResolvedSkillEntry> => {
-      const skillDir = join(roots.skillsRoot, name);
+      const skillDir = officialSkillNameSet.has(name)
+        ? join(roots.officialSkillsRoot, name)
+        : join(roots.userSkillsRoot, name);
       const skillMarkdown = await readFile(join(skillDir, 'SKILL.md'), 'utf-8');
       const frontmatter = parseFrontmatterString(skillMarkdown);
       const bootstrap = bootstrapEntries.get(name);
@@ -362,7 +376,7 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
         name,
         description: manifest?.description ?? frontmatter.description ?? '',
         triggers: normalizeTriggers(frontmatter, manifest, bootstrap),
-        category: bootstrap?.category ?? (source === 'skillhub' ? 'Skill 扩展' : '其他'),
+        category: bootstrap?.category ?? (source === 'skillhub' ? '技能扩展' : '其他'),
         source,
         contentHash: computeContentHash(skillMarkdown),
         skillDir,

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis key patterns for summary storage.
  * All keys share the cat-cafe: prefix set by the Redis client.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Callback Authorization Routes — 猫猫请求权限 + 查询结果
  * 安全: invocationId + callbackToken 验证 (同 callbacks.ts)

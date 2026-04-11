@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Sub-components for SessionChainPanel: BindSessionInput + SessionIdTag.
  * Extracted to keep SessionChainPanel under 350 lines.
