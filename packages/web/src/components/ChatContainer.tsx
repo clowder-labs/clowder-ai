@@ -25,6 +25,7 @@ import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
 import { useWorkspaceNavigate } from '@/hooks/useWorkspaceNavigate';
 import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
+import { QUICK_ACTIONS } from '@/config/quick-actions';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
@@ -52,6 +53,7 @@ import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
 import { RightContentHeader } from './RightContentHeader';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
+import { ScheduledTasksPanel } from './ScheduledTasksPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -63,6 +65,16 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
 const MAIN_PANEL_MIN_WIDTH = 660;
+const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
+const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+
+function buildScheduledTaskQuickActionInsertText(): string | null {
+  const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === SCHEDULED_TASK_QUICK_ACTION_ICON);
+  const label = scheduledTaskAction?.label?.trim();
+  if (!label) return null;
+  return `${QUICK_ACTION_TOKEN_PREFIX}${label}${QUICK_ACTION_TOKEN_SUFFIX} `;
+}
 
 function getFolderNameFromPath(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -82,7 +94,7 @@ type ChatContainerProps =
       mode?: 'thread';
       threadId: string;
       requireLoginCheck?: boolean;
-      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
     };
 
 function AuthLoadingPanel() {
@@ -155,7 +167,7 @@ function ThreadModeChatContainer({
   authChecked,
 }: {
   threadId: string;
-  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
   authChecked: boolean;
 }) {
   const {
@@ -173,6 +185,7 @@ function ThreadModeChatContainer({
     confirmUnreadAck,
     armUnreadSuppression,
     consumePendingNewThreadSend,
+    setPendingChatInsert,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
@@ -216,9 +229,20 @@ function ThreadModeChatContainer({
     timestamp: number;
     catId: string;
   } | null>(null);
-  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>(
+  const [sidebarMenu, setSidebarMenu] = useState<
+    'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks'
+  >(
     initialSidebarMenu,
   );
+  const scheduledTaskQuickActionInsertText = useMemo(() => buildScheduledTaskQuickActionInsertText(), []);
+  const handleCreateScheduledTask = useCallback(() => {
+    setSidebarMenu('chat');
+    if (!scheduledTaskQuickActionInsertText) return;
+    setPendingChatInsert({
+      threadId,
+      text: scheduledTaskQuickActionInsertText,
+    });
+  }, [scheduledTaskQuickActionInsertText, setPendingChatInsert, threadId]);
   // F106: fetch bootcamp count independently of sidebar lifecycle
   // refreshKey increments only on modal close to avoid duplicate fetch on open
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -690,6 +714,7 @@ function ThreadModeChatContainer({
               {sidebarMenu === 'agents' && <AgentsPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
               {sidebarMenu === 'skills' && <SkillsPanel />}
+              {sidebarMenu === 'scheduledTasks' && <ScheduledTasksPanel onCreateTask={handleCreateScheduledTask} />}
             </div>
           )}
           {sidebarMenu === 'chat' && (
