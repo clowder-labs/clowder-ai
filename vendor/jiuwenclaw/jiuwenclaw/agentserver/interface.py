@@ -613,11 +613,9 @@ class JiuWenClaw:
                             register_skill_subagent_config(skill_name, subagent_config)
 
             # Register subagent tools with agent's ability_manager
-            from jiuwenclaw.agentserver.tools.subagent_tools import spawn_subagent, spawn_parallel_subagents
+            from jiuwenclaw.agentserver.tools.subagent_tools import spawn_subagent
             Runner.resource_mgr.add_tool(spawn_subagent)
-            Runner.resource_mgr.add_tool(spawn_parallel_subagents)
             self._instance.ability_manager.add(spawn_subagent.card)
-            self._instance.ability_manager.add(spawn_parallel_subagents.card)
 
             logger.info("[JiuWenClaw] Subagent tools initialized")
         except Exception as exc:

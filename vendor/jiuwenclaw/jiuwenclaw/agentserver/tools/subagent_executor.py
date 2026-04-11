@@ -360,7 +360,7 @@ Approach each task methodically and deliver high-quality results."""
     def _inherit_tools(self, subagent: "JiuClawReActAgent") -> None:
         """Inherit all tools from parent agent's ability_manager, excluding subagent tools."""
         # Tools that should NOT be inherited (prevent recursive subagent spawning)
-        EXCLUDED_TOOLS = {"spawn_subagent", "spawn_parallel_subagents"}
+        EXCLUDED_TOOLS = {"spawn_subagent"}
 
         try:
             # Get parent's tools

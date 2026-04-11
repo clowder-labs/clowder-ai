@@ -1,6 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 
-"""Subagent tools - spawn_subagent and spawn_parallel_subagents."""
+"""Subagent tools - spawn_subagent."""
 
 from __future__ import annotations
 
@@ -60,7 +60,12 @@ def register_skill_subagent_config(skill_name: str, config: SubagentConfig) -> N
     logger.info(f"[Subagent] Registered skill config for: {skill_name}")
 
 
-@tool
+@tool(
+    name="spawn_subagent",
+    description=(
+        "Spawn a subagent to execute a task."
+    ),
+)
 async def spawn_subagent(
     objective: str,
     role_id: str = "MainAgent",
@@ -105,48 +110,3 @@ async def spawn_subagent(
     )
     result = await _executor.execute(task, parent_session=parent_session)
     return result.model_dump()
-
-
-@tool
-async def spawn_parallel_subagents(
-    tasks: list[dict[str, Any]],
-    max_concurrent: int = 3,
-) -> dict[str, Any]:
-    """
-    Spawn multiple subagents in parallel to execute tasks.
-
-    Streaming events are forwarded to the parent session with 'subagent.' prefix.
-    Each subagent's events are tagged with its unique subagent_id.
-
-    Args:
-        tasks: Task list, each item is a dict with:
-            - objective: str (required)
-            - role_id: str (default: MainAgent)
-            - prompt: str (optional)
-            - skill_path: str (optional)
-            - workspace_dir: str (optional)
-            - system_prompt: str (optional)
-        max_concurrent: Maximum concurrent subagents (default: 3)
-
-    Returns:
-        {
-            "results": [result1, result2, ...],
-            "success_count": int,
-            "failed_count": int
-        }
-    """
-    if _executor is None:
-        return {"success": False, "error": "Subagent tools not initialized"}
-
-    # Get parent session from context (set by JiuClawReActAgent before tool execution)
-    parent_session: Session | None = get_subagent_parent_session()
-
-    task_specs = [SubagentTaskSpec(**t) for t in tasks]
-    results = await _executor.execute_parallel(task_specs, max_concurrent, parent_session=parent_session)
-
-    success_count = sum(1 for r in results if r.success)
-    return {
-        "results": [r.model_dump() for r in results],
-        "success_count": success_count,
-        "failed_count": len(results) - success_count,
-    }
