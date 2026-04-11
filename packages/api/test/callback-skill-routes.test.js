@@ -165,7 +165,7 @@ Use this skill carefully.
 
     assert.equal(remoteSkill.name, 'remote-skill');
     assert.equal(remoteSkill.source, 'skillhub');
-    assert.equal(remoteSkill.category, 'Skill 扩展');
+    assert.equal(remoteSkill.category, '技能扩展');
     assert.deepEqual(remoteSkill.triggers, ['远程搜索', 'SkillHub']);
   });
 

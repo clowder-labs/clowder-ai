@@ -46,6 +46,10 @@ function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply)
   return userId;
 }
 
+function identityRequiredError(): { error: string } {
+  return { error: '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头' };
+}
+
 // ── Connector platform config definitions ──
 
 interface ConnectorFieldDef {
@@ -211,7 +215,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   app.get('/api/connector/hub-threads', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return identityRequiredError();
     }
     const allThreads = await threadStore.list(userId);
     const hubThreads = allThreads
@@ -232,7 +236,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   app.get('/api/connector/status', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return identityRequiredError();
     }
     const status = buildConnectorStatus();
     // F137: WeChat "configured" is based on adapter having a live bot_token, not env vars
@@ -248,7 +252,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.post('/api/connector/feishu/qrcode', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     try {
       const result = await feishuQrBindClient.create();
@@ -256,18 +260,18 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     } catch (err) {
       app.log.error({ err }, '[Feishu QR] Failed to fetch QR code');
       reply.status(502);
-      return { error: 'Failed to fetch QR code from Feishu registration service' };
+      return { error: '获取飞书二维码失败，请稍后重试' };
     }
   });
 
   app.get('/api/connector/feishu/qrcode-status', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const { qrPayload } = request.query as { qrPayload?: string };
     if (!qrPayload) {
       reply.status(400);
-      return { error: 'qrPayload query parameter required' };
+      return { error: '缺少 qrPayload 参数' };
     }
 
     try {
@@ -290,13 +294,13 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     } catch (err) {
       app.log.error({ err }, '[Feishu QR] Failed to poll QR status');
       reply.status(502);
-      return { error: 'Failed to poll Feishu QR status' };
+      return { error: '查询飞书二维码状态失败，请稍后重试' };
     }
   });
 
   app.post('/api/connector/feishu/disconnect', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const result = await applyConnectorSecretUpdates(
       [
@@ -317,7 +321,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   app.post('/api/connector/test/dingtalk', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return identityRequiredError();
     }
 
     const body = (request.body ?? {}) as Record<string, unknown>;
@@ -357,7 +361,9 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         return {
           ok: false,
           error: '钉钉认证失败，请确认 App Key / App Secret 是否正确',
-          details: tokenData.message ?? `HTTP ${tokenRes.status}`,
+          details: tokenData.message
+            ? `钉钉接口返回异常：${tokenData.message}`
+            : `钉钉接口返回异常，HTTP ${tokenRes.status}`,
         };
       }
 
@@ -366,12 +372,12 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         message: '钉钉应用认证成功，AccessToken 可正常获取。',
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
+      const message = err instanceof Error ? err.message : '未知错误';
       reply.status(502);
       return {
         ok: false,
         error: '钉钉连接测试失败，请检查网络或 App Key / App Secret',
-        details: message,
+        details: `请求钉钉接口失败：${message}`,
       };
     }
   });
@@ -381,7 +387,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   app.post('/api/connector/test/xiaoyi', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return identityRequiredError();
     }
 
     const body = (request.body ?? {}) as Record<string, unknown>;
@@ -455,12 +461,12 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         message: '小艺平台 WebSocket 握手成功，凭据有效。',
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
+      const message = err instanceof Error ? err.message : '未知错误';
       reply.status(502);
       return {
         ok: false,
         error: '小艺连接测试失败，请检查 AK / SK / Agent ID',
-        details: message,
+        details: `请求小艺平台失败：${message}`,
       };
     }
   });
@@ -469,7 +475,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.post('/api/connector/weixin/qrcode', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     try {
       const { WeixinAdapter: WA } = await import('../infrastructure/connectors/adapters/WeixinAdapter.js');
@@ -478,18 +484,18 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     } catch (err) {
       app.log.error({ err }, '[WeChat QR] Failed to fetch QR code');
       reply.status(502);
-      return { error: 'Failed to fetch QR code from WeChat' };
+      return { error: '获取微信二维码失败，请稍后重试' };
     }
   });
 
   app.get('/api/connector/weixin/qrcode-status', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const { qrPayload } = request.query as { qrPayload?: string };
     if (!qrPayload) {
       reply.status(400);
-      return { error: 'qrPayload query parameter required' };
+      return { error: '缺少 qrPayload 参数' };
     }
 
     try {
@@ -500,7 +506,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         if (!opts.activateWeixinBotToken && !opts.weixinAdapter) {
           app.log.error('[WeChat QR] QR confirmed but adapter not available — token would be lost');
           reply.status(503);
-          return { error: 'WeChat adapter not ready — please retry shortly' };
+          return { error: '微信连接器尚未就绪，请稍后重试' };
         }
         if (opts.activateWeixinBotToken) {
           await opts.activateWeixinBotToken(status.botToken);
@@ -516,23 +522,23 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     } catch (err) {
       app.log.error({ err }, '[WeChat QR] Failed to poll QR status');
       reply.status(502);
-      return { error: 'Failed to poll QR code status' };
+      return { error: '查询微信二维码状态失败，请稍后重试' };
     }
   });
 
   app.post('/api/connector/weixin/activate', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const adapter = opts.weixinAdapter;
     if (!adapter) {
       reply.status(503);
-      return { error: 'WeChat adapter not available (connector gateway not started)' };
+      return { error: '微信连接器不可用，连接网关尚未启动' };
     }
 
     if (!adapter.hasBotToken()) {
       reply.status(409);
-      return { error: 'No bot_token available — complete QR code login first' };
+      return { error: '当前没有可用的 bot_token，请先完成二维码登录' };
     }
 
     opts.startWeixinPolling?.();
@@ -543,12 +549,12 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.post('/api/connector/weixin/disconnect', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const adapter = opts.weixinAdapter;
     if (!adapter || !opts.disconnectWeixinBotToken) {
       reply.status(503);
-      return { error: 'WeChat adapter not available (connector gateway not started)' };
+      return { error: '微信连接器不可用，连接网关尚未启动' };
     }
 
     await opts.disconnectWeixinBotToken();
@@ -560,7 +566,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   // ── DingTalk disconnect ──
   app.post('/api/connector/dingtalk/disconnect', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const result = await applyConnectorSecretUpdates(
       [
@@ -576,7 +582,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   // ── XiaoYi disconnect ──
   app.post('/api/connector/xiaoyi/disconnect', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const result = await applyConnectorSecretUpdates(
       [
@@ -595,7 +601,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   // ── Telegram disconnect ──
   app.post('/api/connector/telegram/disconnect', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const result = await applyConnectorSecretUpdates([{ name: 'TELEGRAM_BOT_TOKEN', value: null }], {
       envFilePath: opts.envFilePath,
@@ -609,7 +615,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.get('/api/connector/permissions/:connectorId', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
     const { connectorId } = request.params as { connectorId: string };
     const store = opts.permissionStore;
     if (!store) {
@@ -620,12 +626,12 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.put('/api/connector/permissions/:connectorId', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
     const { connectorId } = request.params as { connectorId: string };
     const store = opts.permissionStore;
     if (!store) {
       reply.status(503);
-      return { error: 'Permission store not available' };
+      return { error: '渠道权限存储不可用' };
     }
     const body = request.body as {
       whitelistEnabled?: boolean;

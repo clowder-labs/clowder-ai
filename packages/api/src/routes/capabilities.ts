@@ -662,7 +662,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       else if (meta?.description) skillItem.description = meta.description;
       if (meta?.triggers) skillItem.triggers = meta.triggers;
       const category = skillCategoryMap.get(cap.id);
-      skillItem.category = category ?? (remoteInstalledNames.has(cap.id) ? 'Skill 扩展' : '其他');
+      skillItem.category = category ?? (remoteInstalledNames.has(cap.id) ? '技能扩展' : '其他');
       if (installedAtMap.has(cap.id)) {
         skillItem.installedAt = installedAtMap.get(cap.id);
       }

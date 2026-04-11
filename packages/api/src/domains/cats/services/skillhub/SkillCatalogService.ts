@@ -376,7 +376,7 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
         name,
         description: manifest?.description ?? frontmatter.description ?? '',
         triggers: normalizeTriggers(frontmatter, manifest, bootstrap),
-        category: bootstrap?.category ?? (source === 'skillhub' ? 'Skill 扩展' : '其他'),
+        category: bootstrap?.category ?? (source === 'skillhub' ? '技能扩展' : '其他'),
         source,
         contentHash: computeContentHash(skillMarkdown),
         skillDir,
