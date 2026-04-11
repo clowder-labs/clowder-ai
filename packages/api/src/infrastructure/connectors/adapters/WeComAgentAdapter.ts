@@ -15,7 +15,7 @@ import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
 
 // ── Constants ──
 
-const WECOM_API_BASE = 'https://qyapi.weixin.qq.com/cgi-bin';
+const WECOM_API_BASE = process.env.WECOM_API_BASE_URL!;
 /** WeCom text message body limit in bytes */
 const TEXT_BODY_LIMIT_BYTES = 2048;
 /** Access token cache TTL: refresh 5 min before expiry (7200s → use 7080s) */

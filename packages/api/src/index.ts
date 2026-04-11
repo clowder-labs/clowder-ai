@@ -315,22 +315,22 @@ async function main(): Promise<void> {
         const catConfig = catRegistry.tryGet(catId)?.config;
         if (catConfig?.provider === 'anthropic' || catConfig?.provider === 'opencode') {
           const boundAccountRef = resolveBoundAccountRefForCat(
-            projectRoot,
-            catId,
-            catConfig as CatConfig & { providerProfileId?: string },
+              projectRoot,
+              catId,
+              catConfig as CatConfig & { providerProfileId?: string },
           );
           const runtime = await resolveRuntimeProviderProfileForClient(
-            projectRoot,
-            catConfig.provider,
-            boundAccountRef,
+              projectRoot,
+              catConfig.provider,
+              boundAccountRef,
           );
           if (!runtime?.apiKey) return null;
-          return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
+          return {apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || process.env.ANTHROPIC_API_BASE_URL!};
         }
 
         const runtime = await resolveAnthropicRuntimeProfile(projectRoot);
         if (!runtime.apiKey) return null;
-        return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
+        return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || process.env.ANTHROPIC_API_BASE_URL! };
       } catch {
         return null;
       }
@@ -486,7 +486,7 @@ async function main(): Promise<void> {
             };
           } catch {
             // No proxy config → try direct with API key
-            return { mode: 'api_key' as const, baseUrl: 'https://api.anthropic.com', apiKey };
+            return { mode: 'api_key' as const, baseUrl: process.env.ANTHROPIC_API_BASE_URL!, apiKey };
           }
         },
         { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
@@ -1146,7 +1146,7 @@ async function main(): Promise<void> {
 
   // F34: TTS Provider (mlx-audio → Python TTS server)
   const ttsRegistry = new TtsRegistry();
-  const ttsUrl = process.env.TTS_URL ?? 'http://localhost:9879';
+  const ttsUrl = process.env.TTS_URL!;
   ttsRegistry.register(new MlxAudioTtsProvider({ baseUrl: ttsUrl }));
   const ttsCacheDir = process.env.TTS_CACHE_DIR ?? './data/tts-cache';
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
