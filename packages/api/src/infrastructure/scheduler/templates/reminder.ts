@@ -4,6 +4,7 @@
  *
  */
 
+import { getDefaultCatId } from '../../../config/cat-config-loader.js';
 import type { TaskSpec_P1 } from '../types.js';
 import type { DynamicTaskParams, TaskTemplate } from './types.js';
 
@@ -40,7 +41,7 @@ export const reminderTemplate: TaskTemplate = {
         async execute(_signal, subjectKey, ctx) {
           if (!ctx.deliver) throw new Error('deliver not available');
           const tid = subjectKey.startsWith('thread-') ? subjectKey.slice(7) : subjectKey;
-          const catId = targetCatId ?? ctx.assignedCatId ?? 'opus';
+          const catId = targetCatId ?? ctx.assignedCatId ?? getDefaultCatId();
           const content = `[定时任务] ${message}`;
 
           // Store trigger message first → real messageId for InvocationRecord + retry

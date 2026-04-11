@@ -581,6 +581,7 @@ async function main(): Promise<void> {
     const { scheduleRoutes } = await import('./routes/schedule.js');
     await app.register(scheduleRoutes, {
       taskRunner: taskRunnerV2,
+      registry,
       dynamicTaskStore,
       templateRegistry,
       globalControlStore,
