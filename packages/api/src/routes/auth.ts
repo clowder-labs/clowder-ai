@@ -68,7 +68,7 @@ const userInfo: UserInfo = {
 };
 
 const IAM_URL = process.env.IAM_URL!;
-const HUAWEI_CLAW_SUBSCRIPTION_URL = process.env.HUAWEI_CLAW_SUBSCRIPTION_URL!;
+const HUAWEI_CLAW_SUBSCRIPTION_URL = process.env.HUAWEI_CLAW_URL! + "/v1/claw/client-subscription";
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 
 const secureConfig = new Conf({

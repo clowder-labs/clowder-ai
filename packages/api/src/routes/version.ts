@@ -30,7 +30,7 @@ function getPackageVersion(projectRoot: string): string {
   }
 }
 
-const HUAWEI_CLAW_VERSION_URL = process.env.HUAWEI_CLAW_VERSION_URL!;
+const HUAWEI_CLAW_VERSION_URL = process.env.HUAWEI_CLAW_URL! + "/v1/claw/client-latest-version";
 
 export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOptions = {}): Promise<void> {
   const projectRoot = opts.projectRoot ?? resolveActiveProjectRoot();
