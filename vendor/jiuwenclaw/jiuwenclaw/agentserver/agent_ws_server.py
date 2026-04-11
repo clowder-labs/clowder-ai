@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+from http import HTTPStatus
 import json
 import math
 import time
@@ -14,6 +15,14 @@ from typing import Any, ClassVar
 
 from jiuwenclaw.utils import get_agent_sessions_dir, logger
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
+
+_ALLOWED_WS_ORIGINS = [
+    None,
+    "http://127.0.0.1",
+    "https://127.0.0.1",
+    "http://localhost",
+    "https://localhost",
+]
 
 
 def _agent_request_detail_json(request: AgentRequest) -> str:
@@ -161,6 +170,8 @@ class AgentWebSocketServer:
                 self._connection_handler,
                 self._host,
                 self._port,
+                process_request=self._process_request,
+                origins=_ALLOWED_WS_ORIGINS,
                 ping_interval=self._ping_interval,
                 ping_timeout=self._ping_timeout,
             )
@@ -170,11 +181,40 @@ class AgentWebSocketServer:
                 self._connection_handler,
                 self._host,
                 self._port,
+                origins=_ALLOWED_WS_ORIGINS,
                 ping_interval=self._ping_interval,
                 ping_timeout=self._ping_timeout,
             )
         logger.info(
-            "[AgentWebSocketServer] 已启动监听: ws://%s:%s", self._host, self._port
+            "[AgentWebSocketServer] 已启动监听: ws://%s:%s allowed_origins=%s",
+            self._host,
+            self._port,
+            _ALLOWED_WS_ORIGINS,
+        )
+
+    async def _process_request(self, path: str, request_headers: Any) -> Any:
+        """在握手阶段记录 Origin 校验结果，便于排查被拦截连接。"""
+        origin = request_headers.get("Origin")
+        allowed = origin in _ALLOWED_WS_ORIGINS
+        logger.info(
+            "[AgentWebSocketServer] 握手请求 path=%s origin=%s allowed=%s allowed_origins=%s",
+            path,
+            origin,
+            allowed,
+            _ALLOWED_WS_ORIGINS,
+        )
+        if allowed:
+            return None
+
+        logger.warning(
+            "[AgentWebSocketServer] 握手拒绝 path=%s origin=%s reason=origin_not_allowed",
+            path,
+            origin,
+        )
+        return (
+            HTTPStatus.FORBIDDEN,
+            [("Content-Type", "text/plain; charset=utf-8")],
+            b"Forbidden: Origin not allowed\n",
         )
 
     async def stop(self) -> None:
