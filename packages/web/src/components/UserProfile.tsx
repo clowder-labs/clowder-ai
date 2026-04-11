@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth, getUserId } from '@/utils/userId';
+import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
 
 interface UserProfileProps {
@@ -35,6 +36,7 @@ const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/office
 export function UserProfile({ className }: UserProfileProps) {
   const [showPanel, setShowPanel] = useState(false);
   const [showThemePanel, setShowThemePanel] = useState(false);
+  const [showUsageStats, setShowUsageStats] = useState(false);
   const [showVersionUpdate, setShowVersionUpdate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
@@ -76,6 +78,16 @@ export function UserProfile({ className }: UserProfileProps) {
       if (!next) setShowThemePanel(false);
       return next;
     });
+  };
+
+  const handleOpenUsageStats = () => {
+    setShowUsageStats(true);
+    setShowThemePanel(false);
+    setShowPanel(false);
+  };
+
+  const handleCloseUsageStats = () => {
+    setShowUsageStats(false);
   };
 
   const handleOpenVersionUpdate = () => {
@@ -231,6 +243,14 @@ export function UserProfile({ className }: UserProfileProps) {
             <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
                 className={profileActionClass}
+                onClick={handleOpenUsageStats}
+              >
+                <img src="/icons/userprofile/usage.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
+                用量统计
+              </button>
+
+              <button
+                className={profileActionClass}
                 onClick={handleOpenVersionUpdate}
               >
                 <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -337,6 +357,7 @@ export function UserProfile({ className }: UserProfileProps) {
         </div>
       )}
 
+      {showUsageStats ? <UsageStatsModal open={showUsageStats} onClose={handleCloseUsageStats} /> : null}
       <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} />
     </div>
   );

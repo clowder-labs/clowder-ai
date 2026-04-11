@@ -59,6 +59,16 @@ const FILE_EXTENSION_ICON_MAP: Record<string, string> = {
 
 const DIRECTORY_ICON_SRC = "/icons/chart/folder.svg";
 const DEFAULT_FILE_ICON_SRC = "/icons/file-html.svg";
+const IMAGE_FILE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".bmp",
+  ".ico",
+  ".avif",
+]);
 
 function sourceLabel(source: SkillDetailResponse["source"]): string {
   return source === "cat-cafe" ? "官方" : "三方";
@@ -120,6 +130,16 @@ function getFileTreeIconSrc(node: SkillDetailFileTreeNode): string {
   }
 
   return DEFAULT_FILE_ICON_SRC;
+}
+
+function isImageFilePath(filePath: string | null): boolean {
+  if (!filePath) return false;
+
+  const normalizedPath = filePath.toLowerCase();
+  const extensionIndex = normalizedPath.lastIndexOf(".");
+  if (extensionIndex < 0) return false;
+
+  return IMAGE_FILE_EXTENSIONS.has(normalizedPath.slice(extensionIndex));
 }
 
 function BasicInfoField({
@@ -278,6 +298,7 @@ export function SkillDetailView({
     if (!detail?.fileTree?.length || !selectedPath) return null;
     return findNodeByPath(detail.fileTree, selectedPath);
   }, [detail?.fileTree, selectedPath]);
+  const selectedPathIsImage = useMemo(() => isImageFilePath(selectedPath), [selectedPath]);
 
   useEffect(() => {
     const fileTree = detail?.fileTree;
@@ -301,6 +322,19 @@ export function SkillDetailView({
     if (!selectedPath) {
       setFilePreview(null);
       setFilePreviewError(null);
+      return;
+    }
+
+    if (selectedPathIsImage) {
+      setFilePreview({
+        path: selectedPath,
+        content: "暂不支持图片预览",
+        size: selectedFileNode?.size ?? 0,
+        mime: "image/*",
+        truncated: false,
+      });
+      setFilePreviewError(null);
+      setFilePreviewLoading(false);
       return;
     }
 
@@ -353,7 +387,7 @@ export function SkillDetailView({
     void loadFilePreview();
 
     return () => controller.abort();
-  }, [previewCache, selectedPath, skillName]);
+  }, [previewCache, selectedFileNode?.size, selectedPath, selectedPathIsImage, skillName]);
 
   const handleSelectNode = (node: SkillDetailFileTreeNode) => {
     if (node.type !== "file") return;

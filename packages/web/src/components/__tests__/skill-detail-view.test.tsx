@@ -525,6 +525,83 @@ describe('SkillDetailView', () => {
     );
   });
 
+  it('shows unsupported image preview message for image files', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/detail?name=demo-skill') {
+        return Promise.resolve(
+          jsonResponse({
+            id: 'demo-skill',
+            name: 'demo-skill',
+            description: 'Skill detail description',
+            category: 'Automation',
+            source: 'cat-cafe',
+            enabled: true,
+            triggers: ['demo', 'detail'],
+            mounts: { claude: true, codex: false, gemini: true },
+            cats: { office: true, review: false },
+            fileTree: [
+              {
+                name: 'SKILL.md',
+                path: 'SKILL.md',
+                type: 'file',
+                size: 128,
+              },
+              {
+                name: 'preview.png',
+                path: 'assets/preview.png',
+                type: 'file',
+                size: 512,
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=SKILL.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'SKILL.md',
+            content: '# Skill File\n\nSkill file preview content',
+            size: 128,
+            mime: 'text/markdown',
+            truncated: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const imageButton = Array.from(container.querySelectorAll('button')).find(
+      (candidate) => candidate.textContent?.includes('preview.png'),
+    );
+    expect(imageButton).not.toBeUndefined();
+
+    await act(async () => {
+      imageButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(mockApiFetch).not.toHaveBeenCalledWith('/api/skills/file?name=demo-skill&path=assets%2Fpreview.png', {
+      signal: expect.any(AbortSignal),
+    });
+    expect(container.querySelector('[data-testid="skill-detail-file-preview"]')?.textContent).toContain(
+      '暂不支持图片预览',
+    );
+    expect(container.querySelector('[data-testid="skill-detail-file-workspace"]')?.textContent).toContain('image/*');
+  });
+
   it('shows the centered loading state while file preview content is loading', async () => {
     let resolvePreview: ((value: Response) => void) | null = null;
 
