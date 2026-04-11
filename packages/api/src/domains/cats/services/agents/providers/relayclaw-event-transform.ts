@@ -43,10 +43,7 @@ export function isRelayClawTransportErrorText(content: unknown): content is stri
 /**
  * Transform a single relay-claw WS chunk into an AgentMessage (or null to skip).
  */
-export function transformRelayClawChunk(
-  frame: RelayClawWsFrame,
-  catId: CatId,
-): AgentMessage | null {
+export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): AgentMessage | null {
   // connection.ack is handled at connection level, not yielded as a message
   if (frame.type === 'event' && frame.event === 'connection.ack') {
     return null;
@@ -69,7 +66,7 @@ export function transformRelayClawChunk(
         return {
           type: 'system_info',
           catId,
-          content: JSON.stringify({ type: 'thinking', catId, text: content }),
+          content: JSON.stringify({ type: 'thinking', catId, text: content, mergeStrategy: 'append' }),
           timestamp: Date.now(),
         };
       }
