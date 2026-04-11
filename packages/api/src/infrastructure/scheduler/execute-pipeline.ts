@@ -143,6 +143,7 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
     const gateResult = await task.admission.gate(gateCtx);
 
     if (!gateResult.run) {
+      logger.info(`[scheduler] ${task.id}: gate skipped (${gateResult.reason})`);
       if (task.outcome.whenNoSignal === 'record') {
         ledger.record({
           task_id: task.id,
