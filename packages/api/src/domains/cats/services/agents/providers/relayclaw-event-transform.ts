@@ -69,7 +69,7 @@ export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): 
         return {
           type: 'system_info',
           catId,
-          content: JSON.stringify({ type: 'thinking', catId, text: content }),
+          content: JSON.stringify({ type: 'thinking', catId, text: content, mergeStrategy: 'append' }),
           timestamp: Date.now(),
         };
       }
