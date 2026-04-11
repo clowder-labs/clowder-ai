@@ -482,6 +482,22 @@ function ThreadModeChatContainer({
     return firstAvailableCatId;
   }, [firstAvailableCatId, messages, targetCats]);
 
+  // Bugfix: 将被停止的 intent recognition 持久化为真实 store 消息，
+  // 使其稳定出现在新 user message 之前（正确的对话顺序）。
+  // 必须在 handleSend（addMessage user msg）之前调用。
+  const persistStoppedIntentRecognition = useCallback(() => {
+    if (!stoppedIntentRecognition) return;
+    addMessage({
+      id: `intent-recognition-stopped-${stoppedIntentRecognition.timestamp}`,
+      type: 'assistant',
+      catId: stoppedIntentRecognition.catId,
+      content: 'stopped',
+      timestamp: stoppedIntentRecognition.timestamp + 1,
+      variant: 'intent_recognition',
+    } as ChatMessageData);
+    setStoppedIntentRecognition(null);
+  }, [stoppedIntentRecognition, addMessage]);
+
   useEffect(() => {
     if (!stoppedIntentRecognition) return;
 
@@ -771,6 +787,9 @@ function ThreadModeChatContainer({
             key={threadId}
             threadId={threadId}
             onSend={(content, images, whisper, deliveryMode) => {
+              // 先将被停止的 intent recognition bubble 持久化为真实消息，
+              // 确保它出现在新 user message 之前（正确的对话顺序）
+              persistStoppedIntentRecognition();
               scrollToBottom('smooth');
               handleSend(content, images, undefined, whisper, deliveryMode);
             }}
