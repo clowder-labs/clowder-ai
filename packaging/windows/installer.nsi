@@ -50,6 +50,8 @@ BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
 ShowUninstDetails nevershow
 
+Var SelectedInstallDir
+
 ; --------------- License page (custom nsDialogs) ---------------
 Page custom LicensePageCreate LicensePageLeave
 
@@ -57,6 +59,8 @@ Page custom LicensePageCreate LicensePageLeave
 Page custom WelcomePageCreate
 
 ; --------------- Directory page ---------------
+!define MUI_DIRECTORYPAGE_VARIABLE $SelectedInstallDir
+!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave
 !insertmacro MUI_PAGE_DIRECTORY
 
@@ -234,6 +238,7 @@ FunctionEnd
 
 Function .onInit
   SetShellVarContext current
+  StrCpy $SelectedInstallDir $INSTDIR
   
   ; Check if OfficeClaw is running
   Call CheckOfficeClawRunning
@@ -264,8 +269,17 @@ Function .onVerifyInstDir
   ${EndIf}
 FunctionEnd
 
+Function RestoreInstallDirSelection
+  ${If} $SelectedInstallDir == ""
+    StrCpy $SelectedInstallDir $INSTDIR
+  ${Else}
+    StrCpy $INSTDIR $SelectedInstallDir
+  ${EndIf}
+FunctionEnd
+
 Function VerifyInstallDirLeave
-  StrLen $0 $INSTDIR
+  StrCpy $SelectedInstallDir $INSTDIR
+  StrLen $0 $SelectedInstallDir
   ${If} $0 > 200
     MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长（$0 字符），请选择较短的路径。"
     Abort
@@ -404,6 +418,7 @@ FunctionEnd
 
 Section "Install"
   DetailPrint "正在准备安装环境..."
+  StrCpy $INSTDIR $SelectedInstallDir
   
   ; If processes were detected in .onInit, close them now
   ${If} $DetectedRunningProcesses == "1"

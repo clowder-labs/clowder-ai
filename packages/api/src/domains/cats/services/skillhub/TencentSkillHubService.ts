@@ -14,7 +14,8 @@
 
 import JSZip from 'jszip';
 
-const API_BASE = process.env.TENCENT_SKILLHUB_API_BASE_URL!;
+const DEFAULT_TENCENT_SKILLHUB_API_BASE_URL = 'https://lightmake.site';
+const API_BASE = process.env.TENCENT_SKILLHUB_API_BASE_URL?.trim() || DEFAULT_TENCENT_SKILLHUB_API_BASE_URL;
 
 interface CacheEntry<T> {
   data: T;
@@ -53,6 +54,22 @@ interface TencentSkill {
   homepage?: string;
   tags?: string[] | null;
   version?: string;
+}
+
+function normalizeString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 // ─── Unified types (match skillshub.wtf shape) ───
@@ -105,24 +122,29 @@ export interface SkillHubResolveResponse {
 // ─── Normalize Tencent skill to unified shape ───
 
 function normalizeSkill(t: TencentSkill): SkillHubSkill {
+  const slug = normalizeString(t.slug);
+  const name = normalizeString(t.name) || slug;
+  const ownerName = normalizeString(t.ownerName);
+  const description = normalizeString(t.description_zh) || normalizeString(t.description);
+
   return {
-    id: t.slug,
-    slug: t.slug,
-    name: t.name,
-    description: t.description_zh || t.description || '',
-    tags: t.tags ?? [],
+    id: slug,
+    slug,
+    name,
+    description,
+    tags: normalizeStringArray(t.tags),
     createdAt: '',
     repo: {
-      id: t.slug,
-      starCount: t.stars ?? 0,
-      downloadCount: t.downloads ?? 0,
-      githubOwner: t.ownerName ?? '',
-      githubRepoName: t.slug,
+      id: slug,
+      starCount: normalizeNumber(t.stars),
+      downloadCount: normalizeNumber(t.downloads),
+      githubOwner: ownerName,
+      githubRepoName: slug,
     },
     owner: {
-      id: t.ownerName ?? '',
-      username: t.ownerName ?? '',
-      displayName: t.ownerName ?? '',
+      id: ownerName,
+      username: ownerName,
+      displayName: ownerName,
       avatarUrl: '',
     },
   };

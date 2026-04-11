@@ -300,8 +300,15 @@ test('Local desktop web client derives API URL from the loopback frontend port i
 test('NSIS installer is per-user, supports upgrade cleanup, and preserves runtime data on uninstall', () => {
   assert.match(nsisScript, /!define DEFAULT_INSTALL_DIR "C:\\CAI"/);
   assert.match(nsisScript, /InstallDir "\$\{DEFAULT_INSTALL_DIR\}"/);
+  assert.match(nsisScript, /!define MUI_DIRECTORYPAGE_VARIABLE \$SelectedInstallDir/);
+  assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection/);
   assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave/);
   assert.match(nsisScript, /Function \.onVerifyInstDir/);
+  assert.match(nsisScript, /Var SelectedInstallDir/);
+  assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$INSTDIR/);
+  assert.match(nsisScript, /Function RestoreInstallDirSelection/);
+  assert.match(nsisScript, /\$\{If\} \$SelectedInstallDir == ""/);
+  assert.match(nsisScript, /StrLen \$0 \$SelectedInstallDir/);
   assert.match(nsisScript, /Function VerifyInstallDirLeave/);
   assert.match(nsisScript, /Choose a path with at most \$\{MAX_INSTALL_ROOT_LEN\} characters/);
   assert.match(nsisScript, /RequestExecutionLevel user/);
