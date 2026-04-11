@@ -147,8 +147,6 @@ FILE_READ_PARAMS = {
     "type": "object",
     "properties": {
         "file_path": {"type": "string", "description": "目标文件绝对路径"},
-        "offset": {"type": "integer", "description": "字节偏移，默认 0", "default": 0},
-        "limit": {"type": "integer", "description": "读取字节数，不填则读至文件末尾", "default": None},
     },
     "required": ["file_path"],
 }
@@ -175,8 +173,8 @@ FILE_EDIT_PARAMS = {
 }
 
 FILE_READ_DESC = (
-    "读取指定路径的文件内容。支持 offset/limit 分片读取。"
-    "仅限文本文件，二进制文件会被拒绝。文件过大时报错并提示使用 offset/limit 分段。"
+    "读取指定路径的文件内容。仅限文本文件，二进制文件会被拒绝。"
+    "文件过大时（超过 max_file_size）报错。"
 )
 FILE_WRITE_DESC = (
     "创建或覆盖文件。自动创建父目录。换行符与原文件保持一致。原子写入保证数据安全。"
@@ -225,7 +223,7 @@ class FileToolkit:
             ),
         ]
 
-    async def _file_read(self, file_path: str, offset: int = 0, limit: int | None = None) -> str:
+    async def _file_read(self, file_path: str) -> str:
 
         def _read() -> str:
             cfg = get_file_tools_config()
@@ -259,83 +257,22 @@ class FileToolkit:
                     f"File: {file_path}"
                 )
 
-            # 7. 大小检查（无 limit 时）
-            if limit is None and meta.size > cfg.max_file_size:
+            # 7. 大小检查
+            if meta.size > cfg.max_file_size:
                 return (
                     f"[ERROR] FILE_TOO_LARGE: file size {meta.size} bytes exceeds "
-                    f"max_file_size {cfg.max_file_size} bytes. "
-                    f"Please use offset and limit parameters to read in chunks, e.g.: "
-                    f"file_read(file_path={file_path!r}, offset=0, limit={cfg.max_file_size})"
+                    f"max_file_size {cfg.max_file_size} bytes. File: {file_path}"
                 )
 
             # 8. 读取内容
             try:
-                if meta.encoding == "utf-8" and offset == 0 and limit is None:
-                    # 快速路径：直接读
-                    with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                        raw_content = f.read()
-                    # 归一化换行符（仅快速路径在此处理）
-                    content = raw_content.replace("\r\n", "\n")
-                else:
-                    with open(file_path, "rb") as f:
-                        # 8a. 偏移量边界检查
-                        if offset > meta.size:
-                            return (
-                                f"[ERROR] OFFSET_OUT_OF_BOUNDS: offset {offset} exceeds file size {meta.size} bytes. "
-                                f"File: {file_path}"
-                            )
-                        f.seek(offset)
-                        raw = f.read(limit if limit is not None else -1)
-                        if offset > 0 and len(raw) == 0:
-                            return (
-                                f"[ERROR] OFFSET_OUT_OF_BOUNDS: offset {offset} is at or past end of file "
-                                f"(size {meta.size} bytes). File: {file_path}"
-                            )
-                    content = raw.decode(meta.encoding, errors="replace")
-
+                raw_content = p.read_text(encoding=meta.encoding, errors="replace")
+                # 归一化换行符
+                content = raw_content.replace("\r\n", "\n")
             except OSError as e:
                 return f"[ERROR] READ_ERROR: {e}"
 
-            # 9. 输出截断（基于原始内容长度，在归一化之前检查）
-            available = len(content)
-            if available > cfg.max_output_chars:
-                # 归一化换行符后再截断
-                content = content.replace("\r\n", "\n")
-                truncated = content[: cfg.max_output_chars]
-                warning = (
-                    f"\n\n[警告: 内容超出 max_output_chars ({cfg.max_output_chars})，已截断。"
-                    f" 请使用 offset/limit 分段读取完整内容，例如："
-                    f" file_read(file_path={file_path!r}, offset={cfg.max_output_chars}, limit={cfg.max_output_chars})]"
-                    f"（注：offset 为近似值，因 CRLF→LF 归一化会导致实际字节位置偏移）"
-                )
-                return (
-                    f"文件路径: {file_path}\n"
-                    f"编码: {meta.encoding}\n"
-                    f"换行符: {meta.line_endings}\n"
-                    f"偏移: {offset}\n"
-                    f"限制: {cfg.max_output_chars}\n"
-                    f"内容:\n"
-                    f"---\n"
-                    f"{truncated}\n"
-                    f"---\n"
-                    f"{warning}"
-                )
-
-            # 对非截断情况也做归一化（快速路径已在上面处理）
-            if not (meta.encoding == "utf-8" and offset == 0 and limit is None):
-                content = content.replace("\r\n", "\n")
-
-            return (
-                f"文件路径: {file_path}\n"
-                f"编码: {meta.encoding}\n"
-                f"换行符: {meta.line_endings}\n"
-                f"偏移: {offset}\n"
-                f"限制: {limit if limit is not None else meta.size}\n"
-                f"内容:\n"
-                f"---\n"
-                f"{content}\n"
-                f"---"
-            )
+            return f"<path>{file_path}</path>\n<file-content>\n{content}\n</file-content>"
 
         return await asyncio.to_thread(_read)
 
