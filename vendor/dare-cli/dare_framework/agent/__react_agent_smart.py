@@ -7,6 +7,7 @@ to context, and calls the model again until the model returns a final text respo
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 # ANSI: plan-agent 红字，sub-agent 绿字，工具名紫字，context 列表黄字
@@ -31,7 +32,7 @@ def _colored_print(agent_name: str, msg: str, tool_name: str | None = None) -> N
     color = _agent_color(agent_name)
     if tool_name:
         msg = msg.replace(tool_name, f"{_ANSI_PURPLE}{tool_name}{_ANSI_RESET}{color}", 1)
-    print(f"{color}{msg}{_ANSI_RESET}", flush=True)
+    logging.info(f"{color}{msg}{_ANSI_RESET}")
 
 
 from dare_framework.agent.base_agent import BaseAgent
@@ -56,7 +57,7 @@ def _print_tools_sent_to_llm(agent_name: str, tools: list[Any]) -> None:
     ]
     blob = json.dumps(api_tools, indent=2, ensure_ascii=False)
     lines = [f"[{agent_name}] Tools 发给 LLM ({len(tools)} 个):", "---", blob, "---"]
-    print(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}", flush=True)
+    logging.info(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}")
 
 
 # TEMPORARY 消息打印时截断，避免过长
@@ -81,7 +82,7 @@ def _print_context_list(
         lines.append(f"--- Message {i+1} role={m.role} ---")
         lines.append(content)
         lines.append("")
-    print(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}", flush=True)
+    logging.info(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}")
 
 
 from dare_framework.model import IModelAdapter, ModelInput

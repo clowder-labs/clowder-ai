@@ -7,7 +7,7 @@ Git 提交记录采集器
 - 统计提交次数、修改文件数、代码行数变化
 - 支持多个仓库
 """
-
+import logging
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -277,7 +277,7 @@ def main():
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python git_collector.py <repo_path> [date]")
+        logging.info("Usage: python git_collector.py <repo_path> [date]")
         sys.exit(1)
 
     repo_path = sys.argv[1]
@@ -286,17 +286,17 @@ def main():
     collector = GitCollector(repo_path)
     stats = collector.get_commits(date)
 
-    print(f"Git 统计 ({date or '今天'}):")
-    print(f"  提交次数: {stats.total_commits}")
-    print(f"  修改文件: {stats.total_files_changed}")
-    print(f"  新增行数: {stats.total_insertions}")
-    print(f"  删除行数: {stats.total_deletions}")
-    print(f"  净增行数: {stats.net_lines}")
+    logging.info(f"Git 统计 ({date or '今天'}):")
+    logging.info(f"  提交次数: {stats.total_commits}")
+    logging.info(f"  修改文件: {stats.total_files_changed}")
+    logging.info(f"  新增行数: {stats.total_insertions}")
+    logging.info(f"  删除行数: {stats.total_deletions}")
+    logging.info(f"  净增行数: {stats.net_lines}")
 
     if stats.commits:
-        print("\n提交记录:")
+        logging.info("\n提交记录:")
         for commit in stats.commits:
-            print(f"  [{commit.hash}] {commit.message} ({commit.author})")
+            logging.info(f"  [{commit.hash}] {commit.message} ({commit.author})")
 
 
 if __name__ == "__main__":

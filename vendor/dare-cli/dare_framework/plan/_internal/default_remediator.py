@@ -6,6 +6,7 @@ structured insights to guide the next planning attempt.
 """
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Literal
 
 from dare_framework.context import Message
@@ -118,7 +119,7 @@ class DefaultRemediator:
         Args:
             model: Model adapter for LLM calls.
             system_prompt: Optional custom system prompt.
-            verbose: Whether to print debug output.
+            verbose: Whether to logging.info debug output.
         """
         self._model = model
         self._system_prompt = system_prompt or DEFAULT_REFLECT_SYSTEM_PROMPT
@@ -184,20 +185,20 @@ Please analyze this failure and provide your structured reflection."""
         )
 
         if self._verbose:
-            print(f"[DefaultRemediator] Analyzing failure: {errors[0][:50]}...")
+            logging.info(f"[DefaultRemediator] Analyzing failure: {errors[0][:50]}...")
 
         try:
             response = await self._model.generate(model_input)
             reflection = response.content.strip()
 
             if self._verbose:
-                print(f"[DefaultRemediator] Generated reflection ({len(reflection)} chars)")
+                logging.info(f"[DefaultRemediator] Generated reflection ({len(reflection)} chars)")
 
             return reflection
 
         except Exception as e:
             if self._verbose:
-                print(f"[DefaultRemediator] Error: {e}, using fallback")
+                logging.info(f"[DefaultRemediator] Error: {e}, using fallback")
             return self._fallback_reflection(errors)
 
     def _fallback_reflection(self, errors: list[str]) -> str:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 # sub-agent 相关日志用绿字
@@ -230,9 +231,9 @@ class CreatePlanTool(ITool):
         # 已有 plan 时拒绝覆盖，引导模型进入 validate/execute 阶段
         if self._state.steps:
             self._state.critical_block = _format_critical_block(self._state)
-            print("\n--- Plan Already Exists (skipping overwrite) ---")
-            print(f"  steps: {len(self._state.steps)}")
-            print("---\n", flush=True)
+            logging.info("\n--- Plan Already Exists (skipping overwrite) ---")
+            logging.info(f"  steps: {len(self._state.steps)}")
+            logging.info("---\n")
             return ToolResult(
                 success=True,
                 output={
@@ -271,15 +272,15 @@ class CreatePlanTool(ITool):
         self._state.completed_step_ids.clear()
         self._state.plan_validated = False
         self._state.critical_block = _format_critical_block(self._state)
-        print("\n--- Plan Created ---")
-        print(f"  plan_description: {plan_description}")
-        print(f"  steps ({len(self._state.steps)}):")
+        logging.info("\n--- Plan Created ---")
+        logging.info(f"  plan_description: {plan_description}")
+        logging.info(f"  steps ({len(self._state.steps)}):")
         for i, st in enumerate(self._state.steps, 1):
             params = st.params if isinstance(st, Step) else st.get("params", {}) if isinstance(st, dict) else {}
             dl = params.get("deliverable", "") if isinstance(params, dict) else ""
             dl_str = f" 交付件: {dl}" if dl else ""
-            print(f"    [{i}] {_step_id(st) or '<unknown>'}: {_step_description(st)}{dl_str}")
-        print("---\n", flush=True)
+            logging.info(f"    [{i}] {_step_id(st) or '<unknown>'}: {_step_description(st)}{dl_str}")
+        logging.info("---\n")
         return ToolResult(
             success=True,
             output={
@@ -922,7 +923,7 @@ class SubAgentTool(ITool):
                 error=f"plan already terminal: {self._state.plan_status}",
             )
         task_preview = (task[:600] + "...") if len(task) > 600 else task
-        print(f"{_ANSI_GREEN}\n>>> 委托 {self._sub_agent_id}: {task_preview}\n{_ANSI_RESET}", flush=True)
+        logging.info(f"{_ANSI_GREEN}\n>>> 委托 {self._sub_agent_id}: {task_preview}\n{_ANSI_RESET}")
         if step_id and self._state:
             step = self._state.get_step(step_id)
             if step is None:
@@ -943,7 +944,7 @@ class SubAgentTool(ITool):
             if step_id and self._state:
                 self._state.transition_step(step_id, "done")
                 self._state.critical_block = _format_critical_block(self._state)
-            print(f"{_ANSI_GREEN}<<< {self._sub_agent_id} 返回 (success=True)\n{_ANSI_RESET}", flush=True)
+            logging.info(f"{_ANSI_GREEN}<<< {self._sub_agent_id} 返回 (success=True)\n{_ANSI_RESET}")
             output = result
             if self._state and self._state.steps:
                 self._state.sync_completed_step_ids()
@@ -958,7 +959,7 @@ class SubAgentTool(ITool):
         except Exception as exc:
             if step_id and self._state:
                 self._state.critical_block = _format_critical_block(self._state)
-            print(f"{_ANSI_GREEN}<<< {self._sub_agent_id} 返回 (error: {exc})\n{_ANSI_RESET}", flush=True)
+            logging.info(f"{_ANSI_GREEN}<<< {self._sub_agent_id} 返回 (error: {exc})\n{_ANSI_RESET}")
             return ToolResult(success=False, output=None, error=str(exc))
 
 

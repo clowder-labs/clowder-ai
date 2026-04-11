@@ -6,6 +6,7 @@ to context, and calls the model again until the model returns a final text respo
 
 from __future__ import annotations
 
+import logging
 import math
 import json
 from typing import Any
@@ -32,7 +33,7 @@ def _colored_print(agent_name: str, msg: str, tool_name: str | None = None) -> N
     color = _agent_color(agent_name)
     if tool_name:
         msg = msg.replace(tool_name, f"{_ANSI_PURPLE}{tool_name}{_ANSI_RESET}{color}", 1)
-    print(f"{color}{msg}{_ANSI_RESET}", flush=True)
+    logging.info(f"{color}{msg}{_ANSI_RESET}")
 
 
 from dare_framework.agent._internal.output_normalizer import build_output_envelope
@@ -59,7 +60,7 @@ def _print_tools_sent_to_llm(agent_name: str, tools: list[Any]) -> None:
     ]
     blob = json.dumps(api_tools, indent=2, ensure_ascii=False)
     lines = [f"[{agent_name}] Tools 发给 LLM ({len(tools)} 个):", "---", blob, "---"]
-    print(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}", flush=True)
+    logging.info(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}")
 
 
 # TEMPORARY 消息打印时截断，避免过长
@@ -84,7 +85,7 @@ def _print_context_list(
         lines.append(f"--- Message {i+1} role={m.role} ---")
         lines.append(content)
         lines.append("")
-    print(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}", flush=True)
+    logging.info(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}")
 
 
 from dare_framework.model import IModelAdapter, ModelInput
@@ -161,7 +162,7 @@ class ReactAgent(BaseAgent):
         latest_usage: dict[str, Any] | None = None
 
         for round_idx in range(self._max_tool_rounds):
-            print(f"[{self.name}] Round {round_idx + 1}/{self._max_tool_rounds}: 调用模型中...", flush=True)
+            logging.info(f"[{self.name}] Round {round_idx + 1}/{self._max_tool_rounds}: 调用模型中...")
             assembled = await self._context.assemble_for_model()
             messages = self._build_model_messages(assembled)
 
@@ -180,7 +181,7 @@ class ReactAgent(BaseAgent):
                 if usage_total_tokens > 0 or latest_usage is None:
                     latest_usage = usage
             n_tools = len(response.tool_calls) if response.tool_calls else 0
-            print(f"[{self.name}] 模型返回, tool_calls={n_tools}", flush=True)
+            logging.info(f"[{self.name}] 模型返回, tool_calls={n_tools}")
             thinking_content = (response.thinking_content or "").strip()
             if thinking_content:
                 await self._emit_transport_message(
@@ -260,7 +261,7 @@ class ReactAgent(BaseAgent):
                 # 打印工具调用信息：名称、参数
                 params_str = json.dumps(params, ensure_ascii=False)
                 params_preview = params_str[:300] + ("..." if len(params_str) > 300 else "")
-                print(f"[{self.name}] 工具调用: {name} | id={tool_call_id or '-'} | args={params_preview}", flush=True)
+                logging.info(f"[{self.name}] 工具调用: {name} | id={tool_call_id or '-'} | args={params_preview}")
 
                 try:
                     # 关键修复：将当前 Context 传递给 ToolGateway，使工具能看到 config/workspace_dir
@@ -278,7 +279,7 @@ class ReactAgent(BaseAgent):
                 output = getattr(result, "output", {})
                 # 打印工具执行结果摘要
                 out_preview = _preview_output(output)
-                print(f"[{self.name}] 工具结果: {name} | success={success} | {out_preview}", flush=True)
+                logging.info(f"[{self.name}] 工具结果: {name} | success={success} | {out_preview}")
                 error = getattr(result, "error", "") or ""
                 await self._emit_transport_message(
                     transport=transport,
@@ -594,7 +595,7 @@ class ReactAgent(BaseAgent):
             state = getattr(self._plan_provider, "state", None)
             critical_block = getattr(state, "critical_block", "") if state else ""
             if critical_block:
-                print("\n--- [Plan State] (injected) ---\n" + critical_block + "\n---\n", flush=True)
+                logging.info("\n--- [Plan State] (injected) ---\n" + critical_block + "\n---\n")
                 messages.insert(
                     1,
                     Message(role="system", text=critical_block, name="plan_state"),

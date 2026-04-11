@@ -7,6 +7,7 @@ Financial Document Parser - 财务文档解析工具
 import argparse
 import json
 import csv
+import logging
 import sys
 import os
 from pathlib import Path
@@ -518,30 +519,30 @@ def main():
     args = parser.parse_args()
 
     if not args.quiet:
-        print(f"正在解析: {args.file}", file=sys.stderr)
+        logging.info(f"正在解析: {args.file}", file=sys.stderr)
 
     try:
         parser_obj = FinancialParser(args.file)
         doc = parser_obj.parse()
 
         if args.format == 'json':
-            print(parser_obj.to_json())
+            logging.info(parser_obj.to_json())
         elif args.format == 'csv':
             csv_path = parser_obj.to_csv(args.output)
             if not args.quiet:
-                print(f"已导出到: {csv_path}", file=sys.stderr)
+                logging.info(f"已导出到: {csv_path}", file=sys.stderr)
         elif args.format == 'all':
-            print(parser_obj.to_markdown())
-            print("\n---\n")
-            print("## JSON 数据")
-            print("```json")
-            print(parser_obj.to_json())
-            print("```")
+            logging.info(parser_obj.to_markdown())
+            logging.info("\n---\n")
+            logging.info("## JSON 数据")
+            logging.info("```json")
+            logging.info(parser_obj.to_json())
+            logging.info("```")
         else:
-            print(parser_obj.to_markdown())
+            logging.info(parser_obj.to_markdown())
 
     except Exception as e:
-        print(f"错误: {e}", file=sys.stderr)
+        logging.info(f"错误: {e}", file=sys.stderr)
         sys.exit(1)
 
 
