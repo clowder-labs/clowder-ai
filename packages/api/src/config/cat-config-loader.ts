@@ -683,12 +683,14 @@ export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfi
 
 let _defaultCatId: CatId | null = null;
 
-function getRegisteredDefaultCatId(): CatId | null {
+function getFallbackDefaultCatId(): CatId {
   const registered = catRegistry.getAllIds();
-  if (registered.length > 0) return registered[0] ?? null;
+  if (registered.length > 0) return registered[0]!;
 
   const builtin = Object.keys(CAT_CONFIGS)[0];
-  return builtin ? createCatId(builtin) : null;
+  if (builtin) return createCatId(builtin);
+
+  throw new Error('No available cats to resolve default catId');
 }
 
 /**
@@ -697,9 +699,9 @@ function getRegisteredDefaultCatId(): CatId | null {
  *
  * Resolution order:
  * 1. Catalog-level `defaultCatId` field (set by preset installers)
- * 2. `jiuwenclaw` if present in catalog (backward compat with dev environment)
- * 3. First breed's catId from the catalog (preset deployments)
- * 4. Hardcoded `jiuwenclaw` (ultimate fallback)
+ * 2. First breed's catId from the catalog (preset deployments)
+ * 3. First registered runtime catId
+ * 4. First built-in fallback config key
  */
 export function getDefaultCatId(): CatId {
   if (_defaultCatId) return _defaultCatId;
@@ -713,14 +715,7 @@ export function getDefaultCatId(): CatId {
       return _defaultCatId;
     }
 
-    // 2. Try jiuwenclaw (backward compat with full dev catalog)
-    const allConfigs = toAllCatConfigs(config);
-    if (allConfigs['jiuwenclaw']) {
-      _defaultCatId = createCatId('jiuwenclaw');
-      return _defaultCatId;
-    }
-
-    // 3. First breed's catId (preset deployments with custom members)
+    // 2. First breed's catId (preset deployments with custom members)
     const firstBreed = config.breeds[0];
     if (firstBreed) {
       const catId = firstBreed.catId ?? firstBreed.variants?.[0]?.catId;
@@ -731,11 +726,11 @@ export function getDefaultCatId(): CatId {
     }
   }
 
-  // 4. Runtime-safe fallback: prefer an actually registered cat over the
-  // legacy hardcoded jiuwenclaw ID. This keeps connector/default routing
+  // 3/4. Runtime-safe fallback: derive from the runtime registry first, then
+  // the built-in config list. This keeps connector/default routing
   // aligned with the runtime registry even if cat-config.json is missing
   // or malformed during an upgrade/overwrite install.
-  _defaultCatId = getRegisteredDefaultCatId() ?? createCatId('relayclaw');
+  _defaultCatId = getFallbackDefaultCatId();
   return _defaultCatId;
 }
 
