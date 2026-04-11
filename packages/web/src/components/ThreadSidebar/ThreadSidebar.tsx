@@ -31,9 +31,9 @@ interface ThreadSidebarProps {
   onBootcampClick?: () => void;
   onHubClick?: () => void;
   onThreadSelect?: () => void;
-  onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills') => void;
+  onMenuClick?: (menu: 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks') => void;
   onNewChatClick?: () => void;
-  activeMenu?: 'models' | 'agents' | 'channels' | 'skills';
+  activeMenu?: 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
 }
 
 const CONNECTOR_SOURCE_LABELS: Record<string, string> = {
@@ -592,6 +592,15 @@ export function ThreadSidebar({
             >
               <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               技能
+            </button>
+            <button
+              type="button"
+              onClick={() => onMenuClick?.('scheduledTasks')}
+              className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
+              data-testid="sidebar-menu-scheduled-tasks"
+            >
+              <img src="/icons/scheduled-task.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
+              定时任务
             </button>
           </div>
         </div>

@@ -297,6 +297,9 @@ export function ChatInput({
       const separator = prev && !prev.endsWith('\n') ? '\n' : '';
       return prev + separator + pendingChatInsert.text;
     });
+    if (pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX)) {
+      setShowQuickPrompts(true);
+    }
     setPendingChatInsert(null);
     textareaRef.current?.focus();
   }, [pendingChatInsert, setPendingChatInsert, threadId]);
