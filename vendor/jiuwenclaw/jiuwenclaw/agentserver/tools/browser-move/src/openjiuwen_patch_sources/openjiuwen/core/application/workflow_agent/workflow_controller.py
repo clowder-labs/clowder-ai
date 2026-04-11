@@ -6,7 +6,6 @@ import asyncio
 from typing import Dict, List, Optional, Union
 
 from openjiuwen.core.common.constants.enums import TaskType
-from openjiuwen.core.runner import Runner
 from openjiuwen.core.single_agent.legacy import AgentConfig, WorkflowSchema
 from openjiuwen.core.common.utils.message_utils import MessageUtils
 from openjiuwen.core.controller.legacy import (
@@ -1149,6 +1148,7 @@ class WorkflowController(IntentDetectionController):
             Workflow object, None if not found
         """
         try:
+            from openjiuwen.core.runner import Runner
             workflow = await Runner.resource_mgr.get_workflow(workflow_id=workflow_id, tag=self.agent_config.id)
             return workflow
         except Exception as e:

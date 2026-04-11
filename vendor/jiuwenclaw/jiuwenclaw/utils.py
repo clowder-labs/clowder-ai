@@ -521,12 +521,12 @@ def setup_logger(log_level: str = "INFO") -> logging.Logger:
     logs_root = get_logs_dir()
     logs_root.mkdir(parents=True, exist_ok=True)
 
-    logger = logging.getLogger("jiuwenclaw.app")
-    logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-    logger.propagate = False
-    for handler in logger.handlers[:]:
+    logger_app = logging.getLogger("jiuwenclaw.app")
+    logger_app.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+    logger_app.propagate = False
+    for handler in logger_app.handlers[:]:
         handler.close()
-        logger.removeHandler(handler)
+        logger_app.removeHandler(handler)
 
     formatter = logging.Formatter(
         fmt="%(asctime)s.%(msecs)03d [%(process)d] %(levelname)s %(name)s %(filename)s:%(lineno)d: %(message)s",
@@ -544,9 +544,9 @@ def setup_logger(log_level: str = "INFO") -> logging.Logger:
     )
     file_handler.setFormatter(formatter)
 
-    logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
-    return logger
+    logger_app.addHandler(stream_handler)
+    logger_app.addHandler(file_handler)
+    return logger_app
 
 logger = setup_logger(os.getenv("LOG_LEVEL", "INFO"))
 

@@ -247,7 +247,6 @@ class SkillManager:
         shutil.copytree(plugin_src, dest)
 
         # 解析元数据并记录（添加 installed_at 时间戳）
-        from datetime import datetime, timezone
         meta = self._parse_skill_md(self._try_find_skill_file(dest)) or {}
         commit_hash = await self._git_get_commit(repo_dir)
         self._add_installed_plugin({
@@ -1401,7 +1400,6 @@ class SkillManager:
         return updated
 
     def _set_marketplace_last_updated(self, name: str) -> bool:
-        from datetime import datetime, timezone
 
         marketplaces = self._normalize_marketplaces(self._state.get("marketplaces", []))
         updated = False

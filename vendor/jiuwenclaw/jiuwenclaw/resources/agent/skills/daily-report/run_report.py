@@ -12,7 +12,6 @@
 import argparse
 import io
 import os
-import re
 import sys
 import subprocess
 from datetime import datetime, timedelta
@@ -176,7 +175,7 @@ def collect_email_stats(date: str = None) -> dict:
         try:
             args = '("name" "python-imap" "version" "1.0" "vendor" "python")'
             mail._simple_command("ID", args)
-        except:
+        except Exception as e:
             pass
 
         # 使用 STATUS 命令获取邮件统计（绕过 SELECT 的 Unsafe Login 限制）
@@ -405,6 +404,7 @@ def generate_daily_report(date: str = None, enable_ai: bool = True) -> str:
         todo_content = todo_file.read_text(encoding="utf-8")
         for line in todo_content.split("\n"):
             stripped = line.strip()
+            import re
             # Checkbox 格式
             match = re.match(r"-\s*\[([xX ])\]\s*(.+)", stripped)
             if match:

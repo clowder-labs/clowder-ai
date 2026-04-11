@@ -132,7 +132,7 @@ class DingTalkChannel(BaseChannel):
         self._http: httpx.AsyncClient | None = None
 
         self._access_token: str | None = None
-        self._token_expiry: float = 0
+        self._token_expiry: float = 0.0
         self._background_tasks: set[asyncio.Task] = set()
 
         self._gateway_callback: Callable[[Message], None] | None = None

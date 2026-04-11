@@ -175,6 +175,7 @@ class AskUserTool(ITool):
     """
 
     def __init__(self, handler: IUserInputHandler | None = None) -> None:
+        super().__init__()
         self._handler: IUserInputHandler = handler or CLIUserInputHandler()
 
     # -- ITool metadata (trusted registry source) --

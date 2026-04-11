@@ -153,9 +153,9 @@ class FinancialParser:
             raise ImportError("需要安装 OCR 依赖: pip install pdf2image pytesseract")
 
         from PIL import Image
-        img = Image.open(self.file_path)
-        self.doc.raw_text = pytesseract.image_to_string(img, lang='chi_sim+eng')
-        self._extract_fields_from_text()
+        with Image.open(self.file_path) as img:
+            self.doc.raw_text = pytesseract.image_to_string(img, lang='chi_sim+eng')
+            self._extract_fields_from_text()
 
     def _parse_csv(self):
         """解析 CSV 银行对账单"""

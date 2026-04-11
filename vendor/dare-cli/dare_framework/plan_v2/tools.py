@@ -165,6 +165,7 @@ class CreatePlanTool(ITool):
     """Create or replace the current plan (description + steps) for the current milestone/task."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -293,6 +294,7 @@ class ValidatePlanTool(ITool):
     """Mark the current plan as validated or record validation errors (e.g. from external validator)."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -367,6 +369,7 @@ class ReviseCurrentPlanTool(ITool):
     """Revise the current plan definition while keeping stable completed progress by step_id."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -493,6 +496,7 @@ class FinishPlanTool(ITool):
     """Explicitly mark plan as done/abandoned with state guardrails."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -593,6 +597,7 @@ class VerifyMilestoneTool(ITool):
     """Record milestone verification result (errors if not met)."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -651,6 +656,7 @@ class ReflectTool(ITool):
     """Record remediation/reflection summary for the current milestone."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -709,6 +715,7 @@ class DecomposeTaskTool(ITool):
     """Decompose task into milestones and optionally set current milestone."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -786,6 +793,7 @@ class DelegateToSubAgentTool(ITool):
     """Placeholder: delegate a sub-task to another agent (orchestrator uses this)."""
 
     def __init__(self, state: PlannerState) -> None:
+        super().__init__()
         self._state = state
 
     @property
@@ -851,6 +859,7 @@ class SubAgentTool(ITool):
         sub_agent_id: str,
         state: PlannerState | None = None,
     ) -> None:
+        super().__init__()
         self._registry = registry
         self._sub_agent_id = sub_agent_id
         self._state = state

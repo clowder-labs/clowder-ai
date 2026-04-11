@@ -931,7 +931,7 @@ class JiuClawReActAgent(ReActAgent):
         If an assistant message with tool_calls exists without corresponding tool messages,
         add placeholder tool messages to keep context valid for OpenAI API.
         """
-        from openjiuwen.core.foundation.llm import ToolMessage, AssistantMessage
+        from openjiuwen.core.foundation.llm import ToolMessage
 
         try:
             messages = context.get_messages()
