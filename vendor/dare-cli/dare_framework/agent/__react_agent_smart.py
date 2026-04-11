@@ -200,14 +200,7 @@ class ReactAgent(BaseAgent):
 
             # Inject critical_block from plan_provider (maintained by plan tools)
             # Disabled: skip injection to observe plan agent behavior without it
-            if False and self._plan_provider is not None:
-                state = getattr(self._plan_provider, "state", None)
-                critical_block = getattr(state, "critical_block", "") if state else ""
-                if critical_block:
-                    _colored_print(self.name, "\n--- [Plan State] (injected) ---\n" + critical_block + "\n---\n")
-                    n_front = sum(1 for m in messages if getattr(m, "id", None) in ("core", "task_complete"))
-                    messages.insert(n_front, Message(role="system", text=critical_block, name="plan_state"))
-
+            
             _print_context_list(self.name, messages, sys_prompt_brief=(round_idx > 0))
             if round_idx == 0 and assembled.tools:
                 _print_tools_sent_to_llm(self.name, assembled.tools)
