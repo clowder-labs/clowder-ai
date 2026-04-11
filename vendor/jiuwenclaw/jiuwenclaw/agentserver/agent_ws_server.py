@@ -5,15 +5,38 @@
 from __future__ import annotations
 
 import asyncio
+from http import HTTPStatus
 import json
 import math
+import re
 import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, ClassVar
+from urllib.parse import urlsplit
 
 from jiuwenclaw.utils import get_agent_sessions_dir, logger
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
+
+_ALLOWED_WS_ORIGIN_HOSTS = {"127.0.0.1", "localhost"}
+_WEBSOCKETS_SERVE_ALLOWED_ORIGINS = [
+    None,
+    re.compile(r"^https?://localhost(?::\d+)?$"),
+    re.compile(r"^https?://127\.0\.0\.1(?::\d+)?$"),
+]
+
+
+def _is_allowed_ws_origin(origin: str | None) -> bool:
+    """允许本机来源访问；非浏览器客户端可不带 Origin。"""
+    if origin is None:
+        return True
+
+    try:
+        parsed = urlsplit(origin)
+    except ValueError:
+        return False
+
+    return parsed.hostname in _ALLOWED_WS_ORIGIN_HOSTS
 
 
 def _agent_request_detail_json(request: AgentRequest) -> str:
@@ -161,6 +184,7 @@ class AgentWebSocketServer:
                 self._connection_handler,
                 self._host,
                 self._port,
+                process_request=self._process_request,
                 ping_interval=self._ping_interval,
                 ping_timeout=self._ping_timeout,
             )
@@ -170,11 +194,38 @@ class AgentWebSocketServer:
                 self._connection_handler,
                 self._host,
                 self._port,
+                origins=_WEBSOCKETS_SERVE_ALLOWED_ORIGINS,
                 ping_interval=self._ping_interval,
                 ping_timeout=self._ping_timeout,
             )
         logger.info(
-            "[AgentWebSocketServer] 已启动监听: ws://%s:%s", self._host, self._port
+            "[AgentWebSocketServer] 已启动监听: ws://%s:%s",
+            self._host,
+            self._port,
+        )
+
+    async def _process_request(self, path: str, request_headers: Any) -> Any:
+        """在握手阶段记录 Origin 校验结果，便于排查被拦截连接。"""
+        origin = request_headers.get("Origin")
+        allowed = _is_allowed_ws_origin(origin)
+        logger.info(
+            "[AgentWebSocketServer] 握手检查 path=%s origin=%s allowed=%s",
+            path,
+            origin,
+            allowed,
+        )
+        if allowed:
+            return None
+
+        logger.warning(
+            "[AgentWebSocketServer] 握手拒绝 path=%s origin=%s reason=origin_not_allowed",
+            path,
+            origin,
+        )
+        return (
+            HTTPStatus.FORBIDDEN,
+            [("Content-Type", "text/plain; charset=utf-8")],
+            b"Forbidden: Origin not allowed\n",
         )
 
     async def stop(self) -> None:
