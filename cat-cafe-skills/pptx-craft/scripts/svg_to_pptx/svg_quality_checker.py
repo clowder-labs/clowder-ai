@@ -9,7 +9,7 @@ Usage:
     python3 scripts/svg_quality_checker.py <directory>
     python3 scripts/svg_quality_checker.py --all examples
 """
-
+import logging
 import sys
 import re
 from pathlib import Path
@@ -20,7 +20,7 @@ try:
     from project_utils import CANVAS_FORMATS
     from error_helper import ErrorHelper
 except ImportError:
-    print("Warning: Unable to import dependency modules")
+    logging.info("Warning: Unable to import dependency modules")
     CANVAS_FORMATS = {}
     ErrorHelper = None
 
@@ -176,7 +176,8 @@ class SVGQualityChecker:
         has_symbol = '<symbol' in content_lower
         has_use = re.search(r'<use\b', content_lower) is not None
         if has_symbol and has_use:
-            result['errors'].append("Detected forbidden <symbol> + <use> complex usage (use basic shapes or simple <use> instead)")
+            result['errors'].append("Detected forbidden <symbol> + <use> "
+                                    "complex usage (use basic shapes or simple <use> instead)")
         if '<marker' in content_lower:
             result['errors'].append("Detected forbidden <marker> element (PPT does not support SVG markers)")
         if re.search(r'\bmarker-end\s*=', content_lower):
@@ -190,7 +191,8 @@ class SVGQualityChecker:
 
         # Animation / interaction
         if re.search(r'<animate', content_lower):
-            result['errors'].append("Detected forbidden SMIL animation element <animate*> (SVG animations are not exported)")
+            result['errors'].append("Detected forbidden SMIL animation "
+                                    "element <animate*> (SVG animations are not exported)")
         if re.search(r'<set\b', content_lower):
             result['errors'].append("Detected forbidden SMIL animation element <set> (SVG animations are not exported)")
         if '<script' in content_lower:
@@ -265,7 +267,8 @@ class SVGQualityChecker:
         text_matches = re.findall(r'<text[^>]*>([^<]{100,})</text>', content)
         if text_matches:
             result['warnings'].append(
-                f"Detected {len(text_matches)} potentially overly long single-line text(s) (consider using tspan for wrapping)"
+                f"Detected {len(text_matches)} potentially overly long "
+                f"single-line text(s) (consider using tspan for wrapping)"
             )
 
     def _categorize_issue(self, error_msg: str) -> str:
@@ -294,7 +297,7 @@ class SVGQualityChecker:
         dir_path = Path(directory)
 
         if not dir_path.exists():
-            print(f"[ERROR] Directory does not exist: {directory}")
+            logging.info(f"[ERROR] Directory does not exist: {directory}")
             return []
 
         # Find all SVG files
@@ -324,10 +327,10 @@ class SVGQualityChecker:
             svg_files = sorted(svg_dir.glob('*.svg'))
 
         if not svg_files:
-            print(f"[WARN] No SVG files found")
+            logging.info(f"[WARN] No SVG files found")
             return []
 
-        print(f"\n[SCAN] Checking {len(svg_files)} SVG file(s)...\n")
+        logging.info(f"\n[SCAN] Checking {len(svg_files)} SVG file(s)...\n")
 
         for svg_file in svg_files:
             result = self.check_file(str(svg_file), expected_format)
@@ -348,7 +351,7 @@ class SVGQualityChecker:
             icon = "[ERROR]"
             status = "Failed"
 
-        print(f"{icon} {result['file']} - {status}")
+        logging.info(f"{icon} {result['file']} - {status}")
 
         # Display basic info
         if result['info']:
@@ -356,47 +359,45 @@ class SVGQualityChecker:
             if 'viewbox' in result['info']:
                 info_items.append(f"viewBox: {result['info']['viewbox']}")
             if info_items:
-                print(f"   {' | '.join(info_items)}")
+                logging.info(f"   {' | '.join(info_items)}")
 
         # Display errors
         if result['errors']:
             for error in result['errors']:
-                print(f"   [ERROR] {error}")
+                logging.info(f"   [ERROR] {error}")
 
         # Display warnings
         if result['warnings']:
             for warning in result['warnings'][:2]:  # Only show first 2 warnings
-                print(f"   [WARN] {warning}")
+                logging.info(f"   [WARN] {warning}")
             if len(result['warnings']) > 2:
-                print(f"   ... and {len(result['warnings']) - 2} more warning(s)")
-
-        print()
+                logging.info(f"   ... and {len(result['warnings']) - 2} more warning(s)")
 
     def print_summary(self):
         """Print check summary"""
-        print("=" * 80)
-        print("[SUMMARY] Check Summary")
-        print("=" * 80)
+        logging.info("=" * 80)
+        logging.info("[SUMMARY] Check Summary")
+        logging.info("=" * 80)
 
-        print(f"\nTotal files: {self.summary['total']}")
-        print(
+        logging.info(f"\nTotal files: {self.summary['total']}")
+        logging.info(
             f"  [OK] Fully passed: {self.summary['passed']} ({self._percentage(self.summary['passed'])}%)")
-        print(
+        logging.info(
             f"  [WARN] With warnings: {self.summary['warnings']} ({self._percentage(self.summary['warnings'])}%)")
-        print(
+        logging.info(
             f"  [ERROR] With errors: {self.summary['errors']} ({self._percentage(self.summary['errors'])}%)")
 
         if self.issue_types:
-            print(f"\nIssue categories:")
+            logging.info(f"\nIssue categories:")
             for issue_type, count in sorted(self.issue_types.items(), key=lambda x: x[1], reverse=True):
-                print(f"  {issue_type}: {count}")
+                logging.info(f"  {issue_type}: {count}")
 
         # Fix suggestions
         if self.summary['errors'] > 0 or self.summary['warnings'] > 0:
-            print(f"\n[TIP] Common fixes:")
-            print(f"  1. viewBox issues: Ensure consistency with canvas format (see references/canvas-formats.md)")
-            print(f"  2. foreignObject: Use <text> + <tspan> for manual line breaks")
-            print(f"  3. Font issues: Use system UI font stack")
+            logging.info(f"\n[TIP] Common fixes:")
+            logging.info(f"  1. viewBox issues: Ensure consistency with canvas format (see references/canvas-formats.md)")
+            logging.info(f"  2. foreignObject: Use <text> + <tspan> for manual line breaks")
+            logging.info(f"  3. Font issues: Use system UI font stack")
 
     def _percentage(self, count: int) -> int:
         """Calculate percentage"""
@@ -439,23 +440,23 @@ class SVGQualityChecker:
             f.write(f"With warnings: {self.summary['warnings']}\n")
             f.write(f"With errors: {self.summary['errors']}\n")
 
-        print(f"\n[REPORT] Check report exported: {output_file}")
+        logging.info(f"\n[REPORT] Check report exported: {output_file}")
 
 
 def main():
     """Main function"""
     if len(sys.argv) < 2:
-        print("PPT Master - SVG Quality Check Tool\n")
-        print("Usage:")
-        print("  python3 scripts/svg_quality_checker.py <directory> [-s source]")
-        print("  python3 scripts/svg_quality_checker.py <svg_file>")
-        print("  python3 scripts/svg_quality_checker.py --all examples")
-        print("\nOptions:")
-        print("  -s <source>   SVG source: pages/output/final (default: pages)")
-        print("\nExamples:")
-        print("  python3 scripts/svg_quality_checker.py output/20260327_145001_000")
-        print("  python3 scripts/svg_quality_checker.py output/20260327_145001_000 -s pages")
-        print("  python3 scripts/svg_quality_checker.py output/20260327_145001_000 -s final")
+        logging.info("PPT Master - SVG Quality Check Tool\n")
+        logging.info("Usage:")
+        logging.info("  python3 scripts/svg_quality_checker.py <directory> [-s source]")
+        logging.info("  python3 scripts/svg_quality_checker.py <svg_file>")
+        logging.info("  python3 scripts/svg_quality_checker.py --all examples")
+        logging.info("\nOptions:")
+        logging.info("  -s <source>   SVG source: pages/output/final (default: pages)")
+        logging.info("\nExamples:")
+        logging.info("  python3 scripts/svg_quality_checker.py output/20260327_145001_000")
+        logging.info("  python3 scripts/svg_quality_checker.py output/20260327_145001_000 -s pages")
+        logging.info("  python3 scripts/svg_quality_checker.py output/20260327_145001_000 -s final")
         sys.exit(0)
 
     checker = SVGQualityChecker()
@@ -490,9 +491,9 @@ def main():
         projects = find_all_projects(base_dir)
 
         for project in projects:
-            print(f"\n{'=' * 80}")
-            print(f"Checking project: {project.name}")
-            print('=' * 80)
+            logging.info(f"\n{'=' * 80}")
+            logging.info(f"Checking project: {project.name}")
+            logging.info('=' * 80)
             checker.check_directory(str(project), source=source)
     else:
         checker.check_directory(target, expected_format, source=source)

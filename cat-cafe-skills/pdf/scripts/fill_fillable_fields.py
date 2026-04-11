@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 
 from pypdf import PdfReader, PdfWriter
@@ -29,15 +30,16 @@ def fill_pdf_fields(input_pdf_path: str, fields_json_path: str, output_pdf_path:
         existing_field = fields_by_ids.get(field["field_id"])
         if not existing_field:
             has_error = True
-            print(f"ERROR: `{field['field_id']}` is not a valid field ID")
+            logging.info(f"ERROR: `{field['field_id']}` is not a valid field ID")
         elif field["page"] != existing_field["page"]:
             has_error = True
-            print(f"ERROR: Incorrect page number for `{field['field_id']}` (got {field['page']}, expected {existing_field['page']})")
+            logging.info(f"ERROR: Incorrect page number for `{field['field_id']}` (got {field['page']}, "
+                  f"expected {existing_field['page']})")
         else:
             if "value" in field:
                 err = validation_error_for_field_value(existing_field, field["value"])
                 if err:
-                    print(err)
+                    logging.info(err)
                     has_error = True
     if has_error:
         sys.exit(1)
@@ -59,15 +61,18 @@ def validation_error_for_field_value(field_info, field_value):
         checked_val = field_info["checked_value"]
         unchecked_val = field_info["unchecked_value"]
         if field_value != checked_val and field_value != unchecked_val:
-            return f'ERROR: Invalid value "{field_value}" for checkbox field "{field_id}". The checked value is "{checked_val}" and the unchecked value is "{unchecked_val}"'
+            return (f'ERROR: Invalid value "{field_value}" for '
+                    f'checkbox field "{field_id}". The checked value is "{checked_val}" and the unchecked value is "{unchecked_val}"')
     elif field_type == "radio_group":
         option_values = [opt["value"] for opt in field_info["radio_options"]]
         if field_value not in option_values:
-            return f'ERROR: Invalid value "{field_value}" for radio group field "{field_id}". Valid values are: {option_values}' 
+            return (f'ERROR: Invalid value "{field_value}" for '
+                    f'radio group field "{field_id}". Valid values are: {option_values}')
     elif field_type == "choice":
         choice_values = [opt["value"] for opt in field_info["choice_options"]]
         if field_value not in choice_values:
-            return f'ERROR: Invalid value "{field_value}" for choice field "{field_id}". Valid values are: {choice_values}'
+            return (f'ERROR: Invalid value "{field_value}" for '
+                    f'choice field "{field_id}". Valid values are: {choice_values}')
     return None
 
 
@@ -77,7 +82,7 @@ def monkeypatch_pydpf_method():
 
     original_get_inherited = DictionaryObject.get_inherited
 
-    def patched_get_inherited(self, key: str, default = None):
+    def patched_get_inherited(self, key: str, default=None):
         result = original_get_inherited(self, key, default)
         if key == FieldDictionaryAttributes.Opt:
             if isinstance(result, list) and all(isinstance(v, list) and len(v) == 2 for v in result):
@@ -89,7 +94,7 @@ def monkeypatch_pydpf_method():
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: fill_fillable_fields.py [input pdf] [field_values.json] [output pdf]")
+        logging.info("Usage: fill_fillable_fields.py [input pdf] [field_values.json] [output pdf]")
         sys.exit(1)
     monkeypatch_pydpf_method()
     input_pdf = sys.argv[1]

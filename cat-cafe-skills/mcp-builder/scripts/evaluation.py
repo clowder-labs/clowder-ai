@@ -6,6 +6,7 @@ This script evaluates MCP servers by running test questions against them using C
 import argparse
 import asyncio
 import json
+import logging
 import re
 import sys
 import time
@@ -72,7 +73,7 @@ def parse_evaluation_file(file_path: Path) -> list[dict[str, Any]]:
 
         return evaluations
     except Exception as e:
-        print(f"Error parsing evaluation file {file_path}: {e}")
+        logging.info(f"Error parsing evaluation file {file_path}: {e}")
         return []
 
 
@@ -162,7 +163,7 @@ async def evaluate_single_task(
     """Evaluate a single QA pair with the given tools."""
     start_time = time.time()
 
-    print(f"Task {task_index + 1}: Running task with question: {qa_pair['question']}")
+    logging.info(f"Task {task_index + 1}: Running task with question: {qa_pair['question']}")
     response, tool_metrics = await agent_loop(client, model, qa_pair["question"], tools, connection)
 
     response_value = extract_xml_content(response, "response")
@@ -223,19 +224,19 @@ async def run_evaluation(
     model: str = "claude-3-7-sonnet-20250219",
 ) -> str:
     """Run evaluation with MCP server tools."""
-    print("🚀 Starting Evaluation")
+    logging.info("🚀 Starting Evaluation")
 
     client = Anthropic()
 
     tools = await connection.list_tools()
-    print(f"📋 Loaded {len(tools)} tools from MCP server")
+    logging.info(f"📋 Loaded {len(tools)} tools from MCP server")
 
     qa_pairs = parse_evaluation_file(eval_path)
-    print(f"📋 Loaded {len(qa_pairs)} evaluation tasks")
+    logging.info(f"📋 Loaded {len(qa_pairs)} evaluation tasks")
 
     results = []
     for i, qa_pair in enumerate(qa_pairs):
-        print(f"Processing task {i + 1}/{len(qa_pairs)}")
+        logging.info(f"Processing task {i + 1}/{len(qa_pairs)}")
         result = await evaluate_single_task(client, model, qa_pair, tools, connection, i)
         results.append(result)
 
@@ -283,7 +284,7 @@ def parse_headers(header_list: list[str]) -> dict[str, str]:
             key, value = header.split(":", 1)
             headers[key.strip()] = value.strip()
         else:
-            print(f"Warning: Ignoring malformed header: {header}")
+            logging.info(f"Warning: Ignoring malformed header: {header}")
     return headers
 
 
@@ -298,7 +299,7 @@ def parse_env_vars(env_list: list[str]) -> dict[str, str]:
             key, value = env_var.split("=", 1)
             env[key.strip()] = value.strip()
         else:
-            print(f"Warning: Ignoring malformed environment variable: {env_var}")
+            logging.info(f"Warning: Ignoring malformed environment variable: {env_var}")
     return env
 
 
@@ -320,8 +321,10 @@ Examples:
     )
 
     parser.add_argument("eval_file", type=Path, help="Path to evaluation XML file")
-    parser.add_argument("-t", "--transport", choices=["stdio", "sse", "http"], default="stdio", help="Transport type (default: stdio)")
-    parser.add_argument("-m", "--model", default="claude-3-7-sonnet-20250219", help="Claude model to use (default: claude-3-7-sonnet-20250219)")
+    parser.add_argument("-t", "--transport", choices=["stdio", "sse", "http"],
+                        default="stdio", help="Transport type (default: stdio)")
+    parser.add_argument("-m", "--model", default="claude-3-7-sonnet-20250219",
+                        help="Claude model to use (default: claude-3-7-sonnet-20250219)")
 
     stdio_group = parser.add_argument_group("stdio options")
     stdio_group.add_argument("-c", "--command", help="Command to run MCP server (stdio only)")
@@ -330,14 +333,15 @@ Examples:
 
     remote_group = parser.add_argument_group("sse/http options")
     remote_group.add_argument("-u", "--url", help="MCP server URL (sse/http only)")
-    remote_group.add_argument("-H", "--header", nargs="+", dest="headers", help="HTTP headers in 'Key: Value' format (sse/http only)")
+    remote_group.add_argument("-H", "--header", nargs="+", dest="headers", help="HTTP "
+                                                                                "headers in 'Key: Value' format (sse/http only)")
 
     parser.add_argument("-o", "--output", type=Path, help="Output file for evaluation report (default: stdout)")
 
     args = parser.parse_args()
 
     if not args.eval_file.exists():
-        print(f"Error: Evaluation file not found: {args.eval_file}")
+        logging.info(f"Error: Evaluation file not found: {args.eval_file}")
         sys.exit(1)
 
     headers = parse_headers(args.headers) if args.headers else None
@@ -353,20 +357,20 @@ Examples:
             headers=headers,
         )
     except ValueError as e:
-        print(f"Error: {e}")
+        logging.info(f"Error: {e}")
         sys.exit(1)
 
-    print(f"🔗 Connecting to MCP server via {args.transport}...")
+    logging.info(f"🔗 Connecting to MCP server via {args.transport}...")
 
     async with connection:
-        print("✅ Connected successfully")
+        logging.info("✅ Connected successfully")
         report = await run_evaluation(args.eval_file, connection, args.model)
 
         if args.output:
             args.output.write_text(report)
-            print(f"\n✅ Report saved to {args.output}")
+            logging.info(f"\n✅ Report saved to {args.output}")
         else:
-            print("\n" + report)
+            logging.info("\n" + report)
 
 
 if __name__ == "__main__":
