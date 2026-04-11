@@ -30,6 +30,8 @@ function getPackageVersion(projectRoot: string): string {
   }
 }
 
+const HUAWEI_CLAW_VERSION_URL = process.env.HUAWEI_CLAW_URL! + "/v1/claw/client-latest-version";
+
 export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOptions = {}): Promise<void> {
   const projectRoot = opts.projectRoot ?? resolveActiveProjectRoot();
 
@@ -49,7 +51,7 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
       if (!userId) {
         throw new Error('Unauthorized: Missing user ID');
       }
-      const response = await fetch('https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-latest-version', {
+      const response = await fetch(HUAWEI_CLAW_VERSION_URL, {
         headers: {
           'Content-Type': 'application/json;charset=utf8',
         },

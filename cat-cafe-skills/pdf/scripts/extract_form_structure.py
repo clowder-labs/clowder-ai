@@ -13,6 +13,7 @@ Usage: python extract_form_structure.py <input.pdf> <output.json>
 """
 
 import json
+import logging
 import sys
 import pdfplumber
 
@@ -90,25 +91,25 @@ def extract_form_structure(pdf_path):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: extract_form_structure.py <input.pdf> <output.json>")
+        logging.info("Usage: extract_form_structure.py <input.pdf> <output.json>")
         sys.exit(1)
 
     pdf_path = sys.argv[1]
     output_path = sys.argv[2]
 
-    print(f"Extracting structure from {pdf_path}...")
+    logging.info(f"Extracting structure from {pdf_path}...")
     structure = extract_form_structure(pdf_path)
 
     with open(output_path, "w") as f:
         json.dump(structure, f, indent=2)
 
-    print(f"Found:")
-    print(f"  - {len(structure['pages'])} pages")
-    print(f"  - {len(structure['labels'])} text labels")
-    print(f"  - {len(structure['lines'])} horizontal lines")
-    print(f"  - {len(structure['checkboxes'])} checkboxes")
-    print(f"  - {len(structure['row_boundaries'])} row boundaries")
-    print(f"Saved to {output_path}")
+    logging.info(f"Found:")
+    logging.info(f"  - {len(structure['pages'])} pages")
+    logging.info(f"  - {len(structure['labels'])} text labels")
+    logging.info(f"  - {len(structure['lines'])} horizontal lines")
+    logging.info(f"  - {len(structure['checkboxes'])} checkboxes")
+    logging.info(f"  - {len(structure['row_boundaries'])} row boundaries")
+    logging.info(f"Saved to {output_path}")
 
 
 if __name__ == "__main__":

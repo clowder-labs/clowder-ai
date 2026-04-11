@@ -23,6 +23,8 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RichBlock } from '@cat-cafe/shared';
 
+const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
+
 const execFileAsync = promisify(execFile);
 
 import * as lark from '@larksuiteoapi/node-sdk';
@@ -445,7 +447,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     if (type === 'image') {
       form.append('image_type', 'message');
       form.append('image', new Blob([await streamToBuffer(fileStream)]));
-      const res = await this.uploadFetchFn('https://open.feishu.cn/open-apis/im/v1/images', {
+      const res = await this.uploadFetchFn(`${FEISHU_OPEN_API_BASE_URL}/im/v1/images`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: form,
@@ -466,7 +468,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     form.append('file_type', fileType);
     form.append('file_name', uploadFileName);
     form.append('file', new Blob([await streamToBuffer(fileStream)]));
-    const res = await this.uploadFetchFn('https://open.feishu.cn/open-apis/im/v1/files', {
+    const res = await this.uploadFetchFn(`${FEISHU_OPEN_API_BASE_URL}/im/v1/files`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -572,7 +574,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     if (!token) return undefined;
     try {
       const res = await (this.uploadFetchFn ?? globalThis.fetch)(
-        `https://open.feishu.cn/open-apis/contact/v3/users/${openId}?user_id_type=open_id`,
+        `${FEISHU_OPEN_API_BASE_URL}/contact/v3/users/${openId}?user_id_type=open_id`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) return undefined;
@@ -594,10 +596,9 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     const token = await this.tokenManager?.getTenantAccessToken();
     if (!token) return undefined;
     try {
-      const res = await (this.uploadFetchFn ?? globalThis.fetch)(
-        `https://open.feishu.cn/open-apis/im/v1/chats/${chatId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await (this.uploadFetchFn ?? globalThis.fetch)(`${FEISHU_OPEN_API_BASE_URL}/im/v1/chats/${chatId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) return undefined;
       const data = (await res.json()) as { data?: { name?: string } };
       const name = data?.data?.name;
@@ -677,7 +678,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     if (!token) return false;
 
     try {
-      const res = await this.uploadFetchFn(`https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/reactions`, {
+      const res = await this.uploadFetchFn(`${FEISHU_OPEN_API_BASE_URL}/im/v1/messages/${messageId}/reactions`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -15,7 +15,7 @@
 import type { HandoffInvocationSummary } from './TranscriptFormatter.js';
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001';
-const DEFAULT_BASE_URL = 'https://api.anthropic.com';
+const DEFAULT_BASE_URL = process.env.ANTHROPIC_API_BASE_URL!;
 const DEFAULT_TIMEOUT_MS = 5000;
 const MAX_TOKENS = 1024;
 

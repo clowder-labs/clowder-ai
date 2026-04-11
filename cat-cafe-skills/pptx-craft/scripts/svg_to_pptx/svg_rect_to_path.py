@@ -18,7 +18,7 @@ Output:
     - Directory mode: outputs to svg_rounded/ subdirectory
     - File mode: outputs to <filename>_rounded.svg
 """
-
+import logging
 import sys
 import re
 import argparse
@@ -100,7 +100,7 @@ def process_svg(content: str, verbose: bool = False) -> Tuple[str, int]:
         root = ET.fromstring(content)
     except ET.ParseError as e:
         if verbose:
-            print(f"    XML parse error: {e}")
+            logging.info(f"    XML parse error: {e}")
         return content, 0
     
     # Get default namespace
@@ -154,7 +154,7 @@ def process_svg(content: str, verbose: bool = False) -> Tuple[str, int]:
                     
                     converted_count += 1
                     if verbose:
-                        print(f"    Converted rounded rect: rx={rx}, ry={ry}")
+                        logging.info(f"    Converted rounded rect: rx={rx}, ry={ry}")
         
         # Recursively process child elements
         for child in elem:
@@ -191,7 +191,7 @@ def process_svg_file(input_path: Path, output_path: Path, verbose: bool = False)
         
     except Exception as e:
         if verbose:
-            print(f"  Error: {e}")
+            logging.info(f"  Error: {e}")
         return False, 0
 
 
@@ -246,15 +246,15 @@ What it does:
     input_path = Path(args.path)
     
     if not input_path.exists():
-        print(f"Error: Path not found: {input_path}")
+        logging.info(f"Error: Path not found: {input_path}")
         sys.exit(1)
     
     verbose = args.verbose and not args.quiet
     quiet = args.quiet
     
     if not quiet:
-        print("PPT Master - SVG Rounded Rectangle to Path Tool")
-        print("=" * 50)
+        logging.info("PPT Master - SVG Rounded Rectangle to Path Tool")
+        logging.info("=" * 50)
     
     total_converted = 0
     
@@ -263,18 +263,17 @@ What it does:
         output_path = input_path.with_stem(input_path.stem + '_rounded')
 
         if not quiet:
-            print(f"  Input: {input_path}")
-            print(f"  Output: {output_path}")
-            print()
-        
+            logging.info(f"  Input: {input_path}")
+            logging.info(f"  Output: {output_path}")
+
         success, count = process_svg_file(input_path, output_path, verbose)
         total_converted = count
         
         if success:
             if not quiet:
-                print(f"[DONE] Saved: {output_path}")
+                logging.info(f"[DONE] Saved: {output_path}")
         else:
-            print(f"[FAIL] Processing failed")
+            logging.info(f"[FAIL] Processing failed")
             sys.exit(1)
     
     else:
@@ -282,24 +281,23 @@ What it does:
         svg_files, source_dir = find_svg_files(input_path, args.source)
         
         if not svg_files:
-            print("Error: No SVG files found")
+            logging.info("Error: No SVG files found")
             sys.exit(1)
         
         output_dir = input_path / args.output
         
         if not quiet:
-            print(f"  Project path: {input_path}")
-            print(f"  SVG source: {source_dir}")
-            print(f"  Output directory: {args.output}")
-            print(f"  File count: {len(svg_files)}")
-            print()
-        
+            logging.info(f"  Project path: {input_path}")
+            logging.info(f"  SVG source: {source_dir}")
+            logging.info(f"  Output directory: {args.output}")
+            logging.info(f"  File count: {len(svg_files)}")
+
         success_count = 0
         for i, svg_file in enumerate(svg_files, 1):
             output_path = output_dir / svg_file.name
             
             if verbose:
-                print(f"  [{i}/{len(svg_files)}] {svg_file.name}")
+                logging.info(f"  [{i}/{len(svg_files)}] {svg_file.name}")
             
             success, count = process_svg_file(svg_file, output_path, verbose)
             
@@ -307,20 +305,18 @@ What it does:
                 success_count += 1
                 total_converted += count
                 if not verbose and not quiet:
-                    print(f"  [{i}/{len(svg_files)}] {svg_file.name} OK")
+                    logging.info(f"  [{i}/{len(svg_files)}] {svg_file.name} OK")
             else:
                 if not quiet:
-                    print(f"  [{i}/{len(svg_files)}] {svg_file.name} FAILED")
+                    logging.info(f"  [{i}/{len(svg_files)}] {svg_file.name} FAILED")
         
         if not quiet:
-            print()
-            print(f"[DONE] Succeeded: {success_count}/{len(svg_files)}")
-            print(f"  Output directory: {output_dir}")
+            logging.info(f"[DONE] Succeeded: {success_count}/{len(svg_files)}")
+            logging.info(f"  Output directory: {output_dir}")
     
     # Show statistics
     if not quiet:
-        print()
-        print(f"Conversion stats: rounded rect -> path: {total_converted}")
+        logging.info(f"Conversion stats: rounded rect -> path: {total_converted}")
     
     sys.exit(0)
 

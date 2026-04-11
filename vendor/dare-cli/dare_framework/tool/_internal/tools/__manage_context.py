@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, TypedDict
 
 from dare_framework.tool.kernel import ITool
@@ -282,7 +283,7 @@ class ManageContextTool(ITool):
 
         # 打印 LLM 的 reasoning 给用户看（不放入 tool 返回，避免进入下一轮 context）
         if reasoning_text:
-            print(f"\n--- [manage_context 本轮更新解释] ---\n{reasoning_text}\n---\n", flush=True)
+            logging.info(f"\n--- [manage_context 本轮更新解释] ---\n{reasoning_text}\n---\n")
 
         return ToolResult(
             success=True,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import sys
 import traceback
@@ -41,6 +42,7 @@ GUARDRAIL_MAX_STEPS = 20
 GUARDRAIL_MAX_FAILURES = 2
 GUARDRAIL_RETRY_ONCE = True
 
+logger = logging.getLogger(__name__)
 
 async def main() -> None:
     provider, api_key, api_base = resolve_model_settings()
@@ -72,20 +74,20 @@ async def main() -> None:
         await runtime.ensure_started()
         mcp_tools = await Runner.resource_mgr.get_mcp_tool_infos(server_id=mcp_cfg.server_id) or []
 
-        print("=" * 72)
-        print("Playwright Browser Runtime")
-        print("=" * 72)
-        print(f"Model provider: {provider}")
-        print(f"Model: {model_name}")
-        print(f"MCP command: {mcp_cfg.params.get('command')}")
-        print(f"MCP args: {mcp_cfg.params.get('args')}")
-        print(f"Discovered browser tools: {len(mcp_tools)}")
+        logger.info("=" * 72)
+        logger.info("Playwright Browser Runtime")
+        logger.info("=" * 72)
+        logger.info(f"Model provider: {provider}")
+        logger.info(f"Model: {model_name}")
+        logger.info(f"MCP command: {mcp_cfg.params.get('command')}")
+        logger.info(f"MCP args: {mcp_cfg.params.get('args')}")
+        logger.info(f"Discovered browser tools: {len(mcp_tools)}")
         for item in mcp_tools:
-            print(f"  - {getattr(item, 'name', 'unknown')}")
-        print("=" * 72)
-        print(f"Session: {session_id}")
-        print("Continuous mode: enter a task and press Enter.")
-        print("Type 'exit' or 'quit' to stop.\n")
+            logger.info(f"  - {getattr(item, 'name', 'unknown')}")
+        logger.info("=" * 72)
+        logger.info(f"Session: {session_id}")
+        logger.info("Continuous mode: enter a task and press Enter.")
+        logger.info("Type 'exit' or 'quit' to stop.\n")
 
         query = initial_query
         while True:
@@ -97,17 +99,17 @@ async def main() -> None:
                 break
 
             answer = await runtime.handle_request(query=query, session_id=session_id)
-            print("Result:")
-            print(json.dumps(answer, ensure_ascii=False, indent=2))
-            print("")
+            logger.info("Result:")
+            logger.info(json.dumps(answer, ensure_ascii=False, indent=2))
+            logger.info("")
             query = ""
     except Exception as exc:
-        print("Runtime error:")
-        print(str(exc))
+        logger.info("Runtime error:")
+        logger.info(str(exc))
         traceback.print_exc()
         raise
     except KeyboardInterrupt:
-        print("\nInterrupted by user.")
+        logger.info("\nInterrupted by user.")
     finally:
         await runtime.shutdown()
 

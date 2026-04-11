@@ -77,6 +77,25 @@ describe('POST /api/connector/test/dingtalk', () => {
     await app.close();
   });
 
+  it('returns localized identity error without user header', async () => {
+    const app = Fastify();
+    await app.register(connectorHubRoutes, { threadStore: createThreadStore() });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/connector/test/dingtalk',
+      payload: {
+        DINGTALK_APP_KEY: 'test_app_key',
+        DINGTALK_APP_SECRET: 'test_app_secret',
+      },
+    });
+
+    assert.equal(res.statusCode, 401);
+    assert.equal(res.json().error, '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头');
+
+    await app.close();
+  });
+
   it('returns 502 when DingTalk API rejects credentials', async () => {
     globalThis.fetch = async (url) => {
       if (String(url).includes('/v1.0/oauth2/accessToken')) {
@@ -104,7 +123,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     assert.equal(res.statusCode, 502);
     const data = res.json();
     assert.equal(data.ok, false);
-    assert.match(data.details, /invalid appkey/);
+    assert.match(data.details, /钉钉接口返回异常/);
 
     await app.close();
   });

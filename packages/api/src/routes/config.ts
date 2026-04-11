@@ -20,7 +20,21 @@ import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/Co
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
-import { buildEnvSummary, ENV_CATEGORIES, isConnectorEnvVarName, isEditableEnvVarName } from '../config/env-registry.js';
+import {
+  buildEnvSummary,
+  ENV_CATEGORIES,
+  ENV_VARS,
+  isConnectorEnvVarName,
+  isConnectorSensitiveEditable,
+  isEditableEnvVarName,
+} from '../config/env-registry.js';
+import {
+  buildConnectorEnvRefVarName,
+  clearConnectorEnvSecret,
+  isConnectorSecretBackedEnvVarName,
+  isLocalSecretStorageEnabled,
+  persistConnectorEnvSecret,
+} from '../config/local-secret-store.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
@@ -269,6 +283,8 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     }
 
     const updates = new Map<string, string | null>();
+    const fileUpdates = new Map<string, string | null>();
+    const secretBacked = isLocalSecretStorageEnabled();
     for (const update of parsed.data.updates) {
       if (!isEditableEnvVarName(update.name)) {
         reply.status(400);
@@ -278,14 +294,50 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     }
 
     const current = existsSync(envFilePath) ? readFileSync(envFilePath, 'utf8') : '';
-    const next = applyEnvUpdatesToFile(current, updates);
+    for (const [name, value] of updates) {
+      const definition = ENV_VARS.find((item) => item.name === name);
+      const isConnectorSecret = Boolean(definition && isConnectorSensitiveEditable(definition));
+      const refName = buildConnectorEnvRefVarName(name);
+
+      if (isConnectorSecret && isConnectorSecretBackedEnvVarName(name) && secretBacked) {
+        const trimmed = value?.trim() ?? '';
+        if (!trimmed) {
+          clearConnectorEnvSecret(name);
+          delete process.env[name];
+          delete process.env[refName];
+          fileUpdates.set(name, null);
+          fileUpdates.set(refName, null);
+        } else {
+          const persisted = persistConnectorEnvSecret(name, trimmed);
+          process.env[name] = trimmed;
+          process.env[persisted.refName] = persisted.refValue;
+          fileUpdates.set(name, null);
+          fileUpdates.set(persisted.refName, persisted.refValue);
+        }
+        continue;
+      }
+
+      if (isConnectorSecret && isConnectorSecretBackedEnvVarName(name)) {
+        clearConnectorEnvSecret(name);
+        delete process.env[refName];
+        fileUpdates.set(refName, null);
+      }
+
+      if (value == null || value === '') {
+        delete process.env[name];
+        fileUpdates.set(name, null);
+      } else {
+        process.env[name] = value;
+        fileUpdates.set(name, value);
+      }
+    }
+
+    const next = applyEnvUpdatesToFile(current, fileUpdates);
     writeFileSync(envFilePath, next, 'utf8');
 
     const changedKeys: string[] = [];
-    for (const [name, value] of updates) {
+    for (const [name] of updates) {
       changedKeys.push(name);
-      if (value == null || value === '') delete process.env[name];
-      else process.env[name] = value;
     }
 
     const runtime = opts.connectorRuntimeManager && changedKeys.length > 0

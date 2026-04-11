@@ -22,6 +22,9 @@ import { getCatModel } from '../../../../config/cat-models.js';
 import type { AIActionResponse, AIProvider } from '../game/werewolf/WerewolfAIPlayer.js';
 
 const LLM_TIMEOUT_MS = 10_000;
+const ANTHROPIC_API_BASE_URL = process.env.ANTHROPIC_API_BASE_URL!;
+const OPENAI_API_BASE_URL = process.env.OPENAI_API_BASE_URL!;
+const GOOGLE_AI_API_BASE_URL = process.env.GOOGLE_AI_API_BASE_URL!;
 
 interface LlmCallResult {
   text: string;
@@ -72,7 +75,7 @@ export class LlmAIProvider implements AIProvider {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch(`${ANTHROPIC_API_BASE_URL}/v1/messages`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -100,7 +103,7 @@ export class LlmAIProvider implements AIProvider {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error('OPENAI_API_KEY not set');
 
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const resp = await fetch(`${OPENAI_API_BASE_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -127,18 +130,15 @@ export class LlmAIProvider implements AIProvider {
     const apiKey = process.env.GOOGLE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not set');
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 256 },
-        }),
-        signal,
-      },
-    );
+    const resp = await fetch(GOOGLE_AI_API_BASE_URL + `/v1beta/models/${this.model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 256 },
+      }),
+      signal,
+    });
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');

@@ -2,12 +2,12 @@
 """
 Consolidate credentials into ~/.openclaw/.env
 """
-
+import logging
 import argparse
 import json
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
@@ -42,6 +42,7 @@ SERVICE_MAPPINGS = {
     },
 }
 
+
 def detect_service(path: Path, data: Dict) -> str:
     """Detect service from path or data keys."""
     path_str = str(path).lower()
@@ -63,6 +64,7 @@ def detect_service(path: Path, data: Dict) -> str:
     
     return 'generic'
 
+
 def normalize_key(key: str, service: str) -> str:
     """Normalize a key to ENV format."""
     if service in SERVICE_MAPPINGS:
@@ -81,6 +83,7 @@ def normalize_key(key: str, service: str) -> str:
     
     return key
 
+
 def backup_files(files: List[Path], backup_dir: Path):
     """Backup files before modification."""
     backup_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +98,8 @@ def backup_files(files: List[Path], backup_dir: Path):
             
             backup_path = backup_dir / backup_name
             shutil.copy2(file, backup_path)
-            print(f"   📦 Backed up: {file} → {backup_path}")
+            logging.info(f"   📦 Backed up: {file} → {backup_path}")
+
 
 def load_credentials(path: Path) -> Dict:
     """Load credentials from a file."""
@@ -113,6 +117,7 @@ def load_credentials(path: Path) -> Dict:
         return creds
     return {}
 
+
 def consolidate(service_filter: str = None, backup_only: bool = False, 
                auto_yes: bool = False) -> Dict:
     """Consolidate credentials into .env"""
@@ -120,17 +125,17 @@ def consolidate(service_filter: str = None, backup_only: bool = False,
     openclaw_dir = home / '.openclaw'
     env_file = openclaw_dir / '.env'
     env_example = openclaw_dir / '.env.example'
-    backup_dir = openclaw_dir / 'backups' / f'credentials-old-{datetime.now().strftime("%Y%m%d")}'
+    backup_dir = openclaw_dir / 'backups' / f'credentials-old-{datetime.now(tz=timezone.utc).strftime("%Y%m%d")}'
     
     # Scan for files
     from scan import scan_locations
     results = scan_locations()
     
     if not results:
-        print("✅ No credential files found to migrate")
+        logging.info("✅ No credential files found to migrate")
         return {'status': 'no_files'}
     
-    print(f"\n📋 Found {len(results)} credential file(s) to migrate\n")
+    logging.info(f"\n📋 Found {len(results)} credential file(s) to migrate\n")
     
     # Backup existing .env
     if env_file.exists():
@@ -140,7 +145,7 @@ def consolidate(service_filter: str = None, backup_only: bool = False,
     env_data = {}
     if env_file.exists():
         env_data = load_credentials(env_file)
-        print(f"   📝 Loading existing .env ({len(env_data)} keys)")
+        logging.info(f"   📝 Loading existing .env ({len(env_data)} keys)")
     
     # Process each file
     files_to_backup = []
@@ -151,55 +156,55 @@ def consolidate(service_filter: str = None, backup_only: bool = False,
         if not path.exists() or path == env_file:
             continue
         
-        print(f"\n🔍 Processing: {path}")
+        logging.info(f"\n🔍 Processing: {path}")
         
         try:
             data = load_credentials(path)
             service = detect_service(path, data)
             
             if service_filter and service != service_filter:
-                print(f"   ⏭️  Skipping (service filter)")
+                logging.info(f"   ⏭️  Skipping (service filter)")
                 continue
             
-            print(f"   🏷️  Detected service: {service}")
+            logging.info(f"   🏷️  Detected service: {service}")
             
             # Normalize keys
             for key, value in data.items():
                 env_key = normalize_key(key, service)
                 if env_key not in env_data:  # Don't overwrite existing
                     new_keys[env_key] = value
-                    print(f"      {key} → {env_key}")
+                    logging.info(f"      {key} → {env_key}")
             
             files_to_backup.append(path)
             
         except Exception as e:
-            print(f"   ❌ Error: {e}")
+            logging.info(f"   ❌ Error: {e}")
     
     if not new_keys and not backup_only:
-        print("\n✅ No new credentials to add")
+        logging.info("\n✅ No new credentials to add")
         return {'status': 'no_new_keys'}
     
     # Confirm
     if not auto_yes and not backup_only:
-        print(f"\n📊 Summary:")
-        print(f"   New keys to add: {len(new_keys)}")
-        print(f"   Files to backup: {len(files_to_backup)}")
+        logging.info(f"\n📊 Summary:")
+        logging.info(f"   New keys to add: {len(new_keys)}")
+        logging.info(f"   Files to backup: {len(files_to_backup)}")
         response = input("\n   Proceed? [y/N] ")
         if response.lower() != 'y':
-            print("   ❌ Cancelled")
+            logging.info("   ❌ Cancelled")
             return {'status': 'cancelled'}
     
     # Backup files
     if files_to_backup:
-        print(f"\n📦 Backing up {len(files_to_backup)} file(s)...")
+        logging.info(f"\n📦 Backing up {len(files_to_backup)} file(s)...")
         backup_files(files_to_backup, backup_dir)
     
     if backup_only:
-        print(f"\n✅ Backup complete: {backup_dir}")
+        logging.info(f"\n✅ Backup complete: {backup_dir}")
         return {'status': 'backup_only', 'backup_dir': str(backup_dir)}
     
     # Write .env
-    print(f"\n✍️  Writing .env...")
+    logging.info(f"\n✍️  Writing .env...")
     openclaw_dir.mkdir(parents=True, exist_ok=True)
     
     # Merge and write
@@ -225,7 +230,7 @@ def consolidate(service_filter: str = None, backup_only: bool = False,
     
     # Set permissions
     os.chmod(env_file, 0o600)
-    print(f"   🔒 Set permissions: 600")
+    logging.info(f"   🔒 Set permissions: 600")
     
     # Create .env.example
     with open(env_example, 'w') as f:
@@ -234,19 +239,19 @@ def consolidate(service_filter: str = None, backup_only: bool = False,
         for key in sorted(env_data.keys()):
             f.write(f"{key}=your_value_here\n")
     
-    print(f"   📄 Created .env.example")
+    logging.info(f"   📄 Created .env.example")
     
     # Update .gitignore
     gitignore = openclaw_dir / '.gitignore'
     if not gitignore.exists() or '.env' not in gitignore.read_text():
         with open(gitignore, 'a') as f:
             f.write("\n# Credentials\n.env\n")
-        print(f"   🚫 Updated .gitignore")
+        logging.info(f"   🚫 Updated .gitignore")
     
-    print(f"\n✅ Migration complete!")
-    print(f"   📁 Credentials: {env_file}")
-    print(f"   📦 Backups: {backup_dir}")
-    print(f"\n💡 Next: Run ./scripts/validate.py to verify security")
+    logging.info(f"\n✅ Migration complete!")
+    logging.info(f"   📁 Credentials: {env_file}")
+    logging.info(f"   📦 Backups: {backup_dir}")
+    logging.info(f"\n💡 Next: Run ./scripts/validate.py to verify security")
     
     return {
         'status': 'success',
@@ -254,6 +259,7 @@ def consolidate(service_filter: str = None, backup_only: bool = False,
         'backup_dir': str(backup_dir),
         'keys_added': len(new_keys),
     }
+
 
 def main():
     parser = argparse.ArgumentParser(description='Consolidate credentials')

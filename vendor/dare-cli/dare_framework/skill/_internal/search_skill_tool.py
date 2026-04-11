@@ -99,6 +99,7 @@ class SearchSkillTool(ITool):
     """Resolve a skill and return its full prompt payload."""
 
     def __init__(self, skill_store: ISkillStore) -> None:
+        super().__init__()
         self._skill_store = skill_store
         self._description = _build_dynamic_description(skill_store)
 

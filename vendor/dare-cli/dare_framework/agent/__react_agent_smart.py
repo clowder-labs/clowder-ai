@@ -7,6 +7,7 @@ to context, and calls the model again until the model returns a final text respo
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 # ANSI: plan-agent 红字，sub-agent 绿字，工具名紫字，context 列表黄字
@@ -31,7 +32,7 @@ def _colored_print(agent_name: str, msg: str, tool_name: str | None = None) -> N
     color = _agent_color(agent_name)
     if tool_name:
         msg = msg.replace(tool_name, f"{_ANSI_PURPLE}{tool_name}{_ANSI_RESET}{color}", 1)
-    print(f"{color}{msg}{_ANSI_RESET}", flush=True)
+    logging.info(f"{color}{msg}{_ANSI_RESET}")
 
 
 from dare_framework.agent.base_agent import BaseAgent
@@ -56,7 +57,7 @@ def _print_tools_sent_to_llm(agent_name: str, tools: list[Any]) -> None:
     ]
     blob = json.dumps(api_tools, indent=2, ensure_ascii=False)
     lines = [f"[{agent_name}] Tools 发给 LLM ({len(tools)} 个):", "---", blob, "---"]
-    print(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}", flush=True)
+    logging.info(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}")
 
 
 # TEMPORARY 消息打印时截断，避免过长
@@ -81,7 +82,7 @@ def _print_context_list(
         lines.append(f"--- Message {i+1} role={m.role} ---")
         lines.append(content)
         lines.append("")
-    print(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}", flush=True)
+    logging.info(f"{_ANSI_YELLOW}{chr(10).join(lines)}{_ANSI_RESET}")
 
 
 from dare_framework.model import IModelAdapter, ModelInput
@@ -200,14 +201,7 @@ class ReactAgent(BaseAgent):
 
             # Inject critical_block from plan_provider (maintained by plan tools)
             # Disabled: skip injection to observe plan agent behavior without it
-            if False and self._plan_provider is not None:
-                state = getattr(self._plan_provider, "state", None)
-                critical_block = getattr(state, "critical_block", "") if state else ""
-                if critical_block:
-                    _colored_print(self.name, "\n--- [Plan State] (injected) ---\n" + critical_block + "\n---\n")
-                    n_front = sum(1 for m in messages if getattr(m, "id", None) in ("core", "task_complete"))
-                    messages.insert(n_front, Message(role="system", text=critical_block, name="plan_state"))
-
+            
             _print_context_list(self.name, messages, sys_prompt_brief=(round_idx > 0))
             if round_idx == 0 and assembled.tools:
                 _print_tools_sent_to_llm(self.name, assembled.tools)

@@ -2,12 +2,13 @@
 """
 Validate .env file security and format.
 """
-
+import logging
 import argparse
 import os
 import re
 from pathlib import Path
 from typing import Dict, List
+
 
 def check_permissions(env_file: Path) -> Dict:
     """Check file permissions."""
@@ -25,6 +26,7 @@ def check_permissions(env_file: Path) -> Dict:
             'message': f'Permissions {mode} are too permissive (should be 600)'
         }
 
+
 def check_gitignore(openclaw_dir: Path) -> Dict:
     """Check if .env is in .gitignore."""
     gitignore = openclaw_dir / '.gitignore'
@@ -37,6 +39,7 @@ def check_gitignore(openclaw_dir: Path) -> Dict:
         return {'status': 'ok'}
     else:
         return {'status': 'unprotected', 'message': '.env not in .gitignore'}
+
 
 def check_format(env_file: Path) -> Dict:
     """Check .env file format."""
@@ -88,6 +91,7 @@ def check_format(env_file: Path) -> Dict:
             'keys_count': len(keys)
         }
 
+
 def check_security(env_file: Path) -> Dict:
     """Check for security issues."""
     warnings = []
@@ -107,10 +111,12 @@ def check_security(env_file: Path) -> Dict:
         'warnings': warnings
     }
 
+
 def fix_permissions(env_file: Path):
     """Fix file permissions."""
     os.chmod(env_file, 0o600)
-    print(f"   🔧 Fixed permissions: 600")
+    logging.info(f"   🔧 Fixed permissions: 600")
+
 
 def fix_gitignore(openclaw_dir: Path):
     """Add .env to .gitignore."""
@@ -123,7 +129,8 @@ def fix_gitignore(openclaw_dir: Path):
         with open(gitignore, 'a') as f:
             f.write("\n# Credentials\n.env\n")
     
-    print(f"   🔧 Added .env to .gitignore")
+    logging.info(f"   🔧 Added .env to .gitignore")
+
 
 def validate(check_type: str = 'all', auto_fix: bool = False) -> bool:
     """Validate .env file."""
@@ -131,21 +138,21 @@ def validate(check_type: str = 'all', auto_fix: bool = False) -> bool:
     openclaw_dir = home / '.openclaw'
     env_file = openclaw_dir / '.env'
     
-    print("\n🔍 Validating credentials...\n")
+    logging.info("\n🔍 Validating credentials...\n")
     
     all_ok = True
     
     # Check permissions
     if check_type in ['all', 'permissions']:
-        print("📋 Checking permissions...")
+        logging.info("📋 Checking permissions...")
         result = check_permissions(env_file)
         if result['status'] == 'ok':
-            print(f"   ✅ Permissions: {result['mode']}")
+            logging.info(f"   ✅ Permissions: {result['mode']}")
         elif result['status'] == 'missing':
-            print(f"   ❌ {result['message']}")
+            logging.info(f"   ❌ {result['message']}")
             return False
         else:
-            print(f"   ⚠️  {result['message']}")
+            logging.info(f"   ⚠️  {result['message']}")
             all_ok = False
             if auto_fix:
                 fix_permissions(env_file)
@@ -153,12 +160,12 @@ def validate(check_type: str = 'all', auto_fix: bool = False) -> bool:
     
     # Check gitignore
     if check_type in ['all', 'gitignore']:
-        print("\n📋 Checking .gitignore...")
+        logging.info("\n📋 Checking .gitignore...")
         result = check_gitignore(openclaw_dir)
         if result['status'] == 'ok':
-            print(f"   ✅ .env is git-ignored")
+            logging.info(f"   ✅ .env is git-ignored")
         else:
-            print(f"   ⚠️  {result.get('message', 'Not protected')}")
+            logging.info(f"   ⚠️  {result.get('message', 'Not protected')}")
             all_ok = False
             if auto_fix:
                 fix_gitignore(openclaw_dir)
@@ -166,39 +173,40 @@ def validate(check_type: str = 'all', auto_fix: bool = False) -> bool:
     
     # Check format
     if check_type in ['all', 'format']:
-        print("\n📋 Checking format...")
+        logging.info("\n📋 Checking format...")
         result = check_format(env_file)
         if result['status'] == 'ok':
-            print(f"   ✅ Format valid ({result['keys_count']} keys)")
+            logging.info(f"   ✅ Format valid ({result['keys_count']} keys)")
         else:
-            print(f"   ⚠️  Found {len(result['issues'])} issue(s):")
+            logging.info(f"   ⚠️  Found {len(result['issues'])} issue(s):")
             for issue in result['issues'][:5]:
-                print(f"      • {issue}")
+                logging.info(f"      • {issue}")
             if len(result['issues']) > 5:
-                print(f"      ... +{len(result['issues']) - 5} more")
+                logging.info(f"      ... +{len(result['issues']) - 5} more")
             
             if result['duplicates']:
-                print(f"   ⚠️  Duplicate keys: {', '.join(result['duplicates'])}")
+                logging.info(f"   ⚠️  Duplicate keys: {', '.join(result['duplicates'])}")
             all_ok = False
     
     # Check security
     if check_type in ['all', 'security']:
-        print("\n📋 Checking security...")
+        logging.info("\n📋 Checking security...")
         result = check_security(env_file)
         if result['status'] == 'ok':
-            print(f"   ✅ No security warnings")
+            logging.info(f"   ✅ No security warnings")
         else:
-            print(f"   ⚠️  Warnings:")
+            logging.info(f"   ⚠️  Warnings:")
             for warning in result['warnings']:
-                print(f"      • {warning}")
+                logging.info(f"      • {warning}")
     
     # Summary
-    print(f"\n{'✅' if all_ok else '⚠️'} Validation {'passed' if all_ok else 'found issues'}")
+    logging.info(f"\n{'✅' if all_ok else '⚠️'} Validation {'passed' if all_ok else 'found issues'}")
     
     if not all_ok and not auto_fix:
-        print(f"\n💡 Run with --fix to automatically fix issues")
+        logging.info(f"\n💡 Run with --fix to automatically fix issues")
     
     return all_ok
+
 
 def main():
     parser = argparse.ArgumentParser(description='Validate credentials')
@@ -210,6 +218,7 @@ def main():
     
     result = validate(args.check, args.fix)
     return 0 if result else 1
+
 
 if __name__ == '__main__':
     exit(main())

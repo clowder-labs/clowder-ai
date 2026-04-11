@@ -10,6 +10,7 @@
 """
 
 import json
+import logging
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -490,22 +491,22 @@ def main():
     analyzer = WorkAnalyzer()
     result = analyzer.analyze(test_data)
 
-    print(f"=== 工作分析报告 ({result.date}) ===\n")
+    logging.info(f"=== 工作分析报告 ({result.date}) ===\n")
 
-    print("效率指标:")
-    print(f"  任务完成率: {result.metrics.task_completion_rate:.1%}")
-    print(f"  提交次数: {result.metrics.commit_count}")
-    print(f"  生产力得分: {result.metrics.productivity_score:.1f}")
-    print(f"  专注度得分: {result.metrics.focus_score:.1f}")
+    logging.info("效率指标:")
+    logging.info(f"  任务完成率: {result.metrics.task_completion_rate:.1%}")
+    logging.info(f"  提交次数: {result.metrics.commit_count}")
+    logging.info(f"  生产力得分: {result.metrics.productivity_score:.1f}")
+    logging.info(f"  专注度得分: {result.metrics.focus_score:.1f}")
 
-    print(f"\n关键词: {', '.join(result.keywords)}")
+    logging.info(f"\n关键词: {', '.join(result.keywords)}")
 
-    print(f"\n工作摘要: {result.summary}")
+    logging.info(f"\n工作摘要: {result.summary}")
 
     if result.suggestions:
-        print("\n工作建议:")
+        logging.info("\n工作建议:")
         for i, s in enumerate(result.suggestions, 1):
-            print(f"  {i}. {s}")
+            logging.info(f"  {i}. {s}")
 
 
 if __name__ == "__main__":

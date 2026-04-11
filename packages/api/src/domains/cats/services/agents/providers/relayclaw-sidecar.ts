@@ -158,6 +158,19 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const sharedSkillDirs = resolveRelayClawSharedSkillsDirs();
     const disabledSkills = resolveRelayClawDisabledSkills(projectRoot, this.catId as string);
 
+    const modelContextWindowRaw = (
+      callbackEnv.MODEL_CONTEXT_WINDOW ??
+      callbackEnv.CAT_CAFE_MODEL_CONTEXT_WINDOW ??
+      ''
+    ).trim();
+    const modelContextWindowParsed = /^\d+$/.test(modelContextWindowRaw)
+      ? Number.parseInt(modelContextWindowRaw, 10)
+      : Number.NaN;
+    const modelContextWindow =
+      Number.isFinite(modelContextWindowParsed) && modelContextWindowParsed > 0
+        ? modelContextWindowParsed
+        : undefined;
+
     return {
       executablePath,
       pythonBin,
@@ -175,6 +188,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         ...(defaultHeaders ? { default_headers: defaultHeaders } : {}),
         MODEL_NAME: modelName,
         MODEL_PROVIDER: provider,
+        ...(modelContextWindow !== undefined ? { MODEL_CONTEXT_WINDOW: String(modelContextWindow) } : {}),
         JIUWENCLAW_AGENT_ROOT: join(homeDir, 'agent'),
         JIUWENCLAW_RUNTIME_SKILLS_DIR: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
         ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
@@ -201,6 +215,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         defaultHeaders,
         modelName,
         provider,
+        modelContextWindow: modelContextWindow ?? 0,
         sharedSkillsSignature: buildRelayClawSharedSkillsSignature(),
         catCafeMcpPath: catCafeMcp?.serverPath ?? '',
         keyHash: apiKey ? createHash('sha256').update(apiKey).digest('hex') : '',

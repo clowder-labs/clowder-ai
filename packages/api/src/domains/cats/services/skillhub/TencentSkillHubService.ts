@@ -14,7 +14,7 @@
 
 import JSZip from 'jszip';
 
-const API_BASE = 'https://lightmake.site';
+const API_BASE = process.env.TENCENT_SKILLHUB_API_BASE_URL!;
 
 interface CacheEntry<T> {
   data: T;

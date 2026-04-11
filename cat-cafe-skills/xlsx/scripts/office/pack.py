@@ -11,6 +11,7 @@ Examples:
 """
 
 import argparse
+import logging
 import sys
 import shutil
 import tempfile
@@ -20,6 +21,7 @@ from pathlib import Path
 import defusedxml.minidom
 
 from validators import DOCXSchemaValidator, PPTXSchemaValidator, RedliningValidator
+
 
 def pack(
     input_directory: str,
@@ -45,7 +47,7 @@ def pack(
                 input_dir, original_path, suffix, infer_author_func
             )
             if output:
-                print(output)
+                logging.info(output)
             if not success:
                 return None, f"Error: Validation failed for {input_dir}"
 
@@ -81,7 +83,7 @@ def _run_validation(
             try:
                 author = infer_author_func(unpacked_dir, original_file)
             except ValueError as e:
-                print(f"Warning: {e} Using default author 'Claude'.", file=sys.stderr)
+                logging.info(f"Warning: {e} Using default author 'Claude'.", file=sys.stderr)
 
         validators = [
             DOCXSchemaValidator(unpacked_dir, original_file),
@@ -124,7 +126,7 @@ def _condense_xml(xml_file: Path) -> None:
 
         xml_file.write_bytes(dom.toxml(encoding="UTF-8"))
     except Exception as e:
-        print(f"ERROR: Failed to parse {xml_file.name}: {e}", file=sys.stderr)
+        logging.info(f"ERROR: Failed to parse {xml_file.name}: {e}", file=sys.stderr)
         raise
 
 
@@ -153,7 +155,7 @@ if __name__ == "__main__":
         original_file=args.original,
         validate=args.validate,
     )
-    print(message)
+    logging.info(message)
 
     if "Error" in message:
         sys.exit(1)

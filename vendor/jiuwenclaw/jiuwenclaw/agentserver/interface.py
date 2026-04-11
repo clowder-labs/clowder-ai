@@ -53,6 +53,7 @@ from jiuwenclaw.agentserver.tools.image_tools import visual_question_answering
 from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
 from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus, TodoToolkit
 from jiuwenclaw.agentserver.tools.file_tools import FileToolkit
+from jiuwenclaw.agentserver.tools.load_skill_tools import LoadSkillToolkit
 from jiuwenclaw.agentserver.tools.memory_tools import (
     init_memory_manager_async,
     memory_search,
@@ -205,6 +206,10 @@ class JiuWenClaw:
         self._xiaoyi_phone_tools_registered: bool = False
         self._todo_tool_sessions_registered: set[str] = set()
         self._sysop_card_id: str | None = None
+
+    def _should_register_cron_tools(self) -> bool:
+        """Allow disabling cron tool mounting with a single env flag."""
+        return os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") != "1"
 
     @staticmethod
     async def set_checkpoint():
@@ -387,6 +392,9 @@ class JiuWenClaw:
         else:
             logger.warning("[JiuWenClaw] ReActAgent has no _skill_util; skip skill registration.")
 
+        # Initialize subagent tools
+        self._init_subagent_tools(config_base)
+
         # add memory tools
         await init_memory_manager_async(
             workspace_dir=self._workspace_dir,
@@ -434,6 +442,16 @@ class JiuWenClaw:
         except Exception as exc:
             self._file_tools_registered = False
             logger.warning("[JiuWenClaw] file tools registration skipped: %s", exc)
+
+        # add load skill tools (initial load + read content)
+        try:
+            load_skill_toolkit = LoadSkillToolkit()
+            for tool in load_skill_toolkit.get_tools():
+                Runner.resource_mgr.add_tool(tool)
+                self._instance.ability_manager.add(tool.card)
+            logger.info("[JiuWenClaw] load skill tools registered successfully")
+        except Exception as exc:
+            logger.warning("[JiuWenClaw] load skill tools registration skipped: %s", exc)
 
         project_mcp_names: set[str] = set()
         host_project_mcp_path = self._tool_manager.find_host_project_mcp_json()
@@ -541,13 +559,19 @@ class JiuWenClaw:
             logger.info("[JiuWenClaw] xiaoyi channel not enabled, skipping phone tools")
 
         # add cron tools
-        try:
-            cron_controller = CronController.get_instance()
-            for cron_tool in cron_controller.get_tools():
-                Runner.resource_mgr.add_tool(cron_tool)
-                self._instance.ability_manager.add(cron_tool.card)
-        except Exception as exc:
-            logger.error("[JiuWenClaw] 定时工具加载失败， reason=%s", exc)
+        if self._should_register_cron_tools():
+            try:
+                cron_controller = CronController.get_instance()
+                for cron_tool in cron_controller.get_tools():
+                    Runner.resource_mgr.add_tool(cron_tool)
+                    self._instance.ability_manager.add(cron_tool.card)
+            except Exception as exc:
+                logger.error("[JiuWenClaw] 定时工具加载失败， reason=%s", exc)
+        else:
+            logger.info(
+                "[JiuWenClaw] skip cron tools registration: disable_all=%s",
+                os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") == "1",
+            )
         # ---- 权限引擎初始化 ----
         permissions_cfg = config_base.get("permissions", {})
         init_permission_engine(permissions_cfg)
@@ -561,6 +585,52 @@ class JiuWenClaw:
             self._agent_name,
             self._workspace_dir,
         )
+
+    def _init_subagent_tools(self, config_base: dict[str, Any]) -> None:
+        """Initialize subagent tools for spawning sub-agents."""
+        try:
+            from pathlib import Path
+            from jiuwenclaw.agentserver.tools.subagent_tools import (
+                init_subagent_tools,
+                register_skill_subagent_config,
+            )
+            from jiuwenclaw.utils import get_agent_skills_dir
+
+            # Get skills directory
+            skill_base_dir = Path(get_agent_skills_dir())
+            if not skill_base_dir.exists():
+                skill_base_dir = Path(self._workspace_dir) / "skills"
+
+            # Default role prompts (used when Skill doesn't define)
+            default_role_prompts = {
+                "MainAgent": SYSTEM_PROMPT,
+                "Explorer": "You are an explorer agent focused on searching and gathering information efficiently.",
+            }
+
+            # Initialize subagent tools (inherits config from parent agent)
+            init_subagent_tools(
+                parent_agent=self._instance,
+                skill_base_dir=skill_base_dir,
+                default_role_prompts=default_role_prompts,
+            )
+
+            # Register skill configs
+            if hasattr(self._skill_manager, "_scan_local_skills"):
+                for skill_record in self._skill_manager._scan_local_skills():
+                    subagent_config = skill_record.get("subagent_config")
+                    if subagent_config:
+                        skill_name = skill_record.get("name", "")
+                        if skill_name:
+                            register_skill_subagent_config(skill_name, subagent_config)
+
+            # Register subagent tools with agent's ability_manager
+            from jiuwenclaw.agentserver.tools.subagent_tools import spawn_subagent
+            Runner.resource_mgr.add_tool(spawn_subagent)
+            self._instance.ability_manager.add(spawn_subagent.card)
+
+            logger.info("[JiuWenClaw] Subagent tools initialized")
+        except Exception as exc:
+            logger.warning("[JiuWenClaw] Failed to initialize subagent tools: %s", exc)
 
     def reload_agent_config(self) -> None:
         """从 config.yaml 重新加载配置并 reconfigure 当前实例，使模型/API 等配置生效且不重启进程。"""
@@ -639,7 +709,7 @@ class JiuWenClaw:
             (session_id or "").split("_")[0] if session_id else ""
         )
         logger.info(f"[JiuwenClaw] update tool and prompt for channel {channel}")
-        if channel not in ["heartbeat", "cron"]:
+        if channel not in ["heartbeat", "cron"] and self._should_register_cron_tools():
             cron_controller = CronController.get_instance()
             if channel == "feishu":
                 cron_controller.set_target_channel(CronTargetChannel.FEISHU)
@@ -654,6 +724,12 @@ class JiuWenClaw:
                 if not Runner.resource_mgr.get_tool(cron_tool.card.id):
                     Runner.resource_mgr.add_tool(cron_tool)
                 self._instance.ability_manager.add(cron_tool.card)
+        elif channel not in ["heartbeat", "cron"]:
+            logger.info(
+                "[JiuWenClaw] skip runtime cron tools registration: channel=%s disable_all=%s",
+                channel,
+                os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") == "1",
+            )
 
         # 小艺手机端插件(xiaoyi phone tools)未生效时重新加载
         config_base = get_config()
@@ -688,13 +764,15 @@ class JiuWenClaw:
                 logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
-        if mode == "plan":
-            todo_toolkit = TodoToolkit(session_id=effective_session_id)
-            for tool in todo_toolkit.get_tools():
-                Runner.resource_mgr.add_tool(tool)
-                self._instance.ability_manager.add(tool.card)
-            self._todo_tool_sessions_registered.add(effective_session_id)
-        else:
+        # Todo 工具：两种模式都注册，用于 skill 步骤追踪
+        todo_toolkit = TodoToolkit(session_id=effective_session_id)
+        for tool in todo_toolkit.get_tools():
+            Runner.resource_mgr.add_tool(tool)
+            self._instance.ability_manager.add(tool.card)
+        self._todo_tool_sessions_registered.add(effective_session_id)
+
+        if mode != "plan":
+            # agent 模式额外注册并行子任务工具
             config_base = get_config()
             session_toolkits = MultiSessionToolkit(
                 session_id=effective_session_id,

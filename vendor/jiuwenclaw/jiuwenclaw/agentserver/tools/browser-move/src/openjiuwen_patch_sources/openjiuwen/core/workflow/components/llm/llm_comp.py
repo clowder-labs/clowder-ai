@@ -175,7 +175,7 @@ class SchemaGenerator:
 
 class JsonParser:
     @staticmethod
-    def parse_json_content(response_content: str) -> Dict[str, Any]:
+    def parse_json_content(response_content: str) -> Dict[str, Any] | None:
         content = JsonParser._clean_markdown_blocks(response_content)
 
         try:
@@ -183,8 +183,10 @@ class JsonParser:
         except json.JSONDecodeError as e:
             if UserConfig.is_sensitive():
                 ValidationUtils.raise_invalid_params_error("Json parse error")
+                return None
             else:
                 ValidationUtils.raise_invalid_params_error(f"Json parse error: {response_content}")
+                return None
 
     @staticmethod
     def _clean_markdown_blocks(content: str):

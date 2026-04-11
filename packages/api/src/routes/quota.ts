@@ -653,12 +653,13 @@ function loadCodexCredentials(envPath?: string): CodexOAuthCredentials | null {
   }
 }
 
-const ANTHROPIC_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
-const ANTHROPIC_TOKEN_REFRESH_URL = 'https://platform.claude.com/v1/oauth/token';
-const ANTHROPIC_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
-const OPENAI_WHAM_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
-const OPENAI_TOKEN_REFRESH_URL = 'https://auth.openai.com/oauth/token';
-const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+const ANTHROPIC_API_BASE_URL = process.env.ANTHROPIC_API_BASE_URL!;
+const ANTHROPIC_USAGE_URL = `${ANTHROPIC_API_BASE_URL}/api/oauth/usage`;
+const ANTHROPIC_TOKEN_REFRESH_URL = process.env.ANTHROPIC_TOKEN_REFRESH_URL! + "/v1/oauth/token";
+const ANTHROPIC_CLIENT_ID = process.env.ANTHROPIC_CLIENT_ID!;
+const OPENAI_WHAM_USAGE_URL = process.env.OPENAI_API_BASE_URL! + "/backend-api/wham/usage";
+const OPENAI_TOKEN_REFRESH_URL = process.env.OPENAI_TOKEN_REFRESH_URL! + "/oauth/token";
+const OPENAI_CLIENT_ID = process.env.OPENAI_CLIENT_ID!;
 
 interface OAuthCredentials {
   accessToken: string;

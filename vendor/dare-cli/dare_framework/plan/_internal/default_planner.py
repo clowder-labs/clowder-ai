@@ -6,6 +6,7 @@ ProposedPlan with evidence requirements, NOT execution steps.
 """
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Literal
 
 from dare_framework.context import Message
@@ -151,7 +152,7 @@ class DefaultPlanner:
         Args:
             model: Model adapter for LLM calls.
             system_prompt: Optional custom system prompt (defaults to DEFAULT_PLAN_SYSTEM_PROMPT).
-            verbose: Whether to print debug output.
+            verbose: Whether to logging.info debug output.
         """
         self._model = model
         self._system_prompt = system_prompt or DEFAULT_PLAN_SYSTEM_PROMPT
@@ -194,7 +195,7 @@ Output ONLY valid JSON following the structure defined in your instructions."""
         )
 
         if self._verbose:
-            print(f"[DefaultPlanner] Planning for: {task_description[:50]}...")
+            logging.info(f"[DefaultPlanner] Planning for: {task_description[:50]}...")
 
         # Generate plan
         try:
@@ -212,13 +213,13 @@ Output ONLY valid JSON following the structure defined in your instructions."""
             ]
 
             if self._verbose:
-                print(f"[DefaultPlanner] Generated plan with {len(steps)} evidence requirements:")
-                print(f"  📋 Plan: {plan_data.get('plan_description', 'N/A')}")
+                logging.info(f"[DefaultPlanner] Generated plan with {len(steps)} evidence requirements:")
+                logging.info(f"  📋 Plan: {plan_data.get('plan_description', 'N/A')}")
                 for i, step in enumerate(steps):
-                    print(f"  {i+1}. [{step.capability_id}] {step.description}")
+                    logging.info(f"  {i+1}. [{step.capability_id}] {step.description}")
                     if step.params:
                         for k, v in step.params.items():
-                            print(f"     - {k}: {v}")
+                            logging.info(f"     - {k}: {v}")
 
             return ProposedPlan(
                 plan_description=plan_data.get("plan_description", task_description),
@@ -227,7 +228,7 @@ Output ONLY valid JSON following the structure defined in your instructions."""
 
         except Exception as e:
             if self._verbose:
-                print(f"[DefaultPlanner] Error: {e}, using fallback")
+                logging.info(f"[DefaultPlanner] Error: {e}, using fallback")
             return self._fallback_plan(task_description)
 
     @staticmethod

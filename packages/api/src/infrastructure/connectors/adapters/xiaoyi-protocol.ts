@@ -22,8 +22,8 @@ function nextMsgId(): string {
 
 // ── Constants ──
 
-export const WS_PRIMARY = 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
-export const WS_BACKUP = 'wss://116.63.174.231/openclaw/v1/ws/link';
+export const WS_PRIMARY = process.env.XIAOYI_WS_PRIMARY_URL! + "/openclaw/v1/ws/link";
+export const WS_BACKUP = process.env.XIAOYI_WS_BACKUP_URL! + "/openclaw/v1/ws/link";
 export const APP_HEARTBEAT_MS = 20_000;
 export const WS_PING_MS = 30_000;
 export const PONG_TIMEOUT_MS = 90_000;
@@ -110,7 +110,8 @@ export function extractFileParts(parts: Array<{ kind?: string; text?: string; fi
  * huaweicloud.com, dbankcloud.com, etc.) and the URI comes from an
  * authenticated WebSocket connection (trusted source).
  */
-const PRIVATE_IP = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.|::1$|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:|fe80:|::ffff:)/;
+const PRIVATE_IP =
+  /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|169\.254\.|::1$|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:|fe80:|::ffff:)/;
 
 export function assertSafeXiaoyiUri(uri: string): void {
   let parsed: URL;

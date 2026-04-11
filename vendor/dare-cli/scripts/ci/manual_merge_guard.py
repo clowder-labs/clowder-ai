@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import urllib.error
 import urllib.request
@@ -218,7 +219,7 @@ def main() -> int:
     _write_output("merge_commit_sha", decision.merge_commit_sha)
     _write_output("approved_reviewers", ",".join(decision.approved_reviewers))
 
-    print(json.dumps(asdict(decision), ensure_ascii=True))
+    logging.info(json.dumps(asdict(decision), ensure_ascii=True))
     return 0
 
 

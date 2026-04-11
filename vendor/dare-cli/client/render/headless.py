@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any
 from uuid import uuid4
@@ -27,7 +28,7 @@ class HeadlessRenderer:
 
     def emit(self, event: str, payload: Any) -> None:
         self._seq += 1
-        print(
+        logging.info(
             json.dumps(
                 {
                     "schema_version": self.schema_version,
@@ -39,6 +40,5 @@ class HeadlessRenderer:
                     "data": payload,
                 },
                 ensure_ascii=False,
-            ),
-            flush=True,
+            )
         )

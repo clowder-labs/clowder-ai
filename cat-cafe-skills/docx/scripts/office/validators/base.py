@@ -7,7 +7,7 @@ from pathlib import Path
 
 import defusedxml.minidom
 import lxml.etree
-
+import logging
 
 class BaseSchemaValidator:
 
@@ -104,7 +104,7 @@ class BaseSchemaValidator:
         ]
 
         if not self.xml_files:
-            print(f"Warning: No XML files found in {self.unpacked_dir}")
+            logging.info(f"Warning: No XML files found in {self.unpacked_dir}")
 
     def validate(self):
         raise NotImplementedError("Subclasses must implement the validate method")
@@ -128,14 +128,16 @@ class BaseSchemaValidator:
                             if elem.getAttribute("xml:space") != "preserve":
                                 elem.setAttribute("xml:space", "preserve")
                                 text_preview = repr(text[:30]) + "..." if len(text) > 30 else repr(text)
-                                print(f"  Repaired: {xml_file.name}: Added xml:space='preserve' to {elem.tagName}: {text_preview}")
+                                logging.info(f"  Repaired: {xml_file.name}: Added "
+                                      f"xml:space='preserve' to {elem.tagName}: {text_preview}")
                                 repairs += 1
                                 modified = True
 
                 if modified:
                     xml_file.write_bytes(dom.toxml(encoding="UTF-8"))
 
-            except Exception:
+            except Exception as e:
+                logging.error(f"handle error {e}", exc_info=True)
                 pass
 
         return repairs
@@ -158,13 +160,13 @@ class BaseSchemaValidator:
                 )
 
         if errors:
-            print(f"FAILED - Found {len(errors)} XML violations:")
+            logging.info(f"FAILED - Found {len(errors)} XML violations:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - All XML files are well-formed")
+                logging.info("PASSED - All XML files are well-formed")
             return True
 
     def validate_namespaces(self):
@@ -188,12 +190,12 @@ class BaseSchemaValidator:
                 continue
 
         if errors:
-            print(f"FAILED - {len(errors)} namespace issues:")
+            logging.info(f"FAILED - {len(errors)} namespace issues:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         if self.verbose:
-            print("PASSED - All namespace prefixes properly declared")
+            logging.info("PASSED - All namespace prefixes properly declared")
         return True
 
     def validate_unique_ids(self):
@@ -277,13 +279,13 @@ class BaseSchemaValidator:
                 )
 
         if errors:
-            print(f"FAILED - Found {len(errors)} ID uniqueness violations:")
+            logging.info(f"FAILED - Found {len(errors)} ID uniqueness violations:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("PASSED - All required IDs are unique")
+                logging.info("PASSED - All required IDs are unique")
             return True
 
     def validate_file_references(self):
@@ -293,7 +295,7 @@ class BaseSchemaValidator:
 
         if not rels_files:
             if self.verbose:
-                print("PASSED - No .rels files found")
+                logging.info("PASSED - No .rels files found")
             return True
 
         all_files = []
@@ -308,7 +310,7 @@ class BaseSchemaValidator:
         all_referenced_files = set()
 
         if self.verbose:
-            print(
+            logging.info(
                 f"Found {len(rels_files)} .rels files and {len(all_files)} target files"
             )
 
@@ -366,10 +368,10 @@ class BaseSchemaValidator:
                 errors.append(f"  Unreferenced file: {unref_rel_path}")
 
         if errors:
-            print(f"FAILED - Found {len(errors)} relationship validation errors:")
+            logging.info(f"FAILED - Found {len(errors)} relationship validation errors:")
             for error in errors:
-                print(error)
-            print(
+                logging.info(error)
+            logging.info(
                 "CRITICAL: These errors will cause the document to appear corrupt. "
                 + "Broken references MUST be fixed, "
                 + "and unreferenced files MUST be referenced or removed."
@@ -377,14 +379,12 @@ class BaseSchemaValidator:
             return False
         else:
             if self.verbose:
-                print(
+                logging.info(
                     "PASSED - All references are valid and all files are properly referenced"
                 )
             return True
 
     def validate_all_relationship_ids(self):
-        import lxml.etree
-
         errors = []
 
         for xml_file in self.xml_files:
@@ -436,7 +436,8 @@ class BaseSchemaValidator:
                             errors.append(
                                 f"  {xml_rel_path}: Line {elem.sourceline}: "
                                 f"<{elem_name}> r:{attr_name} references non-existent relationship '{rid_attr}' "
-                                f"(valid IDs: {', '.join(sorted(rid_to_type.keys())[:5])}{'...' if len(rid_to_type) > 5 else ''})"
+                                f"(valid IDs: {', '.join(sorted(rid_to_type.keys())[:5])}"
+                                f"{'...' if len(rid_to_type) > 5 else ''})"
                             )
                         elif attr_name == "id" and self.ELEMENT_RELATIONSHIP_TYPES:
                             expected_type = self._get_expected_relationship_type(
@@ -456,14 +457,14 @@ class BaseSchemaValidator:
                 errors.append(f"  Error processing {xml_rel_path}: {e}")
 
         if errors:
-            print(f"FAILED - Found {len(errors)} relationship ID reference errors:")
+            logging.info(f"FAILED - Found {len(errors)} relationship ID reference errors:")
             for error in errors:
-                print(error)
-            print("\nThese ID mismatches will cause the document to appear corrupt!")
+                logging.info(error)
+            logging.info("\nThese ID mismatches will cause the document to appear corrupt!")
             return False
         else:
             if self.verbose:
-                print("PASSED - All relationship ID references are valid")
+                logging.info("PASSED - All relationship ID references are valid")
             return True
 
     def _get_expected_relationship_type(self, element_name):
@@ -494,7 +495,7 @@ class BaseSchemaValidator:
 
         content_types_file = self.unpacked_dir / "[Content_Types].xml"
         if not content_types_file.exists():
-            print("FAILED - [Content_Types].xml file not found")
+            logging.info("FAILED - [Content_Types].xml file not found")
             return False
 
         try:
@@ -561,7 +562,8 @@ class BaseSchemaValidator:
                             f"  {path_str}: File with <{root_name}> root not declared in [Content_Types].xml"
                         )
 
-                except Exception:
+                except Exception as e:
+                    logging.error(f"handle error {e}", exc_info=True)
                     continue  
 
             for file_path in all_files:
@@ -577,20 +579,22 @@ class BaseSchemaValidator:
                     if extension in media_extensions:
                         relative_path = file_path.relative_to(self.unpacked_dir)
                         errors.append(
-                            f'  {relative_path}: File with extension \'{extension}\' not declared in [Content_Types].xml - should add: <Default Extension="{extension}" ContentType="{media_extensions[extension]}"/>'
+                            f'{relative_path}: File with extension \'{extension}\' '
+                            f'not declared in [Content_Types].xml - should add: <Default '
+                            f'Extension="{extension}" ContentType="{media_extensions[extension]}"/>'
                         )
 
         except Exception as e:
             errors.append(f"  Error parsing [Content_Types].xml: {e}")
 
         if errors:
-            print(f"FAILED - Found {len(errors)} content type declaration errors:")
+            logging.info(f"FAILED - Found {len(errors)} content type declaration errors:")
             for error in errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print(
+                logging.info(
                     "PASSED - All content files are properly declared in [Content_Types].xml"
                 )
             return True
@@ -610,7 +614,8 @@ class BaseSchemaValidator:
 
         original_errors = self._get_original_file_errors(xml_file)
 
-        assert current_errors is not None
+        if current_errors is None:
+            raise ValueError("current_errors cannot be None")
         new_errors = current_errors - original_errors
 
         new_errors = {
@@ -621,14 +626,14 @@ class BaseSchemaValidator:
         if new_errors:
             if verbose:
                 relative_path = xml_file.relative_to(unpacked_dir)
-                print(f"FAILED - {relative_path}: {len(new_errors)} new error(s)")
+                logging.info(f"FAILED - {relative_path}: {len(new_errors)} new error(s)")
                 for error in list(new_errors)[:3]:
                     truncated = error[:250] + "..." if len(error) > 250 else error
-                    print(f"  - {truncated}")
+                    logging.info(f"  - {truncated}")
             return False, new_errors
         else:
             if verbose:
-                print(
+                logging.info(
                     f"PASSED - No new errors (original had {len(current_errors)} errors)"
                 )
             return True, set()
@@ -663,23 +668,24 @@ class BaseSchemaValidator:
                 )
 
         if self.verbose:
-            print(f"Validated {len(self.xml_files)} files:")
-            print(f"  - Valid: {valid_count}")
-            print(f"  - Skipped (no schema): {skipped_count}")
+            logging.info(f"Validated {len(self.xml_files)} files:")
+            logging.info(f"  - Valid: {valid_count}")
+            logging.info(f"  - Skipped (no schema): {skipped_count}")
             if original_error_count:
-                print(f"  - With original errors (ignored): {original_error_count}")
-            print(
-                f"  - With NEW errors: {len(new_errors) > 0 and len([e for e in new_errors if not e.startswith('    ')]) or 0}"
+                logging.info(f"  - With original errors (ignored): {original_error_count}")
+            logging.info(
+                f"  - With NEW errors: "
+                f"{len(new_errors) > 0 and len([e for e in new_errors if not e.startswith('    ')]) or 0}"
             )
 
         if new_errors:
-            print("\nFAILED - Found NEW validation errors:")
+            logging.info("\nFAILED - Found NEW validation errors:")
             for error in new_errors:
-                print(error)
+                logging.info(error)
             return False
         else:
             if self.verbose:
-                print("\nPASSED - No new XSD validation errors introduced")
+                logging.info("\nPASSED - No new XSD validation errors introduced")
             return True
 
     def _get_schema_path(self, xml_file):
