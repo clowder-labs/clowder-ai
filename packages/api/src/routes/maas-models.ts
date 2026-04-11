@@ -148,6 +148,18 @@ const MAAS_MAP: Record<string, Partial<MassModelInfo>> = {
     icon: '/images/qwen.svg',
   },
 };
+
+export const MAAS_MODEL_WHITELIST = [
+  'GLM-5',
+  'DeepSeek-V3.2',
+  'DeepSeek-V3',
+  'Kimi-K2',
+  'Qwen3-235B-A22B',
+  'Qwen3-Coder-480B-A35B-Instruct',
+] as const;
+
+const MAAS_MODEL_WHITELIST_SET = new Set<string>(MAAS_MODEL_WHITELIST);
+const MAAS_MODEL_WHITELIST_INDEX = new Map<string, number>(MAAS_MODEL_WHITELIST.map((name, index) => [name, index]));
 function normalizeModelList(value: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(value)) {
     return value.filter((item): item is Record<string, unknown> => typeof item === 'object' && item !== null);
@@ -175,7 +187,7 @@ function uniquePayloadById(models: Array<Record<string, unknown>>): Array<Record
   });
 }
 
-function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[] {
+export function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[] {
   return models.map((item, index) => {
     const rawId = item.id;
     const rawName = item.name;
@@ -200,6 +212,16 @@ function toMassModelList(models: Array<Record<string, unknown>>): MassModelInfo[
       ...(MAAS_MAP[rawId as string] ?? {}),
     } satisfies MassModelInfo;
   });
+}
+
+export function filterMaaSModelsByWhitelist(models: MassModelInfo[]): MassModelInfo[] {
+  return models
+    .filter((model) => MAAS_MODEL_WHITELIST_SET.has(model.name))
+    .sort((left, right) => {
+      const leftIndex = MAAS_MODEL_WHITELIST_INDEX.get(left.name) ?? Number.MAX_SAFE_INTEGER;
+      const rightIndex = MAAS_MODEL_WHITELIST_INDEX.get(right.name) ?? Number.MAX_SAFE_INTEGER;
+      return leftIndex - rightIndex;
+    });
 }
 
 function toConfiguredModelList(
@@ -307,9 +329,10 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
       try {
         const cachedModels = await readCachedMaaSModels(modelJsonPath);
         if (cachedModels.length > 0) {
+          const filteredMaaSModels = filterMaaSModelsByWhitelist(toMassModelList(cachedModels));
           return {
             success: true,
-            list: [...toMassModelList(cachedModels), ...configuredNonHuaweiModels],
+            list: [...filteredMaaSModels, ...configuredNonHuaweiModels],
             projectPath: projectRoot,
           };
         }
@@ -357,9 +380,10 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
           `${JSON.stringify({ ...existingConfig, [HUAWEI_MAAS_MODEL_SOURCE_ID]: mergedModels }, null, 2)}\n`,
           'utf-8',
         );
+        const filteredMaaSModels = filterMaaSModelsByWhitelist(toMassModelList(incomingModels));
         return {
           success: true,
-          list: [...toMassModelList(incomingModels), ...configuredNonHuaweiModels],
+          list: [...filteredMaaSModels, ...configuredNonHuaweiModels],
           projectPath: projectRoot,
         };
       } catch (error) {

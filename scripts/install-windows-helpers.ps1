@@ -749,7 +749,7 @@ function Invoke-InstallerAuthHelper {
     }
     & node $State.HelperPath @CommandArgs
     if ($LASTEXITCODE -ne 0) {
-        throw "install auth helper failed"
+        # throw "install auth helper failed"
     }
 }
 

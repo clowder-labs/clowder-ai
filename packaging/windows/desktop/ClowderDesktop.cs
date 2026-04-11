@@ -815,7 +815,8 @@ internal sealed class LauncherForm : Form
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
         settings.AreDevToolsEnabled = false;
-        settings.AreDefaultContextMenusEnabled = false;
+        // Keep native context menu so selection copy works in desktop WebView2.
+        settings.AreDefaultContextMenusEnabled = true;
         settings.IsZoomControlEnabled = false;
         settings.AreBrowserAcceleratorKeysEnabled = false;
         settings.IsPinchZoomEnabled = false;

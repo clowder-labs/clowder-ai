@@ -18,6 +18,13 @@ const mockSetHasActiveInvocation = vi.fn();
 const mockClearAllActiveInvocations = vi.fn(() => {
   mockSetHasActiveInvocation(false);
 });
+const mockRemoveActiveInvocation = vi.fn((invocationId: string) => {
+  const { [invocationId]: _removed, ...rest } = storeState.activeInvocations;
+  storeState.activeInvocations = rest;
+  if (Object.keys(rest).length === 0) {
+    mockSetHasActiveInvocation(false);
+  }
+});
 const mockSetIntentMode = vi.fn();
 const mockSetCatStatus = vi.fn();
 const mockClearCatStatuses = vi.fn();
@@ -68,6 +75,7 @@ const storeState = {
   setStreaming: mockSetStreaming,
   setLoading: mockSetLoading,
   setHasActiveInvocation: mockSetHasActiveInvocation,
+  removeActiveInvocation: mockRemoveActiveInvocation,
   clearAllActiveInvocations: mockClearAllActiveInvocations,
   setIntentMode: mockSetIntentMode,
   setCatStatus: mockSetCatStatus,
@@ -75,6 +83,7 @@ const storeState = {
   setCatInvocation: mockSetCatInvocation,
   setMessageUsage: mockSetMessageUsage,
   requestStreamCatchUp: mockRequestStreamCatchUp,
+  activeInvocations: {} as Record<string, { catId: string; mode: string }>,
 
   addMessageToThread: mockAddMessageToThread,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
@@ -124,6 +133,7 @@ describe('useAgentMessages loading lifecycle', () => {
     mockSetStreaming.mockClear();
     mockSetLoading.mockClear();
     mockSetHasActiveInvocation.mockClear();
+    mockRemoveActiveInvocation.mockClear();
     mockClearAllActiveInvocations.mockClear();
     mockSetIntentMode.mockClear();
     mockSetCatStatus.mockClear();
@@ -137,6 +147,7 @@ describe('useAgentMessages loading lifecycle', () => {
     mockSetThreadMessageStreaming.mockClear();
     mockGetThreadState.mockClear();
     mockGetThreadState.mockImplementation(() => ({ messages: [] }));
+    storeState.activeInvocations = {};
     storeState.currentThreadId = 'thread-1';
   });
 
@@ -440,6 +451,63 @@ describe('useAgentMessages loading lifecycle', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('drops late non-done events from cancelled invocations after stop, while still allowing done cleanup', () => {
+    const cancelInvocation = vi.fn();
+    storeState.activeInvocations = {
+      'inv-old-1': { catId: 'codex', mode: 'chat' },
+      'inv-old-2': { catId: 'opus', mode: 'chat' },
+    };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleStop(cancelInvocation, 'thread-1');
+    });
+
+    expect(cancelInvocation).toHaveBeenCalledWith('thread-1');
+    expect(mockSetCatInvocation).toHaveBeenCalledWith('codex', { invocationId: undefined });
+    expect(mockSetCatInvocation).toHaveBeenCalledWith('opus', { invocationId: undefined });
+
+    mockSetCatStatus.mockClear();
+    mockAddMessage.mockClear();
+    mockAppendToMessage.mockClear();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        content: 'late stale chunk',
+        invocationId: 'inv-old-1',
+      });
+    });
+
+    expect(mockSetCatStatus).not.toHaveBeenCalled();
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+
+    mockSetCatStatus.mockClear();
+    mockSetLoading.mockClear();
+    mockSetIntentMode.mockClear();
+    mockClearCatStatuses.mockClear();
+    mockSetHasActiveInvocation.mockClear();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'codex',
+        invocationId: 'inv-old-1',
+        isFinal: true,
+      });
+    });
+
+    expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'done');
+    expect(mockSetLoading).toHaveBeenCalledWith(false);
+    expect(mockSetIntentMode).toHaveBeenCalledWith(null);
+    expect(mockClearCatStatuses).toHaveBeenCalled();
   });
 
   it('cleans timeout guard on unmount to prevent stale timeout side effects', () => {
