@@ -51,6 +51,7 @@ ShowInstDetails show
 ShowUninstDetails nevershow
 
 Var SelectedInstallDir
+Var ExistingInstallDir
 
 ; --------------- License page (custom nsDialogs) ---------------
 Page custom LicensePageCreate LicensePageLeave
@@ -238,8 +239,15 @@ FunctionEnd
 
 Function .onInit
   SetShellVarContext current
-  StrCpy $SelectedInstallDir $INSTDIR
-  
+  Call ResolveExistingInstallDir
+  ${If} $ExistingInstallDir != ""
+    StrCpy $INSTDIR $ExistingInstallDir
+    StrCpy $SelectedInstallDir $ExistingInstallDir
+    MessageBox MB_ICONINFORMATION|MB_OK "检测到已安装的 ${APP_NAME}，本次安装将更新现有目录：$\r$\n$ExistingInstallDir$\r$\n$\r$\n如需更换安装位置，请先卸载当前版本。"
+  ${Else}
+    StrCpy $SelectedInstallDir $INSTDIR
+  ${EndIf}
+
   ; Check if OfficeClaw is running
   Call CheckOfficeClawRunning
   ${If} $R0 == "1"
@@ -269,7 +277,29 @@ Function .onVerifyInstDir
   ${EndIf}
 FunctionEnd
 
+Function ResolveExistingInstallDir
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 == ""
+    StrCpy $ExistingInstallDir ""
+    Return
+  ${EndIf}
+
+  IfFileExists "$0\uninstall.exe" existing_install +2
+  IfFileExists "$0\OfficeClaw.exe" existing_install 0
+    StrCpy $ExistingInstallDir ""
+    Return
+
+existing_install:
+  StrCpy $ExistingInstallDir $0
+FunctionEnd
+
 Function RestoreInstallDirSelection
+  ${If} $ExistingInstallDir != ""
+    StrCpy $INSTDIR $ExistingInstallDir
+    StrCpy $SelectedInstallDir $ExistingInstallDir
+    Abort
+  ${EndIf}
+
   ${If} $SelectedInstallDir == ""
     StrCpy $SelectedInstallDir $INSTDIR
   ${Else}
@@ -278,6 +308,12 @@ Function RestoreInstallDirSelection
 FunctionEnd
 
 Function VerifyInstallDirLeave
+  ${If} $ExistingInstallDir != ""
+    StrCpy $INSTDIR $ExistingInstallDir
+    StrCpy $SelectedInstallDir $ExistingInstallDir
+    Return
+  ${EndIf}
+
   StrCpy $SelectedInstallDir $INSTDIR
   StrLen $0 $SelectedInstallDir
   ${If} $0 > 200
