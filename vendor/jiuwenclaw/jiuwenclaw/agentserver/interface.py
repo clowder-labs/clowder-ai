@@ -392,6 +392,9 @@ class JiuWenClaw:
         else:
             logger.warning("[JiuWenClaw] ReActAgent has no _skill_util; skip skill registration.")
 
+        # Initialize subagent tools
+        self._init_subagent_tools(config_base)
+
         # add memory tools
         await init_memory_manager_async(
             workspace_dir=self._workspace_dir,
@@ -582,6 +585,52 @@ class JiuWenClaw:
             self._agent_name,
             self._workspace_dir,
         )
+
+    def _init_subagent_tools(self, config_base: dict[str, Any]) -> None:
+        """Initialize subagent tools for spawning sub-agents."""
+        try:
+            from pathlib import Path
+            from jiuwenclaw.agentserver.tools.subagent_tools import (
+                init_subagent_tools,
+                register_skill_subagent_config,
+            )
+            from jiuwenclaw.utils import get_agent_skills_dir
+
+            # Get skills directory
+            skill_base_dir = Path(get_agent_skills_dir())
+            if not skill_base_dir.exists():
+                skill_base_dir = Path(self._workspace_dir) / "skills"
+
+            # Default role prompts (used when Skill doesn't define)
+            default_role_prompts = {
+                "MainAgent": SYSTEM_PROMPT,
+                "Explorer": "You are an explorer agent focused on searching and gathering information efficiently.",
+            }
+
+            # Initialize subagent tools (inherits config from parent agent)
+            init_subagent_tools(
+                parent_agent=self._instance,
+                skill_base_dir=skill_base_dir,
+                default_role_prompts=default_role_prompts,
+            )
+
+            # Register skill configs
+            if hasattr(self._skill_manager, "_scan_local_skills"):
+                for skill_record in self._skill_manager._scan_local_skills():
+                    subagent_config = skill_record.get("subagent_config")
+                    if subagent_config:
+                        skill_name = skill_record.get("name", "")
+                        if skill_name:
+                            register_skill_subagent_config(skill_name, subagent_config)
+
+            # Register subagent tools with agent's ability_manager
+            from jiuwenclaw.agentserver.tools.subagent_tools import spawn_subagent
+            Runner.resource_mgr.add_tool(spawn_subagent)
+            self._instance.ability_manager.add(spawn_subagent.card)
+
+            logger.info("[JiuWenClaw] Subagent tools initialized")
+        except Exception as exc:
+            logger.warning("[JiuWenClaw] Failed to initialize subagent tools: %s", exc)
 
     def reload_agent_config(self) -> None:
         """从 config.yaml 重新加载配置并 reconfigure 当前实例，使模型/API 等配置生效且不重启进程。"""

@@ -32,7 +32,7 @@ export function ConnectorConnectedState({
           className="ml-auto text-xs font-medium text-red-500 transition-colors hover:text-red-700 disabled:opacity-50"
           data-testid={disconnectTestId}
         >
-          {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+          {disconnecting ? '取消连接中...' : '取消连接'}
         </button>
       </div>
       {children}

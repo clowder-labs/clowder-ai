@@ -146,7 +146,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
     return (
       <div data-testid="feishu-connected">
         <ConnectorConnectedState
-          label="Feishu connected"
+          label="飞书 已连接"
           disconnecting={disconnecting}
           onDisconnect={handleDisconnect}
           disconnectTestId="feishu-disconnect"

@@ -495,6 +495,7 @@ Section "Uninstall"
 
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "${INSTALL_KEY}"
+  DeleteRegKey /ifempty HKCU "Software\${COMPANY_KEY}"
 
   ; Skip firewall rule cleanup: user-level installs do not create the rule.
 
