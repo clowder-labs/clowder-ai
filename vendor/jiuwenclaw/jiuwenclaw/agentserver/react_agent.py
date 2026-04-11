@@ -28,6 +28,7 @@ from openjiuwen.core.foundation.tool import ToolInfo
 from openjiuwen.core.session.agent import Session
 from openjiuwen.core.session.stream import OutputSchema
 from openjiuwen.core.session.stream.base import StreamMode
+from jiuwenclaw.agentserver.tools.subagent_executor import set_subagent_parent_session
 from openjiuwen.core.single_agent import AgentCard, ReActAgent
 
 from jiuwenclaw.agentserver.permissions import (
@@ -489,9 +490,13 @@ class JiuClawReActAgent(ReActAgent):
 
                     # 执行被允许的工具调用
                     if allowed_tool_calls:
+                        # Set session context for subagent tools to access
+                        set_subagent_parent_session(session)
                         results = await self.ability_manager.execute(
                             allowed_tool_calls, session
                         )
+                        # Clear session context after execution
+                        set_subagent_parent_session(None)
 
                         for i, (_result, tool_msg) in enumerate(results):
                             tc = allowed_tool_calls[i] if i < len(allowed_tool_calls) else None
@@ -510,6 +515,8 @@ class JiuClawReActAgent(ReActAgent):
                     if todo_called and session is not None and session_id:
                         await self._emit_todo_updated(session, session_id)
                 except (Exception, asyncio.CancelledError):
+                    # Clear session context on exception
+                    set_subagent_parent_session(None)
                     # On exception or cancellation, add placeholder tool messages to keep context valid
                     if not tool_messages_added:
                         from openjiuwen.core.foundation.llm import ToolMessage
