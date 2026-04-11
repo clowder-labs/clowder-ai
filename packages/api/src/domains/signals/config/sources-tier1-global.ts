@@ -6,6 +6,25 @@
 
 import type { SignalSource } from '@cat-cafe/shared';
 
+// ── Signal Source Base URLs (信号源域名) ───────────────────────────
+const ANTHROPIC_WEB_URL = process.env.ANTHROPIC_WEB_URL!;
+const ANTHROPIC_ALIGNMENT_URL = process.env.ANTHROPIC_ALIGNMENT_URL!;
+const OPENAI_WEB_URL = process.env.OPENAI_WEB_URL!;
+const GOOGLE_DEEPMIND_URL = process.env.GOOGLE_DEEPMIND_URL!;
+const GOOGLE_RESEARCH_URL = process.env.GOOGLE_RESEARCH_URL!;
+const GOOGLE_BLOG_URL = process.env.GOOGLE_BLOG_URL!;
+const META_AI_URL = process.env.META_AI_URL!;
+const META_RESEARCH_URL = process.env.META_RESEARCH_URL!;
+const MICROSOFT_RESEARCH_URL = process.env.MICROSOFT_RESEARCH_URL!;
+const APPLE_ML_URL = process.env.APPLE_ML_URL!;
+const AWS_BLOG_URL = process.env.AWS_BLOG_URL!;
+const AMAZON_SCIENCE_URL = process.env.AMAZON_SCIENCE_URL!;
+const XAI_URL = process.env.XAI_URL!;
+const MISTRAL_URL = process.env.MISTRAL_URL!;
+const COHERE_URL = process.env.COHERE_URL!;
+const TOGETHER_AI_URL = process.env.TOGETHER_AI_URL!;
+const GROQ_URL = process.env.GROQ_URL!;
+
 /**
  * Tier 1 global AI labs: Anthropic, OpenAI, Google, Meta,
  * Microsoft/Apple/AWS, xAI, Mistral, Cohere, Together AI, Groq.
@@ -15,7 +34,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'anthropic-news',
     name: 'Anthropic Newsroom',
-    url: 'https://www.anthropic.com/news',
+    url: ANTHROPIC_WEB_URL + '/news',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -25,7 +44,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'anthropic-research',
     name: 'Anthropic Research',
-    url: 'https://www.anthropic.com/research',
+    url: ANTHROPIC_WEB_URL + '/research',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -35,7 +54,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'anthropic-engineering',
     name: 'Anthropic Engineering',
-    url: 'https://www.anthropic.com/engineering',
+    url: ANTHROPIC_WEB_URL + '/engineering',
     tier: 1,
     category: 'engineering',
     enabled: true,
@@ -45,7 +64,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'anthropic-alignment',
     name: 'Anthropic Alignment Science',
-    url: 'https://alignment.anthropic.com/',
+    url: ANTHROPIC_ALIGNMENT_URL + '/',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -57,7 +76,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'openai-news-rss',
     name: 'OpenAI News RSS',
-    url: 'https://openai.com/news/rss.xml',
+    url: OPENAI_WEB_URL + '/news/rss.xml',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -67,7 +86,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'openai-research',
     name: 'OpenAI Research',
-    url: 'https://openai.com/research/',
+    url: OPENAI_WEB_URL + '/research/',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -79,7 +98,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'deepmind-blog',
     name: 'Google DeepMind Blog',
-    url: 'https://deepmind.google/blog/',
+    url: GOOGLE_DEEPMIND_URL + '/blog/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -89,7 +108,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'deepmind-publications',
     name: 'Google DeepMind Publications',
-    url: 'https://deepmind.google/research/publications/',
+    url: GOOGLE_DEEPMIND_URL + '/research/publications/',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -99,7 +118,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'google-research-blog',
     name: 'Google Research Blog',
-    url: 'https://research.google/blog/',
+    url: GOOGLE_RESEARCH_URL + '/blog/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -109,7 +128,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'google-blog-ai',
     name: 'Google Blog AI',
-    url: 'https://blog.google/technology/ai/',
+    url: GOOGLE_BLOG_URL + '/technology/ai/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -121,7 +140,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'meta-ai-blog',
     name: 'Meta AI Blog',
-    url: 'https://ai.meta.com/blog/',
+    url: META_AI_URL + '/blog/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -131,7 +150,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'meta-research-publications',
     name: 'Meta Research Publications',
-    url: 'https://research.facebook.com/publications/',
+    url: META_RESEARCH_URL + '/publications/',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -143,7 +162,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'microsoft-research-rss',
     name: 'Microsoft Research Blog',
-    url: 'https://www.microsoft.com/en-us/research/blog/feed/',
+    url: MICROSOFT_RESEARCH_URL + '/en-us/research/blog/feed/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -153,7 +172,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'apple-ml-rss',
     name: 'Apple ML Research',
-    url: 'https://machinelearning.apple.com/feed.xml',
+    url: APPLE_ML_URL + '/feed.xml',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -163,7 +182,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'aws-ml-blog-rss',
     name: 'AWS ML Blog',
-    url: 'https://aws.amazon.com/blogs/machine-learning/feed/',
+    url: AWS_BLOG_URL + '/blogs/machine-learning/feed/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -173,7 +192,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'amazon-science',
     name: 'Amazon Science',
-    url: 'https://www.amazon.science/',
+    url: AMAZON_SCIENCE_URL + '/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -185,7 +204,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'xai-blog',
     name: 'xAI Blog',
-    url: 'https://x.ai/blog',
+    url: XAI_URL + '/blog',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -195,7 +214,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'mistral-news',
     name: 'Mistral AI News',
-    url: 'https://mistral.ai/news/',
+    url: MISTRAL_URL + '/news/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -205,7 +224,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'cohere-research',
     name: 'Cohere Research',
-    url: 'https://cohere.com/research',
+    url: COHERE_URL + '/research',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -215,7 +234,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'together-ai-blog',
     name: 'Together AI Blog',
-    url: 'https://www.together.ai/blog',
+    url: TOGETHER_AI_URL + '/blog',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -225,7 +244,7 @@ export const TIER1_GLOBAL_SOURCES: readonly SignalSource[] = [
   {
     id: 'groq-news',
     name: 'Groq News',
-    url: 'https://groq.com/news/',
+    url: GROQ_URL + '/news/',
     tier: 1,
     category: 'official',
     enabled: true,

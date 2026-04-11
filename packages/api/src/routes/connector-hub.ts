@@ -6,7 +6,11 @@
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
-import { buildConnectorEnvRefVarName, getConnectorEnvValue, hasConnectorEnvValue } from '../config/local-secret-store.js';
+import {
+  buildConnectorEnvRefVarName,
+  getConnectorEnvValue,
+  hasConnectorEnvValue,
+} from '../config/local-secret-store.js';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
@@ -15,6 +19,10 @@ import { DefaultFeishuQrBindClient, type FeishuQrBindClient } from '../infrastru
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 const DINGTALK_API_BASE_URL = process.env.DINGTALK_API_BASE_URL!;
+const DINGTALK_OPEN_URL = process.env.DINGTALK_OPEN_URL!;
+const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
+const WEIXIN_CHATBOT_URL = process.env.WEIXIN_CHATBOT_URL!;
+const HUAWEI_DEVELOPER_URL = process.env.HUAWEI_DEVELOPER_URL!;
 
 export interface ConnectorHubRoutesOptions {
   threadStore: IThreadStore;
@@ -87,7 +95,8 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     nameEn: 'Feishu / Lark',
     fields: [],
     docsUrl:
-      'https://open.feishu.cn/document/home/introduction-to-custom-app-development/self-built-application-development-process',
+      FEISHU_OPEN_API_BASE_URL +
+      '/document/home/introduction-to-custom-app-development/self-built-application-development-process',
     steps: [
       { text: '点击「生成二维码」按钮' },
       { text: '使用飞书扫描二维码并确认授权' },
@@ -99,7 +108,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     name: '微信',
     nameEn: 'WeChat Personal',
     fields: [],
-    docsUrl: 'https://chatbot.weixin.qq.com/',
+    docsUrl: WEIXIN_CHATBOT_URL + '/',
     steps: [
       { text: '点击「生成二维码」按钮' },
       { text: '使用微信扫描二维码并确认授权' },
@@ -114,7 +123,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { envName: 'DINGTALK_APP_KEY', label: 'App Key', sensitive: false },
       { envName: 'DINGTALK_APP_SECRET', label: 'App Secret', sensitive: true },
     ],
-    docsUrl: 'https://open.dingtalk.com/document/dingstart/robot-application-overview',
+    docsUrl: DINGTALK_OPEN_URL + '/document/dingstart/robot-application-overview',
     steps: [
       { text: '在钉钉开放平台创建企业内部应用，获取 App Key 和 App Secret' },
       { text: '在「机器人与消息推送」中开启机器人能力' },
@@ -130,7 +139,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { envName: 'XIAOYI_AK', label: 'Access Key (AK)', sensitive: true },
       { envName: 'XIAOYI_SK', label: 'Secret Key (SK)', sensitive: true },
     ],
-    docsUrl: 'https://developer.huawei.com/consumer/cn/hag/abilityportal/',
+    docsUrl: HUAWEI_DEVELOPER_URL + '/consumer/cn/hag/abilityportal/',
     steps: [
       { text: '在华为小艺开放平台创建智能体，新建凭证获取 AK / SK' },
       { text: '配置白名单分组，添加调试用华为账号' },
@@ -416,7 +425,8 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       const signature = generateXiaoyiSignature(sk, timestamp);
 
       const wsUrl =
-        readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1') ?? 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
+        (readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1') ?? process.env.XIAOYI_WS_URL1!) +
+        '/openclaw/v1/ws/link';
 
       const { WebSocket } = await import('ws');
 

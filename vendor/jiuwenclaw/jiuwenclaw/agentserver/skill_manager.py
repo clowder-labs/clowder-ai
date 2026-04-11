@@ -833,10 +833,139 @@ class SkillManager:
         meta["tags"] = SkillManager._coerce_str_list(meta.get("tags"))
         meta["allowed_tools"] = SkillManager._coerce_str_list(meta.get("allowed_tools"))
 
+        # Parse subagent config from frontmatter
+        subagent_raw = meta.pop("subagent", None)
+        meta["subagent_config"] = None
+        if subagent_raw and isinstance(subagent_raw, dict):
+            try:
+                from jiuwenclaw.agentserver.tools.subagent_models import SubagentConfig
+                meta["subagent_config"] = SubagentConfig(**subagent_raw)
+            except Exception as e:
+                logger.warning(f"Failed to parse subagent config for {path}: {e}")
+
+        # Auto-generate subagent config from dependencies and role table if not defined
+        if meta["subagent_config"] is None:
+            meta["subagent_config"] = SkillManager._auto_generate_subagent_config(meta, body)
+
         meta["body"] = body
         meta["path"] = str(path)
 
         return meta
+
+    @staticmethod
+    def _auto_generate_subagent_config(meta: dict[str, Any], body: str):
+        """
+        Auto-generate subagent config from metadata.dependencies and role table in body.
+
+        This allows skills like pptx-craft to work without explicit subagent frontmatter.
+        Role table format in body:
+        | 角色 | 身份 | 职责 | 创建方式 |
+        | **Alice**（研究员） | ... | ... | Agent tool |
+        """
+        from jiuwenclaw.agentserver.tools.subagent_models import (
+            SubagentConfig,
+            SubagentRoleDefinition,
+        )
+
+        # Get dependencies (sub-skill paths)
+        metadata = meta.get("metadata", {})
+        if isinstance(metadata, dict):
+            dependencies = metadata.get("dependencies", [])
+        else:
+            dependencies = []
+
+        if not dependencies:
+            return None
+
+        # Parse role table from body
+        role_mapping = SkillManager._parse_role_table(body)
+
+        # Build SubagentConfig
+        roles = {}
+        for role_id, role_info in role_mapping.items():
+            # Find matching skill path from dependencies
+            skill_path = SkillManager._find_skill_path_for_role(role_id, dependencies, role_info)
+            roles[role_id] = SubagentRoleDefinition(
+                name=role_info.get("name", role_id),
+                description=role_info.get("description", ""),
+                system_prompt=role_info.get("description", ""),  # Use description as base prompt
+                skill_path=skill_path,
+            )
+
+        if roles:
+            logger.info(f"[SkillManager] Auto-generated subagent config with {len(roles)} roles from role table")
+            return SubagentConfig(enabled=True, roles=roles)
+
+        return None
+
+    @staticmethod
+    def _parse_role_table(body: str) -> dict[str, dict[str, str]]:
+        """
+        Parse role table from SKILL.md body.
+
+        Expected format:
+        | 角色 | 身份 | 职责 | 创建方式 |
+        | **Alice**（研究员） | 大纲驱动研究员 | ... | Agent tool |
+
+        Returns:
+            {role_id: {"name": str, "description": str}}
+        """
+        roles = {}
+        # Match table rows: | **RoleName**(alias) | ... | ... | ... |
+        pattern = r'\|\s*\*\*(\w+)\*\*[（(]([^)）]+)[)）]\s*\|\s*([^|]+)\|\s*([^|]+)\|'
+        for match in re.finditer(pattern, body):
+            role_id = match.group(1)
+            role_alias = match.group(2).strip()
+            role_identity = match.group(3).strip()
+            role_duty = match.group(4).strip()
+
+            # Skip Main Agent
+            if role_id.lower() in ("main", "mainagent"):
+                continue
+
+            roles[role_id] = {
+                "name": f"{role_alias} {role_id}",
+                "description": f"{role_identity}，{role_duty}",
+            }
+
+        return roles
+
+    @staticmethod
+    def _find_skill_path_for_role(
+        role_id: str,
+        dependencies: list[str],
+        role_info: dict[str, str],
+    ) -> str | None:
+        """
+        Find the skill path that matches the role.
+
+        Matching rules:
+        1. Role name contains keywords that match skill directory name
+        2. Dependency path contains role-related keywords
+        """
+        role_id_lower = role_id.lower()
+        role_desc_lower = role_info.get("description", "").lower()
+
+        # Keyword mapping for common roles
+        role_keywords = {
+            "alice": ["research", "outline", "调研", "研究"],
+            "bob": ["planner", "plan", "规划"],
+            "charlie": ["designer", "pptx", "design", "设计"],
+            "david": ["fixer", "fix", "修复"],
+        }
+
+        keywords = role_keywords.get(role_id_lower, [role_id_lower])
+
+        for dep in dependencies:
+            dep_lower = dep.lower()
+            # Check if any keyword matches
+            for kw in keywords:
+                if kw in dep_lower:
+                    # Convert "./path/SKILL.md" to "path"
+                    dep_path = dep.replace("./", "").replace("/SKILL.md", "").replace("\\SKILL.md", "")
+                    return dep_path
+
+        return None
 
     @staticmethod
     def _try_find_skill_file(directory: Path) -> Path | None:

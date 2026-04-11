@@ -130,18 +130,15 @@ export class LlmAIProvider implements AIProvider {
     const apiKey = process.env.GOOGLE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GOOGLE_AI_API_KEY not set');
 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 256 },
-        }),
-        signal,
-      },
-    );
+    const resp = await fetch(GOOGLE_AI_API_BASE_URL + `/v1beta/models/${this.model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 256 },
+      }),
+      signal,
+    });
 
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');

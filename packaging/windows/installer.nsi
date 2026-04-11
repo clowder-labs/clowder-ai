@@ -121,7 +121,7 @@ FunctionEnd
 
 Function LicensePageCreate
   !insertmacro MUI_HEADER_TEXT "许可协议" "继续安装前请阅读下列重要信息。$\r$\n请仔细阅读下列许可协议，您在继续安装前必须同意这些协议条款。"
-  
+
   nsDialogs::Create 1018
   Pop $LicenseDialog
   ${If} $LicenseDialog == error
@@ -131,30 +131,30 @@ Function LicensePageCreate
   GetDlgItem $NextButton $HWNDPARENT 1
   EnableWindow $NextButton 0
 
-  ${NSD_CreateLabel} 0 10 100% 25 "${APP_NAME}软件许可协议"
+  ${NSD_CreateLabel} 0 10u 100% 12u "${APP_NAME}软件许可协议"
   Pop $0
 
-  ${NSD_CreateLabel} 10 50 75 20 "1.了解和同意"
+  ${NSD_CreateLabel} 10u 25u 44u 10u "1.了解和同意"
   Pop $0
 
-  ${NSD_CreateLink} 85 50 30% 20 "华为云隐私政策声明"
+  ${NSD_CreateLink} 54u 25u 30% 10u "华为云隐私政策声明"
   Pop $1
   ${NSD_OnClick} $1 "OnPrivacyLinkClick"
 
-  ${NSD_CreateLabel} 10 80 75 20 "2.了解和同意"
+  ${NSD_CreateLabel} 10u 40u 44u 10u "2.了解和同意"
   Pop $0
 
-  ${NSD_CreateLink} 85 80 30% 20 "AgentArts服务声明"
+  ${NSD_CreateLink} 54u 40u 30% 10u "AgentArts服务声明"
   Pop $1
   ${NSD_OnClick} $1 "OnServiceLinkClick"
 
-  ${NSD_CreateRadioButton} 0 180 100% 20 "我同意此协议(A)"
+  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(A)"
   Pop $AgreeRadio
   ${NSD_Setfocus} $AgreeRadio
 
   ${NSD_OnClick} $AgreeRadio OnAgreementChanged
 
-  ${NSD_CreateRadioButton} 0 210 100% 20 "我不同意此协议(D)"
+  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(D)"
   Pop $DisagreeRadio
   ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
 
@@ -393,7 +393,7 @@ Function WriteUninstallRegistry
   WriteRegStr HKCU "${INSTALL_KEY}" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Clowder Labs"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "huawei cloud"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\assets\app.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
@@ -495,6 +495,7 @@ Section "Uninstall"
 
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "${INSTALL_KEY}"
+  DeleteRegKey /ifempty HKCU "Software\${COMPANY_KEY}"
 
   ; Skip firewall rule cleanup: user-level installs do not create the rule.
 

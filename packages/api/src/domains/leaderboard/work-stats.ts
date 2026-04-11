@@ -10,6 +10,10 @@
  */
 import type { RankedCat, WorkStats } from '@cat-cafe/shared';
 
+const ANTHROPIC_SUFFIX = process.env.ANTHROPIC_SUFFIX!;
+const OPENAI_SUFFIX = process.env.OPENAI_SUFFIX!;
+const GOOGLE_SUFFIX = process.env.GOOGLE_SUFFIX!;
+
 export interface GitLogEntry {
   hash: string;
   author: string;
@@ -64,9 +68,9 @@ function toRanked(counter: Map<string, number>, catNames: Record<string, string>
 function resolveAuthor(entry: GitLogEntry, authorMap: Record<string, string>): string {
   // Check Co-Authored-By for known cat identifiers
   const coAuthor = entry.coAuthors.toLowerCase();
-  if (coAuthor.includes('opus') || coAuthor.includes('anthropic')) return authorMap['noreply@anthropic.com'] ?? 'opus';
-  if (coAuthor.includes('codex') || coAuthor.includes('openai')) return authorMap['codex@openai.com'] ?? 'codex';
-  if (coAuthor.includes('gemini') || coAuthor.includes('google')) return authorMap['gemini@google.com'] ?? 'gemini';
+  if (coAuthor.includes('opus') || coAuthor.includes('anthropic')) return authorMap[ANTHROPIC_SUFFIX] ?? 'opus';
+  if (coAuthor.includes('codex') || coAuthor.includes('openai')) return authorMap[OPENAI_SUFFIX] ?? 'codex';
+  if (coAuthor.includes('gemini') || coAuthor.includes('google')) return authorMap[GOOGLE_SUFFIX] ?? 'gemini';
 
   // Fallback to author email map
   return authorMap[entry.author] ?? entry.author;

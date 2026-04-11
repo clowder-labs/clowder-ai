@@ -18,8 +18,8 @@ import { basename, join } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
-import { appendLocalImagePathHints } from './image-cli-bridge.js';
-import { extractImagePaths } from './image-paths.js';
+import { appendLocalUploadPathHints } from './image-cli-bridge.js';
+import { extractUploadRefs } from './image-paths.js';
 import {
   FrameQueue,
   RelayClawConnectionManager,
@@ -87,13 +87,13 @@ function buildRelayClawFilesPayload(
   contentBlocks: AgentServiceOptions['contentBlocks'],
   uploadDir?: string,
 ): Record<string, unknown> | undefined {
-  const imagePaths = extractImagePaths(contentBlocks, uploadDir);
-  if (imagePaths.length === 0) return undefined;
+  const uploadRefs = extractUploadRefs(contentBlocks, uploadDir);
+  if (uploadRefs.length === 0) return undefined;
   return {
-    uploaded: imagePaths.map((path, index) => ({
-      type: 'image',
-      name: basename(path) || `image-${index + 1}`,
-      path,
+    uploaded: uploadRefs.map((ref, index) => ({
+      type: ref.kind,
+      name: ref.fileName || basename(ref.path) || `${ref.kind}-${index + 1}`,
+      path: ref.path,
     })),
   };
 }
@@ -357,7 +357,7 @@ function buildRequest(
   prompt: string,
   options?: AgentServiceOptions,
 ): Record<string, unknown> {
-  const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
+  const uploadRefs = extractUploadRefs(options?.contentBlocks, options?.uploadDir);
   const systemPrompt = typeof options?.systemPrompt === 'string' ? options.systemPrompt.trim() : '';
   return {
     request_id: requestId,
@@ -365,7 +365,7 @@ function buildRequest(
     session_id: sessionId,
     req_method: 'chat.send',
     params: {
-      query: appendLocalImagePathHints(prompt, imagePaths),
+      query: appendLocalUploadPathHints(prompt, uploadRefs),
       ...(systemPrompt ? { system_prompt: systemPrompt } : {}),
       mode: 'agent',
       ...(options?.workingDirectory ? { project_dir: options.workingDirectory } : {}),
