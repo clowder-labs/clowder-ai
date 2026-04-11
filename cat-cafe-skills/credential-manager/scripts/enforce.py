@@ -92,10 +92,9 @@ def get_credential(key: str) -> str:
         Credential value
         
     Raises:
-        ValueError: If .env not secure or key not found
+        SystemExit: If .env not secure or key not found
     """
-    if not require_secure_env(exit_on_fail=False):
-        raise ValueError("Secure .env requirement not met")
+    require_secure_env()
     
     env_file = Path.home() / '.openclaw' / '.env'
     with open(env_file) as f:

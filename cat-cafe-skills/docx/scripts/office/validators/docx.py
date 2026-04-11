@@ -262,7 +262,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
             try:
                 for elem in lxml.etree.parse(str(xml_file)).iter():
                     val = elem.get(para_id_attr)
-                    if val :
+                    if val:
                         if self._parse_id_value(val, base=16) >= 0x80000000:
                             errors.append(
                                 f"  {xml_file.name}:{elem.sourceline}: paraId={val} >= 0x80000000"
