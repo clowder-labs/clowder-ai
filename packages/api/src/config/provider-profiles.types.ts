@@ -132,7 +132,7 @@ export interface ProviderProfilesMetaFile {
 
 export interface ProviderProfilesSecretsFile {
   version: 3;
-  profiles: Record<string, { apiKey?: string; env?: Record<string, string> }>;
+  profiles: Record<string, { apiKey?: string; apiKeyRef?: string; env?: Record<string, string>; envRef?: string }>;
 }
 
 export interface NormalizedState<T> {
