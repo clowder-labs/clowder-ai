@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { FeishuQrPanel } from './FeishuQrPanel';
 import {
@@ -123,6 +124,7 @@ function parseDocsLink(rawUrl: string): { href: string; hostname: string } | nul
 }
 
 export function HubConnectorConfigTab() {
+  const addToast = useToastStore((s) => s.addToast);
   const [platforms, setPlatforms] = useState<PlatformStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null);
@@ -225,7 +227,12 @@ export function HubConnectorConfigTab() {
 
   const handleTestConnection = async (platform: PlatformStatus) => {
     if (!TESTABLE_PLATFORMS.includes(platform.id)) {
-      setSaveResult({ type: 'success', message: '该平台测试连接功能即将上线' });
+      addToast({
+        type: 'info',
+        title: '测试连接即将上线',
+        message: '该平台测试连接功能即将上线',
+        duration: 3000,
+      });
       return;
     }
 
@@ -245,7 +252,12 @@ export function HubConnectorConfigTab() {
       const data = (await res.json().catch(() => ({}))) as ConnectorTestResult;
       if (!res.ok || !data.ok) {
         const pieces = [data.error ?? '测试失败', data.details].filter(Boolean);
-        setSaveResult({ type: 'error', message: pieces.join('：') });
+        addToast({
+          type: 'error',
+          title: '测试连接失败',
+          message: pieces.join('：'),
+          duration: 5000,
+        });
         return;
       }
 
@@ -254,12 +266,19 @@ export function HubConnectorConfigTab() {
       // Feishu includes bot info in response
       const botSuffix = data.bot?.name?.trim() || data.bot?.openId?.trim();
       const botText = botSuffix ? ` 已识别 ${botSuffix}` : '';
-      setSaveResult({
+      addToast({
         type: 'success',
+        title: '测试连接成功',
         message: `${data.message ?? '连接测试成功'}${botText}${warningText}`,
+        duration: 3000,
       });
     } catch {
-      setSaveResult({ type: 'error', message: '网络错误' });
+      addToast({
+        type: 'error',
+        title: '测试连接失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setTesting(false);
     }

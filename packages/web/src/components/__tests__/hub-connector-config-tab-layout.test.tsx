@@ -5,6 +5,8 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HubConnectorConfigTab } from '@/components/HubConnectorConfigTab';
+import { ToastContainer } from '@/components/ToastContainer';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
@@ -80,6 +82,7 @@ describe('HubConnectorConfigTab layout', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    useToastStore.setState({ toasts: [] });
     mockApiFetch.mockReset();
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
@@ -400,5 +403,68 @@ describe('HubConnectorConfigTab layout', () => {
     const weixinItem = container.querySelector('[data-testid="platform-item-weixin"]');
     expect(weixinItem?.textContent).toContain('微信');
     expect(weixinItem?.textContent).not.toContain('WeChat');
+  });
+  it('routes dingtalk test-connection feedback through the global toast container', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'dingtalk',
+                name: '钉钉',
+                nameEn: 'DingTalk',
+                configured: false,
+                docsUrl: 'https://open.dingtalk.com/',
+                steps: ['创建应用', '填写凭证', '测试连接'],
+                fields: [{ envName: 'DINGTALK_CLIENT_ID', label: 'Client ID', sensitive: false, currentValue: null }],
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/connector/test/dingtalk' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ ok: true, message: '连接测试成功' }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(HubConnectorConfigTab),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const input = container.querySelector('[data-testid="field-DINGTALK_CLIENT_ID"]') as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+
+    await act(async () => {
+      input!.value = 'ding-app-id';
+      input!.dispatchEvent(new Event('input', { bubbles: true }));
+      input!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const testButton = Array.from(container.querySelectorAll('button')).find((node) => node.textContent?.includes('测试连接'));
+    expect(testButton).toBeDefined();
+
+    await act(async () => {
+      testButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="save-result"]')).toBeNull();
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.type === 'success' && toast.title === '测试连接成功' && toast.message.includes('连接测试成功')),
+    ).toBe(true);
   });
 });
