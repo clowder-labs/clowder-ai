@@ -39,6 +39,8 @@ SetFont "Segoe UI" 9
 !define COMPANY_KEY "ClowderLabs"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define INSTALL_KEY "Software\${COMPANY_KEY}\${APP_NAME}"
+!define AUTOSTART_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
+!define AUTOSTART_VALUE "${APP_NAME}"
 !define STARTMENU_DIR "$SMPROGRAMS\${APP_NAME}"
 !define DEFAULT_INSTALL_DIR "$LOCALAPPDATA\Programs\${APP_NAME}"
 
@@ -65,6 +67,9 @@ Page custom WelcomePageCreate
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave
 !insertmacro MUI_PAGE_DIRECTORY
 
+; --------------- Options page ---------------
+Page custom OptionsPageCreate OptionsPageLeave
+
 ; --------------- Install page ---------------
 !insertmacro MUI_PAGE_INSTFILES
 
@@ -83,8 +88,15 @@ Var AgreeRadio
 Var DisagreeRadio
 Var NextButton
 Var WelcomeDialog
+Var OptionsDialog
+Var StartMenuShortcutCheckbox
+Var DesktopShortcutCheckbox
+Var AutoStartCheckbox
 Var FinishDialog
 Var FinishLaunchCheckbox
+Var CreateStartMenuShortcut
+Var CreateDesktopShortcut
+Var EnableAutoStart
 Var DetectedRunningProcesses
 
 ; Check if OfficeClaw-related processes are running
@@ -94,6 +106,15 @@ Function CheckOfficeClawRunning
   
   ; Check OfficeClaw.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" 2>nul | find /I "OfficeClaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check jiuwenclaw.exe (sidecar agent)
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" 2>nul | find /I "jiuwenclaw.exe"'
   Pop $0
   Pop $1
   ${If} $0 == 0
@@ -111,16 +132,21 @@ Function CheckOfficeClawRunning
   ${EndIf}
   
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
-  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
-  ${If} $0 != ""
-    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
-    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
-    Pop $1
-    Pop $2
-    ${If} $2 != ""
-      StrCpy $R0 "1"
-      Return
-    ${EndIf}
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check python.exe processes that belong to OfficeClaw (from installed dir tools\python or vendor\.venv)
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
   ${EndIf}
 FunctionEnd
 
@@ -139,34 +165,31 @@ Function LicensePageCreate
   ${NSD_CreateLabel} 0 10u 100% 12u "${APP_NAME}软件许可协议"
   Pop $0
 
-  ${NSD_CreateLabel} 10u 25u 44u 10u "1.了解和同意"
+  ${NSD_CreateLabel} 10u 25u 46u 10u "1.了解和同意"
   Pop $0
 
-  ${NSD_CreateLink} 54u 25u 30% 10u "华为云隐私政策声明"
+  ${NSD_CreateLink} 56u 25u 100% 10u "华为云隐私政策声明"
   Pop $1
   ${NSD_OnClick} $1 "OnPrivacyLinkClick"
 
-  ${NSD_CreateLabel} 10u 40u 44u 10u "2.了解和同意"
+  ${NSD_CreateLabel} 10u 40u 46uu 10u "2.了解和同意"
   Pop $0
 
-  ${NSD_CreateLink} 54u 40u 30% 10u "AgentArts服务声明"
+  ${NSD_CreateLink} 56u 40u 100% 10u "AgentArts服务声明"
   Pop $1
   ${NSD_OnClick} $1 "OnServiceLinkClick"
 
-  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(A)"
+  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(&A)"
   Pop $AgreeRadio
   ${NSD_Setfocus} $AgreeRadio
 
   ${NSD_OnClick} $AgreeRadio OnAgreementChanged
 
-  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(D)"
+  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(&D)"
   Pop $DisagreeRadio
   ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
 
   nsDialogs::Show
-
-  SendMessage $AgreeRadio ${BM_SETCHECK} 1 0
-  Call UpdateNextButtonState
 FunctionEnd
 
 Function OnPrivacyLinkClick
@@ -209,6 +232,61 @@ Function WelcomePageCreate
   nsDialogs::Show
 FunctionEnd
 
+Function OptionsPageCreate
+  !insertmacro MUI_HEADER_TEXT "安装选项" "请选择快捷方式和启动方式"
+  nsDialogs::Create 1018
+  Pop $OptionsDialog
+  ${If} $OptionsDialog == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 24u "请选择 ${APP_NAME} 的安装附加选项。您后续也可以通过重新运行安装包修改这些设置。"
+  Pop $0
+
+  ${NSD_CreateCheckbox} 0 32u 100% 12u "创建开始菜单快捷方式"
+  Pop $StartMenuShortcutCheckbox
+  ${If} $CreateStartMenuShortcut == "1"
+    ${NSD_Check} $StartMenuShortcutCheckbox
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 50u 100% 12u "创建桌面快捷方式"
+  Pop $DesktopShortcutCheckbox
+  ${If} $CreateDesktopShortcut == "1"
+    ${NSD_Check} $DesktopShortcutCheckbox
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 68u 100% 12u "开机自动启动 ${APP_NAME}"
+  Pop $AutoStartCheckbox
+  ${If} $EnableAutoStart == "1"
+    ${NSD_Check} $AutoStartCheckbox
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+Function OptionsPageLeave
+  ${NSD_GetState} $StartMenuShortcutCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $CreateStartMenuShortcut "1"
+  ${Else}
+    StrCpy $CreateStartMenuShortcut "0"
+  ${EndIf}
+
+  ${NSD_GetState} $DesktopShortcutCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $CreateDesktopShortcut "1"
+  ${Else}
+    StrCpy $CreateDesktopShortcut "0"
+  ${EndIf}
+
+  ${NSD_GetState} $AutoStartCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $EnableAutoStart "1"
+  ${Else}
+    StrCpy $EnableAutoStart "0"
+  ${EndIf}
+FunctionEnd
+
 Function FinishPageCreate
   !insertmacro MUI_HEADER_TEXT "安装完成" "${APP_NAME} 已成功安装"
   nsDialogs::Create 1018
@@ -240,6 +318,7 @@ FunctionEnd
 Function .onInit
   SetShellVarContext current
   Call ResolveExistingInstallDir
+  Call ResolveInstallOptionDefaults
   ${If} $ExistingInstallDir != ""
     StrCpy $INSTDIR $ExistingInstallDir
     StrCpy $SelectedInstallDir $ExistingInstallDir
@@ -293,6 +372,27 @@ existing_install:
   StrCpy $ExistingInstallDir $0
 FunctionEnd
 
+Function ResolveInstallOptionDefaults
+  StrCpy $CreateStartMenuShortcut "1"
+  StrCpy $CreateDesktopShortcut "1"
+  StrCpy $EnableAutoStart "0"
+
+  ${If} $ExistingInstallDir == ""
+    Return
+  ${EndIf}
+
+  IfFileExists "${STARTMENU_DIR}\${APP_NAME}.lnk" +2 0
+    StrCpy $CreateStartMenuShortcut "0"
+
+  IfFileExists "$DESKTOP\${APP_NAME}.lnk" +2 0
+    StrCpy $CreateDesktopShortcut "0"
+
+  ReadRegStr $0 HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
+  ${If} $0 != ""
+    StrCpy $EnableAutoStart "1"
+  ${EndIf}
+FunctionEnd
+
 Function RestoreInstallDirSelection
   ${If} $ExistingInstallDir != ""
     StrCpy $INSTDIR $ExistingInstallDir
@@ -322,21 +422,46 @@ Function VerifyInstallDirLeave
   ${EndIf}
 FunctionEnd
 
-; Force-kill every process related to $INSTDIR (launcher, node API, Redis).
+; Force-kill every process related to installed OfficeClaw (launcher, node API, Redis, jiuwenclaw, python).
 ; Uses env var to pass the path safely (avoids quoting issues with spaces/parens).
+; IMPORTANT: Uses registry InstallDir (old install path) for path-based kills, not $INSTDIR (new path).
+; This ensures processes from previous installation are killed even when reinstalling to a different directory.
 !macro _ForceKillInstalledProcesses
   ; 1. Kill desktop launcher by name only when it exists
   nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" | find /I "OfficeClaw.exe" >nul && taskkill /F /IM OfficeClaw.exe >nul 2>&1'
   Pop $0
-  ; 2. Kill Redis server by name only when it exists
-  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+  ; 2. Kill jiuwenclaw.exe (sidecar agent) by name
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" | find /I "jiuwenclaw.exe" >nul && taskkill /F /IM jiuwenclaw.exe >nul 2>&1'
   Pop $0
-  ; 3. Kill all node.exe processes whose executable path starts with $INSTDIR
-  ;    (covers start-entry, API server, Next.js — anything spawned from tools\node)
-  System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$INSTDIR")i'
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+  
+  ; 3. Redis: try graceful shutdown via redis-cli first (preserves data), then force-kill if needed
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    ; Try redis-cli shutdown save (graceful, preserves data)
+    nsExec::ExecToLog 'cmd /c if exist "$0\tools\redis\redis-cli.exe" ( "$0\tools\redis\redis-cli.exe" -p 6399 shutdown save 2>nul ) else if exist "$0\vendor\redis\redis-cli.exe" ( "$0\vendor\redis\redis-cli.exe" -p 6399 shutdown save 2>nul )'
+    Pop $1
+    ; Wait briefly for graceful shutdown
+    Sleep 500
+    ; Check if Redis still running, force-kill if needed
+    nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+    Pop $1
+  ${Else}
+    ; No registry path, just force-kill by name
+    nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+    Pop $0
+  ${EndIf}
+  
+  ; 4. Kill all node.exe processes whose executable path starts with the OLD install directory (from registry)
+  ;    Uses PowerShell to read registry directly instead of env var (more reliable)
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
   Pop $0
-  ; 4. Wait long enough for SQLite WAL/shm to be released before any file ops
+  
+  ; 5. Kill all python.exe/pythonw.exe processes whose executable path starts with the OLD install directory
+  ;    Also read registry directly for reliability
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
+  Pop $0
+  
+  ; 6. Wait long enough for SQLite WAL/shm to be released before any file ops
   Sleep 3000
 !macroend
 
@@ -361,6 +486,15 @@ Function un.CheckOfficeClawRunning
     Return
   ${EndIf}
   
+  ; Check jiuwenclaw.exe (sidecar agent)
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" 2>nul | find /I "jiuwenclaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
   ; Check redis-server.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
   Pop $0
@@ -371,16 +505,21 @@ Function un.CheckOfficeClawRunning
   ${EndIf}
   
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
-  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
-  ${If} $0 != ""
-    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
-    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
-    Pop $1
-    Pop $2
-    ${If} $2 != ""
-      StrCpy $R0 "1"
-      Return
-    ${EndIf}
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check python.exe processes that belong to OfficeClaw (from installed dir)
+  nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
+  Pop $0
+  Pop $1
+  ${If} $1 != ""
+    StrCpy $R0 "1"
+    Return
   ${EndIf}
 FunctionEnd
 
@@ -433,10 +572,29 @@ Function un.CleanupManagedPayload
 FunctionEnd
 
 Function WriteShellShortcuts
-  CreateDirectory "${STARTMENU_DIR}"
-  CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
-  CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
-  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+  ${If} $CreateStartMenuShortcut == "1"
+    CreateDirectory "${STARTMENU_DIR}"
+    CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+    CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
+  ${Else}
+    Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
+    Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
+    RMDir "${STARTMENU_DIR}"
+  ${EndIf}
+
+  ${If} $CreateDesktopShortcut == "1"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+  ${Else}
+    Delete "$DESKTOP\${APP_NAME}.lnk"
+  ${EndIf}
+FunctionEnd
+
+Function WriteAutoStartRegistry
+  ${If} $EnableAutoStart == "1"
+    WriteRegStr HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}" '"$INSTDIR\OfficeClaw.exe"'
+  ${Else}
+    DeleteRegValue HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
+  ${EndIf}
 FunctionEnd
 
 Function WriteUninstallRegistry
@@ -455,7 +613,7 @@ FunctionEnd
 Section "Install"
   DetailPrint "正在准备安装环境..."
   StrCpy $INSTDIR $SelectedInstallDir
-  
+
   ; If processes were detected in .onInit, close them now
   ${If} $DetectedRunningProcesses == "1"
     DetailPrint "正在关闭正在运行的 OfficeClaw 进程..."
@@ -531,6 +689,7 @@ init_config_done:
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
   Call WriteShellShortcuts
+  Call WriteAutoStartRegistry
   Call WriteUninstallRegistry
 SectionEnd
 
@@ -543,6 +702,7 @@ Section "Uninstall"
   Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
   RMDir "${STARTMENU_DIR}"
   Delete "$DESKTOP\${APP_NAME}.lnk"
+  DeleteRegValue HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
 
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "${INSTALL_KEY}"

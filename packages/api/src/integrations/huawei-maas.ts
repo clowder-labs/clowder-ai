@@ -4,6 +4,7 @@
  *
  */
 
+import type { UserInfo } from '../routes/auth.js';
 import { sessions } from '../routes/auth.js';
 
 interface HuaweiMaaSAuthInfo {
@@ -15,6 +16,8 @@ interface HuaweiMaaSSessionModelInfo {
   model_api_url_base?: string;
   model_auth_info?: HuaweiMaaSAuthInfo;
 }
+
+const CONNECTOR_SESSION_FALLBACK_USERS = new Set(['default-user', 'debug-user']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -41,12 +44,52 @@ export interface HuaweiMaaSRuntimeConfig {
   defaultHeaders: Record<string, string>;
 }
 
+function parseSessionExpiresAt(expiresAt: string | undefined): number {
+  if (!expiresAt) return Number.NaN;
+  const timestamp = new Date(expiresAt).getTime();
+  return Number.isFinite(timestamp) ? timestamp : Number.NaN;
+}
+
+function isSessionActive(session: Pick<UserInfo, 'expiresAt'> | undefined): boolean {
+  if (!session) return false;
+  return parseSessionExpiresAt(session.expiresAt) > Date.now();
+}
+
+function pickActiveSessionForConnectorFallback(): { userId: string; session: UserInfo } | null {
+  let chosenUserId = '';
+  let chosenSession: UserInfo | null = null;
+  let chosenExpiry = Number.NEGATIVE_INFINITY;
+
+  for (const [candidateUserId, candidateSession] of sessions.entries()) {
+    if (!candidateSession || CONNECTOR_SESSION_FALLBACK_USERS.has(candidateUserId)) continue;
+    const expiry = parseSessionExpiresAt(candidateSession.expiresAt);
+    if (!Number.isFinite(expiry) || expiry <= Date.now()) continue;
+    if (expiry > chosenExpiry) {
+      chosenExpiry = expiry;
+      chosenUserId = candidateUserId;
+      chosenSession = candidateSession;
+    }
+  }
+
+  if (!chosenSession) return null;
+  return { userId: chosenUserId, session: chosenSession };
+}
+
 export function resolveHuaweiMaaSRuntimeConfig(userId: string): HuaweiMaaSRuntimeConfig {
-  const session = sessions.get(userId);
+  const resolvedUserId = userId.trim();
+  let session = sessions.get(resolvedUserId);
+
+  if ((!session || !isSessionActive(session)) && CONNECTOR_SESSION_FALLBACK_USERS.has(resolvedUserId)) {
+    const fallback = pickActiveSessionForConnectorFallback();
+    if (fallback) {
+      session = fallback.session;
+    }
+  }
+
   if (!session) {
     throw new Error('Huawei MaaS session not found');
   }
-  if (new Date(session.expiresAt).getTime() <= Date.now()) {
+  if (!isSessionActive(session)) {
     throw new Error('Huawei MaaS session expired');
   }
   if (!isRecord(session.modelInfo)) {

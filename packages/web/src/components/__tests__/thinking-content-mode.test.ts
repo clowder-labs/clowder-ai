@@ -85,6 +85,20 @@ describe('ThinkingContent default collapse', () => {
     expect(container.querySelector('.thinking-output-body')).toBeNull();
   });
 
+  it('adds horizontal padding to the thinking header toggle so the status icon is not flush to the clipped edge', () => {
+    act(() => {
+      root.render(
+        React.createElement(ChatMessage, {
+          message: thinkingMessage,
+          getCatById,
+        }),
+      );
+    });
+
+    const thinkingButton = container.querySelector('[data-testid="thinking-toggle"]');
+    expect(thinkingButton?.className).toContain('px-2');
+  });
+
   it('global toggle: enabling expands thinking block', () => {
     act(() => {
       root.render(

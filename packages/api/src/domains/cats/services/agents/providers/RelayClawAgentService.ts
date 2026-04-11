@@ -36,7 +36,7 @@ import {
   type RelayClawSidecarController,
   type RelayClawSidecarControllerDeps,
 } from './relayclaw-sidecar.js';
-import { transformRelayClawChunk } from './relayclaw-event-transform.js';
+import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
 const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -268,6 +268,9 @@ export class RelayClawAgentService implements AgentService {
         }
       } else if (payload?.event_type === 'chat.final') {
         const finalText = normalizeRelayClawFinalContent(payload.content);
+        if (isRelayClawTransportErrorText(finalText)) {
+          continue;
+        }
         const deltaToEmit = computeFinalTextDelta(streamedText, finalText);
         if (deltaToEmit) {
           streamedText += deltaToEmit;
@@ -391,4 +394,5 @@ function buildRequest(
 
 export const __relayClawInternals = {
   isSidecarReady,
+  isRelayClawTransportErrorText,
 };

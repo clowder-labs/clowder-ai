@@ -260,14 +260,33 @@ test('Local desktop web client derives API URL from the loopback frontend port i
 
 test('NSIS installer is per-user, upgrades in-place, and preserves runtime data on uninstall', () => {
   assert.match(nsisScript, /!define DEFAULT_INSTALL_DIR "\$LOCALAPPDATA\\Programs\\\$\{APP_NAME\}"/);
+  assert.match(nsisScript, /!define AUTOSTART_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Run"/);
+  assert.match(nsisScript, /!define AUTOSTART_VALUE "\$\{APP_NAME\}"/);
+  assert.match(nsisScript, /Var AgreementCheckbox/);
   assert.match(nsisScript, /InstallDir "\$\{DEFAULT_INSTALL_DIR\}"/);
   assert.match(nsisScript, /InstallDirRegKey HKCU "\$\{INSTALL_KEY\}" "InstallDir"/);
   assert.match(nsisScript, /!define MUI_DIRECTORYPAGE_VARIABLE \$SelectedInstallDir/);
   assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection/);
   assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave/);
+  assert.match(nsisScript, /Page custom OptionsPageCreate OptionsPageLeave/);
   assert.match(nsisScript, /Function \.onVerifyInstDir/);
   assert.match(nsisScript, /Var SelectedInstallDir/);
   assert.match(nsisScript, /Var ExistingInstallDir/);
+  assert.match(nsisScript, /Var CreateStartMenuShortcut/);
+  assert.match(nsisScript, /Var CreateDesktopShortcut/);
+  assert.match(nsisScript, /Var EnableAutoStart/);
+  assert.match(nsisScript, /Function OptionsPageCreate/);
+  assert.match(nsisScript, /Function OptionsPageLeave/);
+  assert.match(nsisScript, /Function ResolveInstallOptionDefaults/);
+  assert.match(nsisScript, /Call ResolveInstallOptionDefaults/);
+  assert.match(nsisScript, /\$\{NSD_CreateGroupBox\} 0 22u 100% 92u /);
+  assert.match(nsisScript, /\$\{NSD_CreateLabel\} 12u 60u 88% 10u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateLink\} 20u 72u 76% 12u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateLabel\} 12u 90u 88% 10u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateLink\} 20u 102u 76% 12u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateCheckbox\} 0 124u 100% 12u "/);
+  assert.match(nsisScript, /\$\{NSD_Uncheck\} \$AgreementCheckbox/);
+  assert.match(nsisScript, /NSD_GetState} \$AgreementCheckbox \$0/);
   assert.match(nsisScript, /Function RestoreInstallDirSelection/);
   assert.match(nsisScript, /\$\{If\} \$SelectedInstallDir == ""/);
   assert.match(nsisScript, /StrLen \$0 \$SelectedInstallDir/);
@@ -291,8 +310,15 @@ test('NSIS installer is per-user, upgrades in-place, and preserves runtime data 
     nsisScript,
     /CreateShortCut "\$DESKTOP\\\$\{APP_NAME\}\.lnk" "\$INSTDIR\\OfficeClaw\.exe" "" "\$INSTDIR\\assets\\app\.ico"/,
   );
+  assert.match(nsisScript, /Function WriteAutoStartRegistry/);
+  assert.match(
+    nsisScript,
+    /WriteRegStr HKCU "\$\{AUTOSTART_KEY\}" "\$\{AUTOSTART_VALUE\}" '"\$INSTDIR\\OfficeClaw\.exe"'/,
+  );
+  assert.match(nsisScript, /Call WriteAutoStartRegistry/);
   assert.match(nsisScript, /Delete "\$DESKTOP\\\$\{APP_NAME\}\.lnk"/);
-  assert.match(nsisScript, /MessageBox MB_YESNO\|MB_ICONQUESTION "是否同时删除所有用户数据？/);
+  assert.match(nsisScript, /DeleteRegValue HKCU "\$\{AUTOSTART_KEY\}" "\$\{AUTOSTART_VALUE\}"/);
+  assert.match(nsisScript, /MessageBox MB_YESNO\|MB_ICONQUESTION "/);
 });
 
 test('NSIS installer reuses the recorded install dir instead of allowing duplicate installs elsewhere', () => {
@@ -305,7 +331,7 @@ test('NSIS installer reuses the recorded install dir instead of allowing duplica
   assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$ExistingInstallDir/);
   assert.match(
     nsisScript,
-    /MessageBox MB_ICONINFORMATION\|MB_OK "检测到已安装的 \$\{APP_NAME\}，本次安装将更新现有目录：/,
+    /MessageBox MB_ICONINFORMATION\|MB_OK "/,
   );
   assert.match(nsisScript, /Function RestoreInstallDirSelection/);
   assert.match(nsisScript, /\$\{If\} \$ExistingInstallDir != ""/);

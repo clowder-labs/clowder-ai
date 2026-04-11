@@ -1,6 +1,6 @@
 # Windows Offline Installer
 
-This project now supports building a self-contained Windows `.exe` installer for offline environments.
+This project supports building a self-contained Windows `.exe` installer for offline environments.
 
 The installer payload is runtime-only. It intentionally excludes repository-only development files such as:
 
@@ -12,13 +12,21 @@ The installer payload is runtime-only. It intentionally excludes repository-only
 ## What the installer includes
 
 - Prebuilt `packages/api`, `packages/mcp-server`, and `packages/web`
-- Production runtime dependencies from `pnpm deploy`
+- Production runtime dependencies installed from staged package manifests whose versions are pinned from the current workspace install
 - A bundled Windows Node runtime under `tools/node`
 - A bundled portable Redis runtime under `.cat-cafe/redis/windows/current`
-- A bundled `WebView2` desktop launcher (`ClowderAI.Desktop.exe`)
-- Project sources, docs, scripts, and `cat-cafe-skills`
+- A bundled `WebView2` desktop launcher (`OfficeClaw.exe`)
+- Project runtime files, scripts, and `cat-cafe-skills`
 
 The installed app does not need to run `pnpm install`, download Node, or fetch Redis again.
+
+## How runtime dependency consistency works
+
+Development and CI use `pnpm install --frozen-lockfile`, so the workspace resolves concrete dependency versions from `pnpm-lock.yaml`.
+
+The Windows bundle builder stages runtime `package.json` files for `packages/api`, `packages/mcp-server`, and `packages/web`, then rewrites their runtime dependencies to the concrete versions already installed in the workspace `node_modules`. After that it runs production-only `npm install` inside the staged package directories.
+
+That means the bundle does not re-resolve broad semver ranges such as `@modelcontextprotocol/sdk: ^1.0.0` against the public registry during packaging. Instead, it installs the same concrete versions currently present in the checked-out workspace, which keeps packaged runtime behavior aligned with development and CI.
 
 ## Build the offline bundle
 
@@ -47,7 +55,7 @@ pnpm package:windows
 
 Output:
 
-- Installer: `dist/windows/ClowderAI-<version>-windows-x64-setup.exe`
+- Installer: `dist/windows/OfficeClaw-<version>-windows-x64-setup.exe`
 
 ## Optional overrides
 
@@ -67,9 +75,9 @@ pnpm package:windows
 - Start: desktop shortcut or Start Menu shortcut
 - Stop: `scripts\stop-windows.ps1`
 
-The installer intentionally defaults to a short path because the bundled production dependency tree includes some long `pnpm` paths. If you change the destination, keep it short; the installer now blocks paths that would exceed Windows path limits for this build.
+The installer intentionally defaults to a short path because the bundled production dependency tree can still include long nested paths. If you change the destination, keep it short; the installer blocks paths that would exceed Windows path limits for this build.
 
-The desktop shortcut opens `ClowderAI.Desktop.exe`, which:
+The desktop shortcut opens `OfficeClaw.exe`, which:
 
 - starts local services with `scripts/start-windows.ps1 -Quick`
 - waits for the frontend to become ready

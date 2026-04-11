@@ -12,7 +12,7 @@
 import { Server as HttpServer } from 'node:http';
 import { createCatId } from '@cat-cafe/shared';
 import { Server, Socket } from 'socket.io';
-import { resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
+import { isOriginAllowed, resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
 import type {
   CancelResult,
   InvocationTracker,
@@ -71,6 +71,23 @@ export class SocketManager {
         origin: corsOrigins,
         credentials: true,
       },
+      // Socket.IO's `cors` only protects HTTP long-polling; WebSocket upgrades
+      // bypass CORS entirely. This hook is the real security boundary.
+      allowRequest: (req, callback) => {
+        const origin = req.headers.origin;
+        if (!origin) {
+          // No Origin header = non-browser client (curl, MCP, etc.).
+          // In single-user mode this is safe to allow.
+          callback(null, true);
+          return;
+        }
+        if (isOriginAllowed(origin, corsOrigins)) {
+          callback(null, true);
+          return;
+        }
+        log.warn({ origin }, 'WebSocket upgrade rejected: origin not in allowlist');
+        callback('Origin not allowed', false);
+      },
     });
 
     this.setupEventHandlers();
@@ -78,16 +95,9 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      const authUserId = typeof socket.handshake.auth?.userId === 'string' ? socket.handshake.auth.userId.trim() : '';
-      const queryUserId = typeof socket.handshake.query.userId === 'string' ? socket.handshake.query.userId.trim() : '';
-      const userId = authUserId || queryUserId || 'anonymous';
-
-      // Auto-capture the first authenticated Web user as connector thread owner.
-      // This eliminates the need to manually set DEFAULT_OWNER_USER_ID.
-      if (userId !== 'anonymous' && userId !== 'default-user' && !process.env.DEFAULT_OWNER_USER_ID) {
-        process.env.DEFAULT_OWNER_USER_ID = userId;
-        log.info({ userId }, 'Auto-set DEFAULT_OWNER_USER_ID from first Web user');
-      }
+      // Server determines identity — never trust client-supplied userId.
+      // In single-user mode, all connections are 'default-user'.
+      const userId = 'default-user';
 
       log.info({ socketId: socket.id, userId }, 'Client connected');
       log.debug(
@@ -100,10 +110,8 @@ export class SocketManager {
         'Client handshake details',
       );
 
-      // F39: Auto-join user-scoped room for emitToUser (multi-tab support)
-      if (userId !== 'anonymous') {
-        socket.join(`user:${userId}`);
-      }
+      // Auto-join user-scoped room for emitToUser (multi-tab support)
+      socket.join(`user:${userId}`);
 
       socket.on('disconnect', () => {
         log.info({ socketId: socket.id }, 'Client disconnected');
@@ -113,6 +121,11 @@ export class SocketManager {
         // Validate room name format — only allow known prefixes
         if (!/^(thread:|worktree:|preview:global$|workspace:global$|user:)/.test(room)) {
           log.warn({ socketId: socket.id, room }, 'Attempted to join invalid room');
+          return;
+        }
+        // Room ACL: user-scoped rooms are identity-bound — deny cross-user joins
+        if (room.startsWith('user:') && room !== `user:${userId}`) {
+          log.warn({ socketId: socket.id, room, userId }, 'Denied cross-user room join');
           return;
         }
         socket.join(room);

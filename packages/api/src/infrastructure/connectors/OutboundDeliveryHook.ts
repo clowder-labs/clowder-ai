@@ -84,6 +84,22 @@ export class OutboundDeliveryHook {
     return [...new Set(bindings.map((b) => b.connectorId))];
   }
 
+  /** Notify connector adapters that the current invocation delivery batch is complete. */
+  async notifyDeliveryBatchDone(threadId: string, chainDone: boolean): Promise<void> {
+    const bindings = await this.opts.bindingStore.getByThread(threadId);
+    await Promise.allSettled(
+      bindings.map(async (binding) => {
+        const adapter = this.opts.adapters.get(binding.connectorId);
+        if (!adapter?.onDeliveryBatchDone) return;
+        try {
+          await adapter.onDeliveryBatchDone(binding.externalChatId, chainDone);
+        } catch (err) {
+          this.opts.log.warn({ err, connectorId: binding.connectorId }, '[OutboundDeliveryHook] onDeliveryBatchDone failed');
+        }
+      }),
+    );
+  }
+
   async deliver(
     threadId: string,
     content: string,

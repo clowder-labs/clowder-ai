@@ -7,6 +7,8 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastContainer } from '@/components/ToastContainer';
+import { useToastStore } from '@/stores/toastStore';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
 
@@ -58,6 +60,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    useToastStore.setState({ toasts: [] });
     mockApiFetch.mockReset();
   });
 
@@ -104,6 +107,36 @@ describe('F137 Phase C — WeixinQrPanel', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/connector/weixin/disconnect', { method: 'POST' });
     expect(queryTestId(container, 'weixin-generate-qr')).not.toBeNull();
+  });
+
+  it('shows a global success toast after disconnect succeeds', async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse({ ok: true, configured: false }));
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(WeixinQrPanel, { configured: true }),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const disconnectButton = queryTestId(container, 'weixin-disconnect') as HTMLButtonElement | null;
+    expect(disconnectButton).not.toBeNull();
+
+    await act(async () => {
+      disconnectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.type === 'success' && toast.title === '断开连接成功' && toast.message.includes('已断开连接')),
+    ).toBe(true);
   });
 
   it('shows disconnect error and stays connected when disconnect fails', async () => {
@@ -206,6 +239,51 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     await flushEffects();
 
     expect(onConfigured).toHaveBeenCalledTimes(1);
+    expect(queryTestId(container, 'weixin-connected')).not.toBeNull();
+  });
+
+  it('ignores late confirmed poll result after configured prop flips to true', async () => {
+    const onConfigured = vi.fn();
+    let resolveStatus: ((value: Response | PromiseLike<Response>) => void) | null = null;
+    const pendingStatus = new Promise<Response>((resolve) => {
+      resolveStatus = resolve;
+    });
+
+    mockApiFetch.mockImplementation((url) => {
+      if (typeof url === 'string' && url.includes('/api/connector/weixin/qrcode-status')) {
+        return pendingStatus;
+      }
+      if (url === '/api/connector/weixin/qrcode') {
+        return Promise.resolve(jsonResponse({ qrUrl: 'https://example.com/qr.png', qrPayload: 'abc123' }));
+      }
+      throw new Error(`Unexpected apiFetch call: ${String(url)}`);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(WeixinQrPanel, { configured: false, onConfigured }));
+    });
+    await flushEffects();
+
+    await act(async () => {
+      const generateButton = queryTestId(container, 'weixin-generate-qr') as HTMLButtonElement | null;
+      expect(generateButton).not.toBeNull();
+      generateButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+    expect(queryTestId(container, 'weixin-qr-image')).not.toBeNull();
+
+    await act(async () => {
+      root.render(React.createElement(WeixinQrPanel, { configured: true, onConfigured }));
+    });
+    await flushEffects();
+
+    await act(async () => {
+      resolveStatus?.(jsonResponse({ status: 'confirmed' }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(onConfigured).toHaveBeenCalledTimes(0);
     expect(queryTestId(container, 'weixin-connected')).not.toBeNull();
   });
 

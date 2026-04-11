@@ -45,7 +45,8 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
   });
 
   app.get('/api/lastversion', async (request) => {
-    const curversion = getPackageVersion(projectRoot);
+    console.log('projectRoot:', projectRoot);
+    const curversion = getPackageVersion(projectRoot) ?? '0.1.0';
     try {
       const userId = request.headers['x-cat-cafe-user'] as string;
       if (!userId) {

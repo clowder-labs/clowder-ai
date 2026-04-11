@@ -20,7 +20,8 @@
  * DELETE /api/schedule/control/tasks/:id → remove task override (AC-D1)
  */
 
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import type { InvocationRecord, InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalControlStore.js';
 import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
@@ -31,6 +32,7 @@ import { governanceRoutes } from './schedule-governance.js';
 
 export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
+  registry?: InvocationRegistry;
   dynamicTaskStore?: DynamicTaskStore;
   templateRegistry?: {
     get: (id: string) => import('../infrastructure/scheduler/templates/types.js').TaskTemplate | null;
@@ -51,8 +53,47 @@ export function extractThreadId(subjectKey: string): string | null {
   return null;
 }
 
+function pickString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function resolveScheduleCallbackCredentials(
+  request: FastifyRequest,
+): { invocationId?: string; callbackToken?: string } {
+  const body =
+    request.body && typeof request.body === 'object' && !Array.isArray(request.body)
+      ? (request.body as Record<string, unknown>)
+      : undefined;
+  const query =
+    request.query && typeof request.query === 'object' && !Array.isArray(request.query)
+      ? (request.query as Record<string, unknown>)
+      : undefined;
+
+  return {
+    invocationId:
+      pickString(body?.['invocationId']) ??
+      pickString(query?.['invocationId']) ??
+      pickString(request.headers['x-invocation-id']),
+    callbackToken:
+      pickString(body?.['callbackToken']) ??
+      pickString(query?.['callbackToken']) ??
+      pickString(request.headers['x-callback-token']),
+  };
+}
+
+function resolveInvocationRecord(
+  request: FastifyRequest,
+  registry?: InvocationRegistry,
+): { record: InvocationRecord | null; hadCredentials: boolean } {
+  if (!registry) return { record: null, hadCredentials: false };
+  const { invocationId, callbackToken } = resolveScheduleCallbackCredentials(request);
+  const hadCredentials = Boolean(invocationId || callbackToken);
+  if (!invocationId || !callbackToken) return { record: null, hadCredentials };
+  return { record: registry.verify(invocationId, callbackToken), hadCredentials: true };
+}
+
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore } = opts;
+  const { taskRunner, registry, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore } = opts;
 
   // GET /api/schedule/tasks
   app.get('/api/schedule/tasks', async () => {
@@ -138,6 +179,11 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       display?: { label: string; category: string; description?: string };
       deliveryThreadId?: string;
     };
+    const { record, hadCredentials } = resolveInvocationRecord(request, registry);
+    if (hadCredentials && !record) {
+      reply.status(401);
+      return { error: 'Invalid or expired callback credentials' };
+    }
 
     if (!body.templateId) {
       reply.status(400);
@@ -167,7 +213,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
         trigger,
         params,
         display,
-        deliveryThreadId: body.deliveryThreadId ?? null,
+        deliveryThreadId: body.deliveryThreadId ?? record?.threadId ?? null,
         paramSchema: template.paramSchema,
       },
     };
@@ -188,6 +234,11 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       deliveryThreadId?: string;
       createdBy?: string;
     };
+    const { record, hadCredentials } = resolveInvocationRecord(request, registry);
+    if (hadCredentials && !record) {
+      reply.status(401);
+      return { error: 'Invalid or expired callback credentials' };
+    }
 
     if (!body.templateId) {
       reply.status(400);
@@ -227,11 +278,27 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       trigger,
       params,
       display,
-      deliveryThreadId: body.deliveryThreadId ?? null,
+      deliveryThreadId: body.deliveryThreadId ?? record?.threadId ?? null,
       enabled: true,
-      createdBy: body.createdBy ?? 'unknown',
+      createdBy: body.createdBy ?? record?.catId ?? 'unknown',
       createdAt: new Date().toISOString(),
     };
+
+    app.log.info(
+      {
+        taskId: id,
+        templateId: def.templateId,
+        deliveryThreadId: def.deliveryThreadId,
+        invocationThreadId: record?.threadId ?? null,
+      },
+      '[scheduler] create dynamic task requested',
+    );
+    if (!def.deliveryThreadId) {
+      app.log.warn(
+        { taskId: id, templateId: def.templateId },
+        '[scheduler] dynamic task created without deliveryThreadId; gate will skip until a thread is provided',
+      );
+    }
 
     // Register in runtime first (validates cron expression etc.), then persist
     const spec = template.createSpec(id, { trigger, params, deliveryThreadId: def.deliveryThreadId });
@@ -294,11 +361,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: 'Dynamic task not found' };
     }
 
-    if (!body.enabled) {
-      // Pause: unregister from runtime
-      taskRunner.unregister(id);
-    } else {
-      // Resume: re-register in runtime
+    // Keep dynamic task in runtime summaries; toggle execution state only.
+    // If runtime entry is missing (e.g. legacy state), re-register from store.
+    const toggled = taskRunner.setDynamicEnabled(id, body.enabled);
+    if (!toggled) {
       const def = dynamicTaskStore.getById(id);
       if (def) {
         const template = templateRegistry.get(def.templateId);
@@ -310,7 +376,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
           });
           spec.display = def.display;
           try {
-            taskRunner.registerDynamic(spec, def.id);
+            taskRunner.registerDynamic(spec, def.id, def.enabled);
           } catch {
             // Already registered — ignore
           }

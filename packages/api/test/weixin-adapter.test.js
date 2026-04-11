@@ -514,6 +514,28 @@ describe('WeixinAdapter', () => {
       assert.equal(fetchCalled, false);
     });
 
+    it('stops typing when skipping send because context_token is missing', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      const calls = [];
+      adapter._injectFetch(async (url, opts) => {
+        const body = opts?.body ? JSON.parse(opts.body) : {};
+        calls.push({ url: String(url), body });
+        return { ok: true, json: async () => ({ ret: 0 }) };
+      });
+
+      // Simulate typing already started for this chat.
+      adapter.typingTickets.set('unknown-user', 'ticket-1');
+      adapter.startTyping('unknown-user');
+
+      await adapter.sendReply('unknown-user', 'This should not send');
+
+      assert.ok(
+        calls.some((c) => c.url.includes('/ilink/bot/sendtyping') && c.body?.status === 2),
+        'should send typing stop (status=2) when reply is skipped',
+      );
+      assert.equal(adapter.typingTimers.has('unknown-user'), false, 'typing timer should be cleared');
+    });
+
     it('strips markdown before sending', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-token-1');
@@ -858,6 +880,70 @@ describe('WeixinAdapter', () => {
     });
 
     describe('fetchQrCode', () => {
+      it('falls back to official iLink base URL when ILINK_BASE_URL is unset', async () => {
+        const originalBase = process.env.ILINK_BASE_URL;
+        delete process.env.ILINK_BASE_URL;
+        let capturedUrl = null;
+        WeixinAdapter._injectStaticFetch(async (url) => {
+          capturedUrl = url;
+          return {
+            ok: true,
+            json: async () => ({
+              errcode: 0,
+              qrcode: 'payload-default-base',
+              qrcode_img_content: 'https://liteapp.weixin.qq.com/q/default',
+            }),
+          };
+        });
+
+        try {
+          await WeixinAdapter.fetchQrCode();
+          assert.equal(
+            capturedUrl,
+            'https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3',
+            'should use default official iLink base URL',
+          );
+        } finally {
+          if (typeof originalBase === 'string') {
+            process.env.ILINK_BASE_URL = originalBase;
+          } else {
+            delete process.env.ILINK_BASE_URL;
+          }
+        }
+      });
+
+      it('normalizes trailing slash in ILINK_BASE_URL to avoid double slash URLs', async () => {
+        const originalBase = process.env.ILINK_BASE_URL;
+        process.env.ILINK_BASE_URL = 'https://ilinkai.weixin.qq.com/';
+        let capturedUrl = null;
+        WeixinAdapter._injectStaticFetch(async (url) => {
+          capturedUrl = url;
+          return {
+            ok: true,
+            json: async () => ({
+              errcode: 0,
+              qrcode: 'payload-trailing-slash',
+              qrcode_img_content: 'https://liteapp.weixin.qq.com/q/trailing',
+            }),
+          };
+        });
+
+        try {
+          await WeixinAdapter.fetchQrCode();
+          assert.equal(
+            capturedUrl,
+            'https://ilinkai.weixin.qq.com/ilink/bot/get_bot_qrcode?bot_type=3',
+            'should not contain double slash between host and path',
+          );
+        } finally {
+          if (typeof originalBase === 'string') {
+            process.env.ILINK_BASE_URL = originalBase;
+          } else {
+            delete process.env.ILINK_BASE_URL;
+          }
+        }
+      });
+
       it('returns qrUrl and qrPayload on success', async () => {
         WeixinAdapter._injectStaticFetch(async () => ({
           ok: true,
