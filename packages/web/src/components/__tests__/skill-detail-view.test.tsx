@@ -374,6 +374,93 @@ describe('SkillDetailView', () => {
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(triggerText);
   });
 
+  it('keeps long skill titles on a single-line token and exposes the full title in a tooltip', async () => {
+    const longTitle = 'demo-skill-with-a-very-long-name-for-multi-surface-layouts-and-height-constrained-views-技能详情标题验证';
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/detail?name=demo-skill') {
+        return Promise.resolve(
+          jsonResponse({
+            id: 'demo-skill',
+            name: longTitle,
+            description: 'Skill detail description',
+            category: 'Automation',
+            source: 'cat-cafe',
+            enabled: true,
+            triggers: ['demo', 'detail'],
+            mounts: { claude: true, codex: false, gemini: true },
+            cats: { office: true, review: false },
+            fileTree: [
+              {
+                name: 'SKILL.md',
+                path: 'SKILL.md',
+                type: 'file',
+                size: 128,
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=SKILL.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'SKILL.md',
+            content: '# Skill File\n\nSkill file preview content',
+            size: 128,
+            mime: 'text/markdown',
+            truncated: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          avatarUrl: '/avatars/demo-skill.png',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    const titleNode = container.querySelector('[data-testid="skill-detail-title"]') as HTMLElement | null;
+    expect(titleNode).not.toBeNull();
+    expect(titleNode?.className).toContain('text-[28px]');
+    expect(titleNode?.className).toContain('whitespace-nowrap');
+    expect(titleNode?.className).toContain('text-ellipsis');
+    expect(container.querySelector('[data-testid="skill-detail-breadcrumb-title"]')?.textContent).toBe(longTitle);
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+    if (!titleNode) return;
+
+    Object.defineProperty(titleNode, 'clientWidth', {
+      configurable: true,
+      value: 280,
+    });
+    Object.defineProperty(titleNode, 'scrollWidth', {
+      configurable: true,
+      value: 520,
+    });
+    Object.defineProperty(titleNode, 'clientHeight', {
+      configurable: true,
+      value: 35,
+    });
+    Object.defineProperty(titleNode, 'scrollHeight', {
+      configurable: true,
+      value: 35,
+    });
+
+    await act(async () => {
+      titleNode.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(longTitle);
+  });
+
   it('keeps the file workspace constrained to the remaining height and scrolls internally', async () => {
     await act(async () => {
       root.render(

@@ -1270,7 +1270,7 @@ export function AgentsPanel() {
                 </div>
               ) : null}
 
-              <div className="min-h-0 flex-1 overflow-hidden">{renderDetailBody()}</div>
+              <div className="min-h-0 flex-1 overflow-auto">{renderDetailBody()}</div>
             </div>
           </section>
         </div>
