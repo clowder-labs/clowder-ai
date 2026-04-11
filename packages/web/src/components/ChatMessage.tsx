@@ -42,7 +42,11 @@ const DEFAULT_BREED_STYLE = { radius: 'rounded-2xl' };
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${month}/${day} ${hours}:${minutes}`;
 }
 
 const DELIVERED_AT_GAP_THRESHOLD = 5000;

@@ -180,6 +180,7 @@ type FeedbackSubmitResponse = {
 
 export function RightContentHeader() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const [lowScoreSelectedIssues, setLowScoreSelectedIssues] = useState<string[]>([]);
   const [highScoreSelectedIssues, setHighScoreSelectedIssues] = useState<string[]>([]);
@@ -192,10 +193,9 @@ export function RightContentHeader() {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [submitErrorMessage, setSubmitErrorMessage] = useState('');
   const addToast = useToastStore((s) => s.addToast);
+  const headerRef = useRef<HTMLDivElement>(null);
   const smileActionRef = useRef<HTMLButtonElement>(null);
   const feedbackPopoverRef = useRef<HTMLDivElement | null>(null);
-  const prevIsFeedbackOpenRef = useRef(false);
-  const closeRequestedByButtonRef = useRef(false);
   const feedbackPopoverId = useId();
   const isScoreUnselected = selectedScore == null;
   const isVeryLowScoreDetailVisible = selectedScore != null && selectedScore <= 6;
@@ -232,13 +232,9 @@ export function RightContentHeader() {
   }, []);
   const closeFeedbackPopover = useCallback(() => {
     setIsFeedbackOpen(false);
+    setFeedbackPopoverMaxHeight(null);
     resetFeedbackState();
   }, [resetFeedbackState]);
-
-  const handleCloseByButton = useCallback(() => {
-    closeRequestedByButtonRef.current = true;
-    closeFeedbackPopover();
-  }, [closeFeedbackPopover]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -287,25 +283,52 @@ export function RightContentHeader() {
   }, [resetFeedbackState]);
 
   useEffect(() => {
-    const wasOpen = prevIsFeedbackOpenRef.current;
-    prevIsFeedbackOpenRef.current = isFeedbackOpen;
-
-    if (!wasOpen || isFeedbackOpen) return;
-
-    if (!closeRequestedByButtonRef.current) {
-      setIsFeedbackOpen(true);
-      return;
-    }
-
-    closeRequestedByButtonRef.current = false;
-  }, [isFeedbackOpen]);
-
-  useEffect(() => {
     if (isLowScoreDetailVisible) return;
     setIsIssueRequiredError(false);
     setIsDetailRequiredError(false);
     setIsOtherIssueRequiredError(false);
   }, [isLowScoreDetailVisible]);
+
+  useEffect(() => {
+    if (!isFeedbackOpen) return;
+
+    const updatePopoverMaxHeight = () => {
+      const buttonRect = smileActionRef.current?.getBoundingClientRect();
+      if (!buttonRect) return;
+
+      const contentFrameRect = headerRef.current?.parentElement?.getBoundingClientRect();
+      const contentBottom = contentFrameRect?.bottom ?? window.innerHeight;
+      const nextMaxHeight = Math.max(0, Math.floor(contentBottom - (buttonRect.bottom + 12) - 32));
+
+      setFeedbackPopoverMaxHeight(nextMaxHeight);
+    };
+
+    updatePopoverMaxHeight();
+    window.addEventListener('resize', updatePopoverMaxHeight);
+
+    return () => {
+      window.removeEventListener('resize', updatePopoverMaxHeight);
+    };
+  }, [isFeedbackOpen]);
+
+  useEffect(() => {
+    if (!isFeedbackOpen) return;
+
+    const handlePointerDownOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (feedbackPopoverRef.current?.contains(target)) return;
+      if (smileActionRef.current?.contains(target)) return;
+
+      closeFeedbackPopover();
+    };
+
+    document.addEventListener('mousedown', handlePointerDownOutside, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside, true);
+    };
+  }, [closeFeedbackPopover, isFeedbackOpen]);
 
   const handleToggleIssue = (issue: string) => {
     const setCurrentIssues = isHighScoreDetailVisible ? setHighScoreSelectedIssues : setLowScoreSelectedIssues;
@@ -534,7 +557,7 @@ export function RightContentHeader() {
         message: '\u611f\u8c22\u60a8\u7684\u53cd\u9988',
         duration: 2600,
       });
-      handleCloseByButton();
+      closeFeedbackPopover();
     } catch (error) {
       const message = error instanceof Error && error.message ? error.message : '\u7f51\u7edc\u5f02\u5e38';
       setSubmitErrorMessage(message);
@@ -552,7 +575,7 @@ export function RightContentHeader() {
     currentDetailMaxLength,
     currentIssueOptions,
     currentSelectedIssues,
-    handleCloseByButton,
+    closeFeedbackPopover,
     isLowScoreDetailVisible,
     isSubmittingFeedback,
     lowScoreDetail,
@@ -561,7 +584,7 @@ export function RightContentHeader() {
   ]);
 
   return (
-    <div className="ui-content-header" data-testid="right-content-header">
+    <div ref={headerRef} className="ui-content-header" data-testid="right-content-header">
       <div aria-hidden="true" />
       <div className="ui-content-header-actions">
         <div className="ui-content-header-feedback-anchor">
@@ -582,166 +605,176 @@ export function RightContentHeader() {
               role="dialog"
               aria-modal="false"
               aria-label={'\u6ee1\u610f\u5ea6\u8bc4\u5206'}
+              style={{ height: 'auto' }}
               className={
                 isScoreUnselected
                   ? 'ui-content-header-feedback-popover ui-content-header-feedback-popover-compact'
                   : 'ui-content-header-feedback-popover'
               }
             >
-              <div className="ui-content-header-feedback-popover-header">
-                <p className="ui-content-header-feedback-popover-title">
-                  {currentSurveyTitle}
-                </p>
-                <button
-                  type="button"
-                  aria-label={'\u5173\u95ed\u6ee1\u610f\u5ea6\u8bc4\u4ef7\u5f39\u7a97'}
-                  className="ui-content-header-feedback-popover-close"
-                  onClick={handleCloseByButton}
-                >
-                  <PopoverCloseIcon />
-                </button>
-              </div>
-              <div className="ui-content-header-feedback-score-row">
-                {SATISFACTION_SCORES.map((score) => (
+              <div
+                className="ui-content-header-feedback-popover-content"
+                style={{ maxHeight: feedbackPopoverMaxHeight != null ? `${feedbackPopoverMaxHeight}px` : undefined }}
+              >
+                <div className="ui-content-header-feedback-popover-header">
+                  <p className="ui-content-header-feedback-popover-title">
+                    {currentSurveyTitle}
+                  </p>
                   <button
-                    key={score}
                     type="button"
-                    onClick={() => setSelectedScore(score)}
-                    aria-label={`\u8bc4\u5206 ${score}`}
-                    aria-pressed={selectedScore === score}
-                    className={
-                      selectedScore === score
-                        ? isHighScoreDetailVisible
-                          ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-positive'
-                          : isVeryLowScoreDetailVisible
-                            ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-negative'
-                          : 'ui-content-header-feedback-score ui-content-header-feedback-score-active-warning'
-                        : 'ui-content-header-feedback-score'
-                    }
+                    aria-label={'\u5173\u95ed\u6ee1\u610f\u5ea6\u8bc4\u4ef7\u5f39\u7a97'}
+                    className="ui-content-header-feedback-popover-close"
+                    onClick={closeFeedbackPopover}
                   >
-                    {selectedScore === score
-                      ? isHighScoreDetailVisible
-                        ? '\ud83d\ude42'
-                        : isVeryLowScoreDetailVisible
-                          ? '\u2639\ufe0f'
-                          : isLowScoreDetailVisible
-                          ? '\ud83d\ude10'
-                          : score
-                      : score}
+                    <PopoverCloseIcon />
                   </button>
-                ))}
-              </div>
-              {isLowScoreDetailVisible || isHighScoreDetailVisible ? (
-                <div className="ui-content-header-feedback-low-score">
-                  <div className="ui-content-header-feedback-low-score-section">
-                    <p className="ui-content-header-feedback-low-score-title">
-                      {currentPrimaryTitle}
-                      <span className="ui-content-header-feedback-low-score-subtitle">
-                        {currentPrimarySubtitle}
-                      </span>
-                    </p>
-                    <div className="ui-content-header-feedback-low-score-options">
-                      {currentIssueOptions.map((issue) => {
-                        const isChecked = currentSelectedIssues.includes(issue.id);
-                        const isDisabled = !isChecked && currentSelectedIssues.length >= 3;
-                        return (
-                          <label
-                            key={issue.id}
-                            className={
-                              isDisabled
-                                ? 'ui-content-header-feedback-low-score-option ui-content-header-feedback-low-score-option-disabled'
-                                : 'ui-content-header-feedback-low-score-option'
-                            }
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={isDisabled}
-                              onChange={() => handleToggleIssue(issue.id)}
-                            />
-                            <span className="ui-content-header-feedback-low-score-option-content">
-                              <span className="ui-content-header-feedback-low-score-option-label">{issue.label}</span>
-                              {issue.hint ? (
-                                <span className="ui-content-header-feedback-low-score-option-hint">{issue.hint}</span>
-                              ) : null}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {isLowScoreDetailVisible && isIssueRequiredError ? (
-                      <p className="ui-content-header-feedback-other-error">
-                        {REQUIRED_SELECT_ERROR_MESSAGE}
-                      </p>
-                    ) : null}
-                    {isOtherIssueSelected ? (
-                      <>
-                        <input
-                          type="text"
-                          className="ui-content-header-feedback-other-input"
-                          placeholder={'\u662f\u4ec0\u4e48\u95ee\u9898\u5462\uff1f\u8bf7\u7b80\u8981\u8bf4\u660e'}
-                          value={otherIssueDetail}
-                          onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
-                        />
-                        {isLowScoreDetailVisible && isOtherIssueRequiredError ? (
-                          <p className="ui-content-header-feedback-other-error">
-                            {REQUIRED_INPUT_ERROR_MESSAGE}
-                          </p>
-                        ) : isOtherIssueTooLong ? (
-                          <p className="ui-content-header-feedback-other-error">
-                            {OTHER_ISSUE_LENGTH_ERROR_MESSAGE}
-                          </p>
-                        ) : null}
-                      </>
-                    ) : null}
-                  </div>
-                  <div className="ui-content-header-feedback-low-score-section">
-                    <p className="ui-content-header-feedback-low-score-title">
-                      {currentDetailTitle}
-                      {currentDetailSubtitle ? (
-                        <span className="ui-content-header-feedback-low-score-subtitle">{currentDetailSubtitle}</span>
-                      ) : null}
-                    </p>
-                    <div className="ui-content-header-feedback-detail-shell">
-                      <textarea
-                        className="ui-content-header-feedback-detail-input"
-                        placeholder={currentDetailPlaceholder}
-                        value={lowScoreDetail}
-                        onFocus={handleDetailFocus}
-                        onChange={(event) => handleDetailChange(event.target.value)}
-                      />
-                      <span className="ui-content-header-feedback-detail-counter">
-                        {lowScoreDetail.length}/{currentDetailMaxLength}
-                      </span>
-                    </div>
-                    {isLowScoreDetailVisible && isDetailRequiredError ? (
-                      <p className="ui-content-header-feedback-detail-error">
-                        {REQUIRED_INPUT_ERROR_MESSAGE}
-                      </p>
-                    ) : isDetailTooLong ? (
-                      <p className="ui-content-header-feedback-detail-error">
-                        {DETAIL_LENGTH_ERROR_MESSAGE}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="ui-content-header-feedback-low-score-actions">
-                    {submitErrorMessage ? (
-                      <p className="mr-3 self-center text-xs text-red-600">{submitErrorMessage}</p>
-                    ) : null}
-                    <button type="button" className="ui-content-header-feedback-cancel" onClick={handleCloseByButton}>
-                      {'\u53d6\u6d88'}
-                    </button>
-                    <button
-                      type="button"
-                      className="ui-content-header-feedback-submit"
-                      onClick={() => void handleSubmitFeedback()}
-                      disabled={isSubmittingFeedback}
-                    >
-                      {isSubmittingFeedback ? '\u63d0\u4ea4\u4e2d...' : '\u63d0\u4ea4'}
-                    </button>
-                  </div>
                 </div>
-              ) : null}
+                <div className="ui-content-header-feedback-score-row">
+                  {SATISFACTION_SCORES.map((score) => (
+                    <button
+                      key={score}
+                      type="button"
+                      onClick={() => setSelectedScore(score)}
+                      aria-label={`\u8bc4\u5206 ${score}`}
+                      aria-pressed={selectedScore === score}
+                      className={
+                        selectedScore === score
+                          ? isHighScoreDetailVisible
+                            ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-positive'
+                            : isVeryLowScoreDetailVisible
+                              ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-negative'
+                            : 'ui-content-header-feedback-score ui-content-header-feedback-score-active-warning'
+                          : 'ui-content-header-feedback-score'
+                      }
+                    >
+                      {selectedScore === score
+                        ? isHighScoreDetailVisible
+                          ? '\ud83d\ude42'
+                          : isVeryLowScoreDetailVisible
+                            ? '\u2639\ufe0f'
+                            : isLowScoreDetailVisible
+                            ? '\ud83d\ude10'
+                            : score
+                        : score}
+                    </button>
+                  ))}
+                </div>
+                {isLowScoreDetailVisible || isHighScoreDetailVisible ? (
+                  <div className="ui-content-header-feedback-low-score">
+                    <div className="ui-content-header-feedback-low-score-section">
+                      <p className="ui-content-header-feedback-low-score-title">
+                        {currentPrimaryTitle}
+                        <span className="ui-content-header-feedback-low-score-subtitle">
+                          {currentPrimarySubtitle}
+                        </span>
+                      </p>
+                      <div className="ui-content-header-feedback-low-score-options">
+                        {currentIssueOptions.map((issue) => {
+                          const isChecked = currentSelectedIssues.includes(issue.id);
+                          const isDisabled = !isChecked && currentSelectedIssues.length >= 3;
+                          return (
+                            <label
+                              key={issue.id}
+                              className={
+                                isDisabled
+                                  ? 'ui-content-header-feedback-low-score-option ui-content-header-feedback-low-score-option-disabled'
+                                  : 'ui-content-header-feedback-low-score-option'
+                              }
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isDisabled}
+                                onChange={() => handleToggleIssue(issue.id)}
+                              />
+                              <span className="ui-content-header-feedback-low-score-option-content">
+                                <span className="ui-content-header-feedback-low-score-option-label">{issue.label}</span>
+                                {issue.hint ? (
+                                  <span className="ui-content-header-feedback-low-score-option-hint">{issue.hint}</span>
+                                ) : null}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {isLowScoreDetailVisible && isIssueRequiredError ? (
+                        <p className="ui-content-header-feedback-other-error">
+                          {REQUIRED_SELECT_ERROR_MESSAGE}
+                        </p>
+                      ) : null}
+                      {isOtherIssueSelected ? (
+                        <>
+                          <input
+                            type="text"
+                            className="ui-input"
+                            placeholder={'\u662f\u4ec0\u4e48\u95ee\u9898\u5462\uff1f\u8bf7\u7b80\u8981\u8bf4\u660e'}
+                            value={otherIssueDetail}
+                            onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
+                          />
+                          {isLowScoreDetailVisible && isOtherIssueRequiredError ? (
+                            <p className="ui-content-header-feedback-other-error">
+                              {REQUIRED_INPUT_ERROR_MESSAGE}
+                            </p>
+                          ) : isOtherIssueTooLong ? (
+                            <p className="ui-content-header-feedback-other-error">
+                              {OTHER_ISSUE_LENGTH_ERROR_MESSAGE}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
+                    <div className="ui-content-header-feedback-low-score-section">
+                      <p className="ui-content-header-feedback-low-score-title">
+                        {currentDetailTitle}
+                        {currentDetailSubtitle ? (
+                          <span className="ui-content-header-feedback-low-score-subtitle">{currentDetailSubtitle}</span>
+                        ) : null}
+                      </p>
+                      <div className="ui-content-header-feedback-detail-shell">
+                        <textarea
+                          className="ui-textarea ui-content-header-feedback-detail-input"
+                          placeholder={currentDetailPlaceholder}
+                          value={lowScoreDetail}
+                          onFocus={handleDetailFocus}
+                          onChange={(event) => handleDetailChange(event.target.value)}
+                        />
+                        <span className="ui-content-header-feedback-detail-counter">
+                          {lowScoreDetail.length}/{currentDetailMaxLength}
+                        </span>
+                      </div>
+                      {isLowScoreDetailVisible && isDetailRequiredError ? (
+                        <p className="ui-content-header-feedback-detail-error">
+                          {REQUIRED_INPUT_ERROR_MESSAGE}
+                        </p>
+                      ) : isDetailTooLong ? (
+                        <p className="ui-content-header-feedback-detail-error">
+                          {DETAIL_LENGTH_ERROR_MESSAGE}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="ui-content-header-feedback-low-score-actions">
+                      {submitErrorMessage ? (
+                        <p className="mr-3 self-center text-xs text-red-600">{submitErrorMessage}</p>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="ui-button-default ui-modal-action-button"
+                        onClick={closeFeedbackPopover}
+                      >
+                        {'\u53d6\u6d88'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ui-button-primary ui-modal-action-button"
+                        onClick={() => void handleSubmitFeedback()}
+                        disabled={isSubmittingFeedback}
+                      >
+                        {isSubmittingFeedback ? '\u63d0\u4ea4\u4e2d...' : '\u63d0\u4ea4'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <div className="ui-content-header-feedback-popover-arrow" aria-hidden="true" />
             </div>
           ) : null}
