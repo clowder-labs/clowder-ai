@@ -76,7 +76,8 @@ for arg in "$@"; do
 done
 
 # 加载环境变量 (放最前面，后续函数需要端口号)
-# 默认读取 .env；.env.local 仅用于 DARE 相关白名单键，避免全量覆盖引发配置漂移。
+# 加载顺序: 先 .inner.env (内部默认)，后 .env (用户覆盖)
+# 用户在 .env 中设置的值优先级最高，会覆盖 .inner.env 的默认值
 CLI_FRONTEND_PORT_OVERRIDE="${FRONTEND_PORT-}"
 CLI_API_SERVER_PORT_OVERRIDE="${API_SERVER_PORT-}"
 CLI_REDIS_PORT_OVERRIDE="${REDIS_PORT-}"
@@ -103,6 +104,14 @@ clear_inherited_profile_env() {
 
 clear_inherited_profile_env
 
+# Load .inner.env first (internal defaults - platform URLs, CDN, signal sources)
+if [ -f .inner.env ]; then
+    set -a
+    source .inner.env
+    set +a
+fi
+
+# Load .env second (user overrides - highest priority)
 if [ -f .env ]; then
     set -a
     source .env
