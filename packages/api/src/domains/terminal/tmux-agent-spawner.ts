@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * TmuxAgentSpawner — runs CLI agents inside tmux panes with FIFO-based NDJSON streaming.
  *

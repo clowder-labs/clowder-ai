@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { type ReactNode } from 'react';
 import type { CatData } from '@/hooks/useCatData';
 import type { ConfigData } from './config-viewer-types';
@@ -71,7 +77,7 @@ export function SystemTab({ config, hiddenHubTabs }: { config: ConfigData; hidde
   const hideCodex = hiddenHubTabs?.includes('capabilities');
   return (
     <>
-      <Section title="A2A 猫猫互调">
+      <Section title="A2A 互调">
         <div className="space-y-1.5">
           <KV label="启用" value={config.a2a.enabled} />
           <KV label="最大深度" value={config.a2a.maxDepth} />

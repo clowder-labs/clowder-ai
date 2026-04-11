@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +16,8 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const AGENT_NAME_VALIDATION_MESSAGE =
+  '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -193,7 +201,7 @@ describe('CreateAgentModal', () => {
 
     await flushEffects();
 
-    expect(container.textContent).toContain('请输入名称');
+    expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
     expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
@@ -227,7 +235,41 @@ describe('CreateAgentModal', () => {
 
     await flushEffects();
 
-    expect(container.textContent).toContain('名称需包含中文、字母或数字');
+    expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(createButton?.disabled).toBe(true);
+    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+  });
+
+  it('shows inline validation when name starts or ends with spaces', async () => {
+    mockModalBootApi();
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'Name Bot',
+          description: '',
+          onClose: vi.fn(),
+          onSaved: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const nameInput = container.querySelector('input[aria-label="Name"]') as HTMLInputElement | null;
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(nameInput).toBeTruthy();
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      setInputValue(nameInput!, ' Name Bot ');
+    });
+
+    await flushEffects();
+
+    expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
     expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);

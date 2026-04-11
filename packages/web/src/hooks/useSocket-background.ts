@@ -1,5 +1,15 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
-import { getFriendlyAgentErrorMessage } from '@/hooks/agent-error-fallback';
+import {
+  getFriendlyAgentErrorMessage,
+  getSensitiveInputErrorToastContent,
+  isSensitiveInputAgentError,
+} from '@/hooks/agent-error-fallback';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import type {
@@ -469,6 +479,7 @@ export function handleBackgroundAgentMessage(
     markThreadInvocationActive(msg, options);
     stopTrackedStream(streamKey, msg, options);
     const friendlyError = getFriendlyAgentErrorMessage(msg);
+    const sensitiveToast = isSensitiveInputAgentError(msg) ? getSensitiveInputErrorToastContent() : null;
     recordDebugEvent({
       event: 'agent_message',
       threadId: msg.threadId,
@@ -495,8 +506,8 @@ export function handleBackgroundAgentMessage(
     }
     options.addToast({
       type: 'error',
-      title: `${msg.catId} 出错`,
-      message: friendlyError,
+      title: sensitiveToast?.title ?? `${msg.catId} 出错`,
+      message: sensitiveToast?.message ?? friendlyError,
       threadId: msg.threadId,
       duration: 8000,
     });

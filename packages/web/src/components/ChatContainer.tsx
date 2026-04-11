@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -44,6 +50,7 @@ import { ModelsPanel } from './ModelsPanel';
 import { NewThreadContainer } from './NewThreadContainer';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
+import { RightContentHeader } from './RightContentHeader';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
@@ -77,6 +84,18 @@ type ChatContainerProps =
       requireLoginCheck?: boolean;
       initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
     };
+
+function AuthLoadingPanel() {
+  return (
+    <div className="flex h-full items-center justify-center" data-testid="chat-container-loading-panel">
+      <div className="text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/chart/loading.svg" alt="加载中" className="mx-auto h-8 w-8 animate-spin" />
+        <p className="mt-3 text-gray-600">加载中...</p>
+      </div>
+    </div>
+  );
+}
 
 export function ChatContainer(props: ChatContainerProps) {
   const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
@@ -113,18 +132,7 @@ export function ChatContainer(props: ChatContainerProps) {
     };
   }, [props.requireLoginCheck, router]);
 
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">加载中...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isLoggedIn) {
+  if (authChecked && !isLoggedIn) {
     return null;
   }
 
@@ -132,15 +140,23 @@ export function ChatContainer(props: ChatContainerProps) {
     return <NewThreadContainer />;
   }
 
-  return <ThreadModeChatContainer threadId={props.threadId} initialSidebarMenu={props.initialSidebarMenu} />;
+  return (
+    <ThreadModeChatContainer
+      threadId={props.threadId}
+      initialSidebarMenu={props.initialSidebarMenu}
+      authChecked={authChecked}
+    />
+  );
 }
 
 function ThreadModeChatContainer({
   threadId,
   initialSidebarMenu = 'chat',
+  authChecked,
 }: {
   threadId: string;
   initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+  authChecked: boolean;
 }) {
   const {
     messages,
@@ -244,7 +260,7 @@ function ThreadModeChatContainer({
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
   const { handleScroll, scrollContainerRef, messagesEndRef, scrollToBottom, isLoadingHistory, hasMore } =
     useChatHistory(threadId);
-  const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
+  const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId, { resetRefs });
   const consumedPendingRequestIdsRef = useRef(new Set<string>());
   const {
     pending: authPending,
@@ -633,6 +649,7 @@ function ThreadModeChatContainer({
         </div>
       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+        <RightContentHeader />
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
             sidebarOpen={sidebarOpen}
@@ -666,61 +683,67 @@ function ThreadModeChatContainer({
               className="ui-shell-surface h-full min-h-0 overflow-y-auto p-6"
               data-chat-container
             >
-              {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
-              {!hasMore && messages.length > 0 && (
-                <div className="text-center py-3 text-xs text-gray-300 hidden">没有更多消息...</div>
-              )}
-              {messages.length === 0 && !isLoadingHistory ? (
-                <ChatEmptyState
-                  bootcampCount={bootcampCount}
-                  isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
-                  onOpenBootcampList={() => setShowBootcampList(true)}
-                />
-              ) : (
-                renderItems.map((item) =>
-                  item.kind === 'a2a_group' ? (
-                    <A2ACollapsible
-                      key={item.groupId}
-                      group={{ groupId: item.groupId, messages: item.messages }}
-                      renderMessage={renderSingleMessage}
-                      getCatColor={(catId) => getCatById(catId)?.color.primary}
+              {authChecked ? (
+                <>
+                  {isLoadingHistory && <div className="text-center py-3 text-sm text-gray-400">加载历史消息...</div>}
+                  {!hasMore && messages.length > 0 && (
+                    <div className="text-center py-3 text-xs text-gray-300 hidden">没有更多消息...</div>
+                  )}
+                  {messages.length === 0 && !isLoadingHistory ? (
+                    <ChatEmptyState
+                      bootcampCount={bootcampCount}
+                      isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
+                      onOpenBootcampList={() => setShowBootcampList(true)}
                     />
                   ) : (
-                    renderSingleMessage(item.msg)
-                  ),
-                )
-              )}
-              {pendingIntentRecognitionTimestamp != null &&
-                renderSingleMessage({
-                  id: `intent-recognition-${pendingIntentRecognitionTimestamp}`,
-                  type: 'assistant',
-                  catId: pendingIntentRecognitionCatId,
-                  content: '',
-                  timestamp: pendingIntentRecognitionTimestamp,
-                  variant: 'intent_recognition',
-                } as ChatMessageData)}
-              {pendingIntentRecognitionTimestamp == null &&
-                stoppedIntentRecognition != null &&
-                renderSingleMessage({
-                  id: `intent-recognition-stopped-${stoppedIntentRecognition.timestamp}`,
-                  type: 'assistant',
-                  catId: stoppedIntentRecognition.catId,
-                  content: 'stopped',
-                  timestamp: stoppedIntentRecognition.timestamp,
-                  variant: 'intent_recognition',
-                } as ChatMessageData)}
-              <div ref={messagesEndRef} />
-              {sidebarMenu === 'chat' && (
-                <ScrollToBottomButton
-                  scrollContainerRef={scrollContainerRef}
-                  messagesEndRef={messagesEndRef}
-                  recomputeSignal={computeScrollRecomputeSignal(
-                    threadId,
-                    messages,
-                    uiThinkingExpandedByDefault ? 1 : 0,
+                    renderItems.map((item) =>
+                      item.kind === 'a2a_group' ? (
+                        <A2ACollapsible
+                          key={item.groupId}
+                          group={{ groupId: item.groupId, messages: item.messages }}
+                          renderMessage={renderSingleMessage}
+                          getCatColor={(catId) => getCatById(catId)?.color.primary}
+                        />
+                      ) : (
+                        renderSingleMessage(item.msg)
+                      ),
+                    )
                   )}
-                  observerKey={threadId}
-                />
+                  {pendingIntentRecognitionTimestamp != null &&
+                    renderSingleMessage({
+                      id: `intent-recognition-${pendingIntentRecognitionTimestamp}`,
+                      type: 'assistant',
+                      catId: pendingIntentRecognitionCatId,
+                      content: '',
+                      timestamp: pendingIntentRecognitionTimestamp,
+                      variant: 'intent_recognition',
+                    } as ChatMessageData)}
+                  {pendingIntentRecognitionTimestamp == null &&
+                    stoppedIntentRecognition != null &&
+                    renderSingleMessage({
+                      id: `intent-recognition-stopped-${stoppedIntentRecognition.timestamp}`,
+                      type: 'assistant',
+                      catId: stoppedIntentRecognition.catId,
+                      content: 'stopped',
+                      timestamp: stoppedIntentRecognition.timestamp,
+                      variant: 'intent_recognition',
+                    } as ChatMessageData)}
+                  <div ref={messagesEndRef} />
+                  {sidebarMenu === 'chat' && (
+                    <ScrollToBottomButton
+                      scrollContainerRef={scrollContainerRef}
+                      messagesEndRef={messagesEndRef}
+                      recomputeSignal={computeScrollRecomputeSignal(
+                        threadId,
+                        messages,
+                        uiThinkingExpandedByDefault ? 1 : 0,
+                      )}
+                      observerKey={threadId}
+                    />
+                  )}
+                </>
+              ) : (
+                <AuthLoadingPanel />
               )}
             </main>
           )}

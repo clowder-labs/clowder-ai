@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * InvocationQueue
  * Per-thread, per-user FIFO 队列，用于猫猫在跑时排队用户/connector 消息。
@@ -10,8 +16,9 @@
  * 系统级出队（invocation 完成后）通过 *AcrossUsers 方法跨用户 FIFO。
  */
 
-import type { CatId } from '@cat-cafe/shared';
 import { randomUUID } from 'node:crypto';
+import type { CatId } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 export interface QueueEntry {
   id: string;
@@ -25,6 +32,8 @@ export interface QueueEntry {
   intent: string;
   status: 'queued' | 'processing';
   createdAt: number;
+  /** Set when entry transitions to 'processing'. Used for stale-processing TTL. */
+  processingStartedAt?: number;
   /** F122B: auto-execute without waiting for steer/manual trigger */
   autoExecute: boolean;
   /** F122B: which cat initiated this entry (for A2A/multi_mention display) */
@@ -44,6 +53,7 @@ export interface EnqueueResult {
 const MAX_QUEUE_DEPTH = 5;
 
 export class InvocationQueue {
+  private readonly log = createModuleLogger('invocation-queue');
   private queues = new Map<string, QueueEntry[]>();
 
   /** Last pre-merge content per entryId, for rollback */
@@ -81,9 +91,16 @@ export class InvocationQueue {
     const q = this.getOrCreate(key);
 
     // Check merge with tail — F134: connector messages never merge (different group senders could collide)
+    // Stale defense: never merge into a stale agent entry — its createdAt is too old
+    // for listAutoExecute() to pick up, so merging would silently swallow the new message.
     const tail = q.length > 0 ? q[q.length - 1] : null;
+    const isStaleTail =
+      tail?.source === 'agent' &&
+      tail.status === 'queued' &&
+      Date.now() - tail.createdAt >= InvocationQueue.STALE_QUEUED_THRESHOLD_MS;
     if (
       tail &&
+      !isStaleTail &&
       tail.status === 'queued' &&
       tail.source === input.source &&
       tail.source !== 'connector' &&
@@ -97,8 +114,13 @@ export class InvocationQueue {
       return { outcome: 'merged', entry: { ...tail }, queuePosition: q.indexOf(tail) + 1 };
     }
 
-    // Capacity check (only queued entries count)
-    const queuedCount = q.filter((e) => e.status === 'queued').length;
+    // Capacity check (only non-stale queued entries count)
+    const now = Date.now();
+    const queuedCount = q.filter(
+      (e) =>
+        e.status === 'queued' &&
+        !(e.source === 'agent' && now - e.createdAt >= InvocationQueue.STALE_QUEUED_THRESHOLD_MS),
+    ).length;
     if (queuedCount >= MAX_QUEUE_DEPTH) {
       return { outcome: 'full' };
     }
@@ -184,7 +206,13 @@ export class InvocationQueue {
   dequeue(threadId: string, userId: string): QueueEntry | null {
     const q = this.queues.get(this.scopeKey(threadId, userId));
     if (!q || q.length === 0) return null;
-    return q.shift()!;
+    const entry = q.shift()!;
+    this.originalContents.delete(entry.id);
+    this.preMergeSnapshots.delete(entry.id);
+    if (q.length === 0) {
+      this.queues.delete(this.scopeKey(threadId, userId));
+    }
+    return entry;
   }
 
   /** Look at the first entry without removing. */
@@ -277,6 +305,7 @@ export class InvocationQueue {
     const first = q.find((e) => e.status === 'queued');
     if (!first) return null;
     first.status = 'processing';
+    first.processingStartedAt = Date.now();
     return { ...first };
   }
 
@@ -343,6 +372,7 @@ export class InvocationQueue {
     }
     if (!oldest) return null;
     oldest.entry.status = 'processing';
+    oldest.entry.processingStartedAt = Date.now();
     return { ...oldest.entry };
   }
 
@@ -373,23 +403,34 @@ export class InvocationQueue {
 
   /** F122B: List all queued autoExecute entries for a thread (for scanning past busy slots). */
   listAutoExecute(threadId: string): QueueEntry[] {
+    const now = Date.now();
     const result: QueueEntry[] = [];
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
-        if (e.status === 'queued' && e.autoExecute) result.push({ ...e });
+        if (e.status !== 'queued' || !e.autoExecute) continue;
+        // Keep auto-execute scan consistent with dedup guard semantics:
+        // stale queued entries must not be picked up indefinitely.
+        if (now - e.createdAt >= InvocationQueue.STALE_QUEUED_THRESHOLD_MS) continue;
+        result.push({ ...e });
       }
     }
     return result;
   }
 
-  /** F122B: Count queued+processing agent-sourced entries for a thread (depth tracking). */
+  /** F122B: Count queued+processing agent-sourced entries for a thread (depth tracking).
+   *  Stale defense: queued entries older than STALE_QUEUED_THRESHOLD_MS are excluded
+   *  so zombie entries don't eat up the A2A depth quota. */
   countAgentEntriesForThread(threadId: string): number {
+    const now = Date.now();
     let count = 0;
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
-        if (e.source === 'agent') count++;
+        if (e.source !== 'agent') continue;
+        // Exclude stale queued entries (zombie defense) — processing entries always count
+        if (e.status === 'queued' && now - e.createdAt >= InvocationQueue.STALE_QUEUED_THRESHOLD_MS) continue;
+        count++;
       }
     }
     return count;
@@ -397,29 +438,84 @@ export class InvocationQueue {
 
   /** F122B: Check if a specific cat already has a queued agent entry for this thread.
    *  Used by callback-a2a-trigger for dedup — only checks 'queued' so that new handoffs
-   *  can still be enqueued while an earlier entry is processing. */
+   *  can still be enqueued while an earlier entry is processing.
+   *
+   *  Stale defense: entries older than STALE_QUEUED_THRESHOLD_MS are ignored.
+   *  Without this, a zombie queued entry (e.g. from a canceled invocation that
+   *  didn't clean up) would permanently block all subsequent @mentions for that
+   *  cat in that thread until server restart. */
   hasQueuedAgentForCat(threadId: string, catId: string): boolean {
+    const now = Date.now();
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
-        if (e.source === 'agent' && e.status === 'queued' && e.targetCats.includes(catId)) return true;
+        if (e.source === 'agent' && e.status === 'queued' && e.targetCats.includes(catId)) {
+          const queuedAge = now - e.createdAt;
+          if (queuedAge >= InvocationQueue.STALE_QUEUED_THRESHOLD_MS) {
+            this.log?.warn(
+              {
+                threadId,
+                catId,
+                matchedEntry: {
+                  entryId: e.id,
+                  status: e.status,
+                  queuedAgeMs: queuedAge,
+                  userId: key.split(':')[1] ?? '',
+                },
+              },
+              '[DIAG] hasQueuedAgentForCat: ignoring stale queued entry (zombie defense)',
+            );
+            continue;
+          }
+          return true;
+        }
       }
     }
     return false;
   }
 
-  /** Cross-path dedup: checks both queued AND processing agent entries.
-   *  Used by route-serial to prevent text-scan @mention when callback already dispatched. */
+  /**
+   * Cross-path dedup: checks processing + fresh queued agent entries.
+   * Used by route-serial to prevent text-scan @mention when callback already dispatched.
+   *
+   * 'processing' entries block only if fresh (< STALE_PROCESSING_THRESHOLD_MS).
+   * Zombie processing entries (invocation hung without cleanup) are ignored to
+   * prevent permanent A2A routing deadlock.
+   *
+   * 'queued' entries only block if created within STALE_QUEUED_THRESHOLD_MS — fresh entries
+   * are legitimate pending dispatches that tryAutoExecute will pick up.
+   * Stale queued entries (older than threshold) are ignored — they may never execute
+   * (tryAutoExecute can fail to start them if the slot stays busy), and blocking
+   * on them causes permanent A2A deadlock.
+   */
+  static readonly STALE_QUEUED_THRESHOLD_MS = 60_000;
+  static readonly STALE_PROCESSING_THRESHOLD_MS = 600_000; // 10 minutes
   hasActiveOrQueuedAgentForCat(threadId: string, catId: string): boolean {
+    const now = Date.now();
     for (const [key, q] of this.queues) {
       if (!key.startsWith(`${threadId}:`)) continue;
       for (const e of q) {
-        if (
-          e.source === 'agent' &&
-          (e.status === 'queued' || e.status === 'processing') &&
-          e.targetCats.includes(catId)
-        )
-          return true;
+        if (e.source !== 'agent' || !e.targetCats.includes(catId)) continue;
+
+        if (e.status === 'processing') {
+          // Use processingStartedAt (when the entry actually began processing),
+          // NOT createdAt (when it was enqueued). An entry may sit queued for a
+          // long time before being picked up — using createdAt would falsely
+          // expire it the moment it starts processing. (P1 fix per codex review)
+          const processingAge = now - (e.processingStartedAt ?? e.createdAt);
+          if (processingAge < InvocationQueue.STALE_PROCESSING_THRESHOLD_MS) {
+            return true;
+          }
+          // Stale processing — zombie defense: ignore and continue
+          continue;
+        }
+
+        if (e.status === 'queued') {
+          const queuedAge = now - e.createdAt;
+          if (queuedAge < InvocationQueue.STALE_QUEUED_THRESHOLD_MS) {
+            return true;
+          }
+        }
       }
     }
     return false;
@@ -432,6 +528,7 @@ export class InvocationQueue {
       const entry = q.find((e) => e.id === entryId && e.status === 'queued');
       if (entry) {
         entry.status = 'processing';
+        entry.processingStartedAt = Date.now();
         return true;
       }
     }

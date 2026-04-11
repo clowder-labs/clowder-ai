@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { FastifyPluginAsync } from 'fastify';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';

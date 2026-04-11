@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CatSelector } from './ThreadSidebar/CatSelector';
 
@@ -161,7 +167,7 @@ export function VoteConfigModal({
 
           {/* Voter cats */}
           <div>
-            <span className="block text-sm font-medium text-gray-700 mb-1">投票猫猫</span>
+            <span className="block text-sm font-medium text-gray-700 mb-1">投票智能体</span>
             <CatSelector selectedCats={voters} onSelectionChange={setVoters} />
           </div>
 

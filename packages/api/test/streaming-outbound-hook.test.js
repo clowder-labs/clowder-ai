@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 
@@ -88,6 +94,13 @@ describe('StreamingOutboundHook', () => {
 
   it('onStreamStart is no-op when no bindings exist', async () => {
     const { hook, adapter } = createHook({ bindings: [] });
+    await hook.onStreamStart('thread-1', 'opus');
+    assert.equal(adapter._calls.sendPlaceholder.length, 0);
+  });
+
+  it('onStreamStart skips adapters that disable placeholder streaming', async () => {
+    const { hook, adapter } = createHook();
+    adapter.supportsPlaceholderStreaming = false;
     await hook.onStreamStart('thread-1', 'opus');
     assert.equal(adapter._calls.sendPlaceholder.length, 0);
   });

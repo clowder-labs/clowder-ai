@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * P1-2 + P2 regression tests for background thread socket message handling.
  *
@@ -182,6 +188,26 @@ describe('background thread socket handling', () => {
 
       // Should still be just 1 toast (the error), no success toast added
       expect(useToastStore.getState().toasts).toHaveLength(1);
+    });
+
+    it('uses the sensitive-input toast copy for ModelArts blocked input errors', () => {
+      simulateBackgroundMessage({
+        type: 'error',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        errorCode: 'ModelArts.81011',
+        error: 'Input text May contain sensitive information, please try again.',
+        timestamp: Date.now(),
+      });
+
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].type).toBe('error');
+      expect(toasts[0].title).toBe('检测到敏感词');
+      expect(toasts[0].message).toBe('当前对话触发了敏感词校验，请重新打开一个新会话后再试。');
+
+      const bgMessages = useChatStore.getState().getThreadState('thread-bg').messages;
+      expect(bgMessages.some((m) => m.type === 'assistant' && m.content.includes('重新打开一个新会话'))).toBe(true);
     });
   });
 

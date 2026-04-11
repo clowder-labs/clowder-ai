@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Tests for hasActiveInvocation state (A2A Stop button UX).
  * Verifies that hasActiveInvocation is preserved across thread switches

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -77,7 +83,7 @@ export function HubClaudeRescueSection() {
         setError(message);
         addToast({
           type: 'error',
-          title: '布偶猫救援失败',
+          title: '通用智能体救援失败',
           message,
           duration: 5000,
         });
@@ -87,10 +93,10 @@ export function HubClaudeRescueSection() {
       setLastRun(body);
       addToast({
         type: body.rescuedCount > 0 ? 'success' : 'info',
-        title: body.rescuedCount > 0 ? '布偶猫已救活' : '布偶猫无需救活',
+        title: body.rescuedCount > 0 ? '通用智能体已救活' : '通用智能体无需救活',
         message:
           body.rescuedCount > 0
-            ? `救活 ${body.rescuedCount} 只布偶猫，跳过 ${body.skippedCount} 只。`
+            ? `救活 ${body.rescuedCount} 只通用智能体，跳过 ${body.skippedCount} 只。`
             : '没有需要动刀的坏 session。',
         duration: 3500,
       });
@@ -99,7 +105,7 @@ export function HubClaudeRescueSection() {
       setError('网络错误');
       addToast({
         type: 'error',
-        title: '布偶猫救援失败',
+        title: '通用智能体救援失败',
         message: '网络错误',
         duration: 5000,
       });
@@ -112,7 +118,7 @@ export function HubClaudeRescueSection() {
     <section className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 space-y-3">
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">
-          <h4 className="text-xs font-semibold text-amber-900">布偶猫救援中心</h4>
+          <h4 className="text-xs font-semibold text-amber-900">通用智能体救援中心</h4>
           <button
             type="button"
             onClick={() => {
@@ -137,7 +143,7 @@ export function HubClaudeRescueSection() {
 
       {lastRun && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 space-y-1">
-          <p className="font-medium">刚刚救活 {lastRun.rescuedCount} 只布偶猫</p>
+          <p className="font-medium">刚刚救活 {lastRun.rescuedCount} 只通用智能体</p>
           <p>
             跳过 {lastRun.skippedCount} 只，处理 {lastRun.results.length} 个 session。
           </p>
@@ -147,11 +153,11 @@ export function HubClaudeRescueSection() {
       {loading ? (
         <p className="text-xs text-amber-700">扫描中...</p>
       ) : sessions.length === 0 ? (
-        <p className="text-xs text-amber-700">暂未发现坏掉的布偶猫 session</p>
+        <p className="text-xs text-amber-700">暂未发现坏掉的通用智能体 session</p>
       ) : (
         <div className="space-y-3">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-amber-900">检测到 {sessions.length} 只布偶猫 session 需要救援</p>
+            <p className="text-xs font-medium text-amber-900">检测到 {sessions.length} 只通用智能体 session 需要救援</p>
             <p className="text-[11px] text-amber-700">先勾选要动刀的 session，再执行一键救活。</p>
           </div>
           <div className="space-y-2">
@@ -186,7 +192,7 @@ export function HubClaudeRescueSection() {
             disabled={rescuing || selectedTargets.length === 0}
             className="px-3 py-1.5 rounded bg-amber-600 text-white text-xs hover:bg-amber-700 disabled:opacity-50"
           >
-            {rescuing ? '救援中...' : `一键救活 ${selectedTargets.length} 只布偶猫`}
+            {rescuing ? '救援中...' : `一键救活 ${selectedTargets.length} 只通用智能体`}
           </button>
         </div>
       )}

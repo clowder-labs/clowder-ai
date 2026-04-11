@@ -1,10 +1,17 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Image Path Extraction
  * Extracts absolute file paths from MessageContent blocks for CLI passthrough.
  */
 
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import type { MessageContent } from '@cat-cafe/shared';
+import { getRegisteredWorktreeRoot } from '../../../../workspace/workspace-security.js';
 
 const DEFAULT_UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
 
@@ -23,9 +30,30 @@ export function extractImagePaths(contentBlocks: readonly MessageContent[] | und
     if (url.startsWith('/uploads/')) {
       const filename = url.slice('/uploads/'.length);
       paths.push(resolve(uploadDir ?? DEFAULT_UPLOAD_DIR, filename));
+    } else if (url.startsWith('/api/workspace/file/raw?')) {
+      const workspacePath = resolveWorkspaceImagePath(url);
+      if (workspacePath) paths.push(workspacePath);
     } else if (url.startsWith('/')) {
       paths.push(resolve(url));
     }
   }
   return paths;
+}
+
+function resolveWorkspaceImagePath(url: string): string | null {
+  const query = url.split('?')[1];
+  if (!query) return null;
+
+  const params = new URLSearchParams(query);
+  const worktreeId = params.get('worktreeId');
+  const filePath = params.get('path');
+  if (!worktreeId || !filePath) return null;
+
+  const root = getRegisteredWorktreeRoot(worktreeId);
+  if (!root) return null;
+
+  const resolved = resolve(root, filePath);
+  const relativeToRoot = relative(root, resolved);
+  if (relativeToRoot.startsWith('..') || isAbsolute(relativeToRoot)) return null;
+  return resolved;
 }

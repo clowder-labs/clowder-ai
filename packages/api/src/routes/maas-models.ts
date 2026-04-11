@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Mass Models Routes — 聚合当前已配置的模型列表
  */
@@ -42,6 +48,14 @@ export interface MassModelsResponse {
   models: MassModelInfo[];
 }
 
+function shouldRefreshFromHeaders(headers: Record<string, unknown>): boolean {
+  const raw = headers['x-refresh'];
+  if (Array.isArray(raw)) {
+    return raw.some((value) => typeof value === 'string' && /^(1|true)$/i.test(value.trim()));
+  }
+  return typeof raw === 'string' && /^(1|true)$/i.test(raw.trim());
+}
+
 const MAAS_MAP: Record<string, Partial<MassModelInfo>> = {
   'deepseek-r1-250528': {
     name: 'DeepSeek-R1-0528',
@@ -77,6 +91,13 @@ const MAAS_MAP: Record<string, Partial<MassModelInfo>> = {
     name: 'GLM-5',
     description:
       'GLM-5 在各类学术基准测试中实现了显著提升，并在全球所有开源模型中，在推理、编程和智能体任务方面达到顶尖水平。',
+    labels: ['文本生成', 'Function Call', '深度思考', '198K'],
+    developer: '智谱.AI',
+    icon: '/images/zhipu.svg',
+  },
+  'glm-5.1': {
+    name: 'GLM-5.1',
+    description:  'GLM-5.1 是智谱最新旗舰模型，代码能力大大增强，长程任务显著提升，能够在单次任务中持续、自主地工作长达 8 小时，完成从规划、执行到迭代优化的完整闭环，交付工程级成果。',
     labels: ['文本生成', 'Function Call', '深度思考', '198K'],
     developer: '智谱.AI',
     icon: '/images/zhipu.svg',
@@ -280,18 +301,22 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
     const configuredNonHuaweiModels = toConfiguredModelList(
       modelConfigBindings.filter((binding) => binding.protocol !== 'huawei_maas'),
     );
-    try {
-      const cachedModels = await readCachedMaaSModels(modelJsonPath);
-      if (cachedModels.length > 0) {
-        return {
-          success: true,
-          list: [...toMassModelList(cachedModels), ...configuredNonHuaweiModels],
-          projectPath: projectRoot,
-        };
-      }
-    } catch (readError) {
-      if ((readError as { code?: string })?.code !== 'ENOENT') {
-        console.warn('读取 model.json 失败，继续调用远程接口:', readError);
+    const shouldRefresh = shouldRefreshFromHeaders(request.headers as Record<string, unknown>);
+
+    if (!shouldRefresh) {
+      try {
+        const cachedModels = await readCachedMaaSModels(modelJsonPath);
+        if (cachedModels.length > 0) {
+          return {
+            success: true,
+            list: [...toMassModelList(cachedModels), ...configuredNonHuaweiModels],
+            projectPath: projectRoot,
+          };
+        }
+      } catch (readError) {
+        if ((readError as { code?: string })?.code !== 'ENOENT') {
+          console.warn('读取 model.json 失败，继续调用远程接口:', readError);
+        }
       }
     }
 

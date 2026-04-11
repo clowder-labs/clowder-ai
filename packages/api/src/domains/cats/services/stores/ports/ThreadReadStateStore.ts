@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Thread Read State Store (F069)
  * Per-user/per-thread read cursor for unread badge persistence.

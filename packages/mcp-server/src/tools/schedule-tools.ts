@@ -1,9 +1,15 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F139 Phase 3A: Schedule MCP Tools (AC-G2)
  *
- * cat_cafe_list_schedule_templates  — list available task templates
- * cat_cafe_register_scheduled_task  — create a dynamic scheduled task from template
- * cat_cafe_remove_scheduled_task    — delete a dynamic scheduled task
+ * office_claw_list_schedule_templates  — list available task templates
+ * office_claw_register_scheduled_task  — create a dynamic scheduled task from template
+ * office_claw_remove_scheduled_task    — delete a dynamic scheduled task
  */
 
 import { z } from 'zod';
@@ -190,7 +196,7 @@ export async function handleRemoveScheduledTask(input: { taskId: string }): Prom
 
 export const scheduleTools = [
   {
-    name: 'cat_cafe_list_scheduled_tasks',
+    name: 'office_claw_list_scheduled_tasks',
     description:
       'List all currently registered scheduled tasks (both builtin and user-created dynamic tasks). ' +
       'Returns task IDs, labels, triggers, last run info, and enabled state. ' +
@@ -199,7 +205,7 @@ export const scheduleTools = [
     handler: handleListScheduledTasks,
   },
   {
-    name: 'cat_cafe_list_schedule_templates',
+    name: 'office_claw_list_schedule_templates',
     description:
       'List available schedule task templates. Each template defines a reusable task type (e.g. reminder, web-digest, repo-activity) ' +
       'with its parameter schema and default trigger. Use this to discover what kinds of scheduled tasks can be created. ' +
@@ -208,7 +214,7 @@ export const scheduleTools = [
     handler: handleListScheduleTemplates,
   },
   {
-    name: 'cat_cafe_preview_scheduled_task',
+    name: 'office_claw_preview_scheduled_task',
     description:
       'Preview a scheduled task BEFORE creating it (draft step). Returns a draft with resolved template info, trigger, and params ' +
       'WITHOUT persisting anything. Show this draft to the user for confirmation before calling register_scheduled_task. ' +
@@ -217,7 +223,7 @@ export const scheduleTools = [
     handler: handlePreviewScheduledTask,
   },
   {
-    name: 'cat_cafe_register_scheduled_task',
+    name: 'office_claw_register_scheduled_task',
     description:
       'Create a new scheduled task from a template (confirm step). The task will be persisted and run automatically on schedule. ' +
       'When the task fires, a cat is woken with full capabilities — it can send rich blocks (images, audio, cards), search the web, generate content, etc. ' +
@@ -227,7 +233,7 @@ export const scheduleTools = [
     handler: handleRegisterScheduledTask,
   },
   {
-    name: 'cat_cafe_remove_scheduled_task',
+    name: 'office_claw_remove_scheduled_task',
     description:
       'Remove a dynamic scheduled task by its task ID. This stops the task and deletes it permanently. ' +
       'Only works for user-created dynamic tasks, not builtin system tasks.',

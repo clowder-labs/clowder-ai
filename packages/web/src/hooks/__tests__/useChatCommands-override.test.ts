@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Tests that processCommand uses overrideThreadId when provided,
  * rather than falling back to currentThreadId from the store.

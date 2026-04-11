@@ -1,7 +1,13 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { OverflowTooltip } from '@/components/OverflowTooltip';
+import { OverflowTooltip } from '@/components/shared/OverflowTooltip';
 
 describe('OverflowTooltip', () => {
   let container: HTMLDivElement;
@@ -61,6 +67,8 @@ describe('OverflowTooltip', () => {
     const bubble = tooltip?.firstElementChild as HTMLDivElement | null;
     expect(bubble?.className).toContain('bg-white');
     expect(bubble?.className).toContain('shadow-[0px_2px_12px_0px_rgba(0,0,0,0.16)]');
+    expect(bubble?.className).toContain('break-all');
+    expect(bubble?.className).not.toContain('break-words');
     expect(tooltip?.querySelector('[data-testid="overflow-tooltip-arrow"]')).not.toBeNull();
   });
 

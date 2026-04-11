@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Branded Types for type-safe IDs
  * 使用 branded types 确保不同类型的 ID 不会混用

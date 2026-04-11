@@ -17,6 +17,7 @@ Runtime layout:
 """
 
 import importlib.util
+import json
 import logging
 import os
 import shutil
@@ -550,6 +551,48 @@ def setup_logger(log_level: str = "INFO") -> logging.Logger:
 
 logger = setup_logger(os.getenv("LOG_LEVEL", "INFO"))
 
+_TOOL_ARGS_LOG_MAX_DEFAULT = 480
+
+
+def _truncate_tool_args_log_fragment(text: str, *, full_detail: bool) -> str:
+    if full_detail or len(text) <= _TOOL_ARGS_LOG_MAX_DEFAULT:
+        return text
+    return text[:_TOOL_ARGS_LOG_MAX_DEFAULT] + "..."
+
+
+def _log_tool_args_repair_stage(
+    *,
+    stage: str,
+    before_raw: str,
+    outcome: Literal["success", "failed"],
+    after_dict: Optional[dict] = None,
+    error: Optional[str] = None,
+) -> None:
+    """Log one fallback attempt for tool arguments JSON (truncated unless DEBUG)."""
+    full_detail = logger.isEnabledFor(logging.DEBUG)
+    before_shown = _truncate_tool_args_log_fragment(before_raw, full_detail=full_detail)
+    if outcome == "success":
+        after_raw = (
+            json.dumps(after_dict, ensure_ascii=False)
+            if isinstance(after_dict, dict)
+            else ""
+        )
+        after_shown = _truncate_tool_args_log_fragment(after_raw, full_detail=full_detail)
+        logger.info(
+            "[fix_json_arguments] stage=%s outcome=success before=%s after=%s",
+            stage,
+            before_shown,
+            after_shown,
+        )
+    else:
+        err_shown = _truncate_tool_args_log_fragment(error or "", full_detail=full_detail)
+        logger.warning(
+            "[fix_json_arguments] stage=%s outcome=failed before=%s error=%s",
+            stage,
+            before_shown,
+            err_shown,
+        )
+
 
 def _fix_missing_quotes(json_str: str) -> str:
     """尝试修复 JSON 字符串中缺失的引号。
@@ -591,11 +634,13 @@ def _fix_missing_quotes(json_str: str) -> str:
     # 匹配 {key: 但 key 没有被引号包围
     s = re.sub(
         r'{\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:',
-        r'{"":',
+        r'{"\1":',
         s
     )
 
     return s
+
+
 def fix_json_arguments(arguments: str | dict) -> str | dict:
     """尝试修复并解析工具调用的参数 JSON。
 
@@ -608,8 +653,6 @@ def fix_json_arguments(arguments: str | dict) -> str | dict:
     Returns:
         解析后的参数字典，如果解析失败则返回空字典
     """
-    import json
-
     # 如果已经是字典，直接返回
     if not isinstance(arguments, str):
         return arguments
@@ -620,22 +663,73 @@ def fix_json_arguments(arguments: str | dict) -> str | dict:
     if not s:
         return {}
 
-    # 第一次尝试：直接解析
+    # 第一次尝试：直接解析（成功则不记兜底日志）
     try:
         return json.loads(s)
     except json.JSONDecodeError:
         pass
 
-    # 第二次尝试：修复常见问题
+    full_detail = logger.isEnabledFor(logging.DEBUG)
+
+    # 第二次尝试：json-repair
+    try:
+        import json_repair
+
+        repaired = json_repair.loads(s)
+    except Exception as exc:
+        _log_tool_args_repair_stage(
+            stage="json_repair",
+            before_raw=s,
+            outcome="failed",
+            error=str(exc),
+        )
+    else:
+        if isinstance(repaired, dict):
+            _log_tool_args_repair_stage(
+                stage="json_repair",
+                before_raw=s,
+                outcome="success",
+                after_dict=repaired,
+            )
+            return repaired
+        _log_tool_args_repair_stage(
+            stage="json_repair",
+            before_raw=s,
+            outcome="failed",
+            error=f"repaired_not_object:{type(repaired).__name__}",
+        )
+
+    # 第三次尝试：规则修复后解析
     fixed = _fix_missing_quotes(s)
     if fixed != s:
         try:
             result = json.loads(fixed)
-            logger.info(f"[fix_json_arguments] 成功修复 JSON: {s[:50]}... -> {result}")
+        except json.JSONDecodeError as exc:
+            _log_tool_args_repair_stage(
+                stage="rule_fix",
+                before_raw=s,
+                outcome="failed",
+                error=str(exc),
+            )
+        else:
+            _log_tool_args_repair_stage(
+                stage="rule_fix",
+                before_raw=s,
+                outcome="success",
+                after_dict=result,
+            )
             return result
-        except json.JSONDecodeError:
-            pass
+    else:
+        _log_tool_args_repair_stage(
+            stage="rule_fix",
+            before_raw=s,
+            outcome="failed",
+            error="no_structural_change_from_rules",
+        )
 
-    # 所有修复尝试都失败
-    logger.warning(f"[fix_json_arguments] 无法修复 JSON: {s[:100]}...")
+    before_final = _truncate_tool_args_log_fragment(s, full_detail=full_detail)
+    logger.warning(
+        "[fix_json_arguments] outcome=failed_all_stages before=%s error=all_repair_attempts_exhausted",
+        before_final,
+    )
     return {}

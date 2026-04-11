@@ -1,9 +1,15 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { CenteredLoadingState } from './CenteredLoadingState';
-import { OverflowTooltip } from './OverflowTooltip';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { SkillAvatar } from './SkillAvatar';
 
 interface SkillDetailFileTreeNode {

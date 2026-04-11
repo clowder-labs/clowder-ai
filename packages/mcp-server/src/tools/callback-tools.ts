@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Callback Tools — core callbacks
  * 鉴权: process.env CAT_CAFE_INVOCATION_ID + CAT_CAFE_CALLBACK_TOKEN
@@ -75,11 +81,6 @@ export async function callbackGet(path: string, params?: Record<string, string>)
 
 export const postMessageInputSchema = {
   content: z.string().min(1).describe('The message content to post'),
-  threadId: z
-    .string()
-    .min(1)
-    .optional()
-    .describe('Optional target thread ID for cross-thread posting. Omit to post in current thread.'),
   replyTo: z.string().optional().describe('Optional message ID to reply to'),
   clientMessageId: z
     .string()
@@ -97,7 +98,6 @@ export const postMessageInputSchema = {
 
 const postMessageRuntimeInputSchema = z.object({
   content: z.string().trim().min(1).max(50000),
-  threadId: z.string().trim().min(1).optional(),
   replyTo: z.string().trim().min(1).optional(),
   clientMessageId: z.string().trim().min(1).max(200).optional(),
   targetCats: z.array(z.string().trim().min(1)).optional(),
@@ -127,13 +127,11 @@ function normalizePostMessageInput(input: {
   content?: unknown;
   message?: unknown;
   text?: unknown;
-  threadId?: unknown;
   replyTo?: unknown;
   clientMessageId?: unknown;
   targetCats?: unknown;
 }): {
   content: unknown;
-  threadId?: unknown;
   replyTo?: unknown;
   clientMessageId?: unknown;
   targetCats?: unknown;
@@ -142,7 +140,6 @@ function normalizePostMessageInput(input: {
   const normalizedContent = typeof rawContent === 'string' ? rawContent.trim() : rawContent;
   return {
     content: normalizedContent,
-    threadId: normalizeOptionalString(input.threadId),
     replyTo: normalizeOptionalString(input.replyTo),
     clientMessageId: normalizeOptionalString(input.clientMessageId),
     targetCats: normalizeTargetCats(input.targetCats),
@@ -269,7 +266,6 @@ export async function handlePostMessage(input: {
   content?: unknown;
   message?: unknown;
   text?: unknown;
-  threadId?: unknown;
   replyTo?: unknown;
   clientMessageId?: unknown;
   targetCats?: unknown;
@@ -280,7 +276,7 @@ export async function handlePostMessage(input: {
     const issues = parsedInput.error.issues
       .map((issue) => `${issue.path.join('.') || 'input'}: ${issue.message}`)
       .join('; ');
-    return errorResult(`Invalid input for cat_cafe_post_message: ${issues}`);
+    return errorResult(`Invalid input for office_claw_post_message: ${issues}`);
   }
 
   const validatedInput = parsedInput.data;
@@ -288,7 +284,6 @@ export async function handlePostMessage(input: {
     '/api/callbacks/post-message',
     {
       content: validatedInput.content,
-      ...(validatedInput.threadId ? { threadId: validatedInput.threadId } : {}),
       ...(validatedInput.replyTo ? { replyTo: validatedInput.replyTo } : {}),
       clientMessageId: validatedInput.clientMessageId ?? randomUUID(),
       ...(validatedInput.targetCats?.length ? { targetCats: validatedInput.targetCats } : {}),
@@ -296,6 +291,10 @@ export async function handlePostMessage(input: {
     { enableOutbox: true },
   );
 
+  return finalizePostMessageResult(result, validatedInput.content);
+}
+
+function finalizePostMessageResult(result: ToolResult, content: string): ToolResult {
   // Detect stale_ignored: server returned 200 but message was NOT delivered
   // because a newer invocation for the same thread+cat has superseded this one.
   // The CLI must know this so it doesn't assume the message reached the user.
@@ -317,7 +316,7 @@ export async function handlePostMessage(input: {
   // If post-message failed and content contains @mentions,
   // hint that text-based @mention is always available.
   // Only mention credential issues when the error actually looks like auth failure.
-  if (result.isError && /[@＠]/.test(validatedInput.content)) {
+  if (result.isError && /[@＠]/.test(content)) {
     const original = (result.content[0] as { text: string }).text;
     const lower = original.toLowerCase();
     const looksLikeCredentialFailure =
@@ -408,12 +407,19 @@ export async function handleCrossPostMessage(input: {
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
 }): Promise<ToolResult> {
-  return handlePostMessage({
-    threadId: input.threadId,
-    content: input.content,
-    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
-    ...(input.clientMessageId ? { clientMessageId: input.clientMessageId } : {}),
-  });
+  const result = await callbackPost(
+    '/api/callbacks/post-message',
+    {
+      threadId: input.threadId,
+      allowCrossThread: true,
+      content: input.content,
+      ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+      clientMessageId: input.clientMessageId ?? randomUUID(),
+    },
+    { enableOutbox: true },
+  );
+
+  return finalizePostMessageResult(result, input.content);
 }
 
 export async function handleListTasks(input: {
@@ -663,7 +669,7 @@ export const multiMentionInputSchema = {
     .array(z.string().min(1))
     .min(1)
     .max(3)
-    .describe('Cat IDs to invoke in parallel (max 3). Example: ["codex","gemini"]'),
+    .describe('Cat IDs to invoke in parallel (max 3). Built-in IDs: "assistant" (通用智能体), "office" (办公智能体), "agentteams" (编码智能体). Example: ["assistant","office"]'),
   question: z.string().min(1).max(5000).describe('The question or request for the target cats'),
   callbackTo: z.string().min(1).describe('Cat ID to route all responses back to (required, usually yourself)'),
   context: z.string().max(5000).optional().describe('Additional context to include for the targets'),
@@ -818,9 +824,9 @@ export async function handleBootcampEnvCheck(input: { threadId: string }): Promi
 
 export const callbackTools = [
   {
-    name: 'cat_cafe_post_message',
+    name: 'office_claw_post_message',
     description:
-      'Post a proactive async message to the Clowder AI chat mid-task (e.g. progress updates, sharing results). ' +
+      'Post a proactive async message to the Clowder AI chat mid-task in the CURRENT thread (e.g. progress updates, sharing results). ' +
       'To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires. ' +
       'GOTCHA: This tool uses callback credentials that expire — if it fails with 401, fall back to inline @mention in your response text. ' +
       'GOTCHA: Do NOT use this for routine replies — only for mid-task proactive messages when you need to share something before your response completes.',
@@ -828,7 +834,7 @@ export const callbackTools = [
     handler: handlePostMessage,
   },
   {
-    name: 'cat_cafe_get_pending_mentions',
+    name: 'office_claw_get_pending_mentions',
     description:
       'Get recent messages that @-mention you. Use at session start to check if anyone is trying to get your attention. ' +
       'TIP: Call this early in your session, then call ack_mentions after processing to avoid seeing the same mentions next session.',
@@ -836,7 +842,7 @@ export const callbackTools = [
     handler: handleGetPendingMentions,
   },
   {
-    name: 'cat_cafe_ack_mentions',
+    name: 'office_claw_ack_mentions',
     description:
       'Acknowledge that you have processed mentions up to a specific message ID. ' +
       'Call this AFTER processing mentions from get_pending_mentions to avoid seeing them again in future sessions. ' +
@@ -845,7 +851,7 @@ export const callbackTools = [
     handler: handleAckMentions,
   },
   {
-    name: 'cat_cafe_get_thread_context',
+    name: 'office_claw_get_thread_context',
     description:
       'Get recent conversation messages for context. Use to understand what has been discussed recently in a thread. ' +
       'Pass threadId to read a DIFFERENT thread (cross-thread context); omit to read the current thread. ' +
@@ -854,9 +860,9 @@ export const callbackTools = [
     inputSchema: getThreadContextInputSchema,
     handler: handleGetThreadContext,
   },
-  // D15: cat_cafe_search_messages removed — superseded by search_evidence + get_thread_context
+  // D15: office_claw_search_messages removed — superseded by search_evidence + get_thread_context
   {
-    name: 'cat_cafe_list_threads',
+    name: 'office_claw_list_threads',
     description:
       'List thread summaries for discovery. Use when you need to find a thread by keyword or see recent activity. ' +
       'Returns thread IDs, titles, and activity timestamps. ' +
@@ -865,7 +871,7 @@ export const callbackTools = [
     handler: handleListThreads,
   },
   {
-    name: 'cat_cafe_feat_index',
+    name: 'office_claw_feat_index',
     description:
       'Lookup feature index entries by featId or query. Returns featId, name, status, and linked threadIds. ' +
       'Use when you need to find which thread(s) a feature is discussed in, or check feature status. ' +
@@ -874,7 +880,7 @@ export const callbackTools = [
     handler: handleFeatIndex,
   },
   {
-    name: 'cat_cafe_cross_post_message',
+    name: 'office_claw_cross_post_message',
     description:
       'Post a message to a specific thread by threadId (cross-thread notification). ' +
       'Use when you need to notify a different thread about something relevant. ' +
@@ -883,7 +889,7 @@ export const callbackTools = [
     handler: handleCrossPostMessage,
   },
   {
-    name: 'cat_cafe_list_tasks',
+    name: 'office_claw_list_tasks',
     description:
       'List tasks with optional threadId/catId/status filters for global task discovery. ' +
       'Use when you need to see what tasks exist, who owns them, or what is blocked. ' +
@@ -892,7 +898,7 @@ export const callbackTools = [
     handler: handleListTasks,
   },
   {
-    name: 'cat_cafe_list_skills',
+    name: 'office_claw_list_skills',
     description:
       'List Cat Cafe shared skills that are currently installed for runtime use. ' +
       'Use when you need to discover which skills exist, search by intent, or answer "what skills are available?". ' +
@@ -903,7 +909,7 @@ export const callbackTools = [
     handler: handleListSkills,
   },
   {
-    name: 'cat_cafe_load_skill',
+    name: 'office_claw_load_skill',
     description:
       'Load one Cat Cafe shared skill by exact name. ' +
       'Returns the full SKILL.md plus the skill directory and related file paths. ' +
@@ -912,7 +918,7 @@ export const callbackTools = [
     handler: handleLoadSkill,
   },
   {
-    name: 'cat_cafe_update_task',
+    name: 'office_claw_update_task',
     description:
       'Update the status of a task you own. Use to mark tasks as doing/blocked/done. ' +
       'GOTCHA: You can only update tasks assigned to you (your catId). ' +
@@ -921,7 +927,7 @@ export const callbackTools = [
     handler: handleUpdateTask,
   },
   {
-    name: 'cat_cafe_create_rich_block',
+    name: 'office_claw_create_rich_block',
     description:
       'Create a rich block (card, diff, checklist, media_gallery, audio, or interactive) attached to the current message. ' +
       'Use card for status/decisions, diff for code changes, checklist for todos, media_gallery for images, audio for voice, interactive for user selection/confirmation. ' +
@@ -932,7 +938,7 @@ export const callbackTools = [
     handler: handleCreateRichBlock,
   },
   {
-    name: 'cat_cafe_generate_document',
+    name: 'office_claw_generate_document',
     description:
       'Generate a document (PDF/DOCX/MD) from Markdown and deliver to IM platforms (Feishu/Telegram). ' +
       'Use when: user asks to "生成报告", "导出文档", "发PDF", "写份文档给我", "export to DOCX", or any document generation request. ' +
@@ -944,7 +950,7 @@ export const callbackTools = [
     handler: handleGenerateDocument,
   },
   {
-    name: 'cat_cafe_request_permission',
+    name: 'office_claw_request_permission',
     description:
       'Request permission from the user before performing a sensitive action (e.g. git_commit, file_delete). ' +
       'Returns granted/denied immediately if a rule exists, or pending with a requestId if the user needs to approve. ' +
@@ -953,7 +959,7 @@ export const callbackTools = [
     handler: handleRequestPermission,
   },
   {
-    name: 'cat_cafe_check_permission_status',
+    name: 'office_claw_check_permission_status',
     description:
       'Check the status of a previously submitted permission request. ' +
       'Use the requestId returned from request_permission. Returns granted/denied/pending.',
@@ -961,7 +967,7 @@ export const callbackTools = [
     handler: handleCheckPermissionStatus,
   },
   {
-    name: 'cat_cafe_register_pr_tracking',
+    name: 'office_claw_register_pr_tracking',
     description:
       'Register a PR for email review notification routing. Call right after `gh pr create` ' +
       'so that cloud Codex review emails are automatically routed to your current thread. ' +
@@ -971,7 +977,7 @@ export const callbackTools = [
     handler: handleRegisterPrTracking,
   },
   {
-    name: 'cat_cafe_update_workflow',
+    name: 'office_claw_update_workflow',
     description:
       'Update the SOP workflow stage for a Feature (Mission Hub bulletin board). ' +
       'Use to record current stage, baton holder, resume capsule, and checks. ' +
@@ -982,19 +988,20 @@ export const callbackTools = [
     handler: handleUpdateWorkflow,
   },
   {
-    name: 'cat_cafe_multi_mention',
+    name: 'office_claw_multi_mention',
     description:
-      'Invoke up to 3 cats in parallel to gather perspectives on a question. ' +
+      'Invoke up to 3 agents in parallel to gather perspectives on a question. ' +
+      'targets must use catId (e.g. "assistant", "office", "agentteams"), NOT display names. ' +
       'All responses are automatically routed back to callbackTo (usually yourself). ' +
       "REQUIRES: searchEvidenceRefs (list what you searched first) OR overrideReason (why you're skipping search). " +
-      'This enforces the "先搜后问" principle — always search before asking other cats. ' +
-      'Use this instead of multiple @mentions when you need structured multi-cat collaboration with guaranteed response aggregation. ' +
+      'This enforces the "先搜后问" principle — always search before asking other agents. ' +
+      'Use this instead of multiple @mentions when you need structured multi-agent collaboration with guaranteed response aggregation. ' +
       'GOTCHA: callbackTo is usually your own catId so responses come back to you.',
     inputSchema: multiMentionInputSchema,
     handler: handleMultiMention,
   },
   {
-    name: 'cat_cafe_start_vote',
+    name: 'office_claw_start_vote',
     description:
       'Start a voting session in the current thread for collective decision-making ' +
       '(e.g. "REST vs GraphQL?"). Voters receive notification and reply with [VOTE:option]. ' +
@@ -1005,7 +1012,7 @@ export const callbackTools = [
   },
   // ============ Bootcamp (F087) ============
   {
-    name: 'cat_cafe_update_bootcamp_state',
+    name: 'office_claw_update_bootcamp_state',
     description:
       'Update the bootcamp training state for a thread. Use to advance phase, set lead cat, ' +
       'record task selection, store env check results, or mark completion. ' +
@@ -1015,7 +1022,7 @@ export const callbackTools = [
     handler: handleUpdateBootcampState,
   },
   {
-    name: 'cat_cafe_bootcamp_env_check',
+    name: 'office_claw_bootcamp_env_check',
     description:
       'Run environment check for bootcamp (Node.js, pnpm, Git, Claude CLI, MCP, TTS, ASR, Pencil). ' +
       "Results are automatically stored in the thread's bootcampState.envCheck. " +

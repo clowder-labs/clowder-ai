@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 /**
@@ -11,7 +17,7 @@ export function IdeateHeader() {
       <div className="flex items-center gap-2">
         <span className="text-sm animate-pulse">🐾</span>
         <span className="text-sm font-medium text-gray-600">独立观点采样中</span>
-        <span className="text-xs text-gray-400">猫猫们各自独立思考中...</span>
+        <span className="text-xs text-gray-400">智能体各自独立思考中...</span>
       </div>
     </div>
   );

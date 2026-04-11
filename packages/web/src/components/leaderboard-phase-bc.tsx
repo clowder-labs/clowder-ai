@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import type { Achievement, CvoLevel, GameStats, SillyCatEntry } from '@cat-cafe/shared';
@@ -38,7 +44,7 @@ export function GameArena({ stats }: { stats: GameStats }) {
           {stats.catKill.wins}
         </span>
         <span className="text-[11px]" style={{ color: '#8E8E93' }}>
-          猫猫杀 胜场
+          胜场
         </span>
         {stats.catKill.topCat && (
           <span className="text-[11px] font-semibold" style={{ color: '#D4845E' }}>

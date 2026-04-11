@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** Content block types matching backend MessageContent */
 export interface TextContent {
   type: 'text';
@@ -9,7 +15,15 @@ export interface ImageContent {
   url: string;
 }
 
-export type MessageContent = TextContent | ImageContent;
+export interface FileContent {
+  type: 'file';
+  url: string;
+  fileName: string;
+  mimeType?: string;
+  fileSize?: number;
+}
+
+export type MessageContent = TextContent | ImageContent | FileContent;
 
 /** F8: Token usage data from CLI invocations.
  *  inputTokens = TOTAL input (normalised across providers).

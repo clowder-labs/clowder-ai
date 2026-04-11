@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * A2A Event Transformer
  * A2A Task/Artifact → Clowder AI AgentMessage 映射

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -22,6 +28,12 @@ const {
   resolveJiuwenClawPythonBin,
 } = await import('../dist/utils/jiuwenclaw-paths.js');
 const { WebSocket: NodeWebSocket } = await import('ws');
+
+async function collect(iterable) {
+  const items = [];
+  for await (const item of iterable) items.push(item);
+  return items;
+}
 
 function createConnectionFactory(onSend) {
   return (requestQueues) => ({
@@ -471,7 +483,7 @@ describe('RelayClawAgentService', () => {
     assert.equal(__relayClawInternals.isSidecarReady('WebChannel 已启动: ws://127.0.0.1:19001/ws'), true);
   });
 
-  it('keeps tracking the new sidecar when the previous process exits after a restart', async () => {
+  it('reuses the existing sidecar child when only the working directory changes', async () => {
     const appDir = mkdtempSync(join(tmpdir(), 'relayclaw-sidecar-'));
     const appPy = join(appDir, 'jiuwenclaw', 'app.py');
     const pythonBin =
@@ -484,7 +496,6 @@ describe('RelayClawAgentService', () => {
     writeFileSync(pythonBin, '');
 
     const spawned = [];
-    let probeCall = 0;
     const previousAppDir = process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
     const previousPython = process.env.CAT_CAFE_RELAYCLAW_PYTHON;
 
@@ -505,12 +516,7 @@ describe('RelayClawAgentService', () => {
             return child;
           },
           allocatePort: async () => 19000 + spawned.length,
-          tcpProbeFn: async (_host, port) => {
-            probeCall += 1;
-            if (probeCall <= 2) return true;
-            if (probeCall <= 4) return false;
-            return port >= 19000;
-          },
+          tcpProbeFn: async (_host, port) => port >= 19000,
         },
       );
 
@@ -532,10 +538,9 @@ describe('RelayClawAgentService', () => {
         workingDirectory: '/tmp/project-b',
       });
 
-      assert.match(secondUrl, /^ws:\/\/127\.0\.0\.1:\d+$/);
-      assert.equal(spawned.length, 2);
-      assert.equal(spawned[0].killed, true);
-      assert.equal(spawned[1].killed, false);
+      assert.equal(secondUrl, firstUrl);
+      assert.equal(spawned.length, 1);
+      assert.equal(spawned[0].killed, false);
     } finally {
       if (previousAppDir === undefined) {
         delete process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
@@ -614,6 +619,126 @@ describe('RelayClawAgentService', () => {
     assert.equal(capturedRequest.params.cat_cafe_mcp.env.CAT_CAFE_INVOCATION_ID, 'invocation-123');
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
     assert.match(normalizedQuery, /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/);
+  });
+
+  it('reuses the same scoped sidecar across working directories when auth scope is unchanged', async () => {
+    const createdHomeDirs = [];
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+          modelName: 'gpt-5.4',
+          homeDir: '/tmp/relayclaw-home',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => {
+          createdHomeDirs.push(config.homeDir);
+          return {
+            async ensureStarted() {
+              return 'ws://127.0.0.1:19092';
+            },
+            stop() {},
+            getRecentLogs() {
+              return '';
+            },
+          };
+        },
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    await collect(
+      service.invoke('hello one', {
+        workingDirectory: '/tmp/project-a',
+        callbackEnv: {
+          OPENAI_API_KEY: 'same-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+    await collect(
+      service.invoke('hello two', {
+        workingDirectory: '/tmp/project-b',
+        callbackEnv: {
+          OPENAI_API_KEY: 'same-key',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+
+    assert.equal(createdHomeDirs.length, 1);
+    assert.match(createdHomeDirs[0], /scope-/);
+  });
+
+  it('creates a new scoped sidecar when auth scope changes', async () => {
+    const createdHomeDirs = [];
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+          modelName: 'gpt-5.4',
+          homeDir: '/tmp/relayclaw-home',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => {
+          createdHomeDirs.push(config.homeDir);
+          return {
+            async ensureStarted() {
+              return 'ws://127.0.0.1:19093';
+            },
+            stop() {},
+            getRecentLogs() {
+              return '';
+            },
+          };
+        },
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    await collect(
+      service.invoke('hello one', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-a',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+    await collect(
+      service.invoke('hello two', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-b',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+
+    assert.equal(createdHomeDirs.length, 2);
+    assert.notEqual(createdHomeDirs[0], createdHomeDirs[1]);
   });
 
   it('yields error before done when the provider times out', async () => {
@@ -772,5 +897,168 @@ describe('RelayClawAgentService', () => {
     assert.match(firstMessages[0].sessionId, /^catcafe_[0-9a-f]{24}$/);
     assert.equal(sentSessionIds[0], firstMessages[0].sessionId);
     assert.equal(sentSessionIds[1], secondMessages[0].sessionId);
+  });
+
+  it('extracts token usage from frame.metadata and attaches to done message', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+          modelName: 'glm-5',
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: 'OK' },
+            metadata: { usage: { input_tokens: 150, output_tokens: 80, total_tokens: 230 } },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('hi'));
+    const done = messages.find((m) => m.type === 'done');
+    assert.ok(done?.metadata, 'done message should have metadata');
+    assert.equal(done.metadata.provider, 'jiuwen');
+    assert.equal(done.metadata.model, 'glm-5');
+    assert.equal(done.metadata.usage.inputTokens, 150);
+    assert.equal(done.metadata.usage.outputTokens, 80);
+    assert.equal(done.metadata.usage.totalTokens, 230);
+  });
+
+  it('done message has metadata even without usage data', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+          modelName: 'glm-5',
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: 'No usage' },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('hi'));
+    const done = messages.find((m) => m.type === 'done');
+    assert.ok(done?.metadata, 'done should have metadata even without usage');
+    assert.equal(done.metadata.provider, 'jiuwen');
+    assert.equal(done.metadata.model, 'glm-5');
+    assert.equal(done.metadata.usage, undefined);
+  });
+
+  it('extracts usage from metadata on non-final frames too', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: { url: 'ws://127.0.0.1:65535', autoStart: false },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.delta', content: 'Hello' },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: '' },
+            metadata: { usage: { input_tokens: 200, output_tokens: 100, total_tokens: 300 } },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('hi'));
+    const done = messages.find((m) => m.type === 'done');
+    assert.ok(done.metadata?.usage, 'usage should be extracted from metadata');
+    assert.equal(done.metadata.usage.inputTokens, 200);
+    assert.equal(done.metadata.usage.outputTokens, 100);
+  });
+
+  it('returns independent usage for consecutive invocations on the same service', async () => {
+    let callCount = 0;
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: { url: 'ws://127.0.0.1:65535', autoStart: false, modelName: 'glm-5' },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          callCount++;
+          const usage =
+            callCount === 1
+              ? { input_tokens: 100, output_tokens: 50, total_tokens: 150 }
+              : { input_tokens: 999, output_tokens: 888, total_tokens: 1887 };
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { event_type: 'chat.final', content: `reply-${callCount}` },
+            metadata: { usage },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const msgs1 = await collect(service.invoke('first'));
+    const done1 = msgs1.find((m) => m.type === 'done');
+    assert.equal(done1.metadata.usage.inputTokens, 100);
+    assert.equal(done1.metadata.usage.outputTokens, 50);
+
+    const msgs2 = await collect(service.invoke('second'));
+    const done2 = msgs2.find((m) => m.type === 'done');
+    assert.equal(done2.metadata.usage.inputTokens, 999);
+    assert.equal(done2.metadata.usage.outputTokens, 888);
   });
 });

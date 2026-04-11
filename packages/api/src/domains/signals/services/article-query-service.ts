@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { SignalArticle, SignalArticleStatus, SignalTier } from '@cat-cafe/shared';
 import { SignalArticleSchema } from '@cat-cafe/shared';
 import type { SignalPaths } from '../config/signal-paths.js';

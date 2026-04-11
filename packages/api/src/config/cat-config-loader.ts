@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Cat Config Loader
  * 从 cat-template.json / .cat-cafe/cat-catalog.json 加载 Breed+Variant 配置。
@@ -6,6 +12,11 @@
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import {
+  CAT_CONFIGS,
+  catRegistry,
+  createCatId,
+} from '@cat-cafe/shared';
 import type {
   CatBreed,
   CatCafeConfig,
@@ -19,7 +30,6 @@ import type {
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
@@ -272,6 +282,11 @@ function deepMergeConfig(base: Record<string, unknown>, overlay: Record<string, 
     const oVal = overlay[key];
     if (Array.isArray(oVal) && Array.isArray(bVal) && oVal.length > 0 && isIdArray(oVal) && isIdArray(bVal)) {
       merged[key] = mergeById(bVal as HasId[], oVal as HasId[]);
+    } else if (key === 'cli' && isPlainObject(oVal)) {
+      // CLI config is provider-specific. When the runtime catalog switches a cat
+      // from Claude ↔ Codex, preserving nested base fields like defaultArgs/effort
+      // revives the old provider's flags during default loads.
+      merged[key] = oVal;
     } else if (isPlainObject(oVal) && isPlainObject(bVal)) {
       merged[key] = deepMergeConfig(bVal as Record<string, unknown>, oVal as Record<string, unknown>);
     } else {
@@ -413,10 +428,27 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
       const isDefault = variant.id === breed.defaultVariantId;
       const catId = variant.catId ?? breed.catId;
       const fallbackMentionPatterns = isDefault ? breed.mentionPatterns : [`@${catId}`];
-      const mentionPatterns =
+      const rawMentionPatterns =
         variant.mentionPatterns && variant.mentionPatterns.length > 0
           ? variant.mentionPatterns
           : fallbackMentionPatterns;
+      // Auto-include displayName as valid mention pattern so model-generated
+      // @displayName routes correctly (buildCallableMentions uses displayName
+      // in prompt but parsers only match mentionPatterns).
+      // Skip for non-default variants inheriting breed displayName — the
+      // default variant already owns that pattern; adding it here would
+      // violate the unique-alias constraint.
+      const resolvedDisplayName = variant.displayName ?? breed.displayName;
+      const displayNamePattern = `@${resolvedDisplayName}`;
+      const shouldAddDisplayName =
+        isDefault || resolvedDisplayName !== breed.displayName;
+      const mentionPatterns =
+        shouldAddDisplayName &&
+        !rawMentionPatterns.some(
+          (p) => p.toLowerCase() === displayNamePattern.toLowerCase(),
+        )
+          ? [...rawMentionPatterns, displayNamePattern]
+          : rawMentionPatterns;
 
       // F32-b R3: catId uniqueness — duplicate is a hard error (startup failure)
       if (result[catId]) {
@@ -662,15 +694,25 @@ export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfi
 
 let _defaultCatId: CatId | null = null;
 
+function getFallbackDefaultCatId(): CatId {
+  const registered = catRegistry.getAllIds();
+  if (registered.length > 0) return registered[0]!;
+
+  const builtin = Object.keys(CAT_CONFIGS)[0];
+  if (builtin) return createCatId(builtin);
+
+  throw new Error('No available cats to resolve default catId');
+}
+
 /**
  * Get the default cat ID for unaddressed messages.
  * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
  *
  * Resolution order:
  * 1. Catalog-level `defaultCatId` field (set by preset installers)
- * 2. `jiuwenclaw` if present in catalog (backward compat with dev environment)
- * 3. First breed's catId from the catalog (preset deployments)
- * 4. Hardcoded `jiuwenclaw` (ultimate fallback)
+ * 2. First breed's catId from the catalog (preset deployments)
+ * 3. First registered runtime catId
+ * 4. First built-in fallback config key
  */
 export function getDefaultCatId(): CatId {
   if (_defaultCatId) return _defaultCatId;
@@ -684,14 +726,7 @@ export function getDefaultCatId(): CatId {
       return _defaultCatId;
     }
 
-    // 2. Try jiuwenclaw (backward compat with full dev catalog)
-    const allConfigs = toAllCatConfigs(config);
-    if (allConfigs['jiuwenclaw']) {
-      _defaultCatId = createCatId('jiuwenclaw');
-      return _defaultCatId;
-    }
-
-    // 3. First breed's catId (preset deployments with custom members)
+    // 2. First breed's catId (preset deployments with custom members)
     const firstBreed = config.breeds[0];
     if (firstBreed) {
       const catId = firstBreed.catId ?? firstBreed.variants?.[0]?.catId;
@@ -702,8 +737,11 @@ export function getDefaultCatId(): CatId {
     }
   }
 
-  // 4. Ultimate fallback
-  _defaultCatId = createCatId('jiuwenclaw');
+  // 3/4. Runtime-safe fallback: derive from the runtime registry first, then
+  // the built-in config list. This keeps connector/default routing
+  // aligned with the runtime registry even if cat-config.json is missing
+  // or malformed during an upgrade/overwrite install.
+  _defaultCatId = getFallbackDefaultCatId();
   return _defaultCatId;
 }
 

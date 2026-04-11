@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { OpenCodeAgentService } from '../dist/domains/cats/services/agents/providers/OpenCodeAgentService.js';
@@ -83,10 +89,10 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
     }
 
     const catCafeMcpTools = [
-      'cat_cafe_post_message',
-      'cat_cafe_get_thread_context',
-      'cat_cafe_search_evidence',
-      'cat_cafe_multi_mention',
+      'office_claw_post_message',
+      'office_claw_get_thread_context',
+      'office_claw_search_evidence',
+      'office_claw_multi_mention',
     ];
     for (const tu of toolUses) {
       for (const mcpTool of catCafeMcpTools) {

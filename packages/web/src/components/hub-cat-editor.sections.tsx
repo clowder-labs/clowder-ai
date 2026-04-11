@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useMemo, useRef } from 'react';
@@ -530,7 +536,7 @@ export function RoutingSection({
         aria-label="Aliases"
         value={form.mentionPatterns}
         onChange={(event) => onChange({ mentionPatterns: event.target.value })}
-        placeholder="@codex, @缅因猫"
+        placeholder="@codex, @办公智能体"
         className="sr-only"
       />
     </SectionCard>

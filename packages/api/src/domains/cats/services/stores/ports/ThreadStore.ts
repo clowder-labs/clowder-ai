@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Thread Store
  * 对话管理：创建、查询、参与者追踪
@@ -6,8 +12,13 @@
  * Phase 3.3 可扩展 Redis 版本。
  */
 
+import { existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
+import { relative, resolve, win32 } from 'node:path';
 import type { CatId, ThreadPhase } from '@cat-cafe/shared';
 import { generateThreadId } from '@cat-cafe/shared';
+import { GovernanceBootstrapService } from '../../../../../config/governance/governance-bootstrap.js';
+import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
+import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
 
 /** Default thread ID for the lobby (backwards-compatible single-thread mode) */
 export const DEFAULT_THREAD_ID = 'default';
@@ -240,6 +251,80 @@ export interface IThreadStore {
 
 const MAX_THREADS = 100;
 
+export interface ThreadStoreProjectPathOptions {
+  monorepoRoot?: string;
+}
+
+function isPathWithinRoot(absPath: string, root: string): boolean {
+  const rel = relative(root, absPath);
+  if (rel === '') return true;
+  if (process.platform === 'win32' && win32.isAbsolute(rel)) return false;
+  return !rel.startsWith('..') && !rel.startsWith('/') && !rel.startsWith('\\');
+}
+
+function resolveMonorepoRoot(options?: ThreadStoreProjectPathOptions): string {
+  const configuredRoot = options?.monorepoRoot;
+  if (!configuredRoot) return findMonorepoRoot(process.cwd());
+  const absRoot = resolve(configuredRoot);
+  return existsSync(absRoot) ? realpathSync(absRoot) : absRoot;
+}
+
+function bootstrapWorkspaceGovernance(projectPath: string, monorepoRoot: string): void {
+  const service = new GovernanceBootstrapService(monorepoRoot);
+  void service.bootstrap(projectPath, { dryRun: false }).catch(() => {});
+}
+
+function ensureWorkspaceProjectPath(monorepoRoot: string): { projectPath: string; created: boolean } {
+  const workspacePath = resolve(monorepoRoot, 'workspace');
+  const existedBefore = existsSync(workspacePath);
+  mkdirSync(workspacePath, { recursive: true });
+
+  const resolvedWorkspacePath = realpathSync(workspacePath);
+  const resolvedMonorepoRoot = realpathSync(monorepoRoot);
+  if (!isPathWithinRoot(resolvedWorkspacePath, resolvedMonorepoRoot)) {
+    throw new Error(`Workspace path escapes monorepo root: ${resolvedWorkspacePath}`);
+  }
+
+  if (!statSync(resolvedWorkspacePath).isDirectory()) {
+    throw new Error(`Workspace path is not a directory: ${resolvedWorkspacePath}`);
+  }
+
+  return {
+    projectPath: resolvedWorkspacePath,
+    created: !existedBefore,
+  };
+}
+
+function resolveExistingProjectPath(projectPath: string): string | null {
+  try {
+    const resolvedProjectPath = realpathSync(resolve(projectPath));
+    if (!isUnderAllowedRoot(resolvedProjectPath)) return null;
+    if (!statSync(resolvedProjectPath).isDirectory()) return null;
+    return resolvedProjectPath;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveThreadProjectPath(
+  projectPath?: string,
+  options?: ThreadStoreProjectPathOptions,
+): string {
+  const monorepoRoot = resolveMonorepoRoot(options);
+  if (!projectPath || projectPath === 'default') {
+    const workspace = ensureWorkspaceProjectPath(monorepoRoot);
+    if (workspace.created) bootstrapWorkspaceGovernance(workspace.projectPath, monorepoRoot);
+    return workspace.projectPath;
+  }
+
+  const existingProjectPath = resolveExistingProjectPath(projectPath);
+  if (existingProjectPath) return existingProjectPath;
+
+  const workspace = ensureWorkspaceProjectPath(monorepoRoot);
+  if (workspace.created) bootstrapWorkspaceGovernance(workspace.projectPath, monorepoRoot);
+  return workspace.projectPath;
+}
+
 /**
  * In-memory thread store with LRU eviction.
  */
@@ -250,9 +335,11 @@ export class ThreadStore implements IThreadStore {
   /** F046 D3: one-shot suppressed mention feedback per thread+cat */
   private mentionRoutingFeedback: Map<string, ThreadMentionRoutingFeedback> = new Map();
   private readonly maxThreads: number;
+  private readonly monorepoRoot?: string;
 
-  constructor(options?: { maxThreads?: number }) {
+  constructor(options?: { maxThreads?: number; monorepoRoot?: string }) {
     this.maxThreads = options?.maxThreads ?? MAX_THREADS;
+    this.monorepoRoot = options?.monorepoRoot;
   }
 
   /** F032 Phase C: Generate activity key */
@@ -266,15 +353,17 @@ export class ThreadStore implements IThreadStore {
 
   create(userId: string, title?: string, projectPath?: string): Thread {
     this.evictIfNeeded();
+    const resolvedProjectPath = resolveThreadProjectPath(projectPath, { monorepoRoot: this.monorepoRoot });
+    const now = Date.now();
 
     const thread: Thread = {
       id: generateThreadId(),
-      projectPath: projectPath ?? 'default',
+      projectPath: resolvedProjectPath,
       title: title ?? null,
       createdBy: userId,
       participants: [],
-      lastActiveAt: Date.now(),
-      createdAt: Date.now(),
+      lastActiveAt: now,
+      createdAt: now,
     };
 
     this.threads.set(thread.id, thread);

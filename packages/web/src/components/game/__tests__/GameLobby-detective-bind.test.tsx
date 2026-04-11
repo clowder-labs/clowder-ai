@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * GameLobby detective binding tests
  *
@@ -14,9 +20,9 @@ import { GameLobby } from '../GameLobby';
 Object.assign(globalThis as Record<string, unknown>, { React });
 
 const fakeCats = [
-  { id: 'opus', displayName: '布偶猫', avatar: '/opus.png', color: { primary: '#7c3aed' } },
-  { id: 'codex', displayName: '缅因猫', avatar: '/codex.png', color: { primary: '#f59e0b' } },
-  { id: 'gemini', displayName: '暹罗猫', avatar: '/gemini.png', color: { primary: '#06b6d4' } },
+  { id: 'opus', displayName: '通用智能体', avatar: '/opus.png', color: { primary: '#7c3aed' } },
+  { id: 'codex', displayName: '办公智能体', avatar: '/codex.png', color: { primary: '#f59e0b' } },
+  { id: 'gemini', displayName: '协作智能体', avatar: '/gemini.png', color: { primary: '#06b6d4' } },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ] as any[];
 
@@ -34,10 +40,10 @@ describe('GameLobby detective mode', () => {
     // This tests the contract: if detectiveCatId is set but the cat
     // is not in selectedCats, canStart should be false.
     // We verify this by checking the static render includes the
-    // "请选择一只猫猫绑定视角" hint (no cat bound in initial render).
+    // "请选择智能体绑定视角" hint (no cat bound in initial render).
     const html = renderToStaticMarkup(
       <GameLobby mode="detective" cats={fakeCats} onConfirm={vi.fn()} onCancel={vi.fn()} />,
     );
-    expect(html).toContain('请选择一只猫猫绑定视角');
+    expect(html).toContain('请选择智能体绑定视角');
   });
 });

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102: SQLite implementation of IEvidenceStore
 
 import Database from 'better-sqlite3';
@@ -262,14 +268,14 @@ export class SqliteEvidenceStore implements IEvidenceStore {
       if (item.kind === 'thread' && item.anchor.startsWith('thread-')) {
         const threadId = item.anchor.replace('thread-', '');
         item.drillDown = {
-          tool: 'cat_cafe_get_thread_context',
+          tool: 'office_claw_get_thread_context',
           params: { threadId },
           hint: `查看完整对话：get_thread_context(threadId="${threadId}")`,
         };
       } else if (item.kind === 'session' && item.anchor.startsWith('session-')) {
         const sessionId = item.anchor.replace('session-', '');
         item.drillDown = {
-          tool: 'cat_cafe_read_session_digest',
+          tool: 'office_claw_read_session_digest',
           params: { sessionId },
           hint: `查看 session 摘要：read_session_digest(sessionId="${sessionId}")`,
         };

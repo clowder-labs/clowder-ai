@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Feishu (飞书/Lark) Bot Adapter
  * Inbound: Parse webhook event → extract private text message
@@ -16,6 +22,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RichBlock } from '@cat-cafe/shared';
+
+const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
 
 const execFileAsync = promisify(execFile);
 
@@ -72,6 +80,7 @@ export interface FeishuAdapterOptions {
 
 export class FeishuAdapter implements IStreamableOutboundAdapter {
   readonly connectorId = 'feishu';
+  readonly supportsPlaceholderStreaming = false;
   private readonly client: lark.Client;
   private readonly log: FastifyBaseLogger;
   private readonly verificationToken: string | null;
@@ -438,7 +447,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     if (type === 'image') {
       form.append('image_type', 'message');
       form.append('image', new Blob([await streamToBuffer(fileStream)]));
-      const res = await this.uploadFetchFn('https://open.feishu.cn/open-apis/im/v1/images', {
+      const res = await this.uploadFetchFn(`${FEISHU_OPEN_API_BASE_URL}/im/v1/images`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: form,
@@ -459,7 +468,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     form.append('file_type', fileType);
     form.append('file_name', uploadFileName);
     form.append('file', new Blob([await streamToBuffer(fileStream)]));
-    const res = await this.uploadFetchFn('https://open.feishu.cn/open-apis/im/v1/files', {
+    const res = await this.uploadFetchFn(`${FEISHU_OPEN_API_BASE_URL}/im/v1/files`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -565,7 +574,7 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     if (!token) return undefined;
     try {
       const res = await (this.uploadFetchFn ?? globalThis.fetch)(
-        `https://open.feishu.cn/open-apis/contact/v3/users/${openId}?user_id_type=open_id`,
+        `${FEISHU_OPEN_API_BASE_URL}/contact/v3/users/${openId}?user_id_type=open_id`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!res.ok) return undefined;
@@ -587,10 +596,9 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
     const token = await this.tokenManager?.getTenantAccessToken();
     if (!token) return undefined;
     try {
-      const res = await (this.uploadFetchFn ?? globalThis.fetch)(
-        `https://open.feishu.cn/open-apis/im/v1/chats/${chatId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await (this.uploadFetchFn ?? globalThis.fetch)(`${FEISHU_OPEN_API_BASE_URL}/im/v1/chats/${chatId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) return undefined;
       const data = (await res.json()) as { data?: { name?: string } };
       const name = data?.data?.name;
@@ -656,6 +664,51 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
       elements,
     };
     await this.sendLarkMessage(externalChatId, 'interactive', JSON.stringify(card));
+  }
+
+  /**
+   * Add a reaction to an existing user message.
+   * Used as a lightweight "message accepted" acknowledgement in Feishu.
+   */
+  async addReaction(messageId: string, emojiType = 'THUMBSUP'): Promise<boolean> {
+    const token = await this.tokenManager?.getTenantAccessToken().catch((err) => {
+      this.log.warn({ err, messageId, emojiType }, '[FeishuAdapter] addReaction: token fetch failed');
+      return null;
+    });
+    if (!token) return false;
+
+    try {
+      const res = await this.uploadFetchFn(`${FEISHU_OPEN_API_BASE_URL}/im/v1/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: JSON.stringify({
+          reaction_type: {
+            emoji_type: emojiType,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '(unreadable)');
+        this.log.warn(
+          { status: res.status, body, messageId, emojiType },
+          '[FeishuAdapter] addReaction: request failed',
+        );
+        return false;
+      }
+
+      const data = (await res.json().catch(() => ({}))) as { code?: number; msg?: string };
+      if (data.code !== undefined && data.code !== 0) {
+        this.log.warn({ data, messageId, emojiType }, '[FeishuAdapter] addReaction: api returned non-zero code');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      this.log.warn({ err, messageId, emojiType }, '[FeishuAdapter] addReaction: request threw');
+      return false;
+    }
   }
 
   async sendPlaceholder(externalChatId: string, text: string): Promise<string> {

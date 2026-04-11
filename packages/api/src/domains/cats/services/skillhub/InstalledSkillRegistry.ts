@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * InstalledSkillRegistry — .cat-cafe/installed-skills.json 持久化层
  *
@@ -16,6 +22,7 @@ export interface InstalledSkillRecord {
   repo: string;
   remoteSkillName: string;
   installedAt: string; // ISO 8601
+  displayDescription?: string;
 }
 
 export interface InstalledSkillsRegistry {

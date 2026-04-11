@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import type { CatCafeConfig, Roster } from '@cat-cafe/shared';
@@ -92,10 +98,13 @@ function cloneWithAccountRef(
   }
   // If the variant's defaultModel is not in the bound profile's model list,
   // fall back to the first available model from the profile.
+  // Compare ignoring context window suffix (e.g. "[1m]") — the suffix is a
+  // CLI hint, not part of the canonical model ID, so profile lists won't include it.
   const models = options?.profileModels;
   if (models && models.length > 0) {
     const currentModel = typeof next.defaultModel === 'string' ? next.defaultModel.trim() : '';
-    if (!currentModel || !models.includes(currentModel)) {
+    const baseModel = currentModel.replace(/\[.*\]$/, '');
+    if (!currentModel || (!models.includes(currentModel) && !models.includes(baseModel))) {
       next.defaultModel = models[0];
     }
   }

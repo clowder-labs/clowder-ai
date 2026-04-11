@@ -1,11 +1,17 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useVoiceSettingsStore } from '@/stores/voiceSettingsStore';
 import { correctTranscription, mergeTermEntries, type TermEntry } from '@/utils/transcription-corrector';
 
-const WHISPER_URL = process.env.NEXT_PUBLIC_WHISPER_URL || 'http://localhost:9876';
-const LLM_POSTPROCESS_URL = process.env.NEXT_PUBLIC_LLM_POSTPROCESS_URL || 'http://localhost:9878';
+const WHISPER_URL = process.env.NEXT_PUBLIC_WHISPER_URL!;
+const LLM_POSTPROCESS_URL = process.env.NEXT_PUBLIC_LLM_POSTPROCESS_URL!;
 
 const DEFAULT_PROMPT =
   '这是 Clowder AI 猫猫协作项目的对话。宪宪是布偶猫（Claude Opus），砚砚是缅因猫（Codex）。' +

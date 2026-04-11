@@ -1,7 +1,13 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { type CatId, catRegistry } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
-import type { IStreamableOutboundAdapter } from './OutboundDeliveryHook.js';
+import type { IOutboundAdapter, IStreamableOutboundAdapter } from './OutboundDeliveryHook.js';
 
 const DEFAULT_UPDATE_INTERVAL_MS = 2000;
 const DEFAULT_MIN_DELTA_CHARS = 200;
@@ -45,6 +51,7 @@ export class StreamingOutboundHook {
     for (const binding of bindings) {
       const adapter = this.opts.adapters.get(binding.connectorId);
       if (!adapter?.sendPlaceholder) continue;
+      if (adapter.supportsPlaceholderStreaming === false) continue;
       try {
         const catEntry = catId ? catRegistry.tryGet(catId) : undefined;
         const prefix = catEntry ? `[${catEntry.config.displayName}] ` : '';
@@ -132,6 +139,20 @@ export class StreamingOutboundHook {
         await adapter.deleteMessage(session.platformMessageId);
       } catch (err) {
         this.opts.log.warn({ err }, '[StreamingOutbound] cleanupPlaceholders failed');
+      }
+    }
+  }
+
+  /** F151: Notify adapters that an invocation's delivery batch is complete. */
+  async notifyDeliveryBatchDone(threadId: string, chainDone: boolean): Promise<void> {
+    const bindings = await this.opts.bindingStore.getByThread(threadId);
+    for (const binding of bindings) {
+      const adapter = this.opts.adapters.get(binding.connectorId);
+      if (!adapter?.onDeliveryBatchDone) continue;
+      try {
+        await adapter.onDeliveryBatchDone(binding.externalChatId, chainDone);
+      } catch (err) {
+        this.opts.log.warn({ err, connectorId: binding.connectorId }, '[StreamingOutbound] onDeliveryBatchDone failed');
       }
     }
   }

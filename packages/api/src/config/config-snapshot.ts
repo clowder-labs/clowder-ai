@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { ContextBudget } from '@cat-cafe/shared';
 
 export type CodexAuthMode = 'oauth' | 'api_key' | 'auto';

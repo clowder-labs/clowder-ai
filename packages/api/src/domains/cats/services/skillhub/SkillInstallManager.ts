@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SkillInstallManager — SkillHub 安装/卸载核心服务
  *
@@ -7,10 +13,11 @@
 
 import { existsSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { SkillHubInstallRequest, SkillHubInstallResult } from '@cat-cafe/shared';
 import { parseSkillFrontmatter } from './frontmatter-parser.js';
 import { addInstalledSkill, loadInstalledRegistry, removeInstalledSkill } from './InstalledSkillRegistry.js';
+import { resolveOfficialSkillPath, resolveUserSkillsRoot } from './SkillPaths.js';
 import { fetchSkillAllFiles } from './SkillHubService.js';
 import { createProviderSymlinks, removeProviderSymlinks } from './SymlinkManager.js';
 
@@ -41,8 +48,9 @@ export class SkillInstallError extends Error {
  */
 export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequest): Promise<SkillHubInstallResult> {
   const localName = req.localName ?? req.skill;
-  const skillsDir = resolve(catCafeRoot, 'cat-cafe-skills');
+  const skillsDir = resolveUserSkillsRoot(catCafeRoot);
   const skillDir = join(skillsDir, localName);
+  const officialSkillDir = resolveOfficialSkillPath(catCafeRoot, localName);
 
   // 1. 验证 localName（只防路径穿越，不限制字符集）
   if (!localName || PATH_TRAVERSAL_RE.test(localName)) {
@@ -50,6 +58,13 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
   }
 
   // 2. 冲突检测
+  if (existsSync(officialSkillDir)) {
+    throw new SkillInstallError(
+      `Local skill "${localName}" already exists. Cannot overwrite a local skill.`,
+      'CONFLICT',
+    );
+  }
+
   const registry = await loadInstalledRegistry(catCafeRoot);
   const isRemoteInstalled = registry.skills.some((s) => s.name === localName);
   if (existsSync(skillDir) && !isRemoteInstalled) {
@@ -104,12 +119,13 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
     repo: req.repo,
     remoteSkillName: req.skill,
     installedAt: new Date().toISOString(),
+    displayDescription: req.description?.trim() || undefined,
   });
 
   return {
     success: true,
     name: localName,
-    localPath: `cat-cafe-skills/${localName}`,
+    localPath: `.cat-cafe/skills/${localName}`,
     mounts,
   };
 }
@@ -136,7 +152,7 @@ export async function uninstallSkill(catCafeRoot: string, name: string, bootstra
     throw new SkillInstallError(`Skill "${name}" is a local skill. Cannot uninstall local skills.`, 'FORBIDDEN');
   }
 
-  const skillsDir = resolve(catCafeRoot, 'cat-cafe-skills');
+  const skillsDir = resolveUserSkillsRoot(catCafeRoot);
 
   // 3. 删除 symlinks
   await removeProviderSymlinks(name);

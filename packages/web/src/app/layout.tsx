@@ -1,4 +1,10 @@
-﻿import type { Metadata, Viewport } from 'next';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import type { Metadata, Viewport } from 'next';
 import { ThemeRootSync } from '@/components/ThemeRootSync';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
@@ -16,7 +22,8 @@ export const metadata: Metadata = {
   description: 'Your AI team collaboration space',
   manifest: '/manifest.json',
   icons: {
-    apple: '/icons/apple-touch-icon.png',
+    icon: '/images/lobster.svg',
+    apple: '/images/lobster.svg',
   },
   appleWebApp: {
     capable: true,

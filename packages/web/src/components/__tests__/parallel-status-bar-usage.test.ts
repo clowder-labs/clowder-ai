@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F8: ParallelStatusBar aggregateUsage tests.
  * Verifies cross-cat token usage aggregation.

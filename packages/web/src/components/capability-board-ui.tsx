@@ -1,7 +1,13 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { type ReactNode } from 'react';
-import { OverflowTooltip } from './OverflowTooltip';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { SkillAvatar } from './SkillAvatar';
 
 export interface CapabilityBoardItem {
@@ -221,7 +227,7 @@ export function CapabilityCard({
             />
             {item.connectionStatus ? <StatusDot status={item.connectionStatus} /> : null}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
             <span className="ui-badge-muted">{item.category?.trim() || '其他'}</span>
           </div>
         </div>

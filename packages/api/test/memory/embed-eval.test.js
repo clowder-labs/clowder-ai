@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102 Phase C: Shadow A/B eval — lexical vs semantic Recall@k comparison
 // AC-C7: collects rerank metrics when EMBED_MODE=shadow|on
 // Scaffold test: runs corpus and logs Recall@5 for both paths.

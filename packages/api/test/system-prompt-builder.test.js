@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SystemPromptBuilder Tests
  * 测试身份注入 prompt 生成
@@ -122,10 +128,10 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: true,
     });
-    assert.ok(prompt.includes('cat_cafe_post_message'));
-    assert.ok(prompt.includes('cat_cafe_register_pr_tracking'));
-    assert.ok(prompt.includes('cat_cafe_get_pending_mentions'));
-    assert.ok(prompt.includes('cat_cafe_get_thread_context'));
+    assert.ok(prompt.includes('office_claw_post_message'));
+    assert.ok(prompt.includes('office_claw_register_pr_tracking'));
+    assert.ok(prompt.includes('office_claw_get_pending_mentions'));
+    assert.ok(prompt.includes('office_claw_get_thread_context'));
   });
 
   test('contains runtime skill trigger guidance when mcpAvailable is true', async () => {
@@ -148,7 +154,7 @@ describe('SystemPromptBuilder', () => {
       teammates: [],
       mcpAvailable: false,
     });
-    assert.ok(!prompt.includes('cat_cafe_post_message'));
+    assert.ok(!prompt.includes('office_claw_post_message'));
   });
 
   test('contains anti-impersonation rule', async () => {
@@ -551,7 +557,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('Anthropic'), 'Should not contain provider');
     assert.ok(!ctx.includes('## 协作'), 'Should not contain collaboration guide');
     // MCP tools moved to static identity (session-level, not per-message)
-    assert.ok(!ctx.includes('cat_cafe_post_message'), 'MCP tools should be in static identity, not invocation context');
+    assert.ok(!ctx.includes('office_claw_post_message'), 'MCP tools should be in static identity, not invocation context');
     // 铲屎官 reference also moved to static identity
     assert.ok(!ctx.includes('铲屎官是真人用户'), '铲屎官 reference should be in static identity');
   });
@@ -559,10 +565,10 @@ describe('SystemPromptBuilder', () => {
   test('buildStaticIdentity includes MCP tools when mcpAvailable', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const identity = buildStaticIdentity('opus', { mcpAvailable: true });
-    assert.ok(identity.includes('cat_cafe_post_message'), 'Should contain MCP tools when mcpAvailable');
-    assert.ok(identity.includes('cat_cafe_get_thread_context'), 'Should contain thread context tool');
-    assert.ok(identity.includes('cat_cafe_list_skills'), 'Should contain skill catalog tool');
-    assert.ok(identity.includes('cat_cafe_load_skill'), 'Should contain skill load tool');
+    assert.ok(identity.includes('office_claw_post_message'), 'Should contain MCP tools when mcpAvailable');
+    assert.ok(identity.includes('office_claw_get_thread_context'), 'Should contain thread context tool');
+    assert.ok(identity.includes('office_claw_list_skills'), 'Should contain skill catalog tool');
+    assert.ok(identity.includes('office_claw_load_skill'), 'Should contain skill load tool');
     assert.ok(
       identity.includes('计划/TDD/对比/worktree：先 list+load，再 search/grep/read'),
       'Should teach runtime MCP skill trigger semantics',
@@ -572,7 +578,7 @@ describe('SystemPromptBuilder', () => {
   test('buildStaticIdentity omits MCP tools when mcpAvailable is false', async () => {
     const { buildStaticIdentity } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const identity = buildStaticIdentity('opus');
-    assert.ok(!identity.includes('cat_cafe_post_message'), 'Should not contain MCP tools without mcpAvailable');
+    assert.ok(!identity.includes('office_claw_post_message'), 'Should not contain MCP tools without mcpAvailable');
   });
 
   test('buildStaticIdentity does NOT include mcpCallbackInstructions (non-Claude stays per-message)', async () => {
@@ -581,7 +587,7 @@ describe('SystemPromptBuilder', () => {
     // because their systemPrompt lives in session history and may be lost on compression.
     // Only Claude's MCP_TOOLS_SECTION goes in staticIdentity (survives compression via --append-system-prompt).
     const identity = buildStaticIdentity('codex');
-    assert.ok(!identity.includes('cat_cafe_post_message'), 'Codex should not have MCP tools in static identity');
+    assert.ok(!identity.includes('office_claw_post_message'), 'Codex should not have MCP tools in static identity');
     assert.ok(!identity.includes('HTTP 回调'), 'Codex should not have callback instructions in static identity');
   });
 

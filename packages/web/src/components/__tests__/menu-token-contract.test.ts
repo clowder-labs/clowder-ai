@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,24 +52,20 @@ function getVarRefs(value: string): string[] {
 describe('menu token contract in globals.css', () => {
   it('defines menu-prefixed aliases in theme tokens', () => {
     expect(globalsCss).toContain('--menu-bg:');
-    expect(globalsCss).toContain('--menu-border:');
-    expect(globalsCss).toContain('--menu-text:');
     expect(globalsCss).toContain('--menu-hover-bg:');
-    expect(globalsCss).toContain('--menu-hover-text:');
     expect(globalsCss).toContain('--menu-active-bg:');
-    expect(globalsCss).toContain('--menu-active-text:');
     expect(globalsCss).toContain('--menu-disabled-bg:');
-    expect(globalsCss).toContain('--menu-disabled-text:');
+    expect(globalsCss).toContain('--menu-transition:');
   });
 
   it('limits shared menu classes to --menu-* tokens', () => {
     const selectors = [
-      { selector: '.ui-menu-item', properties: ['border', 'background', 'color'] },
-      { selector: '.ui-menu-item:hover', properties: ['border-color', 'background', 'color'] },
-      { selector: '.ui-menu-item-active', properties: ['border-color', 'background', 'color'] },
-      { selector: '.ui-menu-item-active:hover', properties: ['border-color', 'background', 'color'] },
-      { selector: '.ui-menu-item:disabled', properties: ['border-color', 'background', 'color'] },
-      { selector: '.ui-menu-item-disabled', properties: ['border-color', 'background', 'color'] },
+      { selector: '.ui-menu-item', properties: ['background'] },
+      { selector: '.ui-menu-item:hover', properties: ['background'] },
+      { selector: '.ui-menu-item-active', properties: ['background'] },
+      { selector: '.ui-menu-item-active:hover', properties: ['background'] },
+      { selector: '.ui-menu-item:disabled', properties: ['background'] },
+      { selector: '.ui-menu-item-disabled', properties: ['background'] },
     ];
 
     for (const { selector, properties } of selectors) {
@@ -76,6 +78,27 @@ describe('menu token contract in globals.css', () => {
       expect(values.length).toBe(properties.length);
       expect(visualTokenRefs.length).toBeGreaterThan(0);
       expect(visualTokenRefs.every((token) => token.startsWith('--menu-'))).toBe(true);
+    }
+  });
+
+  it('does not declare menu text color or border styles on shared menu item selectors', () => {
+    const selectors = [
+      { selector: '.ui-menu-item', forbidden: ['border', 'color'] },
+      { selector: '.ui-menu-item:hover', forbidden: ['border-color', 'color'] },
+      { selector: '.ui-menu-item:disabled', forbidden: ['border-color', 'color'] },
+      { selector: '.ui-menu-item-disabled', forbidden: ['border-color', 'color'] },
+      { selector: '.ui-menu-item-active', forbidden: ['border-color', 'color'] },
+      { selector: '.ui-menu-item-active:hover', forbidden: ['border-color', 'color'] },
+      { selector: '.ui-menu-item-inactive', forbidden: ['border-color', 'color'] },
+      { selector: '.ui-menu-item-inactive:hover', forbidden: ['border-color', 'color'] },
+    ];
+
+    for (const { selector, forbidden } of selectors) {
+      const blocks = getCssBlocks(selector);
+
+      for (const property of forbidden) {
+        expect(getDeclarationValue(blocks, property)).toBeNull();
+      }
     }
   });
 });

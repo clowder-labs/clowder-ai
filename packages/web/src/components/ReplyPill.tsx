@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import type { CatData } from '@/hooks/useCatData';
@@ -10,7 +16,7 @@ interface ReplyPillProps {
 }
 
 /**
- * F121: Reply pill badge — shows "↩ @猫名: 摘要" in breed color.
+ * F121: Reply pill badge — shows "↩ @智能体名: 摘要" in breed color.
  * DirectionPill 同款药丸风格，click scrolls to original message.
  */
 export function ReplyPill({ replyPreview, replyToId, getCatById }: ReplyPillProps) {

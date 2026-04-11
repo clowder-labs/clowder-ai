@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * CLI Exit Error Formatting
  * 三只猫共享的 CLI 退出错误格式化工具
@@ -12,8 +18,9 @@
  */
 export function formatCliExitError(
   cliName: string,
-  event: { exitCode: number | null; signal: string | null; message: string },
+  event: { exitCode: number | null; signal: string | null; message: string; reasonCode?: string },
 ): string {
   // Use the pre-sanitized message from cli-spawn (no raw stderr exposure)
-  return `${cliName}: ${event.message}`;
+  const base = `${cliName}: ${event.message}`;
+  return event.reasonCode ? `${base} [${event.reasonCode}]` : base;
 }

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F103: Per-cat voice identity regression tests
  * Env var backward compat (GENSHIN_VOICE_DIR) + path.isAbsolute safety

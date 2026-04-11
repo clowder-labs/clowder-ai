@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SessionChainStoreFactory Tests
  * F24: Redis available → RedisSessionChainStore, otherwise in-memory.

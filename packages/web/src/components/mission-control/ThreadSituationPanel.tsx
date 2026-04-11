@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import type { BacklogItem, CatId } from '@cat-cafe/shared';
@@ -105,7 +111,7 @@ export function ThreadSituationPanel({
                     </span>
                   </p>
                   <p className="text-[11px] text-[#6E5A46]">
-                    参与猫：{t.participants.length > 0 ? t.participants.join(', ') : '暂无'}
+                    参与智能体：{t.participants.length > 0 ? t.participants.join(', ') : '暂无'}
                   </p>
                   <Link
                     href={`/thread/${t.id}`}

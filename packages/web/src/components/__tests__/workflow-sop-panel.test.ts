@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F073 P2: WorkflowSopPanel unit tests
 
 import type { WorkflowSop } from '@cat-cafe/shared';

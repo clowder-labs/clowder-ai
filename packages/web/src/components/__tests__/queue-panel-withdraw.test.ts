@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F39 UX: withdrawing a queued entry should update UI immediately.
  * User expectation: after "撤回/取消" a queued message, it shouldn't linger stale in QueuePanel.

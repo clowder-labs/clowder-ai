@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Connector Router
  * Routes inbound messages from external platforms to Clowder AI threads.
@@ -24,6 +30,23 @@ import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore
 import type { InboundMessageDedup } from './InboundMessageDedup.js';
 import { parseMentions } from './mention-parser.js';
 import type { IOutboundAdapter } from './OutboundDeliveryHook.js';
+
+function emitConnectorMessage(
+  socketManager: { broadcastToRoom(room: string, event: string, data: unknown): void } | null | undefined,
+  threadId: string,
+  msg: { id: string; content: string; source: ConnectorSource; timestamp: number },
+): void {
+  socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+    threadId,
+    message: {
+      id: msg.id,
+      type: 'connector' as const,
+      content: msg.content,
+      source: msg.source,
+      timestamp: msg.timestamp,
+    },
+  });
+}
 
 export type RouteResult =
   | { kind: 'routed'; threadId: string; messageId: string }
@@ -135,8 +158,17 @@ export class ConnectorRouter {
     const patterns = new Map<string, string[]>();
     for (const catId of catRegistry.getAllIds()) {
       const entry = catRegistry.tryGet(catId);
-      if (entry?.config.mentionPatterns && entry.config.mentionPatterns.length > 0) {
-        patterns.set(catId, [...entry.config.mentionPatterns]);
+      if (!entry?.config) continue;
+
+      const derived = new Set<string>(entry.config.mentionPatterns ?? []);
+      for (const raw of [entry.config.displayName, entry.config.name, entry.config.nickname, entry.config.id, catId]) {
+        if (typeof raw !== 'string') continue;
+        const value = raw.trim();
+        if (!value) continue;
+        derived.add(value.startsWith('@') ? value : `@${value}`);
+      }
+      if (derived.size > 0) {
+        patterns.set(catId, [...derived]);
       }
     }
     return patterns;
@@ -188,6 +220,10 @@ export class ConnectorRouter {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
             await adapter.sendReply(externalChatId, '🔒 此群未授权使用 bot。请联系管理员使用 /allow-group 授权。');
+            // F151: close XiaoYi task immediately — no agent invocation will follow
+            if (adapter.onDeliveryBatchDone) {
+              await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+            }
           }
           log.info({ connectorId, externalChatId }, '[ConnectorRouter] Group not in whitelist, skipped');
           return { kind: 'skipped', reason: 'group_not_allowed' };
@@ -205,6 +241,10 @@ export class ConnectorRouter {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
             await adapter.sendReply(externalChatId, '🔒 此命令仅管理员可用。');
+            // F151: close XiaoYi task immediately — no agent invocation will follow
+            if (adapter.onDeliveryBatchDone) {
+              await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+            }
           }
           log.info({ connectorId, senderId: sender.id }, '[ConnectorRouter] Non-admin command in group, blocked');
           return { kind: 'skipped', reason: 'command_admin_only' };
@@ -225,6 +265,10 @@ export class ConnectorRouter {
             await adapter.sendFormattedReply(externalChatId, envelope);
           } else {
             await adapter.sendReply(externalChatId, cmdResult.response);
+          }
+          // F151: close XiaoYi task — command response is the final output
+          if (adapter.onDeliveryBatchDone) {
+            await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
           }
         }
         // ISSUE-8 (8A): Store command exchange in Hub thread, not conversation thread
@@ -258,15 +302,11 @@ export class ConnectorRouter {
             mentions: [targetCatId],
             timestamp: fwdTimestamp,
           });
-          socketManager?.broadcastToRoom(`thread:${fwdThreadId}`, 'connector_message', {
-            threadId: fwdThreadId,
-            message: {
-              id: fwdStored.id,
-              type: 'connector',
-              content: fwdText,
-              source: fwdSource,
-              timestamp: fwdTimestamp,
-            },
+          emitConnectorMessage(socketManager, fwdThreadId, {
+            id: fwdStored.id,
+            content: fwdText,
+            source: fwdSource,
+            timestamp: fwdTimestamp,
           });
           invokeTrigger.trigger(fwdThreadId, targetCatId, this.resolveOwnerUserId(), fwdText, fwdStored.id);
           log.info({ connectorId, threadId: fwdThreadId }, '[ConnectorRouter] /thread message forwarded');
@@ -322,6 +362,17 @@ export class ConnectorRouter {
     // Parse @-mentions to determine target cat
     const mentionPatterns = this.getMentionPatterns();
     const { targetCatId } = parseMentions(resolvedText, mentionPatterns, this.opts.defaultCatId);
+    log.debug(
+      {
+        connectorId,
+        externalChatId,
+        targetCatId,
+        defaultCatId: this.opts.defaultCatId,
+        hasAtSign: resolvedText.includes('@'),
+        contentLen: resolvedText.length,
+      },
+      '[ConnectorRouter] Mention parse result',
+    );
 
     const messageTimestamp = Date.now();
     const stored = await messageStore.append({
@@ -335,15 +386,11 @@ export class ConnectorRouter {
     });
 
     // 4. Broadcast to WebSocket
-    socketManager?.broadcastToRoom(`thread:${binding.threadId}`, 'connector_message', {
-      threadId: binding.threadId,
-      message: {
-        id: stored.id,
-        type: 'connector',
-        content: resolvedText,
-        source,
-        timestamp: messageTimestamp,
-      },
+    emitConnectorMessage(socketManager, binding.threadId, {
+      id: stored.id,
+      content: resolvedText,
+      source,
+      timestamp: messageTimestamp,
     });
 
     // 5. Trigger cat invocation (use parsed targetCatId)
@@ -505,25 +552,17 @@ export class ConnectorRouter {
     });
 
     // Broadcast both
-    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId,
-      message: {
-        id: cmdMsg.id,
-        type: 'connector',
-        content: commandText,
-        source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? 'message' },
-        timestamp: commandTimestamp,
-      },
+    emitConnectorMessage(socketManager, threadId, {
+      id: cmdMsg.id,
+      content: commandText,
+      source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? 'message' },
+      timestamp: commandTimestamp,
     });
-    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
-      threadId,
-      message: {
-        id: resMsg.id,
-        type: 'connector',
-        content: responseText,
-        source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },
-        timestamp: responseTimestamp,
-      },
+    emitConnectorMessage(socketManager, threadId, {
+      id: resMsg.id,
+      content: responseText,
+      source: { connector: 'system-command', label: 'Clowder AI', icon: 'settings' },
+      timestamp: responseTimestamp,
     });
 
     // G+: Update lastCommandAt on the Hub thread for audit visibility

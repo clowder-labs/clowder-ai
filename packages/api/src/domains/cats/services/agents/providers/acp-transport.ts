@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { spawn as nodeSpawn } from 'node:child_process';
 import { basename } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';

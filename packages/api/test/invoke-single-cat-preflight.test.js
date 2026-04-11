@@ -1,8 +1,14 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Test 2: invoke-single-cat shared-state preflight behavior
  *
  * Covers:
- * - unpushedFiles → invocation_created → 🚫 system_info → done → return (service NOT called)
+ * - unpushedFiles → invocation_created → ⚠️ system_info → service.invoke IS called
  * - uncommittedFiles → invocation_created → ⚠️ system_info → service.invoke IS called
  * - clean → no preflight messages, service called normally
  *
@@ -97,7 +103,7 @@ describe('invokeSingleCat shared-state preflight', () => {
     }
   });
 
-  it('fail-closed: unpushedFiles → invocation_created → 🚫 → done, service NOT called', async () => {
+  it('warn-only: unpushedFiles → invocation_created → ⚠️ → service.invoke called', async () => {
     const repo = createTestRepo('unpushed');
     const bare = addBareRemote(repo);
     tempDirs.push(repo, bare);
@@ -123,7 +129,7 @@ describe('invokeSingleCat shared-state preflight', () => {
       invokeSingleCat(makeDeps(), {
         catId: 'codex',
         service: stubService,
-        prompt: 'test preflight fail-closed',
+        prompt: 'test preflight unpushed warn',
         userId: 'user1',
         threadId: 'thread-preflight-block',
         isLastCat: true,
@@ -133,7 +139,7 @@ describe('invokeSingleCat shared-state preflight', () => {
     // Restore cwd
     process.chdir(originalCwd);
 
-    // 砚砚 钉子 1: sequence must include invocation_created before 🚫
+    // 砚砚 钉子 1: sequence must include invocation_created before ⚠️, then provider output
     const types = msgs.map((m) => m.type);
     assert.ok(types.includes('system_info'), 'should have system_info messages');
     assert.ok(types.includes('done'), 'should end with done');
@@ -149,21 +155,21 @@ describe('invokeSingleCat shared-state preflight', () => {
     });
     assert.ok(invCreated, 'should have invocation_created');
 
-    // Find the 🚫 preflight message
-    const blocked = msgs.find((m) => m.type === 'system_info' && m.content?.includes('🚫'));
-    assert.ok(blocked, 'should have 🚫 blocked message');
-    assert.ok(blocked.content.includes('docs/ROADMAP.md'), 'blocked message should name the file');
-    assert.ok(blocked.content.includes('git push'), 'blocked message should tell user to push');
+    // Find the ⚠️ preflight message
+    const warned = msgs.find((m) => m.type === 'system_info' && m.content?.includes('⚠️'));
+    assert.ok(warned, 'should have ⚠️ warning message');
+    assert.ok(warned.content.includes('docs/ROADMAP.md'), 'warning should name the file');
+    assert.ok(warned.content.includes('git push'), 'warning should tell user to push');
 
-    // Verify order: invocation_created before 🚫 before done
+    // Verify order: invocation_created before ⚠️ before provider text
     const invCreatedIdx = msgs.indexOf(invCreated);
-    const blockedIdx = msgs.indexOf(blocked);
-    const doneIdx = msgs.findIndex((m) => m.type === 'done');
-    assert.ok(invCreatedIdx < blockedIdx, 'invocation_created must come before 🚫');
-    assert.ok(blockedIdx < doneIdx, '🚫 must come before done');
+    const warnedIdx = msgs.indexOf(warned);
+    const textIdx = msgs.findIndex((m) => m.type === 'text' && m.content?.includes('hello'));
+    assert.ok(invCreatedIdx < warnedIdx, 'invocation_created must come before ⚠️');
+    assert.ok(warnedIdx < textIdx, '⚠️ must come before provider output');
 
-    // Service must NOT have been called
-    assert.equal(serviceCalled, false, 'service.invoke must NOT be called when preflight blocks');
+    // Service SHOULD have been called
+    assert.equal(serviceCalled, true, 'service.invoke MUST be called when shared-state is only warned');
   });
 
   it('warn-only: uncommittedFiles → invocation_created → ⚠️ → service.invoke called', async () => {

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -199,7 +205,7 @@ export function PlanBoardPanel({ threadId, catInvocations }: PlanBoardPanelProps
   return (
     <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-semibold text-gray-700">猫猫祟祟 ({totalCats})</h3>
+        <h3 className="text-xs font-semibold text-gray-700">智能体 ({totalCats})</h3>
       </div>
 
       {/* Running cats */}

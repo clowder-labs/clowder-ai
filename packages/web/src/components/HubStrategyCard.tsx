@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -113,7 +119,7 @@ export function CatStrategyCard({ entry, onSaved }: { entry: CatStrategyEntry; o
       </div>
 
       {!entry.sessionChainEnabled && (
-        <p className="text-xs text-gray-400">此猫的 session chain 已关闭，策略配置不适用。</p>
+        <p className="text-xs text-gray-400">此智能体的 session chain 已关闭，策略配置不适用。</p>
       )}
 
       {entry.sessionChainEnabled && !editing && (

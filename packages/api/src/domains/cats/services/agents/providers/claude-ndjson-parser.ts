@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Claude CLI NDJSON event parser — 从 ClaudeAgentService 拆出的纯函数
  *

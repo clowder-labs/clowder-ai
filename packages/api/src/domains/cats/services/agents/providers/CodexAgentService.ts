@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Codex Agent Service
  * 使用 Codex CLI 子进程调用缅因猫 (Codex)
@@ -424,7 +430,7 @@ export class CodexAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
@@ -432,6 +438,16 @@ export class CodexAgentService implements AgentService {
         }
         // F118 Phase C: Forward liveness warnings to frontend with catId
         if (isLivenessWarning(event)) {
+          const warningEvent = event as { level?: string; silenceDurationMs?: number };
+          log.warn(
+            {
+              catId: this.catId,
+              invocationId: options?.invocationId,
+              level: warningEvent.level,
+              silenceMs: warningEvent.silenceDurationMs,
+            },
+            '[CodexAgent] liveness warning — CLI may be stuck',
+          );
           yield {
             type: 'system_info' as const,
             catId: this.catId,

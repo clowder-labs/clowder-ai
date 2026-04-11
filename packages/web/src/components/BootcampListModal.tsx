@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -8,7 +14,7 @@ import { BootcampIcon } from './icons/BootcampIcon';
 
 /** Phase labels for human-readable display */
 const PHASE_LABELS: Record<string, string> = {
-  'phase-0-select-cat': '选猫',
+  'phase-0-select-cat': '选智能体',
   'phase-1-intro': '天团登场',
   'phase-2-env-check': '环境检测',
   'phase-3-config-help': '配置帮助',
@@ -103,7 +109,7 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: '🎓 猫猫训练营',
+          title: '🎓训练营',
           bootcampState: { v: 1, phase: 'phase-0-select-cat', startedAt: Date.now() },
         }),
       });
@@ -171,7 +177,7 @@ export function BootcampListModal({ open, onClose, currentThreadId }: BootcampLi
                   {/* Top row: title + badge */}
                   <div className="flex items-center justify-between mb-2">
                     <span className={`text-[15px] font-semibold ${isCompleted ? 'text-gray-500' : 'text-gray-900'}`}>
-                      {t.title ?? '🎓 猫猫训练营'}
+                      {t.title ?? '🎓 训练营'}
                     </span>
                     <span
                       className={`text-xs font-medium px-2.5 py-1 rounded-full ${

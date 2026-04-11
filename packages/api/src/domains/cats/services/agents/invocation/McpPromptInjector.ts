@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Prompt Injector
  * 给没有原生 MCP 支持的猫 (Codex/Gemini) 注入 HTTP callback 指令。
@@ -66,12 +72,12 @@ export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
 ✅ 正确：\`${exampleHandle} 请确认这个安排\`
 ❌ 错误：为了 @ 队友去调 post-message
 
-### HTTP 回调（异步）
+### HTTP回调
 凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`
-可用工具: post-message / register-pr-tracking / thread-context / list-threads / feat-index / list-tasks / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
-跨 thread 发消息: post-message + \`threadId\`
-检索消息: thread-context + \`catId\`/\`keyword\`
-检索 feature: feat-index + \`featId\`/\`query\`
-完整用法: GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\`
-富消息规范: GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\``;
+工具: post-message/cross-post-message/register-pr-tracking/thread-context/list-threads/feat-index/list-tasks/pending-mentions/update-task/create-rich-block/search-evidence/reflect/retain-memory/request-permission
+跨thread: cross-post-message
+查消息: thread-context + \`catId\`/\`keyword\`
+查feature: feat-index + \`featId\`/\`query\`
+用法: GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\`
+富消息: GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\``;
 }

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { randomBytes } from 'node:crypto';
 import { unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -28,10 +34,14 @@ export interface IOutboundAdapter {
     externalChatId: string,
     payload: { type: 'image' | 'file' | 'audio'; [key: string]: unknown },
   ): Promise<void>;
+  /** F151: Delivery batch complete. `chainDone=true` = no more output for this task; send close frame. */
+  onDeliveryBatchDone?(externalChatId: string, chainDone: boolean): Promise<void>;
 }
 
 /** Adapter that supports edit-in-place streaming (placeholder → progressive edits). */
 export interface IStreamableOutboundAdapter extends IOutboundAdapter {
+  /** Set false to opt out of placeholder/edit/delete streaming on platforms where recall UX is noisy. */
+  readonly supportsPlaceholderStreaming?: boolean;
   /** Send a placeholder message and return its platform-level message ID. */
   sendPlaceholder(externalChatId: string, text: string): Promise<string>;
   /** Edit an already-sent message in place. */

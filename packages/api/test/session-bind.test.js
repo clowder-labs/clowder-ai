@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Session Manual Bind Tests
  * F24 Phase B / BACKLOG #72: 铲屎官手动绑定 CLI Session ID

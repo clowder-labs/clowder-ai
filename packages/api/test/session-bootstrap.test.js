@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SessionBootstrap Tests — F24 Phase E
  * Tests for bootstrap context injection when a cat starts Session #2+.
@@ -145,9 +151,9 @@ describe('SessionBootstrap', () => {
       );
 
       assert.ok(result);
-      assert.ok(result.text.includes('cat_cafe_search_evidence'));
-      assert.ok(result.text.includes('cat_cafe_read_session_digest'));
-      assert.ok(result.text.includes('cat_cafe_read_session_events'));
+      assert.ok(result.text.includes('office_claw_search_evidence'));
+      assert.ok(result.text.includes('office_claw_read_session_digest'));
+      assert.ok(result.text.includes('office_claw_read_session_events'));
       assert.ok(result.text.includes('Do NOT guess'));
     });
 
@@ -171,7 +177,7 @@ describe('SessionBootstrap', () => {
       assert.ok(result);
       assert.equal(result.hasDigest, false);
       assert.ok(result.text.includes('Session #2')); // seq=1 → display #2
-      assert.ok(result.text.includes('cat_cafe_search_evidence')); // tools still present
+      assert.ok(result.text.includes('office_claw_search_evidence')); // tools still present
     });
 
     it('correctly counts sealed sessions for Session #3+ (seq=2)', async () => {
@@ -397,7 +403,7 @@ describe('SessionBootstrap', () => {
       );
 
       assert.ok(result);
-      assert.ok(result.text.includes('cat_cafe_read_invocation_detail'));
+      assert.ok(result.text.includes('office_claw_read_invocation_detail'));
       assert.ok(result.text.includes('view=handoff'));
     });
 
@@ -454,7 +460,7 @@ describe('SessionBootstrap', () => {
       // Digest should survive (higher priority than task)
       assert.equal(result.hasDigest, true, 'digest should survive when task is dropped');
       // Tools section must survive cap
-      assert.ok(result.text.includes('cat_cafe_read_invocation_detail'), 'tools guidance must survive cap');
+      assert.ok(result.text.includes('office_claw_read_invocation_detail'), 'tools guidance must survive cap');
       assert.ok(result.text.includes('view=handoff'), 'view=handoff must survive cap');
       // Identity must survive
       assert.ok(result.text.includes('Session #2'), 'identity must survive cap');
@@ -517,7 +523,7 @@ describe('SessionBootstrap', () => {
       assert.equal(result.hasDigest, false, 'digest should be dropped when it alone exceeds budget');
       assert.equal(result.hasTaskSnapshot, false, 'task should be dropped when digest exceeds budget');
       // Tools section always survives
-      assert.ok(result.text.includes('cat_cafe_read_invocation_detail'));
+      assert.ok(result.text.includes('office_claw_read_invocation_detail'));
     });
   });
 });

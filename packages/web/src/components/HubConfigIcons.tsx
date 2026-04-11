@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { ReactNode } from 'react';
 
 // ── Per-platform visual config (matches .pen wireframe Screen C) ──
@@ -17,7 +23,7 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
   feishu: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/feishu.svg" alt="Feishu" className="h-11 w-11" />
+      <img src="/images/connectors/feishu.svg" alt="飞书" className="h-11 w-11" />
     ),
   },
   telegram: {
@@ -29,19 +35,31 @@ export const PLATFORM_VISUALS: Record<string, PlatformVisual> = {
   weixin: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/weixin.svg" alt="WeChat" className="h-11 w-11" />
+      <img src="/images/connectors/weixin.svg" alt="微信" className="h-11 w-11" />
     ),
   },
   dingtalk: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/dingtalk.svg" alt="DingTalk" className="h-11 w-11" />
+      <img src="/images/connectors/dingtalk.svg" alt="钉钉" className="h-11 w-11" />
     ),
   },
   xiaoyi: {
     icon: (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src="/images/connectors/xiaoyi.svg" alt="Huawei XiaoYi" className="h-11 w-11" />
+      <img src="/images/connectors/xiaoyi.svg" alt="小艺" className="h-11 w-11" />
+    ),
+  },
+  'wecom-bot': {
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/wecom-bot.png" alt="WeCom" className="h-11 w-11" />
+    ),
+  },
+  'wecom-agent': {
+    icon: (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src="/images/connectors/wecom-agent.png" alt="WeCom Agent" className="h-11 w-11" />
     ),
   },
 };
@@ -55,11 +73,7 @@ export const DEFAULT_VISUAL: PlatformVisual = {
 };
 
 export function StepBadge({ num }: { num: number }) {
-  return (
-    <span className="text-[14px]">
-      {num}、
-    </span>
-  );
+  return <span className="text-[14px]">{num}、</span>;
 }
 
 export function ChevronRight() {
@@ -105,38 +119,6 @@ export function TriangleAlertIcon() {
       <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
       <path d="M12 9v4" />
       <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-/** Solid green circle — "configured / connected" status indicator */
-export function StatusDotConnected() {
-  return (
-    <svg className="w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="5" fill="#16A34A" />
-    </svg>
-  );
-}
-
-/** Hollow gray circle — "not configured" status indicator */
-export function StatusDotIdle() {
-  return (
-    <svg className="w-2.5 h-2.5 flex-shrink-0" viewBox="0 0 10 10">
-      <circle cx="5" cy="5" r="4" fill="none" stroke="#9CA3AF" strokeWidth="2" />
-    </svg>
-  );
-}
-
-/** QR code icon for the "generate QR" button */
-export function QrCodeIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" stroke="currentColor" {...SVG_PROPS}>
-      <rect width="6" height="6" x="3" y="3" rx="1" />
-      <rect width="6" height="6" x="15" y="3" rx="1" />
-      <rect width="6" height="6" x="3" y="15" rx="1" />
-      <path d="M15 15h2v2" />
-      <path d="M21 15h-2v6h6v-2" />
-      <path d="M15 21v-2" />
     </svg>
   );
 }

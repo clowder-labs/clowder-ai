@@ -1,11 +1,16 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { getMentionLabel, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { CatAvatar } from '../CatAvatar';
-import { PawIcon } from '../icons/PawIcon';
 import { formatRelativeTime } from './thread-utils';
 
 export interface ThreadItemProps {
@@ -92,6 +97,20 @@ function normalizeTitleMentions(
     const mapped = aliasToLabel[alias.toLowerCase()];
     return mapped ?? fullMatch;
   });
+}
+
+function resolveThreadFallbackAvatar(
+  cats: Array<{ id: string; displayName: string; mentionPatterns: string[]; avatar: string }>,
+): string {
+  const officeCat =
+    cats.find((cat) => cat.id.toLowerCase() === 'office') ??
+    cats.find((cat) => cat.id.toLowerCase() === 'jiuwenclaw') ??
+    cats.find((cat) => cat.mentionPatterns.some((pattern) => pattern.replace(/^@/, '').toLowerCase() === 'office')) ??
+    cats.find((cat) => cat.displayName.includes('办公'));
+
+  const avatar = officeCat?.avatar?.trim() ?? '';
+  if (!avatar) return '/avatars/assistant.svg';
+  return avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar;
 }
 
 export function ThreadItem({
@@ -222,6 +241,7 @@ export function ThreadItem({
   const displayTitle = normalizeTitleMentions(rawTitle, cats);
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
+  const fallbackAvatarSrc = resolveThreadFallbackAvatar(cats);
   const mentionedCatIds = getMentionedCatIdsFromMessages(threadState?.messages, getCatById);
   const avatarCatIds = Array.from(
     new Set(
@@ -308,7 +328,9 @@ export function ThreadItem({
             </div>
           ) : (
             <div className="ui-avatar-fallback-shell h-8 w-8">
-              <PawIcon className="ui-avatar-fallback-icon" />
+              {/* biome-ignore lint/performance/noImgElement: fallback avatar uses static local asset */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={fallbackAvatarSrc} alt="" aria-hidden="true" className="h-full w-full object-cover" />
             </div>
           )}
           {showUnreadBadge && (
@@ -430,6 +452,7 @@ export function ThreadItem({
       <AppModal
         open={showRenameDialog}
         onClose={() => setShowRenameDialog(false)}
+        disableBackdropClose
         title="编辑会话名称"
         panelClassName="w-[500px]"
         bodyClassName="pt-5"

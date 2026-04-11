@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import nodemailer from 'nodemailer';
 import type { SignalNotificationConfig } from '../config/notifications-loader.js';
 

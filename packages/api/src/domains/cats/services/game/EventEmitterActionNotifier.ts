@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { EventEmitter } from 'node:events';
 import type { SeatId } from '@cat-cafe/shared';
 import type { ActionNotifier } from './GameNarratorDriver.js';

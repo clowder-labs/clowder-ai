@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -92,7 +98,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     await flushEffects();
 
     await act(async () => {
-      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      queryButton(container, 'Disconnect').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushEffects();
 
@@ -109,7 +115,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     await flushEffects();
 
     await act(async () => {
-      queryButton(container, '解除绑定').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      queryButton(container, 'Disconnect').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushEffects();
 

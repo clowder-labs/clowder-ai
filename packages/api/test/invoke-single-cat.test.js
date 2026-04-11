@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * invoke-single-cat Tests
  * P1 fix: audit should emit CAT_ERROR when error was yielded during stream
@@ -1112,6 +1118,22 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const { classifyResumeFailure } = await import('../dist/domains/cats/services/agents/invocation/invoke-helpers.js');
 
     assert.equal(classifyResumeFailure('No conversation found with session ID: stale-123'), 'missing_session');
+    assert.equal(
+      classifyResumeFailure('no rollout found for session 019d3eca-9b77-7860-9e3f-1d4bb1815c5e'),
+      'missing_session',
+    );
+    // End-to-end: formatted error from CodexAgentService with [missing_rollout] tag must classify as missing_session
+    // This is the ACTUAL message invoke-single-cat receives after formatCliExitError propagates reasonCode
+    const taggedMsg = 'Codex CLI: CLI 异常退出 (code: 1, signal: none) [missing_rollout]';
+    assert.equal(classifyResumeFailure(taggedMsg), 'missing_session');
+    // Priority: isMissingClaudeSessionError must win over isTransientCliExitCode1 for tagged messages
+    const { isMissingClaudeSessionError, isTransientCliExitCode1 } = await import(
+      '../dist/domains/cats/services/agents/invocation/invoke-helpers.js'
+    );
+    assert.equal(isMissingClaudeSessionError(taggedMsg), true, 'tagged message must be recognized as missing session');
+    assert.equal(isTransientCliExitCode1(taggedMsg), true, 'tagged message also matches transient pattern');
+    // In invoke-single-cat, isMissingClaudeSessionError is checked FIRST (line 1376) before
+    // isTransientCliExitCode1 (line 1393), so missing_session takes priority → shouldRetryWithoutSession
     assert.equal(classifyResumeFailure('Gemini CLI: CLI 异常退出 (code: 1, signal: none)'), 'cli_exit');
     assert.equal(classifyResumeFailure('Gemini CLI: CLI 异常退出 (code: null, signal: SIGTERM)'), 'cli_exit');
     assert.equal(classifyResumeFailure('authentication failed: login required'), 'auth');
@@ -2446,13 +2468,13 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     assert.ok(promptsSeen[0].includes('ACP skill rule:'), 'ACP prompt should include runtime skill hint');
     assert.ok(
-      promptsSeen[0].includes('cat_cafe_list_skills before cat_cafe_search_evidence, repo grep, or read'),
+      promptsSeen[0].includes('office_claw_list_skills before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
     assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
-    assert.ok(promptsSeen[0].includes('cat_cafe_load_skill immediately'), 'ACP hint should mention immediate skill loading');
+    assert.ok(promptsSeen[0].includes('office_claw_load_skill immediately'), 'ACP hint should mention immediate skill loading');
     assert.ok(
-      promptsSeen[0].includes('before cat_cafe_search_evidence, repo grep, or read'),
+      promptsSeen[0].includes('before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should prioritize skills ahead of other retrieval tools',
     );
     assert.ok(

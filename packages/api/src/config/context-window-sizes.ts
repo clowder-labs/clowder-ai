@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Context Window Size Fallback Table
  * F24: Hardcoded model → context window mapping for cats whose CLI

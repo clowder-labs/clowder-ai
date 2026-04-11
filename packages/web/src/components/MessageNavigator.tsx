@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,10 +29,10 @@ const VARIANT_BASE_FALLBACK: Record<string, string> = {
 };
 
 const FALLBACK_CAT_META: Record<string, { label: string; color: string }> = {
-  opus: { label: '布偶猫', color: '#9B7EBD' },
-  codex: { label: '缅因猫', color: '#5B8C5A' },
-  gemini: { label: '暹罗猫', color: '#5B9BD5' },
-  dare: { label: '狸花猫', color: '#D4A76A' },
+  opus: { label: '通用智能体', color: '#9B7EBD' },
+  codex: { label: '办公智能体', color: '#5B8C5A' },
+  gemini: { label: '协作智能体', color: '#5B9BD5' },
+  dare: { label: '通用智能体', color: '#D4A76A' },
 };
 
 function resolveFallbackCatMeta(catId: string): { baseId: string; label: string; color: string } | undefined {

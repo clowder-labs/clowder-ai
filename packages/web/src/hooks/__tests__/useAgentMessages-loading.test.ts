@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -211,6 +217,27 @@ describe('useAgentMessages loading lifecycle', () => {
     });
 
     expect(mockSetStreaming).toHaveBeenCalledWith('bg-msg-1', false);
+  });
+
+  it('ignores agent messages from a different thread', () => {
+    storeState.currentThreadId = 'thread-B';
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-A',
+        content: 'should be ignored',
+      });
+    });
+
+    expect(mockSetCatStatus).not.toHaveBeenCalled();
+    expect(mockAppendToMessage).not.toHaveBeenCalled();
+    expect(mockAddMessage).not.toHaveBeenCalled();
   });
 
   it('keeps handleAgentMessage stable when only messages change', () => {

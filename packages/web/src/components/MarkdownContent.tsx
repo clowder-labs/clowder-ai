@@ -1,9 +1,16 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { Children, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
+import { QUICK_ACTIONS } from '@/config/quick-actions';
 import { getMentionColor, getMentionLabel, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
 import { useChatStore } from '@/stores/chatStore';
 import { fetchSkillOptionsWithCache, getCachedSkillOptions } from '@/utils/skill-options-cache';
@@ -35,39 +42,88 @@ function renderSkillToken(skillName: string, key: string): ReactNode {
   );
 }
 
+const VISIBLE_QUICK_ACTIONS = QUICK_ACTIONS.filter((action) => action.show !== false);
+const QUICK_ACTIONS_SORTED = [...VISIBLE_QUICK_ACTIONS].sort((a, b) => b.label.length - a.label.length);
+
+function renderQuickActionToken(label: string, key: string): ReactNode {
+  const action = VISIBLE_QUICK_ACTIONS.find((item) => item.label === label);
+  return (
+    <span
+      key={key}
+      className="inline-flex max-w-full items-center gap-1 rounded-full border px-[8px] py-[3px] align-middle text-[14px] font-normal leading-[22px] text-[#191919]"
+      style={{ borderColor: 'rgba(20,118,255,0.8)', backgroundColor: '#eff6ff' }}
+      data-quick-action-token="true"
+    >
+      {action?.icon ? <img src={action.icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" /> : null}
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
+const SKILL_PHRASE_RE = /(使用\s+)([^\n，。！？,.!?]{1,60}?)(\s+技能)/g;
+
+function appendTextWithSkillPhrase(parts: ReactNode[], text: string, keyPrefix: string): void {
+  if (!text) return;
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  SKILL_PHRASE_RE.lastIndex = 0;
+  while ((m = SKILL_PHRASE_RE.exec(text)) !== null) {
+    if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
+    const full = m[0];
+    const skillName = (m[2] ?? '').trim();
+    if (!skillName) {
+      parts.push(full);
+    } else {
+      parts.push(renderSkillToken(skillName, `${keyPrefix}-phrase-${m.index}`));
+    }
+    lastIdx = m.index + full.length;
+  }
+  if (lastIdx < text.length) parts.push(text.slice(lastIdx));
+}
+
 function appendTextWithSkills(parts: ReactNode[], text: string, keyPrefix: string, skillNames: string[]): void {
   if (!text) return;
-  if (skillNames.length === 0) {
-    parts.push(text);
-    return;
-  }
 
-  const sortedSkills = [...skillNames].sort((a, b) => b.length - a.length);
+  const normalizedSkillNames = new Set(skillNames.map((name) => name.trim().toLowerCase()).filter(Boolean));
   let cursor = 0;
   let plainStart = 0;
 
   while (cursor < text.length) {
-    let matchedSkill: string | null = null;
-    for (const skillName of sortedSkills) {
-      if (!skillName) continue;
-      if (!text.startsWith(skillName, cursor)) continue;
-      const prev = cursor > 0 ? text[cursor - 1] : ' ';
-      const next = cursor + skillName.length < text.length ? text[cursor + skillName.length] : ' ';
-      if (/\s/.test(prev) && /\s/.test(next)) {
-        matchedSkill = skillName;
-        break;
+    const phraseSlice = text.slice(cursor);
+    const phraseMatch = /^(使用\s+)([^\n，。！？,.!?]{1,60}?)(\s+技能)/.exec(phraseSlice);
+    if (phraseMatch) {
+      const full = phraseMatch[0] ?? '';
+      const skillName = (phraseMatch[2] ?? '').trim();
+      if (skillName && normalizedSkillNames.has(skillName.toLowerCase())) {
+        if (cursor > plainStart) parts.push(text.slice(plainStart, cursor));
+        parts.push(renderSkillToken(skillName, `${keyPrefix}-phrase-${cursor}`));
+        cursor += full.length;
+        plainStart = cursor;
+        continue;
       }
     }
 
-    if (!matchedSkill) {
-      cursor += 1;
+    let matchedQuickAction: string | null = null;
+    for (const action of QUICK_ACTIONS_SORTED) {
+      const label = action.label;
+      if (!label) continue;
+      if (!text.startsWith(label, cursor)) continue;
+      const prev = cursor > 0 ? text[cursor - 1] : ' ';
+      const next = cursor + label.length < text.length ? text[cursor + label.length] : ' ';
+      if (/\s/.test(prev) && /\s/.test(next)) {
+        matchedQuickAction = label;
+        break;
+      }
+    }
+    if (matchedQuickAction) {
+      if (cursor > plainStart) parts.push(text.slice(plainStart, cursor));
+      parts.push(renderQuickActionToken(matchedQuickAction, `${keyPrefix}-qa${cursor}`));
+      cursor += matchedQuickAction.length;
+      plainStart = cursor;
       continue;
     }
 
-    if (cursor > plainStart) parts.push(text.slice(plainStart, cursor));
-    parts.push(renderSkillToken(matchedSkill, `${keyPrefix}-s${cursor}`));
-    cursor += matchedSkill.length;
-    plainStart = cursor;
+    cursor += 1;
   }
 
   if (plainStart < text.length) parts.push(text.slice(plainStart));
@@ -89,11 +145,8 @@ function highlightMentionsAndSkills(text: string, skillNames: string[]): ReactNo
       appendTextWithSkills(parts, text.slice(lastIdx, m.index), `p${m.index}`, skillNames);
     }
     const catId = toCat[m[1].toLowerCase()] ?? 'opus';
-    const catColor = colorMap[catId] ?? '#9B7EBD';
+    void colorMap[catId];
     const label = labelMap[m[1].toLowerCase()] ?? m[0];
-    const r = Number.parseInt(catColor.slice(1, 3), 16);
-    const g = Number.parseInt(catColor.slice(3, 5), 16);
-    const b = Number.parseInt(catColor.slice(5, 7), 16);
     parts.push(
       <span
         key={`m${m.index}`}
@@ -358,7 +411,7 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
   return (
     <div
       className={`markdown-content font-sans break-words ${className ?? ''}`}
-      style={{ fontFamily: 'Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif' }}
+      style={{ fontFamily: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif' }}
     >
       {cmdMatch && <span className="text-indigo-500">{cmdMatch[1]}</span>}
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>

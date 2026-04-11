@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +21,7 @@ function setEnv(key, value) {
 }
 
 async function importAuthRoutesFresh() {
-  const moduleUrl = `${pathToFileURL(resolve('packages/api/dist/routes/auth.js')).href}?t=${Date.now()}-${Math.random()}`;
+  const moduleUrl = `${pathToFileURL(resolve('dist/routes/auth.js')).href}?t=${Date.now()}-${Math.random()}`;
   return import(moduleUrl);
 }
 
@@ -101,6 +107,7 @@ describe('authRoutes /api/login', () => {
     assert.equal(response.json().success, true);
     assert.equal(refreshCount, 1);
     assert.equal(refreshHeaders?.['x-cat-cafe-user'], 'demo-domain:demo-domain');
+    assert.equal(refreshHeaders?.['x-refresh'], 'true');
 
     await app.close();
     rmSync(configRoot, { recursive: true, force: true });

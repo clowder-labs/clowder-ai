@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F122: pushToWorklist returns structured PushResult (AC-A2)
  * Split from worklist-registry.test.js to stay within 350-line file cap.

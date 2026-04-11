@@ -1,8 +1,16 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export interface FeishuTokenManagerOptions {
   readonly appId: string;
   readonly appSecret: string;
   readonly fetchFn?: typeof fetch;
 }
+
+const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
 
 export class FeishuTokenManager {
   private cachedToken: string | undefined;
@@ -22,7 +30,7 @@ export class FeishuTokenManager {
       return this.cachedToken;
     }
 
-    const res = await this.fetchFn('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    const res = await this.fetchFn(`${FEISHU_OPEN_API_BASE_URL}/auth/v3/tenant_access_token/internal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { SignalArticle, SignalArticleStatus, SignalCategory, SignalSource, SignalTier } from '@cat-cafe/shared';
 
 export type SignalArticleStatusFilter = SignalArticleStatus | 'all';

@@ -1,18 +1,24 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { FeishuQrPanel } from './FeishuQrPanel';
 import {
   DEFAULT_VISUAL,
   ExternalLinkIcon,
   LockIcon,
   PLATFORM_VISUALS,
-  StatusDotConnected,
-  StatusDotIdle,
   StepBadge,
   WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
+import { ConnectorConnectedState } from './ConnectorConnectedState';
 
 interface PlatformFieldStatus {
   envName: string;
@@ -43,6 +49,8 @@ interface ConnectorTestResult {
   };
 }
 
+const QR_ONLY_PLATFORM_IDS = new Set(['feishu', 'weixin']);
+
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
     const trimmed = step.trim();
@@ -50,9 +58,9 @@ function readStepText(step: unknown): string | null {
   }
   if (!step || typeof step !== 'object') return null;
   const candidate =
-    (step as { text?: unknown; title?: unknown; label?: unknown }).text
-    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).title
-    ?? (step as { text?: unknown; title?: unknown; label?: unknown }).label;
+    (step as { text?: unknown; title?: unknown; label?: unknown }).text ??
+    (step as { text?: unknown; title?: unknown; label?: unknown }).title ??
+    (step as { text?: unknown; title?: unknown; label?: unknown }).label;
   if (typeof candidate !== 'string') return null;
   const trimmed = candidate.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -82,12 +90,14 @@ function normalizePlatform(raw: unknown, index: number): PlatformStatus | null {
     const label = typeof labelRaw === 'string' && labelRaw.trim() ? labelRaw.trim() : envName;
     const currentValueRaw = current.currentValue;
     const currentValue = typeof currentValueRaw === 'string' ? currentValueRaw : null;
-    return [{
-      envName,
-      label,
-      sensitive: Boolean(current.sensitive),
-      currentValue,
-    }];
+    return [
+      {
+        envName,
+        label,
+        sensitive: Boolean(current.sensitive),
+        currentValue,
+      },
+    ];
   });
 
   const stepsRaw = Array.isArray(item.steps) ? item.steps : [];
@@ -126,6 +136,7 @@ export function HubConnectorConfigTab() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
@@ -135,8 +146,8 @@ export function HubConnectorConfigTab() {
       const data = await res.json();
       const nextPlatforms = Array.isArray(data?.platforms)
         ? data.platforms
-          .map((item: unknown, index: number) => normalizePlatform(item, index))
-          .filter((item: unknown): item is PlatformStatus => item !== null)
+            .map((item: unknown, index: number) => normalizePlatform(item, index))
+            .filter((item: unknown): item is PlatformStatus => item !== null)
         : [];
       setPlatforms(nextPlatforms);
     } catch {
@@ -191,13 +202,21 @@ export function HubConnectorConfigTab() {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      const hasSensitive = updates.some((u) => platform.fields.find((f) => f.envName === u.name)?.sensitive);
-      const restartHint = data.requiresRestart || hasSensitive;
+      const runtime = data?.runtime as
+        | {
+            applied?: boolean;
+            failedConnectors?: Array<{ connectorId?: string; message?: string }>;
+          }
+        | undefined;
+      const failedConnectors = Array.isArray(runtime?.failedConnectors) ? runtime.failedConnectors : [];
       setSaveResult({
         type: 'success',
-        message: restartHint
-          ? '配置已保存。包含敏感字段，需重启 API 服务使连接器生效。'
-          : '配置已保存。需重启 API 服务使连接器生效。',
+        message:
+          runtime && runtime.applied === false
+            ? `配置已保存，但热生效失败：${failedConnectors
+                .map((item) => item.connectorId || 'unknown')
+                .join('、')}。请查看 API 日志。`
+            : '配置已保存并立即生效。',
       });
       setFieldValues({});
       await fetchStatus();
@@ -208,8 +227,10 @@ export function HubConnectorConfigTab() {
     }
   };
 
+  const TESTABLE_PLATFORMS = ['dingtalk', 'xiaoyi'];
+
   const handleTestConnection = async (platform: PlatformStatus) => {
-    if (platform.id !== 'feishu') {
+    if (!TESTABLE_PLATFORMS.includes(platform.id)) {
       setSaveResult({ type: 'success', message: '该平台测试连接功能即将上线' });
       return;
     }
@@ -222,7 +243,7 @@ export function HubConnectorConfigTab() {
           .map((field) => [field.envName, fieldValues[field.envName]])
           .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
       );
-      const res = await apiFetch('/api/connector/test/feishu', {
+      const res = await apiFetch(`/api/connector/test/${platform.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -235,16 +256,43 @@ export function HubConnectorConfigTab() {
       }
 
       const warnings = Array.isArray(data.warnings) ? data.warnings.filter(Boolean) : [];
-      const botName = data.bot?.name?.trim() || data.bot?.openId?.trim() || '机器人';
       const warningText = warnings.length > 0 ? `；${warnings.join('；')}` : '';
+      // Feishu includes bot info in response
+      const botSuffix = data.bot?.name?.trim() || data.bot?.openId?.trim();
+      const botText = botSuffix ? ` 已识别 ${botSuffix}` : '';
       setSaveResult({
         type: 'success',
-        message: `${data.message ?? '连接测试成功'} 已识别 ${botName}${warningText}`,
+        message: `${data.message ?? '连接测试成功'}${botText}${warningText}`,
       });
     } catch {
       setSaveResult({ type: 'error', message: '网络错误' });
     } finally {
       setTesting(false);
+    }
+  };
+
+  // 断开连接处理
+  const handleDisconnect = async (platformId: string) => {
+    setDisconnecting(platformId);
+    setSaveResult(null);
+    try {
+      const res = await apiFetch(`/api/connector/${platformId}/disconnect`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSaveResult({ type: 'error', message: data.error ?? '断开失败' });
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const runtime = data?.runtime as { applied?: boolean } | undefined;
+      setSaveResult({
+        type: 'success',
+        message: runtime?.applied === false ? '已断开连接，但热生效失败。请查看 API 日志。' : '已断开连接。',
+      });
+      await fetchStatus();
+    } catch {
+      setSaveResult({ type: 'error', message: '网络错误' });
+    } finally {
+      setDisconnecting(null);
     }
   };
 
@@ -260,7 +308,10 @@ export function HubConnectorConfigTab() {
 
   return (
     <div className="ui-panel flex h-full min-h-0 overflow-hidden">
-      <div className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[var(--border-default)] px-4 py-6" data-testid="connector-left-pane">
+      <div
+        className="h-full w-[304px] shrink-0 space-y-2 overflow-y-auto border-r border-[var(--border-default)] px-4 py-6"
+        data-testid="connector-left-pane"
+      >
         {platforms.map((platform) => {
           const isSelected = selectedPlatform?.id === platform.id;
           const v = PLATFORM_VISUALS[platform.id] ?? DEFAULT_VISUAL;
@@ -272,25 +323,19 @@ export function HubConnectorConfigTab() {
               data-testid={`platform-item-${platform.id}`}
               className="flex w-full items-center gap-3 border px-4 py-3.5 text-left transition-colors [border-radius:var(--connector-tab-radius)]"
               style={{
-                borderColor: isSelected ? 'var(--connector-tab-border-selected)' : 'var(--connector-tab-border-default)',
+                borderColor: isSelected
+                  ? 'var(--connector-tab-border-selected)'
+                  : 'var(--connector-tab-border-default)',
                 backgroundColor: isSelected ? 'var(--connector-tab-bg-selected)' : 'var(--connector-tab-bg-default)',
               }}
             >
-              <span
-                className="flex h-11 w-11 shrink-0 items-center justify-center"
-              >
-                {v.icon}
-              </span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block text-[14px] font-semibold text-[var(--text-primary)]">
-                  {platform.name} {platform.nameEn !== platform.name ? platform.nameEn : ''}
-                </span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center">{v.icon}</span>
+                <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[14px] font-semibold text-[var(--text-primary)]">{platform.name}</span>
                 <span
-                  className={`flex items-center gap-1 text-xs ${platform.configured ? 'text-[var(--state-success-text)]' : 'text-[var(--text-muted)]'
-                    }`}
+                  className={`ui-status-badge ${platform.configured ? 'ui-status-badge-configured' : 'ui-status-badge-unconfigured'}`}
                 >
-                  {platform.configured ? <StatusDotConnected /> : <StatusDotIdle />}
-                  {platform.configured ? '已配置' : '未配置'}
+                  {platform.configured ? '已启用' : '未配置'}
                 </span>
               </span>
             </button>
@@ -298,127 +343,173 @@ export function HubConnectorConfigTab() {
         })}
       </div>
 
-      <div className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6" data-testid="connector-right-pane">
-        <p className='text-[var(--text-primary)] font-semibold'>配置</p>
-        {selectedPlatform && (() => {
-          const platform = selectedPlatform;
-          const guideSteps = platform.steps.slice(0, -1);
-          const docsLink = parseDocsLink(platform.docsUrl);
-          const saveStepNum = guideSteps.length + 2;
+      <div
+        className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6"
+        data-testid="connector-right-pane"
+      >
+        <p className="text-[var(--text-primary)] font-semibold">配置</p>
+        {selectedPlatform &&
+          (() => {
+            const platform = selectedPlatform;
+            const guideSteps = platform.steps.slice(0, -1);
+            const docsLink = parseDocsLink(platform.docsUrl);
+            const saveStepNum = guideSteps.length + 2;
 
-          return (
-            <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
-              {platform.id === 'weixin' && (
-                <div className="space-y-3.5">
-                  {platform.steps.map((step, idx) => (
-                    <div key={idx} className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <StepBadge num={idx + 1} />
-                        <span className="text-[14px]">{step}</span>
-                      </div>
-                      {idx === 0 && (
-                        <div className="ml-[26px]">
-                          <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+            return (
+              <div className="space-y-3.5" data-testid={`platform-card-${platform.id}`}>
+                {QR_ONLY_PLATFORM_IDS.has(platform.id) && (
+                  <div className="space-y-3.5">
+                    {platform.steps.map((step, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={idx + 1} />
+                          <span className="text-[14px]">{step}</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {platform.id !== 'weixin' && (
-                <div className="space-y-3.5">
-                  {guideSteps.map((step, idx) => (
-                    <div key={idx} className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <StepBadge num={idx + 1} />
-                        <span className="text-[14px]">{step}</span>
-                      </div>
-                      {idx === 0 && docsLink && (
-                        <a
-                          href={docsLink.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ui-button-default ml-[26px] inline-flex items-center gap-1.5"
-                        >
-                          <ExternalLinkIcon />
-                          <span>{docsLink.hostname} {'->'} 查看官方文档</span>
-                        </a>
-                      )}
-                    </div>
-                  ))}
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <StepBadge num={guideSteps.length + 1} />
-                      <span className="text-[14px]">填写应用凭证</span>
-                    </div>
-                    <div className="ml-[26px] space-y-2.5">
-                      {platform.fields.map((field) => (
-                        <div key={field.envName} className="w-[60%]">
-                          <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
-                            {field.label}
-                            {field.sensitive && (
-                              <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
-                                <LockIcon />
-                              </span>
+                        {idx === 0 && (
+                          <div className="ml-[26px]">
+                            {platform.id === 'feishu' ? (
+                              <FeishuQrPanel
+                                configured={platform.configured}
+                                onConfirmed={() => void fetchStatus()}
+                                onDisconnected={() => void fetchStatus()}
+                              />
+                            ) : (
+                              <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
                             )}
-                          </label>
-                          <input
-                            id={`config-${field.envName}`}
-                            type={field.sensitive ? 'password' : 'text'}
-                            placeholder={field.sensitive ? (field.currentValue ? '已设置（输入新值覆盖）' : '未设置') : (field.currentValue ?? '未设置')}
-                            value={fieldValues[field.envName] ?? ''}
-                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                            autoComplete={field.sensitive ? 'off' : undefined}
-                            className="ui-input h-9 w-full px-3 text-[13px]"
-                            data-testid={`field-${field.envName}`}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!QR_ONLY_PLATFORM_IDS.has(platform.id) && (
+                  <div className="space-y-3.5">
+                    {guideSteps.map((step, idx) => (
+                      <div key={idx} className="space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={idx + 1} />
+                          <span className="text-[14px]">{step}</span>
+                        </div>
+                        {idx === 0 && docsLink && (
+                          <a
+                            href={docsLink.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ui-button-default ml-[26px] inline-flex items-center gap-1.5"
+                          >
+                            <ExternalLinkIcon />
+                            <span>
+                              {docsLink.hostname} {'->'} 查看官方文档
+                            </span>
+                          </a>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* 断开连接按钮 - 当平台已配置时显示 */}
+                    {platform.configured && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <StepBadge num={guideSteps.length + 1} />
+                          <span className="text-[14px]">断开连接</span>
+                        </div>
+                        <div className="ml-[26px]">
+                          <ConnectorConnectedState
+                            label={`${platform.name} 已连接`}
+                            disconnecting={disconnecting === platform.id}
+                            onDisconnect={() => handleDisconnect(platform.id)}
+                            disconnectTestId={`disconnect-${platform.id}`}
                           />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <StepBadge num={saveStepNum} />
-                      <span className="text-[14px]">测试连接并保存</span>
-                    </div>
-                    {saveResult && (
-                      <div
-                        className={`ml-[26px] rounded-[var(--radius-md)] px-3 py-2 text-xs ${saveResult.type === 'success' ? 'ui-status-success' : 'ui-status-error'
-                          }`}
-                        data-testid="save-result"
-                      >
-                        {saveResult.message}
                       </div>
                     )}
-                    <div className="ml-[26px] flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="ui-button-default inline-flex items-center gap-1.5"
-                        onClick={() => void handleTestConnection(platform)}
-                        disabled={testing}
-                      >
-                        <WifiIcon />
-                        {testing ? '测试中...' : '测试连接'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSave(platform)}
-                        disabled={saving}
-                        className="ui-button-primary disabled:opacity-50"
-                        data-testid={`save-${platform.id}`}
-                      >
-                        {saving ? '保存中...' : '保存配置'}
-                      </button>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <StepBadge num={guideSteps.length + 1} />
+                        <span className="text-[14px]">填写应用凭证</span>
+                      </div>
+                      <div className="ml-[26px] space-y-2.5">
+                        {platform.fields.map((field) => (
+                          <div key={field.envName} className="w-[60%]">
+                            <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
+                              {field.label}
+                              {field.sensitive && (
+                                <span className="ml-1 inline-flex align-middle text-[var(--state-warning-text)]">
+                                  <LockIcon />
+                                </span>
+                              )}
+                            </label>
+                            <input
+                              id={`config-${field.envName}`}
+                              type={field.sensitive ? 'password' : 'text'}
+                              name={`connector-${field.envName}`}
+                              placeholder={
+                                field.sensitive
+                                  ? field.currentValue
+                                    ? '已设置（输入新值覆盖）'
+                                    : '未设置'
+                                  : (field.currentValue ?? '未设置')
+                              }
+                              value={fieldValues[field.envName] ?? ''}
+                              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                              autoComplete={field.sensitive ? 'new-password' : 'off'}
+                              autoCapitalize="off"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              data-form-type="other"
+                              data-1p-ignore="true"
+                              data-lpignore="true"
+                              className="ui-input h-9 w-full px-3 text-[13px]"
+                              data-testid={`field-${field.envName}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <StepBadge num={saveStepNum} />
+                        <span className="text-[14px]">测试连接并保存</span>
+                      </div>
+                      {saveResult && (
+                        <div
+                          className={`ml-[26px] rounded-[var(--radius-md)] px-3 py-2 text-xs ${
+                            saveResult.type === 'success' ? 'ui-status-success' : 'ui-status-error'
+                          }`}
+                          data-testid="save-result"
+                        >
+                          {saveResult.message}
+                        </div>
+                      )}
+                      <div className="ml-[26px] flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="ui-button-default inline-flex items-center gap-1.5"
+                          onClick={() => void handleTestConnection(platform)}
+                          disabled={testing}
+                        >
+                          <WifiIcon />
+                          {testing ? '测试中...' : '测试连接'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSave(platform)}
+                          disabled={saving}
+                          className="ui-button-primary disabled:opacity-50"
+                          data-testid={`save-${platform.id}`}
+                        >
+                          {saving ? '保存中...' : '保存配置'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+                )}
+              </div>
+            );
+          })()}
       </div>
     </div>
   );

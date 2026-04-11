@@ -1,504 +1,330 @@
-/**
- * XiaoYi (华为小艺) Smart Assistant Adapter
- * Connects to Huawei XiaoYi A2A platform via dual WebSocket channels.
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
- * Inbound: Parse A2A message/stream events → extract user text + attachments
- * Outbound: Send artifact-update (text) via A2A JSON-RPC 2.0
- *
- * F139 XiaoYi Smart Assistant Gateway — Phase A
  */
 
-import { createHmac } from 'node:crypto';
+/**
+ * XiaoYi (小艺) Connector Adapter — OpenClaw A2A over dual-WS.
+ *
+ * Non-streaming delivery: each cat's complete reply sent via sendReply with
+ * append accumulation (first=false, rest=true). No intra-artifact streaming
+ * — HAG app breaks with append:true delta updates within the same artifact.
+ * Task closure via close frame driven by onDeliveryBatchDone signal.
+ *
+ * F151 | ADR-014
+ */
+
 import type { FastifyBaseLogger } from 'fastify';
-// @ts-expect-error — ws has no bundled types; @types/ws not in this project
-import { WebSocket } from 'ws';
-import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
+import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
+import {
+  type A2AInbound,
+  agentResponse,
+  artifactUpdate,
+  DEDUP_TTL_MS,
+  extractFileParts,
+  generateXiaoyiSignature,
+  STATUS_KEEPALIVE_MS,
+  statusUpdate,
+  TASK_TIMEOUT_MS,
+  type TaskRecord,
+  type XiaoyiAdapterOptions,
+  type XiaoyiAttachment,
+  type XiaoyiInboundMessage,
+} from './xiaoyi-protocol.js';
+import { XiaoyiWsManager } from './xiaoyi-ws.js';
 
-// ── Types ──
+export type { XiaoyiAdapterOptions, XiaoyiInboundMessage };
+export { generateXiaoyiSignature };
 
-export interface XiaoyiAdapterOptions {
-  /** HMAC Access Key from 小艺开放平台 */
-  ak: string;
-  /** HMAC Secret Key from 小艺开放平台 */
-  sk: string;
-  /** Agent ID registered on 小艺开放平台 */
-  agentId: string;
-  /** Primary WebSocket URL */
-  wsUrl1?: string;
-  /** Backup WebSocket URL (IP-based) */
-  wsUrl2?: string;
-  /** Enable streaming mode (default true) */
-  enableStreaming?: boolean;
-}
-
-export interface XiaoyiInboundMessage {
-  /** A2A session ID — used as externalChatId */
-  chatId: string;
-  /** User text content */
-  text: string;
-  /** A2A task ID — used as messageId */
-  messageId: string;
-  /** A2A task ID (same as messageId, kept for session tracking) */
-  taskId: string;
-  /** File attachments from user */
-  attachments?: XiaoyiAttachment[];
-}
-
-export interface XiaoyiAttachment {
-  type: 'image' | 'file' | 'audio';
-  url: string;
-  fileName?: string;
-  mimeType?: string;
-}
-
-// ── Constants ──
-
-const DEFAULT_WS_URL = 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
-const DEFAULT_BACKUP_WS_URL = 'wss://116.63.174.231/openclaw/v1/ws/link';
-const HEARTBEAT_INTERVAL_MS = 20_000;
-const RECONNECT_BASE_MS = 1_000;
-const RECONNECT_MAX_MS = 30_000;
-const MESSAGE_DEDUP_WINDOW_MS = 300_000; // 5 min
-
-// ── HMAC-SHA256 Signature ──
-
-export function generateXiaoyiSignature(sk: string, timestamp: string): string {
-  return createHmac('sha256', sk).update(timestamp).digest('base64');
-}
-
-// ── A2A Protocol Helpers ──
-
-function buildAgentResponse(
-  agentId: string,
-  sessionId: string,
-  taskId: string,
-  msgDetail: Record<string, unknown>,
-): Record<string, unknown> {
-  return {
-    msgType: 'agent_response',
-    agentId,
-    sessionId,
-    taskId,
-    msgDetail: JSON.stringify(msgDetail),
-  };
-}
-
-function buildTextArtifactUpdate(
-  taskId: string,
-  text: string,
-  opts: { append?: boolean; lastChunk?: boolean; final?: boolean; kind?: 'text' | 'reasoningText' } = {},
-): Record<string, unknown> {
-  const kind = opts.kind ?? 'text';
-  const partKey = kind === 'reasoningText' ? 'reasoningText' : 'text';
-  return {
-    jsonrpc: '2.0',
-    id: `msg_${Date.now()}`,
-    result: {
-      taskId,
-      kind: 'artifact-update',
-      append: opts.append ?? false,
-      lastChunk: opts.lastChunk ?? true,
-      final: opts.final ?? true,
-      artifact: {
-        artifactId: `artifact_${Date.now()}`,
-        parts: [{ kind, [partKey]: text }],
-      },
-    },
-  };
-}
-
-function buildStatusUpdate(
-  taskId: string,
-  state: 'working' | 'completed' | 'failed',
-  message?: string,
-): Record<string, unknown> {
-  return {
-    jsonrpc: '2.0',
-    id: `msg_${Date.now()}`,
-    result: {
-      taskId,
-      kind: 'status-update',
-      final: state !== 'working',
-      status: {
-        state,
-        ...(message ? { message: { role: 'agent', parts: [{ kind: 'text', text: message }] } } : {}),
-      },
-    },
-  };
-}
-
-// ── Inbound Message Parser ──
-
-interface A2AMessageParts {
-  text: string;
-  files: XiaoyiAttachment[];
-  pushId?: string;
-}
-
-function parseA2AMessageParts(parts: unknown[]): A2AMessageParts {
-  let text = '';
-  const files: XiaoyiAttachment[] = [];
-  let pushId: string | undefined;
-
-  for (const part of parts) {
-    const p = part as Record<string, unknown>;
-    if (p.kind === 'text' && typeof p.text === 'string') {
-      text += p.text;
-    } else if (p.kind === 'file') {
-      const file = p.file as Record<string, unknown> | undefined;
-      if (file?.uri) {
-        files.push({
-          type: guessFileType(file.mimeType as string | undefined),
-          url: file.uri as string,
-          fileName: file.name as string | undefined,
-          mimeType: file.mimeType as string | undefined,
-        });
-      }
-    } else if (p.kind === 'data') {
-      const data = p.data as Record<string, unknown> | undefined;
-      const vars = data?.variables as Record<string, unknown> | undefined;
-      const sysVars = vars?.systemVariables as Record<string, unknown> | undefined;
-      if (sysVars?.push_id) {
-        pushId = sysVars.push_id as string;
-      }
-    }
-  }
-
-  return { text, files, pushId };
-}
-
-function guessFileType(mimeType: string | undefined): 'image' | 'file' | 'audio' {
-  if (!mimeType) return 'file';
-  if (mimeType.startsWith('image/')) return 'image';
-  if (mimeType.startsWith('audio/')) return 'audio';
-  return 'file';
-}
-
-// ── Single WebSocket Channel ──
-
-interface WsChannel {
-  ws: WebSocket | null;
-  url: string;
-  label: string;
-  heartbeatTimer: ReturnType<typeof setInterval> | null;
-  reconnectAttempt: number;
-  reconnectTimer: ReturnType<typeof setTimeout> | null;
-  initSent: boolean;
-}
-
-// ── XiaoyiAdapter ──
-
-export class XiaoyiAdapter implements IOutboundAdapter {
-  readonly connectorId = 'xiaoyi';
-
-  private readonly opts: Required<Pick<XiaoyiAdapterOptions, 'ak' | 'sk' | 'agentId'>> & XiaoyiAdapterOptions;
+export class XiaoyiAdapter implements IStreamableOutboundAdapter {
+  readonly connectorId = 'xiaoyi' as const;
   private readonly log: FastifyBaseLogger;
-  private readonly channels: [WsChannel, WsChannel];
-  private running = false;
-  private onMessage: ((msg: XiaoyiInboundMessage) => Promise<void>) | null = null;
+  private readonly opts: XiaoyiAdapterOptions;
+  private readonly ws: XiaoyiWsManager;
+  /** Per-session FIFO queue of HAG tasks */
+  private readonly taskQueue = new Map<string, TaskRecord[]>();
+  private readonly dedup = new Map<string, number>();
+  /** Per-task artifact sequence counter for artifactId generation */
+  private readonly seqCounters = new Map<string, number>();
+  private readonly keepaliveTimers = new Map<string, ReturnType<typeof setInterval>>();
+  private readonly taskTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Deferred inbound payloads for tasks queued behind the active head */
+  private readonly pendingDispatch = new Map<string, XiaoyiInboundMessage>();
+  /** Track whether a task has sent at least one artifact (for close frame) */
+  private readonly hasArtifact = new Set<string>();
 
-  /** Dedup inbound messages (taskId → timestamp) */
-  private readonly seenMessages = new Map<string, number>();
-
-  /** Track active sessions: taskId → sessionId */
-  private readonly sessionMap = new Map<string, string>();
-
-  constructor(log: FastifyBaseLogger, options: XiaoyiAdapterOptions) {
+  constructor(log: FastifyBaseLogger, opts: XiaoyiAdapterOptions) {
     this.log = log;
-    this.opts = {
-      enableStreaming: true,
-      ...options,
-      wsUrl1: options.wsUrl1 || DEFAULT_WS_URL,
-    };
-    const primaryUrl = this.opts.wsUrl1!;
-    this.channels = [
-      this.createChannel(primaryUrl, 'primary'),
-      this.createChannel(this.opts.wsUrl2 || DEFAULT_BACKUP_WS_URL, 'backup'),
-    ];
+    this.opts = opts;
+    this.ws = new XiaoyiWsManager(log, opts);
   }
 
   // ── Lifecycle ──
 
-  startConnection(onMessage: (msg: XiaoyiInboundMessage) => Promise<void>): void {
-    this.onMessage = onMessage;
-    this.running = true;
-    for (const ch of this.channels) {
-      this.connect(ch);
-    }
-    this.log.info('[XiaoYi] Adapter started (dual WebSocket A2A)');
+  async startStream(onMessage: (msg: XiaoyiInboundMessage) => Promise<void>): Promise<void> {
+    this.onMsg = onMessage;
+    this.ws.start((raw, source) => this.handleInbound(raw, source));
   }
 
-  async stopConnection(): Promise<void> {
-    this.running = false;
-    for (const ch of this.channels) {
-      this.closeChannel(ch);
-    }
-    this.sessionMap.clear();
-    this.seenMessages.clear();
-    this.log.info('[XiaoYi] Adapter stopped');
+  async stopStream(): Promise<void> {
+    this.onMsg = null;
+    this.ws.stop();
+    for (const t of this.taskTimeouts.values()) clearTimeout(t);
+    this.taskTimeouts.clear();
+    for (const t of this.keepaliveTimers.values()) clearInterval(t);
+    this.keepaliveTimers.clear();
+    this.taskQueue.clear();
+    this.seqCounters.clear();
+    this.dedup.clear();
+    this.pendingDispatch.clear();
+    this.hasArtifact.clear();
   }
 
-  // ── IOutboundAdapter ──
+  private onMsg: ((msg: XiaoyiInboundMessage) => Promise<void>) | null = null;
+
+  // ── IStreamableOutboundAdapter ──
 
   async sendReply(externalChatId: string, content: string): Promise<void> {
-    const sessionId = externalChatId;
-    const taskId = this.resolveTaskId(sessionId);
-    if (!taskId) {
-      this.log.warn({ sessionId }, '[XiaoYi] No active task for session, dropping reply');
+    const sessionId = this.sessionFrom(externalChatId);
+    const rec = this.currentTask(sessionId);
+    if (!rec) {
+      this.log.warn({ sessionId }, '[XiaoYi] No task for sendReply');
       return;
     }
+    const isFirst = !this.hasArtifact.has(rec.taskId);
+    const artId = this.nextArtifactId(rec.taskId);
+    const text = isFirst ? content : `\n\n---\n\n${content}`;
+    const art = artifactUpdate(rec.taskId, artId, text, { append: !isFirst, lastChunk: true });
+    this.ws.send(rec.source, agentResponse(this.opts.agentId, sessionId, rec.taskId, art));
+    this.hasArtifact.add(rec.taskId);
+  }
 
-    const msgDetail = buildTextArtifactUpdate(taskId, content, {
+  async onDeliveryBatchDone(externalChatId: string, chainDone: boolean): Promise<void> {
+    if (!chainDone) return;
+    const sessionId = this.sessionFrom(externalChatId);
+    const rec = this.currentTask(sessionId);
+    if (!rec) return;
+    this.cancelTaskTimeout(rec.taskId);
+    this.clearKeepalive(rec.taskId);
+    this.pendingDispatch.delete(rec.taskId);
+    // Close frame: completed if has artifact, failed if no output at all
+    const state = this.hasArtifact.has(rec.taskId) ? 'completed' : 'failed';
+    const close = statusUpdate(rec.taskId, state);
+    this.ws.send(rec.source, agentResponse(this.opts.agentId, sessionId, rec.taskId, close));
+    this.dequeueTask(sessionId, rec.taskId);
+  }
+
+  async sendPlaceholder(externalChatId: string, _text: string): Promise<string> {
+    const sessionId = this.sessionFrom(externalChatId);
+    const rec = this.currentTask(sessionId);
+    if (!rec) {
+      this.log.warn({ sessionId }, '[XiaoYi] No task for sendPlaceholder');
+      return '';
+    }
+    // Content delivered via sendReply only (no intra-artifact streaming).
+    const st = statusUpdate(rec.taskId, 'working');
+    this.ws.send(rec.source, agentResponse(this.opts.agentId, sessionId, rec.taskId, st));
+    // Thinking bubble — reasoningText renders separately and collapses on reply
+    const thinkId = this.nextArtifactId(rec.taskId);
+    const thinking = artifactUpdate(rec.taskId, thinkId, '', {
       append: false,
       lastChunk: true,
-      final: true,
+      partKind: 'reasoningText',
     });
-    const payload = buildAgentResponse(this.opts.agentId, sessionId, taskId, msgDetail);
-    await this.sendToAll(payload);
+    this.ws.send(rec.source, agentResponse(this.opts.agentId, sessionId, rec.taskId, thinking));
+    this.startKeepalive(rec.taskId, sessionId, rec);
+    return '';
   }
 
-  // ── Internal: Connection Management ──
-
-  private createChannel(url: string, label: string): WsChannel {
-    return { ws: null, url, label, heartbeatTimer: null, reconnectAttempt: 0, reconnectTimer: null, initSent: false };
+  async editMessage(): Promise<void> {
+    // No-op: XiaoYi delivers final text only via sendReply
   }
 
-  private connect(ch: WsChannel): void {
-    if (!this.running) return;
+  async deleteMessage(): Promise<void> {
+    // No-op: no streaming artifacts to finalize
+  }
 
-    const timestamp = Date.now().toString();
-    const signature = generateXiaoyiSignature(this.opts.sk, timestamp);
+  // ── Inbound ──
 
-    const headers: Record<string, string> = {
-      'x-access-key': this.opts.ak,
-      'x-sign': signature,
-      'x-ts': timestamp,
-      'x-agent-id': this.opts.agentId,
-    };
-
-    // IP-based URLs need special SSL handling
-    const isIpUrl = /wss?:\/\/\d+\.\d+\.\d+\.\d+/.test(ch.url);
-    const wsOptions: Record<string, unknown> = { headers };
-    if (isIpUrl) {
-      wsOptions.rejectUnauthorized = false;
-    }
-
+  private handleInbound(raw: string, source: string): void {
+    let msg: A2AInbound;
     try {
-      ch.ws = new WebSocket(ch.url, wsOptions);
-    } catch (err) {
-      this.log.error({ err, channel: ch.label }, '[XiaoYi] WebSocket creation failed');
-      this.scheduleReconnect(ch);
-      return;
-    }
-
-    ch.ws.on('open', () => {
-      this.log.info({ channel: ch.label }, '[XiaoYi] WebSocket connected');
-      ch.reconnectAttempt = 0;
-      this.sendInit(ch);
-      this.startHeartbeat(ch);
-    });
-
-    ch.ws.on('message', (data: Buffer | string) => {
-      const raw = data.toString();
-      this.log.info({ channel: ch.label, raw: raw.slice(0, 500) }, '[XiaoYi] ← recv');
-      this.handleRawMessage(ch, raw);
-    });
-
-    ch.ws.on('close', (code: number, reason: Buffer) => {
-      this.log.warn({ channel: ch.label, code, reason: reason.toString() }, '[XiaoYi] WebSocket closed');
-      this.stopHeartbeat(ch);
-      this.scheduleReconnect(ch);
-    });
-
-    ch.ws.on('error', (err: Error) => {
-      this.log.error({ err, channel: ch.label }, '[XiaoYi] WebSocket error');
-    });
-  }
-
-  private sendInit(ch: WsChannel): void {
-    if (ch.initSent) return;
-    const initMsg = { msgType: 'clawd_bot_init', agentId: this.opts.agentId };
-    this.sendToChannel(ch, initMsg);
-    ch.initSent = true;
-    this.log.info({ channel: ch.label }, '[XiaoYi] Init message sent');
-  }
-
-  private startHeartbeat(ch: WsChannel): void {
-    this.stopHeartbeat(ch);
-    ch.heartbeatTimer = setInterval(() => {
-      if (ch.ws?.readyState === WebSocket.OPEN) {
-        this.sendToChannel(ch, { msgType: 'heartbeat', agentId: this.opts.agentId });
-      }
-    }, HEARTBEAT_INTERVAL_MS);
-  }
-
-  private stopHeartbeat(ch: WsChannel): void {
-    if (ch.heartbeatTimer) {
-      clearInterval(ch.heartbeatTimer);
-      ch.heartbeatTimer = null;
-    }
-  }
-
-  private closeChannel(ch: WsChannel): void {
-    this.stopHeartbeat(ch);
-    if (ch.reconnectTimer) {
-      clearTimeout(ch.reconnectTimer);
-      ch.reconnectTimer = null;
-    }
-    if (ch.ws) {
-      ch.ws.removeAllListeners();
-      ch.ws.close();
-      ch.ws = null;
-    }
-    ch.initSent = false;
-  }
-
-  private scheduleReconnect(ch: WsChannel): void {
-    if (!this.running) return;
-    this.closeChannel(ch);
-
-    const delay = Math.min(RECONNECT_BASE_MS * 2 ** ch.reconnectAttempt, RECONNECT_MAX_MS);
-    ch.reconnectAttempt++;
-    this.log.info({ channel: ch.label, delay, attempt: ch.reconnectAttempt }, '[XiaoYi] Scheduling reconnect');
-
-    ch.reconnectTimer = setTimeout(() => {
-      ch.reconnectTimer = null;
-      this.connect(ch);
-    }, delay);
-  }
-
-  // ── Internal: Message Handling ──
-
-  private handleRawMessage(ch: WsChannel, raw: string): void {
-    let msg: Record<string, unknown>;
-    try {
-      msg = JSON.parse(raw) as Record<string, unknown>;
+      msg = JSON.parse(raw);
     } catch {
-      this.log.warn({ channel: ch.label, raw: raw.slice(0, 200) }, '[XiaoYi] Non-JSON message');
       return;
     }
-
-    const msgType = msg.msgType as string | undefined;
-    const method = msg.method as string | undefined;
-
-    // Heartbeat — ignore
-    if (msgType === 'heartbeat') return;
-
-    // clearContext — acknowledge
-    if (method === 'clearContext') {
-      this.handleClearContext(msg);
-      return;
+    const inboundAgentId = msg.agentId ?? msg.params?.agentId;
+    if (inboundAgentId && inboundAgentId !== this.opts.agentId) return;
+    if (msg.method === 'message/stream' && msg.params) {
+      try {
+        this.handleMessageStream(msg, source);
+      } catch (err) {
+        this.log.error({ err, source }, '[XiaoYi] handleMessageStream failed — message dropped');
+      }
+    } else if (msg.method === 'tasks/cancel' || msg.method === 'clearContext') {
+      const sid = msg.params?.sessionId ?? msg.sessionId;
+      if (sid) this.purgeSession(sid);
+    } else if ((msg as Record<string, unknown>).error) {
+      this.log.warn({ error: (msg as Record<string, unknown>).error, source }, '[XiaoYi] HAG JSON-RPC error');
     }
-
-    // tasks/cancel
-    if (method === 'tasks/cancel') {
-      this.handleTaskCancel(msg);
-      return;
-    }
-
-    // message/stream — the main inbound path
-    if (msgType === 'message/stream' || method === 'message/stream') {
-      this.handleMessageStream(ch, msg);
-      return;
-    }
-
-    this.log.debug({ channel: ch.label, msgType, method }, '[XiaoYi] Unhandled message type');
   }
 
-  private handleMessageStream(ch: WsChannel, msg: Record<string, unknown>): void {
-    const params = msg.params as Record<string, unknown> | undefined;
-    if (!params) return;
+  private handleMessageStream(msg: A2AInbound, source: string): void {
+    const taskId = msg.params?.id;
+    const sessionId = msg.params?.sessionId;
+    if (!taskId || !sessionId) return;
+    const key = `${sessionId}:${taskId}`;
+    if (this.dedup.has(key)) return;
+    this.dedup.set(key, Date.now());
+    this.gcDedup();
 
-    // P1-1 fix: params.sessionId is the stable conversationId;
-    // top-level msg.sessionId rotates on app restart — never use it as chatId
-    const sessionId = (params.sessionId ?? msg.conversationId ?? msg.sessionId) as string | undefined;
-    const taskId = (params.id ?? msg.id ?? msg.taskId) as string | undefined;
-    if (!sessionId || !taskId) {
-      this.log.warn('[XiaoYi] message/stream missing sessionId or taskId');
-      return;
-    }
+    // Parse content BEFORE enqueueing — empty messages must not enter the queue (P2 review fix)
+    const parts = msg.params?.message?.parts ?? [];
+    const text = parts
+      .filter((p): p is { kind: string; text: string } => p.kind === 'text' && typeof p.text === 'string')
+      .map((p) => p.text)
+      .join('');
 
-    // Dedup across dual channels
-    if (this.isDuplicate(taskId)) return;
+    // Extract file/image attachments (Phase B — F151)
+    const fileParts = extractFileParts(parts);
+    const attachments: XiaoyiAttachment[] = fileParts.map((fp) => ({
+      type: fp.mimeType.startsWith('image/')
+        ? ('image' as const)
+        : fp.mimeType.startsWith('audio/')
+          ? ('audio' as const)
+          : ('file' as const),
+      xiaoyiUri: fp.uri,
+      fileName: fp.name,
+      mimeType: fp.mimeType,
+    }));
 
-    // Track session → task mapping
-    this.sessionMap.set(taskId, sessionId);
+    if (!text && attachments.length === 0) return;
 
-    const message = params.message as Record<string, unknown> | undefined;
-    const parts = (message?.parts ?? []) as unknown[];
-    const parsed = parseA2AMessageParts(parts);
-
-    if (!parsed.text && parsed.files.length === 0) {
-      this.log.debug({ sessionId, taskId }, '[XiaoYi] Empty message, skipping');
-      return;
-    }
-
-    const inbound: XiaoyiInboundMessage = {
-      chatId: sessionId,
-      text: parsed.text,
+    const rec: TaskRecord = { taskId, source };
+    const queue = this.taskQueue.get(sessionId) ?? [];
+    queue.push(rec);
+    this.taskQueue.set(sessionId, queue);
+    this.startTaskTimeout(taskId, sessionId, rec);
+    const chatId = `${this.opts.agentId}:${sessionId}`;
+    const senderId = `owner:${this.opts.agentId}`;
+    const payload: XiaoyiInboundMessage = {
+      chatId,
+      text: text || (attachments.length > 0 ? `[${attachments.map((a) => a.fileName ?? a.type).join(', ')}]` : ''),
       messageId: taskId,
       taskId,
-      attachments: parsed.files.length > 0 ? parsed.files : undefined,
+      senderId,
+      ...(attachments.length > 0 ? { attachments } : {}),
     };
 
-    this.onMessage?.(inbound).catch((err) => {
-      this.log.error({ err, sessionId, taskId }, '[XiaoYi] onMessage handler error');
-    });
-  }
-
-  private handleClearContext(msg: Record<string, unknown>): void {
-    const params = msg.params as Record<string, unknown> | undefined;
-    const sessionId = (params?.sessionId ?? msg.conversationId ?? msg.sessionId) as string | undefined;
-    this.log.info({ sessionId }, '[XiaoYi] clearContext received');
-  }
-
-  private handleTaskCancel(msg: Record<string, unknown>): void {
-    const params = msg.params as Record<string, unknown> | undefined;
-    // P1-2a fix: cancel payload has taskId at top-level `id`, not in params
-    const taskId = (params?.id ?? msg.id ?? msg.taskId) as string | undefined;
-    if (taskId) {
-      this.sessionMap.delete(taskId);
+    if (queue.length > 1) {
+      const st = statusUpdate(taskId, 'working');
+      this.ws.send(source, agentResponse(this.opts.agentId, sessionId, taskId, st));
+      this.startKeepalive(taskId, sessionId, rec);
+      this.pendingDispatch.set(taskId, payload);
+      return;
     }
-    this.log.info({ taskId }, '[XiaoYi] tasks/cancel received');
+    this.onMsg?.(payload).catch((err: unknown) => this.log.error({ err, taskId }, '[XiaoYi] Callback failed'));
   }
 
-  // ── Internal: Dedup ──
+  // ── Task Timeout (safety net) ──
 
-  private isDuplicate(taskId: string): boolean {
-    const now = Date.now();
-    // Sweep old entries
-    if (this.seenMessages.size > 1000) {
-      for (const [id, ts] of this.seenMessages) {
-        if (now - ts > MESSAGE_DEDUP_WINDOW_MS) this.seenMessages.delete(id);
-      }
-    }
-
-    if (this.seenMessages.has(taskId)) return true;
-    this.seenMessages.set(taskId, now);
-    return false;
+  private startTaskTimeout(taskId: string, sessionId: string, rec: TaskRecord): void {
+    this.cancelTaskTimeout(taskId);
+    this.taskTimeouts.set(
+      taskId,
+      setTimeout(() => {
+        this.taskTimeouts.delete(taskId);
+        this.clearKeepalive(taskId);
+        this.pendingDispatch.delete(taskId);
+        // Close frame with failed state if no artifact, completed if has artifact
+        const state = this.hasArtifact.has(taskId) ? 'completed' : 'failed';
+        const close = statusUpdate(rec.taskId, state);
+        this.ws.send(rec.source, agentResponse(this.opts.agentId, sessionId, rec.taskId, close));
+        this.dequeueTask(sessionId, taskId);
+        this.log.warn({ sessionId, taskId }, '[XiaoYi] Task timeout — force closed');
+      }, TASK_TIMEOUT_MS),
+    );
   }
 
-  // ── Internal: Send ──
-
-  private sendToChannel(ch: WsChannel, payload: unknown): void {
-    if (ch.ws?.readyState === WebSocket.OPEN) {
-      ch.ws.send(JSON.stringify(payload));
+  private cancelTaskTimeout(taskId: string): void {
+    const t = this.taskTimeouts.get(taskId);
+    if (t) {
+      clearTimeout(t);
+      this.taskTimeouts.delete(taskId);
     }
   }
 
-  private async sendToAll(payload: unknown): Promise<void> {
-    for (const ch of this.channels) {
-      this.sendToChannel(ch, payload);
+  // ── Keepalive ──
+
+  private startKeepalive(taskId: string, sessionId: string, rec: TaskRecord): void {
+    if (this.keepaliveTimers.has(taskId)) return;
+    this.keepaliveTimers.set(
+      taskId,
+      setInterval(() => {
+        const ka = statusUpdate(rec.taskId, 'working');
+        this.ws.send(rec.source, agentResponse(this.opts.agentId, sessionId, rec.taskId, ka));
+      }, STATUS_KEEPALIVE_MS),
+    );
+  }
+
+  private clearKeepalive(taskId: string): void {
+    const t = this.keepaliveTimers.get(taskId);
+    if (t) {
+      clearInterval(t);
+      this.keepaliveTimers.delete(taskId);
     }
   }
 
-  private resolveTaskId(sessionId: string): string | undefined {
-    // P1-2b fix: return the LATEST taskId for this session, not the oldest.
-    // Map iterates in insertion order; the last match is the most recent task.
-    let latest: string | undefined;
-    for (const [taskId, sid] of this.sessionMap) {
-      if (sid === sessionId) latest = taskId;
+  // ── Queue Management ──
+
+  private currentTask(sessionId: string): TaskRecord | undefined {
+    return this.taskQueue.get(sessionId)?.[0];
+  }
+
+  private nextArtifactId(taskId: string): string {
+    const seq = (this.seqCounters.get(taskId) ?? 0) + 1;
+    this.seqCounters.set(taskId, seq);
+    return `${taskId}:${seq}`;
+  }
+
+  private dequeueTask(sessionId: string, taskId: string): void {
+    const q = this.taskQueue.get(sessionId);
+    if (!q) return;
+    const idx = q.findIndex((t) => t.taskId === taskId);
+    if (idx >= 0) q.splice(idx, 1);
+    if (q.length === 0) this.taskQueue.delete(sessionId);
+    this.seqCounters.delete(taskId);
+    this.hasArtifact.delete(taskId);
+    // Dispatch next queued task
+    const next = q?.[0];
+    const pending = next && this.pendingDispatch.get(next.taskId);
+    if (pending) {
+      this.pendingDispatch.delete(next.taskId);
+      this.onMsg?.(pending).catch((e: unknown) => this.log.error({ err: e }, '[XiaoYi] Dispatch failed'));
     }
-    return latest;
+  }
+
+  private purgeSession(sid: string): void {
+    for (const t of this.taskQueue.get(sid) ?? []) {
+      this.cancelTaskTimeout(t.taskId);
+      this.clearKeepalive(t.taskId);
+      this.seqCounters.delete(t.taskId);
+      this.hasArtifact.delete(t.taskId);
+      this.pendingDispatch.delete(t.taskId);
+    }
+    this.taskQueue.delete(sid);
+  }
+
+  private sessionFrom(externalChatId: string): string {
+    const idx = externalChatId.indexOf(':');
+    return idx >= 0 ? externalChatId.slice(idx + 1) : externalChatId;
+  }
+
+  private gcDedup(): void {
+    const cutoff = Date.now() - DEDUP_TTL_MS;
+    for (const [k, ts] of this.dedup) {
+      if (ts < cutoff) this.dedup.delete(k);
+    }
   }
 }

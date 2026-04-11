@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -528,5 +534,59 @@ describe('SkillDetailView', () => {
     });
 
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders imported skill as third-party source from detail response', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/detail?name=demo-skill') {
+        return Promise.resolve(
+          jsonResponse({
+            id: 'demo-skill',
+            name: 'demo-skill',
+            description: 'Skill detail description',
+            category: 'Productivity',
+            source: 'external',
+            enabled: true,
+            triggers: ['demo', 'detail'],
+            mounts: { claude: true, codex: false, gemini: true },
+            cats: { office: true, review: false },
+            fileTree: [
+              {
+                name: 'SKILL.md',
+                path: 'SKILL.md',
+                type: 'file',
+                size: 128,
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/skills/file?name=demo-skill&path=SKILL.md') {
+        return Promise.resolve(
+          jsonResponse({
+            path: 'SKILL.md',
+            content: '# Skill File\n\nSkill file preview content',
+            size: 128,
+            mime: 'text/markdown',
+            truncated: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}, 404));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SkillDetailView, {
+          skillName: 'demo-skill',
+          onBack: vi.fn(),
+        }),
+      );
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('三方');
+    expect(container.querySelector('[data-testid="skill-detail-category-badge"]')?.textContent).toBe('Productivity');
   });
 });

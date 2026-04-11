@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * A2A Mention Detection
  * 从猫回复文本中检测对其他猫的 @mention。
@@ -14,6 +20,9 @@
 import type { CatId } from '@cat-cafe/shared';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import { isCatAvailable } from '../../../../../config/cat-config-loader.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+
+const log = createModuleLogger('a2a-mentions');
 
 /** Max A2A chain depth, configurable via env (read at call time for hot-reload) */
 export function getMaxA2ADepth(): number {
@@ -103,17 +112,39 @@ export function analyzeA2AMentions(
       continue;
     }
 
+    let matched = false;
     for (const entry of entries) {
       if (!normalized.startsWith(entry.pattern)) continue;
       const charAfter = normalized[entry.pattern.length];
       const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
-      if (!isBoundary) continue;
+      if (!isBoundary) {
+        log.debug(
+          { lineIndex, pattern: entry.pattern, charAfter, catId: entry.catId },
+          'A2A mention pattern matched but token boundary failed',
+        );
+        continue;
+      }
       if (!seen.has(entry.catId)) {
         seen.add(entry.catId);
         found.push(entry.catId);
+        log.debug({ lineIndex, catId: entry.catId, pattern: entry.pattern }, 'A2A mention matched');
       }
+      matched = true;
       break; // longest-match-first: lock one winner for this line
     }
+    if (!matched) {
+      log.debug(
+        { lineIndex, lineLen: rawLine.length, currentCatId },
+        'Line starts with @ but no pattern matched',
+      );
+    }
+  }
+
+  if (found.length > 0 || stripped.includes('@')) {
+    log.debug(
+      { currentCatId, found, totalLines: lines.length, hasAtSign: stripped.includes('@') },
+      'A2A mention parse result',
+    );
   }
 
   return { mentions: found, suppressed: [] };

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { RichBlock } from '@cat-cafe/shared';
 
 const TELEGRAM_MAX = 4096;

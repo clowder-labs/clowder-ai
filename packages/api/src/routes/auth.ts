@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Authentication Routes — 用户登录认证
  */
@@ -61,7 +67,8 @@ const userInfo: UserInfo = {
   modelInfo: {},
 };
 
-const IAM_URL = 'https://iam.myhuaweicloud.com';
+const IAM_URL = process.env.IAM_URL!;
+const HUAWEI_CLAW_SUBSCRIPTION_URL = process.env.HUAWEI_CLAW_URL! + "/v1/claw/client-subscription";
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 
 const secureConfig = new Conf({
@@ -91,6 +98,10 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     const expiresAt = secureConfig.get(userId) || userInfo?.expiresAt;
     if (!expiresAt || new Date(userInfo.expiresAt).getTime() < new Date().getTime()) {
       return { islogin: false, hascode, isskip: false };
+    }
+    const isFirstIsLoginCall = !sessions.has(userInfo.userId);
+    if (isFirstIsLoginCall) {
+      await refreshMaaSModelsAfterLogin(request, userInfo.userId);
     }
     sessions.set(userInfo.userId, { ...userInfo });
     return { islogin: true, hascode, userId, isskip: false };
@@ -243,7 +254,7 @@ async function getSecuritytokens(token = ''): Promise<CredentialResult> {
 //开通客户端claw
 async function subscriptionClaw(token = '', promotionCode?: string): Promise<ModelInfoResult> {
   try {
-    const subResponse = await fetch(`https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/client-subscription`, {
+    const subResponse = await fetch(HUAWEI_CLAW_SUBSCRIPTION_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json;charset=utf8',
@@ -277,6 +288,7 @@ async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: stri
       url: '/api/maas-models',
       headers: {
         'x-cat-cafe-user': userId,
+        'x-refresh': 'true',
       },
     });
     if (refreshResponse.statusCode >= 400) {

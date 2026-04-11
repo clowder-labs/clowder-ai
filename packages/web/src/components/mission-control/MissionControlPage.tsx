@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import type { BacklogItem, CatId, ExternalProject, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
@@ -49,10 +55,10 @@ function detectSelfClaimPolicyBlocker(rawError: string): SelfClaimPolicyBlocker 
 function formatMissionHubError(rawError: string): string {
   const blocker = detectSelfClaimPolicyBlocker(rawError);
   if (blocker === 'once') {
-    return 'Self-claim 被 once 策略阻断：该猫的自领额度已用完。';
+    return 'Self-claim 被 once 策略阻断：该智能体的自领额度已用完。';
   }
   if (blocker === 'thread') {
-    return 'Self-claim 被 thread 策略阻断：该猫已有 active lease 线程，请先释放或回收。';
+    return 'Self-claim 被 thread 策略阻断：该智能体已有 active lease 线程，请先释放或回收。';
   }
   return rawError;
 }

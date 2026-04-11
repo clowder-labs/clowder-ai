@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Config Route
  * GET   /api/config              — 返回运行时配置快照
@@ -10,10 +16,25 @@ import os from 'node:os';
 import { resolve } from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
-import { buildEnvSummary, ENV_CATEGORIES, isEditableEnvVarName, requiresRestartEnvVar } from '../config/env-registry.js';
+import {
+  buildEnvSummary,
+  ENV_CATEGORIES,
+  ENV_VARS,
+  isConnectorEnvVarName,
+  isConnectorSensitiveEditable,
+  isEditableEnvVarName,
+} from '../config/env-registry.js';
+import {
+  buildConnectorEnvRefVarName,
+  clearConnectorEnvSecret,
+  isConnectorSecretBackedEnvVarName,
+  isLocalSecretStorageEnabled,
+  persistConnectorEnvSecret,
+} from '../config/local-secret-store.js';
 import { updateRuntimeCoCreator } from '../config/runtime-cat-catalog.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
@@ -51,6 +72,7 @@ interface ConfigRoutesOptions {
   };
   envFilePath?: string;
   projectRoot?: string;
+  connectorRuntimeManager?: ConnectorRuntimeReconciler;
 }
 
 function getSnapshotValue(snapshot: ConfigSnapshot, key: string): unknown {
@@ -261,6 +283,8 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     }
 
     const updates = new Map<string, string | null>();
+    const fileUpdates = new Map<string, string | null>();
+    const secretBacked = isLocalSecretStorageEnabled();
     for (const update of parsed.data.updates) {
       if (!isEditableEnvVarName(update.name)) {
         reply.status(400);
@@ -270,20 +294,57 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     }
 
     const current = existsSync(envFilePath) ? readFileSync(envFilePath, 'utf8') : '';
-    const next = applyEnvUpdatesToFile(current, updates);
-    writeFileSync(envFilePath, next, 'utf8');
-
-    let needsRestart = false;
     for (const [name, value] of updates) {
-      if (requiresRestartEnvVar(name)) {
-        // Sensitive connector fields: written to .env but NOT applied to process.env.
-        // Requires service restart to take effect.
-        needsRestart = true;
+      const definition = ENV_VARS.find((item) => item.name === name);
+      const isConnectorSecret = Boolean(definition && isConnectorSensitiveEditable(definition));
+      const refName = buildConnectorEnvRefVarName(name);
+
+      if (isConnectorSecret && isConnectorSecretBackedEnvVarName(name) && secretBacked) {
+        const trimmed = value?.trim() ?? '';
+        if (!trimmed) {
+          clearConnectorEnvSecret(name);
+          delete process.env[name];
+          delete process.env[refName];
+          fileUpdates.set(name, null);
+          fileUpdates.set(refName, null);
+        } else {
+          const persisted = persistConnectorEnvSecret(name, trimmed);
+          process.env[name] = trimmed;
+          process.env[persisted.refName] = persisted.refValue;
+          fileUpdates.set(name, null);
+          fileUpdates.set(persisted.refName, persisted.refValue);
+        }
         continue;
       }
-      if (value == null || value === '') delete process.env[name];
-      else process.env[name] = value;
+
+      if (isConnectorSecret && isConnectorSecretBackedEnvVarName(name)) {
+        clearConnectorEnvSecret(name);
+        delete process.env[refName];
+        fileUpdates.set(refName, null);
+      }
+
+      if (value == null || value === '') {
+        delete process.env[name];
+        fileUpdates.set(name, null);
+      } else {
+        process.env[name] = value;
+        fileUpdates.set(name, value);
+      }
     }
+
+    const next = applyEnvUpdatesToFile(current, fileUpdates);
+    writeFileSync(envFilePath, next, 'utf8');
+
+    const changedKeys: string[] = [];
+    for (const [name] of updates) {
+      changedKeys.push(name);
+    }
+
+    const runtime = opts.connectorRuntimeManager && changedKeys.length > 0
+      ? await opts.connectorRuntimeManager.reconcile(changedKeys)
+      : undefined;
+    const changedConnectorEnv = changedKeys.some((name) => isConnectorEnvVarName(name));
+    const needsRestart = changedConnectorEnv && (!runtime || !runtime.applied);
 
     try {
       await auditLog.append({
@@ -298,6 +359,6 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       request.log.warn({ err, keys: [...updates.keys()] }, 'env config audit append failed');
     }
 
-    return { ok: true, requiresRestart: needsRestart, envFilePath, summary: buildEnvSummary() };
+    return { ok: true, requiresRestart: needsRestart, runtime, envFilePath, summary: buildEnvSummary() };
   });
 }

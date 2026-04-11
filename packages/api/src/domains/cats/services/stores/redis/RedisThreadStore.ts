@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis Thread Store
  * Redis-backed thread storage with same interface as in-memory ThreadStore.
@@ -25,7 +31,7 @@ import type {
   ThreadRoutingPolicyV1,
   VotingStateV1,
 } from '../ports/ThreadStore.js';
-import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
+import { DEFAULT_THREAD_ID, resolveThreadProjectPath } from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -117,10 +123,12 @@ export class RedisThreadStore implements IThreadStore {
   private readonly redis: RedisClient;
   /** null means no expiration. */
   private readonly ttlSeconds: number | null;
+  private readonly monorepoRoot?: string;
 
-  constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
+  constructor(redis: RedisClient, options?: { ttlSeconds?: number; monorepoRoot?: string }) {
     this.redis = redis;
     const ttl = options?.ttlSeconds;
+    this.monorepoRoot = options?.monorepoRoot;
     if (ttl === undefined) {
       this.ttlSeconds = DEFAULT_TTL;
     } else if (!Number.isFinite(ttl)) {
@@ -133,10 +141,11 @@ export class RedisThreadStore implements IThreadStore {
   }
 
   async create(userId: string, title?: string, projectPath?: string): Promise<Thread> {
+    const resolvedProjectPath = resolveThreadProjectPath(projectPath, { monorepoRoot: this.monorepoRoot });
     const now = Date.now();
     const thread: Thread = {
       id: generateThreadId(),
-      projectPath: projectPath ?? 'default',
+      projectPath: resolvedProjectPath,
       title: title ?? null,
       createdBy: userId,
       participants: [],

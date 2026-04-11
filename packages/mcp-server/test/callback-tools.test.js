@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Callback Tools Tests
  * 测试 MCP 回传工具的 HTTP 调用逻辑
@@ -110,11 +116,11 @@ describe('MCP Callback Tools', () => {
     const result = await handlePostMessage({ content: '' });
 
     assert.equal(result.isError, true);
-    assert.ok(result.content[0].text.includes('Invalid input for cat_cafe_post_message'));
+    assert.ok(result.content[0].text.includes('Invalid input for office_claw_post_message'));
     assert.equal(fetchCalled, false);
   });
 
-  test('handlePostMessage forwards optional threadId for cross-thread posting', async () => {
+  test('handlePostMessage ignores threadId and stays in current thread', async () => {
     const { handlePostMessage } = await import('../dist/tools/callback-tools.js');
 
     let capturedOptions;
@@ -133,7 +139,7 @@ describe('MCP Callback Tools', () => {
 
     assert.equal(result.isError, undefined);
     const body = JSON.parse(capturedOptions.body);
-    assert.equal(body.threadId, 'thread-123');
+    assert.equal(body.threadId, undefined);
   });
 
   test('handlePostMessage returns error when env vars missing', async () => {
@@ -332,6 +338,7 @@ describe('MCP Callback Tools', () => {
     assert.ok(capturedUrl.includes('/api/callbacks/post-message'));
     const body = JSON.parse(capturedOptions.body);
     assert.equal(body.threadId, 'thread-cross');
+    assert.equal(body.allowCrossThread, true);
     assert.equal(body.content, 'hello from another thread');
   });
 

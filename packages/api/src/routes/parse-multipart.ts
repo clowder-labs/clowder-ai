@@ -1,12 +1,26 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Multipart Request Parser
  * 解析 multipart/form-data 请求，提取文本字段和图片文件。
  * 从 messages.ts 提取，降低文件复杂度。
  */
 
-import type { ImageContent, MessageContent, TextContent } from '@cat-cafe/shared';
+import type { FileContent, ImageContent, MessageContent, TextContent } from '@cat-cafe/shared';
 import type { Multipart } from '@fastify/multipart';
-import { ImageUploadError, saveUploadedImages, type UploadImageFile } from './image-upload.js';
+import {
+  ImageUploadError,
+  saveUploadedAttachments,
+  saveUploadedAttachmentsToWorkspace,
+  saveUploadedImages,
+  saveUploadedImagesToWorkspace,
+  type UploadImageFile,
+  type WorkspaceUploadTarget,
+} from './image-upload.js';
 import { sendMessageSchema } from './messages.schema.js';
 
 export type ParsedMultipart =
@@ -27,10 +41,12 @@ export type ParsedMultipart =
 export async function parseMultipart(
   request: { parts: () => AsyncIterableIterator<Multipart> },
   uploadDir: string,
+  resolveWorkspaceTarget?: (threadId?: string) => Promise<WorkspaceUploadTarget | null>,
 ): Promise<ParsedMultipart> {
   // F35: Use string | string[] to support multi-value fields like whisperTo
   const fields: Record<string, string | string[]> = {};
-  const files: UploadImageFile[] = [];
+  const imageFiles: UploadImageFile[] = [];
+  const attachmentFiles: UploadImageFile[] = [];
 
   for await (const part of request.parts()) {
     if (part.type === 'field' && typeof part.value === 'string') {
@@ -46,7 +62,8 @@ export async function parseMultipart(
       // If we defer `toBuffer()` until after the loop, parser may block waiting
       // for this stream to be consumed and request hangs.
       const buffer = await part.toBuffer();
-      files.push({
+      const target = part.fieldname === 'images' ? imageFiles : attachmentFiles;
+      target.push({
         filename: part.filename,
         mimetype: part.mimetype,
         toBuffer: async () => buffer,
@@ -66,12 +83,31 @@ export async function parseMultipart(
 
   const { content, userId, threadId, idempotencyKey, resumeCatId } = parseResult.data;
   const blocks: MessageContent[] = [{ type: 'text', text: content } as TextContent];
+  const workspaceTarget = resolveWorkspaceTarget ? await resolveWorkspaceTarget(threadId) : null;
 
-  if (files.length > 0) {
+  if (imageFiles.length > 0) {
     try {
-      const saved = await saveUploadedImages(files, uploadDir);
+      const saved = workspaceTarget
+        ? await saveUploadedImagesToWorkspace(imageFiles, workspaceTarget)
+        : await saveUploadedImages(imageFiles, uploadDir);
       for (const img of saved) {
         blocks.push(img.content as ImageContent);
+      }
+    } catch (err) {
+      if (err instanceof ImageUploadError) {
+        return { error: err.message };
+      }
+      throw err;
+    }
+  }
+
+  if (attachmentFiles.length > 0) {
+    try {
+      const saved = workspaceTarget
+        ? await saveUploadedAttachmentsToWorkspace(attachmentFiles, workspaceTarget)
+        : await saveUploadedAttachments(attachmentFiles, uploadDir);
+      for (const file of saved) {
+        blocks.push(file.content as FileContent);
       }
     } catch (err) {
       if (err instanceof ImageUploadError) {

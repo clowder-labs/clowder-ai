@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { type ChildProcess, type SpawnOptions, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -14,7 +20,6 @@ import {
 } from '../../../../../utils/jiuwenclaw-paths.js';
 import {
   buildRelayClawAppSignature,
-  buildRelayClawDisabledSkillsSignature,
   buildRelayClawSharedSkillsSignature,
   resolveRelayClawDisabledSkills,
   resolveRelayClawSharedSkillsDirs,
@@ -196,9 +201,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         defaultHeaders,
         modelName,
         provider,
-        runtimeSkillsDir: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
         sharedSkillsSignature: buildRelayClawSharedSkillsSignature(),
-        disabledSkillsSignature: buildRelayClawDisabledSkillsSignature(projectRoot, this.catId as string),
         catCafeMcpPath: catCafeMcp?.serverPath ?? '',
         keyHash: apiKey ? createHash('sha256').update(apiKey).digest('hex') : '',
       },

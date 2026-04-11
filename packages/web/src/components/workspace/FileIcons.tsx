@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 const FILE_ICONS: Record<string, { color: string; label: string }> = {
   ts: { color: '#3178C6', label: 'TS' },
   tsx: { color: '#3178C6', label: 'TX' },

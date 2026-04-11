@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   callbackMemoryTools,
@@ -80,43 +86,43 @@ export function registerFullToolset(server: McpServer): void {
  */
 const COMPACT_DESCRIPTIONS: Record<string, string> = {
   // Collab
-  cat_cafe_post_message: 'Post an async message to Clowder AI chat mid-task.',
-  cat_cafe_get_pending_mentions: 'Get recent @-mentions for you. Call ack_mentions after processing.',
-  cat_cafe_ack_mentions: 'Acknowledge processed mentions up to a message ID.',
-  cat_cafe_get_thread_context: 'Get recent messages from a thread. Pass threadId for cross-thread.',
-  cat_cafe_list_threads: 'List thread summaries. Filter by keyword or activeSince.',
-  cat_cafe_feat_index: 'Lookup feature entries by featId or query.',
-  cat_cafe_cross_post_message: 'Post a message to a different thread by threadId.',
-  cat_cafe_list_tasks: 'List tasks with optional threadId/catId/status filters.',
-  cat_cafe_list_skills:
+  office_claw_post_message: 'Post an async message to Clowder AI chat mid-task.',
+  office_claw_get_pending_mentions: 'Get recent @-mentions for you. Call ack_mentions after processing.',
+  office_claw_ack_mentions: 'Acknowledge processed mentions up to a message ID.',
+  office_claw_get_thread_context: 'Get recent messages from a thread. Pass threadId for cross-thread.',
+  office_claw_list_threads: 'List thread summaries. Filter by keyword or activeSince.',
+  office_claw_feat_index: 'Lookup feature entries by featId or query.',
+  office_claw_cross_post_message: 'Post a message to a different thread by threadId.',
+  office_claw_list_tasks: 'List tasks with optional threadId/catId/status filters.',
+  office_claw_list_skills:
     'List Cat Cafe shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
-  cat_cafe_load_skill: 'Load one Cat Cafe shared skill by exact name.',
-  cat_cafe_update_task: 'Update status of a task you own (doing/blocked/done).',
-  cat_cafe_create_rich_block: 'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
-  cat_cafe_generate_document: 'Generate PDF/DOCX/MD from Markdown and deliver to IM.',
-  cat_cafe_request_permission: 'Request user permission before a sensitive action.',
-  cat_cafe_check_permission_status: 'Check status of a permission request by requestId.',
-  cat_cafe_register_pr_tracking: 'Register a PR for review notification routing.',
-  cat_cafe_update_workflow: 'Update SOP workflow stage for a Feature.',
-  cat_cafe_multi_mention: 'Invoke up to 3 cats in parallel. Requires searchEvidenceRefs or overrideReason.',
-  cat_cafe_start_vote: 'Start a voting session with cat voters.',
-  cat_cafe_update_bootcamp_state: 'Update bootcamp training state for a thread.',
-  cat_cafe_bootcamp_env_check: 'Run environment check for bootcamp.',
-  cat_cafe_get_rich_block_rules: 'Get full rich block schema rules. Call once per session before creating blocks.',
-  cat_cafe_submit_game_action: 'Submit a game action (kill/guard/divine/vote/speak/last_words).',
-  cat_cafe_list_scheduled_tasks: 'List all registered scheduled tasks (builtin + dynamic) with status.',
-  cat_cafe_list_schedule_templates: 'List available schedule task templates (reminder, web-digest, repo-activity).',
-  cat_cafe_preview_scheduled_task: 'Preview a scheduled task draft before creating it.',
-  cat_cafe_register_scheduled_task: 'Create a new scheduled task from a template. Preview first.',
-  cat_cafe_remove_scheduled_task: 'Remove a dynamic scheduled task by ID.',
+  office_claw_load_skill: 'Load one Cat Cafe shared skill by exact name.',
+  office_claw_update_task: 'Update status of a task you own (doing/blocked/done).',
+  office_claw_create_rich_block: 'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
+  office_claw_generate_document: 'Generate PDF/DOCX/MD from Markdown and deliver to IM.',
+  office_claw_request_permission: 'Request user permission before a sensitive action.',
+  office_claw_check_permission_status: 'Check status of a permission request by requestId.',
+  office_claw_register_pr_tracking: 'Register a PR for review notification routing.',
+  office_claw_update_workflow: 'Update SOP workflow stage for a Feature.',
+  office_claw_multi_mention: 'Invoke up to 3 cats in parallel. Requires searchEvidenceRefs or overrideReason.',
+  office_claw_start_vote: 'Start a voting session with cat voters.',
+  office_claw_update_bootcamp_state: 'Update bootcamp training state for a thread.',
+  office_claw_bootcamp_env_check: 'Run environment check for bootcamp.',
+  office_claw_get_rich_block_rules: 'Get full rich block schema rules. Call once per session before creating blocks.',
+  office_claw_submit_game_action: 'Submit a game action (kill/guard/divine/vote/speak/last_words).',
+  office_claw_list_scheduled_tasks: 'List all registered scheduled tasks (builtin + dynamic) with status.',
+  office_claw_list_schedule_templates: 'List available schedule task templates (reminder, web-digest, repo-activity).',
+  office_claw_preview_scheduled_task: 'Preview a scheduled task draft before creating it.',
+  office_claw_register_scheduled_task: 'Create a new scheduled task from a template. Preview first.',
+  office_claw_remove_scheduled_task: 'Remove a dynamic scheduled task by ID.',
   // Memory
-  cat_cafe_retain_memory_callback: 'Retain a durable memory item with optional tags.',
-  cat_cafe_search_evidence: 'Search project knowledge base. Modes: lexical/semantic/hybrid.',
-  cat_cafe_reflect: 'Ask a reflective question synthesizing project knowledge.',
-  cat_cafe_list_session_chain: 'List session chain for a thread by catId.',
-  cat_cafe_read_session_events: 'Read events from a sealed session (raw/chat/handoff views).',
-  cat_cafe_read_session_digest: 'Read extractive digest of a sealed session.',
-  cat_cafe_read_invocation_detail: 'Read all events for a specific invocation.',
+  office_claw_retain_memory_callback: 'Retain a durable memory item with optional tags.',
+  office_claw_search_evidence: 'Search project knowledge base. Modes: lexical/semantic/hybrid.',
+  office_claw_reflect: 'Ask a reflective question synthesizing project knowledge.',
+  office_claw_list_session_chain: 'List session chain for a thread by catId.',
+  office_claw_read_session_events: 'Read events from a sealed session (raw/chat/handoff views).',
+  office_claw_read_session_digest: 'Read extractive digest of a sealed session.',
+  office_claw_read_invocation_detail: 'Read all events for a specific invocation.',
   // Signals
   signal_list_inbox: 'List recent signal articles from inbox.',
   signal_get_article: 'Get full signal article detail by id or URL.',

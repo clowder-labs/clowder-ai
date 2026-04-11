@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Session Hooks Routes — F24 Session Blindness Fix
  * API endpoints called by Claude Code CLI hooks during context compaction.

@@ -1,4 +1,10 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -56,7 +62,7 @@ export function UserProfile({ className }: UserProfileProps) {
   const userName = getUserName();
   const avatarLetter = userName.charAt(0).toUpperCase();
   const profileActionClass =
-    'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[16px] font-normal leading-[20px]';
+    'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[14px] font-normal leading-[20px]';
 
   const updateThemePopoverPosition = () => {
     if (!panelRef.current || !profilePanelRef.current || !themeAnchorRef.current) return;
@@ -204,7 +210,7 @@ export function UserProfile({ className }: UserProfileProps) {
           data-testid="user-profile-panel"
           ref={profilePanelRef}
         >
-          <div className="p-4" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
+          <div className="p-4 border-none" data-testid="user-profile-panel-scroll" ref={panelScrollRef}>
             <div className="mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e3e3e3]">

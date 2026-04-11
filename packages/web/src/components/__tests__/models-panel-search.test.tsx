@@ -1,15 +1,27 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelsPanel } from '@/components/ModelsPanel';
 import { apiFetch } from '@/utils/api-client';
+import { getIsSkipAuth } from '@/utils/userId';
 
 vi.mock('@/utils/api-client', () => ({
   API_URL: 'http://localhost:3004',
   apiFetch: vi.fn(),
 }));
 
+vi.mock('@/utils/userId', () => ({
+  getIsSkipAuth: vi.fn(() => false),
+}));
+
 const mockApiFetch = vi.mocked(apiFetch);
+const mockGetIsSkipAuth = vi.mocked(getIsSkipAuth);
 const SEARCH_INPUT_SELECTOR = 'input[type="search"]';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -23,6 +35,17 @@ async function flushEffects() {
   await act(async () => {
     await Promise.resolve();
   });
+}
+
+function deferredResponse() {
+  let resolve: ((value: Response) => void) | null = null;
+  const promise = new Promise<Response>((res) => {
+    resolve = res;
+  });
+  return {
+    promise,
+    resolve: (value: Response) => resolve?.(value),
+  };
 }
 
 async function changeInputValue(input: HTMLInputElement, value: string) {
@@ -84,6 +107,8 @@ describe('ModelsPanel search', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockGetIsSkipAuth.mockReset();
+    mockGetIsSkipAuth.mockReturnValue(false);
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/maas-models') {
@@ -140,6 +165,9 @@ describe('ModelsPanel search', () => {
           }),
         );
       }
+      if (url === '/api/provider-profiles/test-draft') {
+        return Promise.resolve(jsonResponse({ ok: true, mode: 'api_key', status: 200 }));
+      }
       return Promise.resolve(jsonResponse({}));
     });
   });
@@ -162,6 +190,93 @@ describe('ModelsPanel search', () => {
     await flushEffects();
 
     expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
+  });
+
+  it('keeps the search toolbar outside the scroll region', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const searchInput = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
+    const scrollRegion = container.querySelector('[data-testid="models-scroll-region"]') as HTMLDivElement | null;
+
+    expect(searchInput).not.toBeNull();
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.contains(searchInput!)).toBe(false);
+    expect(scrollRegion?.textContent).toContain('gpt-5');
+  });
+
+  it('uses the shared centered loading state while models are still loading', async () => {
+    const pending = deferredResponse();
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/maas-models') {
+        return pending.promise;
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+      await Promise.resolve();
+    });
+
+    const loadingShell = container.querySelector('[data-testid="models-loading-state"]') as HTMLDivElement | null;
+    expect(loadingShell).not.toBeNull();
+    expect(loadingShell?.className).toContain('flex-1');
+    expect(loadingShell?.className).toContain('items-center');
+    expect(loadingShell?.className).toContain('justify-center');
+    expect(container.querySelector('[data-testid="skills-loading-state"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('加载中...');
+
+    pending.resolve(
+      jsonResponse({
+        list: [
+          {
+            id: 'deepseek-r1',
+            object: 'model',
+            name: 'deepseek-r1',
+            description: 'reasoning model',
+            protocol: 'huawei_maas',
+            labels: ['reasoning'],
+            developer: 'DeepSeek',
+          },
+        ],
+      }),
+    );
+
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-loading-state"]')).toBeNull();
+    expect(container.querySelector('[data-testid="skills-loading-state"]')).toBeNull();
+    expect(container.textContent).toContain('deepseek-r1');
+  });
+
+  it('shows the create-model button only when skip auth is enabled', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).not.toBeNull();
   });
 
   it('renders grouped cards and model labels/developer', async () => {
@@ -218,12 +333,17 @@ describe('ModelsPanel search', () => {
     expect(input).not.toBeNull();
     await changeInputValue(input!, 'no-match');
 
-    expect(container.textContent).toContain('未找到匹配模型');
+    expect(container.textContent).toContain('暂未匹配到数据');
+    expect(container.textContent).toContain('没有匹配到符合条件的数据');
+    const clearButton = container.querySelector('[data-testid="no-search-results-clear"]') as HTMLButtonElement | null;
+    expect(clearButton).not.toBeNull();
     expect(container.textContent).not.toContain('gpt-5');
     expect(container.textContent).not.toContain('deepseek-r1');
 
-    await changeInputValue(input!, '');
+    await clickButton(clearButton!);
+    await flushEffects();
 
+    expect((container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null)?.value).toBe('');
     expect(container.textContent).toContain('gpt-5');
     expect(container.textContent).toContain('deepseek-r1');
   });
@@ -292,6 +412,8 @@ describe('ModelsPanel search', () => {
   });
 
   it('submits create-model description without icon when icon is not provided', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -337,12 +459,23 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
+    const probeCall = mockApiFetch.mock.calls.find(
+      ([input, init]) =>
+        String(input) === '/api/provider-profiles/test-draft' &&
+        typeof init === 'object' &&
+        init !== null &&
+        (init as RequestInit).method === 'POST',
+    );
+    expect(probeCall).toBeTruthy();
+    expect(mockApiFetch.mock.calls.indexOf(probeCall!)).toBeLessThan(mockApiFetch.mock.calls.indexOf(postCall!));
     const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
     expect(payload.description).toBe('custom description for test');
     expect(Object.prototype.hasOwnProperty.call(payload, 'icon')).toBe(false);
   });
 
   it('submits create-model icon when random icon is generated', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });

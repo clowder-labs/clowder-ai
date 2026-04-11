@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F33 Phase 2: Session Strategy — backward compat + config override priority
  * Split from session-strategy.test.js to stay under 350 lines.

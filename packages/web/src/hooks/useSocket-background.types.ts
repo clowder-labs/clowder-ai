@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type {
   CatInvocationInfo,
   CatStatusType,
@@ -20,6 +26,7 @@ export interface BackgroundAgentMessage {
   toolName?: string;
   toolInput?: Record<string, unknown>;
   error?: string;
+  errorCode?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: TokenUsage };
   /** F52: Cross-thread origin metadata */

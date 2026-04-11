@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F045: In-memory task progress cache for persistence across page refresh.
  * Module-level state — lost on server restart (acceptable for V1).

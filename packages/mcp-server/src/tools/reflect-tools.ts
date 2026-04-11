@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Reflect Tool
  * MCP 工具: 项目知识反思 (SQLite-backed)
@@ -9,7 +15,7 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3004';
+const API_URL = process.env['CAT_CAFE_API_URL']!;
 
 export const reflectInputSchema = {
   query: z.string().trim().min(1).describe('Question to reflect on using project knowledge'),
@@ -51,7 +57,7 @@ export async function handleReflect(input: { query: string }): Promise<ToolResul
 
 export const reflectTools = [
   {
-    name: 'cat_cafe_reflect',
+    name: 'office_claw_reflect',
     description:
       'Ask a reflective question about the project. Synthesizes insights from stored project knowledge (SQLite-backed). ' +
       'Use for open-ended "why" questions that benefit from synthesis across multiple sources. ' +

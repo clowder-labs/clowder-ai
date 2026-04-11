@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { parseMentions } from '../dist/infrastructure/connectors/mention-parser.js';
@@ -135,6 +141,11 @@ describe('parseMentions', () => {
 
   it('matches @codex followed by closing bracket', () => {
     const result = parseMentions('see [@codex]', allPatterns, 'opus');
+    assert.equal(result.targetCatId, 'codex');
+  });
+
+  it('matches full-width ＠ mention from IM clients', () => {
+    const result = parseMentions('请 ＠缅因猫 看一下', allPatterns, 'opus');
     assert.equal(result.targetCatId, 'codex');
   });
 });

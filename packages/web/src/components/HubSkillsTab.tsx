@@ -1,11 +1,19 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import styles from './HubSkillsTab.module.css';
-import { CenteredLoadingState } from './CenteredLoadingState';
-import { OverflowTooltip } from './OverflowTooltip';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { EmptyDataState } from './shared/EmptyDataState';
+import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -107,10 +115,6 @@ function SkillList({
   installStatus: Map<string, InstallStatus>;
   onInstall: (owner: string, repo: string, skill: string) => void;
 }) {
-  if (results.skills.length === 0) {
-    return <p className="py-2 text-xs text-[var(--text-muted)]">{NO_RESULTS_LABEL}</p>;
-  }
-
   return (
     <div className="space-y-4">
       <div className={styles.skillGrid}>
@@ -286,6 +290,14 @@ export function HubSkillsTab() {
     [loadPage],
   );
 
+  const handleClearFilters = useCallback(() => {
+    latestQueryRef.current = '';
+    setSearchQuery('');
+    setCurrentPage(1);
+    setViewMode('browse');
+    void loadPage({ mode: 'browse', page: 1, category: activeCategory });
+  }, [activeCategory, loadPage]);
+
   const handleLoadMore = useCallback(() => {
     if (loadingMore || !results?.hasMore) return;
     if (viewMode === 'search') {
@@ -387,7 +399,12 @@ export function HubSkillsTab() {
         const res = await apiFetch('/api/skills/install', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ owner, repo, skill }),
+          body: JSON.stringify({
+            owner,
+            repo,
+            skill,
+            description: results?.skills.find((item) => item.slug === skill)?.description ?? '',
+          }),
         });
         if (res.ok) {
           clearInstallStatus(skill);
@@ -419,7 +436,7 @@ export function HubSkillsTab() {
         });
       }
     },
-    [addToast, clearInstallStatus, markSkillInstalled, setInstallStatusWithTimer],
+    [addToast, clearInstallStatus, markSkillInstalled, results, setInstallStatusWithTimer],
   );
 
   if (!results && loading) {
@@ -441,7 +458,7 @@ export function HubSkillsTab() {
                     className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
                       activeCategory === category
                         ? 'font-semibold text-[var(--text-primary)]'
-                        : 'font-normal text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                     }`}
                   >
                     {category}
@@ -472,8 +489,17 @@ export function HubSkillsTab() {
         <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-skills-scroll-region">
           {results ? (
             <>
-              <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
-              {results.hasMore && (
+              {results.skills.length === 0 ? (
+                <div
+                  className="flex h-full min-h-0 items-center justify-center py-16"
+                  data-testid="hub-skills-empty-state-shell"
+                >
+                  {viewMode === 'search' ? <NoSearchResultsState onClear={handleClearFilters} /> : <EmptyDataState />}
+                </div>
+              ) : (
+                <SkillList results={results} installStatus={installStatus} onInstall={handleInstall} />
+              )}
+              {results.skills.length > 0 && results.hasMore && (
                 <div className="flex justify-center py-4">
                   <button
                     type="button"

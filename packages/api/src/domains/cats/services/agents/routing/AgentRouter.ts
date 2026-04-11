@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Agent Router
  * 解析 @ 提及，路由到对应的 Agent Service
@@ -655,6 +661,18 @@ export class AgentRouter {
       ? await this.resolveTargets(message, resolvedThreadId)
       : await this.peekTargets(message, resolvedThreadId);
     const intent = parseIntent(message, targetCats.length);
+    log.debug(
+      {
+        threadId: resolvedThreadId,
+        targetCats,
+        intent: intent.intent,
+        explicit: intent.explicit,
+        persist: options?.persist,
+        hasAtSign: message.includes('@'),
+        contentLen: message.length,
+      },
+      '[AgentRouter] resolveTargetsAndIntent result',
+    );
     return { targetCats, intent };
   }
 

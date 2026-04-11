@@ -1,4 +1,10 @@
-﻿import React, { act } from 'react';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HubCapabilityTab } from '@/components/HubCapabilityTab';
@@ -152,6 +158,39 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('加载中...');
   });
 
+  it('uses the shared empty-data state when installed skills are empty', async () => {
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/capabilities?')) {
+        return Promise.resolve(
+          jsonResponse({
+            projectPath: 'project-a',
+            catFamilies: [],
+            items: [],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const emptyState = container.querySelector('[data-testid="empty-data-state"]') as HTMLDivElement | null;
+    expect(emptyState).not.toBeNull();
+    expect(emptyState?.querySelector('[data-testid="empty-data-image"]')).not.toBeNull();
+    expect(emptyState?.textContent).toContain('暂无数据');
+    expect(container.querySelector('[data-testid="hub-capability-scroll-region"]')).toBeNull();
+    const emptyShell = emptyState?.parentElement as HTMLDivElement | null;
+    expect(emptyShell?.className).toContain('flex-1');
+    expect(emptyShell?.className).toContain('items-center');
+    expect(emptyShell?.className).toContain('justify-center');
+    expect(container.querySelector('[data-testid="no-search-results-state"]')).toBeNull();
+  });
+
   it('renders search input under title and filters installed skills', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
@@ -240,9 +279,57 @@ describe('business theme hub shell', () => {
 
     expect(container.querySelector('select[aria-label="筛选来源"]')).not.toBeNull();
     expect(container.querySelector('input[aria-label="搜索我的技能"]')).not.toBeNull();
-    expect(container.textContent).toContain('未找到匹配技能');
+    expect(container.textContent).toContain('暂未匹配到数据');
+    expect(container.textContent).toContain('没有匹配到符合条件的数据');
+    expect(container.querySelector('[data-testid="no-search-results-clear"]')).not.toBeNull();
     expect(container.textContent).not.toContain('ops-skill');
     expect(container.textContent).not.toContain('doc-skill');
+  });
+
+  it('clearing empty search state clears source but keeps the current category', async () => {
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const knowledgeTab = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Knowledge',
+    );
+    expect(knowledgeTab).not.toBeUndefined();
+
+    await act(async () => {
+      knowledgeTab?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const sourceSelect = container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null;
+    expect(sourceSelect).not.toBeNull();
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+      setter?.call(sourceSelect, 'external');
+      sourceSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const searchInput = container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null;
+    expect(searchInput).not.toBeNull();
+
+    await changeInputValue(searchInput!, 'no-such-skill');
+
+    const clearButton = container.querySelector('[data-testid="no-search-results-clear"]') as HTMLButtonElement | null;
+    expect(clearButton).not.toBeNull();
+
+    await act(async () => {
+      clearButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect((container.querySelector('input[aria-label="搜索我的技能"]') as HTMLInputElement | null)?.value).toBe('');
+    expect((container.querySelector('select[aria-label="筛选来源"]') as HTMLSelectElement | null)?.value).toBe('all');
+    expect(container.textContent).toContain('Knowledge (1)');
+    expect(container.textContent).toContain('doc-skill');
+    expect(container.textContent).not.toContain('ops-skill');
   });
 
   it('keeps search controls outside the scrolling card region', async () => {

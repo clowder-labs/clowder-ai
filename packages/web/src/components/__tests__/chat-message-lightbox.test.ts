@@ -1,6 +1,13 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { API_URL } from '@/utils/api-client';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -84,5 +91,46 @@ describe('ChatMessage image lightbox', () => {
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog).toBeTruthy();
     expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('resolves workspace image URLs against the API origin', async () => {
+    const { ChatMessage } = await import('@/components/ChatMessage');
+
+    const message = {
+      id: 'user-img-2',
+      type: 'user',
+      catId: null,
+      timestamp: Date.now(),
+      deliveredAt: undefined,
+      visibility: 'public',
+      revealedAt: null,
+      whisperTo: null,
+      origin: 'user',
+      variant: null,
+      isStreaming: false,
+      content: '',
+      thinking: '',
+      contentBlocks: [{ type: 'image', url: '/api/workspace/file/raw?worktreeId=wt-1&path=images%2Fcat.png' }],
+      toolEvents: null,
+      metadata: null,
+      summary: null,
+      evidence: null,
+      extra: null,
+      source: null,
+    } as const;
+
+    act(() => {
+      root.render(
+        React.createElement(ChatMessage, {
+          message: message as never,
+          getCatById: (() => undefined) as never,
+        }),
+      );
+    });
+
+    const thumbnail = container.querySelector('img');
+    expect(thumbnail?.getAttribute('src')).toBe(
+      `${API_URL}/api/workspace/file/raw?worktreeId=wt-1&path=images%2Fcat.png`,
+    );
   });
 });

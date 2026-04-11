@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis Pending Request Store
  * Redis-backed pending queue — 铲屎官离线时请求不丢失

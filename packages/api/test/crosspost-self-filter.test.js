@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F052 regression: cross-thread messages from the same catId
  * must NOT be filtered out by the self-message exclusion in

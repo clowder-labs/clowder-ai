@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Thread Branch Route
  * POST /api/threads/:id/branch — create conversation branch (ADR-008 D4 / S7)

@@ -1,7 +1,12 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { useChatCommands } from '@/hooks/useChatCommands';
 import type { DeliveryMode, WhisperOptions as SharedWhisperOptions } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
@@ -14,11 +19,15 @@ export interface SendMessageOptions {
   resumeCatId?: string;
 }
 
+export interface UseSendMessageOptions {
+  resetRefs?: () => void;
+}
+
 /**
- * Hook for sending messages (text + optional images + optional whisper).
+ * Hook for sending messages (text + optional attachments + optional whisper).
  * Handles both JSON and multipart form data modes.
  */
-export function useSendMessage(activeThreadId?: string) {
+export function useSendMessage(activeThreadId?: string, options?: UseSendMessageOptions) {
   const {
     addMessage,
     addMessageToThread,
@@ -30,10 +39,10 @@ export function useSendMessage(activeThreadId?: string) {
     setThreadLoading,
     setThreadHasActiveInvocation,
   } = useChatStore();
-  const { resetRefs } = useAgentMessages();
   const { processCommand } = useChatCommands();
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const resetRefs = options?.resetRefs;
 
   const createClientId = useCallback((): string => {
     if (globalThis.crypto?.randomUUID) {
@@ -63,13 +72,13 @@ export function useSendMessage(activeThreadId?: string) {
     ) => {
       const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
       const threadId = overrideThreadId ?? activeThread;
-      const hasImages = Boolean(images && images.length > 0);
+      const hasAttachments = Boolean(images && images.length > 0);
       const isQueueSend = deliveryMode === 'queue';
 
       // Queue sends don't reset refs — cat is still streaming
-      if (!isQueueSend) resetRefs();
+      if (!isQueueSend) resetRefs?.();
       setUploadError(null);
-      setUploadStatus(hasImages ? 'uploading' : 'idle');
+      setUploadStatus(hasAttachments ? 'uploading' : 'idle');
 
       const wasCommand = await processCommand(content, threadId);
       if (wasCommand) return;
@@ -88,10 +97,22 @@ export function useSendMessage(activeThreadId?: string) {
       if (images && images.length > 0) {
         userMsg.contentBlocks = [
           { type: 'text' as const, text: content },
-          ...images.map((img) => ({
-            type: 'image' as const,
-            url: URL.createObjectURL(img),
-          })),
+          ...images.map((file) => {
+            const previewUrl = URL.createObjectURL(file);
+            if (file.type.startsWith('image/')) {
+              return {
+                type: 'image' as const,
+                url: previewUrl,
+              };
+            }
+            return {
+              type: 'file' as const,
+              url: previewUrl,
+              fileName: file.name,
+              mimeType: file.type,
+              fileSize: file.size,
+            };
+          }),
         ];
       }
       // F117: Queue sends skip optimistic insert — bubble appears only on messages_delivered
@@ -156,8 +177,8 @@ export function useSendMessage(activeThreadId?: string) {
               formData.append('whisperTo', catId);
             }
           }
-          for (const img of images) {
-            formData.append('images', img);
+          for (const file of images) {
+            formData.append(file.type.startsWith('image/') ? 'images' : 'attachments', file);
           }
           const res = await apiFetch('/api/messages', {
             method: 'POST',
@@ -206,7 +227,7 @@ export function useSendMessage(activeThreadId?: string) {
           setThreadHasActiveInvocation(threadId, false);
         }
         const errorMessage = err instanceof Error ? err.message : 'Unknown';
-        if (hasImages) {
+        if (hasAttachments) {
           setUploadStatus('failed');
           setUploadError(errorMessage);
         } else {

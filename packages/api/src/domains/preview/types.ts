@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** Preview Gateway 配置 */
 export interface PreviewGatewayConfig {
   /** Gateway 监听端口（独立 origin） */

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -843,5 +849,100 @@ describe('cat-catalog-store', () => {
       'z-ai/glm-4.7',
       'defaultModel should fall back to first model from the API key profile',
     );
+  });
+
+  it('displayName change on default variant syncs into breed mentionPatterns', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
+    const templatePath = join(projectRoot, 'cat-template.json');
+    writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
+    bootstrapCatCatalog(projectRoot, templatePath);
+
+    await updateRuntimeCat(projectRoot, 'opus', { displayName: '新布偶猫' });
+
+    const catalog = readRuntimeCatCatalog(projectRoot);
+    const breed = catalog.breeds.find((b) => b.catId === 'opus');
+    assert.ok(breed);
+    assert.equal(breed.displayName, '新布偶猫');
+    assert.ok(
+      breed.mentionPatterns.some((p) => p === '@新布偶猫'),
+      'new displayName should be added to mentionPatterns',
+    );
+    assert.ok(
+      !breed.mentionPatterns.some((p) => p === '@布偶猫'),
+      'old displayName pattern should be replaced',
+    );
+    assert.ok(
+      breed.mentionPatterns.some((p) => p === '@opus'),
+      'existing non-displayName patterns must be preserved',
+    );
+  });
+
+  it('displayName change on non-default variant materializes variant mentionPatterns without polluting breed', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
+    const templatePath = join(projectRoot, 'cat-template.json');
+    const template = validConfig();
+    template.breeds[0].variants.push({
+      id: 'opus-sonnet',
+      catId: 'opus-sonnet',
+      provider: 'anthropic',
+      defaultModel: 'claude-sonnet-4-5-20250929',
+      mcpSupport: true,
+      cli: { command: 'claude', outputFormat: 'stream-json' },
+    });
+    writeFileSync(templatePath, JSON.stringify(template, null, 2));
+    bootstrapCatCatalog(projectRoot, templatePath);
+
+    await updateRuntimeCat(projectRoot, 'opus-sonnet', { displayName: '副手布偶猫' });
+
+    const catalog = readRuntimeCatCatalog(projectRoot);
+    const breed = catalog.breeds.find((b) => b.id === 'ragdoll');
+    assert.ok(breed);
+    // Breed mentionPatterns must NOT be mutated
+    assert.deepEqual(breed.mentionPatterns, ['@opus', '@布偶猫'],
+      'breed mentionPatterns must not be polluted by non-default variant rename');
+    // Non-default variant should have its own materialized patterns
+    const sonnet = breed.variants.find((v) => v.id === 'opus-sonnet');
+    assert.ok(sonnet);
+    assert.ok(Array.isArray(sonnet.mentionPatterns), 'variant should have materialized mentionPatterns');
+    assert.ok(
+      sonnet.mentionPatterns.some((p) => p === '@opus-sonnet'),
+      'materialized patterns should include @catId',
+    );
+    assert.ok(
+      sonnet.mentionPatterns.some((p) => p === '@副手布偶猫'),
+      'materialized patterns should include new displayName',
+    );
+  });
+
+  it('name-only update on non-default variant does not corrupt breed mentionPatterns', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
+    const templatePath = join(projectRoot, 'cat-template.json');
+    const template = validConfig();
+    template.breeds[0].variants.push({
+      id: 'opus-sonnet',
+      catId: 'opus-sonnet',
+      provider: 'anthropic',
+      defaultModel: 'claude-sonnet-4-5-20250929',
+      mcpSupport: true,
+      cli: { command: 'claude', outputFormat: 'stream-json' },
+    });
+    writeFileSync(templatePath, JSON.stringify(template, null, 2));
+    bootstrapCatCatalog(projectRoot, templatePath);
+
+    const origCatalog = readRuntimeCatCatalog(projectRoot);
+    const origBreed = origCatalog.breeds.find((b) => b.id === 'ragdoll');
+    const origPatterns = [...origBreed.mentionPatterns];
+
+    // name-only update — but frontend always sends displayName too,
+    // so simulate that by including displayName in the patch
+    await updateRuntimeCat(projectRoot, 'opus-sonnet', {
+      name: '新副手',
+      displayName: '布偶猫',
+    });
+
+    const catalog = readRuntimeCatCatalog(projectRoot);
+    const breed = catalog.breeds.find((b) => b.id === 'ragdoll');
+    assert.deepEqual(breed.mentionPatterns, origPatterns,
+      'breed mentionPatterns must be unchanged after non-default variant name update');
   });
 });

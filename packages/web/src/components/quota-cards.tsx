@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // biome-ignore lint/correctness/noUnusedImports: React must be in scope for SSR JSX runtime in tests.
 import React from 'react';
 
@@ -77,9 +83,9 @@ export interface PoolGroup {
 }
 
 const CODEX_POOL_DISPLAY: Record<string, string> = {
-  'codex-main': '缅因猫 Codex + GPT-5.2',
-  'codex-spark': '缅因猫 Spark',
-  'codex-review': '缅因猫 代码审查',
+  'codex-main': '办公智能体 Codex + GPT-5.2',
+  'codex-spark': '办公智能体 Spark',
+  'codex-review': '办公智能体 代码审查',
   'codex-overflow': '溢出额度',
 };
 
@@ -141,7 +147,7 @@ export function degradationHint(poolId: string | undefined, utilization: number)
     case 'claude-weekly-all':
       return 'Opus 额度紧张，建议降级 Sonnet 或推迟重活';
     case 'claude-weekly-sonnet':
-      return 'Sonnet 额度也紧张，考虑切到缅因猫';
+      return 'Sonnet 额度也紧张，考虑切到办公智能体';
     case 'codex-main':
       return '编码额度紧张，建议切到 @spark';
     case 'codex-spark':

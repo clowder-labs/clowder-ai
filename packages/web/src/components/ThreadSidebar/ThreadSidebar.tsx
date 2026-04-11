@@ -1,6 +1,12 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
 
-import { useRouter } from 'next/navigation';
+'use client';
+
+import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getMentionToCat } from '@/lib/mention-highlight';
 import { type Thread, useChatStore } from '@/stores/chatStore';
@@ -56,6 +62,7 @@ export function ThreadSidebar({
   activeMenu,
 }: ThreadSidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     threads,
     currentThreadId,
@@ -304,7 +311,7 @@ export function ThreadSidebar({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: '🎓 猫猫训练营',
+          title: '🎓 训练营',
           bootcampState: {
             v: 1,
             phase: 'phase-0-select-cat',
@@ -396,7 +403,9 @@ export function ThreadSidebar({
   const handleSelect = useCallback(
     (threadId: string) => {
       onThreadSelect?.();
-      if (threadId === currentThreadId) return;
+      const isAlreadyOnThreadRoute =
+        (threadId === 'default' && pathname === '/') || pathname === `/thread/${threadId}`;
+      if (threadId === currentThreadId && isAlreadyOnThreadRoute) return;
       // B1.1: Restore projectPath from thread metadata on switch
       const target = threads.find((t) => t.id === threadId);
       setCurrentProject(target?.projectPath ?? 'default');
@@ -406,7 +415,7 @@ export function ThreadSidebar({
         onClose?.();
       }
     },
-    [currentThreadId, onThreadSelect, threads, setCurrentProject, navigateToThread, onClose],
+    [currentThreadId, pathname, onThreadSelect, threads, setCurrentProject, navigateToThread, onClose],
   );
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -414,16 +423,8 @@ export function ThreadSidebar({
     let result = threads;
     if (normalizedQuery) {
       result = result.filter((thread) => {
-        const title = (thread.title ?? '').toLowerCase();
-        const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
-        const project = (thread.projectPath ?? '').toLowerCase();
-        const threadId = thread.id.toLowerCase();
-        return (
-          title.includes(normalizedQuery) ||
-          fallback.includes(normalizedQuery) ||
-          project.includes(normalizedQuery) ||
-          threadId.includes(normalizedQuery)
-        );
+        const displayTitle = (thread.title?.trim() || (thread.id === 'default' ? '大厅' : '未命名对话')).toLowerCase();
+        return displayTitle.includes(normalizedQuery);
       });
     }
 
@@ -493,7 +494,9 @@ export function ThreadSidebar({
     searchQuery: normalizedQuery,
     currentThreadId,
   });
-  const isChatMenu = !activeMenu && currentThreadId === 'default';
+  const isThreadRoute = pathname.startsWith('/thread/');
+  const activeThreadIdFromRoute = isThreadRoute ? pathname.slice('/thread/'.length) : null;
+  const isChatMenu = !activeMenu && pathname === '/';
   const menuItemBase = 'ui-menu-item flex h-[38px] w-full items-center gap-2 px-2.5';
   const menuItemActive = 'ui-menu-item-active';
   const menuItemInactive = 'ui-menu-item-inactive';
@@ -753,12 +756,12 @@ export function ThreadSidebar({
           {showNoResults ? (
             <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-3 py-4 text-center text-xs text-gray-400">
               <div className="text-[14px] font-[400] text-[#333]">没有结果</div>
-              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-2">请开启 <button
+              <div className="flex text-[12px] font-[400]  text-[#333] mt-1 gap-1">请<button
                 type="button"
                 onClick={handleNewChat}
-                className="text-[12px] font-[400] text-[rgba(20,115,255,1)]"
+                className="text-[12px] font-[400] text-[#1476ff]"
               >
-                新的会话
+                新建会话
               </button>
               </div>
             </div>
@@ -804,7 +807,7 @@ export function ThreadSidebar({
                               title={t.title}
                               participants={t.participants}
                               lastActiveAt={t.lastActiveAt}
-                              isActive={currentThreadId === t.id}
+                              isActive={activeThreadIdFromRoute === t.id}
                               onSelect={handleSelect}
                               onDelete={handleDeleteRequest}
                               onRename={handleRename}
@@ -853,7 +856,7 @@ export function ThreadSidebar({
                       title={t.title}
                       participants={t.participants}
                       lastActiveAt={t.lastActiveAt}
-                      isActive={currentThreadId === t.id}
+                      isActive={activeThreadIdFromRoute === t.id}
                       onSelect={handleSelect}
                       onDelete={handleDeleteRequest}
                       onRename={handleRename}
@@ -896,6 +899,7 @@ export function ThreadSidebar({
       <AppModal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
+        disableBackdropClose
         title={
           <div className="flex items-center gap-2">
             <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

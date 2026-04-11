@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 // biome-ignore lint/correctness/noUnusedImports: React must be in scope for SSR JSX runtime in tests.
@@ -207,7 +213,7 @@ export function HubQuotaBoardTab() {
       <section className="rounded-[16px] border border-[#E8C9AF] bg-[#FFF4EC] px-4 py-3">
         <p className="text-[13px] font-bold text-[#C8946B]">F127 变化说明</p>
         <p className="mt-1 text-[13px] leading-6 text-[#8A776B]">
-          1. 从猫粮看板改名为配额看板
+          1. 从预算看板改名为配额看板
           <br />
           2. 按账号配置维度（非 Provider）分组
           <br />

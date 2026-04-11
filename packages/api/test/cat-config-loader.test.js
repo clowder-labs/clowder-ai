@@ -1,9 +1,16 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { catRegistry, createCatId } from '@cat-cafe/shared';
 
 const {
   loadCatConfig,
@@ -140,6 +147,100 @@ describe('cat-config-loader', () => {
           'base breed field preserved when catalog lacks it',
         );
         assert.equal(config.breeds[0].caution, 'base-only-caution', 'base caution preserved when catalog lacks it');
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_TEMPLATE_PATH;
+        } else {
+          process.env.CAT_TEMPLATE_PATH = saved;
+        }
+      }
+    });
+
+    it('replaces cli object when catalog switches provider so stale effort/defaultArgs do not leak from base', () => {
+      const projectDir = mkdtempSync(join(tmpdir(), 'cat-cli-merge-project-'));
+      const templatePath = join(projectDir, 'cat-template.json');
+
+      const base = validConfig();
+      base.breeds[0].variants[0].cli = {
+        command: 'claude',
+        outputFormat: 'stream-json',
+        defaultArgs: ['--output-format', 'stream-json'],
+        effort: 'max',
+      };
+      writeFileSync(templatePath, JSON.stringify(base));
+      writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
+
+      const runtimeDir = join(projectDir, '.cat-cafe');
+      mkdirSync(runtimeDir, { recursive: true });
+      const catalog = validConfig();
+      catalog.breeds[0].variants[0].provider = 'openai';
+      catalog.breeds[0].variants[0].defaultModel = 'gpt-5.4';
+      catalog.breeds[0].variants[0].cli = {
+        command: 'codex',
+        outputFormat: 'json',
+      };
+      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(catalog));
+
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      process.env.CAT_TEMPLATE_PATH = templatePath;
+      try {
+        const config = loadCatConfig();
+        const variant = config.breeds[0].variants[0];
+        assert.equal(variant.provider, 'openai');
+        assert.deepEqual(variant.cli, {
+          command: 'codex',
+          outputFormat: 'json',
+        });
+        assert.equal('effort' in variant.cli, false, 'base cli.effort must not leak across provider switch');
+        assert.equal('defaultArgs' in variant.cli, false, 'base cli.defaultArgs must not leak across provider switch');
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_TEMPLATE_PATH;
+        } else {
+          process.env.CAT_TEMPLATE_PATH = saved;
+        }
+      }
+    });
+
+    it('replaces cli object when catalog switches provider from openai back to anthropic', () => {
+      const projectDir = mkdtempSync(join(tmpdir(), 'cat-cli-reverse-merge-project-'));
+      const templatePath = join(projectDir, 'cat-template.json');
+
+      const base = validConfig();
+      base.breeds[0].variants[0].provider = 'openai';
+      base.breeds[0].variants[0].defaultModel = 'gpt-5.4';
+      base.breeds[0].variants[0].cli = {
+        command: 'codex',
+        outputFormat: 'json',
+        defaultArgs: ['exec', '--json'],
+        effort: 'xhigh',
+      };
+      writeFileSync(templatePath, JSON.stringify(base));
+      writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
+
+      const runtimeDir = join(projectDir, '.cat-cafe');
+      mkdirSync(runtimeDir, { recursive: true });
+      const catalog = validConfig();
+      catalog.breeds[0].variants[0].provider = 'anthropic';
+      catalog.breeds[0].variants[0].defaultModel = 'claude-opus-4-1';
+      catalog.breeds[0].variants[0].cli = {
+        command: 'claude',
+        outputFormat: 'stream-json',
+      };
+      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(catalog));
+
+      const saved = process.env.CAT_TEMPLATE_PATH;
+      process.env.CAT_TEMPLATE_PATH = templatePath;
+      try {
+        const config = loadCatConfig();
+        const variant = config.breeds[0].variants[0];
+        assert.equal(variant.provider, 'anthropic');
+        assert.deepEqual(variant.cli, {
+          command: 'claude',
+          outputFormat: 'stream-json',
+        });
+        assert.equal('effort' in variant.cli, false, 'base cli.effort must not leak back to anthropic');
+        assert.equal('defaultArgs' in variant.cli, false, 'base cli.defaultArgs must not leak back to anthropic');
       } finally {
         if (saved === undefined) {
           delete process.env.CAT_TEMPLATE_PATH;
@@ -510,10 +611,12 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     assert.deepEqual(all.opus.mentionPatterns, ['@opus', '@布偶猫', '@布偶']);
   });
 
-  it('non-default variant uses its own mentionPatterns (not breed)', () => {
+  it('non-default variant uses its own mentionPatterns plus auto-added displayName', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
-    assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@布偶猫4.5']);
+    // displayName '布偶猫 4.5' (with space) differs from alias '@布偶猫4.5' (no space),
+    // so toAllCatConfigs auto-appends it as a valid mention pattern.
+    assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@布偶猫4.5', '@布偶猫 4.5']);
   });
 
   it('non-default variant with no mentionPatterns gets @catId fallback pattern', () => {
@@ -648,6 +751,47 @@ describe('F32-b: getDefaultCatId', () => {
       _resetCachedConfig();
     }
   });
+
+  it('falls back to the first registered runtime cat when config load fails', () => {
+    const savedTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    const savedRegistry = catRegistry.getAllConfigs();
+    const missingPath = join(tmpdir(), `missing-cat-template-${Date.now()}.json`);
+
+    catRegistry.reset();
+    catRegistry.register('office', {
+      id: createCatId('office'),
+      name: '办公智能体',
+      displayName: '办公智能体',
+      nickname: '小九',
+      avatar: '/avatars/office.svg',
+      color: { primary: '#2B5797', secondary: '#C0D0E8' },
+      mentionPatterns: ['@office'],
+      provider: 'relayclaw',
+      defaultModel: 'glm-5',
+      mcpSupport: true,
+      breedId: 'office',
+      roleDescription: '办公助手',
+      personality: '专业',
+    });
+
+    process.env.CAT_TEMPLATE_PATH = missingPath;
+    _resetCachedConfig();
+    try {
+      const id = getDefaultCatId();
+      assert.equal(id, 'office');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(savedRegistry)) {
+        catRegistry.register(id, config);
+      }
+      if (savedTemplatePath === undefined) {
+        delete process.env.CAT_TEMPLATE_PATH;
+      } else {
+        process.env.CAT_TEMPLATE_PATH = savedTemplatePath;
+      }
+      _resetCachedConfig();
+    }
+  });
 });
 
 describe('F32-b: mentionPattern validation', () => {
@@ -680,7 +824,8 @@ describe('F32-b: mentionPattern validation', () => {
     const path = writeTempConfig(cfg);
     const config = loadCatConfig(path);
     const allConfigs = toAllCatConfigs(config);
-    assert.deepEqual(allConfigs['opus-45'].mentionPatterns, ['@布偶猫4.5']);
+    // displayName '布偶猫 4.5' auto-appended (differs from alias '@布偶猫4.5' by space)
+    assert.deepEqual(allConfigs['opus-45'].mentionPatterns, ['@布偶猫4.5', '@布偶猫 4.5']);
   });
 });
 

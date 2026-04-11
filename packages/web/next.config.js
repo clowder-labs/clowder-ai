@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 const withPWA = require('@ducanh2912/next-pwa').default;
 
 const enablePwaInDev = process.env.ENABLE_PWA_IN_DEV === '1';

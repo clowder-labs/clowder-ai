@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Message Types
  * 消息相关的类型定义
@@ -28,6 +34,17 @@ export interface ImageContent {
   readonly type: 'image';
   readonly url: string;
   readonly alt?: string;
+}
+
+/**
+ * File attachment content
+ */
+export interface FileContent {
+  readonly type: 'file';
+  readonly url: string;
+  readonly fileName: string;
+  readonly mimeType?: string;
+  readonly fileSize?: number;
 }
 
 /**
@@ -63,7 +80,7 @@ export interface ToolResultContent {
 /**
  * Message content - union of all content types
  */
-export type MessageContent = TextContent | ImageContent | CodeContent | ToolCallContent | ToolResultContent;
+export type MessageContent = TextContent | ImageContent | FileContent | CodeContent | ToolCallContent | ToolResultContent;
 
 /**
  * Message status

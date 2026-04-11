@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Unified userId source for the frontend.
  * Priority: URL ?userId= > localStorage > 'default-user'

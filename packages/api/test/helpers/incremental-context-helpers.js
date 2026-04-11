@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export function mockMsg(overrides) {
   const ts = overrides.timestamp ?? Date.now();
   return {

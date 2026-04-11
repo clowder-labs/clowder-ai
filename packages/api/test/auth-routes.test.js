@@ -1,93 +1,79 @@
-import { describe, it, expect, beforeEach } from 'node:test';
-import { build } from '../helper.js';
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
 
-describe('Authentication routes', () => {
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { after, before, beforeEach, describe, it } from 'node:test';
+import Conf from 'conf';
+import Fastify from 'fastify';
+import { authRoutes, sessions } from '../dist/routes/auth.js';
+
+const secureConfig = new Conf({
+  projectName: 'secure-config',
+  encryptionKey: 'clowder-ai-secure-key',
+  encryptionAlgorithm: 'aes-256-gcm',
+});
+
+describe('auth routes', () => {
   let app;
+  let refreshCount = 0;
+  const userId = `domain-${randomUUID()}:user-${randomUUID()}`;
+  const expiresAt = new Date(Date.now() + 60_000).toISOString();
 
-  beforeEach(async () => {
-    app = await build();
+  before(async () => {
+    app = Fastify();
+    app.get('/api/maas-models', async (request) => {
+      refreshCount += 1;
+      assert.equal(request.headers['x-cat-cafe-user'], userId);
+      assert.equal(request.headers['x-refresh'], 'true');
+      return { models: [] };
+    });
+    await app.register(authRoutes);
+    await app.ready();
   });
 
-  describe('GET /api/islogin', () => {
-    it('should return not logged in when no user header', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/api/islogin',
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.isLoggedIn).toBe(false);
-    });
-
-    it('should return logged in when user header is present', async () => {
-      const response = await app.inject({
-        method: 'GET',
-        url: '/api/islogin',
-        headers: {
-          'x-cat-cafe-user': 'test-user',
-        },
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.isLoggedIn).toBe(true);
-      expect(body.userId).toBe('test-user');
+  beforeEach(() => {
+    refreshCount = 0;
+    sessions.clear();
+    secureConfig.set(userId, expiresAt);
+    secureConfig.set(`${userId}-new`, {
+      userId,
+      token: '',
+      expiresAt,
+      credential: {},
+      modelInfo: {},
     });
   });
 
-  describe('POST /api/login', () => {
-    it('should login successfully with valid credentials', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/api/login',
-        payload: {
-          username: 'admin',
-          password: 'admin123',
-        },
-      });
+  after(async () => {
+    sessions.clear();
+    secureConfig.delete(userId);
+    secureConfig.delete(`${userId}-new`);
+    await app.close();
+  });
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.success).toBe(true);
-      expect(body.userId).toBe('user-admin');
-      expect(body.message).toBe('登录成功');
-
-      // Check headers
-      expect(response.headers['x-cat-cafe-user']).toBe('user-admin');
-      expect(response.headers['x-session-id']).toBeDefined();
+  it('refreshes maas models on the first islogin call for an already logged-in user', async () => {
+    const firstResponse = await app.inject({
+      method: 'GET',
+      url: '/api/islogin',
+      headers: { 'x-cat-cafe-user': userId },
     });
 
-    it('should fail with invalid credentials', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/api/login',
-        payload: {
-          username: 'admin',
-          password: 'wrongpassword',
-        },
-      });
+    assert.equal(firstResponse.statusCode, 200);
+    assert.equal(JSON.parse(firstResponse.body).islogin, true);
+    assert.equal(refreshCount, 1);
 
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.success).toBe(false);
-      expect(body.message).toBe('用户名或密码错误');
+    const secondResponse = await app.inject({
+      method: 'GET',
+      url: '/api/islogin',
+      headers: { 'x-cat-cafe-user': userId },
     });
 
-    it('should fail with non-existent user', async () => {
-      const response = await app.inject({
-        method: 'POST',
-        url: '/api/login',
-        payload: {
-          username: 'nonexistent',
-          password: 'password',
-        },
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.success).toBe(false);
-      expect(body.message).toBe('用户名或密码错误');
-    });
+    assert.equal(secondResponse.statusCode, 200);
+    assert.equal(JSON.parse(secondResponse.body).islogin, true);
+    assert.equal(refreshCount, 1);
   });
 });

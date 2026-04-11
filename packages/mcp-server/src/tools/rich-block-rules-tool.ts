@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Rich Block Rules Tool
  * MCP 工具: 按需获取富消息块完整使用规范
@@ -9,7 +15,7 @@
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3004';
+const API_URL = process.env['CAT_CAFE_API_URL']!;
 
 export async function handleGetRichBlockRules(): Promise<ToolResult> {
   const url = `${API_URL}/api/callbacks/rich-block-rules`;
@@ -34,7 +40,7 @@ export const richBlockRulesInputSchema = {};
 
 export const richBlockRulesTools = [
   {
-    name: 'cat_cafe_get_rich_block_rules',
+    name: 'office_claw_get_rich_block_rules',
     description:
       'Get the full rich block usage rules (card/diff/checklist/media_gallery/audio/interactive). ' +
       'Call this BEFORE creating your first rich block in a session — it returns the full schema and constraints. ' +

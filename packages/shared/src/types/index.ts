@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Types Index
  * 导出所有类型定义
@@ -241,6 +247,7 @@ export type {
 export type {
   AgentStreamMessage,
   CodeContent,
+  FileContent,
   ImageContent,
   Message,
   MessageContent,

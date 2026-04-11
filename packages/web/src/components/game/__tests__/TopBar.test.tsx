@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -56,7 +62,7 @@ describe('TopBar', () => {
   it('renders close button when onClose provided', () => {
     const html = render({ onClose: () => {} });
     expect(html).toContain('data-testid="game-close-btn"');
-    expect(html).toContain('退出游戏');
+    expect(html).toContain('最小化游戏');
   });
 
   it('does not render close button when onClose omitted', () => {

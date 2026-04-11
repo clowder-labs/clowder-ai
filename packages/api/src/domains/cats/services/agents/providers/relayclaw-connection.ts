@@ -1,5 +1,10 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { RelayClawWsFrame } from '@cat-cafe/shared';
-// @ts-expect-error - ws declarations are not installed in this workspace
 import { WebSocket as NodeWebSocket } from 'ws';
 
 type RelayClawWebSocketCtor = typeof WebSocket;

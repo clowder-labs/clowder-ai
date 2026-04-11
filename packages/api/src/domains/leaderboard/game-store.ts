@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F075 Phase B — In-memory game record store
  * Tracks game results (猫猫杀, 谁是卧底, etc.) and computes stats.

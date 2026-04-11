@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Cat Cafe API Server
  * 后端 API 入口
@@ -184,6 +190,7 @@ import { isSeedCat } from './config/cat-account-binding.js';
 
 const PORT = parseInt(process.env.API_SERVER_PORT ?? '3004', 10);
 const HOST = process.env.API_SERVER_HOST ?? '127.0.0.1';
+const API_BODY_LIMIT_BYTES = 10 * 1024 * 1024;
 
 let socketManager: SocketManager | null = null;
 let redisClient: RedisClient | null = null;
@@ -203,7 +210,10 @@ const PROCESS_START_AT = Date.now();
 
 async function main(): Promise<void> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
-  const app = Fastify({ logger: customLogger as unknown as import('fastify').FastifyBaseLogger });
+  const app = Fastify({
+    logger: customLogger as unknown as import('fastify').FastifyBaseLogger,
+    bodyLimit: API_BODY_LIMIT_BYTES,
+  });
 
   if (isDebugMode) {
     app.log.info({ logDir: LOG_DIR_PATH }, '[api] Debug mode enabled (--debug flag)');
@@ -305,22 +315,22 @@ async function main(): Promise<void> {
         const catConfig = catRegistry.tryGet(catId)?.config;
         if (catConfig?.provider === 'anthropic' || catConfig?.provider === 'opencode') {
           const boundAccountRef = resolveBoundAccountRefForCat(
-            projectRoot,
-            catId,
-            catConfig as CatConfig & { providerProfileId?: string },
+              projectRoot,
+              catId,
+              catConfig as CatConfig & { providerProfileId?: string },
           );
           const runtime = await resolveRuntimeProviderProfileForClient(
-            projectRoot,
-            catConfig.provider,
-            boundAccountRef,
+              projectRoot,
+              catConfig.provider,
+              boundAccountRef,
           );
           if (!runtime?.apiKey) return null;
-          return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
+          return {apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || process.env.ANTHROPIC_API_BASE_URL!};
         }
 
         const runtime = await resolveAnthropicRuntimeProfile(projectRoot);
         if (!runtime.apiKey) return null;
-        return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
+        return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || process.env.ANTHROPIC_API_BASE_URL! };
       } catch {
         return null;
       }
@@ -476,7 +486,7 @@ async function main(): Promise<void> {
             };
           } catch {
             // No proxy config → try direct with API key
-            return { mode: 'api_key' as const, baseUrl: 'https://api.anthropic.com', apiKey };
+            return { mode: 'api_key' as const, baseUrl: process.env.ANTHROPIC_API_BASE_URL!, apiKey };
           }
         },
         { info: app.log.info.bind(app.log), error: app.log.error.bind(app.log) },
@@ -609,6 +619,7 @@ async function main(): Promise<void> {
   const agentRegistry = new AgentRegistry();
   let router!: AgentRouter;
   const syncAgentRegistry = async (configs: Record<string, CatConfig>) => {
+    const previousEntries = agentRegistry.getAllEntries();
     agentRegistry.reset();
     for (const [id, config] of Object.entries(configs)) {
       const catId = config.id;
@@ -692,6 +703,14 @@ async function main(): Promise<void> {
           continue;
       }
       agentRegistry.register(id, service);
+    }
+    for (const service of previousEntries.values()) {
+      const disposable = service as { dispose?: () => void | Promise<void> };
+      try {
+        await disposable.dispose?.();
+      } catch (err) {
+        app.log.warn(`[api] Agent service dispose failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
     if (router) router.refreshFromRegistry(agentRegistry);
   };
@@ -1013,7 +1032,8 @@ async function main(): Promise<void> {
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
-  await app.register(configRoutes);
+  const configRouteOpts: Parameters<typeof configRoutes>[1] = {};
+  await app.register(configRoutes, configRouteOpts);
   await app.register(featureDocDetailRoutes);
   await app.register(modelConfigProfilesRoutes);
   await app.register(providerProfilesRoutes);
@@ -1126,7 +1146,7 @@ async function main(): Promise<void> {
 
   // F34: TTS Provider (mlx-audio → Python TTS server)
   const ttsRegistry = new TtsRegistry();
-  const ttsUrl = process.env.TTS_URL ?? 'http://localhost:9879';
+  const ttsUrl = process.env.TTS_URL!;
   ttsRegistry.register(new MlxAudioTtsProvider({ baseUrl: ttsUrl }));
   const ttsCacheDir = process.env.TTS_CACHE_DIR ?? './data/tts-cache';
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
@@ -1394,7 +1414,7 @@ async function main(): Promise<void> {
   });
 
   // F088: Start connector gateway (best-effort, after listen)
-  let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
+  let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> | null = null;
   try {
     const gatewayConfig = loadConnectorGatewayConfig();
     connectorGatewayHandle = await startConnectorGateway(gatewayConfig, {
@@ -1419,6 +1439,8 @@ async function main(): Promise<void> {
       redis: redisClient ?? undefined,
       log: app.log,
       frontendBaseUrl,
+      hostRoot: resolveCatCafeHostRoot(process.cwd()),
+      webhookHandlers: connectorWebhookHandlers,
     });
     if (connectorGatewayHandle) {
       invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
@@ -1446,9 +1468,6 @@ async function main(): Promise<void> {
           deepLinkUrl: `${frontendBaseUrl}/threads/${threadId}`,
         };
       });
-      for (const [id, handler] of connectorGatewayHandle.webhookHandlers) {
-        connectorWebhookHandlers.set(id, handler);
-      }
       // F137: Wire WeChat adapter to hub routes for QR login
       (connectorHubOpts as { weixinAdapter?: unknown }).weixinAdapter = connectorGatewayHandle.weixinAdapter;
       (connectorHubOpts as { startWeixinPolling?: () => void }).startWeixinPolling =
@@ -1457,6 +1476,8 @@ async function main(): Promise<void> {
         connectorGatewayHandle.activateWeixinBotToken;
       (connectorHubOpts as { disconnectWeixinBotToken?: () => Promise<void> }).disconnectWeixinBotToken =
         connectorGatewayHandle.disconnectWeixinBotToken;
+      (connectorHubOpts as { connectorRuntimeManager?: unknown }).connectorRuntimeManager = connectorGatewayHandle;
+      (configRouteOpts as { connectorRuntimeManager?: unknown }).connectorRuntimeManager = connectorGatewayHandle;
       // F134 Phase D: Wire permission store to hub routes
       (connectorHubOpts as { permissionStore?: unknown }).permissionStore = connectorGatewayHandle.permissionStore;
       app.log.info('[api] Connector gateway started');

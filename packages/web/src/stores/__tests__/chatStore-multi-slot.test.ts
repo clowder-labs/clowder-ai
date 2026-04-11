@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F108: Tests for multi-slot activeInvocations state.
  * Verifies that concurrent invocations are tracked independently

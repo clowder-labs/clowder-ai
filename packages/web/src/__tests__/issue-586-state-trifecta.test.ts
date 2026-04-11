@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Issue #586: 前端状态三连击 — 气泡裂变 + 猫状态不准 + 未读点复活
  *

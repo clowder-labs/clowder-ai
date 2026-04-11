@@ -1,4 +1,11 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CatData } from '@/hooks/useCatData';
+import { API_URL } from '@/utils/api-client';
 
 export interface CatOption {
   id: string;
@@ -20,6 +27,12 @@ function isAvailable(cat: CatData): boolean {
   return cat.roster?.available !== false;
 }
 
+function resolveCatAvatar(avatar: string): string {
+  const trimmed = avatar.trim();
+  if (!trimmed) return '';
+  return trimmed.startsWith('/uploads/') ? `${API_URL}${trimmed}` : trimmed;
+}
+
 export function buildCatOptions(cats: CatData[]): CatOption[] {
   return cats
     .filter((cat) => cat.mentionPatterns.length > 0 && isAvailable(cat))
@@ -29,7 +42,7 @@ export function buildCatOptions(cats: CatData[]): CatOption[] {
       desc: cat.roleDescription,
       insert: `@${cat.mentionPatterns[0].replace(/^@/, '')} `,
       color: cat.color.primary,
-      avatar: cat.avatar,
+      avatar: resolveCatAvatar(cat.avatar),
     }));
 }
 
@@ -42,7 +55,7 @@ export function buildWhisperOptions(cats: CatData[]): CatOption[] {
     desc: cat.roleDescription,
     insert: cat.mentionPatterns.length > 0 ? `@${cat.mentionPatterns[0].replace(/^@/, '')} ` : '',
     color: cat.color.primary,
-    avatar: cat.avatar,
+    avatar: resolveCatAvatar(cat.avatar),
   }));
 }
 

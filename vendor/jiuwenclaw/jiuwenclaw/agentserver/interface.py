@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import time
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from dotenv import load_dotenv
@@ -22,6 +23,11 @@ from openjiuwen.core.session.checkpointer.checkpointer import CheckpointerConfig
 from openjiuwen.core.session.checkpointer.persistence import PersistenceCheckpointerProvider
 
 from jiuwenclaw.agentserver.prompt_builder import build_system_prompt, build_user_prompt
+from jiuwenclaw.agentserver.session_metadata import (
+    _safe_session_subdir,
+    load_project_dir,
+    save_project_dir,
+)
 from jiuwenclaw.agentserver.tools.command_tools import set_request_workspace
 from jiuwenclaw.agentserver.tools.multi_session_toolkits import MultiSessionToolkit
 from jiuwenclaw.agentserver.tools import SendFileToolkit
@@ -46,6 +52,7 @@ from jiuwenclaw.agentserver.tools.audio_tools import (
 from jiuwenclaw.agentserver.tools.image_tools import visual_question_answering
 from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
 from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus, TodoToolkit
+from jiuwenclaw.agentserver.tools.file_tools import FileToolkit
 from jiuwenclaw.agentserver.tools.memory_tools import (
     init_memory_manager_async,
     memory_search,
@@ -177,6 +184,8 @@ class JiuWenClaw:
         self._session_priorities: dict[str, int] = {}  # session_id -> 优先级计数器（用于先进后出）
         self._session_queues: dict[str, asyncio.PriorityQueue] = {}  # session_id -> 优先队列
         self._session_processors: dict[str, asyncio.Task] = {}  # session_id -> processor_task
+        # Session-bound project_dir (resolved str), isolated from self._workspace_dir (agent root for memory).
+        self._session_project_dir: dict[str, str] = {}
         # Memory system expects workspace_dir/layout:
         # - workspace_dir/memory/MEMORY.md + USER.md
         # - workspace_dir/memory/memory.db (SQLite vector index)
@@ -190,13 +199,16 @@ class JiuWenClaw:
         self._memory_tools_registered: bool = False
         self._task_memory_tools_registered: bool = False
         self._mcp_tools_registered: bool = False
+        self._file_tools_registered: bool = False
         self._video_tool_registered: bool = False
         self._send_file_tool_registered: bool = False
         self._xiaoyi_phone_tools_registered: bool = False
         self._todo_tool_sessions_registered: set[str] = set()
         self._sysop_card_id: str | None = None
 
-        self._session_tool = None
+    def _should_register_cron_tools(self) -> bool:
+        """Allow disabling cron tool mounting with a single env flag."""
+        return os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") != "1"
 
     @staticmethod
     async def set_checkpoint():
@@ -415,6 +427,18 @@ class JiuWenClaw:
             self._instance.ability_manager.add(mcp_tool.card)
         self._mcp_tools_registered = True
 
+        # add file tools (read/write/edit)
+        try:
+            file_toolkit = FileToolkit()
+            for tool in file_toolkit.get_tools():
+                Runner.resource_mgr.add_tool(tool)
+                self._instance.ability_manager.add(tool.card)
+            self._file_tools_registered = True
+            logger.info("[JiuWenClaw] file tools registered successfully")
+        except Exception as exc:
+            self._file_tools_registered = False
+            logger.warning("[JiuWenClaw] file tools registration skipped: %s", exc)
+
         project_mcp_names: set[str] = set()
         host_project_mcp_path = self._tool_manager.find_host_project_mcp_json()
         try:
@@ -521,13 +545,19 @@ class JiuWenClaw:
             logger.info("[JiuWenClaw] xiaoyi channel not enabled, skipping phone tools")
 
         # add cron tools
-        try:
-            cron_controller = CronController.get_instance()
-            for cron_tool in cron_controller.get_tools():
-                Runner.resource_mgr.add_tool(cron_tool)
-                self._instance.ability_manager.add(cron_tool.card)
-        except Exception as exc:
-            logger.error("[JiuWenClaw] 定时工具加载失败， reason=%s", exc)
+        if self._should_register_cron_tools():
+            try:
+                cron_controller = CronController.get_instance()
+                for cron_tool in cron_controller.get_tools():
+                    Runner.resource_mgr.add_tool(cron_tool)
+                    self._instance.ability_manager.add(cron_tool.card)
+            except Exception as exc:
+                logger.error("[JiuWenClaw] 定时工具加载失败， reason=%s", exc)
+        else:
+            logger.info(
+                "[JiuWenClaw] skip cron tools registration: disable_all=%s",
+                os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") == "1",
+            )
         # ---- 权限引擎初始化 ----
         permissions_cfg = config_base.get("permissions", {})
         init_permission_engine(permissions_cfg)
@@ -587,7 +617,7 @@ class JiuWenClaw:
             mode="plan",
             project_dir: str | None = None,
             cat_cafe_mcp: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> MultiSessionToolkit | None:
         """Register per-request tools for current agent execution."""
         if self._instance is None:
             raise RuntimeError("JiuWenClaw 未初始化，请先调用 create_instance()")
@@ -601,7 +631,8 @@ class JiuWenClaw:
         else:
             set_request_workspace(None)  # fall back to default ~/.jiuwenclaw workspace
 
-        self._session_tool = None
+        prompt_workspace_dir = project_dir or str(get_workspace_dir())
+        session_toolkits: MultiSessionToolkit | None = None
 
         tool_list = self._instance.ability_manager.list()
         for tool in tool_list:
@@ -618,7 +649,7 @@ class JiuWenClaw:
             (session_id or "").split("_")[0] if session_id else ""
         )
         logger.info(f"[JiuwenClaw] update tool and prompt for channel {channel}")
-        if channel not in ["heartbeat", "cron"]:
+        if channel not in ["heartbeat", "cron"] and self._should_register_cron_tools():
             cron_controller = CronController.get_instance()
             if channel == "feishu":
                 cron_controller.set_target_channel(CronTargetChannel.FEISHU)
@@ -633,6 +664,12 @@ class JiuWenClaw:
                 if not Runner.resource_mgr.get_tool(cron_tool.card.id):
                     Runner.resource_mgr.add_tool(cron_tool)
                 self._instance.ability_manager.add(cron_tool.card)
+        elif channel not in ["heartbeat", "cron"]:
+            logger.info(
+                "[JiuWenClaw] skip runtime cron tools registration: channel=%s disable_all=%s",
+                channel,
+                os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") == "1",
+            )
 
         # 小艺手机端插件(xiaoyi phone tools)未生效时重新加载
         config_base = get_config()
@@ -667,13 +704,15 @@ class JiuWenClaw:
                 logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
-        if mode == "plan":
-            todo_toolkit = TodoToolkit(session_id=effective_session_id)
-            for tool in todo_toolkit.get_tools():
-                Runner.resource_mgr.add_tool(tool)
-                self._instance.ability_manager.add(tool.card)
-            self._todo_tool_sessions_registered.add(effective_session_id)
-        else:
+        # Todo 工具：两种模式都注册，用于 skill 步骤追踪
+        todo_toolkit = TodoToolkit(session_id=effective_session_id)
+        for tool in todo_toolkit.get_tools():
+            Runner.resource_mgr.add_tool(tool)
+            self._instance.ability_manager.add(tool.card)
+        self._todo_tool_sessions_registered.add(effective_session_id)
+
+        if mode != "plan":
+            # agent 模式额外注册并行子任务工具
             config_base = get_config()
             session_toolkits = MultiSessionToolkit(
                 session_id=effective_session_id,
@@ -681,7 +720,6 @@ class JiuWenClaw:
                 request_id=request_id,
                 sub_agent_config=self._load_react_config(config_base)
             )
-            self._session_tool = session_toolkits
             for tool in session_toolkits.get_tools():
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
@@ -771,9 +809,11 @@ class JiuWenClaw:
                 mode=mode,
                 language=config_base.get("preferred_language", "zh"),
                 channel=channel,
-                workspace_dir=self._workspace_dir,
+                workspace_dir=prompt_workspace_dir,
             ),
         }]
+
+        return session_toolkits
 
     async def process_interrupt(self, request: AgentRequest) -> AgentResponse:
         """处理 interrupt 请求.
@@ -941,6 +981,72 @@ class JiuWenClaw:
         """获取 session_id，默认为 'default'."""
         return request.session_id or "default"
 
+    def _effective_project_dir_for_session(
+        self, session_id: str, param_project_dir: str | None
+    ) -> str | None:
+        """Resolve per-session project directory: first non-empty param binds; later empty reuses bind.
+
+        Paths are normalized with Path.resolve() to match set_request_workspace().
+        If a later request passes a different non-empty path, log a warning and keep the first binding.
+        """
+        raw = (param_project_dir or "").strip()
+        can_persist = _safe_session_subdir(session_id) is not None
+
+        if not raw:
+            existing = self._session_project_dir.get(session_id)
+            if existing is not None:
+                return existing
+            if not can_persist:
+                logger.warning(
+                    "[JiuWenClaw] Skipping session metadata load for invalid session_id=%r",
+                    session_id,
+                )
+                return None
+            loaded = load_project_dir(session_id)
+            if loaded is not None:
+                self._session_project_dir[session_id] = loaded
+            return loaded
+
+        try:
+            resolved = str(Path(raw).resolve())
+        except OSError as exc:
+            logger.warning(
+                "[JiuWenClaw] project_dir resolve failed for session_id=%s path=%r: %s",
+                session_id,
+                raw,
+                exc,
+            )
+            return self._session_project_dir.get(session_id)
+
+        existing = self._session_project_dir.get(session_id)
+        if existing is None:
+            self._session_project_dir[session_id] = resolved
+            if can_persist:
+                save_project_dir(session_id, resolved)
+            else:
+                logger.warning(
+                    "[JiuWenClaw] Skipping session metadata save for invalid session_id=%r",
+                    session_id,
+                )
+            return resolved
+        if existing == resolved:
+            if can_persist:
+                save_project_dir(session_id, existing)
+            else:
+                logger.warning(
+                    "[JiuWenClaw] Skipping session metadata save for invalid session_id=%r",
+                    session_id,
+                )
+            return existing
+        logger.warning(
+            "[JiuWenClaw] Ignoring conflicting project_dir for session_id=%s "
+            "(keeping %r, got %r)",
+            session_id,
+            existing,
+            resolved,
+        )
+        return existing
+
     async def _cancel_session_task(self, session_id: str, log_msg_prefix: str = "") -> None:
         """取消指定 session 的非流式任务."""
         task = self._session_tasks.get(session_id)
@@ -997,6 +1103,7 @@ class JiuWenClaw:
                 self._session_queues.pop(session_id, None)
                 self._session_priorities.pop(session_id, None)
                 self._session_tasks.pop(session_id, None)
+                self._session_project_dir.pop(session_id, None)
                 self._session_processors.pop(session_id, None)
                 logger.info("[JiuWenClaw] Session 任务处理器已关闭: session_id=%s", session_id)
 
@@ -1139,6 +1246,9 @@ class JiuWenClaw:
             )
 
         session_id = self._get_session_id(request)
+        effective_project_dir = self._effective_project_dir_for_session(
+            session_id, request.params.get("project_dir")
+        )
         query = request.params.get("query", "")
         append_history_record(
             session_id=session_id,
@@ -1198,11 +1308,11 @@ class JiuWenClaw:
         async def run_agent_task():
             try:
                 await self._register_runtime_tools(
-                    request.session_id,
+                    session_id,
                     request.channel_id,
                     request.request_id,
                     request.params.get("mode", "plan"),
-                    project_dir=request.params.get("project_dir"),
+                    project_dir=effective_project_dir,
                     cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 return await Runner.run_agent(agent=self._instance, inputs=inputs)
@@ -1295,6 +1405,9 @@ class JiuWenClaw:
             return
 
         session_id = self._get_session_id(request)
+        effective_project_dir = self._effective_project_dir_for_session(
+            session_id, request.params.get("project_dir")
+        )
         query = request.params.get("query", "")
         append_history_record(
             session_id=session_id,
@@ -1347,6 +1460,7 @@ class JiuWenClaw:
 
         rid = request.request_id
         cid = request.channel_id
+        session_tool: MultiSessionToolkit | None = None
 
         # 创建流式输出队列
         stream_queue = asyncio.Queue()
@@ -1355,13 +1469,14 @@ class JiuWenClaw:
         # 创建流式任务函数
         async def run_stream_task():
             """执行流式任务，将产生的 chunk 放入队列."""
+            nonlocal session_tool
             try:
-                await self._register_runtime_tools(
-                    request.session_id,
+                session_tool = await self._register_runtime_tools(
+                    session_id,
                     request.channel_id,
                     request.request_id,
                     request.params.get("mode", "plan"),
-                    project_dir=request.params.get("project_dir"),
+                    project_dir=effective_project_dir,
                     cat_cafe_mcp=request.params.get("cat_cafe_mcp") if isinstance(request.params.get("cat_cafe_mcp"), dict) else None,
                 )
                 async for chunk in Runner.run_agent_streaming(self._instance, inputs):
@@ -1429,11 +1544,17 @@ class JiuWenClaw:
                             timestamp=time.time(),
                             extra={"event_payload": dict(data)},
                         )
+                    # Promote usage from payload to chunk metadata for WS frame
+                    chunk_metadata = None
+                    if isinstance(data, dict) and data.get("usage"):
+                        chunk_metadata = {"usage": data.pop("usage")}
+
                     yield AgentResponseChunk(
                         request_id=rid,
                         channel_id=cid,
                         payload=data,
                         is_complete=False,
+                        metadata=chunk_metadata,
                     )
         except asyncio.CancelledError:
             logger.info("[JiuWenClaw] 流式处理被中断: request_id=%s", rid)
@@ -1448,11 +1569,18 @@ class JiuWenClaw:
                 is_complete=True,
             )
         else:
+            if session_tool is None:
+                logger.warning(
+                    "[JiuWenClaw] stream completed without session toolkit: request_id=%s session_id=%s mode=%s",
+                    rid,
+                    session_id,
+                    request.params.get("mode", "plan"),
+                )
             yield AgentResponseChunk(
                 request_id=rid,
                 channel_id=cid,
                 payload={"is_complete": True},
-                is_complete=True and self._session_tool.all_tasks_done(),
+                is_complete=session_tool.all_tasks_done() if session_tool is not None else True,
             )
 
     # ------------------------------------------------------------------
@@ -1490,12 +1618,20 @@ class JiuWenClaw:
                     }
 
                 if chunk_type == "answer":
+                    # Extract usage from payload (top-level or nested in output)
+                    usage = None
                     if isinstance(payload, dict):
+                        usage = payload.get("usage")
                         if payload.get("result_type") == "error":
-                            return {
+                            result = {
                                 "event_type": "chat.error",
                                 "error": payload.get("output", "未知错误"),
                             }
+                            if not usage and isinstance(payload.get("output"), dict):
+                                usage = payload["output"].get("usage")
+                            if usage:
+                                result["usage"] = usage
+                            return result
                         output = payload.get("output", {})
                         content = (
                             output.get("output", "")
@@ -1508,24 +1644,40 @@ class JiuWenClaw:
                             if isinstance(output, dict)
                             else False
                         )
+                        if not usage and isinstance(output, dict):
+                            usage = output.get("usage")
                     else:
                         content = str(payload)
                         is_chunked = False
                     if not content:
+                        # Even if content is empty, return chat.final when usage is present
+                        if usage:
+                            return {
+                                "event_type": "chat.final",
+                                "content": "",
+                                "source_chunk_type": chunk_type,
+                                "usage": usage,
+                            }
                         return None
                     # For chunked answers, return as delta (will be accumulated)
                     # For non-chunked, return as final
                     if is_chunked:
-                        return {
+                        result = {
                             "event_type": "chat.delta",
                             "content": content,
                             "source_chunk_type": chunk_type,
                         }
-                    return {
+                        if usage:
+                            result["usage"] = usage
+                        return result
+                    result = {
                         "event_type": "chat.final",
                         "content": content,
                         "source_chunk_type": chunk_type,
                     }
+                    if usage:
+                        result["usage"] = usage
+                    return result
 
                 if chunk_type == "tool_call":
                     tool_info = (

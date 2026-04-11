@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Summaries Route Tests (拍立得照片墙)
  * Uses lightweight Fastify injection (no real HTTP server).

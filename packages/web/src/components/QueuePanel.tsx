@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
@@ -255,7 +261,7 @@ function QueueEntryRow({
 }) {
   const isAgent = entry.source === 'agent';
   const sourceLabel = isAgent
-    ? `${entry.callerCatId ?? '猫猫'} → ${entry.targetCats[0] ?? '猫猫'}`
+    ? `${entry.callerCatId ?? '智能体'} → ${entry.targetCats[0] ?? '智能体'}`
     : entry.source === 'connector'
       ? 'Connector'
       : ownerName;

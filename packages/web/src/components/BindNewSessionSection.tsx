@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F33: Bind an external CLI session to a cat that has no active session in this thread yet.
  * Extracted from SessionChainPanel to keep file size under 350 lines.
@@ -84,7 +90,7 @@ export function BindNewSessionSection({ threadId, activeCatIds, onBound }: BindN
           onChange={(e) => setSelectedCat(e.target.value)}
           className="w-full text-[11px] px-2 py-1 rounded border border-gray-200 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-cocreator-primary"
         >
-          <option value="">选择猫猫...</option>
+          <option value="">选择智能体...</option>
           {availableCats.map((cat) => (
             <option key={cat.id} value={cat.id}>
               {formatCatName(cat)}

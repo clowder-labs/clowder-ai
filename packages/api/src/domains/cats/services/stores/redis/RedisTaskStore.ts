@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis Task Store (毛线球)
  * Redis-backed task storage with same interface as in-memory TaskStore.

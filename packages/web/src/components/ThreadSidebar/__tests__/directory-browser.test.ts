@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F113 Phase D: DirectoryBrowser component tests.
  * Covers breadcrumb navigation, directory listing, path input,

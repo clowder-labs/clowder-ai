@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,14 +35,17 @@ function getCssBlocks(selector: string): string[] {
 }
 
 function getDeclarationValue(blocks: string[], property: string): string | null {
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let value: string | null = null;
+
   for (const block of blocks) {
-    const match = block.match(new RegExp(`${property}\\s*:\\s*([^;]+);`));
+    const match = block.match(new RegExp(`(?:^|[\\s;])${escapedProperty}\\s*:\\s*([^;]+);`));
     if (match) {
-      return match[1].trim();
+      value = match[1].trim();
     }
   }
 
-  return null;
+  return value;
 }
 
 function getVarRefs(value: string): string[] {
@@ -51,7 +60,7 @@ describe('text field token contract in globals.css', () => {
     expect(globalsCss).toContain('--text-field-placeholder:');
   });
 
-  it('limits input and textarea text colors to --text-* tokens', () => {
+  it('limits input and textarea text color properties to --text-* tokens', () => {
     const selectors = [
       { selector: '.ui-input', properties: ['color'] },
       { selector: '.ui-input:hover', properties: ['color'] },
@@ -73,5 +82,36 @@ describe('text field token contract in globals.css', () => {
       expect(tokenRefs.length).toBeGreaterThan(0);
       expect(tokenRefs.every((token) => token.startsWith('--text-'))).toBe(true);
     }
+  });
+
+  it('limits ui-input border and sizing properties to --input-* tokens', () => {
+    const selectors = [
+      {
+        selector: '.ui-input',
+        properties: ['border-color', 'border-radius', 'font-size', 'line-height', 'padding'],
+      },
+      { selector: '.ui-input:hover', properties: ['border-color'] },
+      { selector: '.ui-input:active', properties: ['border-color'] },
+      { selector: '.ui-input', properties: ['transition'] },
+    ];
+
+    for (const { selector, properties } of selectors) {
+      const values = properties
+        .map((property) => getDeclarationValue(getCssBlocks(selector), property))
+        .filter((value): value is string => value !== null);
+      const tokenRefs = values.flatMap((value) => getVarRefs(value));
+
+      expect(values.length).toBe(properties.length);
+      expect(tokenRefs.length).toBeGreaterThan(0);
+      expect(tokenRefs.every((token) => token.startsWith('--input-'))).toBe(true);
+    }
+  });
+
+  it('keeps ui-input focus border on a tokenized border alias', () => {
+    const value = getDeclarationValue(getCssBlocks('.ui-input:focus'), 'border-color');
+    const tokenRefs = value ? getVarRefs(value) : [];
+
+    expect(value).not.toBeNull();
+    expect(tokenRefs).toContain('--border-accent');
   });
 });

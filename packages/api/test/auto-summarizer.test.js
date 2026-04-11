@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * AutoSummarizer Tests — Red→Green for bug report:
  * - P1-A: createdBy must NOT be 'opus'; should be 'system'

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -91,22 +97,22 @@ const KNOWN_CLIENT_VALUES = new Set<ClientValue>([
   'acp',
 ]);
 const AVATAR_MAX_SIZE_BYTES = 200 * 1024;
-const AVATAR_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
-const AVATAR_ALLOWED_EXTENSIONS = ['.png', '.jpeg', '.jpg', '.gif'];
-const AVATAR_ACCEPT = 'image/png,image/jpeg,image/gif,.png,.jpeg,.jpg,.gif';
-const AVATAR_FORMAT_HINT = 'png、jpeg、gif、jpg';
+const AVATAR_ALLOWED_TYPES = new Set(['image/png', 'image/jpeg']);
+const AVATAR_ALLOWED_EXTENSIONS = ['.png', '.jpeg', '.jpg'];
+const AVATAR_ACCEPT = 'image/png,image/jpeg,.png,.jpeg,.jpg';
+const AVATAR_FORMAT_HINT = 'png、jpeg、jpg';
 
 // 预设头像列表
 const PRESET_AVATARS = [
-  '/avatars/agent-avatar-1.svg',
-  '/avatars/agent-avatar-2.svg',
-  '/avatars/agent-avatar-3.svg',
-  '/avatars/agent-avatar-4.svg',
-  '/avatars/agent-avatar-5.svg',
-  '/avatars/agent-avatar-6.svg',
-  '/avatars/agent-avatar-7.svg',
-  '/avatars/agent-avatar-8.svg',
-  '/avatars/agent-avatar-9.svg',
+  '/avatars/agent-avatar-1.png',
+  '/avatars/agent-avatar-2.png',
+  '/avatars/agent-avatar-3.png',
+  '/avatars/agent-avatar-4.png',
+  '/avatars/agent-avatar-5.png',
+  '/avatars/agent-avatar-6.png',
+  '/avatars/agent-avatar-7.png',
+  '/avatars/agent-avatar-8.png',
+  '/avatars/agent-avatar-9.png',
 ];
 function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-4 w-4" />;
@@ -125,11 +131,36 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
+const AGENT_NAME_VALIDATION_MESSAGE =
+  '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
+
 function validateAgentName(name: string): string | null {
-  const trimmedName = name.trim();
-  if (!trimmedName) return '请输入名称';
-  if (!autoSlug(trimmedName)) return '名称需包含中文、字母或数字';
+  if (!name) return AGENT_NAME_VALIDATION_MESSAGE;
+  if (name !== name.trim()) return AGENT_NAME_VALIDATION_MESSAGE;
+  if (name.length < 2 || name.length > 64) return AGENT_NAME_VALIDATION_MESSAGE;
+  if (!/^[\u4e00-\u9fffA-Za-z0-9 _-]+$/.test(name)) {
+    return AGENT_NAME_VALIDATION_MESSAGE;
+  }
   return null;
+}
+function normalizeSaveErrorMessage(message: string | null | undefined): string | null {
+  if (!message) return null;
+
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (
+    normalized.includes('duplicate') ||
+    normalized.includes('already exists') ||
+    normalized.includes('名称重复') ||
+    normalized.includes('名字重复') ||
+    normalized.includes('重名') ||
+    normalized.includes('别名')
+  ) {
+    return '名称重复';
+  }
+
+  return message;
 }
 
 function generateRandomCatId(): string {
@@ -721,7 +752,7 @@ export function CreateAgentModal({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        setError((body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`);
+        setError(normalizeSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`);
         return;
       }
 
@@ -731,7 +762,7 @@ export function CreateAgentModal({
       await onSaved?.(body.cat?.id);
       onClose?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : cat ? '保存失败' : '创建失败');
+      setError(normalizeSaveErrorMessage(err instanceof Error ? err.message : null) ?? (cat ? '保存失败' : '创建失败'));
     } finally {
       setSaving(false);
     }
@@ -768,6 +799,7 @@ export function CreateAgentModal({
                 aria-invalid={Boolean(nameError)}
                 value={draftName}
                 onChange={(event) => setDraftName(event.target.value)}
+                maxLength={64}
                 className="ui-input h-[28px] w-full rounded-[6px] px-4 text-[12px]"
               />
               {nameError ? <div className="text-[12px] text-[var(--state-error-text)]">{nameError}</div> : null}
@@ -782,7 +814,7 @@ export function CreateAgentModal({
                   onChange={(event) => setDraftDescription(event.target.value)}
                   placeholder="请输入描述"
                   maxLength={1000}
-                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full text-[12px]"
+                  className="ui-textarea ui-textarea-plain pb-3 h-[60px] min-h-[60px] w-full rounded-none text-[12px]"
                 />
                 <div className="pointer-events-none absolute bottom-0 right-4 text-[12px] text-[var(--text-muted)]">
                   {draftDescription.length}/1000
@@ -830,7 +862,7 @@ export function CreateAgentModal({
     
               </div>
               <div className="text-[12px] text-[var(--text-muted)]">
-                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+                {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
               </div>
             </div>
 

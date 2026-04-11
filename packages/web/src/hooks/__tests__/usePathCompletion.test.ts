@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F080-P2: Path completion — unit tests for path detection logic.
  * Hook integration is tested via ChatInput integration tests.

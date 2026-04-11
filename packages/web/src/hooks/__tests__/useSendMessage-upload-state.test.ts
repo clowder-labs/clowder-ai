@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act, useEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,10 +20,6 @@ const mockProcessCommand = vi.fn(async () => false);
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
-}));
-
-vi.mock('@/hooks/useAgentMessages', () => ({
-  useAgentMessages: () => ({ resetRefs: mockResetRefs }),
 }));
 
 vi.mock('@/hooks/useChatCommands', () => ({
@@ -51,11 +53,16 @@ interface UploadSnapshot {
 function SendWithImageRunner({
   onDone,
   onSnapshot,
+  resetRefs,
 }: {
   onDone: () => void;
   onSnapshot: (snapshot: UploadSnapshot) => void;
+  resetRefs?: () => void;
 }) {
-  const { handleSend, uploadStatus, uploadError } = useSendMessage('thread-route');
+  const { handleSend, uploadStatus, uploadError } = useSendMessage(
+    'thread-route',
+    resetRefs ? { resetRefs } : undefined,
+  );
   const called = useRef(false);
 
   useEffect(() => {
@@ -140,6 +147,7 @@ describe('useSendMessage upload status', () => {
         React.createElement(SendWithImageRunner, {
           onDone: () => {},
           onSnapshot: (s: UploadSnapshot) => snapshots.push(s),
+          resetRefs: mockResetRefs,
         }),
       );
     });

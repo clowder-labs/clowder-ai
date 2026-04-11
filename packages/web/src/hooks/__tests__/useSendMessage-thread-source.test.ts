@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { act, useEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,10 +25,6 @@ let storeCurrentThreadId = 'thread-stale';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
-}));
-
-vi.mock('@/hooks/useAgentMessages', () => ({
-  useAgentMessages: () => ({ resetRefs: mockResetRefs }),
 }));
 
 vi.mock('@/hooks/useChatCommands', () => ({
@@ -56,14 +58,16 @@ function SendRunner({
   activeThreadId,
   overrideThreadId,
   sendOptions,
+  resetRefs,
   onDone,
 }: {
   activeThreadId?: string;
   overrideThreadId?: string;
   sendOptions?: { resumeCatId?: string };
+  resetRefs?: () => void;
   onDone: () => void;
 }) {
-  const { handleSend } = useSendMessage(activeThreadId);
+  const { handleSend } = useSendMessage(activeThreadId, resetRefs ? { resetRefs } : undefined);
   const called = useRef(false);
 
   useEffect(() => {
@@ -135,6 +139,22 @@ describe('useSendMessage thread source', () => {
     const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
     expect(payload.threadId).toBe('thread-route');
     expect(payload.threadId).not.toBe('thread-stale');
+  });
+
+  it('uses the injected resetRefs instead of creating agent-message state locally', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-route',
+          overrideThreadId: undefined,
+          sendOptions: undefined,
+          resetRefs: mockResetRefs,
+          onDone: () => {},
+        }),
+      );
+    });
+
+    expect(mockResetRefs).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to useChatStore.getState().currentThreadId when route threadId is absent', async () => {

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Multi-Cat Integration Tests (CLI mode)
  * 测试真实 CLI 调用的集成测试

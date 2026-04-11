@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export function getAntigravitySmokeSkipReason({ env = process.env, runtimeReachable } = {}) {
   if (env.RUN_ANTIGRAVITY_SMOKE !== 'true') {
     return 'RUN_ANTIGRAVITY_SMOKE=true not set';

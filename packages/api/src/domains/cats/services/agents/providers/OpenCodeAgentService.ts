@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * opencode Agent Service
  * 通过 opencode CLI 子进程调用 opencode agent（headless JSON 模式）
@@ -16,12 +22,15 @@
 
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/cli-resolve.js';
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../types.js';
 import { transformOpenCodeEvent } from './opencode-event-transform.js';
+
+const log = createModuleLogger('opencode-agent');
 
 interface OpenCodeAgentServiceOptions {
   catId?: CatId;
@@ -112,7 +121,7 @@ export class OpenCodeAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `opencode CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            error: `opencode CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
@@ -120,6 +129,16 @@ export class OpenCodeAgentService implements AgentService {
         }
         // F118 Phase C: Forward liveness warnings to frontend with catId
         if (isLivenessWarning(event)) {
+          const warningEvent = event as { level?: string; silenceDurationMs?: number };
+          log.warn(
+            {
+              catId: this.catId,
+              invocationId: options?.invocationId,
+              level: warningEvent.level,
+              silenceMs: warningEvent.silenceDurationMs,
+            },
+            '[OpenCodeAgent] liveness warning — CLI may be stuck',
+          );
           yield {
             type: 'system_info' as const,
             catId: this.catId,

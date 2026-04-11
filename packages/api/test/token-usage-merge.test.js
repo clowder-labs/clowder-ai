@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F8 P2-2 regression: mergeTokenUsage should accumulate, not overwrite.
  * When the same catId appears twice in an A2A chain (opus→codex→opus),

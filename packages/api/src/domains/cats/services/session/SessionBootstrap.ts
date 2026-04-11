@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SessionBootstrap — F24 Phase E + F065 Phase A
  * Builds bootstrap context for Session #2+ so cats know what happened
@@ -204,20 +210,20 @@ export async function buildSessionBootstrap(
   toolLines.push('');
   toolLines.push('[Session Recall — Available Tools]');
   toolLines.push('You have access to these tools for retrieving context:');
-  toolLines.push('- cat_cafe_search_evidence: **Start here** — search project knowledge base');
+  toolLines.push('- office_claw_search_evidence: **Start here** — search project knowledge base');
   toolLines.push('');
   toolLines.push('Drill-down tools (after search_evidence hits):');
-  toolLines.push('- cat_cafe_list_session_chain: List all sessions in this thread');
-  toolLines.push('- cat_cafe_read_session_digest: Read summary of a specific session');
+  toolLines.push('- office_claw_list_session_chain: List all sessions in this thread');
+  toolLines.push('- office_claw_read_session_digest: Read summary of a specific session');
   toolLines.push(
-    '- cat_cafe_read_session_events: Read detailed events (use view=handoff for per-invocation summaries)',
+    '- office_claw_read_session_events: Read detailed events (use view=handoff for per-invocation summaries)',
   );
-  toolLines.push('- cat_cafe_read_invocation_detail: Read all events for a specific invocation');
+  toolLines.push('- office_claw_read_invocation_detail: Read all events for a specific invocation');
   toolLines.push('');
   toolLines.push('When unsure about previous decisions, file changes, or context:');
-  toolLines.push('1. Use cat_cafe_search_evidence to find relevant knowledge');
-  toolLines.push('2. Use cat_cafe_read_session_events(view=handoff) for per-invocation summaries');
-  toolLines.push('3. Use cat_cafe_read_invocation_detail to drill into a specific invocation');
+  toolLines.push('1. Use office_claw_search_evidence to find relevant knowledge');
+  toolLines.push('2. Use office_claw_read_session_events(view=handoff) for per-invocation summaries');
+  toolLines.push('3. Use office_claw_read_invocation_detail to drill into a specific invocation');
   toolLines.push('Do NOT guess about what happened in previous sessions.');
   const toolsSection = toolLines.join('\n');
 

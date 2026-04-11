@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * System Prompt Builder
  * 为每次 CLI 调用构建身份注入 prompt（~150-200 tokens）
@@ -199,19 +205,19 @@ const MCP_TOOLS_SECTION = `
 MCP 工具用于异步汇报等场景（token 有效期有限）：
 
 **记忆工具（先搜后问）：**
-- cat_cafe_search_evidence: 首选入口，搜项目知识库
-- cat_cafe_reflect: 从项目知识中合成洞察
+- office_claw_search_evidence: 首选入口，搜项目知识库
+- office_claw_reflect: 从项目知识中合成洞察
 
 **记忆 drill-down 工具（search_evidence 命中后深入）：**
-- cat_cafe_list_session_chain / cat_cafe_read_session_digest / cat_cafe_read_session_events / cat_cafe_read_invocation_detail：session drill-down
+- office_claw_list_session_chain / office_claw_read_session_digest / office_claw_read_session_events / office_claw_read_invocation_detail：session drill-down
 
 **协作工具：**
-- cat_cafe_post_message / cat_cafe_register_pr_tracking / cat_cafe_get_pending_mentions / cat_cafe_get_thread_context / cat_cafe_list_threads / cat_cafe_update_task：异步协作
-- cat_cafe_create_rich_block / cat_cafe_get_rich_block_rules：富消息
-- cat_cafe_generate_document：生成报告/导出文档/发 PDF 时用；不要手动 pandoc + create_rich_block
-- cat_cafe_multi_mention：并行拉 1-3 个 agent（先搜后问，需 searchEvidenceRefs 或 overrideReason）
+- office_claw_post_message / office_claw_cross_post_message / office_claw_register_pr_tracking / office_claw_get_pending_mentions / office_claw_get_thread_context / office_claw_list_threads / office_claw_update_task：异步协作
+- office_claw_create_rich_block / office_claw_get_rich_block_rules：富消息
+- office_claw_generate_document：生成报告/导出文档/发 PDF 时用；不要手动 pandoc + create_rich_block
+- office_claw_multi_mention：并行拉 1-3 个 agent（先搜后问，需 searchEvidenceRefs 或 overrideReason）
 
-**共享 Skills：**cat_cafe_list_skills/cat_cafe_load_skill。先 list+load，再 search/grep/read；对比→collaborative-thinking；空结果试短词或skill名
+**共享 Skills：**office_claw_list_skills/office_claw_load_skill。先 list+load，再 search/grep/read；对比→collaborative-thinking；空结果试短词或skill名
 
 ${RICH_BLOCK_SHORT}
 When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.

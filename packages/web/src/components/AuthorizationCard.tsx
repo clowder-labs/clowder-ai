@@ -1,13 +1,19 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useState } from 'react';
 import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
 
 const CAT_LABELS: Record<string, string> = {
-  opus: '布偶猫',
-  codex: '缅因猫',
-  gemini: '暹罗猫',
-  dare: '狸花猫',
+  opus: '通用智能体',
+  codex: '办公智能体',
+  gemini: '协作智能体',
+  dare: '通用智能体',
 };
 
 interface AuthorizationCardProps {

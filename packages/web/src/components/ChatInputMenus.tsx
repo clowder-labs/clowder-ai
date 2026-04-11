@@ -1,4 +1,10 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { type CSSProperties, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { type CatOption, GAME_LIST, WEREWOLF_MODES } from './chat-input-options';
@@ -199,7 +205,7 @@ export function ChatInputMenus({
           </div>
           {canScrollDown && (
             <div className="px-4 py-1 text-[10px] text-gray-400 text-center bg-gradient-to-t from-white shrink-0">
-              ↓ 还有更多猫猫
+              ↓ 还有更多智能体
             </div>
           )}
           {catOptions.length === 0 && <div className="px-4 py-2.5 text-xs text-gray-400">无匹配智能体</div>}

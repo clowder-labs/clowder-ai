@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Callback Routes Tests
  * 测试 MCP 回传工具的 HTTP 端点
@@ -266,7 +272,7 @@ describe('Callback Routes', () => {
     assert.equal(socketManager.getMessages().length, 1);
   });
 
-  test('POST post-message supports cross-thread send with threadId', async () => {
+  test('POST post-message rejects cross-thread send without explicit allowCrossThread', async () => {
     const app = await createApp();
     const threadA = await threadStore.create('user-1', 'thread-a');
     const threadB = await threadStore.create('user-1', 'thread-b');
@@ -283,43 +289,14 @@ describe('Callback Routes', () => {
       },
     });
 
-    assert.equal(response.statusCode, 200);
+    assert.equal(response.statusCode, 400);
     const body = JSON.parse(response.body);
-    assert.equal(body.status, 'ok');
-    assert.equal(body.threadId, threadB.id);
+    assert.match(body.error, /allowCrossThread=true/);
 
     const threadAMessages = messageStore.getByThread(threadA.id, 20, 'user-1');
     const threadBMessages = messageStore.getByThread(threadB.id, 20, 'user-1');
     assert.equal(threadAMessages.length, 0);
-    assert.equal(threadBMessages.length, 1);
-    assert.equal(threadBMessages[0].content, 'cross-thread hello');
-  });
-
-  test('POST post-message routes cross-paragraph @mention (no keyword gate)', async () => {
-    const app = await createApp();
-    const threadA = await threadStore.create('user-1', 'thread-a');
-    const threadB = await threadStore.create('user-1', 'thread-b');
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
-
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/callbacks/post-message',
-      payload: {
-        invocationId,
-        callbackToken,
-        threadId: threadB.id,
-        content: '@缅因猫\n\n请 review 这个改动',
-      },
-    });
-
-    assert.equal(response.statusCode, 200);
-    const body = JSON.parse(response.body);
-    assert.equal(body.status, 'ok');
-    assert.equal(body.threadId, threadB.id);
-
-    const threadBMessages = messageStore.getByThread(threadB.id, 20, 'user-1');
-    assert.equal(threadBMessages.length, 1);
-    assert.deepEqual(threadBMessages[0].mentions, ['codex']);
+    assert.equal(threadBMessages.length, 0);
   });
 
   test('POST post-message stores targetCats in extra and uses as mentions (F098-C1)', async () => {
@@ -371,7 +348,7 @@ describe('Callback Routes', () => {
     );
   });
 
-  test('POST post-message targetCats merges with content @mentions (F098-C1)', async () => {
+  test('POST post-message single content @mention ignores extra explicit targetCats (A2A fail-closed)', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');
 
@@ -390,11 +367,35 @@ describe('Callback Routes', () => {
 
     const recent = messageStore.getRecent(10);
     assert.equal(recent.length, 1);
-    // Should include both content-parsed codex AND explicit gpt52
+    // Single content mention should win; extras from explicit targetCats are pruned.
     const mentions = recent[0].mentions;
     assert.ok(mentions.includes('codex'), 'content @mention should be included');
-    assert.ok(mentions.includes('gpt52'), 'explicit targetCats should be included');
+    assert.equal(mentions.includes('gpt52'), false, 'extra explicit targetCats should be pruned');
     assert.deepEqual(recent[0].extra?.targetCats, ['gpt52']);
+  });
+
+  test('POST post-message keeps merged targets when content has multiple @mentions', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: '同步一下\n@codex\n@gpt52',
+        targetCats: ['gemini'],
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 1);
+    const mentions = recent[0].mentions;
+    assert.ok(mentions.includes('codex'));
+    assert.ok(mentions.includes('gpt52'));
+    assert.ok(mentions.includes('gemini'), 'multi-mention content should still merge explicit targetCats');
   });
 
   test('POST post-message rejects cross-thread send to another user thread', async () => {
@@ -409,6 +410,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
+        allowCrossThread: true,
         threadId: foreignThread.id,
         content: 'should fail',
       },
@@ -2241,6 +2243,7 @@ describe('Callback Routes', () => {
       payload: {
         invocationId,
         callbackToken,
+        allowCrossThread: true,
         content: 'Hello from source thread',
         threadId: targetThread.id,
       },

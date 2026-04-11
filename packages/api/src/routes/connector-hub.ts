@@ -1,8 +1,20 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
+import { buildConnectorEnvRefVarName, getConnectorEnvValue, hasConnectorEnvValue } from '../config/local-secret-store.js';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
 import type { IConnectorPermissionStore } from '../infrastructure/connectors/ConnectorPermissionStore.js';
+import { DefaultFeishuQrBindClient, type FeishuQrBindClient } from '../infrastructure/connectors/FeishuQrBindClient.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
+
+const DINGTALK_API_BASE_URL = process.env.DINGTALK_API_BASE_URL!;
 
 export interface ConnectorHubRoutesOptions {
   threadStore: IThreadStore;
@@ -20,6 +32,9 @@ export interface ConnectorHubRoutesOptions {
   disconnectWeixinBotToken?: () => Promise<void> | void;
   /** F134 Phase D: Permission store for group whitelist + admin management */
   permissionStore?: IConnectorPermissionStore | null;
+  envFilePath?: string;
+  feishuQrBindClient?: FeishuQrBindClient;
+  connectorRuntimeManager?: ConnectorRuntimeReconciler;
 }
 
 function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
@@ -29,6 +44,10 @@ function requireTrustedHubIdentity(request: FastifyRequest, reply: FastifyReply)
     return null;
   }
   return userId;
+}
+
+function identityRequiredError(): { error: string } {
+  return { error: '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头' };
 }
 
 // ── Connector platform config definitions ──
@@ -61,40 +80,18 @@ interface PlatformDef {
   steps: PlatformStepDef[];
 }
 
-export function normalizeFeishuConnectionMode(value: string | undefined): 'webhook' | 'websocket' {
-  return value === 'websocket' ? 'websocket' : 'webhook';
-}
-
 export const CONNECTOR_PLATFORMS: PlatformDef[] = [
   {
     id: 'feishu',
     name: '飞书',
     nameEn: 'Feishu / Lark',
-    fields: [
-      { envName: 'FEISHU_APP_ID', label: 'App ID', sensitive: false },
-      { envName: 'FEISHU_APP_SECRET', label: 'App Secret', sensitive: true },
-      {
-        envName: 'FEISHU_CONNECTION_MODE',
-        label: '连接模式 (webhook/websocket)',
-        sensitive: false,
-        optional: true,
-        defaultValue: 'webhook',
-      },
-      {
-        envName: 'FEISHU_VERIFICATION_TOKEN',
-        label: 'Verification Token',
-        sensitive: true,
-        requiredWhen: { envName: 'FEISHU_CONNECTION_MODE', value: 'webhook' },
-      },
-    ],
+    fields: [],
     docsUrl:
       'https://open.feishu.cn/document/home/introduction-to-custom-app-development/self-built-application-development-process',
     steps: [
-      { text: '在飞书开放平台创建企业自建应用，获取 App ID 和 App Secret' },
-      { text: '选择连接模式：Webhook（需公网 URL）或 WebSocket（无需公网，推荐内网环境）' },
-      { text: '在「事件订阅」中配置请求地址并获取 Verification Token', mode: 'webhook' },
-      { text: '在「事件订阅」中选择「使用长连接接收事件」，无需 Verification Token', mode: 'websocket' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '点击「生成二维码」按钮' },
+      { text: '使用飞书扫描二维码并确认授权' },
+      { text: '授权成功后自动连接，无需填写凭证或重启服务' },
     ],
   },
   {
@@ -117,11 +114,11 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
       { envName: 'DINGTALK_APP_KEY', label: 'App Key', sensitive: false },
       { envName: 'DINGTALK_APP_SECRET', label: 'App Secret', sensitive: true },
     ],
-    docsUrl: 'https://open.dingtalk.com/document/orgapp/create-an-enterprise-internal-application',
+    docsUrl: 'https://open.dingtalk.com/document/dingstart/robot-application-overview',
     steps: [
       { text: '在钉钉开放平台创建企业内部应用，获取 App Key 和 App Secret' },
       { text: '在「机器人与消息推送」中开启机器人能力' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '填写以下配置并保存，连接器会立即热生效' },
     ],
   },
   {
@@ -137,7 +134,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     steps: [
       { text: '在华为小艺开放平台创建智能体，新建凭证获取 AK / SK' },
       { text: '配置白名单分组，添加调试用华为账号' },
-      { text: '填写以下配置并保存，重启 API 服务后生效' },
+      { text: '填写以下配置并保存，连接器会立即热生效' },
     ],
   },
 ];
@@ -173,9 +170,12 @@ export interface PlatformStatus {
 export function buildConnectorStatus(env: Record<string, string | undefined> = process.env): PlatformStatus[] {
   return CONNECTOR_PLATFORMS.map((platform) => {
     const fields: PlatformFieldStatus[] = platform.fields.map((f) => {
-      const raw = env[f.envName];
-      const isSet = raw != null && raw !== '' && !raw.startsWith('(未设置');
-      const effectiveValue = isSet ? raw : (f.defaultValue ?? null);
+      const raw = getConnectorEnvValue(f.envName, env);
+      const ref = env[buildConnectorEnvRefVarName(f.envName)];
+      const isSet =
+        (raw != null && raw !== '' && !raw.startsWith('(未设置')) ||
+        (typeof ref === 'string' && ref.trim().length > 0 && !ref.startsWith('(未设置'));
+      const effectiveValue = isSet ? (raw ?? ref ?? null) : (f.defaultValue ?? null);
       return {
         envName: f.envName,
         label: f.label,
@@ -185,18 +185,14 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
     });
 
     let configured: boolean;
-    if (platform.fields.length === 0) {
+    if (platform.id === 'feishu') {
+      configured = Boolean(env.FEISHU_APP_ID && getConnectorEnvValue('FEISHU_APP_SECRET', env));
+    } else if (platform.fields.length === 0) {
       configured = false;
     } else {
       configured = platform.fields.every((f) => {
         if (f.optional) return true;
-        if (f.requiredWhen) {
-          const rawCondition = env[f.requiredWhen.envName];
-          const conditionValue = normalizeFeishuConnectionMode(rawCondition);
-          if (conditionValue !== f.requiredWhen.value) return true;
-        }
-        const raw = env[f.envName];
-        return raw != null && raw !== '' && !raw.startsWith('(未设置');
+        return hasConnectorEnvValue(f.envName, env);
       });
     }
 
@@ -214,11 +210,12 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
 
 export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> = async (app, opts) => {
   const { threadStore } = opts;
+  const feishuQrBindClient = opts.feishuQrBindClient ?? new DefaultFeishuQrBindClient();
 
   app.get('/api/connector/hub-threads', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return identityRequiredError();
     }
     const allThreads = await threadStore.list(userId);
     const hubThreads = allThreads
@@ -239,7 +236,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
   app.get('/api/connector/status', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return identityRequiredError();
     }
     const status = buildConnectorStatus();
     // F137: WeChat "configured" is based on adapter having a live bot_token, not env vars
@@ -251,10 +248,80 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     return { platforms: status };
   });
 
-  app.post('/api/connector/test/feishu', async (request, reply) => {
+  // ── Feishu QR code login routes ──
+
+  app.post('/api/connector/feishu/qrcode', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return identityRequiredError();
+
+    try {
+      const result = await feishuQrBindClient.create();
+      return result;
+    } catch (err) {
+      app.log.error({ err }, '[Feishu QR] Failed to fetch QR code');
+      reply.status(502);
+      return { error: '获取飞书二维码失败，请稍后重试' };
+    }
+  });
+
+  app.get('/api/connector/feishu/qrcode-status', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return identityRequiredError();
+
+    const { qrPayload } = request.query as { qrPayload?: string };
+    if (!qrPayload) {
+      reply.status(400);
+      return { error: '缺少 qrPayload 参数' };
+    }
+
+    try {
+      const status = await feishuQrBindClient.poll(qrPayload);
+      if (status.status !== 'confirmed') {
+        return status;
+      }
+
+      const updates = [
+        { name: 'FEISHU_APP_ID', value: status.appId ?? null },
+        { name: 'FEISHU_APP_SECRET', value: status.appSecret ?? null },
+        { name: 'FEISHU_CONNECTION_MODE', value: 'websocket' },
+        { name: 'FEISHU_VERIFICATION_TOKEN', value: null },
+      ];
+      const result = await applyConnectorSecretUpdates(updates, {
+        envFilePath: opts.envFilePath,
+        reconciler: opts.connectorRuntimeManager,
+      });
+      return { status: 'confirmed', ...(result.runtime ? { runtime: result.runtime } : {}) };
+    } catch (err) {
+      app.log.error({ err }, '[Feishu QR] Failed to poll QR status');
+      reply.status(502);
+      return { error: '查询飞书二维码状态失败，请稍后重试' };
+    }
+  });
+
+  app.post('/api/connector/feishu/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return identityRequiredError();
+
+    const result = await applyConnectorSecretUpdates(
+      [
+        { name: 'FEISHU_APP_ID', value: null },
+        { name: 'FEISHU_APP_SECRET', value: null },
+        { name: 'FEISHU_CONNECTION_MODE', value: null },
+        { name: 'FEISHU_VERIFICATION_TOKEN', value: null },
+        { name: 'FEISHU_BOT_OPEN_ID', value: null },
+      ],
+      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
+    );
+    app.log.info({ userId }, '[Feishu] Disconnected by user');
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
+  });
+
+  // ── DingTalk connectivity test ──
+
+  app.post('/api/connector/test/dingtalk', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
     if (!userId) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return identityRequiredError();
     }
 
     const body = (request.body ?? {}) as Record<string, unknown>;
@@ -263,68 +330,143 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       return typeof value === 'string' && value.trim() ? value.trim() : undefined;
     };
     const readEnv = (key: string): string | undefined => {
-      const value = process.env[key];
+      const value = getConnectorEnvValue(key);
       return value && !value.startsWith('(未设置') ? value : undefined;
     };
 
-    const appId = readInput('FEISHU_APP_ID') ?? readEnv('FEISHU_APP_ID');
-    const appSecret = readInput('FEISHU_APP_SECRET') ?? readEnv('FEISHU_APP_SECRET');
-    const connectionMode = normalizeFeishuConnectionMode(
-      readInput('FEISHU_CONNECTION_MODE') ?? readEnv('FEISHU_CONNECTION_MODE'),
-    );
-    const verificationToken =
-      readInput('FEISHU_VERIFICATION_TOKEN') ?? readEnv('FEISHU_VERIFICATION_TOKEN');
+    const appKey = readInput('DINGTALK_APP_KEY') ?? readEnv('DINGTALK_APP_KEY');
+    const appSecret = readInput('DINGTALK_APP_SECRET') ?? readEnv('DINGTALK_APP_SECRET');
 
-    if (!appId || !appSecret) {
+    if (!appKey || !appSecret) {
       reply.status(400);
-      return { ok: false, error: '缺少 FEISHU_APP_ID 或 FEISHU_APP_SECRET' };
+      return { ok: false, error: '缺少 DINGTALK_APP_KEY 或 DINGTALK_APP_SECRET' };
     }
 
     try {
-      const { FeishuTokenManager } = await import('../infrastructure/connectors/adapters/FeishuTokenManager.js');
-      const tokenManager = new FeishuTokenManager({ appId, appSecret });
-      const tenantAccessToken = await tokenManager.getTenantAccessToken();
-
-      const botInfoRes = await fetch('https://open.feishu.cn/open-apis/bot/v3/info', {
-        headers: { Authorization: `Bearer ${tenantAccessToken}` },
+      const tokenRes = await fetch(`${DINGTALK_API_BASE_URL}/v1.0/oauth2/accessToken`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appKey, appSecret }),
       });
-      const botInfoData = (await botInfoRes.json().catch(() => ({}))) as {
-        code?: number;
-        msg?: string;
-        bot?: { open_id?: string; name?: string; app_name?: string };
+
+      const tokenData = (await tokenRes.json().catch(() => ({}))) as {
+        accessToken?: string;
+        expireIn?: number;
+        code?: string;
+        message?: string;
       };
 
-      if (!botInfoRes.ok || botInfoData.code) {
+      if (!tokenRes.ok || !tokenData.accessToken) {
         reply.status(502);
         return {
           ok: false,
-          error: '获取机器人信息失败，请确认已在飞书开放平台开启机器人能力',
-          details: botInfoData.msg ?? `HTTP ${botInfoRes.status}`,
+          error: '钉钉认证失败，请确认 App Key / App Secret 是否正确',
+          details: tokenData.message
+            ? `钉钉接口返回异常：${tokenData.message}`
+            : `钉钉接口返回异常，HTTP ${tokenRes.status}`,
         };
-      }
-
-      const warnings: string[] = [];
-      if (connectionMode === 'webhook' && !verificationToken) {
-        warnings.push('当前为 webhook 模式，但未提供 Verification Token；事件订阅仍无法完成。');
       }
 
       return {
         ok: true,
-        message: '飞书应用认证成功，机器人信息可访问。',
-        connectionMode,
-        warnings,
-        bot: {
-          openId: botInfoData.bot?.open_id ?? null,
-          name: botInfoData.bot?.name ?? botInfoData.bot?.app_name ?? null,
-        },
+        message: '钉钉应用认证成功，AccessToken 可正常获取。',
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error';
+      const message = err instanceof Error ? err.message : '未知错误';
       reply.status(502);
       return {
         ok: false,
-        error: '飞书连接测试失败，请检查 App ID / App Secret 是否正确',
-        details: message,
+        error: '钉钉连接测试失败，请检查网络或 App Key / App Secret',
+        details: `请求钉钉接口失败：${message}`,
+      };
+    }
+  });
+
+  // ── XiaoYi connectivity test ──
+
+  app.post('/api/connector/test/xiaoyi', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) {
+      return identityRequiredError();
+    }
+
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const readInput = (key: string): string | undefined => {
+      const value = body[key];
+      return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+    };
+    const readEnv = (key: string): string | undefined => {
+      const value = getConnectorEnvValue(key);
+      return value && !value.startsWith('(未设置') ? value : undefined;
+    };
+
+    const ak = readInput('XIAOYI_AK') ?? readEnv('XIAOYI_AK');
+    const sk = readInput('XIAOYI_SK') ?? readEnv('XIAOYI_SK');
+    const agentId = readInput('XIAOYI_AGENT_ID') ?? readEnv('XIAOYI_AGENT_ID');
+
+    if (!ak || !sk || !agentId) {
+      reply.status(400);
+      return { ok: false, error: '缺少 XIAOYI_AK、XIAOYI_SK 或 XIAOYI_AGENT_ID' };
+    }
+
+    try {
+      const { generateXiaoyiSignature } = await import('../infrastructure/connectors/adapters/XiaoyiAdapter.js');
+
+      const timestamp = Date.now().toString();
+      const signature = generateXiaoyiSignature(sk, timestamp);
+
+      const wsUrl =
+        readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1') ?? 'wss://hag.cloud.huawei.com/openclaw/v1/ws/link';
+
+      const { WebSocket } = await import('ws');
+
+      const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
+        const timeout = setTimeout(() => {
+          ws.close();
+          resolve({ ok: false, error: 'WebSocket 握手超时（5秒）' });
+        }, 5_000);
+
+        const ws = new WebSocket(wsUrl, {
+          headers: {
+            'x-access-key': ak,
+            'x-sign': signature,
+            'x-ts': timestamp,
+            'x-agent-id': agentId,
+          },
+        });
+
+        ws.on('open', () => {
+          clearTimeout(timeout);
+          ws.close();
+          resolve({ ok: true });
+        });
+
+        ws.on('error', (err: Error) => {
+          clearTimeout(timeout);
+          resolve({ ok: false, error: err.message });
+        });
+      });
+
+      if (!result.ok) {
+        reply.status(502);
+        return {
+          ok: false,
+          error: '小艺平台连接测试失败，请检查 AK / SK / Agent ID',
+          details: result.error,
+        };
+      }
+
+      return {
+        ok: true,
+        message: '小艺平台 WebSocket 握手成功，凭据有效。',
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '未知错误';
+      reply.status(502);
+      return {
+        ok: false,
+        error: '小艺连接测试失败，请检查 AK / SK / Agent ID',
+        details: `请求小艺平台失败：${message}`,
       };
     }
   });
@@ -333,7 +475,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.post('/api/connector/weixin/qrcode', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     try {
       const { WeixinAdapter: WA } = await import('../infrastructure/connectors/adapters/WeixinAdapter.js');
@@ -342,18 +484,18 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     } catch (err) {
       app.log.error({ err }, '[WeChat QR] Failed to fetch QR code');
       reply.status(502);
-      return { error: 'Failed to fetch QR code from WeChat' };
+      return { error: '获取微信二维码失败，请稍后重试' };
     }
   });
 
   app.get('/api/connector/weixin/qrcode-status', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const { qrPayload } = request.query as { qrPayload?: string };
     if (!qrPayload) {
       reply.status(400);
-      return { error: 'qrPayload query parameter required' };
+      return { error: '缺少 qrPayload 参数' };
     }
 
     try {
@@ -364,7 +506,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         if (!opts.activateWeixinBotToken && !opts.weixinAdapter) {
           app.log.error('[WeChat QR] QR confirmed but adapter not available — token would be lost');
           reply.status(503);
-          return { error: 'WeChat adapter not ready — please retry shortly' };
+          return { error: '微信连接器尚未就绪，请稍后重试' };
         }
         if (opts.activateWeixinBotToken) {
           await opts.activateWeixinBotToken(status.botToken);
@@ -380,23 +522,23 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     } catch (err) {
       app.log.error({ err }, '[WeChat QR] Failed to poll QR status');
       reply.status(502);
-      return { error: 'Failed to poll QR code status' };
+      return { error: '查询微信二维码状态失败，请稍后重试' };
     }
   });
 
   app.post('/api/connector/weixin/activate', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const adapter = opts.weixinAdapter;
     if (!adapter) {
       reply.status(503);
-      return { error: 'WeChat adapter not available (connector gateway not started)' };
+      return { error: '微信连接器不可用，连接网关尚未启动' };
     }
 
     if (!adapter.hasBotToken()) {
       reply.status(409);
-      return { error: 'No bot_token available — complete QR code login first' };
+      return { error: '当前没有可用的 bot_token，请先完成二维码登录' };
     }
 
     opts.startWeixinPolling?.();
@@ -407,12 +549,12 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.post('/api/connector/weixin/disconnect', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
 
     const adapter = opts.weixinAdapter;
     if (!adapter || !opts.disconnectWeixinBotToken) {
       reply.status(503);
-      return { error: 'WeChat adapter not available (connector gateway not started)' };
+      return { error: '微信连接器不可用，连接网关尚未启动' };
     }
 
     await opts.disconnectWeixinBotToken();
@@ -421,11 +563,59 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     return { ok: true, configured: adapter.hasBotToken() && adapter.isPolling() };
   });
 
+  // ── DingTalk disconnect ──
+  app.post('/api/connector/dingtalk/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return identityRequiredError();
+
+    const result = await applyConnectorSecretUpdates(
+      [
+        { name: 'DINGTALK_APP_KEY', value: null },
+        { name: 'DINGTALK_APP_SECRET', value: null },
+      ],
+      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
+    );
+    app.log.info({ userId }, '[DingTalk] Disconnected by user');
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
+  });
+
+  // ── XiaoYi disconnect ──
+  app.post('/api/connector/xiaoyi/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return identityRequiredError();
+
+    const result = await applyConnectorSecretUpdates(
+      [
+        { name: 'XIAOYI_AK', value: null },
+        { name: 'XIAOYI_SK', value: null },
+        { name: 'XIAOYI_AGENT_ID', value: null },
+        { name: 'XIAOYI_WS_URL1', value: null },
+        { name: 'XIAOYI_WS_URL2', value: null },
+      ],
+      { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
+    );
+    app.log.info({ userId }, '[XiaoYi] Disconnected by user');
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
+  });
+
+  // ── Telegram disconnect ──
+  app.post('/api/connector/telegram/disconnect', async (request, reply) => {
+    const userId = requireTrustedHubIdentity(request, reply);
+    if (!userId) return identityRequiredError();
+
+    const result = await applyConnectorSecretUpdates([{ name: 'TELEGRAM_BOT_TOKEN', value: null }], {
+      envFilePath: opts.envFilePath,
+      reconciler: opts.connectorRuntimeManager,
+    });
+    app.log.info({ userId }, '[Telegram] Disconnected by user');
+    return { ok: true, ...(result.runtime ? { runtime: result.runtime } : {}) };
+  });
+
   // ── F134 Phase D: Connector Permission API ──
 
   app.get('/api/connector/permissions/:connectorId', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
     const { connectorId } = request.params as { connectorId: string };
     const store = opts.permissionStore;
     if (!store) {
@@ -436,12 +626,12 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
 
   app.put('/api/connector/permissions/:connectorId', async (request, reply) => {
     const userId = requireTrustedHubIdentity(request, reply);
-    if (!userId) return { error: 'Identity required' };
+    if (!userId) return identityRequiredError();
     const { connectorId } = request.params as { connectorId: string };
     const store = opts.permissionStore;
     if (!store) {
       reply.status(503);
-      return { error: 'Permission store not available' };
+      return { error: '渠道权限存储不可用' };
     }
     const body = request.body as {
       whitelistEnabled?: boolean;
