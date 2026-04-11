@@ -20,10 +20,12 @@ from typing import Any
 import psutil
 
 
-from jiuwenclaw.utils import USER_WORKSPACE_DIR, prepare_workspace
+from jiuwenclaw.utils import USER_WORKSPACE_DIR, prepare_workspace, update_config
 _config_file = USER_WORKSPACE_DIR / "config" / "config.yaml"
 if not _config_file.exists():
     prepare_workspace(overwrite=False)
+else:
+    update_config()
 
 # 减少日志打印
 from openjiuwen.core.common.logging import LogManager
