@@ -1,0 +1,53 @@
+import React, { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ConnectorConnectedState } from '@/components/ConnectorConnectedState';
+
+describe('ConnectorConnectedState', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.clearAllMocks();
+  });
+
+  it('uses the shared compact connected pill styling', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(ConnectorConnectedState, {
+          label: '已连接',
+          disconnecting: false,
+          onDisconnect: vi.fn(),
+          disconnectTestId: 'disconnect-btn',
+        }),
+      );
+    });
+
+    const pill = container.querySelector('[data-testid="connector-connected-pill"]') as HTMLDivElement | null;
+    expect(pill).not.toBeNull();
+    expect(pill?.className).toContain('w-1/2');
+    expect(pill?.className).toContain('h-[34px]');
+    expect(pill?.className).toContain('rounded-[8px]');
+    expect(pill?.className).toContain('border-[#e6e6e6]');
+    expect(pill?.className).toContain('bg-[#f5f5f5]');
+  });
+});

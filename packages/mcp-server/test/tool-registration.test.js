@@ -79,6 +79,7 @@ const EXPECTED_TOOLS = [
   'office_claw_list_schedule_templates',
   'office_claw_preview_scheduled_task',
   'office_claw_register_scheduled_task',
+  'office_claw_set_scheduled_task_enabled',
   'office_claw_remove_scheduled_task',
   // F101 Phase I: Game action tool
   'office_claw_submit_game_action',
@@ -111,6 +112,7 @@ const EXPECTED_COLLAB_TOOLS = [
   'office_claw_list_schedule_templates',
   'office_claw_preview_scheduled_task',
   'office_claw_register_scheduled_task',
+  'office_claw_set_scheduled_task_enabled',
   'office_claw_remove_scheduled_task',
   'office_claw_submit_game_action',
 ];

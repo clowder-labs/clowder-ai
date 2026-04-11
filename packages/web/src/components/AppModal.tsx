@@ -63,9 +63,19 @@ export function AppModal({
 }: AppModalProps) {
   if (!open) return null;
 
-  const handleBackdropClick = () => {
-    if (!disableBackdropClose) {
-      onClose();
+  const handleBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    // Prevent backdrop clicks from bubbling into underlying page handlers.
+    event.stopPropagation();
+    if (disableBackdropClose) return;
+    onClose();
+  };
+
+  const handleBackdropMouseDown = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    event.stopPropagation();
+    if (disableBackdropClose) {
+      event.preventDefault();
     }
   };
 
@@ -88,6 +98,7 @@ export function AppModal({
       aria-modal={backdropAriaModal}
       aria-label={backdropAriaLabel}
       className={joinClasses('ui-modal-backdrop', zIndexClassName, backdropClassName)}
+      onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
       data-testid={backdropTestId}
     >

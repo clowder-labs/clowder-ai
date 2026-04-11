@@ -32,7 +32,7 @@ export function CatAvatar({ catId, size = 32, status, showRing = false }: CatAva
 
   return (
     <div
-      className={`answer-avatar rounded-full overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center transition-shadow duration-300 ${
+      className={`answer-avatar rounded-full flex-shrink-0 bg-gray-100 flex items-center justify-center transition-shadow duration-300 ${
         showRing ? 'ring-2 ' : ''
       }${
         isStreaming ? 'animate-pulse' : ''

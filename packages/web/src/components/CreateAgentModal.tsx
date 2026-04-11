@@ -864,6 +864,9 @@ export function CreateAgentModal({
               <div className="text-[12px] text-[var(--text-muted)]">
                 {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
               </div>
+              {error ? (
+                <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div>
+              ) : null}
             </div>
 
             {true ? (
@@ -979,9 +982,6 @@ export function CreateAgentModal({
               )}
             </div>
           </div>
-          {error ? (
-            <div className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-[12px]">{error}</div>
-          ) : null}
         </div>
 
         <div data-testid="create-agent-modal-footer" className="flex shrink-0 justify-end gap-3">

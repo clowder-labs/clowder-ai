@@ -86,6 +86,8 @@ export class TaskRunnerV2 {
   private lastRunAt = new Map<string, number | null>();
   /** Phase 3A: track dynamic task IDs → DynamicTaskDef.id mapping */
   private dynamicTaskIds = new Map<string, string>();
+  /** Phase 3A: dynamic task runtime enabled state (independent of spec template default) */
+  private dynamicEnabled = new Map<string, boolean>();
   /** True after start() has been called — used to auto-schedule late-registered tasks */
   private started = false;
   private logger: TaskRunnerV2Options['logger'];
@@ -120,15 +122,44 @@ export class TaskRunnerV2 {
     this.tasks.push(task);
   }
 
-  /** Phase 3A: register a dynamic task and track its def ID */
-  registerDynamic(task: AnyTaskSpec, dynamicDefId: string): void {
+  /** Phase 3A: register a dynamic task and track its def ID + enabled state */
+  registerDynamic(task: AnyTaskSpec, dynamicDefId: string, enabled = true): void {
+    // Preserve template/base enabled logic, then AND with dynamic runtime toggle.
+    const baseEnabled = task.enabled.bind(task);
+    task.enabled = () => baseEnabled() && (this.dynamicEnabled.get(task.id) ?? true);
+
     this.register(task);
     this.dynamicTaskIds.set(task.id, dynamicDefId);
+    this.dynamicEnabled.set(task.id, enabled);
     // If runner is already started, schedule timer immediately — but defer first tick
     // so that user-registered tasks don't fire at t=0 (bug: "注册上就出触发了")
-    if (this.started) {
+    if (this.started && enabled) {
       this.scheduleTask(task, /* deferFirstTick */ true);
     }
+  }
+
+  /** Phase 3A: toggle dynamic task enabled state without unregistering from list/summaries */
+  setDynamicEnabled(taskId: string, enabled: boolean): boolean {
+    if (!this.dynamicTaskIds.has(taskId)) return false;
+    this.dynamicEnabled.set(taskId, enabled);
+
+    if (!enabled) {
+      const timer = this.timers.get(taskId);
+      if (timer) {
+        clearTimeout(timer);
+        clearInterval(timer);
+        this.timers.delete(taskId);
+      }
+      return true;
+    }
+
+    // Re-enable: ensure timer exists when runner is active.
+    if (this.started && !this.timers.has(taskId)) {
+      const task = this.tasks.find((t) => t.id === taskId);
+      if (task) this.scheduleTask(task, /* deferFirstTick */ true);
+    }
+
+    return true;
   }
 
   /** Phase 3A: unregister a task by spec ID (stops timer if running) */
@@ -145,12 +176,14 @@ export class TaskRunnerV2 {
     this.tickCounts.delete(taskId);
     this.lastRunAt.delete(taskId);
     this.dynamicTaskIds.delete(taskId);
+    this.dynamicEnabled.delete(taskId);
     return true;
   }
 
   /** Phase 3A: hydrate dynamic tasks from persistent store (AC-G3) */
   hydrateDynamic(store: DynamicTaskStore, templateGetter: { get: (id: string) => TaskTemplate | null }): number {
-    const defs = store.getAll().filter((d) => d.enabled);
+    // Load all defs so disabled dynamic tasks remain visible/queryable in summaries.
+    const defs = store.getAll();
     let loaded = 0;
     for (const def of defs) {
       const template = templateGetter.get(def.templateId);
@@ -166,7 +199,7 @@ export class TaskRunnerV2 {
       // Override display with persisted display
       spec.display = def.display;
       try {
-        this.registerDynamic(spec, def.id);
+        this.registerDynamic(spec, def.id, def.enabled);
         loaded++;
       } catch {
         // Duplicate — skip

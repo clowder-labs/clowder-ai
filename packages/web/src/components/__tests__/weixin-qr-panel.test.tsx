@@ -7,6 +7,8 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastContainer } from '@/components/ToastContainer';
+import { useToastStore } from '@/stores/toastStore';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
 
@@ -58,6 +60,7 @@ describe('F137 Phase C — WeixinQrPanel', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    useToastStore.setState({ toasts: [] });
     mockApiFetch.mockReset();
   });
 
@@ -104,6 +107,36 @@ describe('F137 Phase C — WeixinQrPanel', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/connector/weixin/disconnect', { method: 'POST' });
     expect(queryTestId(container, 'weixin-generate-qr')).not.toBeNull();
+  });
+
+  it('shows a global success toast after disconnect succeeds', async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse({ ok: true, configured: false }));
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(WeixinQrPanel, { configured: true }),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const disconnectButton = queryTestId(container, 'weixin-disconnect') as HTMLButtonElement | null;
+    expect(disconnectButton).not.toBeNull();
+
+    await act(async () => {
+      disconnectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.type === 'success' && toast.title === '断开连接成功' && toast.message.includes('已断开连接')),
+    ).toBe(true);
   });
 
   it('shows disconnect error and stays connected when disconnect fails', async () => {

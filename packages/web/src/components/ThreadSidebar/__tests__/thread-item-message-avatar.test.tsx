@@ -54,6 +54,12 @@ describe('ThreadItem message avatar', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
+  async function flush() {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
   it('shows avatar from mentioned cat id in thread messages when thread has no participants yet', () => {
     act(() => {
       root.render(
@@ -83,5 +89,65 @@ describe('ThreadItem message avatar', () => {
     const img = container.querySelector('img[alt="九文爪"]') as HTMLImageElement | null;
     expect(img).toBeTruthy();
     expect(img?.getAttribute('src')).toBe('/avatars/jiuwen.png');
+  });
+
+  it('renders a 32x32 sidebar avatar and keeps png images proportionally scaled', () => {
+    act(() => {
+      root.render(
+        React.createElement(ThreadItem, {
+          id: 'thread-1',
+          title: 'avatar-size-check',
+          participants: ['jiuwenclaw'],
+          lastActiveAt: Date.now(),
+          isActive: false,
+          onSelect: vi.fn(),
+          threadState: DEFAULT_THREAD_STATE,
+        }),
+      );
+    });
+
+    const avatarShell = container.querySelector('.answer-avatar') as HTMLDivElement | null;
+    const avatarImage = container.querySelector('.ui-avatar-image') as HTMLImageElement | null;
+
+    expect(avatarShell).toBeTruthy();
+    expect(avatarShell?.style.width).toBe('32px');
+    expect(avatarShell?.style.height).toBe('32px');
+    expect(avatarImage).toBeTruthy();
+    expect(avatarImage?.className).toContain('object-contain');
+  });
+
+  it('uses the shared tooltip for the thread title instead of a native title attribute', async () => {
+    act(() => {
+      root.render(
+        React.createElement(ThreadItem, {
+          id: 'thread-2',
+          title: 'very-long-thread-title-for-tooltip',
+          participants: [],
+          lastActiveAt: Date.now(),
+          isActive: false,
+          onSelect: vi.fn(),
+          threadState: DEFAULT_THREAD_STATE,
+        }),
+      );
+    });
+    await flush();
+
+    const row = container.querySelector('.ui-thread-item') as HTMLDivElement | null;
+    const title = container.querySelector('.ui-thread-title') as HTMLSpanElement | null;
+    expect(row).toBeTruthy();
+    expect(row?.getAttribute('title')).toBeNull();
+    expect(title).toBeTruthy();
+
+    Object.defineProperty(title!, 'clientWidth', { configurable: true, value: 80 });
+    Object.defineProperty(title!, 'scrollWidth', { configurable: true, value: 220 });
+
+    act(() => {
+      title?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    await flush();
+
+    const tooltip = document.body.querySelector('[role="tooltip"]') as HTMLDivElement | null;
+    expect(tooltip).not.toBeNull();
+    expect(tooltip?.textContent).toContain('very-long-thread-title-for-tooltip');
   });
 });
