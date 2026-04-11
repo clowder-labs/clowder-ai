@@ -1428,20 +1428,19 @@ class JiuClawReActAgent(ReActAgent):
         return tool_msg
 
     def _maybe_track_active_skill(self, tc: Any, tool_msg: Any) -> None:
-        """When the agent reads a SKILL.md via view_file/file_read or loads a skill via MCP load_skill, mark that skill as active."""
+        """When the agent reads a SKILL.md via skill_initial_load or loads a skill via MCP load_skill, mark that skill as active."""
         tool_name = getattr(tc, "name", "")
 
-        # Path 1: view_file or file_read reading a SKILL.md
-        if tool_name in ("view_file", "file_read"):
+        # Path 1: skill_initial_load reading a SKILL.md
+        if tool_name == "skill_initial_load":
             try:
                 args = fix_json_arguments(tc.arguments)
-                file_path: str = args.get("file_path", "")
+                skill_name = args.get("skill_name", "")
             except Exception:
                 return
-            m = self._SKILL_MD_RE.search(file_path)
-            if m:
+            if skill_name:
                 content = tool_msg.content if isinstance(tool_msg.content, str) else str(tool_msg.content)
-                self._activate_skill(m.group(1), content, tool_msg)
+                self._activate_skill(skill_name, content, tool_msg)
             return
 
         # Path 2: MCP office_claw_load_skill (returns JSON with skillMarkdown)
