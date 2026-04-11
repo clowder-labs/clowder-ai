@@ -1,0 +1,389 @@
+'use client';
+
+import Image from 'next/image';
+import { useEffect, useRef, useState } from 'react';
+import {
+  fetchUsageStatsPage,
+  type UsageRange,
+  type UsageStatsPageQuery,
+  type UsageStatsPageResult,
+} from '@/services/usageStats';
+import { AppModal } from './AppModal';
+import { EmptyDataState } from './shared/EmptyDataState';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
+
+interface UsageStatsModalProps {
+  open: boolean;
+  onClose: () => void;
+  fetchPage?: (query: UsageStatsPageQuery) => Promise<UsageStatsPageResult>;
+}
+
+const PAGE_SIZE = 6;
+const MIN_LOADING_MS = 300;
+
+const RANGE_OPTIONS: Array<{ value: UsageRange; label: string }> = [
+  { value: 'today', label: '今日' },
+  { value: '3d', label: '近3日' },
+  { value: '7d', label: '近7日' },
+  { value: '30d', label: '近30日' },
+];
+
+const EMPTY_RESULT: UsageStatsPageResult = {
+  items: [],
+  page: 1,
+  pageSize: PAGE_SIZE,
+  total: 0,
+};
+
+const TABLE_STATE_ROW_HEIGHT_CLASS = 'h-40';
+
+export function formatPaginationPages(currentPage: number, totalPages: number): Array<number | 'ellipsis'> {
+  if (totalPages <= 8) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set<number>([
+    1,
+    2,
+    totalPages - 1,
+    totalPages,
+    currentPage - 2,
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    currentPage + 2,
+  ]);
+  const sortedPages = Array.from(pages).filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  const result: Array<number | 'ellipsis'> = [];
+
+  for (let index = 0; index < sortedPages.length; index += 1) {
+    const page = sortedPages[index];
+    const previous = sortedPages[index - 1];
+    if (previous != null && page - previous > 1) {
+      result.push('ellipsis');
+    }
+    result.push(page);
+  }
+
+  return result;
+}
+
+function formatTokenValue(value: number): string {
+  if (value >= 1000) {
+    const shortened = value / 1000;
+    const rounded = Number.isInteger(shortened) ? shortened.toFixed(0) : shortened.toFixed(1);
+    return `${rounded}k`;
+  }
+  return value.toLocaleString();
+}
+
+function renderTokenValue(value: number | null): string {
+  if (value == null) return '';
+  return formatTokenValue(value);
+}
+
+export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage }: UsageStatsModalProps) {
+  const rangeMenuRef = useRef<HTMLDivElement | null>(null);
+  const [range, setRange] = useState<UsageRange>('7d');
+  const [page, setPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<UsageStatsPageResult>(EMPTY_RESULT);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      const startedAt = Date.now();
+      setIsLoading(true);
+      setError(null);
+      try {
+        const next = await fetchPage({ page, pageSize: PAGE_SIZE, range });
+        if (cancelled) return;
+        setResult({
+          items: next.items ?? [],
+          page: next.page ?? page,
+          pageSize: next.pageSize ?? PAGE_SIZE,
+          total: next.total ?? 0,
+        });
+      } catch {
+        if (cancelled) return;
+        setError('用量数据加载失败，请稍后重试');
+        setResult(EMPTY_RESULT);
+      } finally {
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < MIN_LOADING_MS) {
+          await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
+        }
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPage, open, page, range, refreshKey]);
+
+  useEffect(() => {
+    if (!open) {
+      setIsRangeMenuOpen(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!isRangeMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (rangeMenuRef.current?.contains(event.target as Node)) return;
+      setIsRangeMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [isRangeMenuOpen]);
+
+  const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+  const showPagination = result.total > PAGE_SIZE;
+  const paginationItems = showPagination ? formatPaginationPages(page, totalPages) : [];
+
+  const handleRefresh = () => {
+    if (isLoading) return;
+    setRefreshKey((current) => current + 1);
+  };
+
+  const handleChangeRange = (nextRange: UsageRange) => {
+    if (isLoading) return;
+    setRange(nextRange);
+    setPage(1);
+    setIsRangeMenuOpen(false);
+  };
+
+  return (
+    <AppModal
+      open={open}
+      onClose={onClose}
+      title={'用量统计'}
+      backdropRole="dialog"
+      backdropAriaModal
+      backdropAriaLabel={'用量统计弹窗'}
+      panelClassName="w-full max-w-[900px]"
+      bodyClassName="pt-6"
+      disableBackdropClose
+      panelTestId="usage-stats-modal-panel"
+      bodyTestId="usage-stats-modal-body"
+      closeButtonAriaLabel={'关闭用量统计弹窗'}
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-[14px] font-semibold leading-none text-[#191919]">{'Tokens消耗'}</h4>
+
+          <div className="flex items-center gap-2">
+            <div className="relative" ref={rangeMenuRef}>
+              <button
+                type="button"
+                className="flex items-center gap-1 text-[12px] font-medium text-[#191919]"
+                onClick={() => {
+                  if (isLoading) return;
+                  setIsRangeMenuOpen((current) => !current);
+                }}
+                disabled={isLoading}
+                data-testid="usage-stats-range-trigger"
+              >
+                {RANGE_OPTIONS.find((option) => option.value === range)?.label ?? '近7日'}
+                <svg className="h-4 w-4 text-[#7C7C7C]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </button>
+
+              {isRangeMenuOpen ? (
+                <div
+                  className="absolute right-0 top-full z-10 mt-2 min-w-[104px] rounded-xl border border-[#ECECEC] bg-white p-1.5 shadow-[0px_10px_30px_rgba(0,0,0,0.08)]"
+                  data-testid="usage-stats-range-menu"
+                >
+                  {RANGE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`flex w-full rounded-lg px-3 py-2 text-left text-[12px] ${
+                        option.value === range ? 'text-[#1476FF]' : 'text-[#191919] hover:bg-[#F5F5F5]'
+                      }`}
+                      onClick={() => handleChangeRange(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="h-4 w-px bg-[#DBDBDB]" aria-hidden="true" />
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="inline-flex items-center justify-center text-[#4A4A4A]"
+              aria-label={'刷新'}
+              disabled={isLoading}
+              data-testid="usage-stats-refresh"
+            >
+              <Image src="/images/agent-management-icons/agent-refresh.svg" alt="" aria-hidden="true" width={16} height={16} className="shrink-0" />
+            </button>
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden rounded-[0.5rem] border border-[#F0F0F0] bg-white">
+          <table className="w-full border-collapse table-fixed">
+            <thead className="bg-[#F5F5F5]">
+              <tr className="text-left text-[12px] text-[#595959]">
+                <th className="relative h-12 border-b border-[#F0F0F0] px-4 py-0">
+                  {'会话'}
+                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                </th>
+                <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
+                  {'Input Tokens消耗'}
+                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                </th>
+                <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
+                  {'Output Tokens消耗'}
+                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                </th>
+                <th className="relative h-12 w-[132px] border-b border-[#F0F0F0] px-4 py-0">
+                  {'总Tokens消耗'}
+                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                </th>
+                <th className="h-12 w-[220px] border-b border-[#F0F0F0] px-4 py-0">{'时间'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {error ? (
+                <tr>
+                  <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`}>
+                    <div className="flex h-full items-center justify-center">
+                      <EmptyDataState />
+                    </div>
+                  </td>
+                </tr>
+              ) : isLoading && result.items.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`} />
+                </tr>
+              ) : !isLoading && result.items.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`}>
+                    <div className="flex h-full items-center justify-center">
+                      <EmptyDataState />
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                result.items.map((item) => (
+                  <tr key={item.id} className="border-t border-[#F0F0F0]" data-testid={`usage-stats-row-${item.id}`}>
+                    <td className="h-16 px-4 py-0 text-[14px] text-[#191919]">
+                      <OverflowTooltip content={item.sessionName} className="w-full">
+                        <span className="block truncate">{item.sessionName}</span>
+                      </OverflowTooltip>
+                    </td>
+                    <td
+                      className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                      title={item.inputTokensUsed != null ? item.inputTokensUsed.toLocaleString() : undefined}
+                    >
+                      {renderTokenValue(item.inputTokensUsed)}
+                    </td>
+                    <td
+                      className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                      title={item.outputTokensUsed != null ? item.outputTokensUsed.toLocaleString() : undefined}
+                    >
+                      {renderTokenValue(item.outputTokensUsed)}
+                    </td>
+                    <td
+                      className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                      title={item.totalTokensUsed != null ? item.totalTokensUsed.toLocaleString() : undefined}
+                    >
+                      {renderTokenValue(item.totalTokensUsed)}
+                    </td>
+                    <td className="h-16 px-4 py-0 text-[12px] text-[#4A4A4A]">{item.occurredAt}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+
+          {isLoading ? (
+            <div
+              className="absolute inset-x-0 bottom-0 top-12 flex items-center justify-center bg-white/45"
+              data-testid="usage-stats-loading-overlay"
+            >
+              <CenteredLoadingState />
+            </div>
+          ) : null}
+        </div>
+
+        {showPagination ? (
+          <div className="flex items-center justify-end gap-1" data-testid="usage-stats-pagination">
+            <button
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[#7C7C7C] disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => {
+                if (isLoading) return;
+                setPage((current) => Math.max(1, current - 1));
+              }}
+              disabled={isLoading || page <= 1}
+              aria-label={'上一页'}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M11.5 5L6.5 10L11.5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            {paginationItems.map((item, index) =>
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${index}`} className="px-2 text-[14px] text-[#7C7C7C]">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${
+                    item === page ? 'bg-[#F5F5F5] text-[#191919]' : 'text-[#595959] hover:bg-[#F5F5F5]'
+                  }`}
+                  onClick={() => {
+                    if (isLoading) return;
+                    setPage(item);
+                  }}
+                  disabled={isLoading}
+                >
+                  {item}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[#7C7C7C] disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => {
+                if (isLoading) return;
+                setPage((current) => Math.min(totalPages, current + 1));
+              }}
+              disabled={isLoading || page >= totalPages}
+              aria-label={'下一页'}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M8.5 5L13.5 10L8.5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </AppModal>
+  );
+}
