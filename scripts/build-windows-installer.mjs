@@ -852,8 +852,41 @@ function pruneDateFnsLocales(rootDir) {
   }
 }
 
-function createRuntimePackageJson(sourcePath, options = {}) {
+function resolveInstalledPackageVersion(nodeModulesDir, packageName) {
+  const packageJsonPath = join(nodeModulesDir, packageName, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return null;
+  }
+  const installed = readJson(packageJsonPath);
+  return typeof installed.version === 'string' && installed.version.trim().length > 0 ? installed.version.trim() : null;
+}
+
+function resolveInstalledPackageVersionFrom(nodeModulesDirs, packageName) {
+  for (const nodeModulesDir of nodeModulesDirs) {
+    const installedVersion = resolveInstalledPackageVersion(nodeModulesDir, packageName);
+    if (installedVersion) {
+      return installedVersion;
+    }
+  }
+  return null;
+}
+
+function pinRuntimeDependencyVersions(sourceDir, dependencies, overrides = {}) {
+  const nodeModulesDirs = [join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
+  return Object.fromEntries(
+    Object.entries(dependencies).map(([dependency, specifier]) => {
+      if (overrides[dependency]) {
+        return [dependency, overrides[dependency]];
+      }
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      return [dependency, installedVersion ?? specifier];
+    }),
+  );
+}
+
+export function createRuntimePackageJson(sourcePath, options = {}) {
   const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
   const runtimePackage = {
     name: source.name,
     version: source.version,
@@ -872,16 +905,16 @@ function createRuntimePackageJson(sourcePath, options = {}) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
 
-  const dependencies = { ...(source.dependencies ?? {}) };
-  if (dependencies['@cat-cafe/shared']) {
-    dependencies['@cat-cafe/shared'] = 'file:../shared';
-  }
+  const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
+    '@cat-cafe/shared': 'file:../shared',
+  });
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
   }
 
-  if (source.optionalDependencies && Object.keys(source.optionalDependencies).length > 0) {
-    runtimePackage.optionalDependencies = source.optionalDependencies;
+  const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
+  if (Object.keys(optionalDependencies).length > 0) {
+    runtimePackage.optionalDependencies = optionalDependencies;
   }
 
   return runtimePackage;
@@ -889,19 +922,21 @@ function createRuntimePackageJson(sourcePath, options = {}) {
 
 function createBundledApiRuntimePackageJson(sourcePath) {
   const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
   const runtimePackage = createRuntimePackageJson(sourcePath, {
     scripts: {
       start: 'node dist/index.js',
     },
   });
+  const nodeModulesDirs = [join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
   const runtimeDependencies = Object.fromEntries(
     API_RUNTIME_EXTERNAL_DEPENDENCIES.flatMap((dependency) => {
-      const sourceVersion = source.dependencies?.[dependency];
-      if (sourceVersion) {
-        return [[dependency, sourceVersion]];
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      if (installedVersion) {
+        return [[dependency, installedVersion]];
       }
-      const installedVersion = resolveInstalledPackageVersion(ROOT_NODE_MODULES_DIR, dependency);
-      return installedVersion ? [[dependency, installedVersion]] : [];
+      const sourceVersion = source.dependencies?.[dependency];
+      return sourceVersion ? [[dependency, sourceVersion]] : [];
     }),
   );
   if (Object.keys(runtimeDependencies).length > 0) {
@@ -913,30 +948,23 @@ function createBundledApiRuntimePackageJson(sourcePath) {
   return runtimePackage;
 }
 
-function resolveInstalledPackageVersion(nodeModulesDir, packageName) {
-  const packageJsonPath = join(nodeModulesDir, packageName, 'package.json');
-  if (!existsSync(packageJsonPath)) {
-    return null;
-  }
-  const installed = readJson(packageJsonPath);
-  return typeof installed.version === 'string' && installed.version.trim().length > 0 ? installed.version.trim() : null;
-}
-
-function createStandaloneWebRuntimePackageJson(sourcePath) {
+export function createStandaloneWebRuntimePackageJson(sourcePath) {
   const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
   const runtimePackage = createRuntimePackageJson(sourcePath, {
     scripts: {
       start: 'node server.js',
     },
   });
+  const nodeModulesDirs = [WEB_STANDALONE_NODE_MODULES_DIR, join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
   const runtimeDependencies = Object.fromEntries(
     WEB_RUNTIME_DEPENDENCIES.flatMap((dependency) => {
-      const sourceVersion = source.dependencies?.[dependency];
-      if (sourceVersion) {
-        return [[dependency, sourceVersion]];
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      if (installedVersion) {
+        return [[dependency, installedVersion]];
       }
-      const installedVersion = resolveInstalledPackageVersion(WEB_STANDALONE_NODE_MODULES_DIR, dependency);
-      return installedVersion ? [[dependency, installedVersion]] : [];
+      const sourceVersion = source.dependencies?.[dependency];
+      return sourceVersion ? [[dependency, sourceVersion]] : [];
     }),
   );
   if (Object.keys(runtimeDependencies).length > 0) {
