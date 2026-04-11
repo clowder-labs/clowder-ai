@@ -13,13 +13,14 @@ import { UserProfile } from '../UserProfile';
 const mockReplace = vi.fn();
 const mockSetTheme = vi.fn();
 const mockWindowOpen = vi.fn();
+let currentTheme: 'business' | 'warm' = 'business';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
-  useTheme: () => ({ theme: 'business', setTheme: mockSetTheme }),
+  useTheme: () => ({ theme: currentTheme, setTheme: mockSetTheme }),
 }));
 
 vi.mock('@/utils/api-client', () => ({
@@ -62,6 +63,7 @@ describe('UserProfile overlay classes', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    currentTheme = 'business';
     mockReplace.mockReset();
     mockSetTheme.mockReset();
     mockWindowOpen.mockReset();
@@ -214,6 +216,85 @@ describe('UserProfile overlay classes', () => {
     await flush();
     expect(container.querySelector('[data-testid="user-theme-popover"]')).toBeNull();
     expect(container.querySelector('[data-testid="user-profile-theme-arrow"]')).toBeTruthy();
+  });
+
+  it('uses the warm selected badge color for the orange-white theme option', async () => {
+    currentTheme = 'warm';
+
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    const panel = container.querySelector('[data-testid="user-profile-panel"]') as HTMLDivElement | null;
+    const themeAnchor = container.querySelector('[data-testid="user-profile-theme-anchor"]') as HTMLDivElement | null;
+    const themeTrigger = container.querySelector('[data-testid="user-profile-theme-trigger"]') as HTMLButtonElement | null;
+    const rootElement = container.firstElementChild as HTMLElement | null;
+
+    expect(panel).toBeTruthy();
+    expect(themeAnchor).toBeTruthy();
+    expect(themeTrigger).toBeTruthy();
+    expect(rootElement).toBeTruthy();
+
+    Object.defineProperty(rootElement!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 20,
+        top: 100,
+        right: 220,
+        bottom: 300,
+        width: 200,
+        height: 200,
+        x: 20,
+        y: 100,
+        toJSON: () => ({}),
+      }),
+    });
+    Object.defineProperty(themeAnchor!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 32,
+        top: 180,
+        right: 204,
+        bottom: 220,
+        width: 172,
+        height: 40,
+        x: 32,
+        y: 180,
+        toJSON: () => ({}),
+      }),
+    });
+    Object.defineProperty(panel!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 32,
+        top: 116,
+        right: 208,
+        bottom: 296,
+        width: 176,
+        height: 180,
+        x: 32,
+        y: 116,
+        toJSON: () => ({}),
+      }),
+    });
+
+    act(() => {
+      themeTrigger?.click();
+    });
+    await flush();
+
+    const warmBadge = container.querySelector('[data-testid="user-theme-selected-badge-warm"]') as HTMLDivElement | null;
+    expect(warmBadge).toBeTruthy();
+    expect(warmBadge?.style.backgroundColor).toBe('rgb(204, 109, 26)');
   });
 
   it('opens the help document when the help action is clicked', async () => {
