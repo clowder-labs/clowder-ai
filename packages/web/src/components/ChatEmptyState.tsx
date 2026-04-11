@@ -28,7 +28,7 @@ const heroCards: EmptyStateCard[] = [
   {
     id: 'agents',
     title: '智能体配置',
-    description: '设置智能体人设及记忆，让 OfficeClaw 更了解你。',
+    description: '设置智能体人设，让 OfficeClaw 更了解你。',
     imageSrc: '/images/chat-empty-agent.svg',
     imageAlt: '智能体配置',
   },

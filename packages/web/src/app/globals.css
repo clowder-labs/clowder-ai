@@ -160,7 +160,7 @@
   --card-muted-bg: #f4f5f7;
   --card-border: #e6e6e6;
   --card-radius: 16px;
-  --card-padding: 21px;
+  --card-padding: 24px;
   --card-hover-border: #7fb2ff;
   --card-shadow: 0 10px 30px -24px rgba(17, 17, 17, 0.12);
   --card-hover-shadow: 0px 4px 16px 0px rgba(0, 0, 0, 0.08);
@@ -217,6 +217,7 @@
 
 [data-ui-theme="warm"] {
   --surface-app: linear-gradient(180deg, rgba(255, 247, 241, 0.6) 0%, rgba(255, 250, 245, 0.6) 100%);
+  --shell-surface-bg: #FFFBF7;
   --surface-sidebar: linear-gradient(180deg, #faecdc 0%, #fff8f1 100%);
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
@@ -264,6 +265,7 @@
   --card-radius: 16px;
   --card-padding: 21px;
   --card-hover-border: var(--border-accent);
+  --card-hover-bg: #ffffff;
   --card-shadow: var(--shadow-card-soft);
   --card-hover-shadow: 0px 4px 16px 0px rgba(0, 0, 0, 0.08);
   --card-disabled-bg: color-mix(in srgb, var(--surface-card-muted) 94%, white);
@@ -338,6 +340,7 @@
 
 [data-ui-theme="business"] {
   --surface-app: #ffffff;
+  --shell-surface-bg: var(--surface-app);
   --surface-sidebar: #f6f7f9;
   --surface-panel: #ffffff;
   --surface-card: #ffffff;
@@ -383,8 +386,9 @@
   --card-muted-bg: var(--surface-card-muted);
   --card-border: #e6e6e6;
   --card-radius: 16px;
-  --card-padding: 21px;
+  --card-padding: 24px;
   --card-hover-border: var(--border-accent);
+  --card-hover-bg: var(--card-muted-bg);
   --card-shadow: var(--shadow-card-soft);
   --card-hover-shadow: 0px 4px 16px 0px rgba(0, 0, 0, 0.08);
   --card-disabled-bg: color-mix(in srgb, var(--surface-card-muted) 88%, white);
@@ -587,6 +591,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-card-hover:hover {
+    background: var(--card-hover-bg);
     box-shadow: var(--card-hover-shadow);
   }
 
@@ -600,7 +605,6 @@ select:-webkit-autofill:focus {
   }
 
   .ui-overlay-card {
-    border: var(--border-width-default) solid var(--overlay-border);
     border-radius: var(--radius-md);
     background: var(--overlay-bg);
     box-shadow: var(--overlay-shadow);
@@ -1295,11 +1299,13 @@ select:-webkit-autofill:focus {
   .ui-badge-muted {
     display: inline-flex;
     align-items: center;
+    height: 18px;
     gap: var(--space-1);
+    color: var(--text-primary);
     background: var(--tag-bg);
     font-size: var(--font-size-sm);
     line-height: 1;
-    padding: 2px 4px;
+    padding: 0px 4px;
     border-radius: 2px;
   }
 
@@ -1322,7 +1328,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-shell-surface {
-    background: var(--surface-app);
+    background: var(--shell-surface-bg, var(--surface-app));
     color: var(--text-primary);
   }
 

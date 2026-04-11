@@ -1410,15 +1410,18 @@ export function ChatInput({
                           <span className="truncate">{folderButtonLabel}</span>
                         </button>
                       </OverflowTooltip>
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                        aria-label="Attach files"
-                        title="选择附件"
-                      >
-                        <AttachIcon className="h-5 w-5" />
-                      </button>
+                      <OverflowTooltip content="选择附件" forceShow className="inline-flex">
+                        <button
+                          type="button"
+                          data-testid="attach-file-button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label="选择附件"
+                        >
+                          <AttachIcon className="h-5 w-5" />
+                        </button>
+                      </OverflowTooltip>
                       <ChatInputActionButton
                         onTranscript={handleTranscript}
                         onSend={handleSend}
