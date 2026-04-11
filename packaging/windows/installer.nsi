@@ -84,7 +84,8 @@ Page custom FinishPageCreate FinishPageLeave
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
 Var LicenseDialog
-Var AgreementCheckbox
+Var AgreeRadio
+Var DisagreeRadio
 Var NextButton
 Var WelcomeDialog
 Var OptionsDialog
