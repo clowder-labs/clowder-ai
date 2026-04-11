@@ -74,14 +74,9 @@ test('Windows offline installer prefers plain Redis portable zips before service
 
 test('Windows offline bundle builder deploys production packages and bundles Windows runtimes', () => {
   assert.match(buildScript, /WINDOWS_RUNTIME_NPM_ARGS = \[\s*'install',\s*'--omit=dev'/);
-  assert.match(buildScript, /const entries = \['cat-cafe-skills', 'LICENSE', '\.env\.example', 'cat-template\.json'\]/);
   assert.match(
     buildScript,
-    /const DARE_WINDOWS_EXE_SOURCE = join\(repoRoot, 'vendor', 'dare-cli', 'dist', 'dare\.exe'\)/,
-  );
-  assert.match(
-    buildScript,
-    /const JIUWENCLAW_WINDOWS_EXE_SOURCE = join\(repoRoot, 'vendor', 'jiuwenclaw', 'dist', 'jiuwenclaw\.exe'\)/,
+    /const entries = \[\s*'cat-cafe-skills',\s*'LICENSE',\s*'\.env\.example',\s*'cat-template\.json',\s*'modelarts-preset\.json',\s*'pnpm-workspace\.yaml',\s*\]/,
   );
   assert.match(buildScript, /RUNTIME_SCRIPT_FILES = \[/);
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'shared'/);
@@ -125,44 +120,12 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   );
   assert.match(
     buildScript,
-    /writeJson\(join\(targetDir, 'package\.json'\), createStandaloneWebRuntimePackageJson\(join\(repoRoot, 'packages', 'web', 'package\.json'\)\)\)/,
+    /writeJson\(\s*join\(targetDir, 'package\.json'\),\s*createStandaloneWebRuntimePackageJson\(join\(repoRoot, 'packages', 'web', 'package\.json'\)\),\s*\)/,
   );
   assert.match(buildScript, /writeFileSync\(join\(targetDir, 'server\.js'\), RUNTIME_WEB_STANDALONE_SERVER, 'utf8'\)/);
   assert.match(buildScript, /runWindowsNpmInstall\(windowsNode\.npmCmdPath/);
   assert.match(buildScript, /for \(const packageName of \['api', 'mcp-server', 'web'\]\)/);
-  assert.match(buildScript, /buildVendoredDareExecutable\(options\)/);
-  assert.match(buildScript, /stageVendoredDareExecutable\(bundleDir, dareExecutable\)/);
-  assert.match(buildScript, /cpSync\(executablePath, join\(vendorDir, 'dare\.exe'\), \{ force: true \}\)/);
-  assert.match(buildScript, /buildVendoredJiuwenClawExecutable\(options\)/);
-  assert.match(buildScript, /stageVendoredJiuwenClawExecutable\(bundleDir, jiuwenClawExecutable\)/);
-  assert.match(buildScript, /cpSync\(executablePath, join\(vendorDir, 'jiuwenclaw\.exe'\), \{ force: true \}\)/);
-  assert.match(buildScript, /'install-python-wheelhouse\.ps1'/);
-  assert.match(buildScript, /'manual-install-windows-runtime-wheelhouse\.ps1'/);
-  assert.match(buildScript, /const DEFAULT_WHEELHOUSE_DIR = join\(repoRoot, 'dist', 'windows-python-wheelhouse'\)/);
-  assert.match(
-    buildScript,
-    /const PYTHON_WHEELHOUSE_CONFIG = join\(repoRoot, 'packaging', 'windows', 'python-runtime-wheelhouse\.json'\)/,
-  );
-  assert.match(buildScript, /function writePythonRuntimePth\(targetDir, options = \{\}\)/);
-  assert.match(buildScript, /writePythonRuntimePth\(targetDir, \{ includeVendorPaths: false \}\)/);
-  assert.match(buildScript, /function resolveStagedWindowsPythonWheelhouse\(\)/);
-  assert.match(buildScript, /function stageWindowsPythonWheelhouse\(\)/);
-  assert.match(buildScript, /logStep\('Preparing Python wheelhouse'\)/);
-  assert.match(buildScript, /pythonWheelhouse = stageWindowsPythonWheelhouse\(\)/);
-  assert.match(buildScript, /pythonWheelhouse = resolveStagedWindowsPythonWheelhouse\(\)/);
-  assert.match(buildScript, /stageInstallerSeed\(bundleDir, pythonWheelhouse\)/);
-  assert.match(
-    buildScript,
-    /cpSync\(wheelhouse\.manifestPath, join\(seedDir, 'python-wheelhouse-manifest\.json'\), \{ force: true \}\)/,
-  );
-  assert.match(
-    buildScript,
-    /cpSync\(wheelhouseSource, join\(seedDir, 'wheelhouse'\), \{ recursive: true, force: true \}\)/,
-  );
-  assert.match(
-    buildScript,
-    /if \(entry\.name\.endsWith\('\\.egg-info'\) \|\| entry\.name\.endsWith\('\\.dist-info'\)\) continue;/,
-  );
+  assert.match(buildScript, /stageInstallerSeed\(bundleDir\)/);
   assert.doesNotMatch(buildScript, /__pycache__/);
   assert.doesNotMatch(buildScript, /entry\.name\.endsWith\('\\.pyc'\)/);
   assert.match(buildScript, /run\('pnpm', \['--filter', '@cat-cafe\/shared', 'run', 'build'\]\)/);
@@ -177,16 +140,13 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /'tailwind\.config\.js'/);
   assert.match(buildScript, /'vitest\.config\.ts'/);
   assert.match(buildScript, /'\.next\/types'/);
-  assert.match(buildScript, /removeNamedDirectoriesRecursive\(targetDir, \['test', 'tests', '__tests__'\]\)/);
+  assert.match(buildScript, /removeNamedDirectoriesRecursive\(targetDir, \['test', 'tests', '__tests__', 'example', 'examples', 'doc', 'docs'\]\)/);
   assert.match(buildScript, /fileName === 'package-lock\.json' \|\| fileName === '\.package-lock\.json'/);
   assert.match(buildScript, /removePaths\(targetDir, \['node_modules', 'corepack', 'include', 'share'\]\)/);
   assert.match(buildScript, /computeMaxRelativePathLength\(bundleDir\)/);
-  assert.match(buildScript, /MAX_REL_PATH_LEN=/);
-  assert.match(buildScript, /MAX_INSTALL_ROOT_LEN=/);
   assert.match(buildScript, /node-\$\{options\.nodeVersion\}-win-x64\.zip/);
   assert.match(buildScript, /redis-windows\/redis-windows\/releases\/latest/);
   assert.match(buildScript, /build-windows-webview2-launcher\.ps1/);
-  assert.match(buildScript, /createIcoFromPng\(launcherIconSource, launcherIconPath\)/);
   assert.match(buildScript, /wslpath is required to build the Windows WebView2 launcher from Linux/);
   assert.match(buildScript, /Building WebView2 desktop launcher/);
   assert.match(buildScript, /Finalizing runtime bundle/);
@@ -240,7 +200,7 @@ test('Windows WebView2 launcher build bundles the required SDK files and desktop
   assert.match(launcherBuildScript, /Microsoft\.Web\.WebView2\.Core\.dll/);
   assert.match(launcherBuildScript, /Microsoft\.Web\.WebView2\.WinForms\.dll/);
   assert.match(launcherBuildScript, /WebView2Loader\.dll/);
-  assert.match(launcherBuildScript, /ClowderAI\.Desktop\.exe/);
+  assert.match(launcherBuildScript, /OfficeClaw\.exe/);
   assert.match(launcherBuildScript, /csc\.exe/);
   assert.match(launcherBuildScript, /\/win32icon:\$IconFile/);
 
@@ -248,7 +208,7 @@ test('Windows WebView2 launcher build bundles the required SDK files and desktop
   assert.match(launcherSource, /EnsureCoreWebView2Async/);
   assert.match(launcherSource, /start-windows\.ps1/);
   assert.match(launcherSource, /stop-windows\.ps1/);
-  assert.match(launcherSource, /Local\\ClowderAI\.WebView2Desktop/);
+  assert.match(launcherSource, /Local\\OfficeClaw\.WebView2Desktop/);
   assert.match(launcherSource, /http:\/\/127\.0\.0\.1:/);
 });
 
@@ -256,7 +216,8 @@ test('Windows desktop launcher reads runtime state, minimizes to tray, and exits
   assert.match(launcherSource, /runtime-state\.json/);
   assert.match(launcherSource, /NotifyIcon/);
   assert.match(launcherSource, /ContextMenuStrip/);
-  assert.match(launcherSource, /Open Clowder AI/);
+  assert.match(launcherSource, /RestoreFromExternalActivation/);
+  assert.match(launcherSource, /Text = "OfficeClaw"/);
   assert.match(launcherSource, /HideToTray/);
   assert.match(launcherSource, /RequestExit/);
   assert.match(launcherSource, /TryReadRuntimeStateValue/);
@@ -297,21 +258,43 @@ test('Local desktop web client derives API URL from the loopback frontend port i
   assert.match(apiClientSource, /const apiPort = frontendPort \+ 1/);
 });
 
-test('NSIS installer is per-user, supports upgrade cleanup, and preserves runtime data on uninstall', () => {
-  assert.match(nsisScript, /!define DEFAULT_INSTALL_DIR "C:\\CAI"/);
+test('NSIS installer is per-user, upgrades in-place, and preserves runtime data on uninstall', () => {
+  assert.match(nsisScript, /!define DEFAULT_INSTALL_DIR "\$LOCALAPPDATA\\Programs\\\$\{APP_NAME\}"/);
+  assert.match(nsisScript, /!define AUTOSTART_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Run"/);
+  assert.match(nsisScript, /!define AUTOSTART_VALUE "\$\{APP_NAME\}"/);
+  assert.match(nsisScript, /Var AgreementCheckbox/);
   assert.match(nsisScript, /InstallDir "\$\{DEFAULT_INSTALL_DIR\}"/);
+  assert.match(nsisScript, /InstallDirRegKey HKCU "\$\{INSTALL_KEY\}" "InstallDir"/);
+  assert.match(nsisScript, /!define MUI_DIRECTORYPAGE_VARIABLE \$SelectedInstallDir/);
+  assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection/);
   assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave/);
+  assert.match(nsisScript, /Page custom OptionsPageCreate OptionsPageLeave/);
   assert.match(nsisScript, /Function \.onVerifyInstDir/);
+  assert.match(nsisScript, /Var SelectedInstallDir/);
+  assert.match(nsisScript, /Var ExistingInstallDir/);
+  assert.match(nsisScript, /Var CreateStartMenuShortcut/);
+  assert.match(nsisScript, /Var CreateDesktopShortcut/);
+  assert.match(nsisScript, /Var EnableAutoStart/);
+  assert.match(nsisScript, /Function OptionsPageCreate/);
+  assert.match(nsisScript, /Function OptionsPageLeave/);
+  assert.match(nsisScript, /Function ResolveInstallOptionDefaults/);
+  assert.match(nsisScript, /Call ResolveInstallOptionDefaults/);
+  assert.match(nsisScript, /\$\{NSD_CreateGroupBox\} 0 22u 100% 92u /);
+  assert.match(nsisScript, /\$\{NSD_CreateLabel\} 12u 60u 88% 10u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateLink\} 20u 72u 76% 12u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateLabel\} 12u 90u 88% 10u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateLink\} 20u 102u 76% 12u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateCheckbox\} 0 124u 100% 12u "/);
+  assert.match(nsisScript, /\$\{NSD_Uncheck\} \$AgreementCheckbox/);
+  assert.match(nsisScript, /NSD_GetState} \$AgreementCheckbox \$0/);
+  assert.match(nsisScript, /Function RestoreInstallDirSelection/);
+  assert.match(nsisScript, /\$\{If\} \$SelectedInstallDir == ""/);
+  assert.match(nsisScript, /StrLen \$0 \$SelectedInstallDir/);
   assert.match(nsisScript, /Function VerifyInstallDirLeave/);
-  assert.match(nsisScript, /Choose a path with at most \$\{MAX_INSTALL_ROOT_LEN\} characters/);
   assert.match(nsisScript, /RequestExecutionLevel user/);
   assert.match(nsisScript, /Function CloseRunningServices/);
-  assert.match(
-    nsisScript,
-    /ExecWait '"\$WINDIR\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe" -NoProfile -ExecutionPolicy Bypass -File "\$INSTDIR\\scripts\\stop-windows\.ps1"'/,
-  );
-  assert.match(nsisScript, /RMDir \/r "\$INSTDIR\\packages"/);
-  assert.match(nsisScript, /RMDir \/r "\$INSTDIR\\tools"/);
+  assert.match(nsisScript, /nsExec::ExecToLog 'cmd \/c if exist "\$INSTDIR\\packages" rd \/s \/q "\$INSTDIR\\packages"'/);
+  assert.match(nsisScript, /nsExec::ExecToLog 'cmd \/c if exist "\$INSTDIR\\tools" rd \/s \/q "\$INSTDIR\\tools"'/);
   assert.match(nsisScript, /IfFileExists "\$INSTDIR\\\.env" \+2 0/);
   assert.match(nsisScript, /CopyFiles \/SILENT "\$INSTDIR\\\.env\.example" "\$INSTDIR\\\.env"/);
   assert.match(
@@ -321,12 +304,36 @@ test('NSIS installer is per-user, supports upgrade cleanup, and preserves runtim
   assert.match(nsisScript, /WriteRegStr HKCU "\$\{UNINSTALL_KEY\}" "DisplayVersion" "\$\{APP_VERSION\}"/);
   assert.match(
     nsisScript,
-    /CreateShortCut "\$\{STARTMENU_DIR\}\\Start \$\{APP_NAME\}\.lnk" "\$INSTDIR\\ClowderAI\.Desktop\.exe" "" "\$INSTDIR\\ClowderAI\.Desktop\.exe"/,
+    /CreateShortCut "\$\{STARTMENU_DIR\}\\\$\{APP_NAME\}\.lnk" "\$INSTDIR\\OfficeClaw\.exe" "" "\$INSTDIR\\assets\\app\.ico"/,
   );
   assert.match(
     nsisScript,
-    /CreateShortCut "\$DESKTOP\\\$\{APP_NAME\}\.lnk" "\$INSTDIR\\ClowderAI\.Desktop\.exe" "" "\$INSTDIR\\ClowderAI\.Desktop\.exe"/,
+    /CreateShortCut "\$DESKTOP\\\$\{APP_NAME\}\.lnk" "\$INSTDIR\\OfficeClaw\.exe" "" "\$INSTDIR\\assets\\app\.ico"/,
   );
+  assert.match(nsisScript, /Function WriteAutoStartRegistry/);
+  assert.match(
+    nsisScript,
+    /WriteRegStr HKCU "\$\{AUTOSTART_KEY\}" "\$\{AUTOSTART_VALUE\}" '"\$INSTDIR\\OfficeClaw\.exe"'/,
+  );
+  assert.match(nsisScript, /Call WriteAutoStartRegistry/);
   assert.match(nsisScript, /Delete "\$DESKTOP\\\$\{APP_NAME\}\.lnk"/);
-  assert.match(nsisScript, /User data in data, logs, \.cat-cafe, \.env, and cat-config\.json was preserved/);
+  assert.match(nsisScript, /DeleteRegValue HKCU "\$\{AUTOSTART_KEY\}" "\$\{AUTOSTART_VALUE\}"/);
+  assert.match(nsisScript, /MessageBox MB_YESNO\|MB_ICONQUESTION "/);
+});
+
+test('NSIS installer reuses the recorded install dir instead of allowing duplicate installs elsewhere', () => {
+  assert.match(nsisScript, /Function ResolveExistingInstallDir/);
+  assert.match(nsisScript, /ReadRegStr \$0 HKCU "\$\{INSTALL_KEY\}" "InstallDir"/);
+  assert.match(nsisScript, /IfFileExists "\$0\\uninstall\.exe" existing_install \+2/);
+  assert.match(nsisScript, /IfFileExists "\$0\\OfficeClaw\.exe" existing_install 0/);
+  assert.match(nsisScript, /Call ResolveExistingInstallDir/);
+  assert.match(nsisScript, /StrCpy \$INSTDIR \$ExistingInstallDir/);
+  assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$ExistingInstallDir/);
+  assert.match(
+    nsisScript,
+    /MessageBox MB_ICONINFORMATION\|MB_OK "/,
+  );
+  assert.match(nsisScript, /Function RestoreInstallDirSelection/);
+  assert.match(nsisScript, /\$\{If\} \$ExistingInstallDir != ""/);
+  assert.match(nsisScript, /Abort/);
 });
