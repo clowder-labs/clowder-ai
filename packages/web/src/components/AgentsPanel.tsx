@@ -1155,7 +1155,7 @@ export function AgentsPanel() {
                             ) : null}
                           </span>
                           <span className="mt-1 block truncate text-[11px] text-[var(--text-muted)]">
-                            {modelText} | {budgetText}
+                            {modelText}
                           </span>
                         </span>
                       </button>

@@ -1385,7 +1385,7 @@ select:-webkit-autofill:focus {
     top: calc(100% + 12px);
     right: -25px;
     z-index: 30;
-    width: min(420px, calc(100vw - 24px));
+    width: min(430px, calc(100vw - 24px));
     height: auto;
     overflow: visible;
     border: 1px solid var(--overlay-border);
@@ -1401,8 +1401,10 @@ select:-webkit-autofill:focus {
   }
 
   .ui-content-header-feedback-popover-content {
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    display: flex;
+    width: 100%;
+    min-height: 0;
+    flex-direction: column;
     padding: 24px;
   }
 
@@ -1411,6 +1413,14 @@ select:-webkit-autofill:focus {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .ui-content-header-feedback-popover-body {
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .ui-content-header-feedback-popover-title {
@@ -1492,7 +1502,7 @@ select:-webkit-autofill:focus {
   .ui-content-header-feedback-popover-arrow {
     position: absolute;
     top: -7px;
-    right: 32px;
+    right: 28px;
     width: 14px;
     height: 14px;
     border-top: 1px solid var(--overlay-border);
@@ -1551,7 +1561,6 @@ select:-webkit-autofill:focus {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 6px;
   }
 
   .ui-content-header-feedback-low-score-option-label {
@@ -1636,12 +1645,14 @@ select:-webkit-autofill:focus {
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
+    flex-shrink: 0;
+    margin-top: 16px;
   }
 
   @media (max-width: 900px) {
     .ui-content-header-feedback-popover {
       right: -25px;
-      width: min(420px, calc(100vw - 24px));
+      width: min(430px, calc(100vw - 24px));
     }
 
     .ui-content-header-feedback-popover-title {

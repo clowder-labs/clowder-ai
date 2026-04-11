@@ -629,149 +629,153 @@ export function RightContentHeader() {
                     <PopoverCloseIcon />
                   </button>
                 </div>
-                <div className="ui-content-header-feedback-score-row">
-                  {SATISFACTION_SCORES.map((score) => (
-                    <button
-                      key={score}
-                      type="button"
-                      onClick={() => setSelectedScore(score)}
-                      aria-label={`\u8bc4\u5206 ${score}`}
-                      aria-pressed={selectedScore === score}
-                      className={
-                        selectedScore === score
+                <div className="ui-content-header-feedback-popover-body">
+                  <div className="ui-content-header-feedback-score-row">
+                    {SATISFACTION_SCORES.map((score) => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setSelectedScore(score)}
+                        aria-label={`\u8bc4\u5206 ${score}`}
+                        aria-pressed={selectedScore === score}
+                        className={
+                          selectedScore === score
+                            ? isHighScoreDetailVisible
+                              ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-positive'
+                              : isVeryLowScoreDetailVisible
+                                ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-negative'
+                              : 'ui-content-header-feedback-score ui-content-header-feedback-score-active-warning'
+                            : 'ui-content-header-feedback-score'
+                        }
+                      >
+                        {selectedScore === score
                           ? isHighScoreDetailVisible
-                            ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-positive'
+                            ? '\ud83d\ude42'
                             : isVeryLowScoreDetailVisible
-                              ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-negative'
-                            : 'ui-content-header-feedback-score ui-content-header-feedback-score-active-warning'
-                          : 'ui-content-header-feedback-score'
-                      }
-                    >
-                      {selectedScore === score
-                        ? isHighScoreDetailVisible
-                          ? '\ud83d\ude42'
-                          : isVeryLowScoreDetailVisible
-                            ? '\u2639\ufe0f'
-                            : isLowScoreDetailVisible
-                            ? '\ud83d\ude10'
-                            : score
-                        : score}
-                    </button>
-                  ))}
+                              ? '\u2639\ufe0f'
+                              : isLowScoreDetailVisible
+                              ? '\ud83d\ude10'
+                              : score
+                          : score}
+                      </button>
+                    ))}
+                  </div>
+                  {isLowScoreDetailVisible || isHighScoreDetailVisible ? (
+                    <div className="ui-content-header-feedback-low-score">
+                      <div className="ui-content-header-feedback-low-score-section">
+                        <p className="ui-content-header-feedback-low-score-title">
+                          {currentPrimaryTitle}
+                          <span className="ui-content-header-feedback-low-score-subtitle">
+                            {currentPrimarySubtitle}
+                          </span>
+                        </p>
+                        <div className="ui-content-header-feedback-low-score-options">
+                          {currentIssueOptions.map((issue) => {
+                            const isChecked = currentSelectedIssues.includes(issue.id);
+                            const isDisabled = !isChecked && currentSelectedIssues.length >= 3;
+                            return (
+                              <label
+                                key={issue.id}
+                                className={
+                                  isDisabled
+                                    ? 'ui-content-header-feedback-low-score-option ui-content-header-feedback-low-score-option-disabled'
+                                    : 'ui-content-header-feedback-low-score-option'
+                                }
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={isDisabled}
+                                  onChange={() => handleToggleIssue(issue.id)}
+                                />
+                                <span className="ui-content-header-feedback-low-score-option-content">
+                                  <span className="ui-content-header-feedback-low-score-option-label">{issue.label}</span>
+                                  {issue.hint ? (
+                                    <span className="ui-content-header-feedback-low-score-option-hint">{issue.hint}</span>
+                                  ) : null}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {isLowScoreDetailVisible && isIssueRequiredError ? (
+                          <p className="ui-content-header-feedback-other-error">
+                            {REQUIRED_SELECT_ERROR_MESSAGE}
+                          </p>
+                        ) : null}
+                        {isOtherIssueSelected ? (
+                          <>
+                            <input
+                              type="text"
+                              className="ui-input"
+                              placeholder={'\u662f\u4ec0\u4e48\u95ee\u9898\u5462\uff1f\u8bf7\u7b80\u8981\u8bf4\u660e'}
+                              value={otherIssueDetail}
+                              onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
+                            />
+                            {isLowScoreDetailVisible && isOtherIssueRequiredError ? (
+                              <p className="ui-content-header-feedback-other-error">
+                                {REQUIRED_INPUT_ERROR_MESSAGE}
+                              </p>
+                            ) : isOtherIssueTooLong ? (
+                              <p className="ui-content-header-feedback-other-error">
+                                {OTHER_ISSUE_LENGTH_ERROR_MESSAGE}
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                      <div className="ui-content-header-feedback-low-score-section">
+                        <p className="ui-content-header-feedback-low-score-title">
+                          {currentDetailTitle}
+                          {currentDetailSubtitle ? (
+                            <span className="ui-content-header-feedback-low-score-subtitle">{currentDetailSubtitle}</span>
+                          ) : null}
+                        </p>
+                        <div className="ui-content-header-feedback-detail-shell">
+                          <textarea
+                            className="ui-textarea ui-content-header-feedback-detail-input"
+                            placeholder={currentDetailPlaceholder}
+                            value={lowScoreDetail}
+                            onFocus={handleDetailFocus}
+                            onChange={(event) => handleDetailChange(event.target.value)}
+                          />
+                          <span className="ui-content-header-feedback-detail-counter">
+                            {lowScoreDetail.length}/{currentDetailMaxLength}
+                          </span>
+                        </div>
+                        {isLowScoreDetailVisible && isDetailRequiredError ? (
+                          <p className="ui-content-header-feedback-detail-error">
+                            {REQUIRED_INPUT_ERROR_MESSAGE}
+                          </p>
+                        ) : isDetailTooLong ? (
+                          <p className="ui-content-header-feedback-detail-error">
+                            {DETAIL_LENGTH_ERROR_MESSAGE}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 {isLowScoreDetailVisible || isHighScoreDetailVisible ? (
-                  <div className="ui-content-header-feedback-low-score">
-                    <div className="ui-content-header-feedback-low-score-section">
-                      <p className="ui-content-header-feedback-low-score-title">
-                        {currentPrimaryTitle}
-                        <span className="ui-content-header-feedback-low-score-subtitle">
-                          {currentPrimarySubtitle}
-                        </span>
-                      </p>
-                      <div className="ui-content-header-feedback-low-score-options">
-                        {currentIssueOptions.map((issue) => {
-                          const isChecked = currentSelectedIssues.includes(issue.id);
-                          const isDisabled = !isChecked && currentSelectedIssues.length >= 3;
-                          return (
-                            <label
-                              key={issue.id}
-                              className={
-                                isDisabled
-                                  ? 'ui-content-header-feedback-low-score-option ui-content-header-feedback-low-score-option-disabled'
-                                  : 'ui-content-header-feedback-low-score-option'
-                              }
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={isDisabled}
-                                onChange={() => handleToggleIssue(issue.id)}
-                              />
-                              <span className="ui-content-header-feedback-low-score-option-content">
-                                <span className="ui-content-header-feedback-low-score-option-label">{issue.label}</span>
-                                {issue.hint ? (
-                                  <span className="ui-content-header-feedback-low-score-option-hint">{issue.hint}</span>
-                                ) : null}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                      {isLowScoreDetailVisible && isIssueRequiredError ? (
-                        <p className="ui-content-header-feedback-other-error">
-                          {REQUIRED_SELECT_ERROR_MESSAGE}
-                        </p>
-                      ) : null}
-                      {isOtherIssueSelected ? (
-                        <>
-                          <input
-                            type="text"
-                            className="ui-input"
-                            placeholder={'\u662f\u4ec0\u4e48\u95ee\u9898\u5462\uff1f\u8bf7\u7b80\u8981\u8bf4\u660e'}
-                            value={otherIssueDetail}
-                            onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
-                          />
-                          {isLowScoreDetailVisible && isOtherIssueRequiredError ? (
-                            <p className="ui-content-header-feedback-other-error">
-                              {REQUIRED_INPUT_ERROR_MESSAGE}
-                            </p>
-                          ) : isOtherIssueTooLong ? (
-                            <p className="ui-content-header-feedback-other-error">
-                              {OTHER_ISSUE_LENGTH_ERROR_MESSAGE}
-                            </p>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </div>
-                    <div className="ui-content-header-feedback-low-score-section">
-                      <p className="ui-content-header-feedback-low-score-title">
-                        {currentDetailTitle}
-                        {currentDetailSubtitle ? (
-                          <span className="ui-content-header-feedback-low-score-subtitle">{currentDetailSubtitle}</span>
-                        ) : null}
-                      </p>
-                      <div className="ui-content-header-feedback-detail-shell">
-                        <textarea
-                          className="ui-textarea ui-content-header-feedback-detail-input"
-                          placeholder={currentDetailPlaceholder}
-                          value={lowScoreDetail}
-                          onFocus={handleDetailFocus}
-                          onChange={(event) => handleDetailChange(event.target.value)}
-                        />
-                        <span className="ui-content-header-feedback-detail-counter">
-                          {lowScoreDetail.length}/{currentDetailMaxLength}
-                        </span>
-                      </div>
-                      {isLowScoreDetailVisible && isDetailRequiredError ? (
-                        <p className="ui-content-header-feedback-detail-error">
-                          {REQUIRED_INPUT_ERROR_MESSAGE}
-                        </p>
-                      ) : isDetailTooLong ? (
-                        <p className="ui-content-header-feedback-detail-error">
-                          {DETAIL_LENGTH_ERROR_MESSAGE}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="ui-content-header-feedback-low-score-actions">
-                      {submitErrorMessage ? (
-                        <p className="mr-3 self-center text-xs text-red-600">{submitErrorMessage}</p>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="ui-button-default ui-modal-action-button"
-                        onClick={closeFeedbackPopover}
-                      >
-                        {'\u53d6\u6d88'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ui-button-primary ui-modal-action-button"
-                        onClick={() => void handleSubmitFeedback()}
-                        disabled={isSubmittingFeedback}
-                      >
-                        {isSubmittingFeedback ? '\u63d0\u4ea4\u4e2d...' : '\u63d0\u4ea4'}
-                      </button>
-                    </div>
+                  <div className="ui-content-header-feedback-low-score-actions">
+                    {submitErrorMessage ? (
+                      <p className="mr-3 self-center text-xs text-red-600">{submitErrorMessage}</p>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="ui-button-default ui-modal-action-button"
+                      onClick={closeFeedbackPopover}
+                    >
+                      {'\u53d6\u6d88'}
+                    </button>
+                    <button
+                      type="button"
+                      className="ui-button-primary ui-modal-action-button"
+                      onClick={() => void handleSubmitFeedback()}
+                      disabled={isSubmittingFeedback}
+                    >
+                      {isSubmittingFeedback ? '\u63d0\u4ea4\u4e2d...' : '\u63d0\u4ea4'}
+                    </button>
                   </div>
                 ) : null}
               </div>

@@ -49,21 +49,29 @@ describe('RightContentHeader feedback popover styles', () => {
   it('uses the updated popover layout, checkbox radius, and label weight', () => {
     const popoverBlocks = getCssBlocks('.ui-content-header-feedback-popover');
     const popoverContentBlocks = getCssBlocks('.ui-content-header-feedback-popover-content');
+    const popoverBodyBlocks = getCssBlocks('.ui-content-header-feedback-popover-body');
     const arrowBlocks = getCssBlocks('.ui-content-header-feedback-popover-arrow');
     const headerBlocks = getCssBlocks('.ui-content-header-feedback-popover-header');
+    const actionsBlocks = getCssBlocks('.ui-content-header-feedback-low-score-actions');
     const optionLabelBlocks = getCssBlocks('.ui-content-header-feedback-low-score-option-label');
     const checkboxBlocks = getCssBlocks('.ui-content-header-feedback-low-score-option input');
     const detailInputBlocks = getCssBlocks('.ui-content-header-feedback-detail-input');
 
-    expect(getDeclarationValue(popoverBlocks, 'width')).toBe('min(420px, calc(100vw - 24px))');
+    expect(getDeclarationValue(popoverBlocks, 'width')).toBe('min(430px, calc(100vw - 24px))');
     expect(getDeclarationValue(popoverBlocks, 'height')).toBe('auto');
     expect(getDeclarationValue(popoverBlocks, 'right')).toBe('-25px');
     expect(getDeclarationValue(popoverBlocks, 'overflow')).toBe('visible');
     expect(getDeclarationValue(popoverBlocks, 'border-radius')).toBe('12px');
     expect(getDeclarationValue(popoverContentBlocks, 'padding')).toBe('24px');
-    expect(getDeclarationValue(popoverContentBlocks, 'overflow-y')).toBe('auto');
+    expect(getDeclarationValue(popoverContentBlocks, 'display')).toBe('flex');
+    expect(getDeclarationValue(popoverContentBlocks, 'flex-direction')).toBe('column');
+    expect(getDeclarationValue(popoverContentBlocks, 'width')).toBe('100%');
     expect(getDeclarationValue(headerBlocks, 'align-items')).toBe('center');
-    expect(getDeclarationValue(arrowBlocks, 'right')).toBe('32px');
+    expect(getDeclarationValue(headerBlocks, 'flex-shrink')).toBe('0');
+    expect(getDeclarationValue(popoverBodyBlocks, 'overflow-y')).toBe('auto');
+    expect(getDeclarationValue(popoverBodyBlocks, 'width')).toBe('100%');
+    expect(getDeclarationValue(actionsBlocks, 'flex-shrink')).toBe('0');
+    expect(getDeclarationValue(arrowBlocks, 'right')).toBe('28px');
     expect(getDeclarationValue(optionLabelBlocks, 'font-weight')).toBe('400');
     expect(getDeclarationValue(checkboxBlocks, 'border-radius')).toBe('4px');
     expect(getDeclarationValue(detailInputBlocks, 'height')).toBe('104px');
