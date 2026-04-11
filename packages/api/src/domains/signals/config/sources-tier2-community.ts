@@ -6,6 +6,17 @@
 
 import type { SignalSource } from '@cat-cafe/shared';
 
+// ── Signal Source Base URLs (信号源域名) ───────────────────────────
+const LANGCHAIN_BLOG_URL = process.env.LANGCHAIN_BLOG_URL!;
+const GITHUB_URL = process.env.GITHUB_URL!;
+const GITHUB_API_URL = process.env.GITHUB_API_URL!;
+const SIMON_WILLISON_URL = process.env.SIMON_WILLISON_URL!;
+const LILIAN_WENG_URL = process.env.LILIAN_WENG_URL!;
+const CHIP_HUYEN_URL = process.env.CHIP_HUYEN_URL!;
+const LATENT_SPACE_URL = process.env.LATENT_SPACE_URL!;
+const A16Z_URL = process.env.A16Z_URL!;
+const HACKER_NEWS_URL = process.env.HACKER_NEWS_URL!;
+
 /**
  * Tier 2-3 sources: open-source frameworks, tech bloggers,
  * VC/industry analysis, and community aggregators.
@@ -15,7 +26,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'langchain-blog-rss',
     name: 'LangChain Blog',
-    url: 'https://blog.langchain.dev/rss/',
+    url: LANGCHAIN_BLOG_URL + '/rss/',
     tier: 2,
     category: 'engineering',
     enabled: true,
@@ -25,7 +36,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'github-trending',
     name: 'GitHub Trending',
-    url: 'https://github.com/trending',
+    url: GITHUB_URL + '/trending',
     tier: 2,
     category: 'community',
     enabled: true,
@@ -35,7 +46,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'vllm-github',
     name: 'vLLM GitHub Releases',
-    url: 'https://api.github.com/repos/vllm-project/vllm/releases?per_page=5',
+    url: GITHUB_API_URL + '/repos/vllm-project/vllm/releases?per_page=5',
     tier: 1,
     category: 'engineering',
     enabled: true,
@@ -48,7 +59,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'llamacpp-github',
     name: 'llama.cpp GitHub Releases',
-    url: 'https://api.github.com/repos/ggerganov/llama.cpp/releases?per_page=5',
+    url: GITHUB_API_URL + '/repos/ggerganov/llama.cpp/releases?per_page=5',
     tier: 1,
     category: 'engineering',
     enabled: true,
@@ -61,7 +72,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'ollama-github',
     name: 'Ollama GitHub Releases',
-    url: 'https://api.github.com/repos/ollama/ollama/releases?per_page=5',
+    url: GITHUB_API_URL + '/repos/ollama/ollama/releases?per_page=5',
     tier: 2,
     category: 'engineering',
     enabled: true,
@@ -76,7 +87,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'simon-willison',
     name: 'Simon Willison',
-    url: 'https://simonwillison.net/',
+    url: SIMON_WILLISON_URL + '/',
     tier: 2,
     category: 'community',
     enabled: true,
@@ -86,7 +97,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'lilian-weng',
     name: "Lilian Weng (Lil'Log)",
-    url: 'https://lilianweng.github.io/',
+    url: LILIAN_WENG_URL + '/',
     tier: 2,
     category: 'community',
     enabled: true,
@@ -96,7 +107,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'chip-huyen',
     name: 'Chip Huyen',
-    url: 'https://huyenchip.com/',
+    url: CHIP_HUYEN_URL + '/',
     tier: 3,
     category: 'community',
     enabled: true,
@@ -108,7 +119,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'latent-space-rss',
     name: 'Latent Space',
-    url: 'https://www.latent.space/feed',
+    url: LATENT_SPACE_URL + '/feed',
     tier: 3,
     category: 'community',
     enabled: true,
@@ -118,7 +129,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'a16z-ai',
     name: 'a16z AI',
-    url: 'https://a16z.com/ai/',
+    url: A16Z_URL + '/ai/',
     tier: 3,
     category: 'community',
     enabled: true,
@@ -130,7 +141,7 @@ export const TIER2_COMMUNITY_SOURCES: readonly SignalSource[] = [
   {
     id: 'hacker-news-rss',
     name: 'Hacker News',
-    url: 'https://news.ycombinator.com/rss',
+    url: HACKER_NEWS_URL + '/rss',
     tier: 3,
     category: 'community',
     enabled: true,
