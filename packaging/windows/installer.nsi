@@ -134,27 +134,27 @@ Function LicensePageCreate
   ${NSD_CreateLabel} 0 10u 100% 12u "${APP_NAME}软件许可协议"
   Pop $0
 
-  ${NSD_CreateLabel} 10u 25u 44u 10u "1.了解和同意"
+  ${NSD_CreateLabel} 10u 25u 46u 10u "1.了解和同意"
   Pop $0
 
-  ${NSD_CreateLink} 54u 25u 30% 10u "华为云隐私政策声明"
+  ${NSD_CreateLink} 56u 25u 100% 10u "华为云隐私政策声明"
   Pop $1
   ${NSD_OnClick} $1 "OnPrivacyLinkClick"
 
-  ${NSD_CreateLabel} 10u 40u 44u 10u "2.了解和同意"
+  ${NSD_CreateLabel} 10u 40u 46uu 10u "2.了解和同意"
   Pop $0
 
-  ${NSD_CreateLink} 54u 40u 30% 10u "AgentArts服务声明"
+  ${NSD_CreateLink} 56u 40u 100% 10u "AgentArts服务声明"
   Pop $1
   ${NSD_OnClick} $1 "OnServiceLinkClick"
 
-  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(A)"
+  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(&A)"
   Pop $AgreeRadio
   ${NSD_Setfocus} $AgreeRadio
 
   ${NSD_OnClick} $AgreeRadio OnAgreementChanged
 
-  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(D)"
+  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(&D)"
   Pop $DisagreeRadio
   ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
 
