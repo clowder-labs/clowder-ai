@@ -172,6 +172,19 @@ def _log_agent_chat_request(*, label: str, request: AgentRequest, session_id: st
     logger.info("[AgentServer] chat_request %s", json.dumps(record, ensure_ascii=False, default=str))
 
 
+def _log_model_context_window_diag(*, session_id: str, request_id: str) -> None:
+    """Cat Cafe relay sidecar injects MODEL_NAME / MODEL_CONTEXT_WINDOW into process env."""
+    model_name = (os.getenv("MODEL_NAME") or "").strip() or "(unset)"
+    mcw = (os.getenv("MODEL_CONTEXT_WINDOW") or "").strip() or "(unset)"
+    logger.info(
+        "[AgentServer] model_context_window_diag session_id=%s request_id=%s model_name=%s model_context_window=%s",
+        session_id,
+        request_id,
+        model_name,
+        mcw,
+    )
+
+
 class JiuWenClaw:
     """基于 openJiuwen ReActAgent 的 AgentServer 实现."""
 
@@ -1265,6 +1278,7 @@ class JiuWenClaw:
             request=request,
             session_id=session_id,
         )
+        _log_model_context_window_diag(session_id=session_id, request_id=request.request_id)
         config_base = get_config()
         system_prompt_append = request.params.get("system_prompt")
         if isinstance(system_prompt_append, str):
@@ -1422,6 +1436,7 @@ class JiuWenClaw:
             request=request,
             session_id=session_id,
         )
+        _log_model_context_window_diag(session_id=session_id, request_id=request.request_id)
         config_base = get_config()
         system_prompt_append = request.params.get("system_prompt")
         if isinstance(system_prompt_append, str):
