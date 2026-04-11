@@ -76,6 +76,7 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
     assert.notEqual(res.statusCode, 200, 'Should not return 200 when adapter is missing');
     assert.equal(res.statusCode, 503);
     assert.ok(body.error, 'Response should contain error message');
+    assert.equal(body.error, '微信连接器尚未就绪，请稍后重试');
     assert.equal(body.status, undefined, 'Should not leak confirmed status');
 
     // Cleanup
@@ -200,6 +201,7 @@ describe('POST /api/connector/weixin/disconnect', () => {
     });
 
     assert.equal(res.statusCode, 503);
+    assert.equal(res.json().error, '微信连接器不可用，连接网关尚未启动');
     await app.close();
   });
 
@@ -377,7 +379,7 @@ describe('GET /api/connector/hub-threads', () => {
       url: '/api/connector/hub-threads?userId=spoofed',
     });
     assert.equal(res.statusCode, 401);
-    assert.match(JSON.parse(res.body).error, /Identity required/i);
+    assert.equal(JSON.parse(res.body).error, '缺少用户身份，请先登录或携带 X-Cat-Cafe-User 请求头');
   });
 
   it('uses the trusted header identity and returns hub threads sorted by createdAt desc', async () => {
