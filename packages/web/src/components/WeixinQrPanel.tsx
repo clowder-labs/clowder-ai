@@ -94,7 +94,7 @@ export function WeixinQrPanel({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setQrState('error');
-        setErrorMsg(data.error ?? 'Failed to fetch QR code');
+        setErrorMsg(data.error ?? '获取二维码失败');
         return;
       }
       const data = await res.json();
@@ -131,7 +131,7 @@ export function WeixinQrPanel({
     return (
       <div data-testid="weixin-connected">
         <ConnectorConnectedState
-          label="WeChat connected"
+          label="微信已连接"
           disconnecting={disconnecting}
           onDisconnect={handleDisconnect}
           disconnectTestId="weixin-disconnect"
@@ -171,7 +171,7 @@ export function WeixinQrPanel({
       {(qrState === 'waiting' || qrState === 'scanned') && qrUrl && (
         <div className="flex flex-col gap-3" style={{ width: 'fit-content' }}>
           <div className='p-3 border-[#f0f0f0] bg-[#fff]' style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
-            <img src={qrUrl} alt="WeChat login QR code" className="w-48 h-48 rounded-lg" data-testid="weixin-qr-image" />
+            <img src={qrUrl} alt="微信二维码" className="w-48 h-48 rounded-lg" data-testid="weixin-qr-image" />
           </div>
           {qrState === 'waiting' && (
             <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">

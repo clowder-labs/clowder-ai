@@ -83,7 +83,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
             return;
           }
           setQrState('error');
-          setErrorMsg('Unexpected QR status');
+          setErrorMsg('二维码状态异常');
           setQrUrl(null);
         } catch {
           if (terminalRef.current || requestId !== requestSeqRef.current) return;
@@ -107,7 +107,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setQrState('error');
-        setErrorMsg(data.error ?? 'Failed to fetch QR code');
+        setErrorMsg(data.error ?? '获取二维码失败');
         return;
       }
 
@@ -140,7 +140,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
     return (
       <div data-testid="feishu-connected">
         <ConnectorConnectedState
-          label="Feishu connected"
+          label="飞书已连接"
           disconnecting={disconnecting}
           onDisconnect={handleDisconnect}
           disconnectTestId="feishu-disconnect"
@@ -177,7 +177,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
 
       {qrState === 'waiting' && qrUrl && (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white p-4">
-          <img src={qrUrl} alt="Feishu QR code" className="h-48 w-48 rounded-lg" data-testid="feishu-qr-image" />
+          <img src={qrUrl} alt="飞书二维码" className="h-48 w-48 rounded-lg" data-testid="feishu-qr-image" />
           <div className="flex items-center gap-2 text-xs text-gray-500">
             <SpinnerIcon />
             <span>用飞书扫描二维码并确认授权</span>
