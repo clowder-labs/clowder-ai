@@ -6,6 +6,11 @@
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import {
+  CAT_CONFIGS,
+  catRegistry,
+  createCatId,
+} from '@cat-cafe/shared';
 import type {
   CatBreed,
   CatCafeConfig,
@@ -19,7 +24,6 @@ import type {
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
@@ -679,6 +683,14 @@ export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfi
 
 let _defaultCatId: CatId | null = null;
 
+function getRegisteredDefaultCatId(): CatId | null {
+  const registered = catRegistry.getAllIds();
+  if (registered.length > 0) return registered[0] ?? null;
+
+  const builtin = Object.keys(CAT_CONFIGS)[0];
+  return builtin ? createCatId(builtin) : null;
+}
+
 /**
  * Get the default cat ID for unaddressed messages.
  * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
@@ -719,8 +731,11 @@ export function getDefaultCatId(): CatId {
     }
   }
 
-  // 4. Ultimate fallback
-  _defaultCatId = createCatId('jiuwenclaw');
+  // 4. Runtime-safe fallback: prefer an actually registered cat over the
+  // legacy hardcoded jiuwenclaw ID. This keeps connector/default routing
+  // aligned with the runtime registry even if cat-config.json is missing
+  // or malformed during an upgrade/overwrite install.
+  _defaultCatId = getRegisteredDefaultCatId() ?? createCatId('relayclaw');
   return _defaultCatId;
 }
 
