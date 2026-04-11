@@ -334,7 +334,7 @@ export function UserProfile({ className }: UserProfileProps) {
                           className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white"
                           data-testid={`user-theme-selected-badge-${option.id}`}
                         >
-                          <svg className="h-2.5 w-2.5" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
+                          <svg className="h-[12px] w-[12px]" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
                             <path
                               d="M4 8.25 6.5 10.75 12 5.25"
                               stroke="currentColor"
