@@ -15,9 +15,9 @@ import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
+import { useToastStore } from '@/stores/toastStore';
 import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
 import { apiFetch } from '@/utils/api-client';
-import { compressImage } from '@/utils/compressImage';
 import { fetchSkillOptionsWithCache, seedSkillOptionsCache, type SkillOption } from '@/utils/skill-options-cache';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
@@ -70,37 +70,55 @@ interface ChatInputProps {
 }
 
 const ACCEPTED_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/gif',
-  'image/webp',
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/msword',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/vnd.ms-powerpoint',
   'text/plain',
   'text/csv',
   '.pdf',
-  '.doc',
   '.docx',
   '.xlsx',
-  '.xls',
-  '.ppt',
   '.pptx',
   '.txt',
   '.csv',
 ].join(',');
+const SUPPORTED_ATTACHMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
+  'text/csv',
+]);
+const SUPPORTED_ATTACHMENT_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'pptx', 'txt', 'csv']);
+const UNSUPPORTED_FILE_TYPE_MESSAGE = '该附件类型暂不支持';
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
+const MAX_INPUT_LENGTH = 5000;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 
 function getQuickActionToken(label: string): string {
   return `${QUICK_ACTION_TOKEN_PREFIX}${label}${QUICK_ACTION_TOKEN_SUFFIX}`;
+}
+
+function clampInputLength(value: string): string {
+  if (value.length <= MAX_INPUT_LENGTH) return value;
+  return value.slice(0, MAX_INPUT_LENGTH);
+}
+
+function getFileExtension(fileName: string): string {
+  const parts = fileName.split('.');
+  if (parts.length <= 1) return '';
+  return parts[parts.length - 1]?.toLowerCase() ?? '';
+}
+
+function isSupportedAttachmentFile(file: File): boolean {
+  if (SUPPORTED_ATTACHMENT_MIME_TYPES.has(file.type)) return true;
+  const ext = getFileExtension(file.name);
+  return SUPPORTED_ATTACHMENT_EXTENSIONS.has(ext);
 }
 
 function normalizeQuickActionsForSend(input: string): string {
@@ -224,20 +242,28 @@ export function ChatInput({
     return ids;
   }, [activeInvocations, hasActiveInvocation, storeTargetCats]);
 
-  const [input, setInput] = useState(() => (threadId ? (threadDrafts.get(threadId) ?? '') : ''));
+  const [input, setInputState] = useState(() => (threadId ? (threadDrafts.get(threadId) ?? '') : ''));
+  const setInput = useCallback((next: string | ((prev: string) => string)) => {
+    if (typeof next === 'function') {
+      setInputState((prev) => clampInputLength((next as (prev: string) => string)(prev)));
+      return;
+    }
+    setInputState(clampInputLength(next));
+  }, []);
   const [showMentions, setShowMentions] = useState(false);
   const [showGameMenu, setShowGameMenu] = useState(false);
   const [showSkillMenu, setShowSkillMenu] = useState(false);
   const [gameStep, setGameStep] = useState<'list' | 'modes'>('list');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
+  const [mentionEnd, setMentionEnd] = useState(-1);
   const [mentionFilter, setMentionFilter] = useState('');
   const [mentionMenuStyle, setMentionMenuStyle] = useState<CSSProperties>({});
   const [skillFilter, setSkillFilter] = useState('');
   const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
   const [skillOptionsLoading, setSkillOptionsLoading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
-  const [isPreparingImages, setIsPreparingImages] = useState(false);
+  const isPreparingImages = false;
   const [whisperMode, setWhisperMode] = useState(false);
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
   const [mobileToolbar, setMobileToolbar] = useState(false);
@@ -256,6 +282,7 @@ export function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
   const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
+  const addToast = useToastStore((s) => s.addToast);
   const folderButtonLabel = selectedFolderName?.trim() || '选择工作空间';
   const isFolderButtonDisabled = disabled || !folderSelectionEnabled;
   const shouldShowFolderTooltip = Boolean(selectedFolderTitle?.trim());
@@ -270,6 +297,9 @@ export function ChatInput({
       const separator = prev && !prev.endsWith('\n') ? '\n' : '';
       return prev + separator + pendingChatInsert.text;
     });
+    if (pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX)) {
+      setShowQuickPrompts(true);
+    }
     setPendingChatInsert(null);
     textareaRef.current?.focus();
   }, [pendingChatInsert, setPendingChatInsert, threadId]);
@@ -523,8 +553,9 @@ export function ChatInput({
     (option: CatOption) => {
       const cursor = textareaRef.current?.getSelectionStart() ?? input.length;
       const start = mentionStart >= 0 ? mentionStart : cursor;
+      const end = mentionEnd >= start ? mentionEnd : cursor;
       const before = input.slice(0, start);
-      const after = input.slice(cursor);
+      const after = input.slice(end);
       const displayMention = option.label.replace(/\s*\([^)]*\)\s*$/, '').trim();
       const mentionText = displayMention.startsWith('@') ? displayMention : `@${displayMention}`;
       const leftJoiner = before.length > 0 && !/\s$/.test(before) ? ' ' : '';
@@ -534,6 +565,7 @@ export function ChatInput({
       setInput(nextValue);
       setShowMentions(false);
       setMentionStart(-1);
+      setMentionEnd(-1);
       setMentionFilter('');
       setTimeout(() => {
         const el = textareaRef.current;
@@ -543,7 +575,7 @@ export function ChatInput({
         el.setSelectionRange(cursorPos, cursorPos);
       }, 0);
     },
-    [input, mentionStart],
+    [input, mentionEnd, mentionStart],
   );
 
   const insertSkill = useCallback(
@@ -576,9 +608,12 @@ export function ChatInput({
 
   const handleChange = useCallback(
     (val: string, selectionStart: number, selectionEnd: number) => {
-      setInput(val);
-      skillInsertAnchorRef.current = { start: selectionStart, end: selectionEnd };
-      const trigger = detectMenuTrigger(val, selectionStart);
+      const next = clampInputLength(val);
+      setInput(next);
+      const normalizedSelectionStart = Math.min(selectionStart, next.length);
+      const normalizedSelectionEnd = Math.min(selectionEnd, next.length);
+      skillInsertAnchorRef.current = { start: normalizedSelectionStart, end: normalizedSelectionEnd };
+      const trigger = detectMenuTrigger(next, normalizedSelectionStart);
       if (trigger?.type === 'game') {
         setShowGameMenu(true);
         setGameStep('list');
@@ -590,10 +625,13 @@ export function ChatInput({
         setShowGameMenu(false);
         setShowSkillMenu(false);
         setMentionStart(trigger.start);
+        setMentionEnd(normalizedSelectionStart);
         setMentionFilter(trigger.filter);
         setSelectedIdx(0);
       } else {
         closeMenus();
+        setMentionStart(-1);
+        setMentionEnd(-1);
         setMentionFilter('');
         setSkillFilter('');
       }
@@ -638,6 +676,8 @@ export function ChatInput({
     if (e.ctrlKey && e.key === 'r') {
       e.preventDefault();
       closeMenus();
+      setMentionStart(-1);
+      setMentionEnd(-1);
       setMentionFilter('');
       setSkillFilter('');
       setShowHistorySearch(true);
@@ -666,10 +706,12 @@ export function ChatInput({
         if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab' || e.key === 'Escape') {
           e.preventDefault();
         }
-        closeMenus();
-        setMentionFilter('');
-        setSkillFilter('');
-        return;
+          closeMenus();
+          setMentionStart(-1);
+          setMentionEnd(-1);
+          setMentionFilter('');
+          setSkillFilter('');
+          return;
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -713,6 +755,8 @@ export function ChatInput({
       if (e.key === 'Escape') {
         e.preventDefault();
         closeMenus();
+        setMentionStart(-1);
+        setMentionEnd(-1);
         return;
       }
     }
@@ -778,54 +822,54 @@ export function ChatInput({
   };
 
   const handleFileSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files) return;
-      setIsPreparingImages(true);
-      try {
-        const toAdd: File[] = [];
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (file.type.startsWith('image/')) {
-            toAdd.push(await compressImage(file));
-          } else {
-            toAdd.push(file);
-          }
-        }
-        setImages((prev) => mergeFilesByName(prev, toAdd, 5));
-      } finally {
-        setIsPreparingImages(false);
+      const selectedFiles = Array.from(files);
+      const supportedFiles = selectedFiles.filter(isSupportedAttachmentFile);
+      const hasUnsupported = supportedFiles.length !== selectedFiles.length;
+      if (hasUnsupported) {
+        addToast({
+          type: 'error',
+          title: '上传失败',
+          message: UNSUPPORTED_FILE_TYPE_MESSAGE,
+          duration: 2600,
+        });
+      }
+      if (supportedFiles.length > 0) {
+        setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
       }
       e.target.value = '';
     },
-    [],
+    [addToast],
   );
 
   const handlePaste = useCallback(
-    async (e: React.ClipboardEvent) => {
+    (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
-      const imageFiles: File[] = [];
+      const pastedFiles: File[] = [];
       for (let i = 0; i < items.length; i++) {
-        if (items[i].type.startsWith('image/')) {
-          const file = items[i].getAsFile();
-          if (file) imageFiles.push(file);
-        }
+        if (items[i].kind !== 'file') continue;
+        const file = items[i].getAsFile();
+        if (file) pastedFiles.push(file);
       }
-      if (imageFiles.length === 0) return;
+      if (pastedFiles.length === 0) return;
+      const supportedFiles = pastedFiles.filter(isSupportedAttachmentFile);
+      const hasUnsupported = supportedFiles.length !== pastedFiles.length;
+      if (hasUnsupported) {
+        addToast({
+          type: 'error',
+          title: '上传失败',
+          message: UNSUPPORTED_FILE_TYPE_MESSAGE,
+          duration: 2600,
+        });
+      }
+      if (supportedFiles.length === 0) return;
       e.preventDefault();
-      setIsPreparingImages(true);
-      try {
-        const toAdd: File[] = [];
-        for (const file of imageFiles) {
-          toAdd.push(await compressImage(file));
-        }
-        setImages((prev) => mergeFilesByName(prev, toAdd, 5));
-      } finally {
-        setIsPreparingImages(false);
-      }
+      setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
     },
-    [],
+    [addToast],
   );
 
   const handleTextareaScroll = useCallback((_e: React.UIEvent<HTMLDivElement>) => {}, []);
@@ -833,6 +877,10 @@ export function ChatInput({
   const resizeTextarea = useCallback(() => {
     const ta = textareaRef.current?.getElement();
     if (!ta) return;
+    const prevScrollTop = ta.scrollTop;
+    const prevClientHeight = ta.clientHeight;
+    const prevScrollHeight = ta.scrollHeight;
+    const wasNearBottom = prevScrollTop + prevClientHeight >= prevScrollHeight - 2;
     ta.style.height = 'auto';
     const contentHeight = ta.scrollHeight;
     const nextHeight = Math.max(TEXTAREA_MIN_HEIGHT, Math.min(contentHeight, TEXTAREA_MAX_HEIGHT));
@@ -840,6 +888,12 @@ export function ChatInput({
     const nextHeightCss = `${nextHeight}px`;
     if (ta.style.height !== nextHeightCss) ta.style.height = nextHeightCss;
     if (ta.style.overflowY !== nextOverflowY) ta.style.overflowY = nextOverflowY;
+    if (nextOverflowY === 'auto') {
+      if (wasNearBottom) ta.scrollTop = ta.scrollHeight;
+      else ta.scrollTop = prevScrollTop;
+    } else {
+      ta.scrollTop = 0;
+    }
   }, []);
 
   useLayoutEffect(() => {
@@ -1018,6 +1072,8 @@ export function ChatInput({
         }}
         onCloseMentionMenu={() => {
           closeMenus();
+          setMentionStart(-1);
+          setMentionEnd(-1);
           setMentionFilter('');
         }}
         showGameMenu={showGameMenu}
@@ -1180,12 +1236,13 @@ export function ChatInput({
                       ref={textareaRef}
                       value={input}
                       onValueChange={handleChange}
+                      maxLength={MAX_INPUT_LENGTH}
                       onInput={resizeTextarea}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
                       onScroll={handleTextareaScroll}
                       placeholder={hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'}
-                      className="block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
+                      className="chat-input-textarea block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
                       quickActionOptions={visibleQuickActions.map((action) => ({
@@ -1281,7 +1338,7 @@ export function ChatInput({
                               />
                             </div>
                           </div>
-                          <div className="max-h-[260px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0">
+                          <div className="max-h-[260px] overflow-y-auto">
                             {skillOptionsLoading &&
                               Array.from({ length: 5 }).map((_, i) => (
                                 <div
@@ -1316,9 +1373,12 @@ export function ChatInput({
                               <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
                             )}
                           </div>
+                          <div className="px-4 py-2">
+                            <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
+                          </div>
                           <button
                             type="button"
-                            className="mt-2 inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
+                            className="inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
                             onMouseDown={(e) => {
                               e.preventDefault();
                               closeMenus();
@@ -1350,12 +1410,14 @@ export function ChatInput({
                           <span className="truncate">{folderButtonLabel}</span>
                         </button>
                       </OverflowTooltip>
-                      <OverflowTooltip content="上传文件" forceShow className="flex items-center">
+                      <OverflowTooltip content="选择附件" forceShow className="inline-flex">
                         <button
+                          type="button"
+                          data-testid="attach-file-button"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                          aria-label="Attach images"
+                          aria-label="选择附件"
                         >
                           <AttachIcon className="h-5 w-5" />
                         </button>

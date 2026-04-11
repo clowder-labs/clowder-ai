@@ -519,7 +519,7 @@ export function RightStatusPanel({
       <SessionChainPanel threadId={threadId} catInvocations={catInvocations} onViewSession={setViewSessionId} />
 
       <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
+        <h3 className="text-xs font-semibold text-gray-700 mb-2">会话信息</h3>
         <div className="text-xs text-gray-500 space-y-2">
           <div>
             Thread:{' '}

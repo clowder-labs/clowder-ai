@@ -100,7 +100,7 @@ export function WeixinQrPanel({
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setQrState('error');
-        setErrorMsg(data.error ?? 'Failed to fetch QR code');
+        setErrorMsg(data.error ?? '获取二维码失败');
         return;
       }
       const data = await res.json();
@@ -120,14 +120,33 @@ export function WeixinQrPanel({
       const res = await apiFetch('/api/connector/weixin/disconnect', { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setErrorMsg(data.error ?? '解除绑定失败');
+        const message = data.error ?? '解除绑定失败';
+        setErrorMsg(message);
+        addToast({
+          type: 'error',
+          title: '断开连接失败',
+          message,
+          duration: 5000,
+        });
         return;
       }
       stopPolling();
       setQrState('idle');
       setQrUrl(null);
+      addToast({
+        type: 'success',
+        title: '断开连接成功',
+        message: '已断开连接。',
+        duration: 3000,
+      });
     } catch {
       setErrorMsg('网络错误');
+      addToast({
+        type: 'error',
+        title: '断开连接失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setDisconnecting(false);
     }
@@ -137,7 +156,7 @@ export function WeixinQrPanel({
     return (
       <div data-testid="weixin-connected">
         <ConnectorConnectedState
-          label="微信 已连接"
+          label="微信已连接"
           disconnecting={disconnecting}
           onDisconnect={handleDisconnect}
           disconnectTestId="weixin-disconnect"
@@ -178,15 +197,15 @@ export function WeixinQrPanel({
             />
           </div>
           {qrState === 'waiting' && (
-            <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
               <SpinnerIcon />
               <span>用微信扫描二维码</span>
             </div>
           )}
           {qrState === 'scanned' && (
-            <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
+            <div className="flex items-center gap-2 text-xs font-medium text-green-600">
               <SpinnerIcon />
-              <span>已扫描！请在手机上确认...</span>
+              <span>已扫码，请在手机上确认...</span>
             </div>
           )}
         </div>
