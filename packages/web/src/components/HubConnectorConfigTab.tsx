@@ -14,6 +14,7 @@ import {
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
 import { ConnectorConnectedState } from './ConnectorConnectedState';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
 
 interface PlatformFieldStatus {
   envName: string;
@@ -353,11 +354,7 @@ export function HubConnectorConfigTab() {
     }
   };
 
-  if (isLoading) {
-    return <p className="py-8 text-center text-sm text-[var(--text-muted)]">加载中...</p>;
-  }
-
-  if (platforms.length === 0) {
+  if (!isLoading && platforms.length === 0) {
     return <p className="py-8 text-center text-sm text-[var(--text-muted)]">无法加载平台配置信息</p>;
   }
 
@@ -405,7 +402,13 @@ export function HubConnectorConfigTab() {
         data-testid="connector-right-pane"
       >
         <p className="text-[var(--text-primary)] font-semibold">配置</p>
+        {isLoading && (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <CenteredLoadingState />
+          </div>
+        )}
         {selectedPlatform &&
+          !isLoading &&
           (() => {
             const platform = selectedPlatform;
             const guideSteps = platform.steps.slice(0, -1);
