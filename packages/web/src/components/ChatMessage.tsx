@@ -63,8 +63,10 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
   const isConnector = message.type === 'connector';
+  const isStartupReconcilerNotice = isConnector && message.source?.connector === 'startup-reconciler';
 
-  const catData = message.catId ? getCatById(message.catId) : undefined;
+  const effectiveCatId = isStartupReconcilerNotice ? 'assistant' : message.catId;
+  const catData = effectiveCatId ? getCatById(effectiveCatId) : undefined;
   const catStyle = catData
     ? (() => {
         const breed = BREED_STYLES[catData.breedId ?? ''] ?? DEFAULT_BREED_STYLE;
@@ -189,7 +191,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   }
 
   if (isConnector && message.source) {
-    return <ConnectorBubble message={message} />;
+    if (!isStartupReconcilerNotice) {
+      return <ConnectorBubble message={message} />;
+    }
   }
 
   if (isUser) {
@@ -274,7 +278,14 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
 
   return (
     <div data-message-id={message.id} className="answer-group group flex gap-3 mb-4 items-start">
-      {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} showRing={false} />}
+      {catData && (
+        <CatAvatar
+          catId={effectiveCatId!}
+          size={32}
+          status={message.isStreaming ? 'streaming' : undefined}
+          showRing={false}
+        />
+      )}
       <div className="answer-container  max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
           <div className="answer-header flex flex-col gap-1 min-w-0">
