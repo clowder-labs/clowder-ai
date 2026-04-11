@@ -39,6 +39,8 @@ SetFont "Segoe UI" 9
 !define COMPANY_KEY "ClowderLabs"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 !define INSTALL_KEY "Software\${COMPANY_KEY}\${APP_NAME}"
+!define AUTOSTART_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
+!define AUTOSTART_VALUE "${APP_NAME}"
 !define STARTMENU_DIR "$SMPROGRAMS\${APP_NAME}"
 !define DEFAULT_INSTALL_DIR "$LOCALAPPDATA\Programs\${APP_NAME}"
 
@@ -50,6 +52,9 @@ BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
 ShowUninstDetails nevershow
 
+Var SelectedInstallDir
+Var ExistingInstallDir
+
 ; --------------- License page (custom nsDialogs) ---------------
 Page custom LicensePageCreate LicensePageLeave
 
@@ -57,8 +62,13 @@ Page custom LicensePageCreate LicensePageLeave
 Page custom WelcomePageCreate
 
 ; --------------- Directory page ---------------
+!define MUI_DIRECTORYPAGE_VARIABLE $SelectedInstallDir
+!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave
 !insertmacro MUI_PAGE_DIRECTORY
+
+; --------------- Options page ---------------
+Page custom OptionsPageCreate OptionsPageLeave
 
 ; --------------- Install page ---------------
 !insertmacro MUI_PAGE_INSTFILES
@@ -74,12 +84,18 @@ Page custom FinishPageCreate FinishPageLeave
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
 Var LicenseDialog
-Var AgreeRadio
-Var DisagreeRadio
+Var AgreementCheckbox
 Var NextButton
 Var WelcomeDialog
+Var OptionsDialog
+Var StartMenuShortcutCheckbox
+Var DesktopShortcutCheckbox
+Var AutoStartCheckbox
 Var FinishDialog
 Var FinishLaunchCheckbox
+Var CreateStartMenuShortcut
+Var CreateDesktopShortcut
+Var EnableAutoStart
 Var DetectedRunningProcesses
 
 ; Check if OfficeClaw-related processes are running
@@ -159,9 +175,6 @@ Function LicensePageCreate
   ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
 
   nsDialogs::Show
-
-  SendMessage $AgreeRadio ${BM_SETCHECK} 1 0
-  Call UpdateNextButtonState
 FunctionEnd
 
 Function OnPrivacyLinkClick
@@ -204,6 +217,61 @@ Function WelcomePageCreate
   nsDialogs::Show
 FunctionEnd
 
+Function OptionsPageCreate
+  !insertmacro MUI_HEADER_TEXT "安装选项" "请选择快捷方式和启动方式"
+  nsDialogs::Create 1018
+  Pop $OptionsDialog
+  ${If} $OptionsDialog == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 24u "请选择 ${APP_NAME} 的安装附加选项。您后续也可以通过重新运行安装包修改这些设置。"
+  Pop $0
+
+  ${NSD_CreateCheckbox} 0 32u 100% 12u "创建开始菜单快捷方式"
+  Pop $StartMenuShortcutCheckbox
+  ${If} $CreateStartMenuShortcut == "1"
+    ${NSD_Check} $StartMenuShortcutCheckbox
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 50u 100% 12u "创建桌面快捷方式"
+  Pop $DesktopShortcutCheckbox
+  ${If} $CreateDesktopShortcut == "1"
+    ${NSD_Check} $DesktopShortcutCheckbox
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 68u 100% 12u "开机自动启动 ${APP_NAME}"
+  Pop $AutoStartCheckbox
+  ${If} $EnableAutoStart == "1"
+    ${NSD_Check} $AutoStartCheckbox
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+Function OptionsPageLeave
+  ${NSD_GetState} $StartMenuShortcutCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $CreateStartMenuShortcut "1"
+  ${Else}
+    StrCpy $CreateStartMenuShortcut "0"
+  ${EndIf}
+
+  ${NSD_GetState} $DesktopShortcutCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $CreateDesktopShortcut "1"
+  ${Else}
+    StrCpy $CreateDesktopShortcut "0"
+  ${EndIf}
+
+  ${NSD_GetState} $AutoStartCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $EnableAutoStart "1"
+  ${Else}
+    StrCpy $EnableAutoStart "0"
+  ${EndIf}
+FunctionEnd
+
 Function FinishPageCreate
   !insertmacro MUI_HEADER_TEXT "安装完成" "${APP_NAME} 已成功安装"
   nsDialogs::Create 1018
@@ -234,7 +302,16 @@ FunctionEnd
 
 Function .onInit
   SetShellVarContext current
-  
+  Call ResolveExistingInstallDir
+  Call ResolveInstallOptionDefaults
+  ${If} $ExistingInstallDir != ""
+    StrCpy $INSTDIR $ExistingInstallDir
+    StrCpy $SelectedInstallDir $ExistingInstallDir
+    MessageBox MB_ICONINFORMATION|MB_OK "检测到已安装的 ${APP_NAME}，本次安装将更新现有目录：$\r$\n$ExistingInstallDir$\r$\n$\r$\n如需更换安装位置，请先卸载当前版本。"
+  ${Else}
+    StrCpy $SelectedInstallDir $INSTDIR
+  ${EndIf}
+
   ; Check if OfficeClaw is running
   Call CheckOfficeClawRunning
   ${If} $R0 == "1"
@@ -264,8 +341,66 @@ Function .onVerifyInstDir
   ${EndIf}
 FunctionEnd
 
+Function ResolveExistingInstallDir
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 == ""
+    StrCpy $ExistingInstallDir ""
+    Return
+  ${EndIf}
+
+  IfFileExists "$0\uninstall.exe" existing_install +2
+  IfFileExists "$0\OfficeClaw.exe" existing_install 0
+    StrCpy $ExistingInstallDir ""
+    Return
+
+existing_install:
+  StrCpy $ExistingInstallDir $0
+FunctionEnd
+
+Function ResolveInstallOptionDefaults
+  StrCpy $CreateStartMenuShortcut "1"
+  StrCpy $CreateDesktopShortcut "1"
+  StrCpy $EnableAutoStart "0"
+
+  ${If} $ExistingInstallDir == ""
+    Return
+  ${EndIf}
+
+  IfFileExists "${STARTMENU_DIR}\${APP_NAME}.lnk" +2 0
+    StrCpy $CreateStartMenuShortcut "0"
+
+  IfFileExists "$DESKTOP\${APP_NAME}.lnk" +2 0
+    StrCpy $CreateDesktopShortcut "0"
+
+  ReadRegStr $0 HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
+  ${If} $0 != ""
+    StrCpy $EnableAutoStart "1"
+  ${EndIf}
+FunctionEnd
+
+Function RestoreInstallDirSelection
+  ${If} $ExistingInstallDir != ""
+    StrCpy $INSTDIR $ExistingInstallDir
+    StrCpy $SelectedInstallDir $ExistingInstallDir
+    Abort
+  ${EndIf}
+
+  ${If} $SelectedInstallDir == ""
+    StrCpy $SelectedInstallDir $INSTDIR
+  ${Else}
+    StrCpy $INSTDIR $SelectedInstallDir
+  ${EndIf}
+FunctionEnd
+
 Function VerifyInstallDirLeave
-  StrLen $0 $INSTDIR
+  ${If} $ExistingInstallDir != ""
+    StrCpy $INSTDIR $ExistingInstallDir
+    StrCpy $SelectedInstallDir $ExistingInstallDir
+    Return
+  ${EndIf}
+
+  StrCpy $SelectedInstallDir $INSTDIR
+  StrLen $0 $SelectedInstallDir
   ${If} $0 > 200
     MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长（$0 字符），请选择较短的路径。"
     Abort
@@ -383,10 +518,29 @@ Function un.CleanupManagedPayload
 FunctionEnd
 
 Function WriteShellShortcuts
-  CreateDirectory "${STARTMENU_DIR}"
-  CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
-  CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
-  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+  ${If} $CreateStartMenuShortcut == "1"
+    CreateDirectory "${STARTMENU_DIR}"
+    CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+    CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
+  ${Else}
+    Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
+    Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
+    RMDir "${STARTMENU_DIR}"
+  ${EndIf}
+
+  ${If} $CreateDesktopShortcut == "1"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
+  ${Else}
+    Delete "$DESKTOP\${APP_NAME}.lnk"
+  ${EndIf}
+FunctionEnd
+
+Function WriteAutoStartRegistry
+  ${If} $EnableAutoStart == "1"
+    WriteRegStr HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}" '"$INSTDIR\OfficeClaw.exe"'
+  ${Else}
+    DeleteRegValue HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
+  ${EndIf}
 FunctionEnd
 
 Function WriteUninstallRegistry
@@ -404,7 +558,8 @@ FunctionEnd
 
 Section "Install"
   DetailPrint "正在准备安装环境..."
-  
+  StrCpy $INSTDIR $SelectedInstallDir
+
   ; If processes were detected in .onInit, close them now
   ${If} $DetectedRunningProcesses == "1"
     DetailPrint "正在关闭正在运行的 OfficeClaw 进程..."
@@ -480,6 +635,7 @@ init_config_done:
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
   Call WriteShellShortcuts
+  Call WriteAutoStartRegistry
   Call WriteUninstallRegistry
 SectionEnd
 
@@ -492,6 +648,7 @@ Section "Uninstall"
   Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
   RMDir "${STARTMENU_DIR}"
   Delete "$DESKTOP\${APP_NAME}.lnk"
+  DeleteRegValue HKCU "${AUTOSTART_KEY}" "${AUTOSTART_VALUE}"
 
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "${INSTALL_KEY}"

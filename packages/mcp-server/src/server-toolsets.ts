@@ -114,6 +114,7 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   office_claw_list_schedule_templates: 'List available schedule task templates (reminder, web-digest, repo-activity).',
   office_claw_preview_scheduled_task: 'Preview a scheduled task draft before creating it.',
   office_claw_register_scheduled_task: 'Create a new scheduled task from a template. Preview first.',
+  office_claw_set_scheduled_task_enabled: 'Enable or disable a dynamic scheduled task by task ID without deleting it.',
   office_claw_remove_scheduled_task: 'Remove a dynamic scheduled task by ID.',
   // Memory
   office_claw_retain_memory_callback: 'Retain a durable memory item with optional tags.',
