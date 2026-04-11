@@ -52,14 +52,13 @@ function runWindowsCredentialCommand(payload: Record<string, string>): string {
 $ErrorActionPreference = 'Stop'
 $payload = [Console]::In.ReadToEnd()
 if (-not $payload) { throw 'Missing payload' }
-$json = $payload | ConvertFrom-Json -AsHashtable
+$json = $payload | ConvertFrom-Json
 $action = [string]$json.action
 $target = [string]$json.target
-$secret = if ($json.ContainsKey('secret')) { [string]$json.secret } else { $null }
+$secret = if ($json.PSObject.Properties.Match('secret').Count -gt 0) { [string]$json.secret } else { $null }
 $source = @"
 using System;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
 public static class WinCredNative {
   [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
   public struct CREDENTIAL {
@@ -67,7 +66,7 @@ public static class WinCredNative {
     public UInt32 Type;
     public string TargetName;
     public string Comment;
-    public FILETIME LastWritten;
+    public long LastWritten;
     public UInt32 CredentialBlobSize;
     public IntPtr CredentialBlob;
     public UInt32 Persist;
