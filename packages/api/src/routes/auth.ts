@@ -16,7 +16,7 @@ export interface AuthRoutesOptions {
   // 可以在这里添加认证相关的配置
 }
 
-interface UserInfo {
+export interface UserInfo {
   userId: string;
   token: string;
   expiresAt: string;
