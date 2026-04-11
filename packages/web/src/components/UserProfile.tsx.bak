@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth, getUserId } from '@/utils/userId';
+import { AppModal } from './AppModal';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
 
@@ -16,21 +17,18 @@ const THEME_OPTIONS: Array<{
   id: ThemeType;
   label: string;
   swatchBackground: string;
-  selectedBadgeBackground: string;
 }> = [
   {
     id: 'business',
     label: '灰白浅色',
     swatchBackground:
       'linear-gradient(-50.71deg, rgba(237, 244, 246, 1), rgba(235, 235, 235, 1) 100%)',
-    selectedBadgeBackground: 'rgb(59,130,246)',
   },
   {
     id: 'warm',
     label: '橙白浅色',
     swatchBackground:
       'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
-    selectedBadgeBackground: 'rgb(204,109,26)',
   },
 ];
 
@@ -39,6 +37,7 @@ const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/office
 export function UserProfile({ className }: UserProfileProps) {
   const [showPanel, setShowPanel] = useState(false);
   const [showThemePanel, setShowThemePanel] = useState(false);
+  const [showSecurityManagement, setShowSecurityManagement] = useState(false);
   const [showUsageStats, setShowUsageStats] = useState(false);
   const [showVersionUpdate, setShowVersionUpdate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,6 +80,16 @@ export function UserProfile({ className }: UserProfileProps) {
       if (!next) setShowThemePanel(false);
       return next;
     });
+  };
+  
+  const handleOpenSecurityManagement = () => {
+    setShowSecurityManagement(true);
+    setShowThemePanel(false);
+    setShowPanel(false);
+  };
+  
+   const handleCloseSecurityManagement = () => {
+    setShowSecurityManagement(false);
   };
 
   const handleOpenUsageStats = () => {
@@ -244,6 +253,11 @@ export function UserProfile({ className }: UserProfileProps) {
             <div className="mb-3 border-t border-gray-200" />
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
+              <button className={`hidden ${profileActionClass}`} onClick={handleOpenSecurityManagement}>
+                <img src="/icons/userprofile/question.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
+                安全管理
+              </button>
+
               <button
                  className={`hidden ${profileActionClass}`}
                 onClick={handleOpenUsageStats}
@@ -334,11 +348,10 @@ export function UserProfile({ className }: UserProfileProps) {
                       />
                       {isActive && (
                         <div
-                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-white"
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white"
                           data-testid={`user-theme-selected-badge-${option.id}`}
-                          style={{ backgroundColor: option.selectedBadgeBackground }}
                         >
-                          <svg className="h-[12px] w-[12px]" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
+                          <svg className="h-2.5 w-2.5" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
                             <path
                               d="M4 8.25 6.5 10.75 12 5.25"
                               stroke="currentColor"
@@ -363,6 +376,14 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showUsageStats ? <UsageStatsModal open={showUsageStats} onClose={handleCloseUsageStats} /> : null}
       <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} />
+      <AppModal
+        open={showSecurityManagement}
+        onClose={handleCloseSecurityManagement}
+        title="安全管理"
+        backdropTestId="user-security-management-modal"
+      >
+        <div className="p-6 text-sm text-[#4B5563]">安全管理</div>
+      </AppModal>
     </div>
   );
 }

@@ -1342,7 +1342,6 @@ select:-webkit-autofill:focus {
     border-bottom: var(--border-width-default) solid var(--content-header-border);
     padding: var(--content-header-padding-y) var(--content-header-padding-right) var(--content-header-padding-y)
       var(--content-header-padding-left);
-    background: var(--surface-panel);
   }
 
   .ui-content-header-actions {

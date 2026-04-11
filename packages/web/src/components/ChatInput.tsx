@@ -273,6 +273,7 @@ export function ChatInput({
   const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionConfig | null>(null);
   const [showQuickPrompts, setShowQuickPrompts] = useState(false);
+  const [pendingQuickPromptExpand, setPendingQuickPromptExpand] = useState(false);
   const textareaRef = useRef<RichTextareaHandle>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const gameBtnRef = useRef<HTMLButtonElement>(null);
@@ -298,7 +299,7 @@ export function ChatInput({
       return prev + separator + pendingChatInsert.text;
     });
     if (pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX)) {
-      setShowQuickPrompts(true);
+      setPendingQuickPromptExpand(true);
     }
     setPendingChatInsert(null);
     textareaRef.current?.focus();
@@ -316,6 +317,7 @@ export function ChatInput({
       const token = getQuickActionToken(action.label);
       const next = `${token} `;
       setInput(next);
+      setPendingQuickPromptExpand(false);
       setShowQuickPrompts(true);
       setTimeout(() => {
         const el = textareaRef.current;
@@ -356,6 +358,7 @@ export function ChatInput({
       }
 
       setInput(next);
+      setPendingQuickPromptExpand(false);
       setShowQuickPrompts(false);
       setTimeout(() => {
         const el = textareaRef.current;
@@ -375,8 +378,18 @@ export function ChatInput({
   }, [input, visibleQuickActions]);
 
   useEffect(() => {
-    if (!selectedQuickAction) setShowQuickPrompts(false);
-  }, [selectedQuickAction]);
+    if (selectedQuickAction) {
+      if (pendingQuickPromptExpand) {
+        setShowQuickPrompts(true);
+        setPendingQuickPromptExpand(false);
+      }
+      return;
+    }
+
+    if (!pendingQuickPromptExpand) {
+      setShowQuickPrompts(false);
+    }
+  }, [pendingQuickPromptExpand, selectedQuickAction]);
 
 
   const filteredCatOptions = useMemo(() => {
@@ -453,6 +466,7 @@ export function ChatInput({
         setShowGameMenu(false);
         setShowSkillMenu(false);
         setSelectedQuickAction(null);
+        setPendingQuickPromptExpand(false);
         setShowQuickPrompts(false);
       }
     },
