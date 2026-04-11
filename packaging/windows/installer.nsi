@@ -84,8 +84,7 @@ Page custom FinishPageCreate FinishPageLeave
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
 Var LicenseDialog
-Var AgreeRadio
-Var DisagreeRadio
+Var AgreementCheckbox
 Var NextButton
 Var WelcomeDialog
 Var OptionsDialog
@@ -148,37 +147,41 @@ Function LicensePageCreate
   GetDlgItem $NextButton $HWNDPARENT 1
   EnableWindow $NextButton 0
 
-  ${NSD_CreateLabel} 0 10u 100% 12u "${APP_NAME}软件许可协议"
+  ${NSD_CreateLabel} 0 6u 100% 12u "${APP_NAME} 软件许可与服务声明"
   Pop $0
 
-  ${NSD_CreateLabel} 10u 25u 44u 10u "1.了解和同意"
+  ${NSD_CreateGroupBox} 0 22u 100% 92u "请先阅读以下文档"
   Pop $0
 
-  ${NSD_CreateLink} 54u 25u 30% 10u "华为云隐私政策声明"
+  ${NSD_CreateLabel} 12u 38u 88% 18u "继续安装前，请点击查看以下协议与声明。相关链接将在默认浏览器中打开。"
+  Pop $0
+
+  ${NSD_CreateLabel} 12u 60u 88% 10u "1. 隐私政策声明"
+  Pop $0
+
+  ${NSD_CreateLink} 20u 72u 76% 12u "查看华为云隐私政策声明"
   Pop $1
   ${NSD_OnClick} $1 "OnPrivacyLinkClick"
 
-  ${NSD_CreateLabel} 10u 40u 44u 10u "2.了解和同意"
+  ${NSD_CreateLabel} 12u 90u 88% 10u "2. 服务声明"
   Pop $0
 
-  ${NSD_CreateLink} 54u 40u 30% 10u "AgentArts服务声明"
+  ${NSD_CreateLink} 20u 102u 76% 12u "查看 AgentArts 服务声明"
   Pop $1
   ${NSD_OnClick} $1 "OnServiceLinkClick"
 
-  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(A)"
-  Pop $AgreeRadio
-  ${NSD_Setfocus} $AgreeRadio
+  ${NSD_CreateCheckbox} 0 124u 100% 12u "我已阅读并同意上述协议与声明(A)"
+  Pop $AgreementCheckbox
+  ${NSD_Uncheck} $AgreementCheckbox
+  ${NSD_Setfocus} $AgreementCheckbox
+  ${NSD_OnClick} $AgreementCheckbox OnAgreementChanged
 
-  ${NSD_OnClick} $AgreeRadio OnAgreementChanged
+  ${NSD_CreateLabel} 12u 140u 88% 18u "勾选后才可以继续安装。若不同意上述协议与声明，请取消安装。"
+  Pop $0
 
-  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(D)"
-  Pop $DisagreeRadio
-  ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
+  Call UpdateNextButtonState
 
   nsDialogs::Show
-
-  SendMessage $AgreeRadio ${BM_SETCHECK} 1 0
-  Call UpdateNextButtonState
 FunctionEnd
 
 Function OnPrivacyLinkClick
@@ -196,8 +199,8 @@ Function OnAgreementChanged
 FunctionEnd
 
 Function UpdateNextButtonState
-  ${NSD_GetState} $AgreeRadio $0
-  ${If} $0 == 1
+  ${NSD_GetState} $AgreementCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
     EnableWindow $NextButton 1
   ${Else}
     EnableWindow $NextButton 0
