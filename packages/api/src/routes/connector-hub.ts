@@ -6,6 +6,7 @@
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { applyConnectorSecretUpdates } from '../config/connector-secret-updater.js';
+import { buildConnectorEnvRefVarName, getConnectorEnvValue, hasConnectorEnvValue } from '../config/local-secret-store.js';
 import { DEFAULT_THREAD_ID, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
@@ -163,9 +164,12 @@ export interface PlatformStatus {
 export function buildConnectorStatus(env: Record<string, string | undefined> = process.env): PlatformStatus[] {
   return CONNECTOR_PLATFORMS.map((platform) => {
     const fields: PlatformFieldStatus[] = platform.fields.map((f) => {
-      const raw = env[f.envName];
-      const isSet = raw != null && raw !== '' && !raw.startsWith('(未设置');
-      const effectiveValue = isSet ? raw : (f.defaultValue ?? null);
+      const raw = getConnectorEnvValue(f.envName, env);
+      const ref = env[buildConnectorEnvRefVarName(f.envName)];
+      const isSet =
+        (raw != null && raw !== '' && !raw.startsWith('(未设置')) ||
+        (typeof ref === 'string' && ref.trim().length > 0 && !ref.startsWith('(未设置'));
+      const effectiveValue = isSet ? (raw ?? ref ?? null) : (f.defaultValue ?? null);
       return {
         envName: f.envName,
         label: f.label,
@@ -176,14 +180,13 @@ export function buildConnectorStatus(env: Record<string, string | undefined> = p
 
     let configured: boolean;
     if (platform.id === 'feishu') {
-      configured = Boolean(env.FEISHU_APP_ID && env.FEISHU_APP_SECRET);
+      configured = Boolean(env.FEISHU_APP_ID && getConnectorEnvValue('FEISHU_APP_SECRET', env));
     } else if (platform.fields.length === 0) {
       configured = false;
     } else {
       configured = platform.fields.every((f) => {
         if (f.optional) return true;
-        const raw = env[f.envName];
-        return raw != null && raw !== '' && !raw.startsWith('(未设置');
+        return hasConnectorEnvValue(f.envName, env);
       });
     }
 
@@ -321,7 +324,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       return typeof value === 'string' && value.trim() ? value.trim() : undefined;
     };
     const readEnv = (key: string): string | undefined => {
-      const value = process.env[key];
+      const value = getConnectorEnvValue(key);
       return value && !value.startsWith('(未设置') ? value : undefined;
     };
 
@@ -385,7 +388,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       return typeof value === 'string' && value.trim() ? value.trim() : undefined;
     };
     const readEnv = (key: string): string | undefined => {
-      const value = process.env[key];
+      const value = getConnectorEnvValue(key);
       return value && !value.startsWith('(未设置') ? value : undefined;
     };
 

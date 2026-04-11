@@ -60,6 +60,17 @@ describe('buildConnectorStatus', () => {
     assert.equal(dingtalk.fields[1].currentValue, '••••••••');
   });
 
+  it('treats secret refs as configured and masked for sensitive connector fields', () => {
+    const result = buildConnectorStatus({
+      DINGTALK_APP_KEY: 'ding-app-key',
+      DINGTALK_APP_SECRET_REF: 'wincred://Clowder/env/DINGTALK_APP_SECRET',
+    });
+    const dingtalk = result.find((p) => p.id === 'dingtalk');
+    assert.ok(dingtalk);
+    assert.equal(dingtalk.configured, true);
+    assert.equal(dingtalk.fields[1].currentValue, '••••••••');
+  });
+
   it('treats placeholder default values as not configured', () => {
     const result = buildConnectorStatus({
       DINGTALK_APP_KEY: '(未设置 → 不启用)',
@@ -105,7 +116,7 @@ describe('buildConnectorStatus', () => {
     assert.ok(feishu);
     assert.deepEqual(
       feishu.steps.map((s) => s.text),
-      ['点击「生成二维码」按钮', '使用飞书扫描二维码并确认授权', '授权成功后自动连接，无需重启服务'],
+      ['点击「生成二维码」按钮', '使用飞书扫描二维码并确认授权', '授权成功后自动连接，无需填写凭证或重启服务'],
     );
   });
 
