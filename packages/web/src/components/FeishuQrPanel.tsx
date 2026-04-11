@@ -7,6 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { SpinnerIcon } from './HubConfigIcons';
@@ -27,6 +28,7 @@ function statusMessage(status: QrState, errorMsg: string | null) {
 }
 
 export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: FeishuQrPanelProps) {
+  const addToast = useToastStore((s) => s.addToast);
   const [qrState, setQrState] = useState<QrState>(configured ? 'confirmed' : 'idle');
   const [disconnecting, setDisconnecting] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
@@ -133,12 +135,31 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
     setDisconnecting(true);
     try {
       const res = await apiFetch('/api/connector/feishu/disconnect', { method: 'POST' });
-      if (res.ok) {
-        setQrState('idle');
-        onDisconnected?.();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        addToast({
+          type: 'error',
+          title: '断开连接失败',
+          message: data.error ?? '断开失败',
+          duration: 5000,
+        });
+        return;
       }
+      setQrState('idle');
+      addToast({
+        type: 'success',
+        title: '断开连接成功',
+        message: '已断开连接。',
+        duration: 3000,
+      });
+      onDisconnected?.();
     } catch {
-      // Button stays enabled for retry.
+      addToast({
+        type: 'error',
+        title: '断开连接失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setDisconnecting(false);
     }

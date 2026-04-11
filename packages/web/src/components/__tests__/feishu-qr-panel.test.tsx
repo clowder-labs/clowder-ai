@@ -1,6 +1,8 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastContainer } from '@/components/ToastContainer';
+import { useToastStore } from '@/stores/toastStore';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
 
@@ -45,6 +47,7 @@ describe('FeishuQrPanel', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    useToastStore.setState({ toasts: [] });
     mockApiFetch.mockReset();
   });
 
@@ -90,5 +93,35 @@ describe('FeishuQrPanel', () => {
 
     expect(img?.getAttribute('class')).toContain('w-48');
     expect(img?.getAttribute('class')).toContain('h-48');
+  });
+
+  it('shows a global success toast after disconnect succeeds', async () => {
+    mockApiFetch.mockResolvedValueOnce(jsonResponse({ ok: true }));
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(FeishuQrPanel, { configured: true }),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const disconnectButton = queryTestId(container, 'feishu-disconnect') as HTMLButtonElement | null;
+    expect(disconnectButton).not.toBeNull();
+
+    await act(async () => {
+      disconnectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.type === 'success' && toast.title === '断开连接成功' && toast.message.includes('已断开连接')),
+    ).toBe(true);
   });
 });

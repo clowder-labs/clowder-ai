@@ -315,6 +315,8 @@ export function AgentsPanel() {
   const templateBubbleRef = useRef<HTMLDivElement | null>(null);
   const hoveredTemplateTriggerRef = useRef<HTMLDivElement | null>(null);
   const templateHoverClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editorSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const editorTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const filteredCats = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -431,6 +433,17 @@ export function AgentsPanel() {
     const tailLeft = Math.min(Math.max(triggerCenterX - left, 18), Math.max(18, bubbleRect.width - 18));
 
     setTemplateBubblePosition({ top, left, tailLeft });
+  }, []);
+
+  const syncEditorTextareaHeight = useCallback(() => {
+    const surface = editorSurfaceRef.current;
+    const textarea = editorTextareaRef.current;
+    if (!surface || !textarea) return;
+
+    textarea.style.height = '0px';
+    textarea.style.overflowY = 'hidden';
+    const nextHeight = Math.max(textarea.scrollHeight, surface.clientHeight);
+    textarea.style.height = `${nextHeight}px`;
   }, []);
 
   useEffect(() => {
@@ -580,6 +593,18 @@ export function AgentsPanel() {
       document.removeEventListener('scroll', handleViewportChange, true);
     };
   }, [hoveredTemplateId, positionTemplateBubble]);
+
+  useLayoutEffect(() => {
+    if (mode !== 'edit' || showEmptyPersonaEditor) return;
+
+    syncEditorTextareaHeight();
+
+    const handleResize = () => syncEditorTextareaHeight();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [activeTab, activeWorkingDraft, mode, selectedCat?.id, showEmptyPersonaEditor, syncEditorTextareaHeight]);
 
   const updateWorkingDraft = useCallback(
     (tab: EditableTabKey, value: string) => {
@@ -847,8 +872,8 @@ export function AgentsPanel() {
     }
 
     return (
-      <div className="px-8 pb-6">
-        <div className="h-full overflow-auto">
+      <div className="h-full px-8 pb-6">
+        <div className="h-full">
           <MarkdownContent
             content={content}
             className="text-[14px] leading-7 text-[var(--text-primary)] [&_h2]:mt-0 [&_h2]:mb-4 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-[var(--text-primary)] [&_h3]:mb-3 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--text-primary)] [&_p]:text-[var(--text-primary)] [&_ul]:mb-4 [&_li]:text-[var(--text-primary)]"
@@ -861,8 +886,9 @@ export function AgentsPanel() {
 
   const renderMarkdownEditor = () => (
     <div className="flex h-full min-h-0 flex-col px-8 pb-6">
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div ref={editorSurfaceRef} className="min-h-0 flex-1">
         <textarea
+          ref={editorTextareaRef}
           value={activeWorkingDraft}
           onChange={(event) => {
             if (!isEditableTab(activeTab)) return;
@@ -873,7 +899,7 @@ export function AgentsPanel() {
               ? '请输入你的智能体人格、语气、规则描述，或选择下方模板自动生成'
               : '请输入协作配置内容，例如分工方式、交接规则、协作边界等'
           }
-          className="ui-textarea ui-textarea-plain h-full w-full resize-none rounded-none text-[12px] leading-7"
+          className="ui-textarea ui-textarea-plain block min-h-full w-full resize-none overflow-hidden rounded-none text-[12px] leading-7"
           data-testid="agent-tab-textarea"
         />
       </div>

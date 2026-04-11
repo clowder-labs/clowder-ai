@@ -159,6 +159,51 @@ describe('HubConnectorConfigTab layout', () => {
     expect(container.querySelector('input[data-testid="field-SLACK_TOKEN"]')).toBeNull();
   });
 
+  it('shows the shared centered loading state inside the right pane while loading connector status', async () => {
+    let resolveStatus: ((value: Response) => void) | null = null;
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return new Promise<Response>((resolve) => {
+          resolveStatus = resolve;
+        });
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+      await Promise.resolve();
+    });
+
+    const rightPane = container.querySelector('[data-testid="connector-right-pane"]');
+    expect(rightPane).not.toBeNull();
+    expect(rightPane?.querySelector('[data-testid="skills-loading-state"]')).not.toBeNull();
+    expect(rightPane?.textContent).not.toContain('加载中...');
+
+    await act(async () => {
+      resolveStatus?.(
+        jsonResponse({
+          platforms: [
+            {
+              id: 'slack',
+              name: 'Slack',
+              nameEn: 'Slack',
+              configured: false,
+              docsUrl: 'https://example.com/docs',
+              steps: ['Open app settings', 'Save credentials'],
+              fields: [{ envName: 'SLACK_TOKEN', label: 'Token', sensitive: false, currentValue: null }],
+            },
+          ],
+        }),
+      );
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(rightPane?.querySelector('[data-testid="skills-loading-state"]')).toBeNull();
+  });
+
   it('refreshes platform status after Weixin QR panel reports configuration success', async () => {
     let statusCallCount = 0;
     mockApiFetch.mockImplementation((input: RequestInfo | URL) => {

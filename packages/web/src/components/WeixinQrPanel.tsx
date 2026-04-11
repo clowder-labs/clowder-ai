@@ -7,6 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { SpinnerIcon } from './HubConfigIcons';
@@ -25,6 +26,7 @@ export function WeixinQrPanel({
   onConfigured?: () => void | Promise<void>;
   onDisconnected?: () => void | Promise<void>;
 }) {
+  const addToast = useToastStore((s) => s.addToast);
   const [qrState, setQrState] = useState<QrState>(configured ? 'confirmed' : 'idle');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -125,16 +127,35 @@ export function WeixinQrPanel({
       const res = await apiFetch('/api/connector/weixin/disconnect', { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setErrorMsg(data.error ?? '解除绑定失败');
+        const message = data.error ?? '解除绑定失败';
+        setErrorMsg(message);
+        addToast({
+          type: 'error',
+          title: '断开连接失败',
+          message,
+          duration: 5000,
+        });
         return;
       }
 
       stopPolling();
       setQrState('idle');
       setQrUrl(null);
+      addToast({
+        type: 'success',
+        title: '断开连接成功',
+        message: '已断开连接。',
+        duration: 3000,
+      });
       await onDisconnected?.();
     } catch {
       setErrorMsg('网络错误');
+      addToast({
+        type: 'error',
+        title: '断开连接失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setDisconnecting(false);
     }

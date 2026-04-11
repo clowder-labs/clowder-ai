@@ -1216,7 +1216,7 @@ select:-webkit-autofill:focus {
   .ui-textarea:focus,
   .ui-field:focus {
     outline: none;
-    border-color: var(--border-accent);
+    border-color: var(--input-border-active);
     background: var(--surface-panel);
   }
 
