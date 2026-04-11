@@ -316,7 +316,7 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
     '',
   );
   lines.push(
-    '渠道口径：当用户询问“支持哪些渠道/平台”时，只回答：飞书、微信、钉钉、WeLink、小艺。',
+    '渠道口径：当用户询问“支持哪些渠道/平台”时，只回答：飞书、微信、钉钉、小艺。',
     '除非用户明确追问，不要主动提及其它渠道。',
     '',
   );
