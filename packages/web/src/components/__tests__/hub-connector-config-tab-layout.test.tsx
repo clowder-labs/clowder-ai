@@ -467,4 +467,124 @@ describe('HubConnectorConfigTab layout', () => {
         .toasts.some((toast) => toast.type === 'success' && toast.title === '测试连接成功' && toast.message.includes('连接测试成功')),
     ).toBe(true);
   });
+
+  it('routes save feedback through the global toast container', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'xiaoyi',
+                name: '小艺',
+                nameEn: 'Xiaoyi',
+                configured: false,
+                docsUrl: 'https://example.com/xiaoyi',
+                steps: ['创建应用', '填写凭证', '测试连接'],
+                fields: [{ envName: 'XIAOYI_APP_ID', label: 'App ID', sensitive: false, currentValue: null }],
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/config/env' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ runtime: { applied: true } }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(HubConnectorConfigTab),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const input = container.querySelector('[data-testid="field-XIAOYI_APP_ID"]') as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      valueSetter?.call(input, 'xiaoyi-app-id');
+      input!.dispatchEvent(new Event('input', { bubbles: true }));
+      input!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const saveButton = container.querySelector('[data-testid="save-xiaoyi"]');
+    expect(saveButton).not.toBeNull();
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="save-result"]')).toBeNull();
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.type === 'success' && toast.title === '保存配置成功' && toast.message.includes('配置已保存并立即生效')),
+    ).toBe(true);
+  });
+
+  it('routes disconnect feedback through the global toast container', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'xiaoyi',
+                name: '小艺',
+                nameEn: 'Xiaoyi',
+                configured: true,
+                docsUrl: 'https://example.com/xiaoyi',
+                steps: ['创建应用', '填写凭证', '测试连接'],
+                fields: [{ envName: 'XIAOYI_APP_ID', label: 'App ID', sensitive: false, currentValue: 'configured' }],
+              },
+            ],
+          }),
+        );
+      }
+      if (url === '/api/connector/xiaoyi/disconnect' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ runtime: { applied: true } }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(HubConnectorConfigTab),
+          React.createElement(ToastContainer),
+        ),
+      );
+    });
+    await flushEffects();
+
+    const disconnectButton = container.querySelector('[data-testid="disconnect-xiaoyi"]');
+    expect(disconnectButton).not.toBeNull();
+
+    await act(async () => {
+      disconnectButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="save-result"]')).toBeNull();
+    expect(
+      useToastStore
+        .getState()
+        .toasts.some((toast) => toast.type === 'success' && toast.title === '断开连接成功' && toast.message.includes('已断开连接')),
+    ).toBe(true);
+  });
 });

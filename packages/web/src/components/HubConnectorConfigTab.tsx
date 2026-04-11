@@ -180,7 +180,12 @@ export function HubConnectorConfigTab() {
       .map((f) => ({ name: f.envName, value: fieldValues[f.envName] }));
 
     if (updates.length === 0) {
-      setSaveResult({ type: 'error', message: '请至少填写一项配置' });
+      addToast({
+        type: 'error',
+        title: '保存配置失败',
+        message: '请至少填写一项配置',
+        duration: 5000,
+      });
       return;
     }
 
@@ -194,7 +199,12 @@ export function HubConnectorConfigTab() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setSaveResult({ type: 'error', message: data.error ?? '保存失败' });
+        addToast({
+          type: 'error',
+          title: '保存配置失败',
+          message: data.error ?? '保存失败',
+          duration: 5000,
+        });
         return;
       }
       const data = await res.json().catch(() => ({}));
@@ -205,19 +215,32 @@ export function HubConnectorConfigTab() {
           }
         | undefined;
       const failedConnectors = Array.isArray(runtime?.failedConnectors) ? runtime.failedConnectors : [];
-      setSaveResult({
-        type: 'success',
-        message:
-          runtime && runtime.applied === false
-            ? `配置已保存，但热生效失败：${failedConnectors
+      addToast(
+        runtime && runtime.applied === false
+          ? {
+              type: 'error',
+              title: '保存配置成功',
+              message: `配置已保存，但热生效失败：${failedConnectors
                 .map((item) => item.connectorId || 'unknown')
-                .join('、')}。请查看 API 日志。`
-            : '配置已保存并立即生效。',
-      });
+                .join('、')}。请查看 API 日志。`,
+              duration: 5000,
+            }
+          : {
+              type: 'success',
+              title: '保存配置成功',
+              message: '配置已保存并立即生效。',
+              duration: 3000,
+            },
+      );
       setFieldValues({});
       await fetchStatus();
     } catch {
-      setSaveResult({ type: 'error', message: '网络错误' });
+      addToast({
+        type: 'error',
+        title: '保存配置失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setSaving(false);
     }
@@ -292,18 +315,39 @@ export function HubConnectorConfigTab() {
       const res = await apiFetch(`/api/connector/${platformId}/disconnect`, { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setSaveResult({ type: 'error', message: data.error ?? '断开失败' });
+        addToast({
+          type: 'error',
+          title: '断开连接失败',
+          message: data.error ?? '断开失败',
+          duration: 5000,
+        });
         return;
       }
       const data = await res.json().catch(() => ({}));
       const runtime = data?.runtime as { applied?: boolean } | undefined;
-      setSaveResult({
-        type: 'success',
-        message: runtime?.applied === false ? '已断开连接，但热生效失败。请查看 API 日志。' : '已断开连接。',
-      });
+      addToast(
+        runtime?.applied === false
+          ? {
+              type: 'error',
+              title: '断开连接成功',
+              message: '已断开连接，但热生效失败。请查看 API 日志。',
+              duration: 5000,
+            }
+          : {
+              type: 'success',
+              title: '断开连接成功',
+              message: '已断开连接。',
+              duration: 3000,
+            },
+      );
       await fetchStatus();
     } catch {
-      setSaveResult({ type: 'error', message: '网络错误' });
+      addToast({
+        type: 'error',
+        title: '断开连接失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setDisconnecting(null);
     }
