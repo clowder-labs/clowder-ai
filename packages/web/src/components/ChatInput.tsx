@@ -1373,9 +1373,12 @@ export function ChatInput({
                               <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
                             )}
                           </div>
+                          <div className="px-4 py-2">
+                            <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
+                          </div>
                           <button
                             type="button"
-                            className="mt-2 inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
+                            className="inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
                             onMouseDown={(e) => {
                               e.preventDefault();
                               closeMenus();
