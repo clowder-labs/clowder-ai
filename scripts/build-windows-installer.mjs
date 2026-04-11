@@ -547,6 +547,7 @@ function copyTopLevelProject(bundleDir) {
     'cat-cafe-skills',
     'LICENSE',
     '.env.example',
+    '.inner.env',
     'cat-template.json',
     'modelarts-preset.json',
     'pnpm-workspace.yaml',
