@@ -146,11 +146,14 @@ export class ConnectorRouter {
 
   /**
    * Resolve the effective owner userId at call time.
-   * Checks process.env.DEFAULT_OWNER_USER_ID first (may be set dynamically
-   * when the first Web user connects), then falls back to the static default.
+   * Prefers bound userId from connector-thread binding when available.
+   * Checks process.env.DEFAULT_OWNER_USER_ID next, then falls back to static default.
    */
-  private resolveOwnerUserId(): string {
-    return process.env.DEFAULT_OWNER_USER_ID || this.opts.defaultUserId;
+  private resolveOwnerUserId(preferredUserId?: string): string {
+    const boundUserId = preferredUserId?.trim();
+    if (boundUserId) return boundUserId;
+    const dynamicOwnerUserId = process.env.DEFAULT_OWNER_USER_ID?.trim();
+    return dynamicOwnerUserId || this.opts.defaultUserId;
   }
 
   /** Build @-mention patterns from catRegistry for parseMentions. */
@@ -331,15 +334,16 @@ export class ConnectorRouter {
 
     // 2. Lookup or create binding
     let binding = await bindingStore.getByExternal(connectorId, externalChatId);
+    const ownerUserId = this.resolveOwnerUserId(binding?.userId);
     if (!binding) {
       const def = getConnectorDefinition(connectorId);
       const title =
         chatType === 'group'
           ? `飞书群聊 · ${chatName || externalChatId.slice(-8)}`
           : `${def?.displayName ?? connectorId} DM`;
-      const thread = await threadStore.create(this.resolveOwnerUserId(), title);
-      binding = await bindingStore.bind(connectorId, externalChatId, thread.id, this.resolveOwnerUserId());
-      socketManager?.emitToUser?.(this.resolveOwnerUserId(), 'thread_created', {
+      const thread = await threadStore.create(ownerUserId, title);
+      binding = await bindingStore.bind(connectorId, externalChatId, thread.id, ownerUserId);
+      socketManager?.emitToUser?.(ownerUserId, 'thread_created', {
         threadId: thread.id,
         source: 'connector_auto',
       });
@@ -377,7 +381,7 @@ export class ConnectorRouter {
     const messageTimestamp = Date.now();
     const stored = await messageStore.append({
       threadId: binding.threadId,
-      userId: this.resolveOwnerUserId(),
+      userId: ownerUserId,
       catId: null,
       content: resolvedText,
       source,
@@ -397,7 +401,7 @@ export class ConnectorRouter {
     invokeTrigger.trigger(
       binding.threadId,
       targetCatId,
-      this.resolveOwnerUserId(),
+      ownerUserId,
       resolvedText,
       stored.id,
       contentBlocks,
