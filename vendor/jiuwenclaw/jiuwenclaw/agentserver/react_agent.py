@@ -67,6 +67,19 @@ _CMD_SOLIDIFY = "/solidify"
 
 _PERMISSION_APPROVAL_TIMEOUT = 300  # Auto-reject after 5 minute timeout
 
+_BASH_BLOCK_RE = re.compile(r'```bash\s*\n(.*?)```', re.DOTALL)
+
+
+def _parse_skill_bash_commands(skill_md_text: str) -> list:
+    """Extract executable bash commands from SKILL.md ```bash blocks."""
+    commands: list = []
+    for block in _BASH_BLOCK_RE.findall(skill_md_text):
+        for line in block.strip().splitlines():
+            line = line.strip()
+            if line and not line.startswith('#'):
+                commands.append(line)
+    return commands
+
 
 def _deduplicate_tools_by_name(tools: List[Any]) -> List[Any]:
     """Deduplicate tool infos by tool name while preserving order."""
@@ -137,6 +150,16 @@ class JiuClawReActAgent(ReActAgent):
         self._workspace_dir = get_workspace_dir()
         self._memory_dir = get_agent_memory_dir()
         self._agent_id: str = "main_agent"
+        # Skill compliance: track active skill and cache content for periodic re-injection
+        self._active_skill: Optional[str] = None
+        self._active_skill_content: Optional[str] = None
+        self._skill_tool_count: int = 0  # tool calls since last re-injection
+        self._last_declared_step: Optional[int] = None  # last declared stage number
+        self._skip_warned: bool = False  # True = already warned once, next skip will block
+        self._pending_skip_warning: Optional[str] = None  # soft warning to inject in compliance
+        self._current_session_id: Optional[str] = None
+        self._no_tool_invoke_count: int = 0  # consecutive invokes ending without tool calls
+        self._skill_bash_commands: List[str] = []  # parsed from SKILL.md ```bash blocks
 
     def set_workspace(self, workspace_dir: str, agent_id: str) -> None:
         """Set workspace directory and Agent ID."""
@@ -331,7 +354,8 @@ class JiuClawReActAgent(ReActAgent):
             session_id = ""
         else:
             raise ValueError("Input must be dict with 'query' or str")
-        
+
+        self._current_session_id = session_id or None
         # Token usage accumulator across ReAct iterations
         total_input_tokens = 0
         total_output_tokens = 0
@@ -349,6 +373,21 @@ class JiuClawReActAgent(ReActAgent):
             if self._evolution_service is None:
                 return {"output": "演进功能未启用。", "result_type": "error"}
             return self._evolution_service.handle_solidify_command(stripped)
+
+        # Skill deactivation: if consecutive no-tool invokes reached threshold, clear skill
+        if self._active_skill and self._no_tool_invoke_count >= 2:
+            logger.info(
+                "[ReActAgent] Skill compliance: deactivating '%s' after %d consecutive no-tool invokes",
+                self._active_skill, self._no_tool_invoke_count,
+            )
+            self._active_skill = None
+            self._active_skill_content = None
+            self._skill_tool_count = 0
+            self._last_declared_step = None
+            self._skip_warned = False
+            self._pending_skip_warning = None
+            self._no_tool_invoke_count = 0
+            self._skill_bash_commands = []
 
         # Initialize context
         context = await self._init_context(session)
@@ -452,7 +491,29 @@ class JiuClawReActAgent(ReActAgent):
             if _pause_event is not None:
                 await _pause_event.wait()
 
+            # ---- 步骤跳跃拦截：每个 iteration 都检测 ----
+            skip_correction = self._check_step_skip(ai_message.content or "")
+            if skip_correction:
+                ai_msg_for_context = AssistantMessage(
+                    content=ai_message.content,
+                    tool_calls=ai_message.tool_calls,
+                )
+                await context.add_messages(ai_msg_for_context)
+                if ai_message.tool_calls:
+                    from openjiuwen.core.foundation.llm import ToolMessage as _ToolMsg
+                    for tc in ai_message.tool_calls:
+                        await context.add_messages(_ToolMsg(
+                            content=skip_correction,
+                            tool_call_id=getattr(tc, "id", ""),
+                        ))
+                else:
+                    await context.add_messages(UserMessage(content=skip_correction))
+                continue  # re-prompt LLM
+
             if ai_message.tool_calls:
+                # Tool calls present — skill is still in use, reset no-tool counter
+                self._no_tool_invoke_count = 0
+
                 # Emit tool_call event
                 if session is not None:
                     for tc in ai_message.tool_calls:
@@ -487,6 +548,40 @@ class JiuClawReActAgent(ReActAgent):
                         if session is not None:
                             await self._emit_tool_result(session, tc, deny_msg)
 
+                    # ---- 技能模式下禁止批量 todo_complete ----
+                    if self._active_skill and allowed_tool_calls:
+                        complete_indices = [
+                            i for i, tc in enumerate(allowed_tool_calls)
+                            if getattr(tc, "name", "") == "todo_complete"
+                        ]
+                        if len(complete_indices) > 1:
+                            # 只保留第一个 todo_complete，其余拦截
+                            blocked = set(complete_indices[1:])
+                            lang = get_config().get("preferred_language", "zh")
+                            if lang == "zh":
+                                block_msg = (
+                                    "[拦截] 技能执行中每次只能完成一个 todo 项。"
+                                    "请先完成当前项并确认结果，再完成下一项。"
+                                )
+                            else:
+                                block_msg = (
+                                    "[Blocked] Only one todo_complete per turn during skill execution. "
+                                    "Complete the current item and verify before moving to the next."
+                                )
+                            for idx in blocked:
+                                tc = allowed_tool_calls[idx]
+                                tool_call_id = getattr(tc, "id", "")
+                                await context.add_messages(_ToolMsg(
+                                    content=block_msg,
+                                    tool_call_id=tool_call_id,
+                                ))
+                                if session is not None:
+                                    await self._emit_tool_result(session, tc, block_msg)
+                            allowed_tool_calls = [
+                                tc for i, tc in enumerate(allowed_tool_calls)
+                                if i not in blocked
+                            ]
+
                     # 执行被允许的工具调用
                     if allowed_tool_calls:
                         results = await self.ability_manager.execute(
@@ -497,6 +592,9 @@ class JiuClawReActAgent(ReActAgent):
                             tc = allowed_tool_calls[i] if i < len(allowed_tool_calls) else None
                             if tc is not None:
                                 tool_msg = self._maybe_inject_body_experience(tc, tool_msg)
+                                self._maybe_track_active_skill(tc, tool_msg)
+                                self._maybe_inject_skill_compliance(tool_msg, getattr(tc, "name", ""))
+                                self._detect_script_failure(tc, tool_msg)
                             await context.add_messages(tool_msg)
                             if session is not None:
                                 await self._emit_tool_result(session, tc, _result)
@@ -522,7 +620,11 @@ class JiuClawReActAgent(ReActAgent):
                             ))
                     raise
             else:
-                # No tool calls: add assistant message directly to context
+                # No tool calls: final answer. Increment no-tool counter;
+                # skill will be deactivated if this happens 2 times consecutively.
+                if self._active_skill:
+                    self._no_tool_invoke_count += 1
+
                 ai_msg_for_context = AssistantMessage(
                     content=ai_message.content,
                     tool_calls=ai_message.tool_calls,
@@ -1126,6 +1228,87 @@ class JiuClawReActAgent(ReActAgent):
         return [SystemMessage(content="\n\n".join(prompt_parts))]
 
     _SKILL_MD_RE = re.compile(r"[/\\]([^/\\]+)[/\\]SKILL\.md", re.IGNORECASE)
+    _STEP_DECL_RE = re.compile(r'\[(?:当前步骤|[Cc]urrent\s*[Ss]tep)[：:]\s*(.+?)\]')
+    _STAGE_NUM_RE = re.compile(r'[Ss]tage\s*(\d+)|阶段\s*(\d+)|[Ss]tep\s*(\d+)')
+
+    def _check_step_skip(self, ai_content: str) -> Optional[str]:
+        """Detect step-skipping with soft-then-hard enforcement.
+
+        - Missing step declaration: never blocks, leaves it to compliance reminder.
+        - Step skip first time: warns (stored in _pending_skip_warning), does NOT block.
+        - Step skip after warning: blocks (returns correction message).
+
+        Returns a correction message to block execution, or None to proceed.
+        """
+        if not self._active_skill or not ai_content:
+            return None
+
+        m = self._STEP_DECL_RE.search(ai_content)
+        if not m:
+            # No step declaration — don't block, compliance reminder will nudge
+            return None
+
+        decl = m.group(1)
+        nm = self._STAGE_NUM_RE.search(decl)
+        if not nm:
+            return None
+
+        current = int(next(g for g in nm.groups() if g is not None))
+        lang = get_config().get("preferred_language", "zh")
+
+        if self._last_declared_step is not None:
+            gap = current - self._last_declared_step
+            if gap > 1:
+                skipped = ", ".join(
+                    f"Stage {self._last_declared_step + i}"
+                    for i in range(1, gap)
+                )
+                if not self._skip_warned:
+                    # First skip: warn only, don't block, DON'T update _last_declared_step
+                    # Agent must go back to the skipped step to prove correction
+                    self._skip_warned = True
+                    if lang == "zh":
+                        self._pending_skip_warning = (
+                            f"⚠️ 你从 Stage {self._last_declared_step} "
+                            f"跳到了 Stage {current}，跳过了 {skipped}。"
+                            f"请确认 SKILL.md 是否允许跳过这些步骤。"
+                            f"如果不允许，请立即回退执行被跳过的步骤。"
+                        )
+                    else:
+                        self._pending_skip_warning = (
+                            f"⚠️ You jumped from Stage {self._last_declared_step} "
+                            f"to Stage {current}, skipping {skipped}. "
+                            f"Verify SKILL.md allows skipping these. "
+                            f"If not, go back and execute them now."
+                        )
+                    logger.warning(
+                        "[ReActAgent] Skill compliance: step skip warned "
+                        "%s -> %s (skipped %s)",
+                        self._last_declared_step, current, skipped,
+                    )
+                    return None  # don't block
+                else:
+                    # Already warned, still skipping — block
+                    logger.warning(
+                        "[ReActAgent] Skill compliance: step skip blocked "
+                        "(post-warning) %s -> %s",
+                        self._last_declared_step, current,
+                    )
+                    if lang == "zh":
+                        return (
+                            f"[步骤跳跃拦截] 已警告过但你仍然跳过了 {skipped}。\n"
+                            f"请重新阅读 SKILL.md，从被跳过的步骤开始执行。"
+                        )
+                    return (
+                        f"[Step skip blocked] You were warned but still skipped {skipped}.\n"
+                        f"Re-read SKILL.md and execute the skipped stages."
+                    )
+
+        # Normal progression — reset warning state
+        self._skip_warned = False
+        self._pending_skip_warning = None
+        self._last_declared_step = current
+        return None
 
     def _maybe_inject_body_experience(self, tc: Any, tool_msg: Any) -> Any:
         """Append body-experience text when the agent reads a SKILL.md via view_file."""
@@ -1154,6 +1337,172 @@ class JiuClawReActAgent(ReActAgent):
         tool_msg.content = original + body_text
         logger.info("[ReActAgent] injected body experience for skill=%s", skill_name)
         return tool_msg
+
+    def _maybe_track_active_skill(self, tc: Any, tool_msg: Any) -> None:
+        """When the agent reads a SKILL.md via view_file/file_read or loads a skill via MCP load_skill, mark that skill as active."""
+        tool_name = getattr(tc, "name", "")
+
+        # Path 1: view_file or file_read reading a SKILL.md
+        if tool_name in ("view_file", "file_read"):
+            try:
+                args = fix_json_arguments(tc.arguments)
+                file_path: str = args.get("file_path", "")
+            except Exception:
+                return
+            m = self._SKILL_MD_RE.search(file_path)
+            if m:
+                content = tool_msg.content if isinstance(tool_msg.content, str) else str(tool_msg.content)
+                self._activate_skill(m.group(1), content, tool_msg)
+            return
+
+        # Path 2: MCP office_claw_load_skill (returns JSON with skillMarkdown)
+        if tool_name.endswith("load_skill"):
+            raw = tool_msg.content if isinstance(tool_msg.content, str) else str(tool_msg.content)
+            try:
+                import json as _json
+                # tool_msg.content is str(dict) — Python repr with single quotes.
+                # Try JSON first, fall back to ast.literal_eval.
+                try:
+                    payload = _json.loads(raw)
+                except (ValueError, TypeError):
+                    import ast
+                    payload = ast.literal_eval(raw)
+                # The MCP callback wraps the result in {"result": "<json-string>"}
+                if isinstance(payload, dict) and "result" in payload and isinstance(payload["result"], str):
+                    payload = _json.loads(payload["result"])
+                skill_name = payload.get("name", "")
+                skill_md = payload.get("skillMarkdown", "")
+                if skill_name and skill_md:
+                    self._activate_skill(skill_name, skill_md, tool_msg)
+            except Exception:
+                return
+
+    def _activate_skill(self, skill_name: str, skill_content: str, tool_msg: Any) -> None:
+        """Common activation logic for skill tracking."""
+        self._active_skill = skill_name
+        self._active_skill_content = skill_content
+        self._skill_tool_count = 0
+        self._last_declared_step = None
+        self._skip_warned = False
+        self._pending_skip_warning = None
+        self._skill_bash_commands = _parse_skill_bash_commands(skill_content)
+        logger.info(
+            "[ReActAgent] Skill compliance: now tracking '%s' (%d bash commands)",
+            self._active_skill, len(self._skill_bash_commands),
+        )
+
+        # Inject directive to create step-level todos
+        lang = get_config().get("preferred_language", "zh")
+        original = tool_msg.content if isinstance(tool_msg.content, str) else str(tool_msg.content)
+        if lang == "zh":
+            directive = (
+                "\n\n[技能文档已加载] 如果你要执行此技能，请先调用 todo_create 为文档中定义的每个步骤创建 todo 项。"
+                "如果只是查阅信息则无需创建。\n"
+                "⚠️ Skill 脚本执行原则：SKILL.md 中定义的脚本必须按原样执行，"
+                "禁止自行编写代码替代其功能。脚本失败时应修复执行环境（如安装依赖）后重试原脚本。"
+            )
+        else:
+            directive = (
+                "\n\n[Skill document loaded] If you intend to execute this skill, "
+                "call todo_create first with one todo item per step. "
+                "If you are only reading for reference, no action needed.\n"
+                "Script execution principle: Scripts defined in SKILL.md must be executed as specified. "
+                "Do NOT write your own code to replace their functionality. "
+                "On script failure, fix the environment (e.g., install dependencies) and retry the original script."
+            )
+        tool_msg.content = original + directive
+
+    def _get_todo_summary(self) -> dict:
+        """Read current todo state and return a structured summary."""
+        if not self._current_session_id:
+            return {"state": "no_session"}
+        try:
+            from jiuwenclaw.agentserver.tools.todo_toolkits import TodoToolkit, TaskStatus
+            toolkit = TodoToolkit(session_id=self._current_session_id)
+            tasks = toolkit._load_tasks()
+        except Exception:
+            return {"state": "error"}
+
+        if not tasks:
+            return {"state": "no_todos"}
+
+        completed = [t for t in tasks if t.status == TaskStatus.COMPLETED]
+        waiting = [t for t in tasks if t.status != TaskStatus.COMPLETED]
+        next_task = waiting[0] if waiting else None
+
+        return {
+            "state": "all_done" if not waiting else "in_progress",
+            "total": len(tasks),
+            "completed_count": len(completed),
+            "next_task_name": next_task.tasks if next_task else None,
+        }
+
+    def _maybe_inject_skill_compliance(self, tool_msg: Any, tool_name: str = "") -> None:
+        """有活跃 skill 时，根据 todo 实际状态注入针对性提醒。"""
+        if not self._active_skill:
+            return
+        # Skip when agent is managing todos — avoid noise
+        if tool_name in _TODO_TOOL_NAMES:
+            return
+
+        self._skill_tool_count += 1
+        lang = get_config().get("preferred_language", "zh")
+        content = tool_msg.content if isinstance(tool_msg.content, str) else str(tool_msg.content)
+
+        summary = self._get_todo_summary()
+        state = summary.get("state", "error")
+
+        if state == "no_todos":
+            if lang == "zh":
+                suffix = (
+                    f"\n\n[技能 {self._active_skill}] "
+                    f"尚未创建 todo 列表。请立即调用 todo_create 为 SKILL.md 中的每个步骤创建 todo 项。"
+                )
+            else:
+                suffix = (
+                    f"\n\n[Skill {self._active_skill}] "
+                    f"No todo list found. Call todo_create now with one item per step in SKILL.md."
+                )
+        elif state == "in_progress":
+            total = summary["total"]
+            done = summary["completed_count"]
+            next_name = summary.get("next_task_name", "?")
+            if lang == "zh":
+                suffix = (
+                    f"\n\n[技能 {self._active_skill} · 进度: {done}/{total}]\n"
+                    f"当前待办: '{next_name}'\n"
+                    f"开始执行前，必须先用 todo_insert 将其拆解为原子级子任务"
+                    f"——每个 todo 项应对应单一、可独立验证的操作，不可再拆才算合格。\n"
+                    f"⚠️ 只执行当前 todo 项，禁止为了效率而合并或批量执行多个步骤。\n"
+                    f"⚠️ SKILL.md 中定义的选项、参数、标签必须原样使用，禁止自行增删改。"
+                )
+            else:
+                suffix = (
+                    f"\n\n[Skill {self._active_skill} · Progress: {done}/{total}]\n"
+                    f"Current todo: '{next_name}'\n"
+                    f"Before starting, use todo_insert to break it into atomic sub-tasks"
+                    f"—each todo should be a single, independently verifiable action.\n"
+                    f"⚠️ Only execute the current todo item. Do NOT batch or merge multiple steps for efficiency.\n"
+                    f"⚠️ Options, parameters, and labels in SKILL.md must be used verbatim."
+                )
+        elif state == "all_done":
+            if lang == "zh":
+                suffix = (
+                    f"\n\n[技能 {self._active_skill}] 所有 {summary['total']} 个 todo 项已完成。"
+                )
+            else:
+                suffix = (
+                    f"\n\n[Skill {self._active_skill}] All {summary['total']} todo items completed."
+                )
+        else:
+            suffix = ""
+
+        # Append pending skip warning if any
+        if self._pending_skip_warning:
+            suffix += f"\n{self._pending_skip_warning}"
+            self._pending_skip_warning = None
+
+        tool_msg.content = content + suffix
 
     def _fix_tool_calls_arguments(self, tool_calls: List[Any]) -> List[Any]:
         """修复 tool_calls 中每个 tool_call 的 arguments 字段。
@@ -1184,6 +1533,72 @@ class JiuClawReActAgent(ReActAgent):
                         # 序列化失败，保持原样
                         pass
         return tool_calls
+
+    _FAILURE_INDICATORS_RE = re.compile(
+        r'"exit_code"\s*:\s*[1-9]'
+        r'|ModuleNotFoundError|No module named|ImportError'
+        r'|not (?:found|installed)|library is missing'
+        r'|\[ERROR\]',
+        re.IGNORECASE,
+    )
+    _PY_SCRIPT_RE = re.compile(r'([\w][\w.-]*\.py)\b')
+
+    def _detect_script_failure(self, tc: Any, tool_msg: Any) -> None:
+        """When mcp_exec_command running a SKILL.md script fails, inject recovery guidance."""
+        if not self._active_skill or not self._skill_bash_commands:
+            return
+        if getattr(tc, "name", "") != "mcp_exec_command":
+            return
+
+        content = tool_msg.content if isinstance(tool_msg.content, str) else str(tool_msg.content)
+        if not self._FAILURE_INDICATORS_RE.search(content):
+            return
+
+        # Extract the executed command
+        try:
+            args = fix_json_arguments(tc.arguments)
+            command: str = args.get("command", "")
+        except Exception:
+            return
+
+        # Check if the command matches a SKILL.md bash command by .py filename
+        matching_cmd = None
+        for cmd in self._skill_bash_commands:
+            cmd_scripts = self._PY_SCRIPT_RE.findall(cmd)
+            if any(s in command for s in cmd_scripts):
+                matching_cmd = cmd
+                break
+
+        if not matching_cmd:
+            return
+
+        lang = get_config().get("preferred_language", "zh")
+        if lang == "zh":
+            recovery = (
+                f"\n\n[脚本执行失败 · 恢复指引]\n"
+                f"SKILL.md 指定的脚本执行失败。请严格按以下步骤恢复：\n"
+                f"1. 分析上方错误信息，判断失败原因（缺少依赖/路径错误/其他）\n"
+                f"2. 使用 mcp_exec_command 修复问题（如 pip install 缺失的库）\n"
+                f"3. 使用 mcp_exec_command 重新执行原始命令：\n"
+                f"   {matching_cmd}\n"
+                f"⚠️ 禁止使用 execute_python_code 自行编写代码替代该脚本。"
+            )
+        else:
+            recovery = (
+                f"\n\n[Script Failure · Recovery Guide]\n"
+                f"A SKILL.md-designated script failed. Follow these steps:\n"
+                f"1. Analyze the error above to determine the cause\n"
+                f"2. Fix the issue via mcp_exec_command (e.g., pip install missing library)\n"
+                f"3. Re-execute the original command via mcp_exec_command:\n"
+                f"   {matching_cmd}\n"
+                f"Do NOT use execute_python_code to rewrite the script's logic."
+            )
+
+        tool_msg.content = content + recovery
+        logger.info(
+            "[ReActAgent] Skill compliance: script failure detected, injected recovery for '%s'",
+            matching_cmd,
+        )
 
     async def _get_session_messages(self, session: Optional[Any]) -> List[Any]:
         """Get raw historical message list from session.
