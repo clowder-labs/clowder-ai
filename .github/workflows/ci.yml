@@ -63,6 +63,23 @@ jobs:
       - run: pnpm --filter @cat-cafe/shared build
       - run: pnpm --filter @cat-cafe/api run test:public
 
+  packaging-smoke:
+    name: Packaging Smoke
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node scripts/build-windows-installer.mjs --bundle-only --skip-python
+      - run: node -e "const fs=require('fs'); const path=require('path'); const lock=fs.readFileSync('pnpm-lock.yaml','utf8'); const sdkLock=/packages\/mcp-server:[\s\S]*?'@modelcontextprotocol\/sdk':[\s\S]*?version:\s*([^\s]+)/.exec(lock)?.[1]?.split('(')[0]; if(!sdkLock) throw new Error('Failed to read @modelcontextprotocol/sdk version from pnpm-lock.yaml'); const sdkPkg=JSON.parse(fs.readFileSync(path.join('dist','windows','bundle','packages','mcp-server','node_modules','@modelcontextprotocol','sdk','package.json'),'utf8')); if(sdkPkg.version!==sdkLock) throw new Error(`Bundled @modelcontextprotocol/sdk ${sdkPkg.version} != lockfile ${sdkLock}`);"
+      - run: node -e "const fs=require('fs'); const path=require('path'); const lock=fs.readFileSync('pnpm-lock.yaml','utf8'); const zodLock=/packages\/mcp-server:[\s\S]*?\nzod:[\s\S]*?version:\s*([^\s]+)/.exec(lock)?.[1]?.split('(')[0]; if(!zodLock) throw new Error('Failed to read zod version from pnpm-lock.yaml'); const zodPkg=JSON.parse(fs.readFileSync(path.join('dist','windows','bundle','packages','mcp-server','node_modules','zod','package.json'),'utf8')); if(zodPkg.version!==zodLock) throw new Error(`Bundled zod ${zodPkg.version} != lockfile ${zodLock}`);"
+      - run: node -e "const fs=require('fs'); const buildScript=fs.readFileSync('scripts/build-windows-installer.mjs','utf8'); if(/WINDOWS_RUNTIME_NPM_ARGS\s*=\s*\[[\s\S]*?install[\s\S]*?\]/.test(buildScript)===false) throw new Error('Runtime npm install args missing'); if(/installedVersion \?\? specifier/.test(buildScript)===false) throw new Error('Pinned runtime dependency fallback missing');"
+
   dir-size:
     name: Directory Size Guard
     runs-on: ubuntu-latest
