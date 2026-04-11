@@ -35,6 +35,15 @@ vi.mock('../VersionUpdateModal', () => ({
   default: () => null,
 }));
 
+const usageStatsModalSpy = vi.fn();
+
+vi.mock('../UsageStatsModal', () => ({
+  UsageStatsModal: (props: { open: boolean; onClose: () => void }) => {
+    usageStatsModalSpy(props);
+    return props.open ? React.createElement('div', { 'data-testid': 'usage-stats-modal' }) : null;
+  },
+}));
+
 describe('UserProfile overlay classes', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -56,6 +65,7 @@ describe('UserProfile overlay classes', () => {
     mockReplace.mockReset();
     mockSetTheme.mockReset();
     mockWindowOpen.mockReset();
+    usageStatsModalSpy.mockReset();
   });
 
   afterEach(() => {
@@ -233,4 +243,51 @@ describe('UserProfile overlay classes', () => {
       'noopener,noreferrer',
     );
   });
+
+   it('shows usage stats above version update and opens the usage modal', async () => {
+ 	     act(() => {
+ 	       root.render(React.createElement(UserProfile));
+ 	     });
+ 	     await flush();
+ 	 
+ 	     const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+ 	     expect(toggle).toBeTruthy();
+ 	 
+ 	     act(() => {
+ 	       toggle?.click();
+ 	     });
+ 	     await flush();
+ 	 
+ 	     const actions = container.querySelector('[data-testid="user-profile-content-actions"]');
+ 	     expect(actions).toBeTruthy();
+ 	 
+ 	     const actionButtons = actions ? Array.from(actions.querySelectorAll('button')) : [];
+ 	     const usageButton = actionButtons.find((button) => button.textContent?.includes('用量统计'));
+ 	     const versionButton = actionButtons.find((button) => button.textContent?.includes('版本更新'));
+ 	 
+ 	     expect(usageButton).toBeTruthy();
+ 	     expect(versionButton).toBeTruthy();
+ 	     expect(actionButtons.indexOf(usageButton as HTMLButtonElement)).toBeLessThan(
+ 	       actionButtons.indexOf(versionButton as HTMLButtonElement),
+ 	     );
+ 	     expect(usageStatsModalSpy).toHaveBeenLastCalledWith(
+ 	       expect.objectContaining({
+ 	         open: false,
+ 	         onClose: expect.any(Function),
+ 	       }),
+ 	     );
+ 	 
+ 	     act(() => {
+ 	       usageButton?.click();
+ 	     });
+ 	     await flush();
+ 	 
+ 	     expect(container.querySelector('[data-testid="usage-stats-modal"]')).toBeTruthy();
+ 	     expect(usageStatsModalSpy).toHaveBeenLastCalledWith(
+ 	       expect.objectContaining({
+ 	         open: true,
+ 	         onClose: expect.any(Function),
+ 	       }),
+ 	     );
+ 	   });
 });
