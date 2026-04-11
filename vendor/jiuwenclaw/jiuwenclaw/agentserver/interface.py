@@ -53,6 +53,7 @@ from jiuwenclaw.agentserver.tools.image_tools import visual_question_answering
 from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
 from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus, TodoToolkit
 from jiuwenclaw.agentserver.tools.file_tools import FileToolkit
+from jiuwenclaw.agentserver.tools.load_skill_tools import LoadSkillToolkit
 from jiuwenclaw.agentserver.tools.memory_tools import (
     init_memory_manager_async,
     memory_search,
@@ -438,6 +439,16 @@ class JiuWenClaw:
         except Exception as exc:
             self._file_tools_registered = False
             logger.warning("[JiuWenClaw] file tools registration skipped: %s", exc)
+
+        # add load skill tools (initial load + read content)
+        try:
+            load_skill_toolkit = LoadSkillToolkit()
+            for tool in load_skill_toolkit.get_tools():
+                Runner.resource_mgr.add_tool(tool)
+                self._instance.ability_manager.add(tool.card)
+            logger.info("[JiuWenClaw] load skill tools registered successfully")
+        except Exception as exc:
+            logger.warning("[JiuWenClaw] load skill tools registration skipped: %s", exc)
 
         project_mcp_names: set[str] = set()
         host_project_mcp_path = self._tool_manager.find_host_project_mcp_json()
