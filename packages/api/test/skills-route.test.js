@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -211,6 +211,78 @@ describe('Skills Route', () => {
   });
 
   // 鈹€鈹€鈹€ GET /api/skills/file tests 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+
+  it('GET /api/skills/detail maps uploaded local skills to external source and keeps frontmatter category', async () => {
+    const skillName = 'local-detail-test';
+    const skillDir = join(repoRoot, '.cat-cafe', 'skills', skillName);
+    const registryPath = join(repoRoot, '.cat-cafe', 'installed-skills.json');
+    const registryBackup = existsSync(registryPath) ? readFileSync(registryPath, 'utf8') : null;
+
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      [
+        '---',
+        'name: local-detail-test',
+        'description: local skill detail test',
+        'category: Productivity',
+        'triggers:',
+        '  - local detail',
+        '---',
+        '',
+        '# local-detail-test',
+      ].join('\n'),
+      'utf8',
+    );
+
+    writeFileSync(
+      registryPath,
+      `${JSON.stringify(
+        {
+          version: 1,
+          skills: [
+            {
+              name: skillName,
+              source: 'local',
+              skillhubUrl: '',
+              owner: 'local',
+              repo: 'upload',
+              remoteSkillName: skillName,
+              installedAt: '2026-04-11T10:00:00.000Z',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const app = Fastify();
+    await app.register(skillsRoutes);
+    await app.ready();
+
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/skills/detail?name=${skillName}`,
+        headers: AUTH_HEADERS,
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.body);
+      assert.equal(body.source, 'external');
+      assert.equal(body.category, 'Productivity');
+    } finally {
+      await app.close();
+      rmSync(skillDir, { recursive: true, force: true });
+      if (registryBackup == null) {
+        rmSync(registryPath, { force: true });
+      } else {
+        writeFileSync(registryPath, registryBackup, 'utf8');
+      }
+    }
+  });
 
   it('GET /api/skills/file returns 401 without identity', async () => {
     const app = Fastify();

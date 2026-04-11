@@ -532,7 +532,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         if (isRemote) {
           const frontmatter = await parseSkillFrontmatter(skillDir);
           trigger = frontmatter.triggers?.join('、') ?? '';
-          category = 'Skill 扩展';
+          category = '技能扩展';
           source = 'skillhub';
           skillhubUrl = installedRecordMap.get(name)?.skillhubUrl;
         } else {
@@ -857,12 +857,13 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       const isExternalCap = capabilityEntry?.source === 'external';
       const installedRecord = installedRecords.find((r) => r.name === skillName);
       const isSkillhubInstalled = installedRecord?.source === 'skillhub';
-      const isRemote = isSkillhubInstalled || isExternalCap;
+      const isLocalInstalled = installedRecord?.source === 'local';
+      const isRemote = isSkillhubInstalled || isExternalCap || isLocalInstalled;
       const source: 'cat-cafe' | 'external' = isRemote ? 'external' : 'cat-cafe';
 
       // Get category
       const bootstrapEntry = bootstrapEntries.get(skillName);
-      const category = isRemote ? 'Skill 扩展' : (bootstrapEntry?.category ?? '其他');
+      const category = isRemote ? '技能扩展' : (bootstrapEntry?.category ?? '其他');
 
       // Get description and triggers from manifest or frontmatter (only if directory exists)
       let meta = manifestMeta.get(skillName);
@@ -882,6 +883,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           description: installedDescription,
         };
       }
+      const frontmatterCategory = skillDirExists ? (await parseSkillFrontmatter(skillDir)).category?.trim() : undefined;
+      const resolvedCategory = isLocalInstalled
+        ? (frontmatterCategory || category)
+        : category;
 
       // Check mount status (symlinks)
       const home = homedir();
@@ -898,7 +903,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         name: skillName,
         source,
         enabled: capabilityEntry?.enabled ?? true,
-        category,
+        category: resolvedCategory,
         cats: {},
         fileTree,
       };
