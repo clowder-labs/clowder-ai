@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F122B AC-B8: ThreadExecutionBar shows per-cat active status with elapsed time.
  * B8/B9 polish: cat names from cat-config (formatCatName), colors from cat.color.primary.

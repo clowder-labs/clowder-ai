@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 const TOKEN_RE =
   /([@\uFF20])([^\s,.:;!?\[\]{}<>\uFF0C\u3002\uFF01\uFF1F\u3001\uFF1A\uFF1B\u3010\u3011\u300A\u300B\u300C\u300D\u300E\u300F\u3008\u3009()（）]+)(?:\uFF08([^\uFF09]*)\uFF09|\(([^)]*)\))?/g;
 const LEADING_NOISE_RE = /^[\s.\u3002\u2026!\uFF01?\uFF1F,\uFF0C:\uFF1A;\uFF1B\u3001~\-\u2014_()（）]+/;

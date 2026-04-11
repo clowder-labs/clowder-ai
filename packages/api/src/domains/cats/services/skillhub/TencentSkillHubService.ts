@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * TencentSkillHubService — 腾讯 SkillHub (skillhub.tencent.com → lightmake.site) API 封装
  *

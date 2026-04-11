@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Export Routes
  * GET /api/export/thread/:threadId?format=md|txt - 导出对话记录

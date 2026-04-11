@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildConnectorStatus } from '../dist/routes/connector-hub.js';
@@ -54,9 +60,30 @@ describe('buildConnectorStatus', () => {
     assert.notEqual(dingtalk.fields[1]?.currentValue, 'ding-secret');
   });
 
-  it('masks sensitive values consistently without leaking the original secret', () => {
-    const first = buildConnectorStatus({
-      DINGTALK_APP_KEY: 'key-1',
+  it('treats secret refs as configured and masked for sensitive connector fields', () => {
+    const result = buildConnectorStatus({
+      DINGTALK_APP_KEY: 'ding-app-key',
+      DINGTALK_APP_SECRET_REF: 'wincred://Clowder/env/DINGTALK_APP_SECRET',
+    });
+    const dingtalk = result.find((p) => p.id === 'dingtalk');
+    assert.ok(dingtalk);
+    assert.equal(dingtalk.configured, true);
+    assert.equal(dingtalk.fields[1].currentValue, '••••••••');
+  });
+
+  it('treats placeholder default values as not configured', () => {
+    const result = buildConnectorStatus({
+      DINGTALK_APP_KEY: '(未设置 → 不启用)',
+    });
+    const dingtalk = result.find((p) => p.id === 'dingtalk');
+    assert.ok(dingtalk);
+    assert.equal(dingtalk.configured, false);
+    assert.equal(dingtalk.fields[0].currentValue, null);
+  });
+
+  it('fully masks sensitive values without leaking suffix', () => {
+    const result = buildConnectorStatus({
+      DINGTALK_APP_KEY: 'mykey123',
       DINGTALK_APP_SECRET: 'mysecretvalue99',
       XIAOYI_AGENT_ID: 'agent-id',
       XIAOYI_AK: 'ak-value',
@@ -92,7 +119,27 @@ describe('buildConnectorStatus', () => {
     }
   });
 
-  it('keeps Feishu QR-only even when legacy mode flags are set', () => {
+  it('feishu exposes QR-only setup steps', () => {
+    const result = buildConnectorStatus({});
+    const feishu = result.find((p) => p.id === 'feishu');
+    assert.ok(feishu);
+    assert.deepEqual(
+      feishu.steps.map((s) => s.text),
+      ['点击「生成二维码」按钮', '使用飞书扫描二维码并确认授权', '授权成功后自动连接，无需填写凭证或重启服务'],
+    );
+  });
+
+  it('ignores legacy Feishu mode flags when QR-bound credentials are absent', () => {
+    const result = buildConnectorStatus({
+      FEISHU_CONNECTION_MODE: 'webhook',
+      FEISHU_VERIFICATION_TOKEN: 'legacy-token',
+    });
+    const feishu = result.find((p) => p.id === 'feishu');
+    assert.ok(feishu);
+    assert.equal(feishu.configured, false);
+  });
+
+  it('keeps feishu QR-only even when legacy mode flags are set', () => {
     const result = buildConnectorStatus({
       FEISHU_CONNECTION_MODE: 'websocket',
       FEISHU_VERIFICATION_TOKEN: 'legacy-token',

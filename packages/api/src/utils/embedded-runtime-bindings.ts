@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { RuntimeProviderProfile } from '../config/provider-profiles.js';
 import { validateRuntimeProviderBinding } from '../config/provider-binding-compat.js';
 import { resolveRuntimeProviderProfileById } from '../config/provider-profiles.js';

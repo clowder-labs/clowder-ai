@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_THREAD_STATE } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { type SVGProps, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';

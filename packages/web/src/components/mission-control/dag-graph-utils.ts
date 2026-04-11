@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { BacklogItem, BacklogStatus } from '@cat-cafe/shared';
 import dagre from '@dagrejs/dagre';
 import { type Edge, MarkerType, type Node } from '@xyflow/react';

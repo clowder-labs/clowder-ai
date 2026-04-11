@@ -1,4 +1,10 @@
-﻿/**
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+/**
  * F113 Phase D: Cross-platform directory browser.
  * Replaces macOS-only osascript folder picker with a web-based solution.
  * Calls GET /api/projects/browse to list directories.

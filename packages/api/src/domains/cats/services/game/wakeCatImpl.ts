@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * WakeCatFn production implementation — bridges GameNarratorDriver → A2A dispatch.
  *

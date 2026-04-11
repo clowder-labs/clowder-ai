@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * InvocationRecord Store
  * 调用状态机：将"消息写入"与"猫调用执行"解耦。

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Task Store Factory
  * Redis → RedisTaskStore, 无 → TaskStore (内存)

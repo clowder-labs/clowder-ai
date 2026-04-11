@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import Link from 'next/link';
 import React, { useMemo } from 'react';
 import { useChatStore } from '@/stores/chatStore';

@@ -1,9 +1,17 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { buildWeixinSessionRef, deleteSecretRef, isLocalSecretStorageEnabled, readSecretRef, writeSecretRef } from '../../config/local-secret-store.js';
 
 export interface PersistedWeixinSession {
   version: 1;
-  botToken: string;
+  botToken?: string;
+  botTokenRef?: string;
   updatedAt: string;
 }
 
@@ -27,10 +35,15 @@ export class WeixinSessionStore implements IWeixinSessionStore {
     try {
       const parsed = JSON.parse(readFileSync(this.filePath, 'utf-8')) as Partial<PersistedWeixinSession> | null;
       if (!parsed || parsed.version !== 1) return null;
-      const botToken = typeof parsed.botToken === 'string' ? parsed.botToken.trim() : '';
+      const botToken =
+        typeof parsed.botToken === 'string'
+          ? parsed.botToken.trim()
+          : typeof parsed.botTokenRef === 'string'
+            ? (readSecretRef(parsed.botTokenRef)?.trim() ?? '')
+            : '';
       const updatedAt = typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '';
       if (!botToken || !updatedAt) return null;
-      return { version: 1, botToken, updatedAt };
+      return { version: 1, botToken, ...(typeof parsed.botTokenRef === 'string' ? { botTokenRef: parsed.botTokenRef } : {}), updatedAt };
     } catch {
       return null;
     }
@@ -42,15 +55,35 @@ export class WeixinSessionStore implements IWeixinSessionStore {
       this.clear();
       return;
     }
-    const payload: PersistedWeixinSession = {
-      version: 1,
-      botToken: trimmed,
-      updatedAt: new Date().toISOString(),
-    };
+    const payload: PersistedWeixinSession = isLocalSecretStorageEnabled()
+      ? (() => {
+          const ref = buildWeixinSessionRef();
+          writeSecretRef(ref, trimmed);
+          return {
+            version: 1,
+            botTokenRef: ref,
+            updatedAt: new Date().toISOString(),
+          };
+        })()
+      : {
+          version: 1,
+          botToken: trimmed,
+          updatedAt: new Date().toISOString(),
+        };
     this.writeAtomic(`${JSON.stringify(payload, null, 2)}\n`);
   }
 
   clear(): void {
+    if (existsSync(this.filePath)) {
+      try {
+        const parsed = JSON.parse(readFileSync(this.filePath, 'utf-8')) as Partial<PersistedWeixinSession> | null;
+        if (parsed?.botTokenRef) {
+          deleteSecretRef(parsed.botTokenRef);
+        }
+      } catch {
+        // best-effort cleanup
+      }
+    }
     try {
       unlinkSync(this.filePath);
     } catch (err) {

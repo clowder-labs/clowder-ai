@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F102 Phase B: Eval Runner — Recall@5 evaluation against real docs index
  * AC-B7: memory_eval_corpus.yaml evaluation set

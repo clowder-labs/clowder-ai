@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export type AcpModelProviderType = 'openai_compatible' | 'bigmodel' | 'minimax' | 'echo';
 
 export interface AcpModelProfileMeta {

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import QRCode from 'qrcode';
 
 const FEISHU_ACCOUNTS_BASE_URL = 'https://accounts.feishu.cn';

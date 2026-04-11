@@ -206,6 +206,10 @@ class JiuWenClaw:
         self._todo_tool_sessions_registered: set[str] = set()
         self._sysop_card_id: str | None = None
 
+    def _should_register_cron_tools(self) -> bool:
+        """Allow disabling cron tool mounting with a single env flag."""
+        return os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") != "1"
+
     @staticmethod
     async def set_checkpoint():
         try:
@@ -541,13 +545,19 @@ class JiuWenClaw:
             logger.info("[JiuWenClaw] xiaoyi channel not enabled, skipping phone tools")
 
         # add cron tools
-        try:
-            cron_controller = CronController.get_instance()
-            for cron_tool in cron_controller.get_tools():
-                Runner.resource_mgr.add_tool(cron_tool)
-                self._instance.ability_manager.add(cron_tool.card)
-        except Exception as exc:
-            logger.error("[JiuWenClaw] 定时工具加载失败， reason=%s", exc)
+        if self._should_register_cron_tools():
+            try:
+                cron_controller = CronController.get_instance()
+                for cron_tool in cron_controller.get_tools():
+                    Runner.resource_mgr.add_tool(cron_tool)
+                    self._instance.ability_manager.add(cron_tool.card)
+            except Exception as exc:
+                logger.error("[JiuWenClaw] 定时工具加载失败， reason=%s", exc)
+        else:
+            logger.info(
+                "[JiuWenClaw] skip cron tools registration: disable_all=%s",
+                os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") == "1",
+            )
         # ---- 权限引擎初始化 ----
         permissions_cfg = config_base.get("permissions", {})
         init_permission_engine(permissions_cfg)
@@ -639,7 +649,7 @@ class JiuWenClaw:
             (session_id or "").split("_")[0] if session_id else ""
         )
         logger.info(f"[JiuwenClaw] update tool and prompt for channel {channel}")
-        if channel not in ["heartbeat", "cron"]:
+        if channel not in ["heartbeat", "cron"] and self._should_register_cron_tools():
             cron_controller = CronController.get_instance()
             if channel == "feishu":
                 cron_controller.set_target_channel(CronTargetChannel.FEISHU)
@@ -654,6 +664,12 @@ class JiuWenClaw:
                 if not Runner.resource_mgr.get_tool(cron_tool.card.id):
                     Runner.resource_mgr.add_tool(cron_tool)
                 self._instance.ability_manager.add(cron_tool.card)
+        elif channel not in ["heartbeat", "cron"]:
+            logger.info(
+                "[JiuWenClaw] skip runtime cron tools registration: channel=%s disable_all=%s",
+                channel,
+                os.getenv("JIUWENCLAW_DISABLE_CRON_TOOLS") == "1",
+            )
 
         # 小艺手机端插件(xiaoyi phone tools)未生效时重新加载
         config_base = get_config()

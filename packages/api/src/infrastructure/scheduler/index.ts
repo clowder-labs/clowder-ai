@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export { createActorResolver } from './ActorResolver.js';
 export { getNextCronMs } from './cron-utils.js';
 export { EmissionStore } from './EmissionStore.js';

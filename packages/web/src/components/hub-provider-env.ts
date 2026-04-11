@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export function parseProviderEnvText(value: string): Record<string, string> | undefined {
   const lines = value.split(/\r?\n/);
   const entries: Array<[string, string]> = [];

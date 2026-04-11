@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Context Assembler
  * 从 messageStore 历史消息组装上下文字符串，prepend 到猫的 prompt 中。

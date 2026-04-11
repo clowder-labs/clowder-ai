@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * P1 regression: split-pane Stop button should cancel the selected pane's thread,
  * not the URL threadId.

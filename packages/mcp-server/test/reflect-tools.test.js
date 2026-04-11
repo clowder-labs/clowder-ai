@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Reflect Tools Tests
  * 测试 office_claw_reflect 的 POST 调用与降级行为。

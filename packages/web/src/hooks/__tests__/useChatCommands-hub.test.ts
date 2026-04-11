@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F12: useChatCommands hub integration tests
  * Tests /help and /config via real processCommand invocation.

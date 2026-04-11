@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * I-1: Thread deletion must show a confirmation dialog before proceeding.
  * Verifies that clicking delete shows a dialog, cancel dismisses it,

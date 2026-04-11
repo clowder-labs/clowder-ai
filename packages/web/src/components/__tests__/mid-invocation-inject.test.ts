@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F24: Mid-invocation message injection regression tests.
  * Verifies that when hasActiveInvocation=true but disabled=false,

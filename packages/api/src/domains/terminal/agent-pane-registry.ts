@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * AgentPaneRegistry — tracks which invocations are running in tmux panes.
  * In-memory store; used by terminal routes to let frontend discover agent panes.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F057-C2: Detect co-creator (@co-creator / @铲屎官 / configured) mention at line start.
  *

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Audit Route
  * GET /api/audit/thread/:threadId — 返回指定 thread 的审计事件

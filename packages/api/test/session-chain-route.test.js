@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Session Chain Route Tests
  * F24: GET /api/threads/:threadId/sessions, GET /api/sessions/:sessionId

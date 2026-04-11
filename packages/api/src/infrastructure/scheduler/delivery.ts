@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Phase 4 (AC-H1): Delivery function factory for scheduled task execution.
  * Templates call deliver() to post messages to threads without going through MCP callbacks.

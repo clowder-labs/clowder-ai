@@ -1,4 +1,10 @@
-﻿@tailwind base;
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -1328,6 +1334,17 @@ select:-webkit-autofill:focus {
     background: transparent;
     color: inherit;
     line-height: 0;
+    cursor: pointer;
+    transition: opacity 160ms ease;
+  }
+
+  .ui-content-header-action:hover {
+    opacity: 0.72;
+  }
+
+  .ui-content-header-action:disabled {
+    cursor: default;
+    opacity: 0.4;
   }
 
   .ui-content-header-divider {

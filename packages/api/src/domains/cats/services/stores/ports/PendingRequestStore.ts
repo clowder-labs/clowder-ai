@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Pending Request Store
  * 持久化待审批队列 — 铲屎官离线时请求不丢失

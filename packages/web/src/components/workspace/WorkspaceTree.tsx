@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { TreeNode } from '@/hooks/useWorkspace';
 import { DirIcon, FileIcon } from './FileIcons';

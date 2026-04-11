@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F080-P2: Path completion hook.
  * Detects path patterns in input text and fetches completions from the API.

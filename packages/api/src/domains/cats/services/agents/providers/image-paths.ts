@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Image Path Extraction
  * Extracts absolute file paths from MessageContent blocks for CLI passthrough.

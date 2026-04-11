@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Gemini Agent Service
  * 使用 Gemini CLI 子进程调用暹罗猫 (Gemini)

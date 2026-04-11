@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102: Memory component interfaces — 6 pluggable adapters
 // See docs/features/F102-memory-adapter-refactor.md for architecture
 

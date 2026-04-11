@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * ThreadStore Tests
  * 测试对话管理：创建、查询、参与者追踪、LRU 淘汰

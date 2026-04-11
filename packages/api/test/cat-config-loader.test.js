@@ -1,9 +1,16 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { catRegistry, createCatId } from '@cat-cafe/shared';
 
 const {
   loadCatConfig,
@@ -740,6 +747,47 @@ describe('F32-b: getDefaultCatId', () => {
         delete process.env.CAT_TEMPLATE_PATH;
       } else {
         process.env.CAT_TEMPLATE_PATH = saved;
+      }
+      _resetCachedConfig();
+    }
+  });
+
+  it('falls back to the first registered runtime cat when config load fails', () => {
+    const savedTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    const savedRegistry = catRegistry.getAllConfigs();
+    const missingPath = join(tmpdir(), `missing-cat-template-${Date.now()}.json`);
+
+    catRegistry.reset();
+    catRegistry.register('office', {
+      id: createCatId('office'),
+      name: '办公智能体',
+      displayName: '办公智能体',
+      nickname: '小九',
+      avatar: '/avatars/office.svg',
+      color: { primary: '#2B5797', secondary: '#C0D0E8' },
+      mentionPatterns: ['@office'],
+      provider: 'relayclaw',
+      defaultModel: 'glm-5',
+      mcpSupport: true,
+      breedId: 'office',
+      roleDescription: '办公助手',
+      personality: '专业',
+    });
+
+    process.env.CAT_TEMPLATE_PATH = missingPath;
+    _resetCachedConfig();
+    try {
+      const id = getDefaultCatId();
+      assert.equal(id, 'office');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(savedRegistry)) {
+        catRegistry.register(id, config);
+      }
+      if (savedTemplatePath === undefined) {
+        delete process.env.CAT_TEMPLATE_PATH;
+      } else {
+        process.env.CAT_TEMPLATE_PATH = savedTemplatePath;
       }
       _resetCachedConfig();
     }

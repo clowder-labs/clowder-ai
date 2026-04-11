@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SessionSealer — F24 Phase B+C
  * Manages session lifecycle transitions: active → sealing → sealed.

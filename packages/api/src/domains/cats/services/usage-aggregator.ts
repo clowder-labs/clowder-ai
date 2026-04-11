@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Usage Aggregator — F128
  * 纯函数：将 InvocationRecord[] 按日 × 猫聚合 token 消耗。

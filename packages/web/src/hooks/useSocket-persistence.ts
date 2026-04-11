@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 function getJoinedRoomsStorageKey(userId: string): string {
   const normalizedUserId = userId.trim() || 'anonymous';
   return `cat-cafe:ws:joined-rooms:v1:${normalizedUserId}`;

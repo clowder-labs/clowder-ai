@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F33: Bind an external CLI session to a cat that has no active session in this thread yet.
  * Extracted from SessionChainPanel to keep file size under 350 lines.

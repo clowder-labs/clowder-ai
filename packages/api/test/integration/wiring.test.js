@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Integration Wiring Tests
  * 验证 Phase 2.5 CLI 迁移后的组件接线

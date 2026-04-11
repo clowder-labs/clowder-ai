@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { ConnectorSource } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';

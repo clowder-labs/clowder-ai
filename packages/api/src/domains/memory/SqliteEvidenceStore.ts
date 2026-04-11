@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102: SQLite implementation of IEvidenceStore
 
 import Database from 'better-sqlite3';

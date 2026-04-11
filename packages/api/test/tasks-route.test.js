@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Tasks Route Tests (毛线球)
  * Uses lightweight Fastify injection (no real HTTP server).

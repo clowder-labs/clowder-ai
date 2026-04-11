@@ -1,4 +1,7 @@
-import type { ReactNode } from 'react';
+'use client';
+
+import type { MouseEventHandler, ReactNode } from 'react';
+import { useDesktopWindowControls } from '@/hooks/useDesktopWindowControls';
 
 function WindowSmileIcon() {
   return (
@@ -27,6 +30,15 @@ function WindowMaximizeIcon() {
   );
 }
 
+function WindowRestoreIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
+      <path d="M5.75 4.25H10.1C10.984 4.25 11.7 4.966 11.7 5.85V10.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10.25 5.75H5.9C5.016 5.75 4.3 6.466 4.3 7.35V11.1C4.3 11.984 5.016 12.7 5.9 12.7H10.25C11.134 12.7 11.85 11.984 11.85 11.1V7.35C11.85 6.466 11.134 5.75 10.25 5.75Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function WindowCloseIcon() {
   return (
     <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
@@ -36,15 +48,35 @@ function WindowCloseIcon() {
   );
 }
 
-function HeaderAction({ title, children }: { title: string; children: ReactNode }) {
+function HeaderAction({
+  title,
+  children,
+  onClick,
+  disabled = false,
+}: {
+  title: string;
+  children: ReactNode;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+  disabled?: boolean;
+}) {
   return (
-    <button type="button" className="ui-content-header-action" title={title} aria-label={title}>
+    <button
+      type="button"
+      className="ui-content-header-action"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      disabled={disabled}
+    >
       {children}
     </button>
   );
 }
 
 export function RightContentHeader() {
+  const { isMaximized, canMaximize, minimize, toggleMaximize, close } = useDesktopWindowControls();
+  const maximizeTitle = isMaximized ? '还原' : '最大化';
+
   return (
     <div className="ui-content-header" data-testid="right-content-header">
       <div aria-hidden="true" />
@@ -53,13 +85,13 @@ export function RightContentHeader() {
           <WindowSmileIcon />
         </HeaderAction>
         <div className="ui-content-header-divider" data-testid="right-content-header-divider" aria-hidden="true" />
-        <HeaderAction title="最小化">
+        <HeaderAction title="最小化" onClick={minimize}>
           <WindowMinimizeIcon />
         </HeaderAction>
-        <HeaderAction title="最大化">
-          <WindowMaximizeIcon />
+        <HeaderAction title={maximizeTitle} onClick={toggleMaximize} disabled={!canMaximize}>
+          {isMaximized ? <WindowRestoreIcon /> : <WindowMaximizeIcon />}
         </HeaderAction>
-        <HeaderAction title="关闭">
+        <HeaderAction title="关闭" onClick={close}>
           <WindowCloseIcon />
         </HeaderAction>
       </div>

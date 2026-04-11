@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * opencode Event Transformer
  * opencode JSON event stream → Clowder AI AgentMessage 映射

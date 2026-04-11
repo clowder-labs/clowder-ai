@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // ─── V1: Legacy ScheduledTask interface (used by TaskRunner V1 + SummaryCompactionTask) ──
 
 /**

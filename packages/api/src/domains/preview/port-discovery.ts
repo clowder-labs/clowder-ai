@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { validatePort } from './port-validator.js';
 import type { DiscoveredPort } from './types.js';
 

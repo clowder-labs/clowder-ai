@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SkillHubService — 数据源已切换到腾讯 SkillHub (skillhub.tencent.com)
  *

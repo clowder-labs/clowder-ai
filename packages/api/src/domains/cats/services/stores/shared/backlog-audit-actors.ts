@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { BacklogAuditActor, CreateBacklogItemInput } from '@cat-cafe/shared';
 
 export function makeUserActor(userId: string): BacklogAuditActor {

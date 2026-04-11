@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { scrollToMessage } from '@/utils/scrollToMessage';
 

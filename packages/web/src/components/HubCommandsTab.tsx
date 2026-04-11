@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import React from 'react';
 import { COMMAND_CATEGORIES, COMMANDS, type CommandCategory } from '@/config/command-registry';
 import { SHORTCUTS } from '@/config/shortcut-registry';

@@ -1,4 +1,10 @@
-﻿/**
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+/**
  * Skills route tests
  * GET /api/skills          鈥?Clowder AI 鍏变韩 Skills 鐪嬫澘鏁版嵁
  * GET /api/skills/detail   鈥?鑾峰彇宸插畨瑁?skill 璇︽儏

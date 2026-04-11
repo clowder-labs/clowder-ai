@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from '@cat-cafe/shared';

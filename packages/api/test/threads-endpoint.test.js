@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Thread API endpoint tests
  * POST /api/threads, GET /api/threads, GET /api/threads/:id,

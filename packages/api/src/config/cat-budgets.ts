@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Cat Context Budget Configuration
  * 优先级: 环境变量 > cat-config.json > 硬编码默认值

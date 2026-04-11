@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { DisplayCategory, SubjectKind, TaskDisplayMeta, TaskSpec_P1, TriggerSpec } from '../types.js';
 
 /** Parameters for creating a dynamic task instance from a template */

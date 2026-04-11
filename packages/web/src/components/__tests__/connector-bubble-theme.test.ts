@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Connector bubble theming
  * - GitHub Review notifications should be visually distinct from generic connector bubbles.

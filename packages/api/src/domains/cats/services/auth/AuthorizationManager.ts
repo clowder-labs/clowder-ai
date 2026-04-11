@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Authorization Manager
  * 猫猫授权系统核心 — 规则匹配 + pending 队列 + inFlightWaiters

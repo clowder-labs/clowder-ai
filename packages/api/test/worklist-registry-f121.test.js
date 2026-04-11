@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F121: WorklistRegistry a2aTriggerMessageId tests
  * Split from worklist-registry.test.js to stay under 350-line cap.

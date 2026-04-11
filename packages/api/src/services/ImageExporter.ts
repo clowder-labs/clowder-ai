@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type { PuppeteerNode } from 'puppeteer-core';
 import type sharpType from 'sharp';

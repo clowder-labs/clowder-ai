@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F8: CatTokenUsage component tests (dynamic redesign).
  * Verifies per-cat token usage display with brand colors, cache bar, animations.

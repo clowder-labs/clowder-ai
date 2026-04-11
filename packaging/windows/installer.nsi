@@ -468,10 +468,16 @@ webview2_found:
   DetailPrint "WebView2 已安装 (版本: $0$1)"
 webview2_done:
 
-  ; Run post-install configuration (generate provider-profiles, cat-catalog, etc.)
+  ; Run post-install configuration only for fresh installs.
+  ; On overwrite installs, preserve an existing runtime catalog so user-created agents survive.
+  IfFileExists "$INSTDIR\.cat-cafe\cat-catalog.json" init_config_skip 0
   DetailPrint "正在初始化配置..."
   nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'
   Pop $0
+  Goto init_config_done
+init_config_skip:
+  DetailPrint "检测到现有运行时 catalog，跳过初始化配置以保留用户自定义 agent..."
+init_config_done:
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
   Call WriteShellShortcuts

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F045 P1 regression: thinking-first placeholder must receive metadata from subsequent text chunks.
  *

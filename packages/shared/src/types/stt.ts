@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F088 Phase 6: STT (Speech-to-Text) Types
  * Mirrors ITtsProvider pattern for speech recognition.
