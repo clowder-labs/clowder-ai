@@ -324,7 +324,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             {message.extra?.crossPost &&
               (() => {
                 const sourceId = message.extra.crossPost?.sourceThreadId;
-                const sourceName = threads.find((t) => t.id === sourceId)?.title ?? '未命名对话';
+                const sourceName = threads.find((t) => t.id === sourceId)?.title ?? '未命名会话';
                 const shortId = sourceId.replace(/^thread_/, '').slice(0, 8);
                 const senderLabel = catStyle?.label;
                 return (

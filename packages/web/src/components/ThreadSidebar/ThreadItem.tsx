@@ -134,7 +134,8 @@ export function ThreadItem({
   const unreadCount = Math.max(0, threadState?.unreadCount ?? 0);
   const showUnreadBadge = unreadCount > 0;
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
-  const canDelete = id !== 'default' && onDelete;
+  const isThreadRunning = !!threadState?.hasActiveInvocation;
+  const canDelete = id !== 'default' && onDelete && !isThreadRunning;
   const canRename = id !== 'default' && onRename;
   const canPin = id !== 'default' && onTogglePin;
 
@@ -237,7 +238,7 @@ export function ThreadItem({
     }
   }, [onRename, draftTitle, title, id]);
 
-  const rawTitle = title ?? (id === 'default' ? '大厅' : '未命名对话');
+  const rawTitle = title ?? (id === 'default' ? '大厅' : '未命名会话');
   const displayTitle = normalizeTitleMentions(rawTitle, cats);
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
@@ -430,7 +431,7 @@ export function ThreadItem({
               }}
               className={contextMenuItemClass}
             >
-              导出对话
+              导出会话
             </button>
           )}
 
@@ -443,7 +444,7 @@ export function ThreadItem({
               }}
               className={contextMenuItemClass}
             >
-              删除对话
+              删除会话
             </button>
           )}
         </div>

@@ -356,7 +356,7 @@ export function SkillDetailView({
                   className="h-[56px] w-[56px] rounded-[14px]"
                 />
                 <div className="min-w-0 flex-1 flex flex-col gap-1">
-                  <h2 className="truncate text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]">
+                  <h2 className="truncate text-[28px] font-semibold leading-[38px] text-[var(--text-primary)]">
                     {resolvedTitle}
                   </h2>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
