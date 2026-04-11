@@ -121,7 +121,7 @@ export function SplitPaneView({ onSend, onStop, uploadStatus, uploadError, onZoo
                 <SplitPaneCell
                   key={tid}
                   threadId={tid}
-                  threadTitle={thread?.title ?? '未命名对话'}
+                  threadTitle={thread?.title ?? '未命名会话'}
                   threadState={getThreadState(tid)}
                   isSelected={splitPaneTargetId === tid}
                   onSelect={handleSelectPane}

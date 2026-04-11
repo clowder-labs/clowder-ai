@@ -130,12 +130,12 @@ export function ThreadSidebar({
         title: sanitizeThreadTitleOrNull(thread.title, knownAliases),
       }));
       setThreads(threads);
-      // F069: Restore unread state from API
+      // F069: Sync unread state from API (both non-zero and zero).
+      // Only hydrating non-zero values can leave stale local unread badges
+      // when server state has already been acknowledged to 0.
       const { initThreadUnread } = useChatStore.getState();
       for (const thread of threads) {
-        if (thread.unreadCount > 0 || thread.hasUserMention) {
-          initThreadUnread(thread.id, thread.unreadCount ?? 0, !!thread.hasUserMention);
-        }
+        initThreadUnread(thread.id, thread.unreadCount ?? 0, !!thread.hasUserMention);
       }
     } catch {
       // Silently ignore
@@ -330,10 +330,12 @@ export function ThreadSidebar({
   // I-1: Show confirmation dialog instead of deleting immediately
   const handleDeleteRequest = useCallback(
     (threadId: string) => {
+      const threadState = getThreadState(threadId);
+      if (threadState?.hasActiveInvocation) return;
       const thread = threads.find((t) => t.id === threadId);
       if (thread) setDeleteTarget(thread);
     },
-    [threads],
+    [threads, getThreadState],
   );
 
   const handleDeleteConfirm = useCallback(async () => {
@@ -417,7 +419,7 @@ export function ThreadSidebar({
     let result = threads;
     if (normalizedQuery) {
       result = result.filter((thread) => {
-        const displayTitle = (thread.title?.trim() || (thread.id === 'default' ? '大厅' : '未命名对话')).toLowerCase();
+        const displayTitle = (thread.title?.trim() || (thread.id === 'default' ? '大厅' : '未命名会话')).toLowerCase();
         return displayTitle.includes(normalizedQuery);
       });
     }
@@ -899,7 +901,7 @@ export function ThreadSidebar({
             <svg className="h-6 w-6 text-[#FAAD14]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12.866 3.5a1 1 0 0 0-1.732 0l-8.25 14.5A1 1 0 0 0 3.75 19.5h16.5a1 1 0 0 0 .866-1.5l-8.25-14.5ZM12 8a1 1 0 0 1 1 1v4a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Zm0 9a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 12 17Z" />
             </svg>
-            <h3 className="text-[16px] font-bold text-gray-900">确认删除对话</h3>
+            <h3 className="text-[16px] font-bold text-gray-900">确认删除会话</h3>
           </div>
         }
         panelClassName="w-[500px]"

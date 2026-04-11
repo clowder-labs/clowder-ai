@@ -8,6 +8,16 @@ export interface QuickActionConfig {
 
 export const QUICK_ACTIONS: QuickActionConfig[] = [
   {
+    label: '定时任务',
+    icon: '/icons/scheduled-task.svg',
+    show: true,
+    prompts: [
+      '每日 10:00 提醒我喝水，从今天开始并持续生效，任务创建后设置为立即执行。',
+      '设置每天为我推送当天最新的10条科技新闻，每条新闻总结要精简。',
+      '设置每天生成一个3-5分钟的睡前故事，并在每日10:00推送给我。',
+    ],
+  },
+  {
     label: '文档处理',
     icon: '/icons/document-processing.svg',
     show: false,

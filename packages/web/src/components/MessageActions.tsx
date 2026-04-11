@@ -207,9 +207,9 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
       <ConfirmDialog
         open={dialog.type === 'hard-delete'}
         title="永久删除"
-        message="此操作不可恢复。请输入对话标题以确认。"
+        message="此操作不可恢复。请输入会话标题以确认。"
         requireInput={dialog.type === 'hard-delete' ? (dialog.threadTitle ?? '确认删除') : undefined}
-        inputPlaceholder={dialog.type === 'hard-delete' && dialog.threadTitle ? '输入对话标题' : '输入 \"确认删除\"'}
+        inputPlaceholder={dialog.type === 'hard-delete' && dialog.threadTitle ? '输入会话标题' : '输入 \"确认删除\"'}
         confirmLabel="永久删除"
         variant="danger"
         onConfirm={confirmHardDelete}
@@ -244,7 +244,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
       <ConfirmDialog
         open={dialog.type === 'branch-confirm'}
         title="创建分支"
-        message="编辑将从此消息创建一个新的对话分支。原对话保留不变。是否继续？"
+        message="编辑将从此消息创建一个新的会话分支。原会话保留不变。是否继续？"
         confirmLabel="创建分支"
         onConfirm={confirmBranch}
         onCancel={close}
@@ -253,7 +253,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
       <ConfirmDialog
         open={dialog.type === 'branch-direct'}
         title="从这里分支"
-        message="将从此消息创建一个新的对话分支，复制到这条消息为止的所有历史。原对话保留不变。"
+        message="将从此消息创建一个新的会话分支，复制到这条消息为止的所有历史。原会话保留不变。"
         confirmLabel="创建分支"
         onConfirm={confirmBranchDirect}
         onCancel={close}

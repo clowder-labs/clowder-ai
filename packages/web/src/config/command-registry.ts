@@ -38,8 +38,8 @@ export const COMMANDS: CommandDefinition[] = [
   { name: '/config set', usage: '/config set <key> <value>', description: '热更新运行时配置', category: 'general' },
 
   // --- memory ---
-  { name: '/remember', usage: '/remember <key> <value>', description: '保存对话记忆', category: 'memory' },
-  { name: '/recall', usage: '/recall [key]', description: '查看对话记忆（无 key 列出全部）', category: 'memory' },
+  { name: '/remember', usage: '/remember <key> <value>', description: '保存会话记忆', category: 'memory' },
+  { name: '/recall', usage: '/recall [key]', description: '查看会话记忆（无 key 列出全部）', category: 'memory' },
   { name: '/approve', usage: '/approve <entryId>', description: '审批待发布的记忆条目', category: 'memory' },
   { name: '/archive', usage: '/archive <entryId>', description: '归档已发布的记忆条目', category: 'memory' },
 
@@ -57,7 +57,7 @@ export const COMMANDS: CommandDefinition[] = [
   { name: '/signals stats', usage: '/signals stats', description: '查看 Signal 统计信息', category: 'knowledge' },
 
   // --- task ---
-  { name: '/tasks extract', usage: '/tasks extract [N]', description: '从对话中提取任务', category: 'task' },
+  { name: '/tasks extract', usage: '/tasks extract [N]', description: '从会话中提取任务', category: 'task' },
 
   // --- vote (F079) ---
   { name: '/vote', usage: '/vote', description: '打开投票配置面板', category: 'vote' },

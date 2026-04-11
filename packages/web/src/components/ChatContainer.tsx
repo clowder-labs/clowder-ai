@@ -56,7 +56,7 @@ import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
-const MAIN_PANEL_MIN_WIDTH = 900;
+const MAIN_PANEL_MIN_WIDTH = 660;
 
 function getFolderNameFromPath(path: string | null | undefined): string | null {
   if (!path) return null;
