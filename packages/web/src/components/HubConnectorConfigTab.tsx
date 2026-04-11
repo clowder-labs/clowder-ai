@@ -368,7 +368,11 @@ export function HubConnectorConfigTab() {
                                 onDisconnected={() => void fetchStatus()}
                               />
                             ) : (
-                              <WeixinQrPanel configured={platform.configured} onConfigured={fetchStatus} />
+                              <WeixinQrPanel
+                                configured={platform.configured}
+                                onConfigured={fetchStatus}
+                                onDisconnected={fetchStatus}
+                              />
                             )}
                           </div>
                         )}
@@ -426,7 +430,7 @@ export function HubConnectorConfigTab() {
                       </div>
                       <div className="ml-[26px] space-y-2.5">
                         {platform.fields.map((field) => (
-                          <div key={field.envName} className="w-[60%]">
+                          <div key={field.envName} className="w-1/2">
                             <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
                               {field.label}
                               {field.sensitive && (
@@ -458,7 +462,7 @@ export function HubConnectorConfigTab() {
                               data-form-type="other"
                               data-1p-ignore="true"
                               data-lpignore="true"
-                              className="ui-input h-9 w-full px-3 text-[13px]"
+                              className="ui-input"
                               data-testid={`field-${field.envName}`}
                             />
                           </div>

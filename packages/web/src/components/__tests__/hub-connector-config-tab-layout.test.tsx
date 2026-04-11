@@ -192,6 +192,47 @@ describe('HubConnectorConfigTab layout', () => {
     expect(container.querySelector('[data-testid="platform-item-weixin"]')?.textContent).toContain('已启用');
   });
 
+  it('refreshes platform status after Weixin disconnects', async () => {
+    let statusCallCount = 0;
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/connector/status') {
+        statusCallCount += 1;
+        return Promise.resolve(
+          jsonResponse({
+            platforms: [
+              {
+                id: 'weixin',
+                name: '寰俊',
+                nameEn: 'WeChat',
+                configured: statusCallCount === 1,
+                docsUrl: '',
+                steps: ['鎵爜缁戝畾', '瀹屾垚纭'],
+                fields: [],
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubConnectorConfigTab));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('[data-testid="platform-item-weixin"]')?.textContent).toContain('已启用');
+
+    await act(async () => {
+      (container.querySelector('[data-testid="weixin-qr"]') as HTMLButtonElement | null)?.click();
+    });
+    await flushEffects();
+
+    expect(statusCallCount).toBeGreaterThanOrEqual(2);
+    expect(container.querySelector('[data-testid="platform-item-weixin"]')?.textContent).toContain('未配置');
+  });
+
   it('uses business-theme unconfigured badge tokens when business theme is active', async () => {
     const globalsCss = readFileSync(globalsCssPath, 'utf8');
     const businessThemeBlock = globalsCss.match(/\[data-ui-theme="business"\]\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
