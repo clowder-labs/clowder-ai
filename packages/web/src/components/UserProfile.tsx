@@ -1,10 +1,4 @@
-﻿/*
- * *
- *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
- *
- */
-
-'use client';
+﻿'use client';
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -35,6 +29,8 @@ const THEME_OPTIONS: Array<{
       'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
   },
 ];
+
+const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html';
 
 export function UserProfile({ className }: UserProfileProps) {
   const [showPanel, setShowPanel] = useState(false);
@@ -107,6 +103,12 @@ export function UserProfile({ className }: UserProfileProps) {
 
   const handleSelectTheme = (nextTheme: ThemeType) => {
     setTheme(nextTheme);
+    setShowThemePanel(false);
+    setShowPanel(false);
+  };
+
+  const handleOpenHelp = () => {
+    window.open(HELP_URL, '_blank', 'noopener,noreferrer');
     setShowThemePanel(false);
     setShowPanel(false);
   };
@@ -260,7 +262,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 </button>
               </div>
 
-              <button className={`hidden ${profileActionClass}`}>
+              <button className={profileActionClass} onClick={handleOpenHelp}>
                 <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 帮助
               </button>

@@ -11,6 +11,7 @@ import { UserProfile } from '../UserProfile';
 
 const mockReplace = vi.fn();
 const mockSetTheme = vi.fn();
+const mockWindowOpen = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
@@ -40,6 +41,11 @@ describe('UserProfile overlay classes', () => {
   beforeAll(() => {
     (globalThis as { React?: typeof React }).React = React;
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    Object.defineProperty(window, 'open', {
+      configurable: true,
+      writable: true,
+      value: mockWindowOpen,
+    });
   });
 
   beforeEach(() => {
@@ -48,6 +54,7 @@ describe('UserProfile overlay classes', () => {
     root = createRoot(container);
     mockReplace.mockReset();
     mockSetTheme.mockReset();
+    mockWindowOpen.mockReset();
   });
 
   afterEach(() => {
@@ -185,5 +192,33 @@ describe('UserProfile overlay classes', () => {
     await flush();
     expect(container.querySelector('[data-testid="user-theme-popover"]')).toBeNull();
     expect(container.querySelector('[data-testid="user-profile-theme-arrow"]')).toBeTruthy();
+  });
+
+  it('opens the help document when the help action is clicked', async () => {
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    const helpButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('帮助'));
+    expect(helpButton).toBeTruthy();
+
+    act(() => {
+      helpButton?.click();
+    });
+
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html',
+      '_blank',
+      'noopener,noreferrer',
+    );
   });
 });
