@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * History endpoint integration test
  * POST → GET roundtrip, pagination, format matching frontend expectations

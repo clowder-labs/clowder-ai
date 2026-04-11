@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * InvocationRegistry Tests
  * 测试 MCP 回传鉴权的 invocation 注册和验证

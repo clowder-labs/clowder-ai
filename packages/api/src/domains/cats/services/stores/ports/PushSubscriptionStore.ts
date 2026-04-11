@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Push Subscription Store
  * 管理 Web Push 订阅记录 — 铲屎官的设备订阅信息

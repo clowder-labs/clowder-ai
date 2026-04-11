@@ -121,7 +121,7 @@ FunctionEnd
 
 Function LicensePageCreate
   !insertmacro MUI_HEADER_TEXT "许可协议" "继续安装前请阅读下列重要信息。$\r$\n请仔细阅读下列许可协议，您在继续安装前必须同意这些协议条款。"
-  
+
   nsDialogs::Create 1018
   Pop $LicenseDialog
   ${If} $LicenseDialog == error
@@ -385,7 +385,6 @@ FunctionEnd
 Function WriteShellShortcuts
   CreateDirectory "${STARTMENU_DIR}"
   CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
-  CreateShortCut "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"' "$INSTDIR\assets\app.ico"
   CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
   CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
 FunctionEnd
@@ -394,7 +393,7 @@ Function WriteUninstallRegistry
   WriteRegStr HKCU "${INSTALL_KEY}" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Clowder Labs"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "huawei cloud"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\assets\app.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
@@ -468,10 +467,16 @@ webview2_found:
   DetailPrint "WebView2 已安装 (版本: $0$1)"
 webview2_done:
 
-  ; Run post-install configuration (generate provider-profiles, cat-catalog, etc.)
+  ; Run post-install configuration only for fresh installs.
+  ; On overwrite installs, preserve an existing runtime catalog so user-created agents survive.
+  IfFileExists "$INSTDIR\.cat-cafe\cat-catalog.json" init_config_skip 0
   DetailPrint "正在初始化配置..."
   nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'
   Pop $0
+  Goto init_config_done
+init_config_skip:
+  DetailPrint "检测到现有运行时 catalog，跳过初始化配置以保留用户自定义 agent..."
+init_config_done:
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
   Call WriteShellShortcuts
@@ -484,7 +489,6 @@ Section "Uninstall"
   Call un.CloseRunningServices
 
   Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
-  Delete "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk"
   Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
   RMDir "${STARTMENU_DIR}"
   Delete "$DESKTOP\${APP_NAME}.lnk"

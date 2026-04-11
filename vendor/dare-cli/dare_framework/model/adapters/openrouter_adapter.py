@@ -30,6 +30,7 @@ class OpenRouterModelAdapter(IModelAdapter):
         http_client_options: dict[str, Any] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
+        super().__init__()
         self._name = name or "openrouter"
         self._api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         self._model = model or os.getenv("OPENROUTER_MODEL", "qwen/qwen3-coder:free")

@@ -16,6 +16,7 @@
 import argparse
 import io
 import json
+import logging
 import os
 import re
 import sys
@@ -306,7 +307,7 @@ def main():
         try:
             date_str = datetime.strptime(args.date, "%Y-%m-%d").strftime("%Y-%m-%d")
         except ValueError:
-            print(f"错误: 日期格式不正确，请使用 YYYY-MM-DD 格式", file=sys.stderr)
+            logging.info(f"错误: 日期格式不正确，请使用 YYYY-MM-DD 格式", file=sys.stderr)
             sys.exit(1)
     else:
         date_str = datetime.now().strftime("%Y-%m-%d")
@@ -317,7 +318,7 @@ def main():
     else:
         workspace_dir = get_workspace_dir()
 
-    print(f"使用 workspace 目录: {workspace_dir}", file=sys.stderr)
+    logging.info(f"使用 workspace 目录: {workspace_dir}", file=sys.stderr)
 
     # 收集数据
     memory_dir = workspace_dir / "memory"
@@ -335,7 +336,7 @@ def main():
     todo_content = ""
     if todo_file:
         todo_content = read_file_safe(todo_file)
-        print(f"读取待办文件: {todo_file}", file=sys.stderr)
+        logging.info(f"读取待办文件: {todo_file}", file=sys.stderr)
 
     # 4. 解析待办状态
     todo_data = parse_todo_status(todo_content)
@@ -370,9 +371,9 @@ def main():
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(output_content, encoding="utf-8")
-        print(f"日报已保存到: {output_path}", file=sys.stderr)
+        logging.info(f"日报已保存到: {output_path}", file=sys.stderr)
     else:
-        print(output_content)
+        logging.info(output_content)
 
 
 if __name__ == "__main__":

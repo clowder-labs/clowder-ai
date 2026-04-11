@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CatId, GameRuntime, SeatId } from '@cat-cafe/shared';
 import type { IGameStore } from '../stores/ports/GameStore.js';
 import { buildFirstWakeBriefing, buildResumeCapsule } from './briefing.js';

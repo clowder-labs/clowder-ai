@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Environment variable registry — single source of truth for all user-configurable env vars.
  * Used by GET /api/config/env-summary to report current values to the frontend.
@@ -13,6 +19,7 @@
  */
 
 import { DEFAULT_CLI_TIMEOUT_LABEL } from '../utils/cli-timeout.js';
+import { buildConnectorEnvRefVarName, isConnectorSecretBackedEnvVarName } from './local-secret-store.js';
 
 export type EnvCategory =
   | 'server'
@@ -811,7 +818,7 @@ export const ENV_VARS: EnvDefinition[] = [
   {
     name: 'GITHUB_REVIEW_IMAP_USER',
     defaultValue: '(未设置 → 监控不启用)',
-    description: 'QQ 邮箱地址 (xxx@qq.com)',
+    description: 'QQ 邮箱地址',
     category: 'github_review',
     sensitive: false,
   },
@@ -928,7 +935,9 @@ function isHubVisibleEnvVar(def: EnvDefinition): boolean {
 export function buildEnvSummary(): Array<EnvDefinition & { currentValue: string | null }> {
   return ENV_VARS.filter(isHubVisibleEnvVar).map((def) => {
     const raw = process.env[def.name];
-    const currentValue = raw != null && raw !== '' ? maskValue(def, raw) : null;
+    const ref =
+      isConnectorSecretBackedEnvVarName(def.name) ? process.env[buildConnectorEnvRefVarName(def.name)] ?? null : null;
+    const currentValue = raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
     return { ...def, currentValue };
   });
 }

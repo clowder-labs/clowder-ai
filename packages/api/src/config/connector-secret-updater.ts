@@ -1,13 +1,29 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
- * Simplified connector secret updater — writes env vars to .env file
- * and syncs to process.env. Unlike Cat Cafe upstream, this version does
- * NOT emit configEventBus events (Clowder has no event bus wiring yet).
+ * Simplified connector secret updater.
+ *
+ * Non-sensitive connector config is written to `.env`.
+ * On Windows, sensitive connector secrets are stored in the local secret store
+ * and `.env` only keeps a `*_REF` pointer.
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ConnectorRuntimeApplySummary, ConnectorRuntimeReconciler } from '../infrastructure/connectors/ConnectorRuntimeManager.js';
 import { resolveActiveProjectRoot } from '../utils/active-project-root.js';
+import {
+  buildConnectorEnvRefVarName,
+  clearConnectorEnvSecret,
+  getConnectorEnvValue,
+  isConnectorSecretBackedEnvVarName,
+  isLocalSecretStorageEnabled,
+  persistConnectorEnvSecret,
+} from './local-secret-store.js';
 
 export interface ConnectorSecretUpdate {
   name: string;
@@ -69,24 +85,59 @@ export async function applyConnectorSecretUpdates(
 ): Promise<{ changedKeys: string[]; runtime?: ConnectorRuntimeApplySummary }> {
   const envFilePath = opts.envFilePath ?? resolve(resolveActiveProjectRoot(), '.env');
   const updatesMap = new Map<string, string | null>(updates.map((update) => [update.name, update.value]));
+  const fileUpdates = new Map<string, string | null>();
+  const nextValues = new Map<string, string>();
 
   const oldValues = new Map<string, string | undefined>();
   for (const name of updatesMap.keys()) {
-    oldValues.set(name, process.env[name]);
+    oldValues.set(name, getConnectorEnvValue(name) ?? process.env[name]);
+  }
+
+  const secretBacked = isLocalSecretStorageEnabled();
+  for (const [name, value] of updatesMap) {
+    const refName = buildConnectorEnvRefVarName(name);
+    if (isConnectorSecretBackedEnvVarName(name) && secretBacked) {
+      const trimmed = value?.trim() ?? '';
+      if (!trimmed) {
+        clearConnectorEnvSecret(name);
+        delete process.env[name];
+        delete process.env[refName];
+        fileUpdates.set(name, null);
+        fileUpdates.set(refName, null);
+        nextValues.set(name, '');
+      } else {
+        const persisted = persistConnectorEnvSecret(name, trimmed);
+        process.env[name] = trimmed;
+        process.env[persisted.refName] = persisted.refValue;
+        fileUpdates.set(name, null);
+        fileUpdates.set(persisted.refName, persisted.refValue);
+        nextValues.set(name, trimmed);
+      }
+      continue;
+    }
+
+    if (isConnectorSecretBackedEnvVarName(name)) {
+      clearConnectorEnvSecret(name);
+      delete process.env[refName];
+      fileUpdates.set(refName, null);
+    }
+
+    if (value == null || value === '') {
+      delete process.env[name];
+      fileUpdates.set(name, null);
+      nextValues.set(name, '');
+    } else {
+      process.env[name] = value;
+      fileUpdates.set(name, value);
+      nextValues.set(name, value);
+    }
   }
 
   const current = existsSync(envFilePath) ? readFileSync(envFilePath, 'utf8') : '';
-  const next = applyEnvUpdatesToFile(current, updatesMap);
+  const next = applyEnvUpdatesToFile(current, fileUpdates);
   writeFileSync(envFilePath, next, 'utf8');
 
-  for (const [name, value] of updatesMap) {
-    if (value == null || value === '') delete process.env[name];
-    else process.env[name] = value;
-  }
-
-  const changedKeys = [...updatesMap.entries()]
-    .filter(([name, value]) => (value ?? '') !== (oldValues.get(name) ?? ''))
-    .map(([name]) => name);
+  const changedKeys = [...updatesMap.keys()].filter((name) => (nextValues.get(name) ?? '') !== (oldValues.get(name) ?? ''));
 
   const runtime = opts.reconciler && changedKeys.length > 0 ? await opts.reconciler.reconcile(changedKeys) : undefined;
   return runtime ? { changedKeys, runtime } : { changedKeys };

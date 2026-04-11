@@ -1,4 +1,10 @@
-﻿import { useChatStore } from '@/stores/chatStore';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import { useChatStore } from '@/stores/chatStore';
 
 /** F099 P1-2: Always-visible Hub entry in the top bar (gear icon). */
 export function HubButton() {

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis implementation of per-thread key-value memory store.
  * Uses Redis Hash for efficient per-thread storage.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { PortValidationOptions, PortValidationResult } from './types.js';
 
 /** Clowder AI 自身服务端口 — 硬编码保底 */

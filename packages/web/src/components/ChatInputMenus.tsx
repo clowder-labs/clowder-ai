@@ -1,4 +1,10 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { type CSSProperties, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { type CatOption, GAME_LIST, WEREWOLF_MODES } from './chat-input-options';

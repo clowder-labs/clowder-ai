@@ -284,11 +284,11 @@ def main():
 
     if result:
         logger.info("研究报告生成完成")
-        print("\n" + "=" * 80)
-        print("研究报告")
-        print("=" * 80)
-        print(result)
-        print("=" * 80 + "\n")
+        logger.info("\n" + "=" * 80)
+        logger.info("研究报告")
+        logger.info("=" * 80)
+        logger.info(result)
+        logger.info("=" * 80 + "\n")
         sys.exit(0)
     else:
         sys.exit(1)

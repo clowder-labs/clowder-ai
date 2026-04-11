@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export async function getErrorMessage(
   response: Response,
 ): Promise<{ error_code: string; error_message: string }> {

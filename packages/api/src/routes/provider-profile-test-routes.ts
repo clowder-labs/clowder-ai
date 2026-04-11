@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { FastifyPluginAsync } from 'fastify';
 import { resolveRuntimeAcpModelProfileById } from '../config/acp-model-profiles.js';
 import { getProviderProfile, resolveRuntimeProviderProfileById } from '../config/provider-profiles.js';

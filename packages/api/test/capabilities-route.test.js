@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // @ts-check
 /**
  * Capabilities Route Tests — F041 统一能力看板 API

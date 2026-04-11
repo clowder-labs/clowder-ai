@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102: IMarkerQueue — YAML-backed marker candidate queue
 // Truth source: docs/markers/*.yaml (git-tracked), not SQLite
 

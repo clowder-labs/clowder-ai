@@ -2,7 +2,7 @@
 """
 Scan for credential files in common locations.
 """
-
+import logging
 import argparse
 import json
 import os
@@ -44,6 +44,7 @@ SENSITIVE_KEYS = [
     r"wallet[_-]?key",
 ]
 
+
 def scan_json_file(path: Path) -> Dict:
     """Scan a JSON file for credentials."""
     try:
@@ -76,6 +77,7 @@ def scan_json_file(path: Path) -> Dict:
             "likely_credentials": True,  # Assume yes if can't read
         }
 
+
 def scan_env_file(path: Path) -> Dict:
     """Scan a .env file for credentials."""
     try:
@@ -102,6 +104,7 @@ def scan_env_file(path: Path) -> Dict:
             "error": str(e),
             "likely_credentials": True,
         }
+
 
 def scan_locations(custom_paths: List[str] = None) -> List[Dict]:
     """Scan all common credential locations."""
@@ -138,6 +141,7 @@ def scan_locations(custom_paths: List[str] = None) -> List[Dict]:
     
     return results
 
+
 def main():
     parser = argparse.ArgumentParser(description='Scan for credential files')
     parser.add_argument('--paths', nargs='+', help='Additional paths to scan')
@@ -148,26 +152,27 @@ def main():
     results = scan_locations(args.paths)
     
     if args.format == 'json':
-        print(json.dumps(results, indent=2))
+        logging.info(json.dumps(results, indent=2))
     else:
-        print(f"\n🔍 Found {len(results)} credential file(s):\n")
+        logging.info(f"\n🔍 Found {len(results)} credential file(s):\n")
         for r in results:
             status = "✅" if r.get('mode') == '600' else "⚠️"
-            print(f"{status} {r['path']}")
-            print(f"   Type: {r['type']}")
+            logging.info(f"{status} {r['path']}")
+            logging.info(f"   Type: {r['type']}")
             if 'keys' in r:
-                print(f"   Keys: {', '.join(r['keys'][:5])}")
+                logging.info(f"   Keys: {', '.join(r['keys'][:5])}")
                 if len(r['keys']) > 5:
-                    print(f"        (+{len(r['keys']) - 5} more)")
-            print(f"   Mode: {r.get('mode', 'unknown')}")
+                    logging.info(f"        (+{len(r['keys']) - 5} more)")
+            logging.info(f"   Mode: {r.get('mode', 'unknown')}")
             if r.get('mode') != '600':
-                print(f"   ⚠️  Should be 600 for security")
-            print()
+                logging.info(f"   ⚠️  Should be 600 for security")
+            logging.info()
         
-        print(f"\n📊 Summary:")
-        print(f"   Total files: {len(results)}")
-        print(f"   Insecure permissions: {sum(1 for r in results if r.get('mode') != '600')}")
-        print(f"\n💡 Next: Run ./scripts/consolidate.py to merge into .env\n")
+        logging.info(f"\n📊 Summary:")
+        logging.info(f"   Total files: {len(results)}")
+        logging.info(f"   Insecure permissions: {sum(1 for r in results if r.get('mode') != '600')}")
+        logging.info(f"\n💡 Next: Run ./scripts/consolidate.py to merge into .env\n")
+
 
 if __name__ == '__main__':
     main()

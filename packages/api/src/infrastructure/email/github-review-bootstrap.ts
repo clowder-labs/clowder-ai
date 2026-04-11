@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * GitHub Review Watcher Bootstrap
  * Starts the email watcher if configured, wires up ReviewRouter for routing.

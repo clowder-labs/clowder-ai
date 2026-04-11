@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any
 
@@ -20,7 +21,7 @@ class ControlStdinRenderer:
         result: Any = None,
         error: Any = None,
     ) -> None:
-        print(
+        logging.info(
             json.dumps(
                 {
                     "schema_version": self.schema_version,
@@ -31,6 +32,5 @@ class ControlStdinRenderer:
                     "error": error,
                 },
                 ensure_ascii=False,
-            ),
-            flush=True,
+            )
         )

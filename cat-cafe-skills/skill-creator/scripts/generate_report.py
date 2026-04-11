@@ -9,6 +9,7 @@ Distinguishes between train and test queries.
 import argparse
 import html
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -272,7 +273,8 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
             icon = "✓" if did_pass else "✗"
             css_class = "pass" if did_pass else "fail"
 
-            html_parts.append(f'                <td class="result {css_class}">{icon}<span class="rate">{triggers}/{runs}</span></td>\n')
+            html_parts.append(f'                <td class="result {css_class}">{icon}'
+                              f'<span class="rate">{triggers}/{runs}</span></td>\n')
 
         # Add result for each test query (with different background)
         for qinfo in test_queries:
@@ -284,7 +286,8 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
             icon = "✓" if did_pass else "✗"
             css_class = "pass" if did_pass else "fail"
 
-            html_parts.append(f'                <td class="result test-result {css_class}">{icon}<span class="rate">{triggers}/{runs}</span></td>\n')
+            html_parts.append(f'                <td class="result test-result {css_class}">{icon}'
+                              f'<span class="rate">{triggers}/{runs}</span></td>\n')
 
         html_parts.append("            </tr>\n")
 
@@ -317,9 +320,9 @@ def main():
 
     if args.output:
         Path(args.output).write_text(html_output)
-        print(f"Report written to {args.output}", file=sys.stderr)
+        logging.info(f"Report written to {args.output}", file=sys.stderr)
     else:
-        print(html_output)
+        logging.info(html_output)
 
 
 if __name__ == "__main__":

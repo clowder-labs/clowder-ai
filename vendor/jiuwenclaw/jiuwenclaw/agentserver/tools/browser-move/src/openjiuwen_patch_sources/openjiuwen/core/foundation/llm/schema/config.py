@@ -68,7 +68,6 @@ class ModelClientConfig(BaseModel):
             error_msg=f"unavailable model provider: {self.client_provider},"
                       f"and available providers are: {supported_providers}"
         )
-        return self
 
 
 class ModelRequestConfig(BaseModel):

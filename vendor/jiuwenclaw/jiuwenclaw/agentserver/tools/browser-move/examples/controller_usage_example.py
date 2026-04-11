@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -55,22 +56,22 @@ async def example_register_and_call() -> None:
 
     register_action("uppercase", my_uppercase)
 
-    print("Registered actions:", list_actions())
+    logging.info("Registered actions:", list_actions())
 
     # Call built-in examples
     out = await run_action("ping", session_id="s1", request_id="r1")
-    print("run_action('ping', ...):", json.dumps(out, indent=2))
+    logging.info("run_action('ping', ...):", json.dumps(out, indent=2))
 
     out = await run_action("echo", session_id="s1", text="hello controller")
-    print("run_action('echo', text='hello controller'):", json.dumps(out, indent=2))
+    logging.info("run_action('echo', text='hello controller'):", json.dumps(out, indent=2))
 
     # Call your custom action
     out = await run_action("uppercase", session_id="s1", text="hello")
-    print("run_action('uppercase', text='hello'):", json.dumps(out, indent=2))
+    logging.info("run_action('uppercase', text='hello'):", json.dumps(out, indent=2))
 
     # Unknown action
     out = await run_action("nonexistent")
-    print("run_action('nonexistent'):", json.dumps(out, indent=2))
+    logging.info("run_action('nonexistent'):", json.dumps(out, indent=2))
 
 
 async def example_via_mcp_tools() -> None:
@@ -85,7 +86,7 @@ async def example_via_mcp_tools() -> None:
     "ping" and "echo" are available by default. Add your own in a startup
     hook or by calling register_action() before the server starts.
     """
-    print(
+    logging.info(
         "To use from an MCP client: call browser_custom_action with action='ping' or 'echo', "
         "or register your own actions and call browser_list_custom_actions to see them."
     )
@@ -93,7 +94,6 @@ async def example_via_mcp_tools() -> None:
 
 def main() -> None:
     asyncio.run(example_register_and_call())
-    print()
     asyncio.run(example_via_mcp_tools())
 
 

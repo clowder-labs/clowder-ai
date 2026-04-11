@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Connector Gateway Bootstrap
  *
@@ -8,6 +14,7 @@
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
+import { getConnectorEnvValue } from '../../config/local-secret-store.js';
 import type { ConnectorWebhookHandler } from '../../routes/connector-webhooks.js';
 import type { ConnectorRuntimeApplySummary } from './ConnectorRuntimeManager.js';
 import { ConnectorRuntimeManager } from './ConnectorRuntimeManager.js';
@@ -153,18 +160,18 @@ export type { ConnectorRuntimeApplySummary } from './ConnectorRuntimeManager.js'
 
 export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
   return {
-    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+    telegramBotToken: getConnectorEnvValue('TELEGRAM_BOT_TOKEN'),
     feishuAppId: process.env.FEISHU_APP_ID,
-    feishuAppSecret: process.env.FEISHU_APP_SECRET,
-    feishuVerificationToken: process.env.FEISHU_VERIFICATION_TOKEN,
+    feishuAppSecret: getConnectorEnvValue('FEISHU_APP_SECRET'),
+    feishuVerificationToken: getConnectorEnvValue('FEISHU_VERIFICATION_TOKEN'),
     feishuBotOpenId: process.env.FEISHU_BOT_OPEN_ID,
     feishuAdminOpenIds: process.env.FEISHU_ADMIN_OPEN_IDS,
     feishuConnectionMode: process.env.FEISHU_CONNECTION_MODE === 'websocket' ? 'websocket' : 'webhook',
     dingtalkAppKey: process.env.DINGTALK_APP_KEY,
-    dingtalkAppSecret: process.env.DINGTALK_APP_SECRET,
-    weixinBotToken: process.env.WEIXIN_BOT_TOKEN,
-    xiaoyiAk: process.env.XIAOYI_AK,
-    xiaoyiSk: process.env.XIAOYI_SK,
+    dingtalkAppSecret: getConnectorEnvValue('DINGTALK_APP_SECRET'),
+    weixinBotToken: getConnectorEnvValue('WEIXIN_BOT_TOKEN'),
+    xiaoyiAk: getConnectorEnvValue('XIAOYI_AK'),
+    xiaoyiSk: getConnectorEnvValue('XIAOYI_SK'),
     xiaoyiAgentId: process.env.XIAOYI_AGENT_ID,
     xiaoyiWsUrl1: process.env.XIAOYI_WS_URL1,
     xiaoyiWsUrl2: process.env.XIAOYI_WS_URL2,

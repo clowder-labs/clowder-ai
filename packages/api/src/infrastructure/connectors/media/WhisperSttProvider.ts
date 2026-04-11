@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from '@cat-cafe/shared';
@@ -16,7 +22,7 @@ export class WhisperSttProvider implements ISttProvider {
   private readonly fetchFn: typeof fetch;
 
   constructor(opts?: WhisperSttProviderOptions) {
-    this.baseUrl = opts?.baseUrl ?? process.env.WHISPER_URL ?? 'http://localhost:9876';
+    this.baseUrl = opts?.baseUrl ?? process.env.WHISPER_URL!;
     this.model = opts?.model ?? 'whisper-large-v3';
     this.fetchFn = opts?._fetchFn ?? fetch;
   }

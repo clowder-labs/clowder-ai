@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Messages API Routes
  * POST /api/messages - 发送消息 (JSON or multipart with images)
@@ -39,8 +45,9 @@ import type { IGameStore } from '../domains/cats/services/stores/ports/GameStore
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
-import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import { resolveThreadProjectPath, type IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
+import { ensureRegisteredWorktreeRoot } from '../domains/workspace/workspace-security.js';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { buildCancelMessages, type SocketManager } from '../infrastructure/websocket/index.js';
 
@@ -118,8 +125,26 @@ const getMessagesSchema = z.object({
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
-
 const DECISION_NOTIFICATION_RE = /\b(review|lgtm|merge|pr)\b/i;
+
+async function resolveMultipartWorkspaceTarget(
+  threadId: string | undefined,
+  threadStore?: IThreadStore,
+) {
+  if (!threadStore) return null;
+
+  const resolvedThreadId = threadId ?? 'default';
+  const thread = await threadStore.get(resolvedThreadId);
+  const projectPath = resolveThreadProjectPath(thread?.projectPath);
+  const worktree = ensureRegisteredWorktreeRoot(projectPath, 'workspace');
+
+  return {
+    kind: 'workspace' as const,
+    worktreeId: worktree.id,
+    workspaceRoot: worktree.root,
+    directoryPath: '',
+  };
+}
 
 export function shouldMarkDecisionNotification(content: string): boolean {
   const lower = content.toLowerCase();
@@ -187,7 +212,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
 
     if (request.isMultipart()) {
       // Parse multipart: text fields + image files
-      const parsed = await parseMultipart(request, uploadDir);
+      const parsed = await parseMultipart(request, uploadDir, (multipartThreadId) =>
+        resolveMultipartWorkspaceTarget(multipartThreadId, opts.threadStore),
+      );
       if ('error' in parsed) {
         reply.status(400);
         return { error: parsed.error };

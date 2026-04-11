@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Authorization Types (猫猫授权系统)
  * 猫猫向铲屎官请求权限 — 动态审批 + 持久化规则

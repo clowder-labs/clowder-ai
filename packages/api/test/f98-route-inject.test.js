@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F98 Route Inject Tests — Review P1
  * Fastify inject tests for session-transcript route changes:

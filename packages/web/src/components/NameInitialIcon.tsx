@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { getNameInitial, getNameInitialIconTheme } from '@/lib/name-initial-icon';
 
 export function NameInitialIcon({

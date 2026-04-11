@@ -12,14 +12,16 @@ Example:
     
     # Now safe to load credentials
 """
-
+import logging
 import sys
 from pathlib import Path
+
 
 def check_env_exists() -> bool:
     """Check if .env file exists."""
     env_file = Path.home() / '.openclaw' / '.env'
     return env_file.exists()
+
 
 def check_env_permissions() -> bool:
     """Check if .env has correct permissions (600)."""
@@ -29,12 +31,14 @@ def check_env_permissions() -> bool:
     mode = oct(env_file.stat().st_mode)[-3:]
     return mode == '600'
 
+
 def check_gitignore() -> bool:
     """Check if .env is git-ignored."""
     gitignore = Path.home() / '.openclaw' / '.gitignore'
     if not gitignore.exists():
         return False
     return '.env' in gitignore.read_text()
+
 
 def require_secure_env(exit_on_fail: bool = True) -> bool:
     """
@@ -58,23 +62,24 @@ def require_secure_env(exit_on_fail: bool = True) -> bool:
             failed.append(error_msg)
     
     if failed:
-        print("\n🔒 SECURITY REQUIREMENT NOT MET\n", file=sys.stderr)
-        print("OpenClaw requires centralized credential management.", file=sys.stderr)
-        print("\nIssues found:", file=sys.stderr)
+        logging.info("\n🔒 SECURITY REQUIREMENT NOT MET\n", file=sys.stderr)
+        logging.info("OpenClaw requires centralized credential management.", file=sys.stderr)
+        logging.info("\nIssues found:", file=sys.stderr)
         for msg in failed:
-            print(f"  {msg}", file=sys.stderr)
+            logging.info(f"  {msg}", file=sys.stderr)
         
-        print("\n💡 Fix this by running:", file=sys.stderr)
-        print("   cd ~/.openclaw/skills/credential-manager", file=sys.stderr)
-        print("   ./scripts/consolidate.py", file=sys.stderr)
-        print("   ./scripts/validate.py --fix", file=sys.stderr)
-        print("\nSee CORE-PRINCIPLE.md for why this is mandatory.\n", file=sys.stderr)
+        logging.info("\n💡 Fix this by running:", file=sys.stderr)
+        logging.info("   cd ~/.openclaw/skills/credential-manager", file=sys.stderr)
+        logging.info("   ./scripts/consolidate.py", file=sys.stderr)
+        logging.info("   ./scripts/validate.py --fix", file=sys.stderr)
+        logging.info("\nSee CORE-PRINCIPLE.md for why this is mandatory.\n", file=sys.stderr)
         
         if exit_on_fail:
-            sys.exit(1)
+            raise ValueError("Secure .env requirement not met")
         return False
     
     return True
+
 
 def get_credential(key: str) -> str:
     """
@@ -100,22 +105,22 @@ def get_credential(key: str) -> str:
                 if k.strip() == key:
                     return v.strip()
     
-    print(f"\n❌ Credential '{key}' not found in .env\n", file=sys.stderr)
-    print("Add it to ~/.openclaw/.env:", file=sys.stderr)
-    print(f"   {key}=your_value_here\n", file=sys.stderr)
-    sys.exit(1)
+    logging.info(f"\n❌ Credential '{key}' not found in .env\n", file=sys.stderr)
+    logging.info("Add it to ~/.openclaw/.env:", file=sys.stderr)
+    logging.info(f"   {key}=your_value_here\n", file=sys.stderr)
+    raise ValueError(f"Credential '{key}' not found in .env")
 
 if __name__ == '__main__':
     # When run directly, validate and report
-    print("🔍 Checking OpenClaw credential security...\n")
+    logging.info("🔍 Checking OpenClaw credential security...\n")
     
     if require_secure_env(exit_on_fail=False):
-        print("✅ All security checks passed")
-        print("\nYour credentials are properly secured:")
-        print("  • ~/.openclaw/.env exists")
-        print("  • Permissions are 600 (owner only)")
-        print("  • Git-ignored")
-        print("\n🔒 Good job! Your OpenClaw deployment follows security best practices.")
+        logging.info("✅ All security checks passed")
+        logging.info("\nYour credentials are properly secured:")
+        logging.info("  • ~/.openclaw/.env exists")
+        logging.info("  • Permissions are 600 (owner only)")
+        logging.info("  • Git-ignored")
+        logging.info("\n🔒 Good job! Your OpenClaw deployment follows security best practices.")
         sys.exit(0)
     else:
         sys.exit(1)

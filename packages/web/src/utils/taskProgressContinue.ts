@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { TaskProgressState } from '@/stores/chat-types';
 
 export function buildContinueMessage(catId: string, progress: TaskProgressState): string {

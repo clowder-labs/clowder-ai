@@ -11,8 +11,8 @@
 
 import argparse
 import io
+import logging
 import os
-import re
 import sys
 import subprocess
 from datetime import datetime, timedelta
@@ -176,7 +176,7 @@ def collect_email_stats(date: str = None) -> dict:
         try:
             args = '("name" "python-imap" "version" "1.0" "vendor" "python")'
             mail._simple_command("ID", args)
-        except:
+        except Exception as e:
             pass
 
         # 使用 STATUS 命令获取邮件统计（绕过 SELECT 的 Unsafe Login 限制）
@@ -405,6 +405,7 @@ def generate_daily_report(date: str = None, enable_ai: bool = True) -> str:
         todo_content = todo_file.read_text(encoding="utf-8")
         for line in todo_content.split("\n"):
             stripped = line.strip()
+            import re
             # Checkbox 格式
             match = re.match(r"-\s*\[([xX ])\]\s*(.+)", stripped)
             if match:
@@ -729,7 +730,7 @@ def main():
             date_str = date
 
             if enable_ai:
-                print("INFO: AI 智能分析已启用", file=sys.stderr)
+                logging.info("INFO: AI 智能分析已启用", file=sys.stderr)
 
         elif args.type == "weekly":
             date = args.date or datetime.now(_REPORT_TZ).strftime("%Y-%m-%d")
@@ -754,13 +755,13 @@ def main():
                 filepath = reports_dir / f"{args.type}-{date_str}.md"
             filepath.write_text(content, encoding="utf-8")
             # 只输出文件路径，方便 Agent 读取
-            print(f"REPORT_FILE:{filepath}")
+            logging.info(f"REPORT_FILE:{filepath}")
         else:
             # 直接输出内容
-            print(content)
+            logging.info(content)
 
     except Exception as e:
-        print(f"ERROR:{e}", file=sys.stderr)
+        logging.info(f"ERROR:{e}", file=sys.stderr)
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)

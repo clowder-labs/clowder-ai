@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import type { LeaderboardRange, LeaderboardStatsResponse } from '@cat-cafe/shared';
@@ -8,7 +14,8 @@ import { AchievementWall, CvoLevelCard, GameArena, SillyCatsList } from './leade
 
 /* -- Design tokens from designs/f075-cat-leaderboard.pen (lzNOb) -- */
 const FONTS_URL =
-  'https://fonts.googleapis.com/css2?family=Fraunces:wght@500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap';
+  process.env.NEXT_PUBLIC_GOOGLE_FONTS_URL! +
+  '/css2?family=Fraunces:wght@500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap';
 
 const RANGE_OPTIONS: { value: LeaderboardRange; label: string }[] = [
   { value: 'all', label: '全部' },

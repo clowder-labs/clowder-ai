@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * claude-ndjson-parser pure function tests
  * F045: NDJSON 可观测性 — Claude parser 补全

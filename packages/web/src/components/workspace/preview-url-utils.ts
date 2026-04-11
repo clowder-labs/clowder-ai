@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F120: Preview URL parsing + Clowder AI Hub URL detection.
  * Extracted as pure function for testability.

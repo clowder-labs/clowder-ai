@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { SignalArticle, SignalSource } from '@cat-cafe/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {

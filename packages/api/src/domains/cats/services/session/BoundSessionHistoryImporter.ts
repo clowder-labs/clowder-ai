@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CatId, SessionRecord } from '@cat-cafe/shared';
 import type { AppendMessageInput, IMessageStore } from '../stores/ports/MessageStore.js';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export function RotatingBorderStopIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" aria-hidden="true">

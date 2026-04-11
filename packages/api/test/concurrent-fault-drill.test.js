@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * WT-5 Reliability: concurrent fault drills (4 scenarios x 2 levels).
  *

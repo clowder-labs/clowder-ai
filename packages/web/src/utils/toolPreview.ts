@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 const MAX_TOOL_RESULT_LINES = 4;
 const MAX_TOOL_RESULT_CHARS = 220;
 

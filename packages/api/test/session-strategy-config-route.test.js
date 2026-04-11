@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F33 Phase 3: Session Strategy Config Route Tests
  * Fastify inject tests for GET/PATCH/DELETE /api/config/session-strategy

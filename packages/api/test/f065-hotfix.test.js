@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F065 Hotfix tests:
  * P1: Handoff digest injection protection (sanitize + data-marker)

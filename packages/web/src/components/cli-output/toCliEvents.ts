@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CliEvent, ToolEvent } from '@/stores/chat-types';
 
 /** Strip "catId → " prefix from tool_use labels → clean tool name.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export type ProviderProfileProtocol = 'anthropic' | 'openai' | 'google' | 'huawei_maas' | 'acp';
 export type ProviderProfileProvider = string;
 export type ProviderProfileMode = 'subscription' | 'api_key' | 'none';
@@ -126,7 +132,7 @@ export interface ProviderProfilesMetaFile {
 
 export interface ProviderProfilesSecretsFile {
   version: 3;
-  profiles: Record<string, { apiKey?: string; env?: Record<string, string> }>;
+  profiles: Record<string, { apiKey?: string; apiKeyRef?: string; env?: Record<string, string>; envRef?: string }>;
 }
 
 export interface NormalizedState<T> {

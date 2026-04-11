@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * TencentSkillHubService — 腾讯 SkillHub (skillhub.tencent.com → lightmake.site) API 封装
  *
@@ -8,7 +14,7 @@
 
 import JSZip from 'jszip';
 
-const API_BASE = 'https://lightmake.site';
+const API_BASE = process.env.TENCENT_SKILLHUB_API_BASE_URL!;
 
 interface CacheEntry<T> {
   data: T;

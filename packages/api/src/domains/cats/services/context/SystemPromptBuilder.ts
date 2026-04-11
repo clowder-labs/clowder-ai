@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * System Prompt Builder
  * 为每次 CLI 调用构建身份注入 prompt（~150-200 tokens）

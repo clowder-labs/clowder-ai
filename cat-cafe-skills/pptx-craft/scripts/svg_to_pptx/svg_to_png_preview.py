@@ -14,7 +14,7 @@ Dependencies:
     or
     pip install svglib reportlab
 """
-
+import logging
 import sys
 import os
 import re
@@ -45,13 +45,20 @@ FONT_FALLBACK_CHAIN = {
     'SimHei': ['Microsoft YaHei', 'Microsoft YaHei UI', 'Microsoft Sans Serif', 'SimSun', 'Arial', 'sans-serif'],
     'SimSun': ['SimHei', 'Microsoft YaHei', 'Microsoft YaHei UI', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
     # 中文 - 通用
-    'Noto Sans CJK SC': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
-    'Noto Sans CJK TC': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
-    'Noto Sans CJK JP': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
-    'Noto Sans CJK KR': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
-    'Noto Sans SC': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
-    'WenQuanYi Micro Hei': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
-    'WenQuanYi Zen Hei': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei', 'Microsoft Sans Serif', 'Arial', 'sans-serif'],
+    'Noto Sans CJK SC': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei',
+                         'Microsoft Sans Serif', 'Arial', 'sans-serif'],
+    'Noto Sans CJK TC': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei',
+                         'Microsoft Sans Serif', 'Arial', 'sans-serif'],
+    'Noto Sans CJK JP': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei',
+                         'Microsoft Sans Serif', 'Arial', 'sans-serif'],
+    'Noto Sans CJK KR': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei',
+                         'Microsoft Sans Serif', 'Arial', 'sans-serif'],
+    'Noto Sans SC': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei',
+                     'Microsoft Sans Serif', 'Arial', 'sans-serif'],
+    'WenQuanYi Micro Hei': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei',
+                            'Microsoft Sans Serif', 'Arial', 'sans-serif'],
+    'WenQuanYi Zen Hei': ['STHeiti Light', 'STHeiti Medium', 'Microsoft YaHei',
+                          'Microsoft Sans Serif', 'Arial', 'sans-serif'],
     # 英文
     'Arial': ['Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'],
     'Helvetica Neue': ['Helvetica', 'Arial', 'sans-serif'],
@@ -301,14 +308,14 @@ def generate_preview(
     Returns:
         是否成功
     """
-    print(f"  Converting: {svg_path.name} -> {output_path.name}")
+    logging.info(f"  Converting: {svg_path.name} -> {output_path.name}")
 
     # 读取 SVG
     try:
         with open(svg_path, 'r', encoding='utf-8') as f:
             svg_content = f.read()
     except Exception as e:
-        print(f"    ERROR: Cannot read SVG file: {e}")
+        logging.info(f"    ERROR: Cannot read SVG file: {e}")
         return False
 
     # 应用字体 fallback
@@ -316,7 +323,7 @@ def generate_preview(
     if available_fonts:
         svg_content, modified = apply_font_fallback(svg_content, available_fonts)
         if modified:
-            print(f"    Font fallback applied")
+            logging.info(f"    Font fallback applied")
 
     # 如果有修改，使用临时文件
     if modified:
@@ -331,9 +338,9 @@ def generate_preview(
         success = convert_svg_to_png(svg_path, output_path, width, height)
 
     if success:
-        print(f"    OK: {output_path}")
+        logging.info(f"    OK: {output_path}")
     else:
-        print(f"    FAILED: {svg_path.name}")
+        logging.info(f"    FAILED: {svg_path.name}")
     return success
 
 
@@ -381,37 +388,34 @@ def main():
 
     # Check if project path exists
     if not args.project_path.exists():
-        print(f"Error: Project path does not exist: {args.project_path}")
+        logging.info(f"Error: Project path does not exist: {args.project_path}")
         sys.exit(1)
 
     # Check PNG renderer
     renderer, quality_note, install_hint = get_png_renderer_info()
     if renderer is None:
-        print("Error: No SVG to PNG converter installed.")
-        print(f"  {install_hint}")
+        logging.info("Error: No SVG to PNG converter installed.")
+        logging.info(f"  {install_hint}")
         sys.exit(1)
 
-    print(f"Using: {renderer} {quality_note}")
-    print(f"Output size: {args.width} x {args.height}")
+    logging.info(f"Using: {renderer} {quality_note}")
+    logging.info(f"Output size: {args.width} x {args.height}")
 
     # 获取系统字体
     available_fonts = None
     if not args.no_font_fallback:
-        print()
-        print("Scanning system fonts...")
+        logging.info("Scanning system fonts...")
         available_fonts = get_system_fonts()
-        print(f"Found {len(available_fonts)} system fonts")
+        logging.info(f"Found {len(available_fonts)} system fonts")
 
-    print()
 
     # Find SVG files
     svg_files, source_dir = find_svg_files(args.project_path, args.source)
     if not svg_files:
-        print(f"No SVG files found in {args.project_path / source_dir}")
+        logging.info(f"No SVG files found in {args.project_path / source_dir}")
         sys.exit(1)
 
-    print(f"Found {len(svg_files)} SVG file(s) in {source_dir}")
-    print()
+    logging.info(f"Found {len(svg_files)} SVG file(s) in {source_dir}")
 
     # Create output directory
     preview_dir = args.project_path / source_dir
@@ -432,10 +436,9 @@ def main():
             fail_count += 1
 
     # Summary
-    print()
-    print("=" * 50)
-    print(f"Summary: {success_count} succeeded, {fail_count} failed")
-    print(f"Preview files: {preview_dir}")
+    logging.info("=" * 50)
+    logging.info(f"Summary: {success_count} succeeded, {fail_count} failed")
+    logging.info(f"Preview files: {preview_dir}")
 
     if fail_count > 0:
         sys.exit(1)

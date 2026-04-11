@@ -22,6 +22,7 @@ class InMemorySTM(IShortTermMemory):
         return "in_memory_stm"
 
     def __init__(self) -> None:
+        super().__init__()
         self._messages: list[Message] = []
 
     def add(self, message: Message) -> None:

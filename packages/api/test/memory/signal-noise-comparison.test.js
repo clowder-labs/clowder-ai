@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F102 Phase B: Signal-to-Noise Comparison — SQLite search vs grep
  * AC-B5: Measurably better signal-to-noise ratio vs grep docs/

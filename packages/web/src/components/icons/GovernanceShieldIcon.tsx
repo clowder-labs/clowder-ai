@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /** Governance shield icon — shield with paw print inside */
 export function GovernanceShieldIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (

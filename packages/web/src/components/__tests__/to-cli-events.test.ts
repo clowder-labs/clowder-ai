@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F097: toCliEvents adapter — converts ToolEvent[] + stream content → CliEvent[]
  */

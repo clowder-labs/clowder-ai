@@ -1,12 +1,24 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Multipart Request Parser
  * 解析 multipart/form-data 请求，提取文本字段和图片文件。
  * 从 messages.ts 提取，降低文件复杂度。
  */
 
-import type { FileContent, ImageContent, MessageContent, TextContent } from '@cat-cafe/shared';
+import type { FileContent, MessageContent, TextContent } from '@cat-cafe/shared';
 import type { Multipart } from '@fastify/multipart';
-import { ImageUploadError, saveUploadedAttachments, saveUploadedImages, type UploadImageFile } from './image-upload.js';
+import {
+  ImageUploadError,
+  saveUploadedAttachments,
+  saveUploadedAttachmentsToWorkspace,
+  type UploadImageFile,
+  type WorkspaceUploadTarget,
+} from './image-upload.js';
 import { sendMessageSchema } from './messages.schema.js';
 
 export type ParsedMultipart =
@@ -27,6 +39,7 @@ export type ParsedMultipart =
 export async function parseMultipart(
   request: { parts: () => AsyncIterableIterator<Multipart> },
   uploadDir: string,
+  resolveWorkspaceTarget?: (threadId?: string) => Promise<WorkspaceUploadTarget | null>,
 ): Promise<ParsedMultipart> {
   // F35: Use string | string[] to support multi-value fields like whisperTo
   const fields: Record<string, string | string[]> = {};
@@ -70,22 +83,16 @@ export async function parseMultipart(
   const blocks: MessageContent[] = [{ type: 'text', text: content } as TextContent];
 
   if (imageFiles.length > 0) {
-    try {
-      const saved = await saveUploadedImages(imageFiles, uploadDir);
-      for (const img of saved) {
-        blocks.push(img.content as ImageContent);
-      }
-    } catch (err) {
-      if (err instanceof ImageUploadError) {
-        return { error: err.message };
-      }
-      throw err;
-    }
+    return { error: '该附件类型暂不支持' };
   }
+
+  const workspaceTarget = resolveWorkspaceTarget ? await resolveWorkspaceTarget(threadId) : null;
 
   if (attachmentFiles.length > 0) {
     try {
-      const saved = await saveUploadedAttachments(attachmentFiles, uploadDir);
+      const saved = workspaceTarget
+        ? await saveUploadedAttachmentsToWorkspace(attachmentFiles, workspaceTarget)
+        : await saveUploadedAttachments(attachmentFiles, uploadDir);
       for (const file of saved) {
         blocks.push(file.content as FileContent);
       }

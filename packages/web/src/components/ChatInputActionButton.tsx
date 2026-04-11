@@ -1,4 +1,10 @@
-﻿'use client';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useVoiceInput } from '@/hooks/useVoiceInput';

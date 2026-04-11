@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * In-memory deduplication for inbound connector messages.
  * Prevents webhook retries from triggering duplicate agent invocations.

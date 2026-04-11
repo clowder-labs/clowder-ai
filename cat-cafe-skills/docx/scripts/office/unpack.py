@@ -13,6 +13,7 @@ Examples:
     python unpack.py document.docx unpacked/ --merge-runs false
 """
 
+import logging
 import argparse
 import sys
 import zipfile
@@ -126,7 +127,7 @@ if __name__ == "__main__":
         merge_runs=args.merge_runs,
         simplify_redlines=args.simplify_redlines,
     )
-    print(message)
+    logging.info(message)
 
     if "Error" in message:
         sys.exit(1)

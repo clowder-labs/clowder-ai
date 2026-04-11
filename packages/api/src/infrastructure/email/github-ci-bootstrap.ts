@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { FastifyBaseLogger } from 'fastify';
 import { CiCdCheckPoller } from './CiCdCheckPoller.js';
 import type { CiCdRouter } from './CiCdRouter.js';

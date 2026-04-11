@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Connector Webhook Routes
  * POST /api/connectors/:connectorId/webhook — Generic webhook entry point

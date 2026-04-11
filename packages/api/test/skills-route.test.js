@@ -1,4 +1,10 @@
-﻿/**
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+/**
  * Skills route tests
  * GET /api/skills          鈥?Clowder AI 鍏变韩 Skills 鐪嬫澘鏁版嵁
  * GET /api/skills/detail   鈥?鑾峰彇宸插畨瑁?skill 璇︽儏
@@ -6,15 +12,18 @@
  */
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { after, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import { skillsRoutes } from '../dist/routes/skills.js';
 
 const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
 const TEST_BODY_LIMIT = 10 * 1024 * 1024;
+const testDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(testDir, '..', '..', '..');
 
 describe('Skills Route', () => {
   it('returns 401 when no identity header is provided', async () => {
@@ -29,7 +38,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 401);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Identity required'));
+    assert.ok(body.error.includes('缺少用户身份信息'));
 
     await app.close();
   });
@@ -165,7 +174,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Missing required parameter'));
+    assert.ok(body.error.includes('缺少必填参数'));
     await app.close();
   });
 
@@ -197,11 +206,83 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Invalid skill name'));
+    assert.ok(body.error.includes('技能名称不合法'));
     await app.close();
   });
 
   // 鈹€鈹€鈹€ GET /api/skills/file tests 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+
+  it('GET /api/skills/detail maps uploaded local skills to external source and keeps frontmatter category', async () => {
+    const skillName = 'local-detail-test';
+    const skillDir = join(repoRoot, '.cat-cafe', 'skills', skillName);
+    const registryPath = join(repoRoot, '.cat-cafe', 'installed-skills.json');
+    const registryBackup = existsSync(registryPath) ? readFileSync(registryPath, 'utf8') : null;
+
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      [
+        '---',
+        'name: local-detail-test',
+        'description: local skill detail test',
+        'category: Productivity',
+        'triggers:',
+        '  - local detail',
+        '---',
+        '',
+        '# local-detail-test',
+      ].join('\n'),
+      'utf8',
+    );
+
+    writeFileSync(
+      registryPath,
+      `${JSON.stringify(
+        {
+          version: 1,
+          skills: [
+            {
+              name: skillName,
+              source: 'local',
+              skillhubUrl: '',
+              owner: 'local',
+              repo: 'upload',
+              remoteSkillName: skillName,
+              installedAt: '2026-04-11T10:00:00.000Z',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+      'utf8',
+    );
+
+    const app = Fastify();
+    await app.register(skillsRoutes);
+    await app.ready();
+
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/skills/detail?name=${skillName}`,
+        headers: AUTH_HEADERS,
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.body);
+      assert.equal(body.source, 'external');
+      assert.equal(body.category, 'Productivity');
+    } finally {
+      await app.close();
+      rmSync(skillDir, { recursive: true, force: true });
+      if (registryBackup == null) {
+        rmSync(registryPath, { force: true });
+      } else {
+        writeFileSync(registryPath, registryBackup, 'utf8');
+      }
+    }
+  });
 
   it('GET /api/skills/file returns 401 without identity', async () => {
     const app = Fastify();
@@ -230,7 +311,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Missing required parameters'));
+    assert.ok(body.error.includes('缺少必填参数'));
     await app.close();
   });
 
@@ -283,7 +364,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Invalid file path'));
+    assert.ok(body.error.includes('文件路径不合法'));
     await app.close();
   });
 
@@ -300,8 +381,62 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
-    assert.ok(body.error.includes('Invalid file path'));
+    assert.ok(body.error.includes('文件路径不合法'));
     await app.close();
+  });
+
+  it('GET /api/skills includes skills stored in .cat-cafe/skills', async () => {
+    const skillName = 'user-storage-route-test';
+    const userSkillDir = join(repoRoot, '.cat-cafe', 'skills', skillName);
+    mkdirSync(userSkillDir, { recursive: true });
+    writeFileSync(join(userSkillDir, 'SKILL.md'), '# User Storage Route Test\n', 'utf-8');
+
+    const app = Fastify();
+    await app.register(skillsRoutes);
+    await app.ready();
+
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/skills',
+        headers: AUTH_HEADERS,
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.body);
+      assert.ok(body.skills.some((skill) => skill.name === skillName));
+    } finally {
+      await app.close();
+      rmSync(join(repoRoot, '.cat-cafe', 'skills', skillName), { recursive: true, force: true });
+    }
+  });
+
+  it('GET /api/skills/file reads files from .cat-cafe/skills', async () => {
+    const skillName = 'user-storage-file-test';
+    const userSkillDir = join(repoRoot, '.cat-cafe', 'skills', skillName);
+    mkdirSync(join(userSkillDir, 'docs'), { recursive: true });
+    writeFileSync(join(userSkillDir, 'SKILL.md'), '# User Storage File Test\n', 'utf-8');
+    writeFileSync(join(userSkillDir, 'docs', 'notes.txt'), 'hello from persistent skill storage', 'utf-8');
+
+    const app = Fastify();
+    await app.register(skillsRoutes);
+    await app.ready();
+
+    try {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/skills/file?name=${skillName}&path=docs/notes.txt`,
+        headers: AUTH_HEADERS,
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.body);
+      assert.equal(body.path, 'docs/notes.txt');
+      assert.equal(body.content, 'hello from persistent skill storage');
+    } finally {
+      await app.close();
+      rmSync(join(repoRoot, '.cat-cafe', 'skills', skillName), { recursive: true, force: true });
+    }
   });
 
   it('POST /api/skills/upload rejects too many files', async () => {
@@ -328,7 +463,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 422);
     const body = JSON.parse(res.body);
-    assert.match(body.error, /Too many files/i);
+    assert.match(body.error, /文件数量过多/);
 
     await app.close();
     if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
@@ -366,7 +501,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 422);
     const body = JSON.parse(res.body);
-    assert.match(body.error, /Total upload size exceeds/i);
+    assert.match(body.error, /上传文件总大小超过 4MB 限制/);
 
     await app.close();
     if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
@@ -376,8 +511,8 @@ describe('Skills Route', () => {
 
   it('POST /api/skills/upload removes created folder when import fails validation', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-cleanup-'));
-    const skillsRoot = join(tempRoot, 'cat-cafe-skills');
-    mkdirSync(skillsRoot, { recursive: true });
+    const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
+    mkdirSync(userSkillsRoot, { recursive: true });
     const previousRoot = process.env.CAT_CAFE_CONFIG_ROOT;
     process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
 
@@ -396,7 +531,58 @@ describe('Skills Route', () => {
     });
 
     assert.equal(res.statusCode, 422);
-    assert.equal(existsSync(join(skillsRoot, 'broken-import-cleanup-case')), false);
+    assert.equal(existsSync(join(userSkillsRoot, 'broken-import-cleanup-case')), false);
+
+    await app.close();
+    if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
+    else process.env.CAT_CAFE_CONFIG_ROOT = previousRoot;
+    rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  it('POST /api/skills/upload stores imported skills under .cat-cafe/skills', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-persist-'));
+    const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
+    mkdirSync(userSkillsRoot, { recursive: true });
+    const previousRoot = process.env.CAT_CAFE_CONFIG_ROOT;
+    process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
+
+    const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
+    const { skillsRoutes: isolatedSkillsRoutes } = await import(`../dist/routes/skills.js?upload-persist=${Date.now()}`);
+    await app.register(isolatedSkillsRoutes);
+    await app.ready();
+
+    const skillName = 'uploaded-persistent-skill';
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/skills/upload',
+      headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        name: skillName,
+        files: [
+          { path: `${skillName}/SKILL.md`, content: Buffer.from('# uploaded skill').toString('base64') },
+          {
+            path: `${skillName}/docs/notes.txt`,
+            content: Buffer.from('hello from uploaded persistent skill').toString('base64'),
+          },
+        ],
+      }),
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.localPath, `.cat-cafe/skills/${skillName}`);
+    assert.equal(existsSync(join(userSkillsRoot, skillName, 'SKILL.md')), true);
+    assert.equal(existsSync(join(userSkillsRoot, skillName, 'docs', 'notes.txt')), true);
+
+    const fileRes = await app.inject({
+      method: 'GET',
+      url: `/api/skills/file?name=${skillName}&path=docs/notes.txt`,
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(fileRes.statusCode, 200);
+    const fileBody = JSON.parse(fileRes.body);
+    assert.equal(fileBody.content, 'hello from uploaded persistent skill');
 
     await app.close();
     if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
@@ -421,7 +607,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 409);
     const body = JSON.parse(res.body);
-    assert.match(body.error, /already exists/i);
+    assert.match(body.error, /已存在/);
 
     await app.close();
   });
@@ -448,7 +634,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 422);
     const body = JSON.parse(res.body);
-    assert.match(body.error, /cannot contain Chinese characters/i);
+    assert.match(body.error, /不能包含中文字符/);
 
     await app.close();
     if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;

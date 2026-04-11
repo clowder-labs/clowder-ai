@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * CLI Exit Error Formatting
  * 三只猫共享的 CLI 退出错误格式化工具

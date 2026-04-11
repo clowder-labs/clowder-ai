@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Callback API Routes — MCP 回传端点
  * 安全: 每个请求都需要 invocationId + callbackToken 验证。

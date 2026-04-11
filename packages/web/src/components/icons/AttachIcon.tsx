@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { useId } from 'react';
 
 export function AttachIcon({ className }: { className?: string }) {

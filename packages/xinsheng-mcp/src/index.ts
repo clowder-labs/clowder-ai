@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

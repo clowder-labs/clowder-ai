@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * InvocationQueue
  * Per-thread, per-user FIFO 队列，用于猫猫在跑时排队用户/connector 消息。

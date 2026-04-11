@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Image upload pipeline tests
  * - saveUploadedImages: file saving + validation
@@ -107,6 +113,27 @@ describe('saveUploadedImages', () => {
     assert.ok(saved[0].absPath.endsWith('.png'), `expected .png, got ${saved[0].absPath}`);
     assert.ok(saved[0].urlPath.endsWith('.png'), `expected .png URL, got ${saved[0].urlPath}`);
   });
+
+  it('can save images into a workspace-backed chat uploads directory', async () => {
+    const { saveUploadedImagesToWorkspace } = await import('../dist/routes/image-upload.js');
+    const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
+
+    const entry = ensureRegisteredWorktreeRoot(uploadDir, 'workspace');
+    const fakeFile = createMockFile('test.png', 'image/png', Buffer.from('fake-png'));
+    const saved = await saveUploadedImagesToWorkspace([fakeFile], {
+      kind: 'workspace',
+      worktreeId: entry.id,
+      workspaceRoot: uploadDir,
+      directoryPath: '',
+    });
+
+    assert.equal(saved.length, 1);
+    assert.ok(saved[0].absPath.startsWith(resolve(uploadDir)));
+    assert.match(saved[0].urlPath, /^\/api\/workspace\/file\/raw\?/);
+
+    const files = await readdir(uploadDir);
+    assert.equal(files.length, 1);
+  });
 });
 
 describe('saveUploadedAttachments', () => {
@@ -128,7 +155,7 @@ describe('saveUploadedAttachments', () => {
 
     assert.equal(saved.length, 1);
     assert.ok(saved[0].absPath.startsWith(resolve(uploadDir)));
-    assert.ok(saved[0].urlPath.startsWith('/uploads/file-'));
+    assert.equal(saved[0].urlPath, '/uploads/report.pdf');
     assert.equal(saved[0].content.type, 'file');
     assert.equal(saved[0].content.fileName, 'report.pdf');
     assert.equal(saved[0].content.mimeType, 'application/pdf');
@@ -136,6 +163,7 @@ describe('saveUploadedAttachments', () => {
 
     const files = await readdir(uploadDir);
     assert.equal(files.length, 1);
+    assert.deepEqual(files, ['report.pdf']);
     const content = await readFile(join(uploadDir, files[0]));
     assert.equal(content.toString(), 'fake-pdf');
   });
@@ -150,6 +178,51 @@ describe('saveUploadedAttachments', () => {
     assert.ok(saved[0].absPath.endsWith('.pdf'), `expected .pdf, got ${saved[0].absPath}`);
     assert.ok(saved[0].urlPath.endsWith('.pdf'), `expected .pdf URL, got ${saved[0].urlPath}`);
     assert.equal(saved[0].content.fileName, 'report.pdf');
+  });
+
+  it('preserves the original attachment name and appends a numeric suffix for duplicates', async () => {
+    const { saveUploadedAttachments } = await import('../dist/routes/image-upload.js');
+
+    const first = await saveUploadedAttachments([createMockFile('中文 报告.pdf', 'application/pdf', Buffer.from('one'))], uploadDir);
+    const second = await saveUploadedAttachments([createMockFile('中文 报告.pdf', 'application/pdf', Buffer.from('two'))], uploadDir);
+
+    assert.equal(first[0].content.fileName, '中文 报告.pdf');
+    assert.equal(second[0].content.fileName, '中文 报告.pdf');
+    assert.equal(first[0].urlPath, '/uploads/%E4%B8%AD%E6%96%87%20%E6%8A%A5%E5%91%8A.pdf');
+    assert.equal(second[0].urlPath, '/uploads/%E4%B8%AD%E6%96%87%20%E6%8A%A5%E5%91%8A%20(1).pdf');
+
+    const files = await readdir(uploadDir);
+    assert.deepEqual(files.sort(), ['中文 报告 (1).pdf', '中文 报告.pdf']);
+  });
+
+  it('preserves the original workspace attachment name and appends a numeric suffix for duplicates', async () => {
+    const { saveUploadedAttachmentsToWorkspace } = await import('../dist/routes/image-upload.js');
+    const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
+
+    const entry = ensureRegisteredWorktreeRoot(uploadDir, 'workspace');
+    const target = {
+      kind: 'workspace',
+      worktreeId: entry.id,
+      workspaceRoot: uploadDir,
+      directoryPath: 'docs',
+    };
+
+    const first = await saveUploadedAttachmentsToWorkspace(
+      [createMockFile('report.pdf', 'application/pdf', Buffer.from('one'))],
+      target,
+    );
+    const second = await saveUploadedAttachmentsToWorkspace(
+      [createMockFile('report.pdf', 'application/pdf', Buffer.from('two'))],
+      target,
+    );
+
+    const firstParams = new URLSearchParams(first[0].urlPath.split('?')[1]);
+    const secondParams = new URLSearchParams(second[0].urlPath.split('?')[1]);
+    assert.equal(firstParams.get('path'), 'docs/report.pdf');
+    assert.equal(secondParams.get('path'), 'docs/report (1).pdf');
+
+    const files = await readdir(join(uploadDir, 'docs'));
+    assert.deepEqual(files.sort(), ['report (1).pdf', 'report.pdf']);
   });
 });
 
@@ -193,6 +266,74 @@ describe('extractImagePaths', () => {
     assert.equal(paths.length, 1);
     assert.equal(paths[0], resolve('/custom/upload/dir', 'test.png'));
   });
+
+  it('extracts workspace-backed image paths when the worktree root is registered', async () => {
+    const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
+    const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
+
+    const workspaceRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-workspace-image-root-'));
+    const entry = ensureRegisteredWorktreeRoot(workspaceRoot, 'workspace');
+    const blocks = [
+      {
+        type: 'image',
+        url: `/api/workspace/file/raw?worktreeId=${encodeURIComponent(entry.id)}&path=${encodeURIComponent('images/demo.png')}`,
+      },
+    ];
+
+    try {
+      const paths = extractImagePaths(blocks);
+      assert.equal(paths.length, 1);
+      assert.equal(paths[0], resolve(workspaceRoot, 'images', 'demo.png'));
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('extractUploadRefs', () => {
+  it('extracts uploaded file paths from /uploads/ URLs', async () => {
+    const { extractUploadRefs } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
+
+    const blocks = [
+      {
+        type: 'file',
+        url: '/uploads/%E4%B8%AD%E6%96%87%20%E6%8A%A5%E5%91%8A%20(1).pdf',
+        fileName: '中文 报告.pdf',
+        mimeType: 'application/pdf',
+      },
+    ];
+
+    const refs = extractUploadRefs(blocks);
+    assert.equal(refs.length, 1);
+    assert.equal(refs[0].kind, 'file');
+    assert.ok(refs[0].path.endsWith('中文 报告 (1).pdf'));
+    assert.equal(refs[0].fileName, '中文 报告.pdf');
+  });
+
+  it('extracts workspace-backed file paths when the worktree root is registered', async () => {
+    const { extractUploadRefs } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
+    const { ensureRegisteredWorktreeRoot } = await import('../dist/domains/workspace/workspace-security.js');
+
+    const workspaceRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-workspace-file-root-'));
+    const entry = ensureRegisteredWorktreeRoot(workspaceRoot, 'workspace');
+    const blocks = [
+      {
+        type: 'file',
+        url: `/api/workspace/download?worktreeId=${encodeURIComponent(entry.id)}&path=${encodeURIComponent('docs/report.pdf')}`,
+        fileName: 'report.pdf',
+        mimeType: 'application/pdf',
+      },
+    ];
+
+    try {
+      const refs = extractUploadRefs(blocks);
+      assert.equal(refs.length, 1);
+      assert.equal(refs[0].kind, 'file');
+      assert.equal(refs[0].path, resolve(workspaceRoot, 'docs', 'report.pdf'));
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('Claude CLI image fallback', () => {
@@ -224,6 +365,39 @@ describe('Claude CLI image fallback', () => {
     const prompt = args.find((a) => typeof a === 'string' && a.includes('[Local image path:'));
     assert.ok(prompt, 'prompt should include local image path hint');
     assert.ok(prompt.includes('photo.png'));
+  });
+
+  it('grants file dir access and appends local file path hints for attachments', async () => {
+    const spawnArgs = [];
+    const mockSpawnFn = (cmd, args, opts) => {
+      spawnArgs.push({ cmd, args: [...args], opts });
+      return createMockProcess([]);
+    };
+
+    const { ClaudeAgentService } = await import('../dist/domains/cats/services/agents/providers/ClaudeAgentService.js');
+    const service = new ClaudeAgentService({ spawnFn: mockSpawnFn });
+
+    for await (const _ of service.invoke('read this document', {
+      contentBlocks: [
+        {
+          type: 'file',
+          url: '/uploads/file-1234-report.pdf',
+          fileName: 'report.pdf',
+          mimeType: 'application/pdf',
+        },
+      ],
+    })) {
+      // consume
+    }
+
+    assert.equal(spawnArgs.length, 1);
+    const args = spawnArgs[0].args;
+    const addDirIdx = args.indexOf('--add-dir');
+    assert.ok(addDirIdx >= 0, 'should pass --add-dir for attachment directory');
+    const prompt = args.find((a) => typeof a === 'string' && a.includes('[Local file path:'));
+    assert.ok(prompt, 'prompt should include local file path hint');
+    assert.ok(prompt.includes('file-1234-report.pdf'));
+    assert.ok(prompt.includes('(report.pdf)'));
   });
 });
 
@@ -410,7 +584,7 @@ describe('multipart image target routing', () => {
     if (uploadDir) await rm(uploadDir, { recursive: true, force: true });
   });
 
-  it('routes multipart image messages to the mentioned cat (not forced to codex)', async () => {
+  it('rejects multipart image messages before routing', async () => {
     const boundary = '----cat-cafe-test-boundary';
     const payload = Buffer.concat([
       Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="content"\r\n\r\n请看图\r\n`),
@@ -430,26 +604,11 @@ describe('multipart image target routing', () => {
       payload,
     });
 
-    assert.equal(res.statusCode, 200);
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.equal(body.error, '该附件类型暂不支持');
     await new Promise((resolve) => setTimeout(resolve, 20));
-    assert.equal(routeExecutionCalls.length, 1);
-    // P1 regression guard: targetCats must match router resolution, not be overridden to codex
-    assert.deepEqual(
-      routeExecutionCalls[0].targetCats,
-      ['opus'],
-      'image message should route to the resolved target cat, not forced to codex',
-    );
-    assert.equal(routeExecutionCalls[0].uploadDir, uploadDir);
-    assert.ok(Array.isArray(routeExecutionCalls[0].contentBlocks), 'routeExecution should receive contentBlocks');
-    assert.ok(
-      routeExecutionCalls[0].contentBlocks.some((b) => b.type === 'image'),
-      'routeExecution should receive image content block',
-    );
-    // No forced-to-codex notice should be broadcast
-    const notice = broadcastedAgentMessages.find(
-      (m) => m?.type === 'system_info' && typeof m?.content === 'string' && m.content.includes('已自动转交缅因猫'),
-    );
-    assert.equal(notice, undefined, 'should NOT broadcast forced-to-codex notice');
+    assert.equal(routeExecutionCalls.length, 0);
   });
 });
 

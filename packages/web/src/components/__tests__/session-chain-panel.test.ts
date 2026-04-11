@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F24: SessionChainPanel tests.
  * Verifies session chain visualization: active sessions with health bar,

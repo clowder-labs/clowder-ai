@@ -28,6 +28,7 @@ class InMemorySmartSTM(IShortTermMemory):
         return "in_memory_stm"
 
     def __init__(self) -> None:
+        super().__init__()
         self._messages: list[Message] = []
         self._next_msg_id = 1
 

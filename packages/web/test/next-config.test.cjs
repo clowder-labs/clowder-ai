@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { describe, it } = require('node:test');
