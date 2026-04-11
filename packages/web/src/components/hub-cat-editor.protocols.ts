@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { ClientValue } from './hub-cat-editor.model';
 
 export function protocolForClient(client: ClientValue): 'anthropic' | 'openai' | 'google' | null {

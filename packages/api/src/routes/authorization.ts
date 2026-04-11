@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Authorization Management Routes — 铲屎官审批 + 规则管理 + 审计查询
  * 安全: X-Cat-Cafe-User header（兼容 legacy x-user-id）

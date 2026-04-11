@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // packages/api/src/domains/terminal/types.ts
 
 /** A terminal session bound to a worktree's tmux server */

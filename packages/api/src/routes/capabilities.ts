@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Capabilities Route — F041 统一能力看板 API
  *
@@ -40,6 +46,7 @@ import {
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
+import { resolveUserSkillsRoot } from '../domains/cats/services/skillhub/SkillPaths.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
 import { pathsEqual, validateProjectPath } from '../utils/project-path.js';
 import {
@@ -477,14 +484,21 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const claudeProjectSkills = await listSubdirs(projectSkillsDir);
 
     // Scan cat-cafe-skills/ for official skills
+    const hostRoot = resolveCatCafeHostRoot(process.cwd());
     const catCafeSkillsDir = CAT_CAFE_SKILLS_SRC;
+    const userInstalledSkillsDir = resolveUserSkillsRoot(hostRoot);
     const catCafeOwnSkills = await listSkillSubdirs(catCafeSkillsDir);
+    const userInstalledSkills = await listSkillSubdirs(userInstalledSkillsDir);
     const hasProjectCatCafeSkillsDir = existsSync(catCafeSkillsDir);
 
     const projectScanOk = claudeProjectSkills !== null;
 
     // Official skills come from cat-cafe-skills/ directory
-    const projectSkillNames = new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? [])]);
+    const projectSkillNames = new Set([
+      ...(claudeProjectSkills ?? []),
+      ...(catCafeOwnSkills ?? []),
+      ...(userInstalledSkills ?? []),
+    ]);
 
     const catIds = catRegistry.getAllIds().map((id) => id as string);
     const relayclawSkillNames = listRelayClawSharedSkillNames();
@@ -497,12 +511,12 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const providerSkills: Record<string, string[]> = {
-      anthropic: [...new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? [])])],
+      anthropic: [...new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? []), ...(userInstalledSkills ?? [])])],
       relayclaw: relayclawSkillNames,
     };
 
     // 3. Sync discovered skills into capabilities.json
-    const installedRegistry = await loadInstalledRegistry(dirname(CAT_CAFE_SKILLS_SRC));
+    const installedRegistry = await loadInstalledRegistry(hostRoot);
     const remoteInstalledNames = new Set(installedRegistry.skills.map((s) => s.name));
     const installedAtMap = new Map<string, string>();
     const installedDescriptionMap = new Map<string, string>();
@@ -520,6 +534,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // into any provider directory yet) so mount health can detect missing mounts.
     if (catCafeOwnSkills !== null) {
       for (const s of catCafeOwnSkills) allSkillNames.add(s);
+    }
+    if (userInstalledSkills !== null) {
+      for (const s of userInstalledSkills) allSkillNames.add(s);
     }
 
     let configDirty = false;
@@ -645,7 +662,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       else if (meta?.description) skillItem.description = meta.description;
       if (meta?.triggers) skillItem.triggers = meta.triggers;
       const category = skillCategoryMap.get(cap.id);
-      skillItem.category = category ?? (remoteInstalledNames.has(cap.id) ? 'Skill 扩展' : '其他');
+      skillItem.category = category ?? (remoteInstalledNames.has(cap.id) ? '技能扩展' : '其他');
       if (installedAtMap.has(cap.id)) {
         skillItem.installedAt = installedAtMap.get(cap.id);
       }

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * WorkflowSop callback route tests (F073 P1)
  * Tests the MCP callback endpoint /api/callbacks/update-workflow-sop

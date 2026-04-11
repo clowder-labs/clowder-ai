@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F099: Hub accordion navigation regression tests
  * Tests entry-point routing, group lookup, and resolveRequestedHubTab.

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F097: Thinking UI behavior — updated for CliOutputBlock architecture
  * - Thinking: independent collapsible panel
@@ -77,6 +83,20 @@ describe('ThinkingContent default collapse', () => {
     expect(thinkingButton?.textContent).toContain('完成深度思考');
     expect(container.querySelector('[data-testid="cli-output-toggle"]')).toBeNull();
     expect(container.querySelector('.thinking-output-body')).toBeNull();
+  });
+
+  it('adds horizontal padding to the thinking header toggle so the status icon is not flush to the clipped edge', () => {
+    act(() => {
+      root.render(
+        React.createElement(ChatMessage, {
+          message: thinkingMessage,
+          getCatById,
+        }),
+      );
+    });
+
+    const thinkingButton = container.querySelector('[data-testid="thinking-toggle"]');
+    expect(thinkingButton?.className).toContain('px-2');
   });
 
   it('global toggle: enabling expands thinking block', () => {

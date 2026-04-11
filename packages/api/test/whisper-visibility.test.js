@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F35: Whisper Visibility Tests
  * Tests for canViewMessage, whisper storage, reveal, and callback filtering.

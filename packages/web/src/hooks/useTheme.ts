@@ -1,4 +1,10 @@
-﻿import { useEffect } from 'react';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import { useEffect } from 'react';
 import { useThemeStore, type ThemeType } from '@/stores/themeStore';
 
 export type { ThemeType };

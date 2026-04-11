@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * codex-event-transform pure function tests
  * F045: NDJSON 可观测性 — Codex parser 补全

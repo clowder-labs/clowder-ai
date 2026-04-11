@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Invocation Tracker (SlotTracker)
  * 追踪每个 thread 中每只猫的活跃调用 — per-thread-per-cat 多槽

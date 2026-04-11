@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Route Strategies Tests
  * 验证 routeSerial / routeParallel 纯函数的基本行为 + A2A worklist

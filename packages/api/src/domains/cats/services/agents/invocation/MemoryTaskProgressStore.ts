@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CatId } from '@cat-cafe/shared';
 import type { TaskProgressSnapshot, TaskProgressStore } from './TaskProgressStore.js';
 

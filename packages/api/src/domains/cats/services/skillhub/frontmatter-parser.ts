@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * SKILL.md Frontmatter 解析器
  *
@@ -13,6 +19,7 @@ export interface SkillFrontmatterMeta {
   name?: string;
   description?: string;
   triggers?: string[];
+  category?: string;
 }
 
 /**
@@ -68,6 +75,13 @@ export function parseFrontmatterString(content: string): SkillFrontmatterMeta {
         .filter((v): v is string => typeof v === 'string')
         .map((s) => s.trim())
         .filter(Boolean);
+    }
+
+    if (typeof parsed['category'] === 'string') {
+      const category = parsed['category'].trim();
+      if (category) {
+        meta.category = category;
+      }
     }
 
     return meta;

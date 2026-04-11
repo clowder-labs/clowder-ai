@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F075 Phase B — "笨蛋猫猫" silly stats computation
  * Keyword-based sentiment: distinguish 亲昵骂 (affectionate) from 真生气 (angry).

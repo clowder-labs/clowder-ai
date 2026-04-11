@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { GameAutoPlayer } from './GameAutoPlayer.js';
 import type { GameDriver } from './GameDriver.js';
 import type { NarratorDeps } from './GameNarratorDriver.js';

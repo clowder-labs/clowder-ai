@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -674,6 +680,66 @@ describe('RelayClawAgentService', () => {
 
     assert.equal(createdHomeDirs.length, 1);
     assert.match(createdHomeDirs[0], /scope-/);
+  });
+
+  it('includes uploaded file metadata and local file path hints in RelayClaw requests', async () => {
+    let capturedRequest;
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          capturedRequest = request;
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    for await (const _ of service.invoke('Read the uploaded file', {
+      uploadDir: '/tmp/cat-cafe-uploads',
+      contentBlocks: [
+        {
+          type: 'file',
+          url: '/uploads/file-1234-report.pdf',
+          fileName: 'report.pdf',
+          mimeType: 'application/pdf',
+        },
+      ],
+    })) {
+      // exhaust stream
+    }
+
+    assert.ok(capturedRequest);
+    const expectedUploadPath =
+      process.platform === 'win32'
+        ? 'D:\\tmp\\cat-cafe-uploads\\file-1234-report.pdf'
+        : '/tmp/cat-cafe-uploads/file-1234-report.pdf';
+    assert.deepEqual(capturedRequest.params.files, {
+      uploaded: [
+        {
+          type: 'file',
+          name: 'report.pdf',
+          path: expectedUploadPath,
+        },
+      ],
+    });
+    const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
+    assert.match(
+      normalizedQuery,
+      /\[Local file path: D:\/tmp\/cat-cafe-uploads\/file-1234-report\.pdf\] \(report\.pdf\)|\[Local file path: \/tmp\/cat-cafe-uploads\/file-1234-report\.pdf\] \(report\.pdf\)/,
+    );
   });
 
   it('creates a new scoped sidecar when auth scope changes', async () => {

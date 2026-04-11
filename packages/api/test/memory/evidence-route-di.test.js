@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F102 Phase B: Evidence + Reflect Route DI
  * When IEvidenceStore/IReflectionService is provided, bypasses Hindsight entirely.

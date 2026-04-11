@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -120,6 +126,11 @@ export function useAgentMessages() {
 
   /** Bug C P2: Track whether stream data was received per cat (avoids false catch-up on callback-only flows) */
   const sawStreamDataRef = useRef<Set<string>>(new Set());
+
+  /** Bugfix: 用户点停止后，后端 cancel 是异步的，旧 invocationId 的 SSE 事件还会到来。
+   *  此黑名单记录已被用户取消的 invocationId，handleAgentMessage 在入口处 drop 它们，
+   *  防止旧事件被路由到新 bubble。成员在新 invocation_created 时移除（自愈）。 */
+  const cancelledInvocationsRef = useRef<Set<string>>(new Set());
 
   /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
   const a2aGroupRef = useRef<string | null>(null);
@@ -442,6 +453,14 @@ export function useAgentMessages() {
       // Reset timeout on any message (keeps timer alive during streaming)
       resetTimeout();
 
+      // Bugfix: 用户点停止后，后端 cancel 是异步的，已取消的 invocationId 的 SSE 事
+      // 件还会陆续到来。如果此时已发出新问题，这些旧事件会污染新 bubble。
+      // 在入口处丢弃已被取消的 invocationId 的全部事件（done 事件除外——需要它来
+      // 触发最终状态清理；但因为 handleStop 已经做了清理，done 的副作用是幂等的）。
+      if (msg.invocationId && cancelledInvocationsRef.current.has(msg.invocationId) && msg.type !== 'done') {
+        return;
+      }
+
       if (msg.type === 'text' && msg.content) {
         if (msg.origin !== 'callback' && shouldSuppressLateStreamChunk(msg.catId, msg.invocationId)) {
           return;
@@ -757,6 +776,8 @@ export function useAgentMessages() {
             finalizedStreamRef.current.delete(targetCatId);
             const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
             if (targetCatId && invocationId) {
+              // 新 invocation 到来时，从取消黑名单中移除（自愈）
+              cancelledInvocationsRef.current.delete(invocationId);
               setCatInvocation(targetCatId, {
                 invocationId,
                 startedAt: Date.now(),
@@ -1167,8 +1188,26 @@ export function useAgentMessages() {
       }
       activeRefs.current.clear();
       replacedInvocationsRef.current.clear();
+      // Bugfix: 停止时后端 done(isFinal) 尚未到达，finalizedStreamRef / sawStreamDataRef
+      // 里残留的旧 bubble ID 会导致再次发问时新消息被路由到旧 bubble（callback 替换
+      // 错误目标、findRecoverableAssistantMessage 匹配到旧消息）。
+      // 同时清理 catInvocations 中残留的 invocationId，防止 findRecoverableAssistantMessage
+      // 通过 invocationId 找到已停止的旧 bubble。
+      finalizedStreamRef.current.clear();
+      sawStreamDataRef.current.clear();
+      pendingTimeoutDiagRef.current.clear();
+      // 清除所有 cat 的残留 invocationId（正常流程由 done 事件清理，但停止时 done 可能未到）
+      const activeInvocations = store.activeInvocations ?? {};
+      const staleCatIds = new Set(Object.values(activeInvocations).map((inv) => inv.catId));
+      for (const catId of staleCatIds) {
+        setCatInvocation(catId, { invocationId: undefined });
+      }
+      // 将所有被取消的 invocationId 加入黑名单，抑制后续到来的旧 SSE 事件
+      for (const [invId] of Object.entries(activeInvocations)) {
+        cancelledInvocationsRef.current.add(invId);
+      }
     },
-    [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
+    [setLoading, clearAllActiveInvocations, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout, setCatInvocation],
   );
 
   const resetRefs = useCallback(() => {
@@ -1177,6 +1216,7 @@ export function useAgentMessages() {
     finalizedStreamRef.current.clear();
     sawStreamDataRef.current.clear();
     pendingTimeoutDiagRef.current.clear();
+    cancelledInvocationsRef.current.clear();
     a2aGroupRef.current = null;
     clearDoneTimeout();
   }, [clearDoneTimeout]);

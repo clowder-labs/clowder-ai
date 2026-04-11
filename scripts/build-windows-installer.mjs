@@ -596,6 +596,8 @@ function installSharedPythonDeps(bundleDir) {
     'websockets>=12.0',
     'aiosqlite>=0.22',
     'croniter>=2.0',
+    'trafilatura>=1.6.0',
+    'json-repair>=0.58.0',
     'mutagen>=1.47',
     'greenlet>=3.0',
     'openjiuwen==0.1.7',

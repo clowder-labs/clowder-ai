@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 
 from pypdf import PdfReader, PdfWriter
@@ -50,8 +51,11 @@ def fill_pdf_form(input_pdf_path, fields_json_path, output_pdf_path):
         page_num = field["page_number"]
 
         page_info = next(p for p in fields_data["pages"] if p["page_number"] == page_num)
-        pdf_width, pdf_height = pdf_dimensions[page_num]
+        dimensions = pdf_dimensions.get(page_num)
+        if dimensions is None:
+            raise KeyError(f"Page {page_num} not found in pdf_dimensions")
 
+        pdf_width, pdf_height = dimensions
         if "pdf_width" in page_info:
             transformed_entry_box = transform_from_pdf_coords(
                 field["entry_bounding_box"],
@@ -92,13 +96,13 @@ def fill_pdf_form(input_pdf_path, fields_json_path, output_pdf_path):
     with open(output_pdf_path, "wb") as output:
         writer.write(output)
     
-    print(f"Successfully filled PDF form and saved to {output_pdf_path}")
-    print(f"Added {len(annotations)} text annotations")
+    logging.info(f"Successfully filled PDF form and saved to {output_pdf_path}")
+    logging.info(f"Added {len(annotations)} text annotations")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("Usage: fill_pdf_form_with_annotations.py [input pdf] [fields.json] [output pdf]")
+        logging.info("Usage: fill_pdf_form_with_annotations.py [input pdf] [fields.json] [output pdf]")
         sys.exit(1)
     input_pdf = sys.argv[1]
     fields_json = sys.argv[2]

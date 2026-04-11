@@ -28,6 +28,7 @@ class AnthropicModelAdapter(IModelAdapter):
         http_client_options: dict[str, Any] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
+        super().__init__()
         self._name = name or "anthropic"
         self._api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self._model = _resolve_model_name(model=model, env_model=os.getenv("ANTHROPIC_MODEL"))
@@ -483,6 +484,7 @@ def _build_async_http_client(options: dict[str, Any]) -> Any | None:
         return None
     try:
         import httpx
+        return httpx.AsyncClient(**options)
     except Exception:
         return None
 
@@ -508,10 +510,6 @@ def _emit_diag(payload: dict[str, Any]) -> None:
         _logger.debug("[model-adapter] %s", json.dumps(payload, ensure_ascii=False))
     except Exception:
         pass
-    try:
-        return httpx.AsyncClient(**options)
-    except Exception:
-        return None
 
 
 __all__ = [

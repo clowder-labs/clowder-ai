@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Parse a string into one of the allowed enum values (case-insensitive).
  * Returns {@link fallback} when the input is missing or not in the allowed list.

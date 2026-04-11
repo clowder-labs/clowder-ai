@@ -1,4 +1,10 @@
-﻿import type { Thread } from '@/stores/chat-types';
+﻿/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+import type { Thread } from '@/stores/chat-types';
 import { getRecentThreads, splitIntoActiveAndArchived } from './active-workspace';
 
 export function formatRelativeTime(ts: number, compact = false): string {
@@ -123,7 +129,7 @@ export function sortAndGroupThreadsWithWorkspace(
 
   const recent = getRecentThreads(threads, config.recentLimit, now);
   if (recent.length > 0) {
-    groups.push({ type: 'recent', label: '最近对话', threads: recent });
+    groups.push({ type: 'recent', label: '最近会话', threads: recent });
   }
 
   const regular = threads.filter((thread) => !thread.pinned && !thread.favorited && thread.id !== 'default');

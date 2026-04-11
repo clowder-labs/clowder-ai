@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { TtsSynthesizeRequest, VoiceChunkEvent, VoiceConfig } from '@cat-cafe/shared';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 import type { TtsRegistry } from './TtsRegistry.js';

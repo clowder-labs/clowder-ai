@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { CommitIcon, DecisionIcon, DiscussionIcon, PhaseIcon } from './icons/EvidenceIcons';

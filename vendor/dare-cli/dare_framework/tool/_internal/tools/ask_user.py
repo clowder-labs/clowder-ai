@@ -16,6 +16,7 @@ Design notes
 from __future__ import annotations
 
 import asyncio
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, TypedDict
 
@@ -104,21 +105,21 @@ class CLIUserInputHandler(IUserInputHandler):
             options = q.get("options", [])
             multi = q.get("multiSelect", False)
 
-            print(f"\n{'─' * 60}")
+            logging.info(f"\n{'─' * 60}")
             if header:
-                print(f"[{header}] {question_text}")
+                logging.info(f"[{header}] {question_text}")
             else:
-                print(question_text)
+                logging.info(question_text)
 
             for i, opt in enumerate(options, 1):
                 label = opt.get("label", "")
                 desc = opt.get("description", "")
-                print(f"  {i}. {label}" + (f" - {desc}" if desc else ""))
+                logging.info(f"  {i}. {label}" + (f" - {desc}" if desc else ""))
 
             if multi:
-                print("  (Enter numbers separated by commas, or type your answer)")
+                logging.info("  (Enter numbers separated by commas, or type your answer)")
             else:
-                print("  (Enter a number, or type your answer)")
+                logging.info("  (Enter a number, or type your answer)")
 
             # Read input - run in executor to avoid blocking the event loop
             loop = asyncio.get_running_loop()
@@ -175,6 +176,7 @@ class AskUserTool(ITool):
     """
 
     def __init__(self, handler: IUserInputHandler | None = None) -> None:
+        super().__init__()
         self._handler: IUserInputHandler = handler or CLIUserInputHandler()
 
     # -- ITool metadata (trusted registry source) --

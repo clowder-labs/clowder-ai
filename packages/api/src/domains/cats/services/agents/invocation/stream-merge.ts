@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Async Stream Merger
  * 合并多个 AsyncIterable，谁先 yield 谁先出。

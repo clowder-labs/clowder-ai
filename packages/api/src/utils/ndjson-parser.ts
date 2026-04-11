@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * NDJSON Stream Parser
  * 将 Node.js Readable 流逐行解析为 JSON 对象

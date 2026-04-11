@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let PlaybackManager: typeof import('../PlaybackManager').PlaybackManager;

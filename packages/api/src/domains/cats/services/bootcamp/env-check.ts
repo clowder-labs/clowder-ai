@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Environment check logic for bootcamp.
  * Shared between GET /api/bootcamp/env-check and POST /api/callbacks/bootcamp-env-check.

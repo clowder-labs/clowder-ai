@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Codex Agent Service
  * 使用 Codex CLI 子进程调用缅因猫 (Codex)
@@ -38,7 +44,8 @@ import {
   type CodexSessionContextSnapshotResolver,
   createCodexSessionContextSnapshotResolver,
 } from '../providers/codex-session-context-snapshot.js';
-import { extractImagePaths } from '../providers/image-paths.js';
+import { appendLocalUploadPathHints } from '../providers/image-cli-bridge.js';
+import { extractImagePaths, extractUploadRefs } from '../providers/image-paths.js';
 import { resolveWorktreeIdByPath } from '../../../../workspace/workspace-security.js';
 
 const log = createModuleLogger('codex-agent');
@@ -231,7 +238,9 @@ export class CodexAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     // Codex CLI has no system prompt flag; prepend identity to prompt text
-    const effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
+    const basePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
+    const uploadRefs = extractUploadRefs(options?.contentBlocks, options?.uploadDir);
+    const effectivePrompt = appendLocalUploadPathHints(basePrompt, uploadRefs);
     const effectiveModel = options?.callbackEnv?.CAT_CAFE_OPENAI_MODEL_OVERRIDE ?? this.model;
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     const imageArgs = imagePaths.flatMap((path) => ['--image', path]);

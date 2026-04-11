@@ -95,6 +95,7 @@ class VectorLongTermMemory(ILongTermMemory, IComponent):
         vector_store: IVectorStore,
         name: str = "vector_ltm",
     ) -> None:
+        super().__init__()
         self._embedding_adapter = embedding_adapter
         self._vector_store = vector_store
         self._name = name

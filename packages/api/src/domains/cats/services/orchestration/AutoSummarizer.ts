@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Auto Summarizer
  * 对话超过阈值消息数且无近期纪要时，自动生成讨论纪要。

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { Redis } from 'ioredis';
 import { MemoryTaskProgressStore } from './MemoryTaskProgressStore.js';
 import { RedisTaskProgressStore } from './RedisTaskProgressStore.js';

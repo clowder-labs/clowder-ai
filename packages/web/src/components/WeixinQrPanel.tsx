@@ -1,6 +1,13 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { SpinnerIcon } from './HubConfigIcons';
@@ -13,10 +20,13 @@ const QR_EXPIRE_MS = 60_000;
 export function WeixinQrPanel({
   configured,
   onConfigured,
+  onDisconnected,
 }: {
   configured: boolean;
   onConfigured?: () => void | Promise<void>;
+  onDisconnected?: () => void | Promise<void>;
 }) {
+  const addToast = useToastStore((s) => s.addToast);
   const [qrState, setQrState] = useState<QrState>(configured ? 'confirmed' : 'idle');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -70,7 +80,7 @@ export function WeixinQrPanel({
             setQrUrl(null);
           }
         } catch {
-          /* network hiccup — keep polling */
+          // Network hiccup; keep polling.
         }
       };
 
@@ -89,14 +99,16 @@ export function WeixinQrPanel({
   const handleFetchQr = async () => {
     setQrState('fetching');
     setErrorMsg(null);
+
     try {
       const res = await apiFetch('/api/connector/weixin/qrcode', { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setQrState('error');
-        setErrorMsg(data.error ?? 'Failed to fetch QR code');
+        setErrorMsg(data.error ?? '获取二维码失败');
         return;
       }
+
       const data = await res.json();
       setQrUrl(data.qrUrl);
       setQrState('waiting');
@@ -110,18 +122,40 @@ export function WeixinQrPanel({
   const handleDisconnect = async () => {
     setDisconnecting(true);
     setErrorMsg(null);
+
     try {
       const res = await apiFetch('/api/connector/weixin/disconnect', { method: 'POST' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setErrorMsg(data.error ?? '解除绑定失败');
+        const message = data.error ?? '解除绑定失败';
+        setErrorMsg(message);
+        addToast({
+          type: 'error',
+          title: '断开连接失败',
+          message,
+          duration: 5000,
+        });
         return;
       }
+
       stopPolling();
       setQrState('idle');
       setQrUrl(null);
+      addToast({
+        type: 'success',
+        title: '断开连接成功',
+        message: '已断开连接。',
+        duration: 3000,
+      });
+      await onDisconnected?.();
     } catch {
       setErrorMsg('网络错误');
+      addToast({
+        type: 'error',
+        title: '断开连接失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setDisconnecting(false);
     }
@@ -131,7 +165,7 @@ export function WeixinQrPanel({
     return (
       <div data-testid="weixin-connected">
         <ConnectorConnectedState
-          label="WeChat connected"
+          label="微信已连接"
           disconnecting={disconnecting}
           onDisconnect={handleDisconnect}
           disconnectTestId="weixin-disconnect"
@@ -146,9 +180,7 @@ export function WeixinQrPanel({
     <div className="space-y-3" data-testid="weixin-qr-panel">
       {(qrState === 'idle' || qrState === 'expired' || qrState === 'error') && (
         <div className="space-y-2">
-          {qrState === 'expired' && (
-            <p className="text-xs text-amber-600">二维码已过期，请重新生成</p>
-          )}
+          {qrState === 'expired' && <p className="text-xs text-amber-600">二维码已过期，请重新生成</p>}
           {qrState === 'error' && errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
           <button
             type="button"
@@ -170,19 +202,19 @@ export function WeixinQrPanel({
 
       {(qrState === 'waiting' || qrState === 'scanned') && qrUrl && (
         <div className="flex flex-col gap-3" style={{ width: 'fit-content' }}>
-          <div className='p-3 border-[#f0f0f0] bg-[#fff]' style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
-            <img src={qrUrl} alt="WeChat login QR code" className="w-48 h-48 rounded-lg" data-testid="weixin-qr-image" />
+          <div className="border-[#f0f0f0] bg-[#fff] p-3" style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
+            <img src={qrUrl} alt="微信二维码" className="h-48 w-48 rounded-lg" data-testid="weixin-qr-image" />
           </div>
           {qrState === 'waiting' && (
-            <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
               <SpinnerIcon />
               <span>用微信扫描二维码</span>
             </div>
           )}
           {qrState === 'scanned' && (
-            <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
+            <div className="flex items-center gap-2 text-xs font-medium text-green-600">
               <SpinnerIcon />
-              <span>已扫描！请在手机上确认...</span>
+              <span>已扫码，请在手机上确认...</span>
             </div>
           )}
         </div>

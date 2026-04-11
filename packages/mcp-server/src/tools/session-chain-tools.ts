@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Session Chain MCP Tools — F24 Phase D + F98
  * Tools for cats to read sealed session transcripts.
@@ -14,7 +20,7 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3004';
+const API_URL = process.env['CAT_CAFE_API_URL']!;
 
 function resolveToolUserId(): string {
   return process.env['CAT_CAFE_USER_ID'] ?? 'default-user';

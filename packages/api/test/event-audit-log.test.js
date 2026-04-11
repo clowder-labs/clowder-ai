@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import assert from 'node:assert';
 import { existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';

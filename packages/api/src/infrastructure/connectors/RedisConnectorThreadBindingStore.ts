@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Redis-backed ConnectorThreadBindingStore.
  * Persists connector↔thread bindings so they survive service restarts.

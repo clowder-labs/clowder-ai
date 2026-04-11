@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CatId } from '@cat-cafe/shared';
 import type { AgentMessage, MessageMetadata } from '../../types.js';
 import { transformACPUpdate } from './acp-event-transform.js';

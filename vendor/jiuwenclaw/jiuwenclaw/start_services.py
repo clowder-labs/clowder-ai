@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import signal
 import subprocess
 import sys
@@ -50,7 +51,7 @@ def _build_commands(mode: str) -> list[tuple[str, list[str], Path]]:
 
 
 def _start_process(name: str, cmd: list[str], cwd: Path) -> subprocess.Popen[bytes]:
-    print(f"[start_services] starting {name}: {' '.join(cmd)} (cwd={cwd})")
+    logging.info(f"[start_services] starting {name}: {' '.join(cmd)} (cwd={cwd})")
     # Windows: npm/npx resolve to .cmd shims; CreateProcess cannot spawn .cmd without a shell.
     if sys.platform == "win32" and cmd:
         first = cmd[0].lower()
@@ -62,7 +63,7 @@ def _start_process(name: str, cmd: list[str], cwd: Path) -> subprocess.Popen[byt
 def _terminate_processes(processes: dict[str, subprocess.Popen[bytes]]) -> None:
     for name, proc in processes.items():
         if proc.poll() is None:
-            print(f"[start_services] terminating {name} (pid={proc.pid})")
+            logging.info(f"[start_services] terminating {name} (pid={proc.pid})")
             proc.terminate()
 
     deadline = time.time() + 8
@@ -73,14 +74,14 @@ def _terminate_processes(processes: dict[str, subprocess.Popen[bytes]]) -> None:
 
     for name, proc in processes.items():
         if proc.poll() is None:
-            print(f"[start_services] killing {name} (pid={proc.pid})")
+            logging.info(f"[start_services] killing {name} (pid={proc.pid})")
             proc.kill()
 
 
 def _run(mode: str) -> int:
     commands = _build_commands(mode)
     if not commands:
-        print(f"[start_services] no commands to run for mode: {mode}")
+        logging.info(f"[start_services] no commands to run for mode: {mode}")
         return 2
 
     processes: dict[str, subprocess.Popen[bytes]] = {}
@@ -92,11 +93,11 @@ def _run(mode: str) -> int:
             for name, proc in processes.items():
                 code = proc.poll()
                 if code is not None:
-                    print(f"[start_services] {name} exited with code {code}")
+                    logging.info(f"[start_services] {name} exited with code {code}")
                     return code
             time.sleep(0.5)
     except KeyboardInterrupt:
-        print("\n[start_services] keyboard interrupt received, shutting down...")
+        logging.info("\n[start_services] keyboard interrupt received, shutting down...")
         return 130
     finally:
         _terminate_processes(processes)

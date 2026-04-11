@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Intent Parser
  * 从消息中解析 intent (ideate | execute) 和 prompt tags (#critique 等)。

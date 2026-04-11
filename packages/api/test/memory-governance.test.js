@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MemoryGovernanceStore tests
  * Phase 5.0 Step 2a: 治理状态机

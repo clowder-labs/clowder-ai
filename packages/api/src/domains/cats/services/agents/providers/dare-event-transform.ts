@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * DARE Event Transformer
  * DARE headless envelope → Clowder AI AgentMessage 映射

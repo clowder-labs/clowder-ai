@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Task Callback Integration Tests
  * 验证 MCP update-task 回传端点与 TaskStore 的集成

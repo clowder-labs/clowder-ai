@@ -1,4 +1,18 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { SignalSource } from '@cat-cafe/shared';
+
+// ── Signal Source Base URLs (信号源域名) ───────────────────────────
+const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL!;
+const QWEN_BLOG_URL = process.env.QWEN_BLOG_URL!;
+const MOONSHOT_PLATFORM_URL = process.env.MOONSHOT_PLATFORM_URL!;
+const ZHIPU_BIGMODEL_URL = process.env.ZHIPU_BIGMODEL_URL!;
+const BYTEDANCE_SEED_URL = process.env.BYTEDANCE_SEED_URL!;
+const GITHUB_API_URL = process.env.GITHUB_API_URL!;
 
 /**
  * Tier 1 China AI labs: DeepSeek, Qwen, Moonshot, Zhipu, ByteDance.
@@ -9,7 +23,7 @@ export const TIER1_CHINA_SOURCES: readonly SignalSource[] = [
   {
     id: 'deepseek-api-news',
     name: 'DeepSeek API News',
-    url: 'https://api-docs.deepseek.com/news',
+    url: DEEPSEEK_API_URL + '/news',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -19,7 +33,7 @@ export const TIER1_CHINA_SOURCES: readonly SignalSource[] = [
   {
     id: 'qwen-blog',
     name: 'Qwen Blog',
-    url: 'https://qwenlm.github.io/blog/',
+    url: QWEN_BLOG_URL + '/blog/',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -29,7 +43,7 @@ export const TIER1_CHINA_SOURCES: readonly SignalSource[] = [
   {
     id: 'moonshot-docs',
     name: 'Moonshot Docs',
-    url: 'https://platform.moonshot.ai/docs/overview',
+    url: MOONSHOT_PLATFORM_URL + '/docs/overview',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -39,7 +53,7 @@ export const TIER1_CHINA_SOURCES: readonly SignalSource[] = [
   {
     id: 'zhipu-report',
     name: '智谱技术报告',
-    url: 'https://bigmodel.cn/technology-report',
+    url: ZHIPU_BIGMODEL_URL + '/technology-report',
     tier: 1,
     category: 'research',
     enabled: true,
@@ -49,7 +63,7 @@ export const TIER1_CHINA_SOURCES: readonly SignalSource[] = [
   {
     id: 'bytedance-seed-blog',
     name: '字节 Seed Blog',
-    url: 'https://seed.bytedance.com/blog',
+    url: BYTEDANCE_SEED_URL + '/blog',
     tier: 1,
     category: 'official',
     enabled: true,
@@ -61,7 +75,7 @@ export const TIER1_CHINA_SOURCES: readonly SignalSource[] = [
   {
     id: 'deepseek-github',
     name: 'DeepSeek GitHub Repos',
-    url: 'https://api.github.com/orgs/deepseek-ai/repos?sort=updated&per_page=10',
+    url: GITHUB_API_URL + '/orgs/deepseek-ai/repos?sort=updated&per_page=10',
     tier: 1,
     category: 'engineering',
     enabled: true,
@@ -74,7 +88,7 @@ export const TIER1_CHINA_SOURCES: readonly SignalSource[] = [
   {
     id: 'qwen-github',
     name: 'Qwen GitHub Repos',
-    url: 'https://api.github.com/orgs/QwenLM/repos?sort=updated&per_page=10',
+    url: GITHUB_API_URL + '/orgs/QwenLM/repos?sort=updated&per_page=10',
     tier: 1,
     category: 'engineering',
     enabled: true,

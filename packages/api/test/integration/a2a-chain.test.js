@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * A2A Chain Integration Tests
  * 验证 A2A 链通过 AgentRouter → routeSerial → parseA2AMentions 完整链路

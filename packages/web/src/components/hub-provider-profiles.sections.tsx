@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -323,7 +329,7 @@ export function CreateAcpModelProfileSection({
           <input
             value={baseUrl}
             onChange={(e) => onBaseUrlChange(e.target.value)}
-            placeholder="Base URL，如 https://api.openai.com/v1"
+            placeholder="Base URL"
             className="ui-input w-full rounded px-3 py-2 text-sm"
           />
           <input

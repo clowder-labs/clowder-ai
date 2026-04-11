@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F069-R5: POST /api/threads/:id/read/latest endpoint tests
  * Backend acks to the latest real message in a thread — no frontend ID needed.

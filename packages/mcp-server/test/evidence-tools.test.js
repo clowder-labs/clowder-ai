@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * MCP Evidence Tools Tests
  * 测试 office_claw_search_evidence 的参数编码与降级提示行为。

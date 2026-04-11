@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Task Types (毛线球)
  * 猫猫任务系统 — 让每只猫追踪自己负责的事项

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { StudyMeta } from '@cat-cafe/shared';
 import type { SignalArticleDetail } from './article-query-service.js';
 import type { StudyMetaService } from './study-meta-service.js';

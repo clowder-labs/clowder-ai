@@ -17,12 +17,12 @@
 输出:
     打印创建的工作目录路径（供调用方使用）
 """
-
+import logging
 import os
 import sys
 import re
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -63,7 +63,7 @@ def create_workdir(topic: str, base_dir: str = None, output_subdir: str = 'outpu
     safe_topic = sanitize_topic(topic)
 
     # 生成时间戳
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')
 
     # 构建目录路径
     workdir_name = f"{safe_topic}_{timestamp}"
@@ -105,9 +105,9 @@ def main():
     try:
         workdir = create_workdir(args.topic, base_dir, args.output_dir)
         # 输出路径（供调用方捕获）
-        print(workdir)
+        logging.info(workdir)
     except Exception as e:
-        print(f"错误：创建目录失败 - {e}", file=sys.stderr)
+        logging.info(f"错误：创建目录失败 - {e}", file=sys.stderr)
         sys.exit(1)
 
 

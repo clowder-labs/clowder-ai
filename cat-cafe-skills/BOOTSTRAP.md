@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表（49 个）
+## Skills 列表（24 个）
 
 ### 开发流程链
 ```
@@ -14,29 +14,9 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 | Skill | 触发场景 | SOP Step |
 |-------|----------|----------|
-| `feat-lifecycle` | 新功能立项/讨论/完成 | — |
 | `collaborative-thinking` | brainstorm/多猫讨论/收敛 | — |
-| `writing-plans` | 写实施计划 | — |
-| `worktree` | 开始写代码（创建隔离环境） | ① |
-| `tdd` | 写测试+实现（红绿重构） | ① |
-| `debugging` | 遇到 bug（系统化定位） | — |
-| `quality-gate` | 开发完了自检（愿景+spec+验证） | ② |
-| `request-review` | 发 review 请求给 reviewer | ③ |
-| `receive-review` | 处理 review 反馈（Red→Green） | ③ |
-| `merge-gate` | 门禁→PR→云端 review→merge→清理 | ④⑤⑥ |
-| `cross-cat-handoff` | 跨猫交接/传话（五件套） | — |
-| `deep-research` | 多源深度调研 | — |
-| `writing-skills` | 写新 skill | — |
-| `pencil-design` | 设计 UI / .pen 文件 | — |
 | `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
-| `hyperfocus-brake` | 铲屎官健康提醒/三猫撒娇打断 | — |
-| `incident-response` | 闯祸了/不可挽回/人很难过 | — |
-| `image-generation` | 生成图片/画头像/AI 画图 | — |
 | `self-evolution` | scope 守护/流程改进/知识沉淀 | — |
-| `bootcamp-guide` | CVO 新手训练营引导 | — |
-| `cross-thread-sync` | 跨 thread 协同/通知/争用协调 | — |
-| `browser-preview` | 写前端/跑 dev server/看页面效果 | — |
-| `workspace-navigator` | 铲屎官说"打开日志/看代码/打开设计图"等模糊指令 → 猫猫自己找路径 → API 导航 | — |
  
 ### 文档处理
 
@@ -44,11 +24,8 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 |-------|----------|
 | `pdf` | 读取/合并/拆分/加密/OCR PDF 文件 |
 | `docx` | 创建/编辑 Word 文档（.docx） |
-| `pptx` | 创建/编辑/读取演示文稿（.pptx） |
 | `xlsx` | 创建/编辑/读取电子表格（.xlsx/.csv） |
-| `nano-pdf` | 用自然语言编辑 PDF |
 | `diagram-generator` | 生成流程图/序列图/ER图/架构图 |
-| `doc-coauthoring` | 结构化文档协作（技术提案/spec/决策文档） |
 | `pptx-craft`        | 创建/编辑/读取演示文稿（.pptx） |
 
 ### 搜索与信息
@@ -57,7 +34,6 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 |-------|----------|
 | `weather` | 查天气/温度/天气预报 |
 | `github` | GitHub issue/PR/CI 查询操作 |
-| `baidu-search` | 百度 AI 搜索（需 BAIDU_API_KEY） |
 | `multi-search-engine` | 17 搜索引擎聚合搜索 |
 | `summarize` | URL/播客/文件内容摘要提取 |
 
@@ -69,8 +45,6 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `proactive-agent` | 主动式 agent，预判需求并持续改进 |
 | `persistent-agent-memory` | Agent 持久化记忆（跨 session 上下文） |
 | `self-improving-agent` | 捕获错误/纠正，持续自我改进 |
-| `evolver` | Agent 自我进化引擎（分析运行历史） |
-| `schedule-tasks`          | 创建定时任务  |
 | `cross-agent-handoff`          | 协作交接  |
 
 ### 工具与自动化
@@ -78,9 +52,6 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | Skill | 触发场景 |
 |-------|----------|
 | `agent-browser` | 无头浏览器自动化（点击/截图/填表） |
-| `airpoint` | Mac 自然语言控制（需 macOS + airpoint） |
-| `mcp-builder` | 创建 MCP 服务器（Python/TypeScript） |
-| `n8n-workflow-automation` | 设计 n8n 自动化工作流 JSON |
 | `auto-updater` | 自动更新 Clawdbot 和已安装 skill |
 
 ### 生活与会议

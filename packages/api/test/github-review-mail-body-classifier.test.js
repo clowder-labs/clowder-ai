@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * GitHub Review mail body classification
  * - Distinguish reviewed vs commented vs environment/setup noise

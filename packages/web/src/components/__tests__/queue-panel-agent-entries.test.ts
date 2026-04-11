@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F122B AC-B7: QueuePanel renders agent-sourced entries with handoff format.
  * Agent entries show: paw icon + "callerCat → targetCat" + "自动" tag + purple bg.

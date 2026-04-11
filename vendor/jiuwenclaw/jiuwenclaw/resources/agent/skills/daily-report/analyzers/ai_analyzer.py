@@ -133,7 +133,7 @@ class AIAnalyzer:
                                 config["api_base"] = client_config.get("api_base", config["api_base"])
                                 config["api_key"] = client_config.get("api_key", config["api_key"])
             except Exception as e:
-                print(f"[AIAnalyzer] 加载配置文件失败: {e}")
+                logging.info(f"[AIAnalyzer] 加载配置文件失败: {e}")
 
         return config
 
@@ -186,7 +186,7 @@ class AIAnalyzer:
             response = await model.invoke(messages=messages)
             return response.content if hasattr(response, "content") else str(response)
         except Exception as e:
-            print(f"[AIAnalyzer] LLM 调用失败: {e}")
+            logging.info(f"[AIAnalyzer] LLM 调用失败: {e}")
             return ""
 
     def generate_summary_sync(self, data: dict) -> str:

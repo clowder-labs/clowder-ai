@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 export interface GameDriver {
   /** Start the game loop for a given game. Runs asynchronously. */
   startLoop(gameId: string): void;

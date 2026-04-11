@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { ResolutionPath } from './intent-card.js';
 
 export type ResolutionStatus = 'open' | 'answered' | 'escalated';

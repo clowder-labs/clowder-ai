@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { CatId } from './ids.js';
 
 export type BacklogPriority = 'p0' | 'p1' | 'p2' | 'p3';

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F075 Phase C — Achievement badge definitions
  * Static catalog of all unlockable achievements (CVO + daily).

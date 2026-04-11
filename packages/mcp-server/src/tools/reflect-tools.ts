@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Reflect Tool
  * MCP 工具: 项目知识反思 (SQLite-backed)
@@ -9,7 +15,7 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3004';
+const API_URL = process.env['CAT_CAFE_API_URL']!;
 
 export const reflectInputSchema = {
   query: z.string().trim().min(1).describe('Question to reflect on using project knowledge'),

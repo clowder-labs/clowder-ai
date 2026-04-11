@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Image Upload Utilities
  * Handles multipart file saving and validation for image uploads.
@@ -5,8 +11,9 @@
 
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import type { FileContent, ImageContent } from '@cat-cafe/shared';
+import { resolveWorkspacePath } from '../domains/workspace/workspace-security.js';
 
 const ALLOWED_MIMES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 const ALLOWED_ATTACHMENT_MIMES = new Set([
@@ -19,6 +26,9 @@ const ALLOWED_ATTACHMENT_MIMES = new Set([
 ]);
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
+const MAX_ATTACHMENT_BASE_LENGTH = 120;
+const MAX_UNIQUE_NAME_ATTEMPTS = 1000;
+const WINDOWS_RESERVED_BASENAME_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 export interface SavedImage {
   absPath: string;
@@ -36,6 +46,13 @@ export interface UploadImageFile {
   filename?: string;
   mimetype: string;
   toBuffer: () => Promise<Buffer>;
+}
+
+export interface WorkspaceUploadTarget {
+  kind: 'workspace';
+  worktreeId: string;
+  workspaceRoot: string;
+  directoryPath: string;
 }
 
 /**
@@ -77,6 +94,49 @@ export async function saveUploadedImages(files: UploadImageFile[], uploadDir: st
   return saved;
 }
 
+export async function saveUploadedImagesToWorkspace(
+  files: UploadImageFile[],
+  target: WorkspaceUploadTarget,
+): Promise<SavedImage[]> {
+  if (files.length > MAX_FILES) {
+    throw new ImageUploadError(`Too many files (max ${MAX_FILES})`);
+  }
+
+  const saved: SavedImage[] = [];
+  for (const file of files) {
+    if (!ALLOWED_MIMES.has(file.mimetype)) {
+      throw new ImageUploadError(`Unsupported file type: ${file.mimetype}`);
+    }
+
+    const buffer = await file.toBuffer();
+    if (buffer.byteLength > MAX_FILE_SIZE) {
+      throw new ImageUploadError(`File too large: ${buffer.byteLength} bytes (max ${MAX_FILE_SIZE})`);
+    }
+
+    const ext = mimeToExt(file.mimetype);
+    const diskName = `${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
+    const workspacePath = toWorkspaceChildPath(target.directoryPath, diskName);
+    const absPath = await resolveWorkspacePath(target.workspaceRoot, workspacePath);
+
+    await mkdir(dirname(absPath), { recursive: true });
+    await writeFile(absPath, buffer);
+
+    const query = new URLSearchParams({
+      worktreeId: target.worktreeId,
+      path: workspacePath,
+    }).toString();
+    const urlPath = `/api/workspace/file/raw?${query}`;
+
+    saved.push({
+      absPath,
+      urlPath,
+      content: { type: 'image', url: urlPath },
+    });
+  }
+
+  return saved;
+}
+
 /**
  * Validate and save uploaded attachment files.
  * Returns saved metadata for contentBlocks.
@@ -103,18 +163,59 @@ export async function saveUploadedAttachments(
     }
 
     const originalFileName = sanitizeAttachmentName(file.filename, file.mimetype);
-    const ext = attachmentMimeToExt(file.mimetype);
-    const filename = `file-${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
-    const absPath = resolve(join(uploadDir, filename));
-
-    await writeFile(absPath, buffer);
+    const { filename, absPath } = await writeUniqueUploadFile(uploadDir, originalFileName, buffer);
+    const urlPath = buildUploadUrlPath(filename);
 
     saved.push({
       absPath,
-      urlPath: `/uploads/${filename}`,
+      urlPath,
       content: {
         type: 'file',
-        url: `/uploads/${filename}`,
+        url: urlPath,
+        fileName: originalFileName,
+        mimeType: file.mimetype,
+        fileSize: buffer.byteLength,
+      },
+    });
+  }
+
+  return saved;
+}
+
+export async function saveUploadedAttachmentsToWorkspace(
+  files: UploadImageFile[],
+  target: WorkspaceUploadTarget,
+): Promise<SavedAttachment[]> {
+  if (files.length > MAX_FILES) {
+    throw new ImageUploadError(`Too many files (max ${MAX_FILES})`);
+  }
+
+  const saved: SavedAttachment[] = [];
+  for (const file of files) {
+    if (!ALLOWED_ATTACHMENT_MIMES.has(file.mimetype)) {
+      throw new ImageUploadError(`Unsupported file type: ${file.mimetype}`);
+    }
+
+    const buffer = await file.toBuffer();
+    if (buffer.byteLength > MAX_FILE_SIZE) {
+      throw new ImageUploadError(`File too large: ${buffer.byteLength} bytes (max ${MAX_FILE_SIZE})`);
+    }
+
+    const originalFileName = sanitizeAttachmentName(file.filename, file.mimetype);
+    const { filename, absPath, workspacePath } = await writeUniqueWorkspaceUploadFile(target, originalFileName, buffer);
+
+    const query = new URLSearchParams({
+      worktreeId: target.worktreeId,
+      path: workspacePath,
+    }).toString();
+    const urlPath = `/api/workspace/download?${query}`;
+
+    saved.push({
+      absPath,
+      urlPath,
+      content: {
+        type: 'file',
+        url: urlPath,
         fileName: originalFileName,
         mimeType: file.mimetype,
         fileSize: buffer.byteLength,
@@ -138,6 +239,63 @@ function mimeToExt(mime: string): string {
     default:
       return '.bin';
   }
+}
+
+function buildUploadUrlPath(filename: string): string {
+  return `/uploads/${encodeURIComponent(filename)}`;
+}
+
+function splitFileName(filename: string): { base: string; ext: string } {
+  const ext = extname(filename);
+  return ext ? { base: filename.slice(0, -ext.length), ext } : { base: filename, ext: '' };
+}
+
+function buildDuplicateName(filename: string, index: number): string {
+  const { base, ext } = splitFileName(filename);
+  return `${base} (${index})${ext}`;
+}
+
+async function writeUniqueUploadFile(
+  uploadDir: string,
+  preferredName: string,
+  buffer: Buffer,
+): Promise<{ filename: string; absPath: string }> {
+  for (let index = 0; index < MAX_UNIQUE_NAME_ATTEMPTS; index += 1) {
+    const filename = index === 0 ? preferredName : buildDuplicateName(preferredName, index);
+    const absPath = resolve(join(uploadDir, filename));
+    try {
+      await writeFile(absPath, buffer, { flag: 'wx' });
+      return { filename, absPath };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
+      throw error;
+    }
+  }
+
+  throw new ImageUploadError('Unable to allocate a unique attachment filename');
+}
+
+async function writeUniqueWorkspaceUploadFile(
+  target: WorkspaceUploadTarget,
+  preferredName: string,
+  buffer: Buffer,
+): Promise<{ filename: string; absPath: string; workspacePath: string }> {
+  for (let index = 0; index < MAX_UNIQUE_NAME_ATTEMPTS; index += 1) {
+    const filename = index === 0 ? preferredName : buildDuplicateName(preferredName, index);
+    const workspacePath = toWorkspaceChildPath(target.directoryPath, filename);
+    const absPath = await resolveWorkspacePath(target.workspaceRoot, workspacePath);
+
+    try {
+      await mkdir(dirname(absPath), { recursive: true });
+      await writeFile(absPath, buffer, { flag: 'wx' });
+      return { filename, absPath, workspacePath };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
+      throw error;
+    }
+  }
+
+  throw new ImageUploadError('Unable to allocate a unique attachment filename');
 }
 
 function attachmentMimeToExt(mime: string): string {
@@ -168,8 +326,21 @@ function sanitizeAttachmentName(filename: string | undefined, mime: string): str
   if (!cleaned) return fallback;
 
   const base = extname(cleaned) ? cleaned.slice(0, -extname(cleaned).length) : cleaned;
-  const safeBase = base.trim() || 'attachment';
+  const normalizedBase = base.replace(/[. ]+$/g, '').trim();
+  let safeBase = normalizedBase || 'attachment';
+  if (safeBase.length > MAX_ATTACHMENT_BASE_LENGTH) {
+    safeBase = safeBase.slice(0, MAX_ATTACHMENT_BASE_LENGTH).trim();
+  }
+  if (!safeBase) safeBase = 'attachment';
+  if (WINDOWS_RESERVED_BASENAME_RE.test(safeBase)) {
+    safeBase = `_${safeBase}`;
+  }
   return `${safeBase}${attachmentMimeToExt(mime)}`;
+}
+
+function toWorkspaceChildPath(directoryPath: string, filename: string): string {
+  const trimmed = directoryPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  return trimmed ? `${trimmed}/${filename}` : filename;
 }
 
 export class ImageUploadError extends Error {

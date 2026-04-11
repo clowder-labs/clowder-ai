@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { type ReactNode } from 'react';
 import type { CatData } from '@/hooks/useCatData';
 import type { ConfigData } from './config-viewer-types';

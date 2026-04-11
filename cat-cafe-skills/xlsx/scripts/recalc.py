@@ -4,6 +4,7 @@ Recalculates all formulas in an Excel file using LibreOffice
 """
 
 import json
+import logging
 import os
 import platform
 import subprocess
@@ -163,21 +164,21 @@ def recalc(filename, timeout=30):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python recalc.py <excel_file> [timeout_seconds]")
-        print("\nRecalculates all formulas in an Excel file using LibreOffice")
-        print("\nReturns JSON with error details:")
-        print("  - status: 'success' or 'errors_found'")
-        print("  - total_errors: Total number of Excel errors found")
-        print("  - total_formulas: Number of formulas in the file")
-        print("  - error_summary: Breakdown by error type with locations")
-        print("    - #VALUE!, #DIV/0!, #REF!, #NAME?, #NULL!, #NUM!, #N/A")
+        logging.info("Usage: python recalc.py <excel_file> [timeout_seconds]")
+        logging.info("\nRecalculates all formulas in an Excel file using LibreOffice")
+        logging.info("\nReturns JSON with error details:")
+        logging.info("  - status: 'success' or 'errors_found'")
+        logging.info("  - total_errors: Total number of Excel errors found")
+        logging.info("  - total_formulas: Number of formulas in the file")
+        logging.info("  - error_summary: Breakdown by error type with locations")
+        logging.info("    - #VALUE!, #DIV/0!, #REF!, #NAME?, #NULL!, #NUM!, #N/A")
         sys.exit(1)
 
     filename = sys.argv[1]
     timeout = int(sys.argv[2]) if len(sys.argv) > 2 else 30
 
     result = recalc(filename, timeout)
-    print(json.dumps(result, indent=2))
+    logging.info(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

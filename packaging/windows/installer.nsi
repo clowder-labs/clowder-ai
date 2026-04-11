@@ -50,6 +50,9 @@ BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
 ShowUninstDetails nevershow
 
+; --------------- License page (custom nsDialogs) ---------------
+Page custom LicensePageCreate LicensePageLeave
+
 ; --------------- Welcome page (custom nsDialogs, no left bitmap) ---------------
 Page custom WelcomePageCreate
 
@@ -70,9 +73,122 @@ Page custom FinishPageCreate FinishPageLeave
 ; --------------- Language ---------------
 !insertmacro MUI_LANGUAGE "SimpChinese"
 
+Var LicenseDialog
+Var AgreeRadio
+Var DisagreeRadio
+Var NextButton
 Var WelcomeDialog
 Var FinishDialog
 Var FinishLaunchCheckbox
+Var DetectedRunningProcesses
+
+; Check if OfficeClaw-related processes are running
+; Returns "1" in $R0 if running, "0" otherwise
+Function CheckOfficeClawRunning
+  StrCpy $R0 "0"
+  
+  ; Check OfficeClaw.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" 2>nul | find /I "OfficeClaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check redis-server.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check node.exe processes that belong to OfficeClaw (from installed dir)
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
+    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
+    Pop $1
+    Pop $2
+    ${If} $2 != ""
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+Function LicensePageCreate
+  !insertmacro MUI_HEADER_TEXT "许可协议" "继续安装前请阅读下列重要信息。$\r$\n请仔细阅读下列许可协议，您在继续安装前必须同意这些协议条款。"
+
+  nsDialogs::Create 1018
+  Pop $LicenseDialog
+  ${If} $LicenseDialog == error
+    Abort
+  ${EndIf}
+
+  GetDlgItem $NextButton $HWNDPARENT 1
+  EnableWindow $NextButton 0
+
+  ${NSD_CreateLabel} 0 10u 100% 12u "${APP_NAME}软件许可协议"
+  Pop $0
+
+  ${NSD_CreateLabel} 10u 25u 44u 10u "1.了解和同意"
+  Pop $0
+
+  ${NSD_CreateLink} 54u 25u 30% 10u "华为云隐私政策声明"
+  Pop $1
+  ${NSD_OnClick} $1 "OnPrivacyLinkClick"
+
+  ${NSD_CreateLabel} 10u 40u 44u 10u "2.了解和同意"
+  Pop $0
+
+  ${NSD_CreateLink} 54u 40u 30% 10u "AgentArts服务声明"
+  Pop $1
+  ${NSD_OnClick} $1 "OnServiceLinkClick"
+
+  ${NSD_CreateRadioButton} 0 100u 100% 12u "我同意此协议(A)"
+  Pop $AgreeRadio
+  ${NSD_Setfocus} $AgreeRadio
+
+  ${NSD_OnClick} $AgreeRadio OnAgreementChanged
+
+  ${NSD_CreateRadioButton} 0 115u 100% 12u "我不同意此协议(D)"
+  Pop $DisagreeRadio
+  ${NSD_OnClick} $DisagreeRadio OnAgreementChanged
+
+  nsDialogs::Show
+
+  SendMessage $AgreeRadio ${BM_SETCHECK} 1 0
+  Call UpdateNextButtonState
+FunctionEnd
+
+Function OnPrivacyLinkClick
+  Pop $0
+  ExecShell "open" "https://www.huaweicloud.com/declaration/sa_prp.html"
+FunctionEnd
+
+Function OnServiceLinkClick
+  Pop $0
+  ExecShell "open" "https://www.huaweicloud.com/declaration/agentarts.html"
+FunctionEnd
+
+Function OnAgreementChanged
+  Call UpdateNextButtonState
+FunctionEnd
+
+Function UpdateNextButtonState
+  ${NSD_GetState} $AgreeRadio $0
+  ${If} $0 == 1
+    EnableWindow $NextButton 1
+  ${Else}
+    EnableWindow $NextButton 0
+  ${EndIf}
+FunctionEnd
+
+Function LicensePageLeave
+FunctionEnd
 
 Function WelcomePageCreate
   !insertmacro MUI_HEADER_TEXT "欢迎安装 ${APP_NAME}" "本向导将引导您完成 ${APP_NAME} v${APP_VERSION} 的安装"
@@ -118,10 +234,27 @@ FunctionEnd
 
 Function .onInit
   SetShellVarContext current
+  
+  ; Check if OfficeClaw is running
+  Call CheckOfficeClawRunning
+  ${If} $R0 == "1"
+    MessageBox MB_ICONQUESTION|MB_YESNO "检测到 OfficeClaw 正在运行。$\r$\n$\r$\n继续安装需要关闭正在运行的 OfficeClaw 及相关进程。$\r$\n$\r$\n是否关闭进程并继续安装？$\r$\n$\r$\n选择「是」将关闭所有相关进程后继续安装。$\r$\n选择「否」将退出安装程序。" IDYES proceed_install
+    Abort
+  proceed_install:
+    StrCpy $DetectedRunningProcesses "1"
+  ${EndIf}
 FunctionEnd
 
 Function un.onInit
   SetShellVarContext current
+  
+  ; Check if OfficeClaw is running before uninstall
+  Call un.CheckOfficeClawRunning
+  ${If} $R0 == "1"
+    MessageBox MB_ICONQUESTION|MB_YESNO "检测到 OfficeClaw 正在运行。$\r$\n$\r$\n卸载需要关闭正在运行的 OfficeClaw 及相关进程。$\r$\n$\r$\n是否关闭进程并继续卸载？$\r$\n$\r$\n选择「是」将关闭所有相关进程后继续卸载。$\r$\n选择「否」将退出卸载程序。" IDYES proceed_uninstall
+    Abort
+  proceed_uninstall:
+  ${EndIf}
 FunctionEnd
 
 Function .onVerifyInstDir
@@ -163,6 +296,42 @@ FunctionEnd
 
 Function un.CloseRunningServices
   !insertmacro _ForceKillInstalledProcesses
+FunctionEnd
+
+; Uninstall version of CheckOfficeClawRunning
+Function un.CheckOfficeClawRunning
+  StrCpy $R0 "0"
+  
+  ; Check OfficeClaw.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" 2>nul | find /I "OfficeClaw.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check redis-server.exe
+  nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $R0 "1"
+    Return
+  ${EndIf}
+  
+  ; Check node.exe processes that belong to OfficeClaw (from installed dir)
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    System::Call 'Kernel32::SetEnvironmentVariable(t "OFFICECLAW_INSTDIR", t "$0")i'
+    nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$env:OFFICECLAW_INSTDIR, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1"'
+    Pop $1
+    Pop $2
+    ${If} $2 != ""
+      StrCpy $R0 "1"
+      Return
+    ${EndIf}
+  ${EndIf}
 FunctionEnd
 
 ; Delete all managed dirs/files in $INSTDIR, preserving user-data (.cat-cafe, data, logs, .env, cat-config.json).
@@ -216,7 +385,6 @@ FunctionEnd
 Function WriteShellShortcuts
   CreateDirectory "${STARTMENU_DIR}"
   CreateShortCut "${STARTMENU_DIR}\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
-  CreateShortCut "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\scripts\stop-windows.ps1"' "$INSTDIR\assets\app.ico"
   CreateShortCut "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
   CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OfficeClaw.exe" "" "$INSTDIR\assets\app.ico"
 FunctionEnd
@@ -225,7 +393,7 @@ Function WriteUninstallRegistry
   WriteRegStr HKCU "${INSTALL_KEY}" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Clowder Labs"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "huawei cloud"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\assets\app.ico"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
@@ -236,7 +404,13 @@ FunctionEnd
 
 Section "Install"
   DetailPrint "正在准备安装环境..."
-  Call CloseRunningServices
+  
+  ; If processes were detected in .onInit, close them now
+  ${If} $DetectedRunningProcesses == "1"
+    DetailPrint "正在关闭正在运行的 OfficeClaw 进程..."
+    Call CloseRunningServices
+  ${EndIf}
+  
   CreateDirectory "$INSTDIR"
   Call CleanupManagedPayload
   DetailPrint "安装环境就绪..."
@@ -293,10 +467,16 @@ webview2_found:
   DetailPrint "WebView2 已安装 (版本: $0$1)"
 webview2_done:
 
-  ; Run post-install configuration (generate provider-profiles, cat-catalog, etc.)
+  ; Run post-install configuration only for fresh installs.
+  ; On overwrite installs, preserve an existing runtime catalog so user-created agents survive.
+  IfFileExists "$INSTDIR\.cat-cafe\cat-catalog.json" init_config_skip 0
   DetailPrint "正在初始化配置..."
   nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'
   Pop $0
+  Goto init_config_done
+init_config_skip:
+  DetailPrint "检测到现有运行时 catalog，跳过初始化配置以保留用户自定义 agent..."
+init_config_done:
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
   Call WriteShellShortcuts
@@ -309,13 +489,13 @@ Section "Uninstall"
   Call un.CloseRunningServices
 
   Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"
-  Delete "${STARTMENU_DIR}\Stop ${APP_NAME}.lnk"
   Delete "${STARTMENU_DIR}\Uninstall ${APP_NAME}.lnk"
   RMDir "${STARTMENU_DIR}"
   Delete "$DESKTOP\${APP_NAME}.lnk"
 
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "${INSTALL_KEY}"
+  DeleteRegKey /ifempty HKCU "Software\${COMPANY_KEY}"
 
   ; Skip firewall rule cleanup: user-level installs do not create the rule.
 

@@ -1,9 +1,16 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { execFile } from 'node:child_process';
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+const REGISTERED_WORKTREE_PREFIX = 'workspace_root_';
 
 const DENYLIST_PATTERNS = [/^\.env/, /\.pem$/, /\.key$/, /^id_rsa/];
 
@@ -19,6 +26,38 @@ const worktreeRegistry = new Map<string, string>();
 /** Register worktree entries so getWorktreeRoot can resolve them later. */
 export function registerWorktrees(entries: WorktreeEntry[]): void {
   for (const e of entries) worktreeRegistry.set(e.id, e.root);
+}
+
+/** Register an arbitrary workspace root and return a stable synthetic worktree entry. */
+export function ensureRegisteredWorktreeRoot(root: string, label?: string): WorktreeEntry {
+  const resolvedRoot = resolve(root);
+  const id = `${REGISTERED_WORKTREE_PREFIX}${Buffer.from(resolvedRoot).toString('base64url')}`;
+  const entry: WorktreeEntry = {
+    id,
+    root: resolvedRoot,
+    branch: label ?? (basename(resolvedRoot) || 'workspace'),
+    head: 'workspace',
+  };
+  registerWorktrees([entry]);
+  return entry;
+}
+
+/** Fast in-memory lookup for previously registered worktree roots. */
+export function getRegisteredWorktreeRoot(worktreeId: string): string | undefined {
+  const registered = worktreeRegistry.get(worktreeId);
+  if (registered) return registered;
+  return decodeRegisteredWorktreeRoot(worktreeId);
+}
+
+function decodeRegisteredWorktreeRoot(worktreeId: string): string | undefined {
+  if (!worktreeId.startsWith(REGISTERED_WORKTREE_PREFIX)) return undefined;
+  const encoded = worktreeId.slice(REGISTERED_WORKTREE_PREFIX.length);
+  if (!encoded) return undefined;
+  try {
+    return Buffer.from(encoded, 'base64url').toString('utf8');
+  } catch {
+    return undefined;
+  }
 }
 
 export class WorkspaceSecurityError extends Error {
@@ -147,6 +186,9 @@ export async function getWorktreeRoot(worktreeId: string, repoRoot?: string): Pr
   // Check in-memory registry (populated by /worktrees?repoRoot= calls)
   const registeredRoot = worktreeRegistry.get(worktreeId);
   if (registeredRoot) return registeredRoot;
+
+  const decodedRegisteredRoot = decodeRegisteredWorktreeRoot(worktreeId);
+  if (decodedRegisteredRoot) return decodedRegisteredRoot;
 
   throw new WorkspaceSecurityError(`Worktree not found: ${worktreeId}`, 'NOT_FOUND');
 }

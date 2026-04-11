@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { StudyMeta } from '@cat-cafe/shared';
 import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';

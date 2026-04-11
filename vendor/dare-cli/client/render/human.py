@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from client.session import ExecutionMode
@@ -15,40 +16,39 @@ class HumanRenderer:
 
     def header(self, title: str) -> None:
         rule = "=" * self._width
-        print(f"\n{rule}\n{title}\n{rule}\n", flush=True)
+        logging.info(f"\n{rule}\n{title}\n{rule}\n")
 
     def message(self, text: str) -> None:
-        print(text, flush=True)
+        logging.info(text)
 
     def info(self, text: str) -> None:
-        print(f"[INFO] {text}", flush=True)
+        logging.info(f"[INFO] {text}")
 
     def warn(self, text: str) -> None:
-        print(f"[WARN] {text}", flush=True)
+        logging.info(f"[WARN] {text}")
 
     def ok(self, text: str) -> None:
-        print(f"[OK] {text}", flush=True)
+        logging.info(f"[OK] {text}")
 
     def error(self, text: str) -> None:
-        print(f"[ERR] {text}", flush=True)
+        logging.info(f"[ERR] {text}")
 
     def show_mode(self, mode: ExecutionMode) -> None:
         self.info(f"mode={mode.value}")
 
     def show_plan(self, plan: Any) -> None:
         self.header("PLAN PREVIEW")
-        print(f"Goal: {plan.plan_description}\n", flush=True)
+        logging.info(f"Goal: {plan.plan_description}\n")
         if not getattr(plan, "steps", None):
-            print("(no steps)", flush=True)
+            logging.info("(no steps)")
             return
         for index, step in enumerate(plan.steps, 1):
             title = step.description or step.capability_id
-            print(f"{index}. {title}", flush=True)
-            print(f"   evidence: {step.capability_id}", flush=True)
+            logging.info(f"{index}. {title}")
+            logging.info(f"   evidence: {step.capability_id}")
             params = getattr(step, "params", None)
             if params:
-                print(f"   params: {params}", flush=True)
-        print(flush=True)
+                logging.info(f"   params: {params}")
 
     def show_json(self, payload: Any) -> None:
-        print(payload, flush=True)
+        logging.info(payload)

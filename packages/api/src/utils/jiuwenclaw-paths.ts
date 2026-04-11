@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { resolveCatCafeHostRoot } from './cat-cafe-root.js';

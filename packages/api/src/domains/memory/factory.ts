@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102: Memory service factory — creates SQLite-backed memory services
 
 import { EmbeddingService } from './EmbeddingService.js';

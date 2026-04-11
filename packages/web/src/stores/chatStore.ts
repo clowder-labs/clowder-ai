@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import { create } from 'zustand';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
@@ -236,6 +242,11 @@ function getLatestMessageTimestamp(messages: ChatMessage[]): number {
     }
   }
   return maxTs;
+}
+
+function isUnreadBodyMessage(msg: ChatMessage): boolean {
+  if (msg.type !== 'assistant') return false;
+  return typeof msg.content === 'string' && msg.content.trim().length > 0;
 }
 
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the co-creator */
@@ -1131,8 +1142,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       if (existing.messages.some((m) => m.id === msg.id)) return state;
       const lastReadAt = state._lastReadAtByThread[threadId] ?? 0;
+      const isBodyMessage = isUnreadBodyMessage(msg);
       const isReplayOrAlreadyViewed =
-        typeof msg.timestamp === 'number' && Number.isFinite(msg.timestamp) && msg.timestamp <= lastReadAt;
+        !isBodyMessage ||
+        (typeof msg.timestamp === 'number' && Number.isFinite(msg.timestamp) && msg.timestamp <= lastReadAt);
 
       // F067 Phase 2: Fire macOS notification for @co-creator mention
       if (msg.mentionsUser && !isReplayOrAlreadyViewed) fireOwnerMentionNotification(msg);

@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 import type { SignalSourceConfig } from '@cat-cafe/shared';
 import { PAPER_SOURCES } from './sources-papers.js';
 import { TIER1_CHINA_SOURCES } from './sources-tier1-china.js';

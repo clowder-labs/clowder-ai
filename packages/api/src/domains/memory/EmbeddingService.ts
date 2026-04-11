@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102 Phase C/G: EmbeddingService — HTTP client to external GPU embedding server
 // Replaces in-process ONNX (LL-034: must not run model inference in API process)
 //

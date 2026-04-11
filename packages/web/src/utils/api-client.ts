@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Unified API client for Clowder AI frontend.
  *
@@ -18,12 +24,17 @@ function isLoopbackHost(hostname: string | undefined): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1';
 }
 
+const CLOWDER_AI_COM = process.env.NEXT_PUBLIC_PROD_API_URL!;
+const CAFE_HOST = process.env.NEXT_PUBLIC_PROD_FRONTEND_HOST!;
+const API_CLOWDER_HOST = process.env.API_CLOWDER_HOST!;
+const DEFAULT_API_CLIENT_URL = process.env.DEFAULT_API_CLIENT_URL!;
+
 function resolveApiUrl(): string {
   const location = getBrowserLocation();
 
   // Cloudflare Tunnel: API 走 api.clowder-ai.com，Access cookie 在 .clowder-ai.com 上共享
-  if (location?.hostname === 'cafe.clowder-ai.com') {
-    return 'https://api.clowder-ai.com';
+  if (location?.hostname === CAFE_HOST) {
+    return API_CLOWDER_HOST;
   }
   if (isLoopbackHost(location?.hostname)) {
     const frontendPort = Number(location?.port ?? '') || 3003;
@@ -33,7 +44,7 @@ function resolveApiUrl(): string {
     return `${protocol}//${hostname}:${apiPort}`;
   }
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window === 'undefined') return 'http://localhost:3004';
+  if (typeof window === 'undefined') return DEFAULT_API_CLIENT_URL;
   // Derive API port from frontend port: convention is frontend + 1 = API
   // (runtime: 3001→3002, alpha: 3011→3012). Fallback to +1 of current port.
   const frontendPort = Number(location?.port ?? '') || 3001;
@@ -56,6 +67,6 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
     ...init,
     headers,
     // Cloudflare Access: 跨子域名请求需要 credentials 才能带 CF_Authorization cookie
-    credentials: API_URL.includes('clowder-ai.com') ? 'include' : (init?.credentials ?? 'same-origin'),
+    credentials: API_URL.includes(CLOWDER_AI_COM) ? 'include' : (init?.credentials ?? 'same-origin'),
   });
 }

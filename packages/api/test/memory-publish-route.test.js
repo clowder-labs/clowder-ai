@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * Memory Publish Route tests
  * Phase 5.0 Step 2a: POST /api/memory/publish

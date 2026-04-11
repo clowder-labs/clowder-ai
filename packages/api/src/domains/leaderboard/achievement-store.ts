@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 /**
  * F075 Phase C — In-memory achievement store
  * Tracks unlocked achievements per user and computes CVO level.

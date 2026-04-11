@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // F102 Phase C: SemanticReranker — distance-sorted merge for FTS candidates
 // AC-C8: rerank doesn't replace lexical recall, only reorders
 

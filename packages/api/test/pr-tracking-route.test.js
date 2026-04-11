@@ -1,3 +1,9 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
 // @ts-check
 /**
  * PR Tracking Route tests — regression tests for cloud Codex R6 findings.
