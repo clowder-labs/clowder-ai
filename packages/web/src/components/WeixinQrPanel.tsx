@@ -137,7 +137,7 @@ export function WeixinQrPanel({
     return (
       <div data-testid="weixin-connected">
         <ConnectorConnectedState
-          label="WeChat connected"
+          label="微信 已连接"
           disconnecting={disconnecting}
           onDisconnect={handleDisconnect}
           disconnectTestId="weixin-disconnect"
@@ -152,16 +152,9 @@ export function WeixinQrPanel({
     <div className="space-y-3" data-testid="weixin-qr-panel">
       {(qrState === 'idle' || qrState === 'expired' || qrState === 'error') && (
         <div className="space-y-2">
-          {qrState === 'expired' && (
-            <p className="text-xs text-amber-600">二维码已过期，请重新生成</p>
-          )}
+          {qrState === 'expired' && <p className="text-xs text-amber-600">二维码已过期，请重新生成</p>}
           {qrState === 'error' && errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
-          <button
-            type="button"
-            onClick={handleFetchQr}
-            className="ui-button-primary"
-            data-testid="weixin-generate-qr"
-          >
+          <button type="button" onClick={handleFetchQr} className="ui-button-primary" data-testid="weixin-generate-qr">
             {qrState === 'expired' ? '重新生成二维码' : '生成二维码'}
           </button>
         </div>
@@ -176,8 +169,13 @@ export function WeixinQrPanel({
 
       {(qrState === 'waiting' || qrState === 'scanned') && qrUrl && (
         <div className="flex flex-col gap-3" style={{ width: 'fit-content' }}>
-          <div className='p-3 border-[#f0f0f0] bg-[#fff]' style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
-            <img src={qrUrl} alt="WeChat login QR code" className="w-48 h-48 rounded-lg" data-testid="weixin-qr-image" />
+          <div className="p-3 border-[#f0f0f0] bg-[#fff]" style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}>
+            <img
+              src={qrUrl}
+              alt="WeChat login QR code"
+              className="w-48 h-48 rounded-lg"
+              data-testid="weixin-qr-image"
+            />
           </div>
           {qrState === 'waiting' && (
             <div className="flex items-center justify-center gap-2 text-gray-500 text-xs">
