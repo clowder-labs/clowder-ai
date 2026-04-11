@@ -33,8 +33,8 @@ import { formatCliNotFoundError, resolveCliCommand } from '../../../../../utils/
 import { isCliError, isCliTimeout, isLivenessWarning, spawnCli } from '../../../../../utils/cli-spawn.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
-import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
-import { extractImagePaths } from '../providers/image-paths.js';
+import { appendLocalUploadPathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
+import { extractUploadRefs } from '../providers/image-paths.js';
 import { isKnownPostResponseCandidatesCrash, isResultErrorEvent, transformGeminiEvent } from './gemini-event-parser.js';
 
 const log = createModuleLogger('gemini-agent');
@@ -90,11 +90,11 @@ export class GeminiAgentService implements AgentService {
     // Gemini CLI has no system prompt flag; prepend identity to prompt text
     let effectivePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
 
-    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
-    const imageAccessDirs = collectImageAccessDirectories(imagePaths);
-    // Gemini CLI -i is prompt-interactive (conflicts with -p), so we pass path hints
-    // and include image directories for tool access.
-    effectivePrompt = appendLocalImagePathHints(effectivePrompt, imagePaths);
+    const uploadRefs = extractUploadRefs(options?.contentBlocks, options?.uploadDir);
+    const imageAccessDirs = collectImageAccessDirectories(uploadRefs.map((ref) => ref.path));
+    // Gemini CLI -i is prompt-interactive (conflicts with -p), so we pass local path hints
+    // and include upload directories for tool access.
+    effectivePrompt = appendLocalUploadPathHints(effectivePrompt, uploadRefs);
 
     // Gemini CLI supports UUID session resume in headless mode:
     //   gemini --resume <sessionId> -p "<prompt>" -o stream-json

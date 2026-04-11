@@ -10,14 +10,12 @@
  * 从 messages.ts 提取，降低文件复杂度。
  */
 
-import type { FileContent, ImageContent, MessageContent, TextContent } from '@cat-cafe/shared';
+import type { FileContent, MessageContent, TextContent } from '@cat-cafe/shared';
 import type { Multipart } from '@fastify/multipart';
 import {
   ImageUploadError,
   saveUploadedAttachments,
   saveUploadedAttachmentsToWorkspace,
-  saveUploadedImages,
-  saveUploadedImagesToWorkspace,
   type UploadImageFile,
   type WorkspaceUploadTarget,
 } from './image-upload.js';
@@ -83,23 +81,12 @@ export async function parseMultipart(
 
   const { content, userId, threadId, idempotencyKey, resumeCatId } = parseResult.data;
   const blocks: MessageContent[] = [{ type: 'text', text: content } as TextContent];
-  const workspaceTarget = resolveWorkspaceTarget ? await resolveWorkspaceTarget(threadId) : null;
 
   if (imageFiles.length > 0) {
-    try {
-      const saved = workspaceTarget
-        ? await saveUploadedImagesToWorkspace(imageFiles, workspaceTarget)
-        : await saveUploadedImages(imageFiles, uploadDir);
-      for (const img of saved) {
-        blocks.push(img.content as ImageContent);
-      }
-    } catch (err) {
-      if (err instanceof ImageUploadError) {
-        return { error: err.message };
-      }
-      throw err;
-    }
+    return { error: '该附件类型暂不支持' };
   }
+
+  const workspaceTarget = resolveWorkspaceTarget ? await resolveWorkspaceTarget(threadId) : null;
 
   if (attachmentFiles.length > 0) {
     try {
