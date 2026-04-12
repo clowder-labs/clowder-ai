@@ -30,6 +30,8 @@ export interface ProviderProfileMeta {
   client?: BuiltinAccountClient;
   protocol?: ProviderProfileProtocol;
   baseUrl?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
   models?: string[];
   command?: string;
   args?: string[];

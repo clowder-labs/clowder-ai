@@ -1257,19 +1257,14 @@ export function AgentsPanel() {
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {AGENT_TABS.map((tab) => {
                   const TabIcon = tab.icon;
-                  const isActive = tab.id === activeTab;
 
                   return (
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => {
-                        setActiveTab(tab.id);
-                        setMode('preview');
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919] transition ${
-                        isActive ? 'bg-[rgba(230,230,230,1)]' : ' hover:bg-[#F8FAFC]'
-                      }`}
+                      disabled
+                      aria-disabled="true"
+                      className="inline-flex cursor-default items-center gap-1.5 rounded-[6px] border border-transparent px-3 py-1.5 text-[12px] text-[#191919]"
                       data-testid={`agent-tab-${tab.id}`}
                     >
                       <TabIcon className="h-3.5 w-3.5" />

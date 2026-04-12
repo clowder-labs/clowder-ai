@@ -41,6 +41,8 @@ export interface MassModelInfo {
   labels?: string[]; // 标签
   developer?: string; // 提供者
   icon?: string; // 图标 URL
+  baseUrl?: string;
+  accessMode?: 'huawei_maas_access';
 }
 
 export interface MassModelsResponse {
@@ -232,6 +234,8 @@ function toConfiguredModelList(
     description?: string;
     icon?: string;
     protocol?: string;
+    baseUrl?: string;
+    accessMode?: 'huawei_maas_access';
   }>,
 ): MassModelInfo[] {
   return bindings.flatMap((binding) =>
@@ -243,6 +247,8 @@ function toConfiguredModelList(
       kind: 'provider' as const,
       ...(binding.protocol ? { protocol: binding.protocol } : {}),
       enabled: true,
+      ...(binding.baseUrl ? { baseUrl: binding.baseUrl } : {}),
+      ...(binding.accessMode ? { accessMode: binding.accessMode } : {}),
       description:
         binding.protocol === 'huawei_maas'
           ? '来自 ~/.office-claw/model.json'

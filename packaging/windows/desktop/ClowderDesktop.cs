@@ -133,19 +133,11 @@ internal sealed class LauncherForm : Form
 
     private readonly object _logLock = new object();
     private readonly NotifyIcon _notifyIcon;
-    private readonly Panel _statusPanel;
-    private readonly PictureBox _splashBox;
-    private readonly System.Windows.Forms.Timer _spinnerTimer;
     private readonly EventWaitHandle _activationEvent;
     private readonly RegisteredWaitHandle _activationWaitHandle;
     private readonly string _projectRoot;
     private readonly string _logFilePath;
     private readonly string _runtimeStatePath;
-    private const float SplashStatusAnchorX = 0.5f;
-    private const float SplashStatusAnchorY = 0.8f;
-    private const float SplashStatusBaseFontSize = 22f;
-    private const float SplashStatusMinScale = 0.75f;
-    private const float SplashStatusMaxScale = 1.35f;
     private Process _serviceHostProcess;
     private bool _serviceStartedByLauncher;
     private bool _exitRequested;
@@ -154,10 +146,8 @@ internal sealed class LauncherForm : Form
     private bool _hasTrayRestorePlacement;
     private WINDOWPLACEMENT _trayRestorePlacement;
     private string _frontendUrl;
-    private string _statusText = "加载中...";
-    private int _spinnerAngle;
+    private WebView2 _splashWebView;
     private WebView2 _webView;
-    private Image _splashImage;
 
     public LauncherForm(EventWaitHandle activationEvent)
     {
@@ -186,48 +176,6 @@ internal sealed class LauncherForm : Form
         _trayRestorePlacement = CreateEmptyWindowPlacement();
         Resize += (_, __) => PublishWindowState();
 
-        _splashBox = new PictureBox
-        {
-            Dock = DockStyle.Fill,
-            SizeMode = PictureBoxSizeMode.Normal,
-            BackColor = Color.Black,
-        };
-        _splashBox.Paint += OnSplashPaint;
-
-        var splashImagePath = Path.Combine(_projectRoot, "assets", "splash.jpg");
-        if (File.Exists(splashImagePath))
-        {
-            try { _splashImage = Image.FromFile(splashImagePath); }
-            catch { /* fall back to plain background */ }
-        }
-
-        _statusPanel = new DoubleBufferedPanel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.Transparent,
-        };
-        _statusPanel.Paint += OnStatusPanelPaint;
-
-        _spinnerTimer = new System.Windows.Forms.Timer { Interval = 40 };
-        _spinnerTimer.Tick += (_, __) =>
-        {
-            _spinnerAngle = (_spinnerAngle + 10) % 360;
-            if (_statusPanel != null && !_statusPanel.IsDisposed)
-            {
-                _statusPanel.Invalidate();
-            }
-        };
-        _spinnerTimer.Start();
-
-        _splashBox.Controls.Add(_statusPanel);
-        _statusPanel.BringToFront();
-        _splashBox.Resize += (_, __) =>
-        {
-            RepositionStatusLabel();
-            _splashBox.Invalidate();
-        };
-        Controls.Add(_splashBox);
-        RepositionStatusLabel();
         Shown += async (_, __) => await InitializeAsync();
         FormClosing += OnFormClosing;
         FormClosed += (_, __) => DisposeNotifyIcon();
@@ -237,13 +185,15 @@ internal sealed class LauncherForm : Form
     {
         try
         {
-            UpdateStatus("Checking local workspace services...");
+            // 初始化启动页 WebView2
+            await InitializeSplashWebViewAsync().ConfigureAwait(true);
+
             AppendLog("Launcher boot started.");
             TryRefreshFrontendUrlFromRuntimeState();
 
             if (!await IsFrontendReadyAsync().ConfigureAwait(true))
             {
-                UpdateStatus("Starting local services...");
+                AppendLog("Starting local services...");
                 StartManagedServices();
                 _serviceStartedByLauncher = true;
             }
@@ -252,10 +202,8 @@ internal sealed class LauncherForm : Form
                 AppendLog("Frontend already running - reusing existing services.");
             }
 
-            UpdateStatus("Waiting for UI...");
             await WaitForFrontendAsync(TimeSpan.FromMinutes(2)).ConfigureAwait(true);
 
-            UpdateStatus("Opening desktop window...");
             await InitializeWebViewAsync().ConfigureAwait(true);
             AppendLog("Desktop window ready.");
         }
@@ -455,11 +403,6 @@ internal sealed class LauncherForm : Form
             return;
         }
 
-        if (_webView == null || _webView.IsDisposed || _webView.CoreWebView2 == null)
-        {
-            return;
-        }
-
         var isMaximized = WindowState == FormWindowState.Maximized ? "true" : "false";
         var isMinimized = WindowState == FormWindowState.Minimized ? "true" : "false";
         var canMaximize = MaximizeBox ? "true" : "false";
@@ -468,7 +411,15 @@ internal sealed class LauncherForm : Form
 
         try
         {
-            _webView.CoreWebView2.PostWebMessageAsJson(payload);
+            if (_splashWebView != null && !_splashWebView.IsDisposed && _splashWebView.CoreWebView2 != null)
+            {
+                _splashWebView.CoreWebView2.PostWebMessageAsJson(payload);
+            }
+
+            if (_webView != null && !_webView.IsDisposed && _webView.CoreWebView2 != null)
+            {
+                _webView.CoreWebView2.PostWebMessageAsJson(payload);
+            }
         }
         catch (Exception ex)
         {
@@ -839,6 +790,50 @@ internal sealed class LauncherForm : Form
         });
     }
 
+    private async Task InitializeSplashWebViewAsync()
+    {
+        var userDataFolder = Path.Combine(_projectRoot, ".office-claw", "webview2");
+        Directory.CreateDirectory(userDataFolder);
+
+        _splashWebView = new WebView2
+        {
+            Dock = DockStyle.Fill,
+            CreationProperties = new CoreWebView2CreationProperties
+            {
+                UserDataFolder = userDataFolder,
+            },
+        };
+
+        Controls.Add(_splashWebView);
+
+        await _splashWebView.EnsureCoreWebView2Async().ConfigureAwait(true);
+
+        var settings = _splashWebView.CoreWebView2.Settings;
+        settings.IsStatusBarEnabled = false;
+        settings.AreDevToolsEnabled = false;
+        settings.AreDefaultContextMenusEnabled = false;
+        settings.IsZoomControlEnabled = false;
+        settings.AreBrowserAcceleratorKeysEnabled = false;
+        settings.IsPinchZoomEnabled = false;
+        settings.IsPasswordAutosaveEnabled = false;
+        settings.IsGeneralAutofillEnabled = false;
+        settings.IsSwipeNavigationEnabled = false;
+
+        _splashWebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+
+        var splashHtmlPath = Path.Combine(_projectRoot, "assets", "splash.html");
+        if (File.Exists(splashHtmlPath))
+        {
+            _splashWebView.Source = new Uri("file:///" + splashHtmlPath.Replace("\\", "/"));
+        }
+        else
+        {
+            AppendLog("Warning: splash.html not found at " + splashHtmlPath);
+        }
+
+        PublishWindowState();
+    }
+
     private async Task InitializeWebViewAsync()
     {
         var userDataFolder = Path.Combine(_projectRoot, ".office-claw", "webview2");
@@ -853,15 +848,12 @@ internal sealed class LauncherForm : Form
             },
         };
 
-        _spinnerTimer.Stop();
-        _spinnerTimer.Dispose();
         Controls.Clear();
-        if (_splashImage != null)
+        if (_splashWebView != null && !_splashWebView.IsDisposed)
         {
-            _splashImage.Dispose();
-            _splashImage = null;
+            _splashWebView.Dispose();
+            _splashWebView = null;
         }
-        _splashBox.Dispose();
         Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
@@ -947,19 +939,6 @@ internal sealed class LauncherForm : Form
         }
     }
 
-    private void UpdateStatus(string message)
-    {
-        if (InvokeRequired)
-        {
-            BeginInvoke((Action)(() => UpdateStatus(message)));
-            return;
-        }
-
-        _statusText = "加载中...";
-        _statusPanel.Invalidate();
-        AppendLog(message);
-    }
-
     private void AppendLog(string message)
     {
         lock (_logLock)
@@ -970,131 +949,6 @@ internal sealed class LauncherForm : Form
                 Encoding.UTF8
             );
         }
-    }
-
-    private void RepositionStatusLabel()
-    {
-        if (_statusPanel == null || _statusPanel.IsDisposed)
-        {
-            return;
-        }
-
-        _statusPanel.Invalidate();
-    }
-
-    private RectangleF GetSplashImageBounds(Size canvas)
-    {
-        if (_splashImage == null || canvas.Width <= 0 || canvas.Height <= 0)
-        {
-            return RectangleF.Empty;
-        }
-
-        var img = _splashImage;
-        float scale = Math.Max(
-            (float)canvas.Width / img.Width,
-            (float)canvas.Height / img.Height
-        );
-
-        float scaledW = img.Width * scale;
-        float scaledH = img.Height * scale;
-        float x = (canvas.Width - scaledW) / 2f;
-        float y = (canvas.Height - scaledH) / 2f;
-        return new RectangleF(x, y, scaledW, scaledH);
-    }
-
-    private float GetSplashOverlayScale(RectangleF imageBounds)
-    {
-        if (_splashImage == null || imageBounds.IsEmpty)
-        {
-            return 1f;
-        }
-
-        float scaleX = imageBounds.Width / _splashImage.Width;
-        float scaleY = imageBounds.Height / _splashImage.Height;
-        float scale = Math.Min(scaleX, scaleY);
-        return Math.Max(SplashStatusMinScale, Math.Min(SplashStatusMaxScale, scale));
-    }
-
-    private void OnSplashPaint(object sender, PaintEventArgs eventArgs)
-    {
-        if (_splashImage == null)
-        {
-            return;
-        }
-
-        var imageBounds = GetSplashImageBounds(((Control)sender).ClientSize);
-        if (imageBounds.IsEmpty)
-        {
-            return;
-        }
-
-        eventArgs.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        eventArgs.Graphics.DrawImage(_splashImage, imageBounds);
-    }
-
-    private void OnStatusPanelPaint(object sender, PaintEventArgs eventArgs)
-    {
-        if (_splashImage == null)
-        {
-            return;
-        }
-
-        var panel = (Panel)sender;
-        var g = eventArgs.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-
-        var imageBounds = GetSplashImageBounds(panel.ClientSize);
-        if (imageBounds.IsEmpty)
-        {
-            return;
-        }
-
-        float overlayScale = GetSplashOverlayScale(imageBounds);
-        float fontSize = SplashStatusBaseFontSize * overlayScale;
-        float spinnerSize = 24f * overlayScale;
-        float gap = 10f * overlayScale;
-        float strokeWidth = Math.Max(2f, 2.5f * overlayScale);
-
-        using (var font = new Font("Segoe UI", fontSize, FontStyle.Regular, GraphicsUnit.Pixel))
-        {
-            var textSize = g.MeasureString(_statusText, font);
-            float totalWidth = spinnerSize + gap + textSize.Width;
-            float anchorX = imageBounds.Left + imageBounds.Width * SplashStatusAnchorX;
-            float anchorY = imageBounds.Top + imageBounds.Height * SplashStatusAnchorY;
-            float startX = anchorX - totalWidth / 2f;
-            float spinnerY = anchorY - spinnerSize / 2f;
-            float textX = startX + spinnerSize + gap;
-            float textY = anchorY - textSize.Height / 2f;
-
-            var spinnerColor = Color.FromArgb(255, 128, 0);
-            var textColor = Color.FromArgb(51, 51, 51);
-
-            using (var pen = new Pen(spinnerColor, strokeWidth))
-            {
-                pen.StartCap = LineCap.Round;
-                pen.EndCap = LineCap.Round;
-                g.DrawArc(pen, startX, spinnerY, spinnerSize, spinnerSize, _spinnerAngle, 270);
-            }
-
-            using (var brush = new SolidBrush(textColor))
-            {
-                g.DrawString(_statusText, font, brush, textX, textY);
-            }
-        }
-    }
-}
-
-internal sealed class DoubleBufferedPanel : Panel
-{
-    public DoubleBufferedPanel()
-    {
-        SetStyle(
-            ControlStyles.UserPaint |
-            ControlStyles.AllPaintingInWmPaint |
-            ControlStyles.OptimizedDoubleBuffer,
-            true
-        );
     }
 }
 

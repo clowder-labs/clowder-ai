@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OfficeClaw 启动中</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #fdf2f8 0%, #ffffff 100%);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        /* 自定义标题栏样式 */
+        .custom-titlebar {
+            height: 40px;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0;
+            flex-shrink: 0;
+        }
+        .titlebar-drag-region {
+            flex: 1;
+            height: 100%;
+            cursor: default;
+        }
+        .titlebar-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 8px;
+        }
+        .titlebar-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: 0;
+            padding: 0;
+            background: transparent;
+            color: #666;
+            cursor: pointer;
+            transition: opacity 160ms ease;
+            border-radius: 4px;
+        }
+        .titlebar-button:hover {
+            opacity: 0.72;
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .titlebar-button:disabled {
+            cursor: default;
+            opacity: 0.4;
+        }
+        .titlebar-button svg {
+            width: 20px;
+            height: 20px;
+        }
+        .content-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            padding: 3rem 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2.5rem;
+        }
+        .logo {
+            width: 248px;
+            height: 56px;
+            margin-bottom: 0.5rem;
+        }
+        .tagline {
+            max-width: 700px;
+            text-align: center;
+            font-size: 1.375rem;
+            font-weight: 600;
+            line-height: 2.25rem;
+            color: #4b5563;
+            margin-bottom: 1.5rem;
+            white-space: nowrap;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            width: 100%;
+            max-width: 900px;
+        }
+        .feature-card {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .feature-icon {
+            width: 32px;
+            height: 32px;
+            margin-bottom: 0.75rem;
+        }
+        .feature-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 0.375rem;
+            line-height: 1.25rem;
+        }
+        .feature-desc {
+            font-size: 0.875rem;
+            color: #6b7280;
+            line-height: 1.5rem;
+        }
+        .loading-section {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .loading-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        .status-text {
+            font-size: 1rem;
+            color: #374151;
+            font-weight: 500;
+        }
+        @media (max-width: 1024px) {
+            .features {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+            }
+            .tagline {
+                font-size: 1.25rem;
+                line-height: 2rem;
+            }
+        }
+        @media (max-width: 640px) {
+            .features {
+                grid-template-columns: 1fr;
+            }
+            .tagline {
+                font-size: 1.125rem;
+                line-height: 1.75rem;
+            }
+            .container {
+                padding: 2rem 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 自定义标题栏 -->
+    <div class="custom-titlebar">
+        <div class="titlebar-drag-region" id="titlebarDragRegion"></div>
+        <div class="titlebar-actions">
+            <button class="titlebar-button" id="minimizeBtn" title="最小化" aria-label="最小化">
+                <svg viewBox="0 0 16 16" fill="none">
+                    <path d="M4 8H12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+            </button>
+            <button class="titlebar-button" id="maximizeBtn" title="最大化" aria-label="最大化">
+                <svg viewBox="0 0 16 16" fill="none" id="maximizeIcon">
+                    <rect x="4.25" y="4.25" width="7.5" height="7.5" rx="0.9" stroke="currentColor" stroke-width="1.2" />
+                </svg>
+                <svg viewBox="0 0 16 16" fill="none" id="restoreIcon" style="display: none;">
+                    <path d="M5.75 4.25H10.1C10.984 4.25 11.7 4.966 11.7 5.85V10.2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M10.25 5.75H5.9C5.016 5.75 4.3 6.466 4.3 7.35V11.1C4.3 11.984 5.016 12.7 5.9 12.7H10.25C11.134 12.7 11.85 11.984 11.85 11.1V7.35C11.85 6.466 11.134 5.75 10.25 5.75Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" />
+                </svg>
+            </button>
+            <button class="titlebar-button" id="closeBtn" title="关闭" aria-label="关闭">
+                <svg viewBox="0 0 16 16" fill="none">
+                    <path d="M5 5L11 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                    <path d="M11 5L5 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 内容区域 -->
+    <div class="content-wrapper">
+        <div class="container">
+        <img src="OfficeClaw.svg" alt="OfficeClaw" class="logo">
+
+        <p class="tagline">AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你</p>
+
+        <div class="features">
+            <div class="feature-card">
+                <img src="login1.svg" alt="AI PPT" class="feature-icon">
+                <h3 class="feature-title">专业办公级AI PPT生产力</h3>
+                <p class="feature-desc">专业办公级AI PPT生成能力，一键完成高质量PPT创作与美化</p>
+            </div>
+
+            <div class="feature-card">
+                <img src="login2.svg" alt="专家团思辨模式" class="feature-icon">
+                <h3 class="feature-title">专家团思辨模式</h3>
+                <p class="feature-desc">多智能体对等协同思辨，通过投票推选核心Leader智能体，统领指挥、协同执行复杂任务</p>
+            </div>
+
+            <div class="feature-card">
+                <img src="login3.svg" alt="预置办公场景精品Skill" class="feature-icon">
+                <h3 class="feature-title">预置办公场景精品Skill</h3>
+                <p class="feature-desc">预置PPT、Word、Excel等办公场景Skill，轻松解锁高效工作流</p>
+            </div>
+
+            <div class="feature-card">
+                <img src="login4.svg" alt="全渠道接入" class="feature-icon">
+                <h3 class="feature-title">全渠道接入，支持微信直连</h3>
+                <p class="feature-desc">支持飞书、微信、钉钉、小艺等多平台接入，微信直连更便捷，实现全场景办公覆盖</p>
+            </div>
+        </div>
+
+        <div class="loading-section">
+            <img src="loading-point-style.webp" alt="" class="loading-icon">
+            <div class="status-text">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 窗口控制功能
+        (function() {
+            var isMaximized = false;
+            var dragState = {
+                isDragging: false,
+                startX: 0,
+                startY: 0
+            };
+
+            // 监听来自 C# 的窗口状态消息
+            window.chrome = window.chrome || {};
+            window.chrome.webview = window.chrome.webview || {};
+
+            if (window.chrome.webview) {
+                // 监听窗口状态更新
+                if (window.chrome.webview.addEventListener) {
+                    window.chrome.webview.addEventListener('message', function(event) {
+                        if (event.data && event.data.type === 'window.state') {
+                            isMaximized = event.data.payload.isMaximized;
+                            updateMaximizeIcon();
+                        }
+                    });
+                }
+
+                // 最小化按钮
+                document.getElementById('minimizeBtn').addEventListener('click', function() {
+                    window.chrome.webview.postMessage('window.minimize');
+                });
+
+                // 最大化/还原按钮
+                document.getElementById('maximizeBtn').addEventListener('click', function() {
+                    window.chrome.webview.postMessage('window.toggleMaximize');
+                });
+
+                // 关闭按钮
+                document.getElementById('closeBtn').addEventListener('click', function() {
+                    window.chrome.webview.postMessage('window.close');
+                });
+
+                // 拖动区域的鼠标按下事件
+                var dragRegion = document.getElementById('titlebarDragRegion');
+                dragRegion.addEventListener('mousedown', function(e) {
+                    // 只响应左键
+                    if (e.button !== 0) {
+                        return;
+                    }
+
+                    // 记录鼠标按下的位置，等待 mousemove
+                    dragState = {
+                        isDragging: false,
+                        startX: e.clientX,
+                        startY: e.clientY
+                    };
+                });
+
+                // 双击拖动区域切换最大化
+                dragRegion.addEventListener('dblclick', function(e) {
+                    window.chrome.webview.postMessage('window.toggleMaximize');
+                });
+
+                // 全局 mousemove 监听
+                document.addEventListener('mousemove', function(e) {
+                    // 如果鼠标按下了，但还没开始拖动
+                    if (dragState.startX !== 0 && !dragState.isDragging) {
+                        // 计算鼠标移动距离
+                        var deltaX = Math.abs(e.clientX - dragState.startX);
+                        var deltaY = Math.abs(e.clientY - dragState.startY);
+                        // 如果移动超过 5px，认为是拖动意图
+                        if (deltaX > 5 || deltaY > 5) {
+                            dragState.isDragging = true;
+                            // 触发拖动
+                            window.chrome.webview.postMessage('window.startDrag');
+                        }
+                    }
+                });
+
+                // 全局 mouseup 监听
+                document.addEventListener('mouseup', function() {
+                    // 重置状态
+                    dragState = {
+                        isDragging: false,
+                        startX: 0,
+                        startY: 0
+                    };
+                });
+
+                // 请求初始窗口状态
+                window.chrome.webview.postMessage('window.syncState');
+            }
+
+            function updateMaximizeIcon() {
+                var maximizeIcon = document.getElementById('maximizeIcon');
+                var restoreIcon = document.getElementById('restoreIcon');
+                var maximizeBtn = document.getElementById('maximizeBtn');
+
+                if (isMaximized) {
+                    maximizeIcon.style.display = 'none';
+                    restoreIcon.style.display = 'block';
+                    maximizeBtn.title = '还原';
+                    maximizeBtn.setAttribute('aria-label', '还原');
+                } else {
+                    maximizeIcon.style.display = 'block';
+                    restoreIcon.style.display = 'none';
+                    maximizeBtn.title = '最大化';
+                    maximizeBtn.setAttribute('aria-label', '最大化');
+                }
+            }
+        })();
+    </script>
+</body>
+</html>

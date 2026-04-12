@@ -1,10 +1,18 @@
 import { join } from 'node:path';
 
 export function resolveOfficialSkillsRoot(hostRoot: string): string {
-  return join(hostRoot, 'cat-cafe-skills');
+  return join(hostRoot, 'office-claw-skills');
 }
 
 export function resolveUserSkillsRoot(hostRoot: string): string {
+  return join(hostRoot, '.office-claw', 'skills');
+}
+
+export function resolveLegacyOfficialSkillsRoot(hostRoot: string): string {
+  return join(hostRoot, 'cat-cafe-skills');
+}
+
+export function resolveLegacyUserSkillsRoot(hostRoot: string): string {
   return join(hostRoot, '.cat-cafe', 'skills');
 }
 

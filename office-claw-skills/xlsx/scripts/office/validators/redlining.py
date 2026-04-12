@@ -2,6 +2,7 @@
 Validator for tracked changes in Word documents.
 """
 import logging
+import shutil
 import subprocess
 import tempfile
 import zipfile
@@ -20,6 +21,7 @@ class RedliningValidator:
         }
 
     def repair(self) -> int:
+        logging.info(self.verbose)
         return 0
 
     def validate(self):
@@ -103,6 +105,7 @@ class RedliningValidator:
             return True
 
     def _generate_detailed_diff(self, original_text, modified_text):
+        logging.info(f"begin _generate_detailed_diff {self.verbose}")
         error_parts = [
             f"FAILED - Document text doesn't match after removing {self.author}'s tracked changes",
             "",
@@ -135,10 +138,10 @@ class RedliningValidator:
 
                 original_file.write_text(original_text, encoding="utf-8")
                 modified_file.write_text(modified_text, encoding="utf-8")
-
+                git_path = shutil.which("git") or "git"
                 result = subprocess.run(
                     [
-                        "git",
+                        git_path,
                         "diff",
                         "--word-diff=plain",
                         "--word-diff-regex=.",  
@@ -167,7 +170,7 @@ class RedliningValidator:
 
                 result = subprocess.run(
                     [
-                        "git",
+                        git_path,
                         "diff",
                         "--word-diff=plain",
                         "-U0",  

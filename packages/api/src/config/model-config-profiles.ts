@@ -373,6 +373,7 @@ export async function readProjectModelConfigProfileViews(projectRoot: string): P
     icon: binding.icon,
     baseUrl: binding.baseUrl,
     apiKey: binding.apiKey,
+    headers: binding.headers,
     authType: binding.protocol === 'huawei_maas' ? 'none' : 'api_key',
     kind: 'api_key' as const,
     builtin: false,

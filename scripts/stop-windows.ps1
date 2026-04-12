@@ -105,7 +105,9 @@ function Test-ClowderOwnedProcess {
         return $false
     }
     $normalizedRoot = $ClowderProjectRoot.TrimEnd('\', '/') + '\'
-    return ($commandLine -like "*$normalizedRoot*") -or ($commandLine -like "*$ClowderProjectRoot`"*") -or ($commandLine -like "*$ClowderProjectRoot'*")
+    return (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle $normalizedRoot) -or
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ClowderProjectRoot + '"')) -or
+        (Test-CommandLineContainsLiteral -CommandLine $commandLine -Needle ($ClowderProjectRoot + "'"))
 }
 
 function Stop-PortProcess {
@@ -229,11 +231,11 @@ if ($ProjectRoot) {
             if (-not $proc.CommandLine) { continue }
             $cmdLine = $proc.CommandLine
             $isClowderPython = (
-                ($cmdLine -like "*$ProjectRoot*") -or
-                ($cmdLine -like "*tools\python\python.exe*") -or
-                ($cmdLine -like "*tools/python/python.exe*") -or
-                ($cmdLine -like "*vendor\jiuwenclaw*") -or
-                ($cmdLine -like "*vendor/jiuwenclaw*")
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle $ProjectRoot) -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "tools\python\python.exe") -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "tools/python/python.exe") -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "vendor\jiuwenclaw") -or
+                (Test-CommandLineContainsLiteral -CommandLine $cmdLine -Needle "vendor/jiuwenclaw")
             )
             if (-not $isClowderPython) { continue }
             if (-not (Test-ClowderOwnedProcess -ProcessId $proc.ProcessId -ClowderProjectRoot $ProjectRoot)) {
@@ -248,7 +250,7 @@ if ($ProjectRoot) {
             Write-Ok "Stopped orphaned Python processes"
         }
     } catch {
-        # Best-effort cleanup — do not block shutdown
+        # Best-effort cleanup - do not block shutdown
     }
 }
 
@@ -258,3 +260,4 @@ Remove-Item $redisPidFile -ErrorAction SilentlyContinue
 Remove-WindowsRuntimeStateFile -StateFile $RuntimeStateFile
 
 Write-Host "`nAll services stopped." -ForegroundColor Green
+
