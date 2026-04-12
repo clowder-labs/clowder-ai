@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { JiuwenAgentWsClient } from '@/utils/jiuwen-agent-ws-client';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
 
 export interface SecurityManagementModalProps {
@@ -94,7 +94,6 @@ function updateToolValue(
 }
 
 export default function SecurityManagementModal({ open, onClose }: SecurityManagementModalProps) {
-  const clientRef = useRef<JiuwenAgentWsClient | null>(null);
   const [permissionsConfig, setPermissionsConfig] = useState<PermissionsConfig | null>(null);
   const [approvalBarEnabled, setApprovalBarEnabled] = useState(false);
   const [policies, setPolicies] = useState<SecurityPolicyItem[]>([]);
@@ -106,14 +105,10 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
 
   useEffect(() => {
     if (!open) {
-      clientRef.current?.disconnect();
-      clientRef.current = null;
       return;
     }
 
     let cancelled = false;
-    const client = new JiuwenAgentWsClient();
-    clientRef.current = client;
 
     async function loadPermissions() {
       setLoading(true);
@@ -121,13 +116,10 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
       setSaveError(null);
 
       try {
-        const response = await client.configGet(['permissions']);
-        const permissions = response.payload?.trees?.permissions as PermissionsConfig | undefined;
-        const error = response.payload?.error;
-
-        if (!response.ok || !permissions) {
-          throw new Error(typeof error === 'string' ? error : 'Failed to load permissions config');
-        }
+        const response = await apiFetch('/api/config/relayclaw/security');
+        const payload = (await response.json()) as { permissions?: PermissionsConfig; error?: string };
+        const permissions = payload.permissions;
+        if (!response.ok || !permissions) throw new Error(payload.error || 'Failed to load permissions config');
 
         if (cancelled) return;
 
@@ -151,17 +143,11 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
 
     return () => {
       cancelled = true;
-      if (clientRef.current === client) {
-        client.disconnect();
-        clientRef.current = null;
-      }
     };
   }, [open]);
 
   const handleToggleApprovalBar = async () => {
     if (savingApprovalBar) return;
-    const client = clientRef.current;
-    if (!client) return;
 
     const previousEnabled = approvalBarEnabled;
     const nextEnabled = !previousEnabled;
@@ -170,15 +156,17 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
     setSavingApprovalBar(true);
 
     try {
-      const response = await client.configSet({
-        permissions: {
-          enabled: nextEnabled,
-        },
+      const response = await apiFetch('/api/config/relayclaw/security', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          permissions: {
+            enabled: nextEnabled,
+          },
+        }),
       });
-      const error = response.payload?.error;
-      if (!response.ok) {
-        throw new Error(typeof error === 'string' ? error : 'Failed to save permissions config');
-      }
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Failed to save permissions config');
       setPermissionsConfig((current) => ({
         ...(current ?? {}),
         enabled: nextEnabled,
@@ -193,8 +181,6 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
 
   const handleTogglePolicy = async (id: string) => {
     if (savingPolicyIds[id]) return;
-    const client = clientRef.current;
-    if (!client) return;
 
     const currentPolicy = policies.find((policy) => policy.id === id);
     const previousApprovalRequired = currentPolicy?.approvalRequired ?? false;
@@ -224,16 +210,20 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
     setSavingPolicyIds((current) => ({ ...current, [id]: true }));
 
     try {
-      const response = await client.configSet({
-        permissions: {
-          tools: {
-            [id]: nextToolValue,
+      const response = await apiFetch('/api/config/relayclaw/security', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          permissions: {
+            tools: {
+              [id]: nextToolValue,
+            },
           },
-        },
+        }),
       });
-      const error = response.payload?.error;
+      const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(typeof error === 'string' ? error : 'Failed to save tool policy');
+        throw new Error(payload.error || 'Failed to save tool policy');
       }
     } catch (error) {
       setPolicies((current) =>

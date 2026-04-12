@@ -1,23 +1,21 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiFetch } from '@/utils/api-client';
 import SecurityManagementModal from '../SecurityManagementModal';
 
-const mocks = vi.hoisted(() => ({
-  configGet: vi.fn(),
-  configSet: vi.fn(),
-  disconnect: vi.fn(),
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: vi.fn(),
 }));
 
-vi.mock('@/utils/jiuwen-agent-ws-client', () => ({
-  JiuwenAgentWsClient: vi.fn(function JiuwenAgentWsClient() {
-    return {
-      configGet: mocks.configGet,
-      configSet: mocks.configSet,
-      disconnect: mocks.disconnect,
-    };
-  }),
-}));
+const mockApiFetch = vi.mocked(apiFetch);
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 describe('SecurityManagementModal', () => {
   let container: HTMLDivElement;
@@ -32,33 +30,30 @@ describe('SecurityManagementModal', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    mocks.configGet.mockReset();
-    mocks.configSet.mockReset();
-    mocks.disconnect.mockReset();
-    mocks.configGet.mockResolvedValue({
-      request_id: 'req-1',
-      channel_id: 'web',
-      ok: true,
-      payload: {
-        trees: {
-          permissions: {
-            enabled: true,
-            tools: {
-              mcp_exec_command: { '*': 'ask', patterns: { 'git status *': 'allow' } },
-              write_memory: 'allow',
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((path, init) => {
+      if (path === '/api/config/relayclaw/security' && !init?.method) {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                mcp_exec_command: { '*': 'ask', patterns: { 'git status *': 'allow' } },
+                write_memory: 'allow',
+              },
             },
-          },
-        },
-      },
-    });
-    mocks.configSet.mockResolvedValue({
-      request_id: 'req-2',
-      channel_id: 'web',
-      ok: true,
-      payload: {
-        yaml_written: true,
-        reloaded: true,
-      },
+          }),
+        );
+      }
+      if (path === '/api/config/relayclaw/security' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { permissions?: unknown };
+        return Promise.resolve(
+          jsonResponse({
+            permissions: body.permissions ?? {},
+          }),
+        );
+      }
+      throw new Error(`Unexpected apiFetch path: ${String(path)}`);
     });
   });
 
@@ -89,13 +84,13 @@ describe('SecurityManagementModal', () => {
     return { promise, resolve, reject };
   }
 
-  it('loads permissions config when the modal opens', async () => {
+  it('loads permissions config from the API proxy when the modal opens', async () => {
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
     });
     await flush();
 
-    expect(mocks.configGet).toHaveBeenCalledWith(['permissions']);
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/config/relayclaw/security');
     const pageToggle = container.querySelector(
       '[data-testid="security-management-approval-bar-toggle"]',
     ) as HTMLButtonElement | null;
@@ -104,21 +99,18 @@ describe('SecurityManagementModal', () => {
     expect(container.textContent).toContain('write_memory');
   });
 
-  it('treats missing permissions.enabled as enabled when loading jiuwen config', async () => {
-    mocks.configGet.mockResolvedValueOnce({
-      request_id: 'req-1',
-      channel_id: 'web',
-      ok: true,
-      payload: {
-        trees: {
+  it('treats missing permissions.enabled as enabled when loading config', async () => {
+    mockApiFetch.mockImplementationOnce(() =>
+      Promise.resolve(
+        jsonResponse({
           permissions: {
             tools: {
               mcp_exec_command: { '*': 'ask' },
             },
           },
-        },
-      },
-    });
+        }),
+      ),
+    );
 
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
@@ -132,7 +124,7 @@ describe('SecurityManagementModal', () => {
     expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
   });
 
-  it('saves approval guard changes back to jiuwen', async () => {
+  it('saves approval guard changes through the API proxy', async () => {
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
     });
@@ -147,7 +139,10 @@ describe('SecurityManagementModal', () => {
       await Promise.resolve();
     });
 
-    expect(mocks.configSet).toHaveBeenCalledWith({
+    const patchCall = mockApiFetch.mock.calls.find(
+      ([path, init]) => path === '/api/config/relayclaw/security' && init?.method === 'PATCH',
+    );
+    expect(patchCall?.[1]?.body ? JSON.parse(String(patchCall[1].body)) : null).toEqual({
       permissions: {
         enabled: false,
       },
@@ -173,7 +168,11 @@ describe('SecurityManagementModal', () => {
       await Promise.resolve();
     });
 
-    expect(mocks.configSet).toHaveBeenCalledWith({
+    const firstPatchBody = mockApiFetch.mock.calls
+      .filter(([path, init]) => path === '/api/config/relayclaw/security' && init?.method === 'PATCH')
+      .map(([, init]) => JSON.parse(String(init?.body ?? '{}')))[0];
+
+    expect(firstPatchBody).toEqual({
       permissions: {
         tools: {
           mcp_exec_command: {
@@ -192,7 +191,12 @@ describe('SecurityManagementModal', () => {
       await Promise.resolve();
     });
 
-    expect(mocks.configSet).toHaveBeenLastCalledWith({
+    const lastPatchBody = mockApiFetch.mock.calls
+      .filter(([path, init]) => path === '/api/config/relayclaw/security' && init?.method === 'PATCH')
+      .map(([, init]) => JSON.parse(String(init?.body ?? '{}')))
+      .at(-1);
+
+    expect(lastPatchBody).toEqual({
       permissions: {
         tools: {
           write_memory: 'ask',
@@ -203,13 +207,24 @@ describe('SecurityManagementModal', () => {
   });
 
   it('reverts optimistic changes when save fails', async () => {
-    mocks.configSet.mockResolvedValueOnce({
-      request_id: 'req-3',
-      channel_id: 'web',
-      ok: false,
-      payload: {
-        error: 'save failed',
-      },
+    mockApiFetch.mockImplementation((path, init) => {
+      if (path === '/api/config/relayclaw/security' && !init?.method) {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                mcp_exec_command: { '*': 'ask', patterns: { 'git status *': 'allow' } },
+                write_memory: 'allow',
+              },
+            },
+          }),
+        );
+      }
+      if (path === '/api/config/relayclaw/security' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ error: 'save failed' }, 500));
+      }
+      throw new Error(`Unexpected apiFetch path: ${String(path)}`);
     });
 
     await act(async () => {
@@ -232,22 +247,29 @@ describe('SecurityManagementModal', () => {
   });
 
   it('keeps later successful tool toggles when an earlier save fails', async () => {
-    const firstSave = createDeferred<{
-      request_id: string;
-      channel_id: string;
-      ok: boolean;
-      payload: { error?: string; yaml_written?: boolean; reloaded?: boolean };
-    }>();
-    const secondSave = createDeferred<{
-      request_id: string;
-      channel_id: string;
-      ok: boolean;
-      payload: { error?: string; yaml_written?: boolean; reloaded?: boolean };
-    }>();
-
-    mocks.configSet
-      .mockImplementationOnce(() => firstSave.promise)
-      .mockImplementationOnce(() => secondSave.promise);
+    const firstSave = createDeferred<Response>();
+    const secondSave = createDeferred<Response>();
+    mockApiFetch.mockImplementation((path, init) => {
+      if (path === '/api/config/relayclaw/security' && !init?.method) {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                mcp_exec_command: { '*': 'ask', patterns: { 'git status *': 'allow' } },
+                write_memory: 'allow',
+              },
+            },
+          }),
+        );
+      }
+      if (path === '/api/config/relayclaw/security' && init?.method === 'PATCH') {
+        return mockApiFetch.mock.calls.filter(([, callInit]) => callInit?.method === 'PATCH').length === 1
+          ? firstSave.promise
+          : secondSave.promise;
+      }
+      throw new Error(`Unexpected apiFetch path: ${String(path)}`);
+    });
 
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
@@ -267,43 +289,22 @@ describe('SecurityManagementModal', () => {
       await Promise.resolve();
     });
 
-    secondSave.resolve({
-      request_id: 'req-2b',
-      channel_id: 'web',
-      ok: true,
-      payload: {
-        yaml_written: true,
-        reloaded: true,
-      },
-    });
+    secondSave.resolve(
+      jsonResponse({
+        permissions: {
+          tools: {
+            write_memory: 'ask',
+          },
+        },
+      }),
+    );
     await flush();
 
-    firstSave.resolve({
-      request_id: 'req-2a',
-      channel_id: 'web',
-      ok: false,
-      payload: {
-        error: 'first save failed',
-      },
-    });
+    firstSave.resolve(jsonResponse({ error: 'first save failed' }, 500));
     await flush();
 
     expect(commandToggle?.getAttribute('aria-checked')).toBe('true');
     expect(memoryToggle?.getAttribute('aria-checked')).toBe('true');
     expect(container.textContent).toContain('first save failed');
-  });
-
-  it('disconnects the websocket client when the modal closes', async () => {
-    await act(async () => {
-      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
-    });
-    await flush();
-
-    await act(async () => {
-      root.render(React.createElement(SecurityManagementModal, { open: false, onClose: vi.fn() }));
-      await Promise.resolve();
-    });
-
-    expect(mocks.disconnect).toHaveBeenCalled();
   });
 });
