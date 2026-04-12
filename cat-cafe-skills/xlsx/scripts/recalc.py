@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import platform
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -32,8 +33,9 @@ RECALCULATE_MACRO = """<?xml version="1.0" encoding="UTF-8"?>
 
 def has_gtimeout():
     try:
+        gtimeout_path = shutil.which("gtimeout") or "gtimeout"
         subprocess.run(
-            ["gtimeout", "--version"], capture_output=True, timeout=1, check=False
+            [gtimeout_path, "--version"], capture_output=True, timeout=1, check=False
         )
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -53,8 +55,9 @@ def setup_libreoffice_macro():
         return True
 
     if not os.path.exists(macro_dir):
+        soffice_path = shutil.which("soffice") or "soffice"
         subprocess.run(
-            ["soffice", "--headless", "--terminate_after_init"],
+            [soffice_path, "--headless", "--terminate_after_init"],
             capture_output=True,
             timeout=10,
             env=get_soffice_env(),
