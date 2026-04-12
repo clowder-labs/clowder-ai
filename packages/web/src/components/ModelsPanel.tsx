@@ -874,7 +874,7 @@ export function ModelsPanel() {
                     type="button"
                     aria-label="Upload model icon"
                     onClick={() => modelIconFileInputRef.current?.click()}
-                    className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
+                    className="group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

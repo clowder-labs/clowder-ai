@@ -829,7 +829,7 @@ export function CreateAgentModal({
                   type="button"
                   aria-label="Upload avatar"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                  className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />

@@ -593,7 +593,7 @@ export function ThreadSidebar({
               <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               技能
             </button>
-            {/* <button
+            <button
               type="button"
               onClick={() => onMenuClick?.('scheduledTasks')}
               className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
@@ -601,7 +601,7 @@ export function ThreadSidebar({
             >
               <img src="/icons/scheduled-task.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               定时任务
-            </button> */}
+            </button>
           </div>
         </div>
 
