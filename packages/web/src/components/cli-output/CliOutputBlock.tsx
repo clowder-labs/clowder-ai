@@ -15,14 +15,6 @@ import { LoadingPointStyle } from '../LoadingPointStyle';
 
 /* ── Helpers ── */
 
-/** Convert hex to rgba */
-function hexToRgba(hex: string, opacity: number): string {
-  const r = Number.parseInt(hex.slice(1, 3), 16);
-  const g = Number.parseInt(hex.slice(3, 5), 16);
-  const b = Number.parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-}
-
 /** Blend accent into a dark base → tinted dark surface (not transparent) */
 function tintedDark(hex: string, ratio = 0.25, base = '#1A1625'): string {
   const parse = (h: string) => [
@@ -269,25 +261,6 @@ function CheckIcon() {
   );
 }
 
-function LoaderIcon({ color }: { color?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color || 'currentColor'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0 animate-spin"
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}
-
 function PawPrint() {
   return (
     <svg
@@ -471,7 +444,6 @@ function ToolRow({
   const hasResult = event.detail != null;
   // Design: active = breed bg 20% + left border 2px + lighter text
   const accentLight = lighten(accent, 0.6); // ~#C084FC equivalent
-  const accentVeryLight = lighten(accent, 0.9); // ~#F5F3FF equivalent
 
   return (
     <button
@@ -507,7 +479,10 @@ function ToolRow({
         {hasResult && <ChevronIcon expanded={rowExpanded} />}
       </div>
       {rowExpanded && hasResult && event.detail && (
-        <div className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]" style={{ color: '#64748B' }}>
+        <div
+          className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]"
+          style={{ color: '#64748B' }}
+        >
           {event.detail}
         </div>
       )}
@@ -651,9 +626,6 @@ export function CliOutputBlock({
   const textEvents = events.filter((e) => e.kind === 'text');
   const lastToolId = status === 'streaming' ? [...events].reverse().find((e) => e.kind === 'tool_use')?.id : undefined;
   const accent = breedColor || '#7C3AED';
-  // Breed-tinted dark surface: accent blended into dark base → visibly colored AND text-readable
-  const surface = tintedDark(accent, 0.25);
-  const surfaceInner = tintedDark(accent, 0.18);
 
   const handleToggle = () => {
     userInteracted.current = true;

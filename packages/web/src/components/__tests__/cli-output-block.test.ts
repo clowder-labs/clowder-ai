@@ -284,6 +284,9 @@ describe('CliOutputBlock', () => {
       toolRow?.click();
     });
     expect(container.textContent).toContain('200 lines read');
+    const detailPanel = toolRow?.querySelector('.break-words') as HTMLDivElement | null;
+    expect(detailPanel?.className).toContain('break-words');
+    expect(detailPanel?.className).toContain('[overflow-wrap:anywhere]');
   });
 
   // ── P1-2: auto-collapse on streaming→done (AC-A6) ──
