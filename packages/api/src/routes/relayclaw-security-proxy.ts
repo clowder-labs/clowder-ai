@@ -113,7 +113,6 @@ export class DefaultRelayClawSecurityClient implements RelayClawSecurityClient {
       executablePath,
       appDir,
       pythonBin,
-      homeDir: join(this.projectRoot, '.cat-cafe', 'relayclaw', RELAYCLAW_CAT_ID),
     };
   }
 }
