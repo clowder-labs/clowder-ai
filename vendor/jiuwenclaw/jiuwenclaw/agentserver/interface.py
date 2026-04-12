@@ -84,6 +84,12 @@ from jiuwenclaw.agentserver.tools.multimodal_config import (
     apply_vision_model_config_from_yaml,
     apply_video_model_config_from_yaml,
 )
+from jiuwenclaw.agentserver.runtime_config_yaml import (
+    apply_config_yaml_patch,
+    build_config_subtrees_payload,
+    ConfigYamlLockTimeoutError,
+    normalize_and_validate_config_paths,
+)
 from jiuwenclaw.agentserver.memory.compaction import ContextCompactionManager
 from jiuwenclaw.agentserver.memory.config import clear_config_cache
 from jiuwenclaw.agentserver.memory import clear_memory_manager_cache
@@ -670,6 +676,123 @@ class JiuWenClaw:
             logger.warning("[JiuWenClaw] Permission config reload failed: %s", exc)
         logger.info("[JiuWenClaw] 配置已热更新，未重启进程")
 
+    async def apply_runtime_config_yaml(self, request: AgentRequest) -> AgentResponse:
+        """独立流程：config.set
+
+        按磁盘当前 config 裁剪 patch，写 get_config_file()，再 reload_agent_config（若实例已就绪）。
+        """
+        params = request.params if isinstance(request.params, dict) else {}
+        patch = params.get("config_yaml")
+        if not isinstance(patch, dict):
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={"error": "params.config_yaml must be an object"},
+                metadata=request.metadata,
+            )
+        if not patch:
+            reloaded = False
+            if self._instance is not None:
+                self.reload_agent_config()
+                reloaded = True
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=True,
+                payload={"updated_top_level_keys": [], "reloaded": reloaded},
+                metadata=request.metadata,
+            )
+
+        try:
+            meta = await asyncio.to_thread(apply_config_yaml_patch, patch)
+        except ConfigYamlLockTimeoutError as exc:
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={"error": str(exc), "yaml_written": False},
+                metadata=request.metadata,
+            )
+        except OSError as exc:
+            logger.exception("[JiuWenClaw] config_yaml set failed: %s", exc)
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={"error": str(exc), "yaml_written": False},
+                metadata=request.metadata,
+            )
+
+        try:
+            self.reload_agent_config()
+        except RuntimeError:
+            logger.warning(
+                "[JiuWenClaw] config_yaml 已落盘但 agent 未就绪，无法 reload: request_id=%s",
+                request.request_id,
+            )
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={
+                    "error": "agent instance not ready, cannot reload_agent_config",
+                    "yaml_written": True,
+                    "updated_top_level_keys": meta.get("updated_top_level_keys", []),
+                    "dropped_paths": meta.get("dropped_paths", []),
+                },
+                metadata=request.metadata,
+            )
+
+        payload = {
+            "updated_top_level_keys": meta.get("updated_top_level_keys", []),
+            "reloaded": True,
+            "yaml_written": True,
+        }
+        if meta.get("dropped_paths"):
+            payload["dropped_paths"] = meta["dropped_paths"]
+        return AgentResponse(
+            request_id=request.request_id,
+            channel_id=request.channel_id,
+            ok=True,
+            payload=payload,
+            metadata=request.metadata,
+        )
+
+    async def get_runtime_config_subtrees(self, request: AgentRequest) -> AgentResponse:
+        """独立流程：config.get + params.config_paths。获取配置。"""
+        params = request.params if isinstance(request.params, dict) else {}
+        raw_paths = params.get("config_paths")
+        norm_paths, err_msg = normalize_and_validate_config_paths(raw_paths)
+        if err_msg or norm_paths is None:
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={"error": err_msg or "params.config_paths must be a non-empty array"},
+                metadata=request.metadata,
+            )
+        root = get_config()
+        trees, missing = build_config_subtrees_payload(root, norm_paths)
+        if missing:
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={
+                    "error": "one or more config paths do not exist",
+                    "missing_paths": missing,
+                },
+                metadata=request.metadata,
+            )
+        return AgentResponse(
+            request_id=request.request_id,
+            channel_id=request.channel_id,
+            ok=True,
+            payload={"trees": trees},
+            metadata=request.metadata,
+        )
+
     async def _register_runtime_tools(
             self, session_id: str | None,
             channel_id: str | None,
@@ -1182,6 +1305,34 @@ class JiuWenClaw:
         if request.req_method == ReqMethod.CHAT_ANSWER:
             return await self._handle_user_answer(request)
 
+        params_guard = request.params if isinstance(request.params, dict) else {}
+        if request.req_method == ReqMethod.CONFIG_SET and "config_yaml" in params_guard:
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={
+                    "error": (
+                        "config.set with params.config_yaml must use AgentWebSocketServer "
+                        "dedicated handler; do not call process_message"
+                    ),
+                },
+                metadata=request.metadata,
+            )
+        if request.req_method == ReqMethod.CONFIG_GET and "config_paths" in params_guard:
+            return AgentResponse(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                ok=False,
+                payload={
+                    "error": (
+                        "config.get with params.config_paths must use AgentWebSocketServer "
+                        "dedicated handler; do not call process_message"
+                    ),
+                },
+                metadata=request.metadata,
+            )
+
         # Heartbeat 处理
         if "heartbeat" in request.params:
             # todo 修复目录
@@ -1451,6 +1602,38 @@ class JiuWenClaw:
             thinking      → chat.processing_status
             todo.updated  → todo.updated  (todo 列表变更通知)
         """
+        params_guard = request.params if isinstance(request.params, dict) else {}
+        if request.req_method == ReqMethod.CONFIG_SET and "config_yaml" in params_guard:
+            yield AgentResponseChunk(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                payload={
+                    "event_type": "chat.error",
+                    "error": (
+                        "config.set with params.config_yaml must use AgentWebSocketServer "
+                        "dedicated handler; do not call process_message_stream"
+                    ),
+                    "is_complete": True,
+                },
+                is_complete=True,
+            )
+            return
+        if request.req_method == ReqMethod.CONFIG_GET and "config_paths" in params_guard:
+            yield AgentResponseChunk(
+                request_id=request.request_id,
+                channel_id=request.channel_id,
+                payload={
+                    "event_type": "chat.error",
+                    "error": (
+                        "config.get with params.config_paths must use AgentWebSocketServer "
+                        "dedicated handler; do not call process_message_stream"
+                    ),
+                    "is_complete": True,
+                },
+                is_complete=True,
+            )
+            return
+
         if self._instance is None:
             raise RuntimeError("JiuWenClaw 未初始化，请先调用 create_instance()")
 
