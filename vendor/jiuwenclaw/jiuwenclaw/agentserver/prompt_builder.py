@@ -395,7 +395,7 @@ def _tool_prompt(mode, language: str) -> str:
 | 工具名称 | 功能说明 |
 |---------|---------|
 | `mcp_free_search` | 免费搜索（DuckDuckGo） |
-| `mcp_paid_search` | 付费搜索（Perplexity/SERPER/JINA） |
+| `mcp_paid_search` | 付费搜索（Petal/Perplexity/SERPER/JINA |
 | `mcp_fetch_webpage` | 抓取网页文本内容 |
 
 ### 记忆系统
@@ -478,7 +478,7 @@ Tools are built-in methods.
 | Tool Name | Description |
 |-----------|-------------|
 | `mcp_free_search` | Free search (DuckDuckGo) |
-| `mcp_paid_search` | Paid search (Perplexity/SERPER/JINA) |
+| `mcp_paid_search` | Paid search (Petal/Perplexity/SERPER/JINA) |
 | `mcp_fetch_webpage` | Fetch webpage text content |
 
 ### Memory System
