@@ -11,7 +11,7 @@ import { after, before, describe, it } from 'node:test';
 import Fastify from 'fastify';
 
 const { projectsRoutes } = await import('../dist/routes/projects.js');
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
 async function buildApp() {
   const app = Fastify();

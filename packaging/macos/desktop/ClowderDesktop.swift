@@ -25,9 +25,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     override init() {
         let bundle = Bundle.main
         projectRoot = bundle.resourcePath ?? bundle.bundlePath
-        logFilePath = NSString(string: "~/.cat-cafe/logs/desktop-launcher.log")
+        logFilePath = NSString(string: "~/.office-claw/logs/desktop-launcher.log")
             .expandingTildeInPath
-        runtimeStatePath = NSString(string: "~/.cat-cafe/run/macos/runtime-state.json")
+        runtimeStatePath = NSString(string: "~/.office-claw/run/macos/runtime-state.json")
             .expandingTildeInPath
         // No hardcoded port — will be read from runtime-state.json once services start.
         // Empty string signals "not yet known"; waitForFrontend polls runtime state.

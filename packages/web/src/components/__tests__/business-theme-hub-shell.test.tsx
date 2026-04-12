@@ -76,7 +76,7 @@ describe('business theme hub shell', () => {
               {
                 id: 'ops-skill',
                 type: 'skill',
-                source: 'cat-cafe',
+                source: 'builtin',
                 enabled: true,
                 cats: { office: true },
                 description: 'automation helper',
@@ -133,7 +133,7 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('项目:');
     expect(container.querySelector('[data-testid="capability-card-skill-ops-skill"]')?.className).toContain('ui-card');
     expect(container.querySelector('[data-testid="capability-card-skill-ops-skill"]')?.className).toContain('ui-card-hover');
-    expect(container.textContent).toContain('来源：官方');
+    expect(container.textContent).toContain('来源：内置技能');
   });
 
   it('shows a centered loading icon instead of loading text while installed skills are loading', async () => {

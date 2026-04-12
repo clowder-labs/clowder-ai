@@ -246,6 +246,24 @@ const createRichBlockSchema = callbackAuthSchema.extend({
   block: richBlockSchema,
 });
 
+function ensureFileLocationDisclosure(content: string, richBlocks: readonly RichBlock[]): string {
+  const fileBlocks = richBlocks.filter(
+    (block): block is Extract<RichBlock, { kind: 'file' }> => block.kind === 'file' && typeof block.url === 'string',
+  );
+  if (fileBlocks.length === 0) return content;
+
+  const missingDisclosures = fileBlocks.filter((block) => {
+    const hasFileName = content.includes(block.fileName);
+    const hasUrl = content.includes(block.url);
+    return !(hasFileName && hasUrl);
+  });
+  if (missingDisclosures.length === 0) return content;
+
+  const disclosure = missingDisclosures.map((block) => `- ${block.fileName}: ${block.url}`).join('\n');
+  const separator = content.trim().length > 0 ? '\n\n' : '';
+  return `${content}${separator}文件位置：\n${disclosure}`;
+}
+
 function normalizeFeatId(value: string): string {
   return value.trim().toUpperCase();
 }
@@ -401,7 +419,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     }
 
     // #83: Extract cc_rich blocks from post_message content (Route B for callback path)
-    const { cleanText: storedContent, blocks: extractedBlocks } = extractRichFromText(content);
+    const { cleanText: rawStoredContent, blocks: extractedBlocks } = extractRichFromText(content);
 
     // F088-J hotfix: Consume any buffered rich blocks (e.g. file blocks from generate_document).
     // CLI agents don't go through route-serial, so the buffer must be consumed here.
@@ -418,6 +436,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
         app.log.error({ err }, '[callbacks/post-message] Voice block synthesis failed');
       }
     }
+    const storedContent = ensureFileLocationDisclosure(rawStoredContent, richBlocks);
 
     // F52: Detect cross-thread post (used for both A2A exemption and crossPost metadata)
     const isCrossThread = effectiveThreadId !== record.threadId;

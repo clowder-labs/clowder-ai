@@ -72,18 +72,18 @@ const WINDOWS_RUNTIME_NPM_ARGS = [
   '--loglevel=error',
 ];
 
-export const WINDOWS_PRESERVE_PATHS = ['.env', 'cat-config.json', 'data', 'logs', '.cat-cafe'];
+export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw'];
 export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'packages',
   'scripts',
-  'cat-cafe-skills',
+  'office-claw-skills',
   'tools',
   'installer-seed',
   'vendor',
   '.clowder-release.json',
   '.env.example',
   'LICENSE',
-  'cat-template.json',
+  'office-claw-template.json',
   'modelarts-preset.json',
   'pnpm-workspace.yaml',
 ];
@@ -544,11 +544,11 @@ function createIcoFromPng(pngPath, icoPath) {
 
 function copyTopLevelProject(bundleDir) {
   const entries = [
-    'cat-cafe-skills',
+    'office-claw-skills',
     'LICENSE',
     '.env.example',
     '.inner.env',
-    'cat-template.json',
+    'office-claw-template.json',
     'modelarts-preset.json',
     'pnpm-workspace.yaml',
   ];
@@ -720,9 +720,9 @@ function stageVendorPythonSources(bundleDir) {
 function stageInstallerSeed(bundleDir) {
   const seedDir = join(bundleDir, 'installer-seed');
   ensureDir(seedDir);
-  const catConfigPath = join(repoRoot, 'cat-config.json');
+  const catConfigPath = join(repoRoot, 'office-claw-config.json');
   if (existsSync(catConfigPath)) {
-    cpSync(catConfigPath, join(seedDir, 'cat-config.json'), { force: true });
+    cpSync(catConfigPath, join(seedDir, 'office-claw-config.json'), { force: true });
   }
 }
 
@@ -1335,7 +1335,7 @@ async function stageWindowsRedis(bundleDir, options) {
     ),
   );
 
-  const redisLayout = join(bundleDir, '.cat-cafe', 'redis', 'windows');
+  const redisLayout = join(bundleDir, '.office-claw', 'redis', 'windows');
   const currentDir = join(redisLayout, 'current');
   resetDir(currentDir);
   cpSync(redisRoot, currentDir, { recursive: true, force: true });
@@ -1357,7 +1357,7 @@ function writeReleaseMetadata(bundleDir, metadata) {
 function ensureRuntimeSkeleton(bundleDir) {
   ensureDir(join(bundleDir, 'data'));
   ensureDir(join(bundleDir, 'logs'));
-  ensureDir(join(bundleDir, '.cat-cafe'));
+  ensureDir(join(bundleDir, '.office-claw'));
   ensureDir(join(bundleDir, 'tools', 'webview2'));
 }
 

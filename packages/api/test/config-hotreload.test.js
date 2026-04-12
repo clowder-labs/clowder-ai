@@ -45,7 +45,7 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
     return app.inject({
       method: 'PATCH',
       url: '/api/config',
-      headers: { 'x-cat-cafe-user': 'config-admin', ...headers },
+      headers: { 'x-office-claw-user': 'config-admin', ...headers },
       payload,
     });
   }
@@ -118,7 +118,7 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
       },
     });
 
-    const res = await patchConfig({ key: 'cli.timeoutMs', value: 60000 }, { 'x-cat-cafe-user': 'user-1' });
+    const res = await patchConfig({ key: 'cli.timeoutMs', value: 60000 }, { 'x-office-claw-user': 'user-1' });
 
     assert.equal(res.statusCode, 200);
     assert.equal(auditCalls.length, 1);
@@ -129,7 +129,7 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
     assert.equal(auditCalls[0].data.newValue, 60000);
   });
 
-  it('rejects patch without x-cat-cafe-user header', async () => {
+  it('rejects patch without x-office-claw-user header', async () => {
     const app = await setup();
 
     const res = await app.inject({
@@ -139,7 +139,7 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
     });
     assert.equal(res.statusCode, 400);
     const body = res.json();
-    assert.equal(body.error, 'Identity required (X-Cat-Cafe-User header)');
+    assert.equal(body.error, 'Identity required (X-Office-Claw-User header)');
 
     const configRes = await app.inject({
       method: 'GET',

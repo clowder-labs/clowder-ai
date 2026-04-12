@@ -80,10 +80,10 @@ describe('governance-pack', () => {
   it('collaboration standards reference shared-rules and skills', () => {
     const block = getGovernanceManagedBlock('claude');
     assert.ok(block.includes('shared-rules.md'));
-    assert.ok(block.includes('cat-cafe-skills'));
+    assert.ok(block.includes('symlinked skills directory'));
   });
 
-  it('pack version is 1.3.0', () => {
-    assert.equal(GOVERNANCE_PACK_VERSION, '1.3.0');
+  it('pack version is 1.4.0', () => {
+    assert.equal(GOVERNANCE_PACK_VERSION, '1.4.0');
   });
 });

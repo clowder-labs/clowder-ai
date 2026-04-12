@@ -193,13 +193,13 @@ def main(argv: list[str] | None = None) -> int:
         if not raw.strip():
             # The documented pipe flow should yield pytest stdout. Empty stdin
             # means the upstream command failed before producing reportable output.
-            logging.info("No pytest output received on stdin.", file=sys.stderr)
+            logging.error("No pytest output received on stdin.")
             return 1
     elif args.report:
         raw = args.report.read_text(encoding="utf-8")
         pytest_returncode = None
         if not raw.strip():
-            logging.info("No pytest output found in report file.", file=sys.stderr)
+            logging.error("No pytest output found in report file.")
             return 1
     else:
         completed = _run_pytest()
@@ -212,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
     if fallback_exit_code is None and has_unattributed_error:
         fallback_exit_code = 1
     if has_unattributed_error and raw:
-        logging.info(raw, file=sys.stderr)
+        logging.error(raw)
     if not failed and fallback_exit_code:
         return fallback_exit_code
 

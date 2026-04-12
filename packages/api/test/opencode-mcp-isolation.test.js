@@ -34,7 +34,7 @@ const STEP_FINISH = {
 describe('MCP Tool Namespace Isolation (AC-10)', () => {
   // ── buildEnv does not pass Cat Cafe MCP env vars ──
 
-  test('buildEnv does not forward CAT_CAFE_MCP_* env vars to child process', async () => {
+  test('buildEnv does not forward OFFICE_CLAW_MCP_* env vars to child process', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new OpenCodeAgentService({
@@ -45,11 +45,11 @@ describe('MCP Tool Namespace Isolation (AC-10)', () => {
 
     // Simulate callbackEnv with Cat Cafe MCP vars mixed in
     const callbackEnv = {
-      CAT_CAFE_ANTHROPIC_API_KEY: 'sk-test',
-      CAT_CAFE_ANTHROPIC_BASE_URL: 'http://proxy:9877/slug',
-      CAT_CAFE_MCP_SERVER_URL: 'http://localhost:3003/mcp',
-      CAT_CAFE_MCP_TOKEN: 'secret-mcp-token',
-      CAT_CAFE_MCP_ENDPOINT: 'ws://localhost:3003/mcp/ws',
+      OFFICE_CLAW_ANTHROPIC_API_KEY: 'sk-test',
+      OFFICE_CLAW_ANTHROPIC_BASE_URL: 'http://proxy:9877/slug',
+      OFFICE_CLAW_MCP_SERVER_URL: 'http://localhost:3003/mcp',
+      OFFICE_CLAW_MCP_TOKEN: 'secret-mcp-token',
+      OFFICE_CLAW_MCP_ENDPOINT: 'ws://localhost:3003/mcp/ws',
     };
 
     const promise = collect(service.invoke('Test', { callbackEnv }));

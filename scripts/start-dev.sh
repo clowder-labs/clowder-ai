@@ -33,10 +33,10 @@
 # Redis 数据目录 (可通过 env 覆盖):
 #   REDIS_PORT=6399
 #   REDIS_PROFILE=dev
-#   REDIS_DATA_DIR=~/.cat-cafe/redis-dev
-#   REDIS_BACKUP_DIR=~/.cat-cafe/redis-backups/dev
+#   REDIS_DATA_DIR=~/.office-claw/redis-dev
+#   REDIS_BACKUP_DIR=~/.office-claw/redis-backups/dev
 # Parallel 本地实例若仅改 REDIS_PORT，默认会自动隔离到独立目录:
-#   REDIS_PORT=6389 -> ~/.cat-cafe/redis-dev-6389
+#   REDIS_PORT=6389 -> ~/.office-claw/redis-dev-6389
 
 set -e
 set -o pipefail
@@ -89,10 +89,10 @@ CLI_ANTHROPIC_PROXY_PORT_OVERRIDE="${ANTHROPIC_PROXY_PORT-}"
 CLI_WHISPER_PORT_OVERRIDE="${WHISPER_PORT-}"
 CLI_TTS_PORT_OVERRIDE="${TTS_PORT-}"
 CLI_LLM_POSTPROCESS_PORT_OVERRIDE="${LLM_POSTPROCESS_PORT-}"
-PREFER_DOTENV_PORTS="${CAT_CAFE_RESPECT_DOTENV_PORTS:-0}"
+PREFER_DOTENV_PORTS="${OFFICE_CLAW_RESPECT_DOTENV_PORTS:-0}"
 
 clear_inherited_profile_env() {
-    [ "${CAT_CAFE_STRICT_PROFILE_DEFAULTS:-0}" = "1" ] || return 0
+    [ "${OFFICE_CLAW_STRICT_PROFILE_DEFAULTS:-0}" = "1" ] || return 0
     [ -n "$PROFILE" ] || return 0
 
     # Public direct-launch wrappers should honor the requested profile rather
@@ -307,13 +307,13 @@ default_redis_storage_key() {
 default_redis_data_dir() {
     local key
     key=$(default_redis_storage_key "${1:-$REDIS_PROFILE}" "${2:-$REDIS_PORT}")
-    printf '%s/.cat-cafe/redis-%s' "$HOME" "$key"
+    printf '%s/.office-claw/redis-%s' "$HOME" "$key"
 }
 
 default_redis_backup_dir() {
     local key
     key=$(default_redis_storage_key "${1:-$REDIS_PROFILE}" "${2:-$REDIS_PORT}")
-    printf '%s/.cat-cafe/redis-backups/%s' "$HOME" "$key"
+    printf '%s/.office-claw/redis-backups/%s' "$HOME" "$key"
 }
 
 REDIS_STORAGE_KEY=$(default_redis_storage_key "$REDIS_PROFILE" "$REDIS_PORT")
@@ -591,7 +591,7 @@ api_launch_command() {
     if [ "$DEBUG_MODE" = true ]; then
         env_prefix="LOG_LEVEL=debug "
     fi
-    if [ "${CAT_CAFE_DIRECT_NO_WATCH:-0}" = "1" ]; then
+    if [ "${OFFICE_CLAW_DIRECT_NO_WATCH:-0}" = "1" ]; then
         printf '%s' "cd packages/api && exec ${env_prefix}pnpm run start"
     else
         printf '%s' "cd packages/api && exec ${env_prefix}pnpm run dev"
@@ -799,12 +799,12 @@ build_packages() {
 }
 
 configure_mcp_server_path() {
-    export CAT_CAFE_MCP_SERVER_PATH="${CAT_CAFE_MCP_SERVER_PATH:-$PROJECT_DIR/packages/mcp-server/dist/index.js}"
+    export OFFICE_CLAW_MCP_SERVER_PATH="${OFFICE_CLAW_MCP_SERVER_PATH:-$PROJECT_DIR/packages/mcp-server/dist/index.js}"
 
-    if [ -f "$CAT_CAFE_MCP_SERVER_PATH" ]; then
-        echo -e "${GREEN}  ✓ MCP callback path: $CAT_CAFE_MCP_SERVER_PATH${NC}"
+    if [ -f "$OFFICE_CLAW_MCP_SERVER_PATH" ]; then
+        echo -e "${GREEN}  ✓ MCP callback path: $OFFICE_CLAW_MCP_SERVER_PATH${NC}"
     else
-        echo -e "${YELLOW}  ⚠ MCP callback path 不存在: $CAT_CAFE_MCP_SERVER_PATH${NC}"
+        echo -e "${YELLOW}  ⚠ MCP callback path 不存在: $OFFICE_CLAW_MCP_SERVER_PATH${NC}"
         echo -e "${YELLOW}    布偶猫将无法使用 cat_cafe_* MCP 工具（含权限申请）${NC}"
     fi
 }
@@ -893,7 +893,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 guard_main_branch_start() {
-    if [ "${CAT_CAFE_ALLOW_MAIN_DEV:-0}" = "1" ]; then
+    if [ "${OFFICE_CLAW_ALLOW_MAIN_DEV:-0}" = "1" ]; then
         return
     fi
 
@@ -920,7 +920,7 @@ guard_main_branch_start() {
         echo "    2) pnpm runtime:start -- --quick"
         echo ""
         echo "  临时绕过（不推荐）："
-        echo "    CAT_CAFE_ALLOW_MAIN_DEV=1 pnpm start"
+        echo "    OFFICE_CLAW_ALLOW_MAIN_DEV=1 pnpm start"
         exit 1
     fi
 }
@@ -995,7 +995,7 @@ main() {
     if [ "${ANTHROPIC_PROXY_ENABLED:-0}" = "1" ]; then
         if [ -f "scripts/anthropic-proxy.mjs" ]; then
             echo "  启动 Anthropic Proxy (端口 $PROXY_PORT)..."
-            PROXY_UPSTREAMS="${ANTHROPIC_PROXY_UPSTREAMS_PATH:-$PROJECT_DIR/.cat-cafe/proxy-upstreams.json}"
+            PROXY_UPSTREAMS="${ANTHROPIC_PROXY_UPSTREAMS_PATH:-$PROJECT_DIR/.office-claw/proxy-upstreams.json}"
             background_eval_with_null_stdin "ANTHROPIC_PROXY_PORT=$PROXY_PORT node scripts/anthropic-proxy.mjs --port $PROXY_PORT --upstreams \"$PROXY_UPSTREAMS\""
             PROXY_PID=$!
             sleep 1
@@ -1080,8 +1080,8 @@ main() {
     fi
 
     API_LAUNCH_CMD="$(api_launch_command)"
-    if [ "${CAT_CAFE_DIRECT_NO_WATCH:-0}" = "1" ]; then
-        echo -e "${YELLOW}  ⚠ API 使用非 watch 模式 (CAT_CAFE_DIRECT_NO_WATCH=1)${NC}"
+    if [ "${OFFICE_CLAW_DIRECT_NO_WATCH:-0}" = "1" ]; then
+        echo -e "${YELLOW}  ⚠ API 使用非 watch 模式 (OFFICE_CLAW_DIRECT_NO_WATCH=1)${NC}"
     fi
 
     # API Server

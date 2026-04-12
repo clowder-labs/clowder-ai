@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import Fastify from 'fastify';
 
-const H = { 'x-cat-cafe-user': 'user1' };
+const H = { 'x-office-claw-user': 'user1' };
 
 describe('External Project Routes', () => {
   /** @type {import('fastify').FastifyInstance} */
@@ -291,7 +291,7 @@ describe('External Project Routes', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/api/external-projects',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: { name: 'private', description: '', sourcePath: '/x' },
     });
     const id = createRes.json().project.id;
@@ -299,7 +299,7 @@ describe('External Project Routes', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/api/external-projects/${id}`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
     });
     assert.equal(getRes.statusCode, 404);
   });
@@ -308,7 +308,7 @@ describe('External Project Routes', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/api/external-projects',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: { name: 'private', description: '', sourcePath: '/x' },
     });
     const id = createRes.json().project.id;
@@ -316,7 +316,7 @@ describe('External Project Routes', () => {
     const delRes = await app.inject({
       method: 'DELETE',
       url: `/api/external-projects/${id}`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
     });
     assert.equal(delRes.statusCode, 404);
   });
@@ -409,7 +409,7 @@ describe('External Project Routes', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/api/external-projects',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: { name: 'p', description: '', sourcePath: '/p' },
     });
     const projectId = createRes.json().project.id;
@@ -417,7 +417,7 @@ describe('External Project Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/external-projects/${projectId}/intent-cards`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
       payload: { actor: 'A', goal: 'G', originalText: 'T' },
     });
     assert.equal(res.statusCode, 404);
@@ -427,7 +427,7 @@ describe('External Project Routes', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/api/external-projects',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: { name: 'p', description: '', sourcePath: '/p' },
     });
     const projectId = createRes.json().project.id;
@@ -435,7 +435,7 @@ describe('External Project Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/external-projects/${projectId}/frame`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
       payload: { sponsor: 'X', successMetric: 'Y' },
     });
     assert.equal(res.statusCode, 404);

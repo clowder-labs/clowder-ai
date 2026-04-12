@@ -48,8 +48,8 @@ const REDACT_PATHS = [
   'credential',
   'credentials',
   'callbackToken',
-  'CAT_CAFE_CALLBACK_TOKEN',
-  'CAT_CAFE_ANTHROPIC_API_KEY',
+  'OFFICE_CLAW_CALLBACK_TOKEN',
+  'OFFICE_CLAW_ANTHROPIC_API_KEY',
 ];
 
 if (!existsSync(LOG_DIR)) {

@@ -188,6 +188,7 @@ function ThreadModeChatContainer({
     setPendingChatInsert,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
+  const threads = useChatStore((s) => s.threads);
 
   // F101: Game state from Zustand store
   const gameView = useGameStore((s) => s.gameView);
@@ -558,8 +559,6 @@ function ThreadModeChatContainer({
     [threadId, getCatById],
   );
 
-  const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
-
   useVoiceAutoPlay();
   useVoiceStream();
   useVadInterrupt();
@@ -569,20 +568,22 @@ function ThreadModeChatContainer({
   const setSplitPaneThreadIds = useChatStore((s) => s.setSplitPaneThreadIds);
   const setSplitPaneTarget = useChatStore((s) => s.setSplitPaneTarget);
 
+  const watchedThreadIds = useMemo(() => {
+    const ids = new Set<string>(threads.map((thread) => thread.id));
+    for (const splitThreadId of splitPaneThreadIds) {
+      ids.add(splitThreadId);
+    }
+    return [...ids];
+  }, [threads, splitPaneThreadIds]);
+
+  const { cancelInvocation } = useSocket(socketCallbacks, threadId, watchedThreadIds);
+
   useEffect(() => {
     if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
       setSplitPaneThreadIds([threadId]);
       setSplitPaneTarget(threadId);
     }
   }, [viewMode, splitPaneThreadIds.length, threadId, setSplitPaneThreadIds, setSplitPaneTarget]);
-
-  useEffect(() => {
-    if (viewMode === 'split' && splitPaneThreadIds.length > 0) {
-      // Join rooms for all threads in panes + the current active thread
-      const allIds = new Set([...splitPaneThreadIds, threadId]);
-      syncRooms([...allIds]);
-    }
-  }, [viewMode, splitPaneThreadIds, threadId, syncRooms]);
 
   useEffect(() => {
     clearUnread(threadId);
@@ -673,7 +674,7 @@ function ThreadModeChatContainer({
     );
   }
   return (
-    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh w-screen">
         <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
           <ThreadSidebar
             className="w-full"
@@ -687,7 +688,7 @@ function ThreadModeChatContainer({
         <div className="hidden md:flex items-center">
           <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
         </div>
-      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="min-w-0 flex-1">
         <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
         <RightContentHeader />
         {sidebarMenu === 'chat' && (
@@ -707,7 +708,7 @@ function ThreadModeChatContainer({
         {sidebarMenu === 'chat' && intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
         {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
 
-        <div className="relative flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex-1 min-h-0">
           {sidebarMenu !== 'chat' && (
             <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
@@ -735,6 +736,8 @@ function ThreadModeChatContainer({
                       bootcampCount={bootcampCount}
                       isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
                       onOpenBootcampList={() => setShowBootcampList(true)}
+                      onAgentsClick={() => setSidebarMenu('agents')}
+                      onChannelsClick={() => setSidebarMenu('channels')}
                     />
                   ) : (
                     renderItems.map((item) =>

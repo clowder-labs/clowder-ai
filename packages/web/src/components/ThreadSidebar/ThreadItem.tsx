@@ -74,6 +74,28 @@ function getMentionedCatIdsFromMessages(
   return ids;
 }
 
+function getRecentAssistantCatIdsFromMessages(
+  messages: ThreadState['messages'] | undefined,
+  getCatById: (id: string) => unknown,
+): string[] {
+  if (!messages?.length) return [];
+
+  const ids: string[] = [];
+  const seen = new Set<string>();
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    const catId = message?.type === 'assistant' ? message.catId : undefined;
+    if (!catId) continue;
+    if (seen.has(catId)) continue;
+    if (!getCatById(catId)) continue;
+    seen.add(catId);
+    ids.push(catId);
+  }
+
+  return ids;
+}
+
 function normalizeTitleMentions(
   title: string,
   cats: Array<{ id: string; displayName: string; mentionPatterns: string[] }>,
@@ -241,17 +263,20 @@ export function ThreadItem({
 
   const rawTitle = title ?? (id === 'default' ? '大厅' : '未命名会话');
   const displayTitle = normalizeTitleMentions(rawTitle, cats);
+  const recentAssistantCatIds = getRecentAssistantCatIdsFromMessages(threadState?.messages, getCatById);
+  const recentAssistantNames = recentAssistantCatIds.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
-  const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
+  const description = recentAssistantNames || participantNames || (isHubThread ? 'Hub 会话' : '暂无智能体');
   const fallbackAvatarSrc = resolveThreadFallbackAvatar(cats);
   const mentionedCatIds = getMentionedCatIdsFromMessages(threadState?.messages, getCatById);
-  const avatarCatIds = Array.from(
+  const fallbackAvatarCatIds = Array.from(
     new Set(
-      [...participants, ...(threadState?.targetCats ?? []), ...(preferredCats ?? []), ...mentionedCatIds].filter(
+      [...(threadState?.targetCats ?? []), ...participants, ...(preferredCats ?? []), ...mentionedCatIds].filter(
         (catId) => !!catId && !!getCatById(catId),
       ),
     ),
-  ).slice(0, 4);
+  );
+  const avatarCatIds = (recentAssistantCatIds.length > 0 ? recentAssistantCatIds : fallbackAvatarCatIds).slice(0, 4);
   const contextMenuItemClass =
     'block w-full whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none';
   const openContextMenu = useCallback((clientX: number, clientY: number, anchorY?: number) => {

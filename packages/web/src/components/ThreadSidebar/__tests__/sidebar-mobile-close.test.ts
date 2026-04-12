@@ -10,7 +10,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { ThreadSidebar } from '../ThreadSidebar';
 
 const mockPush = vi.fn();
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  usePathname: () => '/',
+}));
 
 const mockApiFetch = vi.fn();
 vi.mock('@/utils/api-client', () => ({
@@ -67,6 +70,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     root = createRoot(container);
     mockApiFetch.mockReset();
     mockPush.mockReset();
+    mockStore.threads = [];
     mockStore.currentThreadId = 'thread-1';
     mockStore.setCurrentThread = vi.fn();
     mockStore.setCurrentProject = vi.fn();
@@ -93,6 +97,11 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
   }
 
+  function mockScrollable(el: HTMLDivElement, scrollHeight: number, clientHeight: number) {
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, value: scrollHeight });
+    Object.defineProperty(el, 'clientHeight', { configurable: true, value: clientHeight });
+  }
+
   it('calls onClose after pressing new chat on mobile viewport', async () => {
     Object.defineProperty(window, 'innerWidth', { value: 375, writable: true });
 
@@ -109,7 +118,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
     await flush();
 
-    expect(mockPush).toHaveBeenCalledWith('/');
+    expect(mockPush).toHaveBeenCalledWith('/', { scroll: false });
     expect(mockStore.setCurrentThread).toHaveBeenCalledWith('default');
     expect(mockStore.setCurrentProject).toHaveBeenCalledWith('default');
     expect(onClose).toHaveBeenCalled();
@@ -131,7 +140,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     });
     await flush();
 
-    expect(mockPush).toHaveBeenCalledWith('/');
+    expect(mockPush).toHaveBeenCalledWith('/', { scroll: false });
     expect(mockStore.setCurrentThread).toHaveBeenCalledWith('default');
     expect(mockStore.setCurrentProject).toHaveBeenCalledWith('default');
     expect(onClose).not.toHaveBeenCalled();
@@ -159,5 +168,89 @@ describe('ThreadSidebar mobile auto-close', () => {
     expect(missionControlButton).toBeTruthy();
     expect(missionControlButton?.className).toContain('ui-menu-item');
     expect(missionControlButton?.className).toContain('ui-menu-item-inactive');
+  });
+
+  it('restores sidebar scroll position after remounting on thread navigation', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
+
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+
+    const firstScrollRegion = container.querySelector(
+      '[data-testid="thread-sidebar-scroll-region"]',
+    ) as HTMLDivElement | null;
+    expect(firstScrollRegion).toBeTruthy();
+    mockScrollable(firstScrollRegion!, 1000, 300);
+
+    firstScrollRegion!.scrollTop = 180;
+    act(() => {
+      firstScrollRegion!.dispatchEvent(new Event('scroll'));
+    });
+
+    act(() => {
+      root.unmount();
+    });
+
+    root = createRoot(container);
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+
+    const secondScrollRegion = container.querySelector(
+      '[data-testid="thread-sidebar-scroll-region"]',
+    ) as HTMLDivElement | null;
+    expect(secondScrollRegion).toBeTruthy();
+    mockScrollable(secondScrollRegion!, 1000, 300);
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(secondScrollRegion!.scrollTop).toBe(180);
+  });
+
+  it('navigates between threads without Next default scroll reset', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
+    mockStore.currentThreadId = 'thread-1';
+    mockStore.threads = [
+      {
+        id: 'thread-1',
+        title: 'Thread 1',
+        projectPath: 'default',
+        createdBy: 'user-1',
+        participants: [],
+        lastActiveAt: 100,
+        createdAt: 100,
+      },
+      {
+        id: 'thread-2',
+        title: 'Thread 2',
+        projectPath: 'project-a',
+        createdBy: 'user-1',
+        participants: [],
+        lastActiveAt: 200,
+        createdAt: 200,
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+
+    const threadItems = container.querySelectorAll('.ui-thread-item');
+    expect(threadItems).toHaveLength(2);
+
+    act(() => {
+      (threadItems[0] as HTMLDivElement).click();
+    });
+    await flush();
+
+    expect(mockStore.setCurrentProject).toHaveBeenCalledWith('project-a');
+    expect(mockPush).toHaveBeenCalledWith('/thread/thread-2', { scroll: false });
   });
 });

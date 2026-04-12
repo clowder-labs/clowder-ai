@@ -16,10 +16,10 @@ describe('buildACPSubprocessEnv', () => {
 
     const previousPath = process.env.PATH;
     const previousOpenAi = process.env.OPENAI_API_KEY;
-    const previousCallback = process.env.CAT_CAFE_CALLBACK_TOKEN;
+    const previousCallback = process.env.OFFICE_CLAW_CALLBACK_TOKEN;
     process.env.PATH = '/usr/bin';
     process.env.OPENAI_API_KEY = 'ambient-openai';
-    process.env.CAT_CAFE_CALLBACK_TOKEN = 'secret-token';
+    process.env.OFFICE_CLAW_CALLBACK_TOKEN = 'secret-token';
 
     try {
       const env = buildACPSubprocessEnv({
@@ -28,7 +28,7 @@ describe('buildACPSubprocessEnv', () => {
           ACP_TRACE_STDIO: '1',
           CUSTOM_FLAG: 'enabled',
           OPENAI_API_KEY: 'override-openai',
-          CAT_CAFE_CALLBACK_TOKEN: 'override-token',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'override-token',
         },
       });
 
@@ -36,14 +36,14 @@ describe('buildACPSubprocessEnv', () => {
       assert.equal(env.ACP_TRACE_STDIO, '1');
       assert.equal(env.CUSTOM_FLAG, 'enabled');
       assert.equal(env.OPENAI_API_KEY, undefined);
-      assert.equal(env.CAT_CAFE_CALLBACK_TOKEN, undefined);
+      assert.equal(env.OFFICE_CLAW_CALLBACK_TOKEN, undefined);
     } finally {
       if (previousPath === undefined) delete process.env.PATH;
       else process.env.PATH = previousPath;
       if (previousOpenAi === undefined) delete process.env.OPENAI_API_KEY;
       else process.env.OPENAI_API_KEY = previousOpenAi;
-      if (previousCallback === undefined) delete process.env.CAT_CAFE_CALLBACK_TOKEN;
-      else process.env.CAT_CAFE_CALLBACK_TOKEN = previousCallback;
+      if (previousCallback === undefined) delete process.env.OFFICE_CLAW_CALLBACK_TOKEN;
+      else process.env.OFFICE_CLAW_CALLBACK_TOKEN = previousCallback;
     }
   });
 });

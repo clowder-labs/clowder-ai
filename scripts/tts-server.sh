@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-VENV_DIR="${HOME}/.cat-cafe/tts-venv"
+VENV_DIR="${HOME}/.office-claw/tts-venv"
 MODEL="${1:-mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16}"
 PORT="${TTS_PORT:-9879}"
 PROVIDER="${TTS_PROVIDER:-qwen3-clone}"

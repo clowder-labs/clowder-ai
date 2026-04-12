@@ -184,7 +184,7 @@ export class RelayClawAgentService implements AgentService {
     const modelName = this.config.modelName?.trim() || '';
     const scopeHash = createHash('sha256').update([apiBase, apiKey, modelName].join('\n')).digest('hex').slice(0, 12);
     const baseHomeDir =
-      this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
+      this.config.homeDir?.trim() || join(process.cwd(), '.office-claw', 'relayclaw', this.catId as string);
 
     return {
       key: `auto:${scopeHash}`,
@@ -255,6 +255,7 @@ export class RelayClawAgentService implements AgentService {
           outputTokens: typeof u.output_tokens === 'number' ? u.output_tokens : undefined,
           totalTokens: typeof u.total_tokens === 'number' ? u.total_tokens : undefined,
         };
+        log.info('[USAGE_DEBUG] Received usage from jiuwenclaw frame metadata: %o', usage);
       }
 
       const payload = frame.payload;

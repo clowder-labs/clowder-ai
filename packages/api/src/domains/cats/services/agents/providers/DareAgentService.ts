@@ -56,7 +56,7 @@ const DARE_MCP_JS_ENTRY_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
 const SHOULD_EMIT_DIAGNOSTICS =
   !process.argv.includes('--test') &&
   !process.execArgv.includes('--test') &&
-  process.env.CAT_CAFE_DARE_DIAG_LOG === '1';
+  process.env.OFFICE_CLAW_DARE_DIAG_LOG === '1';
 
 type JsonObject = Record<string, unknown>;
 
@@ -85,7 +85,7 @@ function toStringMap(value: unknown): Record<string, string> | undefined {
 
 function resolveBridgeConfigPath(seed: string): string {
   const digest = createHash('sha1').update(seed).digest('hex').slice(0, 12);
-  return join(tmpdir(), `cat-cafe-dare-mcp-${digest}.json`);
+  return join(tmpdir(), `office-claw-dare-mcp-${digest}.json`);
 }
 
 function normalizeMcpServerName(name: string): string | null {
@@ -260,7 +260,7 @@ interface DareLaunchSpec {
 
 const DARE_API_KEY_ENV = 'DARE_API_KEY';
 const DARE_ENDPOINT_ENV = 'DARE_ENDPOINT';
-const DARE_ADAPTER_OVERRIDE_ENV = 'CAT_CAFE_DARE_ADAPTER';
+const DARE_ADAPTER_OVERRIDE_ENV = 'OFFICE_CLAW_DARE_ADAPTER';
 const DARE_SSL_VERIFY_ENV = 'DARE_SSL_VERIFY';
 
 const ADAPTER_KEY_ENV: Record<string, string> = {
@@ -462,12 +462,12 @@ export class DareAgentService implements AgentService {
   constructor(options?: DareAgentServiceOptions) {
     this.catId = options?.catId ?? createCatId('dare');
     this.adapter = options?.adapter?.trim() || process.env.DARE_ADAPTER?.trim() || undefined;
-    this.model = options?.model?.trim() || process.env.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || undefined;
+    this.model = options?.model?.trim() || process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE?.trim() || undefined;
     this.endpoint = options?.endpoint ?? process.env[DARE_ENDPOINT_ENV];
     this.apiKey = options?.apiKey ?? process.env[DARE_API_KEY_ENV];
     this.darePath = resolvePreferredDarePath(options?.darePath);
 
-    const configuredMcp = options?.mcpServerPath ?? process.env.CAT_CAFE_MCP_SERVER_PATH;
+    const configuredMcp = options?.mcpServerPath ?? process.env.OFFICE_CLAW_MCP_SERVER_PATH;
     if (configuredMcp && configuredMcp.trim().length > 0) {
       const resolved = isAbsolute(configuredMcp) ? configuredMcp : resolve(process.cwd(), configuredMcp);
       this.mcpServerPath = preferCompactMcpEntry(resolved);
@@ -506,7 +506,7 @@ export class DareAgentService implements AgentService {
     }
     if (!DARE_MCP_JS_ENTRY_EXTENSIONS.has(extension)) return configuredPath;
 
-    // Legacy CAT_CAFE_MCP_SERVER_PATH points to JS server entry.
+    // Legacy OFFICE_CLAW_MCP_SERVER_PATH points to JS server entry.
     // Generate a DARE-native JSON config and pass that path instead.
     try {
       const bridgePath = resolveBridgeConfigPath(`entry:${configuredPath}:${workspace ?? ''}`);
@@ -527,7 +527,7 @@ export class DareAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const workspaceConfig = readWorkspaceDareConfig(options?.workingDirectory);
-    const effectiveModel = options?.callbackEnv?.CAT_CAFE_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
+    const effectiveModel = options?.callbackEnv?.OFFICE_CLAW_DARE_MODEL_OVERRIDE?.trim() || this.model || undefined;
     const effectiveAdapter = this.resolveAdapter(options?.callbackEnv);
 
     let cliModel = effectiveModel;
@@ -790,7 +790,7 @@ export class DareAgentService implements AgentService {
     env[DARE_ENDPOINT_ENV] = null;
 
     const projectRoot = resolveCatCafeHostRoot(process.cwd());
-    const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
+    const catCafeSkillsDir = join(projectRoot, 'office-claw-skills');
     if (existsSync(catCafeSkillsDir)) {
       env.DARE_SKILL_PATHS = JSON.stringify([catCafeSkillsDir]);
     }

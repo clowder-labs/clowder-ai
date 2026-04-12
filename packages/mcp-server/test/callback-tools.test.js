@@ -25,13 +25,13 @@ describe('MCP Callback Tools', () => {
   beforeEach(() => {
     // Save and set env vars
     originalEnv = { ...process.env };
-    process.env.CAT_CAFE_API_URL = 'http://127.0.0.1:3004';
-    process.env.CAT_CAFE_INVOCATION_ID = 'test-invocation';
-    process.env.CAT_CAFE_CALLBACK_TOKEN = 'test-token';
-    process.env.CAT_CAFE_CALLBACK_RETRY_DELAYS_MS = '0,0,0';
+    process.env.OFFICE_CLAW_API_URL = 'http://127.0.0.1:3004';
+    process.env.OFFICE_CLAW_INVOCATION_ID = 'test-invocation';
+    process.env.OFFICE_CLAW_CALLBACK_TOKEN = 'test-token';
+    process.env.OFFICE_CLAW_CALLBACK_RETRY_DELAYS_MS = '0,0,0';
     outboxDir = join(tmpdir(), `cat-cafe-mcp-outbox-test-${Date.now()}-${Math.random()}`);
     mkdirSync(outboxDir, { recursive: true });
-    process.env.CAT_CAFE_CALLBACK_OUTBOX_DIR = outboxDir;
+    process.env.OFFICE_CLAW_CALLBACK_OUTBOX_DIR = outboxDir;
 
     // Save original fetch
     originalFetch = globalThis.fetch;
@@ -145,9 +145,9 @@ describe('MCP Callback Tools', () => {
   test('handlePostMessage returns error when env vars missing', async () => {
     const { handlePostMessage } = await import('../dist/tools/callback-tools.js');
 
-    delete process.env.CAT_CAFE_API_URL;
-    delete process.env.CAT_CAFE_INVOCATION_ID;
-    delete process.env.CAT_CAFE_CALLBACK_TOKEN;
+    delete process.env.OFFICE_CLAW_API_URL;
+    delete process.env.OFFICE_CLAW_INVOCATION_ID;
+    delete process.env.OFFICE_CLAW_CALLBACK_TOKEN;
 
     const result = await handlePostMessage({ content: 'Hello' });
 
@@ -658,7 +658,7 @@ describe('MCP Callback Tools', () => {
   });
 
   test('flushes at most configured outbox batch size per post', async () => {
-    process.env.CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH = '2';
+    process.env.OFFICE_CLAW_CALLBACK_OUTBOX_MAX_FLUSH_BATCH = '2';
     const { handlePostMessage } = await import('../dist/tools/callback-tools.js');
 
     const seed = (queuedAt, id, content) => {
@@ -790,9 +790,9 @@ describe('MCP Callback Tools', () => {
   test('handleRequestPermission returns error when env vars missing', async () => {
     const { handleRequestPermission } = await import('../dist/tools/callback-tools.js');
 
-    delete process.env.CAT_CAFE_API_URL;
-    delete process.env.CAT_CAFE_INVOCATION_ID;
-    delete process.env.CAT_CAFE_CALLBACK_TOKEN;
+    delete process.env.OFFICE_CLAW_API_URL;
+    delete process.env.OFFICE_CLAW_INVOCATION_ID;
+    delete process.env.OFFICE_CLAW_CALLBACK_TOKEN;
 
     const result = await handleRequestPermission({
       action: 'git_commit',
@@ -804,7 +804,7 @@ describe('MCP Callback Tools', () => {
   });
 
   test('drops retryable outbox entry when attempts reached max threshold', async () => {
-    process.env.CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS = '2';
+    process.env.OFFICE_CLAW_CALLBACK_OUTBOX_MAX_ATTEMPTS = '2';
     const { handlePostMessage } = await import('../dist/tools/callback-tools.js');
 
     const stale = {

@@ -170,6 +170,9 @@ class JiuClawReActAgent(ReActAgent):
         self._current_session_id: Optional[str] = None
         self._no_tool_invoke_count: int = 0  # consecutive invokes ending without tool calls
         self._skill_bash_commands: List[str] = []  # parsed from SKILL.md ```bash blocks
+        self._last_reasoning_content: Optional[str] = None  # previous iteration's reasoning_content
+        self._reasoning_repeat_count: int = 0  # consecutive identical reasoning_content count
+        self._stop_reasoning_output: bool = False  # stop streaming reasoning when repeated with tool_calls
 
     def set_workspace(self, workspace_dir: str, agent_id: str) -> None:
         """Set workspace directory and Agent ID."""
@@ -278,8 +281,8 @@ class JiuClawReActAgent(ReActAgent):
                 else:
                     accumulated_chunk = accumulated_chunk + chunk
 
-                # Stream output for reasoning content (always send)
-                if chunk.reasoning_content:
+                # Stream output for reasoning content (skip if stopped due to repeat)
+                if chunk.reasoning_content and not self._stop_reasoning_output:
                     stream_output = OutputSchema(
                         type="llm_reasoning",
                         index=chunk_count,
@@ -397,6 +400,10 @@ class JiuClawReActAgent(ReActAgent):
             raise ValueError("Input must be dict with 'query' or str")
 
         self._current_session_id = session_id or None
+        # Reset reasoning loop repeater counter for each new conversation
+        self._last_reasoning_content = None
+        self._reasoning_repeat_count = 0
+        self._stop_reasoning_output = False
         # Token usage accumulator across ReAct iterations
         total_input_tokens = 0
         total_output_tokens = 0
@@ -501,11 +508,15 @@ class JiuClawReActAgent(ReActAgent):
                     session,  # Pass session for streaming
                 )
                 # Accumulate token usage
-                if hasattr(ai_message, 'usage_metadata') and ai_message.usage_metadata:
-                    um = ai_message.usage_metadata
+                _has_um = hasattr(ai_message, 'usage_metadata')
+                _um_val = ai_message.usage_metadata if _has_um else None
+                logger.info(f"[USAGE_DEBUG] _call_llm returned: has_usage_metadata={_has_um}, usage_metadata={_um_val}")
+                if _has_um and _um_val:
+                    um = _um_val
                     total_input_tokens += getattr(um, 'input_tokens', 0) or 0
                     total_output_tokens += getattr(um, 'output_tokens', 0) or 0
                     total_total_tokens += getattr(um, 'total_tokens', 0) or 0
+                    logger.info(f"[USAGE_DEBUG] Accumulated: input={total_input_tokens}, output={total_output_tokens}, total={total_total_tokens}")
                 # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
                     ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
@@ -543,6 +554,48 @@ class JiuClawReActAgent(ReActAgent):
                 # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
                     ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
+
+            # ---- 复读机检测 ----
+            # 检测 reasoning_content 是否重复，无论是否有 tool_calls
+            has_tool_calls = bool(ai_message.tool_calls)
+            reasoning = getattr(ai_message, 'reasoning_content', None) or ''
+            if reasoning:
+                if reasoning == self._last_reasoning_content:
+                    # reasoning 相同，累加计数
+                    self._reasoning_repeat_count += 1
+                    # 有 tool_calls 时，停止 reasoning 输出但不终止任务
+                    if has_tool_calls and self._reasoning_repeat_count >= 3:
+                        self._stop_reasoning_output = True
+                        logger.warning(
+                            "[ReActAgent] Reasoning repeat detected: same reasoning_content %d times with tool_calls, stopping reasoning output",
+                            self._reasoning_repeat_count,
+                        )
+                else:
+                    # reasoning 不同，重置计数
+                    self._last_reasoning_content = reasoning
+                    self._reasoning_repeat_count = 0
+                    self._stop_reasoning_output = False
+
+            if not has_tool_calls and self._reasoning_repeat_count >= 3:
+                logger.warning(
+                    "[ReActAgent] Reasoning loop detected: same reasoning_content %d times with no tool calls, terminating",
+                    self._reasoning_repeat_count,
+                )
+                self._last_reasoning_content = None
+                self._reasoning_repeat_count = 0
+                usage = None
+                if total_input_tokens or total_output_tokens:
+                    usage = {
+                        "input_tokens": total_input_tokens,
+                        "output_tokens": total_output_tokens,
+                        "total_tokens": total_total_tokens,
+                    }
+                # 返回 answer 而非 error，保留 LLM 已输出内容，附加循环终止提示
+                return {
+                    "output": f"{ai_message.content or ''}\n\n[系统提示] 检测到思考循环，已自动终止。请尝试提供更明确的指令或简化任务复杂度。",
+                    "result_type": "answer",
+                    "usage": usage,
+                }
 
             # Pause checkpoint: after LLM returns, before tool execution
             if _pause_event is not None:
@@ -657,6 +710,13 @@ class JiuClawReActAgent(ReActAgent):
                                 self._maybe_inject_skill_compliance(tool_msg, getattr(tc, "name", ""))
                                 self._detect_script_failure(tc, tool_msg)
                                 self._truncate_tool_message(tool_msg, tc.name)
+                            # Accumulate subagent token usage into parent totals
+                            if isinstance(_result, dict) and _result.get("usage"):
+                                sub_usage = _result["usage"]
+                                total_input_tokens += sub_usage.get("input_tokens", 0) or 0
+                                total_output_tokens += sub_usage.get("output_tokens", 0) or 0
+                                total_total_tokens += sub_usage.get("total_tokens", 0) or 0
+                                logger.info(f"[USAGE_DEBUG] Accumulated subagent usage: {sub_usage}, parent totals: input={total_input_tokens}, output={total_output_tokens}")
                             await context.add_messages(tool_msg)
                             if session is not None:
                                 await self._emit_tool_result(session, tc, _result)
@@ -710,6 +770,8 @@ class JiuClawReActAgent(ReActAgent):
                         "output_tokens": total_output_tokens,
                         "total_tokens": total_total_tokens,
                     }
+                # DEBUG: Log accumulated usage before return
+                logger.info(f"[USAGE_DEBUG] ReAct agent returning with usage: {usage}, total_input={total_input_tokens}, total_output={total_output_tokens}")
                 return {
                     "output": ai_message.content,
                     "result_type": "answer",

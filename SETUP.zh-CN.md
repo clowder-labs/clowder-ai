@@ -95,7 +95,7 @@ Redis 是线程、消息、任务和记忆的持久化存储。
 REDIS_URL=redis://localhost:6399
 ```
 
-`pnpm start` 会自动启动 Redis（端口 6399）。数据持久化在 `~/.cat-cafe/redis-dev/`。
+`pnpm start` 会自动启动 Redis（端口 6399）。数据持久化在 `~/.office-claw/redis-dev/`。
 
 **没有 Redis？** 用 `pnpm start --memory` 启动纯内存模式（重启后数据丢失 — 试玩够用了）。
 
@@ -135,7 +135,7 @@ NEXT_PUBLIC_LLM_POSTPROCESS_URL=http://localhost:9878
 
 **启动语音服务：**
 ```bash
-# TTS（文字转语音）— 需要 Python 3，自动创建 venv 到 ~/.cat-cafe/tts-venv
+# TTS（文字转语音）— 需要 Python 3，自动创建 venv 到 ~/.office-claw/tts-venv
 ./scripts/tts-server.sh                    # 默认: Qwen3-TTS（三猫声线）
 TTS_PROVIDER=edge-tts ./scripts/tts-server.sh  # edge-tts 备选（无需 GPU）
 
@@ -154,7 +154,7 @@ ANTHROPIC_PROXY_ENABLED=1          # 默认: 0（关闭）
 ANTHROPIC_PROXY_PORT=9877          # 代理监听端口
 ```
 
-在 `.cat-cafe/proxy-upstreams.json` 中配置上游：
+在 `.office-claw/proxy-upstreams.json` 中配置上游：
 ```json
 { "my-gateway": "https://your-gateway.example.com/api" }
 ```

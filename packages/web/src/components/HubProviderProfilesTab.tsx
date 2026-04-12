@@ -67,8 +67,8 @@ export function HubProviderProfilesTab() {
       <CreateAcpModelProfileSection {...acpModelCreateSectionProps} />
 
       <p className="text-xs leading-5 text-[#B59A88]">
-        secrets are stored in `.cat-cafe/provider-profiles.secrets.local.json` and
-        `.cat-cafe/acp-model-profiles.secrets.local.json`.
+        secrets are stored in `.office-claw/provider-profiles.secrets.local.json` and
+        `.office-claw/acp-model-profiles.secrets.local.json`.
       </p>
     </div>
   );

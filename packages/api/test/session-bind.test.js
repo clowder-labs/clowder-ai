@@ -163,7 +163,7 @@ describe('Session bind API route', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/threads/nonexistent/sessions/opus/bind',
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
         payload: { cliSessionId: 'cli-new' },
       });
       assert.equal(res.statusCode, 404);
@@ -182,7 +182,7 @@ describe('Session bind API route', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/threads/${threadId}/sessions/invalid-cat/bind`,
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
         payload: { cliSessionId: 'cli-new' },
       });
       assert.equal(res.statusCode, 400);
@@ -201,7 +201,7 @@ describe('Session bind API route', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/threads/${threadId}/sessions/opus/bind`,
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
         payload: {},
       });
       assert.equal(res.statusCode, 400);
@@ -226,7 +226,7 @@ describe('Session bind API route', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/threads/${thread.id}/sessions/opus/bind`,
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
         payload: { cliSessionId: 'cli-new' },
       });
 
@@ -248,7 +248,7 @@ describe('Session bind API route', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/threads/${thread.id}/sessions/opus/bind`,
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
         payload: { cliSessionId: 'cli-manual' },
       });
 
@@ -271,7 +271,7 @@ describe('Session bind API route', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/threads/${thread.id}/sessions/opus/bind`,
-        headers: { 'x-cat-cafe-user': 'hacker' },
+        headers: { 'x-office-claw-user': 'hacker' },
         payload: { cliSessionId: 'cli-evil' },
       });
 
@@ -290,7 +290,7 @@ describe('Session bind API route', () => {
         const res = await app.inject({
           method: 'PATCH',
           url: `/api/threads/${thread.id}/sessions/${catId}/bind`,
-          headers: { 'x-cat-cafe-user': 'user-1' },
+          headers: { 'x-office-claw-user': 'user-1' },
           payload: { cliSessionId: `cli-${catId}` },
         });
 

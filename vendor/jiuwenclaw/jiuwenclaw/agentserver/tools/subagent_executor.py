@@ -295,12 +295,14 @@ Approach each task methodically and deliver high-quality results."""
 
             logger.info(f"[Subagent] Execution completed, task_id={task.task_id}")
 
-            # 11. Extract result
+            # 11. Extract result and usage
             result_text = ""
+            subagent_usage = None
             if isinstance(response, dict):
                 result_text = response.get("output", "")
                 if isinstance(result_text, dict):
                     result_text = result_text.get("output", str(result_text))
+                subagent_usage = response.get("usage")
             elif hasattr(response, "content"):
                 result_text = response.content
             elif hasattr(response, "text"):
@@ -308,11 +310,15 @@ Approach each task methodically and deliver high-quality results."""
             else:
                 result_text = str(response)
 
+            if subagent_usage:
+                logger.info(f"[Subagent] task_id={task.task_id} usage: {subagent_usage}")
+
             return SubagentResult(
                 success=True,
                 task_id=task.task_id,
                 role_id=task.role_id,
                 result=result_text,
+                usage=subagent_usage,
             )
 
         except asyncio.TimeoutError:
@@ -338,7 +344,12 @@ Approach each task methodically and deliver high-quality results."""
         system_prompt: str,
     ) -> "JiuClawReActAgent":
         """Create subagent instance with inherited tools."""
-        # Lazy import to avoid circular dependency
+        from openjiuwen.core.runner import Runner
+        from openjiuwen.core.sys_operation import (
+            LocalWorkConfig,
+            OperationMode,
+            SysOperationCard,
+        )
         from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent
 
         card = AgentCard(
@@ -350,6 +361,19 @@ Approach each task methodically and deliver high-quality results."""
 
         # Build config with custom system prompt
         config = self._build_subagent_config(task, system_prompt)
+
+        if not config.sys_operation_id:
+            try:
+                workspace_dir = task.workspace_dir or str(get_agent_root_dir())
+                sysop_card = SysOperationCard(
+                    mode=OperationMode.LOCAL,
+                    work_config=LocalWorkConfig(work_dir=workspace_dir),
+                )
+                Runner.resource_mgr.add_sys_operation(sysop_card)
+                config.sys_operation_id = sysop_card.id
+            except Exception as exc:
+                logger.warning("[Subagent] Failed to create SysOperation for subagent: %s", exc)
+
         subagent.configure(config)
 
         # Inherit tools from parent agent

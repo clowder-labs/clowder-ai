@@ -93,7 +93,7 @@ interface SkillDetailResponse {
   description?: string;
   triggers?: string[];
   category?: string;
-  source: 'cat-cafe' | 'external';
+  source: 'builtin' | 'external';
   enabled: boolean;
   installedAt?: string;
   skillhubUrl?: string;
@@ -859,7 +859,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       const isSkillhubInstalled = installedRecord?.source === 'skillhub';
       const isLocalInstalled = installedRecord?.source === 'local';
       const isRemote = isSkillhubInstalled || isExternalCap || isLocalInstalled;
-      const source: 'cat-cafe' | 'external' = isRemote ? 'external' : 'cat-cafe';
+      const source: 'builtin' | 'external' = isRemote ? 'external' : 'builtin';
 
       // Get category
       const bootstrapEntry = bootstrapEntries.get(skillName);

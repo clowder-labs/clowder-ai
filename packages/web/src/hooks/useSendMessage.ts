@@ -7,6 +7,8 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { getMentionToCat } from '@/lib/mention-highlight';
+import { sanitizeThreadTitleOrNull } from '@/components/ThreadSidebar/thread-title';
 import { useChatCommands } from '@/hooks/useChatCommands';
 import type { DeliveryMode, WhisperOptions as SharedWhisperOptions } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
@@ -21,6 +23,24 @@ export interface SendMessageOptions {
 
 export interface UseSendMessageOptions {
   resetRefs?: () => void;
+}
+
+const AUTO_THREAD_TITLE_MAX_LENGTH = 30;
+const AUTO_THREAD_TITLE_PLACEHOLDERS = new Set(['未命名会话', '未命名对话']);
+
+function buildAutoThreadTitle(rawContent: string): string | null {
+  const knownAliases = new Set(Object.keys(getMentionToCat()).map((alias) => alias.toLowerCase()));
+  const sanitized = sanitizeThreadTitleOrNull(rawContent, knownAliases);
+  if (!sanitized) return null;
+  return sanitized.length > AUTO_THREAD_TITLE_MAX_LENGTH
+    ? `${sanitized.slice(0, AUTO_THREAD_TITLE_MAX_LENGTH)}...`
+    : sanitized;
+}
+
+function shouldAutoTitleThread(threadId: string, title: string | null | undefined): boolean {
+  if (!threadId || threadId === 'default') return false;
+  const trimmed = title?.trim() ?? '';
+  return trimmed.length === 0 || AUTO_THREAD_TITLE_PLACEHOLDERS.has(trimmed);
 }
 
 /**
@@ -43,6 +63,40 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const resetRefs = options?.resetRefs;
+
+  const maybeAutoTitleThread = useCallback(async (threadId: string, content: string) => {
+    const nextTitle = buildAutoThreadTitle(content);
+    if (!nextTitle) return;
+
+    const store = useChatStore.getState();
+    const thread = (store.threads ?? []).find((item) => item.id === threadId);
+
+    if (!thread) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('cat-cafe:threads-refresh'));
+      }
+      return;
+    }
+
+    if (!shouldAutoTitleThread(threadId, thread.title)) return;
+
+    store.updateThreadTitle(threadId, nextTitle);
+
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+      if (!res.ok) return;
+      const updated = await res.json().catch(() => null);
+      const resolvedTitle =
+        typeof updated?.title === 'string' && updated.title.trim().length > 0 ? updated.title : nextTitle;
+      useChatStore.getState().updateThreadTitle(threadId, resolvedTitle);
+    } catch {
+      // Keep optimistic title when persistence fails.
+    }
+  }, []);
 
   const createClientId = useCallback((): string => {
     if (globalThis.crypto?.randomUUID) {
@@ -214,6 +268,7 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
             replaceThreadMessageId(threadId, optimisticMessageId, body.userMessageId);
           }
         }
+        await maybeAutoTitleThread(threadId, content);
         setUploadStatus('idle');
         setUploadError(null);
       } catch (err) {
@@ -261,6 +316,7 @@ export function useSendMessage(activeThreadId?: string, options?: UseSendMessage
       setThreadHasActiveInvocation,
       activeThreadId,
       createClientId,
+      maybeAutoTitleThread,
     ],
   );
 

@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, test } from 'node:test';
 import Fastify from 'fastify';
 
-const USER_HEADER = { 'x-cat-cafe-user': 'default-user' };
+const USER_HEADER = { 'x-office-claw-user': 'default-user' };
 
 describe('Backlog Routes', () => {
   let backlogStore;
@@ -1422,7 +1422,7 @@ describe('Backlog mark-done route', () => {
     return app;
   }
 
-  const H = { 'x-cat-cafe-user': 'default-user' };
+  const H = { 'x-office-claw-user': 'default-user' };
 
   async function createDispatchedItem(app) {
     const createRes = await app.inject({
@@ -1511,7 +1511,7 @@ describe('Import sync marks disappeared items as done (any status)', () => {
     messageStore = new MessageStore();
   });
 
-  const H = { 'x-cat-cafe-user': 'default-user' };
+  const H = { 'x-office-claw-user': 'default-user' };
 
   test('dispatched item not in BACKLOG.md gets marked done on import', async () => {
     const { backlogRoutes } = await import('../dist/routes/backlog.js');
@@ -1597,7 +1597,7 @@ describe('Import sync marks suggested items as done when disappeared', () => {
     messageStore = new MessageStore();
   });
 
-  const H = { 'x-cat-cafe-user': 'default-user' };
+  const H = { 'x-office-claw-user': 'default-user' };
 
   test('suggested item not in BACKLOG.md gets marked done on import', async () => {
     const { backlogRoutes } = await import('../dist/routes/backlog.js');
@@ -1674,7 +1674,7 @@ describe('Import sync hard-fails on parse error (zero writes)', () => {
     messageStore = new MessageStore();
   });
 
-  const H = { 'x-cat-cafe-user': 'default-user' };
+  const H = { 'x-office-claw-user': 'default-user' };
 
   test('returns 500 and does not markDone when BACKLOG.md header has missing required columns', async () => {
     const { backlogRoutes } = await import('../dist/routes/backlog.js');

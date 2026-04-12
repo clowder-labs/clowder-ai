@@ -7,7 +7,7 @@
 /**
  * Unified request identity resolver.
  *
- * Priority: X-Cat-Cafe-User header > userId query param > fallbackUserId > defaultUserId
+ * Priority: X-Office-Claw-User header > X-Cat-Cafe-User (legacy) > userId query > fallback > default
  *
  * Header-based identity is preferred because:
  * - Not logged in access logs / referer headers / browser history
@@ -24,19 +24,37 @@ export interface ResolveUserIdOptions {
   defaultUserId?: string;
 }
 
+export const FRONTEND_DEFAULT_USER_ID = 'default-user';
+
 function nonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function resolveDefaultOwnerUserId(): string | null {
+  const ownerUserId = nonEmptyString(process.env.DEFAULT_OWNER_USER_ID);
+  if (!ownerUserId || ownerUserId === FRONTEND_DEFAULT_USER_ID) return null;
+  return ownerUserId;
+}
+
+export function resolveEffectiveUserId(value: unknown): string | null {
+  const userId = nonEmptyString(value);
+  if (!userId) return null;
+  if (userId === FRONTEND_DEFAULT_USER_ID) {
+    return resolveDefaultOwnerUserId() ?? userId;
+  }
+  return userId;
+}
+
 /**
  * Trusted request identity source for browser/API calls.
  *
  * Unlike resolveUserId(), this does not accept caller-controlled query params.
+ * Reads X-Office-Claw-User first, falls back to legacy X-Cat-Cafe-User.
  */
 export function resolveHeaderUserId(request: FastifyRequest): string | null {
-  return nonEmptyString(request.headers['x-cat-cafe-user']);
+  return resolveEffectiveUserId(request.headers['x-office-claw-user']);
 }
 
 export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {
@@ -44,11 +62,11 @@ export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOp
   if (fromHeader) return fromHeader;
 
   const query = request.query as Record<string, unknown>;
-  const fromQuery = nonEmptyString(query.userId);
+  const fromQuery = resolveEffectiveUserId(query.userId);
   if (fromQuery) return fromQuery;
 
-  const fromFallback = nonEmptyString(options?.fallbackUserId);
+  const fromFallback = resolveEffectiveUserId(options?.fallbackUserId);
   if (fromFallback) return fromFallback;
 
-  return nonEmptyString(options?.defaultUserId);
+  return resolveEffectiveUserId(options?.defaultUserId);
 }

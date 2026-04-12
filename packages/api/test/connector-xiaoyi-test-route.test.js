@@ -25,7 +25,7 @@ describe('POST /api/connector/test/xiaoyi', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/connector/test/xiaoyi',
-      headers: { 'X-Cat-Cafe-User': 'tester' },
+      headers: { 'X-Office-Claw-User': 'tester' },
       payload: { XIAOYI_AK: 'ak-only' },
     });
 
@@ -44,7 +44,7 @@ describe('POST /api/connector/test/xiaoyi', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/connector/test/xiaoyi',
-      headers: { 'X-Cat-Cafe-User': 'tester' },
+      headers: { 'X-Office-Claw-User': 'tester' },
       payload: {},
     });
 

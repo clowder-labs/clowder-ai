@@ -27,9 +27,10 @@ import { ConnectorRouter } from './ConnectorRouter.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
+import { resolveFeishuOpenApiBaseUrl } from './feishu-open-platform.js';
 import { ConnectorMediaService } from './media/ConnectorMediaService.js';
 
-const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
+const FEISHU_OPEN_API_BASE_URL = resolveFeishuOpenApiBaseUrl();
 import { MediaCleanupJob } from './media/MediaCleanupJob.js';
 import {
   type IOutboundAdapter,
@@ -38,6 +39,7 @@ import {
 } from './OutboundDeliveryHook.js';
 import { RedisConnectorThreadBindingStore } from './RedisConnectorThreadBindingStore.js';
 import { StreamingOutboundHook } from './StreamingOutboundHook.js';
+import { ConnectorOwnerStore, NoopConnectorOwnerStore, type IConnectorOwnerStore } from './ConnectorOwnerStore.js';
 import { NoopWeixinSessionStore, type IWeixinSessionStore, WeixinSessionStore } from './WeixinSessionStore.js';
 
 type ConnectorId = 'telegram' | 'feishu' | 'dingtalk' | 'weixin' | 'xiaoyi';
@@ -57,6 +59,7 @@ export interface ConnectorRuntimeApplySummary {
 
 export interface ConnectorRuntimeReconciler {
   reconcile(changedKeys: string[]): Promise<ConnectorRuntimeApplySummary>;
+  setOwnerUserId(userId: string): Promise<void> | void;
 }
 
 interface SharedContext {
@@ -70,6 +73,8 @@ interface SharedContext {
   readonly mediaService: ConnectorMediaService;
   readonly connectorRouter: ConnectorRouter;
   readonly cleanupJob: MediaCleanupJob;
+  readonly ownerStore: IConnectorOwnerStore;
+  readonly ownerUserIdState: { current: string };
   readonly weixinSessionStore: IWeixinSessionStore;
   readonly weixinAdapter: WeixinAdapter;
   readonly messageLookup:
@@ -202,6 +207,8 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
   private readonly connectorRouter: ConnectorRouter;
   private readonly mediaService: ConnectorMediaService;
   private readonly cleanupJob: MediaCleanupJob;
+  private readonly ownerStore: IConnectorOwnerStore;
+  private readonly ownerUserIdState: { current: string };
   private readonly weixinSessionStore: IWeixinSessionStore;
   private readonly runtimes = new Map<ConnectorId, ConnectorRuntimeState>();
   private reconcileChain: Promise<ConnectorRuntimeApplySummary> = Promise.resolve(emptySummary());
@@ -217,6 +224,8 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
     this.connectorRouter = ctx.connectorRouter;
     this.mediaService = ctx.mediaService;
     this.cleanupJob = ctx.cleanupJob;
+    this.ownerStore = ctx.ownerStore;
+    this.ownerUserIdState = ctx.ownerUserIdState;
     this.weixinSessionStore = ctx.weixinSessionStore;
     this.weixinAdapter = ctx.weixinAdapter;
     this.outboundHook = new OutboundDeliveryHook({
@@ -292,6 +301,16 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
     await this.stopConnector('weixin');
     this.weixinAdapter.setBotToken('');
     this.weixinSessionStore.clear();
+  };
+
+  setOwnerUserId = async (userId: string): Promise<void> => {
+    const trimmed = userId.trim();
+    if (!trimmed) {
+      throw new Error('Connector owner userId must not be empty');
+    }
+    this.ownerUserIdState.current = trimmed;
+    this.ownerStore.save(trimmed);
+    this.log.info({ ownerUserId: trimmed }, '[ConnectorGateway] Connector owner updated');
   };
 
   async stop(): Promise<void> {
@@ -810,6 +829,7 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
   const permissionStore: IConnectorPermissionStore = deps.redis
     ? new RedisConnectorPermissionStore(deps.redis)
     : new MemoryConnectorPermissionStore();
+  const ownerStore = deps.hostRoot ? new ConnectorOwnerStore(hostRoot) : new NoopConnectorOwnerStore();
   const adapters = new Map<string, IOutboundAdapter>();
   const streamableAdapters = new Map<string, IStreamableOutboundAdapter>();
   const webhookHandlers = deps.webhookHandlers ?? new Map<string, ConnectorWebhookHandler>();
@@ -834,7 +854,9 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     sttProvider = new WhisperSttProvider({ baseUrl: config.whisperUrl });
   }
 
-  const effectiveUserId = config.coCreatorUserId || deps.defaultUserId;
+  const persistedOwner = ownerStore.load();
+  const effectiveUserId = persistedOwner?.ownerUserId || config.coCreatorUserId || deps.defaultUserId;
+  const ownerUserIdState = { current: effectiveUserId };
   const connectorRouter = new ConnectorRouter({
     bindingStore,
     dedup,
@@ -842,6 +864,7 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     threadStore: deps.threadStore,
     invokeTrigger: deps.invokeTrigger,
     socketManager: deps.socketManager,
+    defaultUserIdResolver: () => ownerUserIdState.current,
     defaultUserId: effectiveUserId,
     defaultCatId: deps.defaultCatId,
     log,
@@ -891,6 +914,8 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     mediaService,
     connectorRouter,
     cleanupJob,
+    ownerStore,
+    ownerUserIdState,
     weixinSessionStore,
     weixinAdapter,
     messageLookup,

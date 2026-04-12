@@ -55,9 +55,9 @@ test('configure_mcp_server_path sets default path when env is unset', () => {
       scriptPath,
       `
 PROJECT_DIR="${tempRoot}"
-unset CAT_CAFE_MCP_SERVER_PATH
+unset OFFICE_CLAW_MCP_SERVER_PATH
 configure_mcp_server_path >/dev/null
-printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
+printf '%s' "$OFFICE_CLAW_MCP_SERVER_PATH"
 `,
     );
 
@@ -79,9 +79,9 @@ test('configure_mcp_server_path uses default path when env is empty string', () 
       scriptPath,
       `
 PROJECT_DIR="${tempRoot}"
-export CAT_CAFE_MCP_SERVER_PATH=""
+export OFFICE_CLAW_MCP_SERVER_PATH=""
 configure_mcp_server_path >/dev/null
-printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
+printf '%s' "$OFFICE_CLAW_MCP_SERVER_PATH"
 `,
     );
 
@@ -91,16 +91,16 @@ printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
   }
 });
 
-test('configure_mcp_server_path keeps explicit CAT_CAFE_MCP_SERVER_PATH', () => {
+test('configure_mcp_server_path keeps explicit OFFICE_CLAW_MCP_SERVER_PATH', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
   const explicitPath = '/tmp/custom/mcp-server-entry.js';
 
   const output = runSourceOnlySnippet(
     scriptPath,
     `
-export CAT_CAFE_MCP_SERVER_PATH="${explicitPath}"
+export OFFICE_CLAW_MCP_SERVER_PATH="${explicitPath}"
 configure_mcp_server_path >/dev/null
-printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
+printf '%s' "$OFFICE_CLAW_MCP_SERVER_PATH"
 `,
   );
 
@@ -204,7 +204,7 @@ test('direct command mode can prefer current .env ports over ambient shell ports
     PATH: process.env.PATH ?? '',
     HOME: process.env.HOME ?? '',
     TERM: process.env.TERM ?? 'xterm-256color',
-    CAT_CAFE_RESPECT_DOTENV_PORTS: '1',
+    OFFICE_CLAW_RESPECT_DOTENV_PORTS: '1',
   };
 
   try {
@@ -305,7 +305,7 @@ test('respect-dotenv mode keeps explicit Redis 6399 defaults intact for wrappers
           PATH: process.env.PATH ?? '',
           HOME: process.env.HOME ?? '',
           TERM: process.env.TERM ?? 'xterm-256color',
-          CAT_CAFE_RESPECT_DOTENV_PORTS: '1',
+          OFFICE_CLAW_RESPECT_DOTENV_PORTS: '1',
         },
       },
     );
@@ -341,7 +341,7 @@ test('redis port override also recomputes isolated redis dirs', () => {
     assert.equal(result.status, 0, `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
     assert.equal(
       result.stdout.trim(),
-      ['dev-6409', `${tempHome}/.cat-cafe/redis-dev-6409`, `${tempHome}/.cat-cafe/redis-backups/dev-6409`].join('|'),
+      ['dev-6409', `${tempHome}/.office-claw/redis-dev-6409`, `${tempHome}/.office-claw/redis-backups/dev-6409`].join('|'),
     );
   } finally {
     rmSync(tempHome, { recursive: true, force: true });
@@ -383,7 +383,7 @@ test('manual mirror args map to npm, pip, and HuggingFace environment overrides'
   const output = runSourceOnlySnippet(
     scriptPath,
     `
-unset CAT_CAFE_NPM_REGISTRY CAT_CAFE_PIP_INDEX_URL CAT_CAFE_PIP_EXTRA_INDEX_URL CAT_CAFE_HF_ENDPOINT
+unset OFFICE_CLAW_NPM_REGISTRY OFFICE_CLAW_PIP_INDEX_URL OFFICE_CLAW_PIP_EXTRA_INDEX_URL OFFICE_CLAW_HF_ENDPOINT
 unset NPM_CONFIG_REGISTRY PIP_INDEX_URL PIP_EXTRA_INDEX_URL HF_ENDPOINT
 parse_manual_download_source_arg '--npm-registry=https://npm.mirror.example'
 parse_manual_download_source_arg '--pip-index-url=https://pip.mirror.example/simple'
@@ -391,10 +391,10 @@ parse_manual_download_source_arg '--pip-extra-index-url=https://pip.extra.exampl
 parse_manual_download_source_arg '--hf-endpoint=https://hf.mirror.example'
 apply_manual_download_source_overrides
 printf '%s|%s|%s|%s|%s|%s|%s|%s' \
-  "$CAT_CAFE_NPM_REGISTRY" "$NPM_CONFIG_REGISTRY" \
-  "$CAT_CAFE_PIP_INDEX_URL" "$PIP_INDEX_URL" \
-  "$CAT_CAFE_PIP_EXTRA_INDEX_URL" "$PIP_EXTRA_INDEX_URL" \
-  "$CAT_CAFE_HF_ENDPOINT" "$HF_ENDPOINT"
+  "$OFFICE_CLAW_NPM_REGISTRY" "$NPM_CONFIG_REGISTRY" \
+  "$OFFICE_CLAW_PIP_INDEX_URL" "$PIP_INDEX_URL" \
+  "$OFFICE_CLAW_PIP_EXTRA_INDEX_URL" "$PIP_EXTRA_INDEX_URL" \
+  "$OFFICE_CLAW_HF_ENDPOINT" "$HF_ENDPOINT"
 `,
   );
 
@@ -542,7 +542,7 @@ test('api_launch_command uses exec so wait tracks the long-lived server process'
   const output = runSourceOnlySnippet(
     scriptPath,
     `
-CAT_CAFE_DIRECT_NO_WATCH=1
+OFFICE_CLAW_DIRECT_NO_WATCH=1
 printf '%s' "$(api_launch_command)"
 `,
   );
@@ -598,7 +598,7 @@ printf '%s|%s|%s' \
 
     assert.equal(
       output,
-      ['dev-6389', `${tempHome}/.cat-cafe/redis-dev-6389`, `${tempHome}/.cat-cafe/redis-backups/dev-6389`].join('|'),
+      ['dev-6389', `${tempHome}/.office-claw/redis-dev-6389`, `${tempHome}/.office-claw/redis-backups/dev-6389`].join('|'),
     );
   } finally {
     rmSync(tempHome, { recursive: true, force: true });
@@ -625,7 +625,7 @@ printf '%s|%s|%s' \
 
     assert.equal(
       output,
-      ['dev', `${tempHome}/.cat-cafe/redis-dev`, `${tempHome}/.cat-cafe/redis-backups/dev`].join('|'),
+      ['dev', `${tempHome}/.office-claw/redis-dev`, `${tempHome}/.office-claw/redis-backups/dev`].join('|'),
     );
   } finally {
     rmSync(tempHome, { recursive: true, force: true });

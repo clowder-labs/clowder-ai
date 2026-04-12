@@ -47,18 +47,18 @@ const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf
 
 // ─── Constants ──────────────────────────────────────────────────────
 
-const MACOS_PRESERVE_PATHS = ['.env', 'cat-config.json', 'data', 'logs', '.cat-cafe'];
+const MACOS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw'];
 const MACOS_MANAGED_TOP_LEVEL_PATHS = [
   'packages',
   'scripts',
-  'cat-cafe-skills',
+  'office-claw-skills',
   'tools',
   'installer-seed',
   'vendor',
   '.clowder-release.json',
   '.env.example',
   'LICENSE',
-  'cat-template.json',
+  'office-claw-template.json',
   'modelarts-preset.json',
   'pnpm-workspace.yaml',
 ];
@@ -408,11 +408,11 @@ function parseArgs(argv) {
 
 function copyTopLevelProject(bundleDir) {
   const entries = [
-    'cat-cafe-skills',
+    'office-claw-skills',
     'LICENSE',
     '.env.example',
     '.inner.env',
-    'cat-template.json',
+    'office-claw-template.json',
     'modelarts-preset.json',
     'pnpm-workspace.yaml',
   ];
@@ -439,9 +439,9 @@ function copyTopLevelProject(bundleDir) {
 function stageInstallerSeed(bundleDir) {
   const seedDir = join(bundleDir, 'installer-seed');
   ensureDir(seedDir);
-  const catConfigPath = join(repoRoot, 'cat-config.json');
+  const catConfigPath = join(repoRoot, 'office-claw-config.json');
   if (existsSync(catConfigPath)) {
-    cpSync(catConfigPath, join(seedDir, 'cat-config.json'), { force: true });
+    cpSync(catConfigPath, join(seedDir, 'office-claw-config.json'), { force: true });
   }
 }
 
@@ -1059,7 +1059,7 @@ function ensureBuildArtifacts(options) {
 }
 
 function ensureRuntimeSkeleton(bundleDir) {
-  for (const dir of ['data', 'logs', '.cat-cafe']) {
+  for (const dir of ['data', 'logs', '.office-claw']) {
     ensureDir(join(bundleDir, dir));
   }
 }

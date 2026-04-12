@@ -19,7 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
 
 const IS_WINDOWS = process.platform === 'win32';
-const IS_MACOS_BUNDLED = process.platform === 'darwin' && process.env.CAT_CAFE_MACOS_BUNDLED === '1';
+const IS_MACOS_BUNDLED = process.platform === 'darwin' && process.env.OFFICE_CLAW_MACOS_BUNDLED === '1';
 
 // First positional arg is the mode (start | start:direct | dev:direct)
 const [mode, ...rest] = process.argv.slice(2);
@@ -29,9 +29,9 @@ if (IS_MACOS_BUNDLED) {
   const cmd = resolve(__dirname, 'start-macos.sh');
   const env = {
     ...process.env,
-    CAT_CAFE_STRICT_PROFILE_DEFAULTS: '1',
-    CAT_CAFE_RESPECT_DOTENV_PORTS: '1',
-    CAT_CAFE_MACOS_BUNDLED: '1',
+    OFFICE_CLAW_STRICT_PROFILE_DEFAULTS: '1',
+    OFFICE_CLAW_RESPECT_DOTENV_PORTS: '1',
+    OFFICE_CLAW_MACOS_BUNDLED: '1',
   };
   const child = spawn('bash', [cmd, ...rest], { cwd: projectRoot, stdio: 'inherit', env });
   child.on('exit', (code) => process.exit(code ?? 1));
@@ -59,17 +59,17 @@ if (IS_MACOS_BUNDLED) {
     args = ['--prod-web', '--profile=opensource', ...rest];
     env = {
       ...process.env,
-      CAT_CAFE_STRICT_PROFILE_DEFAULTS: '1',
-      CAT_CAFE_RESPECT_DOTENV_PORTS: '1',
-      CAT_CAFE_DIRECT_NO_WATCH: '1',
+      OFFICE_CLAW_STRICT_PROFILE_DEFAULTS: '1',
+      OFFICE_CLAW_RESPECT_DOTENV_PORTS: '1',
+      OFFICE_CLAW_DIRECT_NO_WATCH: '1',
     };
   } else if (mode === 'dev:direct') {
     cmd = resolve(__dirname, 'start-dev.sh');
     args = ['--profile=opensource', ...rest];
     env = {
       ...process.env,
-      CAT_CAFE_STRICT_PROFILE_DEFAULTS: '1',
-      CAT_CAFE_RESPECT_DOTENV_PORTS: '1',
+      OFFICE_CLAW_STRICT_PROFILE_DEFAULTS: '1',
+      OFFICE_CLAW_RESPECT_DOTENV_PORTS: '1',
     };
   } else {
     console.error(`Unknown mode: ${mode}. Use: start, start:direct, dev:direct`);

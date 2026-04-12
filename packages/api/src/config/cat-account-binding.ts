@@ -48,7 +48,7 @@ export function resolveBoundAccountRefForCat(
   if (!explicitAccountRef) return undefined;
 
   const builtinClient = resolveBuiltinClientForProvider(catConfig.provider);
-  const runtimeCatalogExists = existsSync(resolve(projectRoot, '.cat-cafe', 'cat-catalog.json'));
+  const runtimeCatalogExists = existsSync(resolve(projectRoot, '.office-claw', 'office-claw-catalog.json'));
   const builtinDefaultAccountRef = builtinClient ? builtinAccountIdForClient(builtinClient) : null;
   const inheritedTemplateDefaultBinding =
     !runtimeCatalogExists && !!builtinDefaultAccountRef && explicitAccountRef === builtinDefaultAccountRef;

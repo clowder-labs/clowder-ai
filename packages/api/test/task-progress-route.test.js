@@ -62,7 +62,7 @@ describe('GET /api/threads/:threadId/task-progress', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/nonexistent/task-progress',
-      headers: { 'x-cat-cafe-user': 'alice' },
+      headers: { 'x-office-claw-user': 'alice' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -71,7 +71,7 @@ describe('GET /api/threads/:threadId/task-progress', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${threadId}/task-progress`,
-      headers: { 'x-cat-cafe-user': 'eve' },
+      headers: { 'x-office-claw-user': 'eve' },
     });
     assert.equal(res.statusCode, 403);
   });
@@ -80,7 +80,7 @@ describe('GET /api/threads/:threadId/task-progress', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${threadId}/task-progress`,
-      headers: { 'x-cat-cafe-user': 'alice' },
+      headers: { 'x-office-claw-user': 'alice' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -94,7 +94,7 @@ describe('GET /api/threads/:threadId/task-progress', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${threadId}/task-progress`,
-      headers: { 'x-cat-cafe-user': 'alice' },
+      headers: { 'x-office-claw-user': 'alice' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -113,7 +113,7 @@ describe('GET /api/threads/:threadId/task-progress', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${sysThread.id}/task-progress`,
-      headers: { 'x-cat-cafe-user': 'anyone' },
+      headers: { 'x-office-claw-user': 'anyone' },
     });
     assert.equal(res.statusCode, 200);
   });

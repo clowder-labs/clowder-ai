@@ -62,7 +62,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/sessions',
-      // no X-Cat-Cafe-User header, no userId query
+      // no X-Office-Claw-User header, no userId query
     });
     assert.equal(res.statusCode, 401);
   });
@@ -82,7 +82,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/sessions',
-      headers: { 'x-cat-cafe-user': 'other-user' },
+      headers: { 'x-office-claw-user': 'other-user' },
     });
     assert.equal(res.statusCode, 403);
   });
@@ -93,7 +93,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}`,
-      headers: { 'x-cat-cafe-user': 'other-user' },
+      headers: { 'x-office-claw-user': 'other-user' },
     });
     assert.equal(res.statusCode, 403);
   });
@@ -105,7 +105,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/unknown-thread/sessions',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -120,7 +120,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/sessions',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -134,7 +134,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-system/sessions',
-      headers: { 'x-cat-cafe-user': 'default-user' },
+      headers: { 'x-office-claw-user': 'default-user' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -150,7 +150,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/sessions?catId=opus',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -165,7 +165,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -181,7 +181,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}`,
-      headers: { 'x-cat-cafe-user': 'default-user' },
+      headers: { 'x-office-claw-user': 'default-user' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -194,7 +194,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/sessions/non-existent-id',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 404);
     const body = JSON.parse(res.payload);
@@ -217,7 +217,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     const body = JSON.parse(res.payload);
     assert.ok(body.contextHealth);
@@ -242,7 +242,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/sessions/non-existent-id/unseal',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -265,7 +265,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/sessions/${dangling.id}/unseal`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 404);
     const body = JSON.parse(res.payload);
@@ -281,7 +281,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/sessions/${sealed.id}/unseal`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -302,7 +302,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/sessions/${sealed.id}/unseal`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -324,7 +324,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/sessions/${sealed.id}/unseal`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 409);
     const body = JSON.parse(res.payload);
@@ -342,7 +342,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/sessions/${sealed.id}/unseal`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 409);
     const body = JSON.parse(res.payload);
