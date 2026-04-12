@@ -476,13 +476,32 @@ ${allSlides}
  * 注入依赖库
  */
 async function injectDependencies(page) {
-  // 设置字体嵌入配置（WASM 文件 URL）
+  // 检查本地 WASM 文件是否存在
+  const localWasmPath = resolve(__dirname, '../../assets/vendors/fonteditor-core/woff2.wasm');
+  const wasmExists = await fileExists(localWasmPath);
+  
+  // WASM URL 选择：优先本地，其次 CDN
+  const wasmUrl = wasmExists 
+    ? 'file://' + resolve(localWasmPath) 
+    : 'https://unpkg.com/fonteditor-core@2.4.1/woff2/woff2.wasm';
+  const mirrorUrl = 'https://npmmirror.com/mirrors/fonteditor-core@2.4.1/woff2/woff2.wasm';
+  
+  // 设置字体嵌入配置
   await page.addInitScript(() => {
     window.EMBED_FONTS_CONFIG = {
-      woff2: { wasmUrl: 'https://unpkg.com/fonteditor-core@2.4.1/woff2/woff2.wasm' }
+      woff2: { 
+        wasmUrl: arguments[0],
+        mirrorUrl: arguments[1],
+        optional: true 
+      }
     };
-  });
-  console.log('✅ 字体嵌入配置设置成功');
+  }, wasmUrl, mirrorUrl);
+  
+  if (wasmExists) {
+    console.log('✅ 字体嵌入配置设置成功（本地 WASM）');
+  } else {
+    console.log('✅ 字体嵌入配置设置成功（CDN WASM - 可选依赖）');
+  }
 
   // 使用已打包的 dom-to-pptx bundle
   const bundlePath = resolve(__dirname, '..', 'dist', 'dom-to-pptx.bundle.js');

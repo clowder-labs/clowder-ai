@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
+import { formatCronFrequency } from './scheduled-task-frequency';
 import { EmptyDataState } from './shared/EmptyDataState';
 
 type ScheduledTasksPanelProps = {
@@ -63,52 +64,6 @@ type ScheduleControlSnapshot = {
   overrideEnabledByTaskId: Map<string, boolean>;
 };
 const TASK_TIME_ICON = '/icons/time-time.svg';
-
-function toChineseWeekdays(dayOfWeek: string): string {
-  const map: Record<string, string> = {
-    '0': '日',
-    '7': '日',
-    '1': '一',
-    '2': '二',
-    '3': '三',
-    '4': '四',
-    '5': '五',
-    '6': '六',
-  };
-  return dayOfWeek
-    .split(',')
-    .map((n) => map[n.trim()] ?? n.trim())
-    .join('、');
-}
-
-function formatClock(hour: string, minute: string): string {
-  const hh = Number(hour);
-  const mm = Number(minute);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return `${hour}:${minute}`;
-
-  const period = hh < 12 ? '上午' : '下午';
-  const hour12 = ((hh + 11) % 12) + 1;
-  const minuteText = String(mm).padStart(2, '0');
-  return `${period} ${hour12}：${minuteText}`;
-}
-
-function formatCronFrequency(expression: string): string {
-  const parts = expression.trim().split(/\s+/);
-  if (parts.length < 5) return expression;
-
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
-  const timeText = formatClock(hour, minute);
-
-  if (dayOfWeek !== '*' && dayOfMonth === '*' && month === '*') {
-    return `每周${toChineseWeekdays(dayOfWeek)} ${timeText}`;
-  }
-
-  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
-    return `每天 ${timeText}`;
-  }
-
-  return expression;
-}
 
 function formatFrequency(trigger: ScheduleTrigger): string {
   if (trigger.type === 'interval') {
