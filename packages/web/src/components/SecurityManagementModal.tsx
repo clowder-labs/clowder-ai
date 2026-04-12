@@ -76,6 +76,10 @@ function normalizePolicies(config?: PermissionsConfig): SecurityPolicyItem[] {
   }));
 }
 
+function isPermissionsEnabled(config?: PermissionsConfig): boolean {
+  return config?.enabled ?? true;
+}
+
 function updateToolValue(
   current: PermissionDecision | ToolPermissionRule | undefined,
   nextDecision: PermissionDecision,
@@ -128,7 +132,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
         if (cancelled) return;
 
         setPermissionsConfig(permissions);
-        setApprovalBarEnabled(Boolean(permissions.enabled));
+        setApprovalBarEnabled(isPermissionsEnabled(permissions));
         setPolicies(normalizePolicies(permissions));
       } catch (error) {
         if (cancelled) return;
@@ -192,10 +196,10 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
     const client = clientRef.current;
     if (!client) return;
 
-    const previousPolicies = policies;
-    const previousConfig = permissionsConfig;
+    const currentPolicy = policies.find((policy) => policy.id === id);
+    const previousApprovalRequired = currentPolicy?.approvalRequired ?? false;
     const currentValue = permissionsConfig?.tools?.[id];
-    const nextApprovalRequired = !previousPolicies.find((policy) => policy.id === id)?.approvalRequired;
+    const nextApprovalRequired = !previousApprovalRequired;
     const nextDecision: PermissionDecision = nextApprovalRequired ? 'ask' : 'allow';
     const nextToolValue = updateToolValue(currentValue, nextDecision);
 
@@ -232,8 +236,28 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
         throw new Error(typeof error === 'string' ? error : 'Failed to save tool policy');
       }
     } catch (error) {
-      setPolicies(previousPolicies);
-      setPermissionsConfig(previousConfig);
+      setPolicies((current) =>
+        current.map((policy) =>
+          policy.id === id
+            ? {
+                ...policy,
+                approvalRequired: previousApprovalRequired,
+              }
+            : policy,
+        ),
+      );
+      setPermissionsConfig((current) => {
+        const nextTools = { ...(current?.tools ?? {}) };
+        if (currentValue === undefined) {
+          delete nextTools[id];
+        } else {
+          nextTools[id] = currentValue;
+        }
+        return {
+          ...(current ?? {}),
+          tools: nextTools,
+        };
+      });
       setSaveError(error instanceof Error ? error.message : 'Failed to save tool policy');
     } finally {
       setSavingPolicyIds((current) => {

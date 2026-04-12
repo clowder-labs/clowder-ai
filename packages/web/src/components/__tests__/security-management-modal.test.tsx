@@ -79,6 +79,16 @@ describe('SecurityManagementModal', () => {
     });
   }
 
+  function createDeferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
   it('loads permissions config when the modal opens', async () => {
     await act(async () => {
       root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
@@ -92,6 +102,34 @@ describe('SecurityManagementModal', () => {
     expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
     expect(container.textContent).toContain('mcp_exec_command');
     expect(container.textContent).toContain('write_memory');
+  });
+
+  it('treats missing permissions.enabled as enabled when loading jiuwen config', async () => {
+    mocks.configGet.mockResolvedValueOnce({
+      request_id: 'req-1',
+      channel_id: 'web',
+      ok: true,
+      payload: {
+        trees: {
+          permissions: {
+            tools: {
+              mcp_exec_command: { '*': 'ask' },
+            },
+          },
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    const pageToggle = container.querySelector(
+      '[data-testid="security-management-approval-bar-toggle"]',
+    ) as HTMLButtonElement | null;
+
+    expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
   });
 
   it('saves approval guard changes back to jiuwen', async () => {
@@ -191,6 +229,68 @@ describe('SecurityManagementModal', () => {
 
     expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
     expect(container.textContent).toContain('save failed');
+  });
+
+  it('keeps later successful tool toggles when an earlier save fails', async () => {
+    const firstSave = createDeferred<{
+      request_id: string;
+      channel_id: string;
+      ok: boolean;
+      payload: { error?: string; yaml_written?: boolean; reloaded?: boolean };
+    }>();
+    const secondSave = createDeferred<{
+      request_id: string;
+      channel_id: string;
+      ok: boolean;
+      payload: { error?: string; yaml_written?: boolean; reloaded?: boolean };
+    }>();
+
+    mocks.configSet
+      .mockImplementationOnce(() => firstSave.promise)
+      .mockImplementationOnce(() => secondSave.promise);
+
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    const commandToggle = container.querySelector(
+      '[data-testid="security-policy-toggle-mcp_exec_command"]',
+    ) as HTMLButtonElement | null;
+    const memoryToggle = container.querySelector(
+      '[data-testid="security-policy-toggle-write_memory"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => {
+      commandToggle?.click();
+      memoryToggle?.click();
+      await Promise.resolve();
+    });
+
+    secondSave.resolve({
+      request_id: 'req-2b',
+      channel_id: 'web',
+      ok: true,
+      payload: {
+        yaml_written: true,
+        reloaded: true,
+      },
+    });
+    await flush();
+
+    firstSave.resolve({
+      request_id: 'req-2a',
+      channel_id: 'web',
+      ok: false,
+      payload: {
+        error: 'first save failed',
+      },
+    });
+    await flush();
+
+    expect(commandToggle?.getAttribute('aria-checked')).toBe('true');
+    expect(memoryToggle?.getAttribute('aria-checked')).toBe('true');
+    expect(container.textContent).toContain('first save failed');
   });
 
   it('disconnects the websocket client when the modal closes', async () => {
