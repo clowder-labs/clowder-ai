@@ -6,9 +6,7 @@
 
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import {
-  getFriendlyAgentErrorMessage,
-  getSensitiveInputErrorToastContent,
-  isSensitiveInputAgentError,
+  getAgentErrorToastContent,
 } from '@/hooks/agent-error-fallback';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
@@ -478,8 +476,7 @@ export function handleBackgroundAgentMessage(
   if (msg.type === 'error') {
     markThreadInvocationActive(msg, options);
     stopTrackedStream(streamKey, msg, options);
-    const friendlyError = getFriendlyAgentErrorMessage(msg);
-    const sensitiveToast = isSensitiveInputAgentError(msg) ? getSensitiveInputErrorToastContent() : null;
+    const toast = getAgentErrorToastContent(msg);
     recordDebugEvent({
       event: 'agent_message',
       threadId: msg.threadId,
@@ -490,14 +487,6 @@ export function handleBackgroundAgentMessage(
       action: 'error_fallback',
       origin: msg.origin,
     });
-    options.store.addMessageToThread(msg.threadId, {
-      id: `bg-err-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
-      type: 'assistant',
-      catId: msg.catId,
-      content: friendlyError,
-      timestamp: msg.timestamp,
-      origin: 'stream',
-    });
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
     if (msg.isFinal) {
       // #80 fix-C: Clear timeout guard for error(isFinal) path
@@ -506,8 +495,8 @@ export function handleBackgroundAgentMessage(
     }
     options.addToast({
       type: 'error',
-      title: sensitiveToast?.title ?? `${msg.catId} 出错`,
-      message: sensitiveToast?.message ?? friendlyError,
+      title: toast.title,
+      message: toast.message,
       threadId: msg.threadId,
       duration: 8000,
     });
