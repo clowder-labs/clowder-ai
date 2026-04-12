@@ -214,8 +214,8 @@ describe('Skills Route', () => {
 
   it('GET /api/skills/detail maps uploaded local skills to external source and keeps frontmatter category', async () => {
     const skillName = 'local-detail-test';
-    const skillDir = join(repoRoot, '.cat-cafe', 'skills', skillName);
-    const registryPath = join(repoRoot, '.cat-cafe', 'installed-skills.json');
+    const skillDir = join(repoRoot, '.office-claw', 'skills', skillName);
+    const registryPath = join(repoRoot, '.office-claw', 'installed-skills.json');
     const registryBackup = existsSync(registryPath) ? readFileSync(registryPath, 'utf8') : null;
 
     mkdirSync(skillDir, { recursive: true });
@@ -385,9 +385,9 @@ describe('Skills Route', () => {
     await app.close();
   });
 
-  it('GET /api/skills includes skills stored in .cat-cafe/skills', async () => {
+  it('GET /api/skills includes skills stored in .office-claw/skills', async () => {
     const skillName = 'user-storage-route-test';
-    const userSkillDir = join(repoRoot, '.cat-cafe', 'skills', skillName);
+    const userSkillDir = join(repoRoot, '.office-claw', 'skills', skillName);
     mkdirSync(userSkillDir, { recursive: true });
     writeFileSync(join(userSkillDir, 'SKILL.md'), '# User Storage Route Test\n', 'utf-8');
 
@@ -407,13 +407,13 @@ describe('Skills Route', () => {
       assert.ok(body.skills.some((skill) => skill.name === skillName));
     } finally {
       await app.close();
-      rmSync(join(repoRoot, '.cat-cafe', 'skills', skillName), { recursive: true, force: true });
+      rmSync(join(repoRoot, '.office-claw', 'skills', skillName), { recursive: true, force: true });
     }
   });
 
-  it('GET /api/skills/file reads files from .cat-cafe/skills', async () => {
+  it('GET /api/skills/file reads files from .office-claw/skills', async () => {
     const skillName = 'user-storage-file-test';
-    const userSkillDir = join(repoRoot, '.cat-cafe', 'skills', skillName);
+    const userSkillDir = join(repoRoot, '.office-claw', 'skills', skillName);
     mkdirSync(join(userSkillDir, 'docs'), { recursive: true });
     writeFileSync(join(userSkillDir, 'SKILL.md'), '# User Storage File Test\n', 'utf-8');
     writeFileSync(join(userSkillDir, 'docs', 'notes.txt'), 'hello from persistent skill storage', 'utf-8');
@@ -435,7 +435,7 @@ describe('Skills Route', () => {
       assert.equal(body.content, 'hello from persistent skill storage');
     } finally {
       await app.close();
-      rmSync(join(repoRoot, '.cat-cafe', 'skills', skillName), { recursive: true, force: true });
+      rmSync(join(repoRoot, '.office-claw', 'skills', skillName), { recursive: true, force: true });
     }
   });
 
@@ -511,7 +511,7 @@ describe('Skills Route', () => {
 
   it('POST /api/skills/upload removes created folder when import fails validation', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-cleanup-'));
-    const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
+    const userSkillsRoot = join(tempRoot, '.office-claw', 'skills');
     mkdirSync(userSkillsRoot, { recursive: true });
     const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
     process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
@@ -534,20 +534,22 @@ describe('Skills Route', () => {
     assert.equal(existsSync(join(userSkillsRoot, 'broken-import-cleanup-case')), false);
 
     await app.close();
-    if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
-    else process.env.CAT_CAFE_CONFIG_ROOT = previousRoot;
+    if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousRoot;
     rmSync(tempRoot, { recursive: true, force: true });
   });
 
-  it('POST /api/skills/upload stores imported skills under .cat-cafe/skills', async () => {
+  it('POST /api/skills/upload stores imported skills under .office-claw/skills', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-persist-'));
-    const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
+    const userSkillsRoot = join(tempRoot, '.office-claw', 'skills');
     mkdirSync(userSkillsRoot, { recursive: true });
-    const previousRoot = process.env.CAT_CAFE_CONFIG_ROOT;
-    process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
+    const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
     const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
-    const { skillsRoutes: isolatedSkillsRoutes } = await import(`../dist/routes/skills.js?upload-persist=${Date.now()}`);
+    const { skillsRoutes: isolatedSkillsRoutes } = await import(
+      `../dist/routes/skills.js?upload-persist=${Date.now()}`
+    );
     await app.register(isolatedSkillsRoutes);
     await app.ready();
 
@@ -570,7 +572,7 @@ describe('Skills Route', () => {
 
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
-    assert.equal(body.localPath, `.cat-cafe/skills/${skillName}`);
+    assert.equal(body.localPath, `.office-claw/skills/${skillName}`);
     assert.equal(existsSync(join(userSkillsRoot, skillName, 'SKILL.md')), true);
     assert.equal(existsSync(join(userSkillsRoot, skillName, 'docs', 'notes.txt')), true);
 

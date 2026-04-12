@@ -674,7 +674,7 @@ function ThreadModeChatContainer({
     );
   }
   return (
-    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+    <div ref={containerRef} className="ui-shell-surface flex h-screen h-dvh w-screen">
         <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
           <ThreadSidebar
             className="w-full"
@@ -688,7 +688,7 @@ function ThreadModeChatContainer({
         <div className="hidden md:flex items-center">
           <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
         </div>
-      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="min-w-0 flex-1">
         <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
         <RightContentHeader />
         {sidebarMenu === 'chat' && (
@@ -708,7 +708,7 @@ function ThreadModeChatContainer({
         {sidebarMenu === 'chat' && intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
         {showThinkingIndicator && <ThinkingIndicator onCancel={cancelInvocation} />}
 
-        <div className="relative flex-1 min-h-0 overflow-hidden">
+        <div className="relative flex-1 min-h-0">
           {sidebarMenu !== 'chat' && (
             <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
               {sidebarMenu === 'models' && <ModelsPanel />}
@@ -736,6 +736,8 @@ function ThreadModeChatContainer({
                       bootcampCount={bootcampCount}
                       isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
                       onOpenBootcampList={() => setShowBootcampList(true)}
+                      onAgentsClick={() => setSidebarMenu('agents')}
+                      onChannelsClick={() => setSidebarMenu('channels')}
                     />
                   ) : (
                     renderItems.map((item) =>

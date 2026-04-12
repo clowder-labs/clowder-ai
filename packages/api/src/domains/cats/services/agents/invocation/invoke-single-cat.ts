@@ -237,7 +237,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal: callerSignal } = params;
 
-  const { invocationId, callbackToken } = registry.create(
+  const { invocationId } = registry.create(
     userId,
     catId,
     threadId,
@@ -283,10 +283,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
   const callbackEnv: Record<string, string> = {
     OFFICE_CLAW_API_URL: apiUrl,
-    OFFICE_CLAW_INVOCATION_ID: invocationId,
-    OFFICE_CLAW_CALLBACK_TOKEN: callbackToken,
     OFFICE_CLAW_USER_ID: userId,
-    OFFICE_CLAW_CAT_ID: catId,
     ...(process.env.OFFICE_CLAW_SIGNAL_USER ? { OFFICE_CLAW_SIGNAL_USER: process.env.OFFICE_CLAW_SIGNAL_USER } : {}),
   };
 

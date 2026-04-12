@@ -261,6 +261,7 @@ export function ChatInput({
   const [whisperMode, setWhisperMode] = useState(false);
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
   const [mobileToolbar, setMobileToolbar] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
@@ -1245,6 +1246,7 @@ export function ChatInput({
                       ref={textareaRef}
                       value={input}
                       onValueChange={handleChange}
+                      onCompositionStateChange={setIsComposing}
                       maxLength={MAX_INPUT_LENGTH}
                       onInput={resizeTextarea}
                       onKeyDown={handleKeyDown}
@@ -1262,7 +1264,7 @@ export function ChatInput({
                         token: getQuickActionToken(action.label),
                       }))}
                     />
-                    {ghostSuggestion && !pathCompletion.isOpen && !showMentions && !/(^|\s)@/.test(input) && (
+                    {ghostSuggestion && !isComposing && !pathCompletion.isOpen && !showMentions && !/(^|\s)@/.test(input) && (
                       <div
                         data-testid="ghost-suggestion"
                         className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-t-[24px] p-4 text-[16px]"

@@ -804,7 +804,7 @@ export function RightContentHeader() {
                               value={otherIssueDetail}
                               onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
                             />
-                            {isLowScoreDetailVisible && isOtherIssueRequiredError ? (
+                            {isOtherIssueRequiredError ? (
                               <p className="ui-content-header-feedback-other-error">
                                 {REQUIRED_INPUT_ERROR_MESSAGE}
                               </p>

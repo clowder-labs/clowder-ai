@@ -36,6 +36,13 @@ export function getSensitiveInputErrorToastContent(): { title: string; message: 
   };
 }
 
+const ERROR_SUBTYPE_LABELS: Record<string, string> = {
+  error_max_turns: '超出 turn 限制',
+  error_max_budget_usd: '预算用尽',
+  error_during_execution: '运行时错误',
+  error_max_structured_output_retries: '结构化输出重试超限',
+};
+
 type ConfigurationMatch = {
   pattern: RegExp;
   message: string;
@@ -112,4 +119,31 @@ export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
   }
 
   return '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。';
+}
+
+function getErrorSubtypeLabel(rawContent?: string): string | null {
+  if (!rawContent) return null;
+  try {
+    const parsed = JSON.parse(rawContent) as { errorSubtype?: unknown };
+    if (typeof parsed.errorSubtype !== 'string') return null;
+    return ERROR_SUBTYPE_LABELS[parsed.errorSubtype] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAgentErrorToastContent(
+  msg: ErrorLike & { content?: string },
+): { title: string; message: string } {
+  if (isSensitiveInputAgentError(msg)) {
+    return getSensitiveInputErrorToastContent();
+  }
+
+  const subtypeLabel = getErrorSubtypeLabel(msg.content);
+  const baseMessage = getFriendlyAgentErrorMessage(msg);
+
+  return {
+    title: msg.catId?.trim() ? `${msg.catId} 出错` : '智能体出错',
+    message: subtypeLabel ? `${baseMessage} (${subtypeLabel})` : baseMessage,
+  };
 }

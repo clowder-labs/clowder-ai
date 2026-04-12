@@ -90,7 +90,7 @@ function Harness() {
   return null;
 }
 
-describe('useAgentMessages sensitive-input toast', () => {
+describe('useAgentMessages error toast fallback', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -144,12 +144,31 @@ describe('useAgentMessages sensitive-input toast', () => {
       threadId: 'thread-1',
       duration: 8000,
     });
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
+    expect(mockAddMessage).not.toHaveBeenCalled();
+  });
+
+  it('uses toast instead of assistant bubble for generic agent failures', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'error',
         catId: 'codex',
-        content: expect.stringContaining('重新打开一个新会话'),
-      }),
-    );
+        error: 'request timed out before completion',
+        isFinal: true,
+      });
+    });
+
+    expect(mockSetCatStatus).toHaveBeenCalledWith('codex', 'error');
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      title: 'codex 出错',
+      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+      threadId: 'thread-1',
+      duration: 8000,
+    });
+    expect(mockAddMessage).not.toHaveBeenCalled();
   });
 });

@@ -34,6 +34,7 @@ export interface RichQuickActionOption {
 interface RichTextareaProps {
   value: string;
   onValueChange: (value: string, selectionStart: number, selectionEnd: number) => void;
+  onCompositionStateChange?: (isComposing: boolean) => void;
   onInput?: () => void;
   onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
   onPaste?: (e: ClipboardEvent<HTMLDivElement>) => void;
@@ -297,6 +298,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   {
     value,
     onValueChange,
+    onCompositionStateChange,
     onInput,
     onKeyDown,
     onPaste,
@@ -489,6 +491,17 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
     return null;
   };
 
+  const clearValue = () => {
+    const root = rootRef.current;
+    pendingSelectionRef.current = { start: 0, end: 0 };
+    if (root) {
+      forceSyncPlainText(root, '', 0, 0);
+    }
+    setShowPlaceholder(true);
+    onValueChange('', 0, 0);
+    onInput?.();
+  };
+
   return (
     <div className="relative">
       {showPlaceholder && placeholder && (
@@ -530,6 +543,12 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           e.preventDefault();
         }}
         onInput={(e) => {
+          const native = e.nativeEvent as InputEvent;
+          const inputType = native.inputType ?? '';
+          if (inputType === 'historyUndo') {
+            clearValue();
+            return;
+          }
           const root = rootRef.current;
           if (!root) return;
           if (isComposingRef.current) {
@@ -552,9 +571,14 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         }}
         onBeforeInput={(e) => {
           const root = rootRef.current;
-          if (!root || !maxLength || maxLength <= 0) return;
           const native = e.nativeEvent as InputEvent;
           const inputType = native.inputType ?? '';
+          if (inputType === 'historyUndo') {
+            e.preventDefault();
+            clearValue();
+            return;
+          }
+          if (!root || !maxLength || maxLength <= 0) return;
           // Let IME composition flow complete naturally; enforce max in onCompositionEnd/onInput.
           if (isComposingRef.current || inputType.includes('Composition')) return;
           if (!inputType.startsWith('insert')) return;
@@ -572,9 +596,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         onCompositionStart={() => {
           isComposingRef.current = true;
           setShowPlaceholder(false);
+          onCompositionStateChange?.(true);
         }}
         onCompositionEnd={() => {
           isComposingRef.current = false;
+          onCompositionStateChange?.(false);
           const root = rootRef.current;
           if (!root) return;
           const rawNext = Array.from(root.childNodes).map((n) => serializeNode(n)).join('');
@@ -590,6 +616,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           onInput?.();
         }}
         onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            clearValue();
+            return;
+          }
           const root = rootRef.current;
           if (root && maxLength && maxLength > 0 && !isComposingRef.current) {
             // Fallback guard: some browsers/IME flows may skip reliable beforeinput checks.
