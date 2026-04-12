@@ -69,15 +69,8 @@ function main() {
   }
   
   if (!chromium.ok) {
-    lines.push(`❌ Chromium 浏览器未安装`);
-    if (nodeModules.ok) {
-      // node_modules 存在，只需要安装浏览器
-      lines.push(`   → 安装(Windows): npx playwright install chromium`);
-      lines.push(`   → 安装(Linux/Mac): npx playwright install chromium`);
-    } else {
-      // node_modules 不存在，npm install 后需要单独安装浏览器
-      lines.push(`   → npm install 后需执行: npx playwright install chromium`);
-    }
+    lines.push(`❌ Chromium 浏览器未安装（约150MB，下载较慢）`);
+    lines.push(`   → 安装: npx playwright install chromium`);
   } else {
     lines.push(`✅ Chromium 已安装`);
   }
@@ -88,6 +81,10 @@ function main() {
     lines.push(`✅ 环境就绪，可以开始制作 PPT`);
   } else {
     lines.push(`⚠️ 环境未就绪，请按上述 → 提示安装`);
+    if (!chromium.ok) {
+      lines.push('');
+      lines.push(`📌 chromium 安装必须尝试执行，超时失败后可继续后续 Stage`);
+    }
   }
   
   console.log(lines.join('\n'));
