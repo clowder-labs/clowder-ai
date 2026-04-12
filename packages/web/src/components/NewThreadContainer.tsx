@@ -204,9 +204,9 @@ export function NewThreadContainer() {
       </div>
 
       <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex h-full min-w-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+        <div className="flex h-full min-h-0 min-w-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
           <RightContentHeader />
-          <div className="relative flex-1 overflow-hidden">
+          <div className="relative flex-1 min-h-0 overflow-hidden">
             {sidebarMenu !== 'chat' && (
               <div className="ui-shell-surface h-full overflow-hidden px-8 pt-6 pb-5">
                 {sidebarMenu === 'models' && <ModelsPanel />}
@@ -217,14 +217,18 @@ export function NewThreadContainer() {
               </div>
             )}
             {sidebarMenu === 'chat' && (
-              <main className="ui-shell-surface flex h-full flex-col overflow-y-auto p-4" data-testid="new-thread-main">
-                <div className="flex-1">
+              <main
+                className="ui-shell-surface flex h-full min-h-0 flex-col overflow-y-auto p-4"
+                data-testid="new-thread-main"
+              >
+                <div className="flex flex-1 items-center justify-center">
                   <ChatEmptyState
                     bootcampCount={0}
                     isCurrentBootcampThread={false}
                     onOpenBootcampList={() => {}}
                     onAgentsClick={() => setSidebarMenu('agents')}
                     onChannelsClick={() => setSidebarMenu('channels')}
+                    fillAvailableHeight
                   />
                 </div>
               </main>
