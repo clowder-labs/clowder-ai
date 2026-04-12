@@ -269,7 +269,14 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     );
 
     const pushLog = (chunk: Buffer) => {
-      this.recentLogs = `${this.recentLogs}${chunk.toString('utf-8')}`.slice(-8000);
+      const text = chunk.toString('utf-8');
+      this.recentLogs = `${this.recentLogs}${text}`.slice(-8000);
+      // Forward sidecar USAGE_DEBUG lines to API logger (debug level for high-frequency lines)
+      for (const line of text.split('\n')) {
+        if (line.includes('USAGE_DEBUG')) {
+          log.debug({ sidecarPid }, `[SIDECAR] ${line.trim()}`);
+        }
+      }
     };
     child.stdout?.on('data', pushLog);
     child.stderr?.on('data', pushLog);

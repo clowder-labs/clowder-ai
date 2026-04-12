@@ -255,6 +255,7 @@ export class RelayClawAgentService implements AgentService {
           outputTokens: typeof u.output_tokens === 'number' ? u.output_tokens : undefined,
           totalTokens: typeof u.total_tokens === 'number' ? u.total_tokens : undefined,
         };
+        log.info('[USAGE_DEBUG] Received usage from jiuwenclaw frame metadata: %o', usage);
       }
 
       const payload = frame.payload;
