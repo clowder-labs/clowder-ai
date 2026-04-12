@@ -149,6 +149,13 @@ export class RelayClawConnectionManager implements RelayClawConnection {
           log.debug({ eventType: frame.payload?.event_type }, 'jiuwen frame without request_id — skipped');
           return;
         }
+        // DEBUG: Log frames with metadata or final/answer events
+        const evt = frame.payload?.event_type;
+        if (frame.metadata || evt === 'chat.final' || evt === 'chat.error') {
+          log.info('[USAGE_DEBUG] WS frame received: event_type=%s metadata=%s is_complete=%s payload_keys=%s',
+            evt, JSON.stringify(frame.metadata), frame.is_complete,
+            frame.payload ? Object.keys(frame.payload).join(',') : 'null');
+        }
         const queue = this.requestQueues.get(requestId);
         if (!queue) {
           log.warn(
