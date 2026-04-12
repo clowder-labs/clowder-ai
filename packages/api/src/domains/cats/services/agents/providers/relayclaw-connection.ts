@@ -73,7 +73,9 @@ export class RelayClawConnectionManager implements RelayClawConnection {
 
   constructor(options: RelayClawConnectionManagerOptions) {
     this.requestQueues = options.requestQueues;
-    this.wsFactory = options.wsFactory ?? ((url) => new (resolveRelayClawWebSocketCtor())(url));
+    this.wsFactory =
+      options.wsFactory ??
+      ((url) => new NodeWebSocket(url, { headers: { Origin: 'http://127.0.0.1' } }) as unknown as WebSocket);
   }
 
   async ensureConnected(url: string, signal?: AbortSignal): Promise<void> {
