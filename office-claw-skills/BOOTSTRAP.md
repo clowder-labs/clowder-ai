@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 OfficeClaw Skills。路由规则定义在 `manifest.yaml`。
 
-## Skills 列表（6 个）
+## Skills 列表（5 个）
  
 ### 文档处理
 
