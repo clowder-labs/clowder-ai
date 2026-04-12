@@ -5,34 +5,13 @@
       <stop offset="100%" stop-color="#D47828"/>
     </linearGradient>
   </defs>
-  <!-- Background circle -->
   <circle cx="64" cy="64" r="64" fill="url(#bg2)"/>
-  <!-- Cat ears -->
-  <path d="M30 52 L40 20 L55 45 Z" fill="#FFF5E6" stroke="#E8C9A0" stroke-width="1"/>
-  <path d="M98 52 L88 20 L73 45 Z" fill="#FFF5E6" stroke="#E8C9A0" stroke-width="1"/>
-  <path d="M34 48 L42 24 L53 44 Z" fill="#FFE8CC"/>
-  <path d="M94 48 L86 24 L75 44 Z" fill="#FFE8CC"/>
-  <!-- Cat face -->
-  <ellipse cx="64" cy="68" rx="32" ry="30" fill="#FFF5E6"/>
-  <!-- Eyes - softer, rounder -->
-  <ellipse cx="52" cy="62" rx="5.5" ry="5.5" fill="#E8913A"/>
-  <ellipse cx="76" cy="62" rx="5.5" ry="5.5" fill="#E8913A"/>
-  <circle cx="53.5" cy="60.5" r="2" fill="white"/>
-  <circle cx="77.5" cy="60.5" r="2" fill="white"/>
-  <!-- Blush -->
-  <ellipse cx="44" cy="72" rx="6" ry="3.5" fill="#F5C49A" opacity="0.5"/>
-  <ellipse cx="84" cy="72" rx="6" ry="3.5" fill="#F5C49A" opacity="0.5"/>
-  <!-- Nose -->
-  <path d="M62 72 L64 75 L66 72 Z" fill="#D4908A"/>
-  <!-- Smile -->
-  <path d="M56 77 Q64 84 72 77" fill="none" stroke="#D4908A" stroke-width="1.4" stroke-linecap="round"/>
-  <!-- Scarf -->
-  <path d="M40 86 Q64 96 88 86" fill="none" stroke="#E8913A" stroke-width="4" stroke-linecap="round"/>
-  <path d="M40 86 Q44 96 48 106" fill="none" stroke="#E8913A" stroke-width="3.5" stroke-linecap="round"/>
-  <path d="M42 92 Q46 100 50 108" fill="none" stroke="#D47828" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Whiskers -->
-  <line x1="25" y1="68" x2="45" y2="70" stroke="#E8C9A0" stroke-width="0.8"/>
-  <line x1="25" y1="74" x2="45" y2="74" stroke="#E8C9A0" stroke-width="0.8"/>
-  <line x1="83" y1="70" x2="103" y2="68" stroke="#E8C9A0" stroke-width="0.8"/>
-  <line x1="83" y1="74" x2="103" y2="74" stroke="#E8C9A0" stroke-width="0.8"/>
+  <circle cx="64" cy="52" r="22" fill="#FFF5E6"/>
+  <path d="M34 101 C40 86, 49 80, 64 80 C79 80, 88 86, 94 101" fill="#FFF5E6"/>
+  <path d="M64 35 L68 43 L77 44 L70 50 L72 59 L64 54 L56 59 L58 50 L51 44 L60 43 Z" fill="#D47828" opacity="0.95"/>
+  <circle cx="56" cy="52" r="3.5" fill="#D47828"/>
+  <circle cx="72" cy="52" r="3.5" fill="#D47828"/>
+  <path d="M56 64 Q64 70 72 64" fill="none" stroke="#D47828" stroke-width="3" stroke-linecap="round"/>
+  <rect x="43" y="86" width="42" height="8" rx="4" fill="#D47828" opacity="0.9"/>
+  <rect x="57" y="90" width="14" height="18" rx="3" fill="#FFF5E6" opacity="0.9"/>
 </svg>

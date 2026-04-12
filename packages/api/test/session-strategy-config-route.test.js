@@ -25,7 +25,7 @@ async function createApp() {
   return app;
 }
 
-const USER_HEADER = { 'x-cat-cafe-user': 'test-user' };
+const USER_HEADER = { 'x-office-claw-user': 'test-user' };
 
 describe('session-strategy-config routes', () => {
   let overridesModule;
@@ -68,7 +68,7 @@ describe('session-strategy-config routes', () => {
   // ── PATCH /api/config/session-strategy/:catId ──
 
   describe('PATCH /api/config/session-strategy/:catId', () => {
-    test('P1-2: returns 400 without X-Cat-Cafe-User header', async () => {
+    test('P1-2: returns 400 without X-Office-Claw-User header', async () => {
       const app = await createApp();
       const res = await app.inject({
         method: 'PATCH',
@@ -140,7 +140,7 @@ describe('session-strategy-config routes', () => {
   // ── DELETE /api/config/session-strategy/:catId ──
 
   describe('DELETE /api/config/session-strategy/:catId', () => {
-    test('P1-2: returns 400 without X-Cat-Cafe-User header', async () => {
+    test('P1-2: returns 400 without X-Office-Claw-User header', async () => {
       const app = await createApp();
       const res = await app.inject({
         method: 'DELETE',

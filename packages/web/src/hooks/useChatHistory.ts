@@ -13,6 +13,7 @@ import type { QueueEntry, TaskProgressItem } from '@/stores/chat-types';
 import { type CatInvocationInfo, type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
+import { THREAD_LIVE_REFRESH_EVENT, type ThreadLiveRefreshDetail, type ThreadLiveRefreshScope } from './thread-live-refresh';
 
 type SavedScrollState = {
   top: number;
@@ -47,6 +48,7 @@ const HISTORY_PAGE_SIZE = 50;
 const EXPORT_LIMIT = 10000;
 // Keep first-screen message priority, but don't let secondary hydration stall indefinitely.
 const SECONDARY_HYDRATION_FALLBACK_MS = 300;
+const LIVE_THREAD_REFRESH_DEBOUNCE_MS = 180;
 
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError';
@@ -219,6 +221,8 @@ export function useChatHistory(threadId: string) {
   const scrollSnapshotRef = useRef<number | null>(null);
   const restoreFrameRef = useRef<number | null>(null);
   const autoFollowRafRef = useRef<number | null>(null);
+  const liveRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queuedLiveRefreshRef = useRef<{ messages: boolean; panels: boolean }>({ messages: false, panels: false });
 
   // Track loading guard per-thread to prevent double-fetch
   const loadingRef = useRef(false);
@@ -233,6 +237,13 @@ export function useChatHistory(threadId: string) {
     if (restoreFrameRef.current !== null) {
       cancelAnimationFrame(restoreFrameRef.current);
       restoreFrameRef.current = null;
+    }
+  }, []);
+
+  const cancelLiveRefresh = useCallback(() => {
+    if (liveRefreshTimerRef.current !== null) {
+      clearTimeout(liveRefreshTimerRef.current);
+      liveRefreshTimerRef.current = null;
     }
   }, []);
 
@@ -556,12 +567,64 @@ export function useChatHistory(threadId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, setQueue, setQueuePaused, updateThreadCatStatus]);
 
+  const flushLiveRefresh = useCallback(() => {
+    cancelLiveRefresh();
+    const queued = queuedLiveRefreshRef.current;
+    if (!queued.messages && !queued.panels) return;
+
+    const controller = abortRef.current;
+    if (!controller || controller.signal.aborted || threadIdRef.current !== threadId || loadingRef.current) {
+      liveRefreshTimerRef.current = setTimeout(() => {
+        flushLiveRefresh();
+      }, LIVE_THREAD_REFRESH_DEBOUNCE_MS);
+      return;
+    }
+
+    queuedLiveRefreshRef.current = { messages: false, panels: false };
+    if (queued.messages) {
+      void fetchHistory(undefined, { replace: true });
+    }
+    if (queued.panels) {
+      void fetchTasks();
+      void fetchTaskProgress();
+      void fetchQueue();
+    }
+  }, [cancelLiveRefresh, fetchHistory, fetchQueue, fetchTaskProgress, fetchTasks, threadId]);
+
+  const scheduleLiveRefresh = useCallback(
+    (scope: ThreadLiveRefreshScope = 'all') => {
+      if (scope === 'all' || scope === 'messages') {
+        queuedLiveRefreshRef.current.messages = true;
+      }
+      if (scope === 'all' || scope === 'panels') {
+        queuedLiveRefreshRef.current.panels = true;
+      }
+      if (liveRefreshTimerRef.current !== null) return;
+      liveRefreshTimerRef.current = setTimeout(() => {
+        flushLiveRefresh();
+      }, LIVE_THREAD_REFRESH_DEBOUNCE_MS);
+    },
+    [flushLiveRefresh],
+  );
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<ThreadLiveRefreshDetail>).detail;
+      if (!detail || detail.threadId !== threadId) return;
+      scheduleLiveRefresh(detail.scope ?? 'all');
+    };
+    window.addEventListener(THREAD_LIVE_REFRESH_EVENT, handler as EventListener);
+    return () => window.removeEventListener(THREAD_LIVE_REFRESH_EVENT, handler as EventListener);
+  }, [scheduleLiveRefresh, threadId]);
+
   // Load history + tasks when threadId changes (handles initial mount and navigation)
   useEffect(() => {
     // Abort any in-flight requests from previous thread
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     loadingRef.current = false;
+    cancelLiveRefresh();
+    queuedLiveRefreshRef.current = { messages: false, panels: false };
     const controller = abortRef.current;
 
     // Check if this thread has cached messages in the threadStates map.
@@ -626,9 +689,11 @@ export function useChatHistory(threadId: string) {
       // Scroll save is now done during render (before DOM commit), not here.
       clearTimeout(secondaryFallbackTimer);
       cancelPendingRestore();
+      cancelLiveRefresh();
+      queuedLiveRefreshRef.current = { messages: false, panels: false };
       abortRef.current?.abort();
     };
-  }, [threadId, cancelPendingRestore, clearMessages, fetchHistory, fetchQueue, fetchTaskProgress, fetchTasks]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [threadId, cancelLiveRefresh, cancelPendingRestore, clearMessages, fetchHistory, fetchQueue, fetchTaskProgress, fetchTasks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bug C safety net: when useAgentMessages detects done(isFinal) with no
   // streaming bubble, it bumps streamCatchUpVersion with a target threadId.
@@ -738,8 +803,9 @@ export function useChatHistory(threadId: string) {
         cancelAnimationFrame(autoFollowRafRef.current);
         autoFollowRafRef.current = null;
       }
+      cancelLiveRefresh();
     };
-  }, []);
+  }, [cancelLiveRefresh]);
 
   // Load more when scrolled to top + clowder-ai#27 continuous scroll save
   const handleScroll = useCallback(() => {

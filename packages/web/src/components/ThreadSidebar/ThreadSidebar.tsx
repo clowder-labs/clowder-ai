@@ -8,7 +8,6 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getMentionToCat } from '@/lib/mention-highlight';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
@@ -18,7 +17,7 @@ import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
-import { sanitizeThreadTitleOrNull } from './thread-title';
+import { normalizeStoredThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
 import { applyRealtimeThreadActivity, getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
@@ -76,6 +75,11 @@ function getThreadSourceLabel(thread: Thread): string | undefined {
   return CONNECTOR_SOURCE_LABELS[connectorId] ?? connectorId;
 }
 
+function getThreadLastActiveAtMs(thread: Thread): number {
+  const lastActiveAt = Number(thread.lastActiveAt);
+  return Number.isFinite(lastActiveAt) ? lastActiveAt : 0;
+}
+
 export function ThreadSidebar({
   onClose,
   className,
@@ -106,7 +110,6 @@ export function ThreadSidebar({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filterOption, setFilterOption] = useState<'all' | '1m' | '3m' | '6m'>('all');
-  const [pendingFilterOption, setPendingFilterOption] = useState<'all' | '1m' | '3m' | '6m'>('all');
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // I-1: Thread to confirm deletion (null = no dialog)
   const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
@@ -157,10 +160,9 @@ export function ThreadSidebar({
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
-      const knownAliases = new Set(Object.keys(getMentionToCat()).map((alias) => alias.toLowerCase()));
       const threads = (data.threads ?? []).map((thread: Thread) => ({
         ...thread,
-        title: sanitizeThreadTitleOrNull(thread.title, knownAliases),
+        title: normalizeStoredThreadTitleOrNull(thread.title),
       }));
       setThreads(threads);
       // F069: Sync unread state from API (both non-zero and zero).
@@ -530,7 +532,7 @@ export function ThreadSidebar({
       const now = Date.now();
       const days = filterOption === '1m' ? 30 : filterOption === '3m' ? 90 : 180;
       const threshold = now - days * 24 * 60 * 60 * 1000;
-      result = result.filter((thread) => thread.lastActiveAt >= threshold);
+      result = result.filter((thread) => getThreadLastActiveAtMs(thread) >= threshold);
     }
 
     return result;
@@ -695,7 +697,7 @@ export function ThreadSidebar({
               className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
               data-testid="sidebar-menu-scheduled-tasks"
             >
-              <img src="/icons/scheduled-task.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
+              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
               定时任务
             </button>
           </div>
@@ -733,7 +735,6 @@ export function ThreadSidebar({
                   setIsSearchOpen((prev) => !prev);
                   setShowFilter(false);
                   setFilterOption('all');
-                  setPendingFilterOption('all');
                 }}
                 className={`rounded p-1 transition-colors ${isSearchOpen || normalizedQuery.length > 0 ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="搜索会话"
@@ -755,7 +756,6 @@ export function ThreadSidebar({
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setFilterOption('all');
-                  setPendingFilterOption('all');
                 }}
                 placeholder="搜索会话"
                 autoComplete="off"
@@ -794,38 +794,16 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${pendingFilterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
-                    style={{ marginBottom: '14px' }}
-                    onClick={() => setPendingFilterOption(item.key as 'all' | '1m' | '3m' | '6m')}
+                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    style={{ marginBottom: item.key === '6m' ? '0' : '14px' }}
+                    onClick={() => {
+                      setFilterOption(item.key as 'all' | '1m' | '3m' | '6m');
+                      setShowFilter(false);
+                    }}
                   >
                     {item.label}
                   </button>
                 ))}
-              </div>
-              <div className="pt-4 flex justify-end gap-2 border-t border-[#E5E7EB]">
-                <button
-                  type="button"
-                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
-                  onClick={() => {
-                    setPendingFilterOption('all');
-                    setFilterOption('all');
-                    setShowFilter(false);
-                  }}
-                >
-                  重置
-                </button>
-                <button
-                  type="button"
-                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
-                  onClick={() => {
-                    setFilterOption(pendingFilterOption);
-                    setShowFilter(false);
-                    setSearchQuery('');
-                    setIsSearchOpen(false);
-                  }}
-                >
-                  确定
-                </button>
               </div>
             </div>
           )}

@@ -88,13 +88,13 @@ describe('checkSharedStatePreflight (integration)', () => {
     const bare = addBareRemote(repo);
     tempDirs.push(repo, bare);
 
-    // Stage cat-template.json but don't commit — git diff --cached catches this
-    writeFileSync(join(repo, 'cat-template.json'), '{}');
-    execSync('git add cat-template.json', { cwd: repo, stdio: 'ignore' });
+    // Stage office-claw-template.json but don't commit — git diff --cached catches this
+    writeFileSync(join(repo, 'office-claw-template.json'), '{}');
+    execSync('git add office-claw-template.json', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false, 'should detect staged shared-state');
-    assert.deepEqual(result.uncommittedFiles, ['cat-template.json']);
+    assert.deepEqual(result.uncommittedFiles, ['office-claw-template.json']);
     assert.equal(result.unpushedFiles, undefined);
   });
 
@@ -123,14 +123,14 @@ describe('checkSharedStatePreflight (integration)', () => {
     writeFileSync(join(repo, 'docs/ROADMAP.md'), '# Backlog');
     execSync('git add docs/ROADMAP.md && git commit -m "add backlog"', { cwd: repo, stdio: 'ignore' });
 
-    // Also have staged (uncommitted) cat-template.json
-    writeFileSync(join(repo, 'cat-template.json'), '{}');
-    execSync('git add cat-template.json', { cwd: repo, stdio: 'ignore' });
+    // Also have staged (uncommitted) office-claw-template.json
+    writeFileSync(join(repo, 'office-claw-template.json'), '{}');
+    execSync('git add office-claw-template.json', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false);
     assert.deepEqual(result.unpushedFiles, ['docs/ROADMAP.md']);
-    assert.deepEqual(result.uncommittedFiles, ['cat-template.json']);
+    assert.deepEqual(result.uncommittedFiles, ['office-claw-template.json']);
   });
 
   it('returns ok:true when everything is clean', () => {
@@ -176,12 +176,12 @@ describe('checkSharedStatePreflight (integration)', () => {
     execSync('git branch --unset-upstream', { cwd: repo, stdio: 'ignore' });
 
     // Commit shared-state file
-    writeFileSync(join(repo, 'cat-template.json'), '{}');
-    execSync('git add cat-template.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'office-claw-template.json'), '{}');
+    execSync('git add office-claw-template.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     assert.equal(result.ok, false);
-    assert.deepEqual(result.unpushedFiles, ['cat-template.json']);
+    assert.deepEqual(result.unpushedFiles, ['office-claw-template.json']);
   });
 
   it('falls back to merge-base when origin/<branch> does not exist (brand new branch)', () => {
@@ -267,8 +267,8 @@ describe('checkSharedStatePreflight (integration)', () => {
     execSync('git checkout -b feat/orphan', { cwd: repo, stdio: 'ignore' });
 
     // Commit shared-state file — but since there's no remote, nothing to compare against
-    writeFileSync(join(repo, 'cat-template.json'), '{}');
-    execSync('git add cat-template.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
+    writeFileSync(join(repo, 'office-claw-template.json'), '{}');
+    execSync('git add office-claw-template.json && git commit -m "add config"', { cwd: repo, stdio: 'ignore' });
 
     const result = checkSharedStatePreflight(repo);
     // Fail-open: no way to determine if it's pushed or not

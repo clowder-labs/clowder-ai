@@ -40,7 +40,7 @@ echo -e "${BOLD}猫猫咖啡 — 交互式安装向导${NC}"
 echo "=================================="
 echo ""
 print_manual_download_source_summary
-[ -n "${CAT_CAFE_NPM_REGISTRY:-}${CAT_CAFE_PIP_INDEX_URL:-}${CAT_CAFE_PIP_EXTRA_INDEX_URL:-}${CAT_CAFE_HF_ENDPOINT:-}" ] && echo ""
+[ -n "${OFFICE_CLAW_NPM_REGISTRY:-}${OFFICE_CLAW_PIP_INDEX_URL:-}${OFFICE_CLAW_PIP_EXTRA_INDEX_URL:-}${OFFICE_CLAW_HF_ENDPOINT:-}" ] && echo ""
 
 # ── Step 1: Check prerequisites ─────────────────────────────
 
@@ -329,7 +329,7 @@ echo -e "  ${GREEN}✓${NC} $ENV_FILE generated"
 # Creates venvs + installs pip deps for each enabled sidecar.
 # Extracted as a function so tests can verify behavior independently.
 install_sidecar_venvs() {
-    local venv_base="${HOME}/.cat-cafe"
+    local venv_base="${HOME}/.office-claw"
 
     # ASR venv
     local asr_venv="$venv_base/asr-venv"
@@ -379,7 +379,7 @@ echo ""
 echo -e "${CYAN}[5/6] Linking skills / 链接技能包...${NC}"
 echo ""
 
-SKILLS_SOURCE="$PROJECT_DIR/cat-cafe-skills"
+SKILLS_SOURCE="$PROJECT_DIR/office-claw-skills"
 if [[ -d "$SKILLS_SOURCE" ]]; then
     for tdir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.gemini/skills"; do
         mkdir -p "$tdir"
@@ -392,8 +392,8 @@ if [[ -d "$SKILLS_SOURCE" ]]; then
     done
     echo -e "  ${GREEN}✓${NC} Skills linked to ~/.claude/skills, ~/.codex/skills, ~/.gemini/skills"
 else
-    echo -e "  ${YELLOW}⚠${NC} cat-cafe-skills/ not found — skills will not be available"
-    echo "     You can link them later by re-running this script after cloning cat-cafe-skills."
+    echo -e "  ${YELLOW}⚠${NC} office-claw-skills/ not found — skills will not be available"
+    echo "     You can link them later by re-running this script after cloning office-claw-skills."
 fi
 
 # ── Step 6: Summary ─────────────────────────────────────────

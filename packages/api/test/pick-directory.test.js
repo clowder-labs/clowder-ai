@@ -21,7 +21,7 @@ projectsRoutes = mod.projectsRoutes;
 const realImpl = mod.execPickDirectory;
 afterEach(() => setPickDirectoryImpl(realImpl));
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
 async function buildApp() {
   const app = Fastify();

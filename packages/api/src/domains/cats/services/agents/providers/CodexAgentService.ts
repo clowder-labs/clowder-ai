@@ -6,7 +6,7 @@
 
 /**
  * Codex Agent Service
- * 使用 Codex CLI 子进程调用缅因猫 (Codex)
+ * 使用 Codex CLI 子进程调用 Codex
  *
  * CLI 调用方式:
  *   codex exec --json --sandbox danger-full-access --add-dir .git --config approval_policy="on-request" "prompt"
@@ -26,7 +26,7 @@ import { dirname, join, parse, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
-import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
+import { type CodexSandboxMode, getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
@@ -167,24 +167,24 @@ function buildCatCafeMcpConfigArgs(workingDirectory?: string, callbackEnv?: Reco
 
   const args = [
     '--config',
-    'mcp_servers.cat-cafe.command="node"',
+    'mcp_servers.office-claw.command="node"',
     '--config',
-    `mcp_servers.cat-cafe.args=[${toTomlString(serverPath)}]`,
+    `mcp_servers.office-claw.args=[${toTomlString(serverPath)}]`,
     '--config',
-    'mcp_servers.cat-cafe.enabled=true',
+    'mcp_servers.office-claw.enabled=true',
   ];
 
   const callbackKeys = [
-    'CAT_CAFE_API_URL',
-    'CAT_CAFE_INVOCATION_ID',
-    'CAT_CAFE_CALLBACK_TOKEN',
-    'CAT_CAFE_USER_ID',
-    'CAT_CAFE_SIGNAL_USER',
+    'OFFICE_CLAW_API_URL',
+    'OFFICE_CLAW_INVOCATION_ID',
+    'OFFICE_CLAW_CALLBACK_TOKEN',
+    'OFFICE_CLAW_USER_ID',
+    'OFFICE_CLAW_SIGNAL_USER',
   ] as const;
   for (const key of callbackKeys) {
     const value = callbackEnv?.[key];
     if (!value) continue;
-    args.push('--config', `mcp_servers.cat-cafe.env.${key}=${toTomlString(value)}`);
+    args.push('--config', `mcp_servers.office-claw.env.${key}=${toTomlString(value)}`);
   }
 
   return args;
@@ -215,6 +215,12 @@ function buildGitRepoArgs(workingDirectory?: string): string[] {
   return isGitRepositoryPath(repoCheckDir) ? [] : ['--skip-git-repo-check'];
 }
 
+function resolveSandboxModeForInvocation(configuredMode: CodexSandboxMode, workingDirectory?: string): CodexSandboxMode {
+  if (!workingDirectory) return configuredMode;
+  if (configuredMode === 'danger-full-access') return 'workspace-write';
+  return configuredMode;
+}
+
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -241,11 +247,12 @@ export class CodexAgentService implements AgentService {
     const basePrompt = options?.systemPrompt ? `${options.systemPrompt}\n\n${prompt}` : prompt;
     const uploadRefs = extractUploadRefs(options?.contentBlocks, options?.uploadDir);
     const effectivePrompt = appendLocalUploadPathHints(basePrompt, uploadRefs);
-    const effectiveModel = options?.callbackEnv?.CAT_CAFE_OPENAI_MODEL_OVERRIDE ?? this.model;
+    const effectiveModel = options?.callbackEnv?.OFFICE_CLAW_OPENAI_MODEL_OVERRIDE ?? this.model;
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     const imageArgs = imagePaths.flatMap((path) => ['--image', path]);
 
-    const sandboxMode = getCodexSandboxMode();
+    const configuredSandboxMode = getCodexSandboxMode();
+    const sandboxMode = resolveSandboxModeForInvocation(configuredSandboxMode, options?.workingDirectory);
     const approvalPolicy = getCodexApprovalPolicy();
     const modelArgs = ['--model', effectiveModel];
     const effortLevel = getCatEffort(this.catId as string);
@@ -325,6 +332,17 @@ export class CodexAgentService implements AgentService {
     let workspaceWorktreeId: string | undefined;
 
     try {
+      if (
+        options?.workingDirectory &&
+        configuredSandboxMode === 'danger-full-access' &&
+        sandboxMode === 'workspace-write'
+      ) {
+        log.info(
+          { workingDirectory: options.workingDirectory },
+          '[codex] workspace set: sandbox tightened from danger-full-access to workspace-write',
+        );
+      }
+
       // HOME isolation: only for API Key mode.
       // OAuth mode needs real HOME (~/.codex/auth.json for token refresh).
       // API Key mode must AVOID real HOME — stale OAuth token refresh will fail
@@ -433,7 +451,7 @@ export class CodexAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
+            error: `Codex CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };

@@ -313,7 +313,7 @@ function buildCodexSummaryPlatform(): QuotaSummaryPlatform {
   if (codexCache.error) {
     return {
       id: 'codex',
-      label: '缅因猫 (Codex + GPT-5.2)',
+      label: 'Codex',
       displayPercent: null,
       displayKind: null,
       utilizationPercent: null,
@@ -326,7 +326,7 @@ function buildCodexSummaryPlatform(): QuotaSummaryPlatform {
   if (!primary) {
     return {
       id: 'codex',
-      label: '缅因猫 (Codex + GPT-5.2)',
+      label: 'Codex',
       displayPercent: null,
       displayKind: null,
       utilizationPercent: null,
@@ -338,7 +338,7 @@ function buildCodexSummaryPlatform(): QuotaSummaryPlatform {
   const utilization = toUtilizationPercent(primary);
   return {
     id: 'codex',
-    label: '缅因猫 (Codex + GPT-5.2)',
+    label: 'Codex',
     displayPercent: normalizePercent(primary.usedPercent),
     displayKind: primary.percentKind ?? 'used',
     utilizationPercent: utilization,
@@ -352,7 +352,7 @@ function buildClaudeSummaryPlatform(): QuotaSummaryPlatform {
   if (claudeCache.error) {
     return {
       id: 'claude',
-      label: '布偶猫 (Claude)',
+      label: 'Claude',
       displayPercent: null,
       displayKind: null,
       utilizationPercent: null,
@@ -367,7 +367,7 @@ function buildClaudeSummaryPlatform(): QuotaSummaryPlatform {
     const utilization = toUtilizationPercent(primary);
     return {
       id: 'claude',
-      label: '布偶猫 (Claude)',
+      label: 'Claude',
       displayPercent: normalizePercent(primary.usedPercent),
       displayKind: primary.percentKind ?? 'used',
       utilizationPercent: utilization,
@@ -379,7 +379,7 @@ function buildClaudeSummaryPlatform(): QuotaSummaryPlatform {
   if (claudeCache.activeBlock) {
     return {
       id: 'claude',
-      label: '布偶猫 (Claude)',
+      label: 'Claude',
       displayPercent: null,
       displayKind: null,
       utilizationPercent: null,
@@ -390,7 +390,7 @@ function buildClaudeSummaryPlatform(): QuotaSummaryPlatform {
   }
   return {
     id: 'claude',
-    label: '布偶猫 (Claude)',
+    label: 'Claude',
     displayPercent: null,
     displayKind: null,
     utilizationPercent: null,
@@ -404,7 +404,7 @@ function buildAntigravitySummaryPlatform(): QuotaSummaryPlatform {
   if (antigravityCache.error) {
     return {
       id: 'antigravity',
-      label: '暹罗猫 (Antigravity)',
+      label: 'Antigravity',
       displayPercent: null,
       displayKind: null,
       utilizationPercent: null,
@@ -417,19 +417,19 @@ function buildAntigravitySummaryPlatform(): QuotaSummaryPlatform {
   if (!primary) {
     return {
       id: 'antigravity',
-      label: '暹罗猫 (Antigravity)',
+      label: 'Antigravity',
       displayPercent: null,
       displayKind: null,
       utilizationPercent: null,
       status: 'pending',
-      note: '暹罗猫额度待获取。',
+      note: 'Antigravity 额度待获取。',
       lastChecked: antigravityCache.lastChecked,
     };
   }
   const utilization = toUtilizationPercent(primary);
   return {
     id: 'antigravity',
-    label: '暹罗猫 (Antigravity)',
+    label: 'Antigravity',
     displayPercent: normalizePercent(primary.usedPercent),
     displayKind: primary.percentKind ?? 'used',
     utilizationPercent: utilization,
@@ -466,12 +466,12 @@ export function buildQuotaSummary(env: NodeJS.ProcessEnv = process.env): QuotaSu
   }
 
   if (codex.status === 'error') {
-    reasons.push(`缅因猫额度异常：${codex.note}`);
+    reasons.push(`Codex 额度异常：${codex.note}`);
     level = 'high';
   }
 
   if (claude.status === 'error') {
-    reasons.push(`布偶猫额度异常：${claude.note}`);
+    reasons.push(`Claude 额度异常：${claude.note}`);
     level = 'high';
   }
 

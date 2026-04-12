@@ -28,7 +28,7 @@ async function removeDirWithRetries(target, attempts = 5) {
 test('detectAvailableClients marks dare available when vendored runtime exists', async () => {
   const dareRoot = mkdtempSync(join(tmpdir(), 'dare-client-detect-'));
   const oldDarePath = process.env.DARE_PATH;
-  const oldAllowedClients = process.env.CAT_CAFE_ALLOWED_CLIENTS;
+  const oldAllowedClients = process.env.OFFICE_CLAW_ALLOWED_CLIENTS;
 
   try {
     mkdirSync(join(dareRoot, 'client'), { recursive: true });
@@ -37,7 +37,7 @@ test('detectAvailableClients marks dare available when vendored runtime exists',
     writeFileSync(join(dareRoot, '.venv', 'bin', 'python'), '#!/usr/bin/env python\n', 'utf8');
 
     process.env.DARE_PATH = dareRoot;
-    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'dare';
+    process.env.OFFICE_CLAW_ALLOWED_CLIENTS = 'dare';
 
     const { refreshAvailableClients } = await import('../dist/utils/client-detection.js');
     const clients = await refreshAvailableClients();
@@ -46,8 +46,8 @@ test('detectAvailableClients marks dare available when vendored runtime exists',
   } finally {
     if (oldDarePath === undefined) delete process.env.DARE_PATH;
     else process.env.DARE_PATH = oldDarePath;
-    if (oldAllowedClients === undefined) delete process.env.CAT_CAFE_ALLOWED_CLIENTS;
-    else process.env.CAT_CAFE_ALLOWED_CLIENTS = oldAllowedClients;
+    if (oldAllowedClients === undefined) delete process.env.OFFICE_CLAW_ALLOWED_CLIENTS;
+    else process.env.OFFICE_CLAW_ALLOWED_CLIENTS = oldAllowedClients;
 
     const { refreshAvailableClients } = await import('../dist/utils/client-detection.js');
     await refreshAvailableClients();
@@ -58,7 +58,7 @@ test('detectAvailableClients marks dare available when vendored runtime exists',
 test('detectAvailableClients marks ACP available only when bundled relay-teams runtime exists', async () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'acp-client-detect-'));
   const previousCwd = process.cwd();
-  const oldAllowedClients = process.env.CAT_CAFE_ALLOWED_CLIENTS;
+  const oldAllowedClients = process.env.OFFICE_CLAW_ALLOWED_CLIENTS;
 
   try {
     mkdirSync(join(projectRoot, 'tools', 'python'), { recursive: true });
@@ -66,7 +66,7 @@ test('detectAvailableClients marks ACP available only when bundled relay-teams r
     writeFileSync(join(projectRoot, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf8');
 
     process.chdir(projectRoot);
-    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'acp';
+    process.env.OFFICE_CLAW_ALLOWED_CLIENTS = 'acp';
 
     const { refreshAvailableClients } = await import('../dist/utils/client-detection.js');
     const clients = await refreshAvailableClients();
@@ -77,8 +77,8 @@ test('detectAvailableClients marks ACP available only when bundled relay-teams r
     assert.match(clients[0].command, /python\.exe -m relay_teams gateway acp stdio$/);
   } finally {
     process.chdir(previousCwd);
-    if (oldAllowedClients === undefined) delete process.env.CAT_CAFE_ALLOWED_CLIENTS;
-    else process.env.CAT_CAFE_ALLOWED_CLIENTS = oldAllowedClients;
+    if (oldAllowedClients === undefined) delete process.env.OFFICE_CLAW_ALLOWED_CLIENTS;
+    else process.env.OFFICE_CLAW_ALLOWED_CLIENTS = oldAllowedClients;
 
     const { refreshAvailableClients } = await import('../dist/utils/client-detection.js');
     await refreshAvailableClients();

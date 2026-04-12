@@ -18,7 +18,7 @@ describe('MCP Evidence Tools', () => {
 
   beforeEach(() => {
     originalEnv = { ...process.env };
-    process.env.CAT_CAFE_API_URL = 'http://127.0.0.1:3004';
+    process.env.OFFICE_CLAW_API_URL = 'http://127.0.0.1:3004';
     originalFetch = globalThis.fetch;
   });
 
@@ -33,7 +33,7 @@ describe('MCP Evidence Tools', () => {
   });
 
   // Note: `await import()` is cached by ESM — API_URL is evaluated once at module load.
-  // Tests share the same CAT_CAFE_API_URL from beforeEach, so this works.
+  // Tests share the same OFFICE_CLAW_API_URL from beforeEach, so this works.
   // If future tests need different URLs, refactor to a factory or re-export a setter.
   test('handleSearchEvidence encodes query and optional params into URL', async () => {
     const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');

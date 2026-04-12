@@ -268,7 +268,7 @@ describe('HubAddMemberWizard', () => {
     expect(container.textContent).not.toContain('Claude Sponsor');
   });
 
-  it('shows Huawei MaaS for jiuwen when ~/.cat-cafe/model.json exists', async () => {
+  it('shows Huawei MaaS for jiuwen when ~/.office-claw/model.json exists', async () => {
     useChatStore.getState().setCurrentProject('/tmp/project');
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/cats') {

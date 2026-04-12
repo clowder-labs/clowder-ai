@@ -15,7 +15,7 @@ const tempDirs = [];
 function createProjectRoot() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'model-config-route-'));
   tempDirs.push(projectRoot);
-  process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+  process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
   writeFileSync(join(projectRoot, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n');
   return projectRoot;
 }
@@ -41,18 +41,18 @@ describe('model config profiles routes', () => {
   let savedGlobalRoot;
 
   beforeEach(() => {
-    savedGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    savedGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
   });
 
   after(() => {
-    if (savedGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
+    if (savedGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
     for (const dir of tempDirs) {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it('POST /api/model-config-profiles creates a custom source in ~/.cat-cafe/model.json and maas-models lists it', async () => {
+  it('POST /api/model-config-profiles creates a custom source in ~/.office-claw/model.json and maas-models lists it', async () => {
     const projectRoot = createProjectRoot();
     const Fastify = (await import('fastify')).default;
     const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
@@ -85,7 +85,7 @@ describe('model config profiles routes', () => {
     assert.equal(createBody.provider.displayName, 'My OpenAI Proxy');
     assert.deepEqual(createBody.provider.models, ['gpt-4o-mini', 'deepseek-chat']);
 
-    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
     assert.deepEqual(modelJson['my-openai-proxy'], {
       protocol: 'openai',
       displayName: 'My OpenAI Proxy',
@@ -113,9 +113,9 @@ describe('model config profiles routes', () => {
     const { maasModelsRoutes } = await import('../dist/routes/maas-models.js');
     await seedHuaweiSession();
 
-    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.cat-cafe', 'model.json'),
+      join(projectRoot, '.office-claw', 'model.json'),
       JSON.stringify(
         {
           'huawei-maas': [
@@ -149,7 +149,7 @@ describe('model config profiles routes', () => {
       method: 'GET',
       url: `/api/maas-models?projectPath=${encodeURIComponent(projectRoot)}`,
       headers: {
-        'x-cat-cafe-user': 'demo-user',
+        'x-office-claw-user': 'demo-user',
       },
     });
 
@@ -166,9 +166,9 @@ describe('model config profiles routes', () => {
     const { maasModelsRoutes } = await import('../dist/routes/maas-models.js');
     await seedHuaweiSession();
 
-    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.cat-cafe', 'model.json'),
+      join(projectRoot, '.office-claw', 'model.json'),
       JSON.stringify(
         {
           'huawei-maas': [
@@ -201,7 +201,7 @@ describe('model config profiles routes', () => {
       method: 'GET',
       url: `/api/maas-models?projectPath=${encodeURIComponent(projectRoot)}`,
       headers: {
-        'x-cat-cafe-user': 'demo-user',
+        'x-office-claw-user': 'demo-user',
         'x-refresh': 'true',
       },
     });
@@ -255,7 +255,7 @@ describe('model config profiles routes', () => {
     assert.deepEqual(updateBody.provider.models, ['model-a', 'model-c', 'model-d']);
 
     // Verify the file was updated
-    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
     assert.equal(modelJson['test-source'].displayName, 'Updated Source');
     assert.deepEqual(modelJson['test-source'].models, [{ id: 'model-a' }, { id: 'model-c' }, { id: 'model-d' }]);
     // Verify baseUrl and apiKey remain unchanged
@@ -304,7 +304,7 @@ describe('model config profiles routes', () => {
     assert.equal(updateBody.provider.id, 'test-source-2');
 
     // Verify the file was updated
-    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
     assert.equal(modelJson['test-source-2'].baseUrl, 'https://new-api.example.com/v2');
     assert.equal(modelJson['test-source-2'].apiKey, 'sk-new-key');
     // Verify other fields remain unchanged
@@ -392,7 +392,7 @@ describe('model config profiles routes', () => {
     assert.equal(deleteBody.success, true);
 
     // Verify the source is gone from the file
-    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
     assert.equal(modelJson['to-delete'], undefined);
   });
 
@@ -428,7 +428,7 @@ describe('model config profiles routes', () => {
     assert.equal(createBody.provider.icon, '/images/test.svg');
 
     // Verify persisted in file
-    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
     assert.equal(modelJson['with-desc-icon'].description, 'A test model description');
     assert.equal(modelJson['with-desc-icon'].icon, '/images/test.svg');
   });
@@ -505,7 +505,7 @@ describe('model config profiles routes', () => {
     assert.equal(updateBody.provider.icon, undefined);
 
     // Verify cleared in file
-    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
     assert.equal(modelJson['clear-fields'].description, undefined);
     assert.equal(modelJson['clear-fields'].icon, undefined);
   });
@@ -551,7 +551,7 @@ describe('model config profiles routes', () => {
     assert.equal(updateBody.provider.displayName, 'clear-display');
 
     // Verify in file - displayName should be set to id (fallback behavior)
-    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'model.json'), 'utf-8'));
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
     assert.equal(modelJson['clear-display'].displayName, 'clear-display');
   });
 

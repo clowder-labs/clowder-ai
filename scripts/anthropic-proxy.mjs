@@ -8,7 +8,7 @@
  * Each upstream gets a slug; CLI baseUrl is set to http://localhost:PORT/SLUG
  * and the proxy strips the slug prefix, forwarding to the real upstream.
  *
- * Config file: .cat-cafe/proxy-upstreams.json (auto-managed by API)
+ * Config file: .office-claw/proxy-upstreams.json (auto-managed by API)
  *   { "my-gateway": "https://your-gateway.example.com/api" }
  *
  * Request flow:
@@ -40,7 +40,7 @@ const DEBUG = args.includes('--debug') || process.env.ANTHROPIC_PROXY_DEBUG === 
 const UPSTREAMS_PATH =
   getArg('upstreams') ||
   process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH ||
-  resolve(PROJECT_ROOT, '.cat-cafe', 'proxy-upstreams.json');
+  resolve(PROJECT_ROOT, '.office-claw', 'proxy-upstreams.json');
 const MAX_RETRIES = parseCount(getArg('max-retries') || process.env.ANTHROPIC_PROXY_MAX_RETRIES, 3);
 const UPSTREAM_TIMEOUT_MS = parseInt(
   getArg('upstream-timeout') || process.env.ANTHROPIC_PROXY_UPSTREAM_TIMEOUT_MS || '60000',

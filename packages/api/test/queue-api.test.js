@@ -110,7 +110,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -124,7 +124,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     assert.equal(res.statusCode, 403);
   });
@@ -134,7 +134,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     assert.equal(res.statusCode, 200);
   });
@@ -149,7 +149,7 @@ describe('Queue Management API', () => {
     const resA = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const bodyA = JSON.parse(resA.body);
     assert.equal(bodyA.queue.length, 1);
@@ -159,7 +159,7 @@ describe('Queue Management API', () => {
     const resB = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-b' },
+      headers: { 'x-office-claw-user': 'user-b' },
     });
     const bodyB = JSON.parse(resB.body);
     assert.equal(bodyB.queue.length, 1);
@@ -172,7 +172,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/t1/queue/${r.entry.id}`,
-      headers: { 'x-cat-cafe-user': 'user-b' },
+      headers: { 'x-office-claw-user': 'user-b' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -185,7 +185,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.cleared.length, 2);
@@ -206,7 +206,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads/t1/queue/next',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.started, true);
@@ -228,7 +228,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.paused, true);
@@ -242,7 +242,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.paused, false);
@@ -256,7 +256,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.paused, true);
@@ -272,7 +272,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.queue.length, 2);
@@ -287,7 +287,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/t1/queue/${r.entry.id}`,
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     assert.equal(res.statusCode, 200);
     assert.equal(deps.invocationQueue.list('t1', 'user-a').length, 0);
@@ -309,7 +309,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/t1/queue/${processingEntry.id}`,
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     assert.equal(res.statusCode, 409);
   });
@@ -322,7 +322,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads/t1/queue/next',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.started, true);
@@ -332,7 +332,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads/t1/queue/next',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.started, false);
@@ -347,7 +347,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/threads/t1/queue',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     const body = JSON.parse(res.body);
     assert.equal(body.cleared.length, 2);
@@ -369,7 +369,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: `/api/threads/t1/queue/${r2.entry.id}/move`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { direction: 'up' },
     });
     assert.equal(res.statusCode, 200);
@@ -392,7 +392,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: `/api/threads/t1/queue/${r1.entry.id}/move`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { direction: 'down' },
     });
     assert.equal(res.statusCode, 200);
@@ -411,7 +411,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'PATCH',
       url: `/api/threads/t1/queue/${processingEntry.id}/move`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { direction: 'up' },
     });
     assert.equal(res.statusCode, 409);
@@ -426,7 +426,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/t1/queue/${r2.entry.id}/steer`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { mode: 'promote' },
     });
     assert.equal(res.statusCode, 200);
@@ -445,7 +445,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/t1/queue/${processingEntry.id}/steer`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { mode: 'promote' },
     });
     assert.equal(res.statusCode, 409);
@@ -463,7 +463,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/t1/queue/${r1.entry.id}/steer`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { mode: 'immediate' },
     });
     assert.equal(res.statusCode, 200);
@@ -497,7 +497,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/t1/queue/${r1.entry.id}/steer`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { mode: 'immediate' },
     });
     assert.equal(res.statusCode, 200);
@@ -517,7 +517,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/t1/queue/${r1.entry.id}/steer`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { mode: 'immediate' },
     });
     assert.equal(res.statusCode, 200);
@@ -546,7 +546,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/t1/queue/${r1.entry.id}/steer`,
-      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-a', 'content-type': 'application/json' },
       payload: { mode: 'promote' },
     });
     assert.equal(res.statusCode, 200);
@@ -560,7 +560,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/t1/queue/${r.entry.id}/steer`,
-      headers: { 'x-cat-cafe-user': 'user-b', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-b', 'content-type': 'application/json' },
       payload: { mode: 'promote' },
     });
     assert.equal(res.statusCode, 404);
@@ -575,7 +575,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads/t1/cancel/opus',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -594,7 +594,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads/t1/cancel/codex',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
     assert.equal(res.statusCode, 404);
     const body = JSON.parse(res.body);
@@ -624,7 +624,7 @@ describe('Queue Management API', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads/t1/cancel/codex',
-      headers: { 'x-cat-cafe-user': 'user-a' },
+      headers: { 'x-office-claw-user': 'user-a' },
     });
 
     assert.equal(res.statusCode, 200);

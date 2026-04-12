@@ -195,6 +195,11 @@
   --accent-pill-text: rgba(20, 118, 255, 1);
   --accent-pill-surface: rgba(20, 118, 255, 0.1);
   --warning-glow-soft: rgba(245, 158, 11, 0.3);
+
+  /* Alert semantic backgrounds */
+  --alert-error-bg: #fce3e1;
+  --alert-prompt-bg: #deecff;
+  --alert-warn-bg: #ffebd1;
   --cli-output-head-surface: rgba(255, 255, 255, 0.06);
   --cli-output-border-strong: rgba(255, 255, 255, 0.12);
   --cli-output-border-soft: rgba(255, 255, 255, 0.08);

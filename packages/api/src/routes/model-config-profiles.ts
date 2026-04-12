@@ -26,6 +26,7 @@ const createModelConfigSourceBodySchema = z.object({
   displayName: z.string().trim().min(1).optional(),
   description: z.string().trim().max(500).optional(),
   icon: z.string().trim().optional(),
+  accessMode: z.enum(['huawei_maas_access']).optional(),
   baseUrl: z.string().trim().min(1),
   apiKey: z.string().trim().min(1),
   headers: z.record(z.string().trim().min(1), z.string().trim().min(1)).optional(),
@@ -37,6 +38,7 @@ const updateModelConfigSourceBodySchema = z.object({
   displayName: z.string().trim().nullable().optional(),
   description: z.string().trim().max(500).nullable().optional(),
   icon: z.string().trim().nullable().optional(),
+  accessMode: z.enum(['huawei_maas_access']).optional(),
   baseUrl: z.string().trim().optional(),
   apiKey: z.string().trim().optional(),
   headers: z.record(z.string().trim().min(1), z.string().trim().min(1)).optional(),
@@ -85,6 +87,7 @@ export const modelConfigProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoute
         ...(parsed.data.displayName ? { displayName: parsed.data.displayName } : {}),
         ...(parsed.data.description ? { description: parsed.data.description } : {}),
         ...(parsed.data.icon ? { icon: parsed.data.icon } : {}),
+        ...(parsed.data.accessMode ? { accessMode: parsed.data.accessMode } : {}),
         baseUrl: parsed.data.baseUrl,
         apiKey: parsed.data.apiKey,
         ...(parsed.data.headers ? { headers: parsed.data.headers } : {}),
@@ -174,6 +177,7 @@ export const modelConfigProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoute
         displayName?: string | null;
         description?: string | null;
         icon?: string | null;
+        accessMode?: 'huawei_maas_access';
         baseUrl?: string;
         apiKey?: string;
         headers?: Record<string, string>;
@@ -183,6 +187,7 @@ export const modelConfigProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoute
       if (parsed.data.displayName !== undefined) updateInput.displayName = parsed.data.displayName;
       if (parsed.data.description !== undefined) updateInput.description = parsed.data.description;
       if (parsed.data.icon !== undefined) updateInput.icon = parsed.data.icon;
+      if (parsed.data.accessMode !== undefined) updateInput.accessMode = parsed.data.accessMode;
       if (parsed.data.baseUrl !== undefined) updateInput.baseUrl = parsed.data.baseUrl;
       if (parsed.data.apiKey !== undefined && parsed.data.apiKey.length > 0) {
         updateInput.apiKey = parsed.data.apiKey;

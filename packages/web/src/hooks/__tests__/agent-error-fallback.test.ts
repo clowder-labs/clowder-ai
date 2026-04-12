@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE,
+  getAgentErrorToastContent,
   getFriendlyAgentErrorMessage,
   getSensitiveInputErrorToastContent,
   isSensitiveInputAgentError,
@@ -98,5 +99,32 @@ describe('getFriendlyAgentErrorMessage', () => {
     expect(getFriendlyAgentErrorMessage({ error: 'subprocess exited unexpectedly' })).toBe(
       '这次响应中断了，我没能稳定完成处理。请重试一次；如果连续出现，请稍后再试。',
     );
+  });
+});
+
+describe('getAgentErrorToastContent', () => {
+  it('uses generic error toast title for non-sensitive agent failures', () => {
+    expect(
+      getAgentErrorToastContent({
+        catId: 'codex',
+        error: 'request timed out before completion',
+      }),
+    ).toEqual({
+      title: 'codex 出错',
+      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+    });
+  });
+
+  it('includes known error subtype labels in toast message', () => {
+    expect(
+      getAgentErrorToastContent({
+        catId: 'codex',
+        error: 'some unexpected upstream failure',
+        content: JSON.stringify({ errorSubtype: 'error_max_budget_usd' }),
+      }),
+    ).toEqual({
+      title: 'codex 出错',
+      message: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。 (预算用尽)',
+    });
   });
 });

@@ -34,6 +34,7 @@ export interface RichQuickActionOption {
 interface RichTextareaProps {
   value: string;
   onValueChange: (value: string, selectionStart: number, selectionEnd: number) => void;
+  onCompositionStateChange?: (isComposing: boolean) => void;
   onInput?: () => void;
   onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
   onPaste?: (e: ClipboardEvent<HTMLDivElement>) => void;
@@ -59,16 +60,18 @@ export interface RichTextareaHandle {
 type Segment =
   | { type: 'text'; text: string }
   | { type: 'mention'; text: string }
-  | { type: 'skill'; text: string; iconUrl?: string | null }
+  | { type: 'skill'; text: string; token: string; iconUrl?: string | null }
   | { type: 'quick_action'; text: string; icon?: string; token: string };
 
 const MENTION_RIGHT_WHITESPACE_RE = /\s/;
+const SKILL_TOKEN_PREFIX = '[[skill:';
+const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 
 function buildSegments(value: string, skillOptions: RichSkillOption[], quickActionOptions: RichQuickActionOption[]): Segment[] {
   if (!value) return [{ type: 'text', text: '' }];
-  const sortedSkills = [...skillOptions].sort((a, b) => b.name.length - a.name.length);
+  const skillOptionByName = new Map(skillOptions.map((item) => [item.name.trim(), item] as const));
   const quickActionIconByLabel = new Map(quickActionOptions.map((item) => [item.label, item.icon]));
   const mentionToCat = getMentionToCat();
   const mentionAliases = Object.keys(mentionToCat).sort((a, b) => b.length - a.length);
@@ -76,6 +79,25 @@ function buildSegments(value: string, skillOptions: RichSkillOption[], quickActi
   let cursor = 0;
 
   while (cursor < value.length) {
+    if (value.startsWith(SKILL_TOKEN_PREFIX, cursor)) {
+      const end = value.indexOf(SKILL_TOKEN_SUFFIX, cursor + SKILL_TOKEN_PREFIX.length);
+      if (end > cursor) {
+        const token = value.slice(cursor, end + SKILL_TOKEN_SUFFIX.length);
+        const name = value.slice(cursor + SKILL_TOKEN_PREFIX.length, end).trim();
+        if (name) {
+          const skill = skillOptionByName.get(name);
+          segments.push({
+            type: 'skill',
+            text: name,
+            token,
+            iconUrl: skill?.iconUrl,
+          });
+          cursor = end + SKILL_TOKEN_SUFFIX.length;
+          continue;
+        }
+      }
+    }
+
     if (value.startsWith(QUICK_ACTION_TOKEN_PREFIX, cursor)) {
       const end = value.indexOf(QUICK_ACTION_TOKEN_SUFFIX, cursor + QUICK_ACTION_TOKEN_PREFIX.length);
       if (end > cursor) {
@@ -90,24 +112,6 @@ function buildSegments(value: string, skillOptions: RichSkillOption[], quickActi
         cursor = end + QUICK_ACTION_TOKEN_SUFFIX.length;
         continue;
       }
-    }
-
-    let matchedSkill: RichSkillOption | null = null;
-    for (const skill of sortedSkills) {
-      const name = skill.name;
-      if (!name) continue;
-      if (!value.startsWith(name, cursor)) continue;
-      const prev = cursor > 0 ? value[cursor - 1] : ' ';
-      const next = cursor + name.length < value.length ? value[cursor + name.length] : ' ';
-      if (/\s/.test(prev) && /\s/.test(next)) {
-        matchedSkill = skill;
-        break;
-      }
-    }
-    if (matchedSkill) {
-      segments.push({ type: 'skill', text: matchedSkill.name, iconUrl: matchedSkill.iconUrl });
-      cursor += matchedSkill.name.length;
-      continue;
     }
 
     const prev = cursor > 0 ? value[cursor - 1] : ' ';
@@ -294,6 +298,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   {
     value,
     onValueChange,
+    onCompositionStateChange,
     onInput,
     onKeyDown,
     onPaste,
@@ -320,8 +325,9 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         .map((seg) => {
           if (seg.type === 'text') return `t:${seg.text}`;
           if (seg.type === 'mention') return `m:${seg.text}`;
+          if (seg.type === 'skill') return `s:${seg.token}`;
           if (seg.type === 'quick_action') return `q:${seg.token}`;
-          return `s:${seg.text}`;
+          return '';
         })
         .join(''),
     [segments],
@@ -429,7 +435,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
       }
       const token = document.createElement('span');
       token.setAttribute('data-token-type', 'skill');
-      token.setAttribute('data-token-value', seg.text);
+      token.setAttribute('data-token-value', seg.token);
       token.setAttribute('contenteditable', 'false');
       token.className =
         'inline-flex max-w-full translate-y-[-1px] items-center gap-1 text-[rgba(20,118,255,1)] text-[16px] leading-5 align-middle';
@@ -485,6 +491,17 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
     return null;
   };
 
+  const clearValue = () => {
+    const root = rootRef.current;
+    pendingSelectionRef.current = { start: 0, end: 0 };
+    if (root) {
+      forceSyncPlainText(root, '', 0, 0);
+    }
+    setShowPlaceholder(true);
+    onValueChange('', 0, 0);
+    onInput?.();
+  };
+
   return (
     <div className="relative">
       {showPlaceholder && placeholder && (
@@ -526,6 +543,12 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           e.preventDefault();
         }}
         onInput={(e) => {
+          const native = e.nativeEvent as InputEvent;
+          const inputType = native.inputType ?? '';
+          if (inputType === 'historyUndo') {
+            clearValue();
+            return;
+          }
           const root = rootRef.current;
           if (!root) return;
           if (isComposingRef.current) {
@@ -548,9 +571,14 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         }}
         onBeforeInput={(e) => {
           const root = rootRef.current;
-          if (!root || !maxLength || maxLength <= 0) return;
           const native = e.nativeEvent as InputEvent;
           const inputType = native.inputType ?? '';
+          if (inputType === 'historyUndo') {
+            e.preventDefault();
+            clearValue();
+            return;
+          }
+          if (!root || !maxLength || maxLength <= 0) return;
           // Let IME composition flow complete naturally; enforce max in onCompositionEnd/onInput.
           if (isComposingRef.current || inputType.includes('Composition')) return;
           if (!inputType.startsWith('insert')) return;
@@ -568,9 +596,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         onCompositionStart={() => {
           isComposingRef.current = true;
           setShowPlaceholder(false);
+          onCompositionStateChange?.(true);
         }}
         onCompositionEnd={() => {
           isComposingRef.current = false;
+          onCompositionStateChange?.(false);
           const root = rootRef.current;
           if (!root) return;
           const rawNext = Array.from(root.childNodes).map((n) => serializeNode(n)).join('');
@@ -586,6 +616,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           onInput?.();
         }}
         onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+            e.preventDefault();
+            clearValue();
+            return;
+          }
           const root = rootRef.current;
           if (root && maxLength && maxLength > 0 && !isComposingRef.current) {
             // Fallback guard: some browsers/IME flows may skip reliable beforeinput checks.

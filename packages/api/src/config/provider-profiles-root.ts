@@ -9,7 +9,7 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { isUnderAllowedRoot } from '../utils/project-path.js';
 
-const CAT_CAFE_DIR = '.cat-cafe';
+const CAT_CAFE_DIR = '.office-claw';
 const META_FILENAME = 'provider-profiles.json';
 const KNOWN_ROOTS_FILENAME = 'known-project-roots.json';
 const MIGRATED_ROOTS_FILENAME = 'migrated-project-roots.json';
@@ -74,7 +74,7 @@ export async function listProviderProfilesProjectRoots(projectRoot: string): Pro
 }
 
 function resolveGlobalRoot(): string {
-  const envRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+  const envRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
   if (envRoot) {
     const resolved = resolve(envRoot);
     try {
@@ -94,7 +94,7 @@ function resolveGlobalRoot(): string {
 /**
  * Resolve the storage root for provider-profiles.
  * Default: user home directory (global).
- * Override: CAT_CAFE_GLOBAL_CONFIG_ROOT env var.
+ * Override: OFFICE_CLAW_GLOBAL_CONFIG_ROOT env var.
  */
 export async function resolveProviderProfilesRoot(_projectRoot: string): Promise<string> {
   return resolveGlobalRoot();

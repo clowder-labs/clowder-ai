@@ -9,7 +9,7 @@ Supports multiple backends via TtsAdapter:
   - edge-tts: Microsoft cloud TTS (fallback, no GPU needed)
 
 Usage:
-  source ~/.cat-cafe/tts-venv/bin/activate
+  source ~/.office-claw/tts-venv/bin/activate
   python scripts/tts-api.py                                     # default: qwen3-clone (Qwen3-TTS Base)
   TTS_PROVIDER=mlx-audio python scripts/tts-api.py              # Kokoro-82M (legacy)
   TTS_PROVIDER=edge-tts python scripts/tts-api.py               # edge-tts fallback

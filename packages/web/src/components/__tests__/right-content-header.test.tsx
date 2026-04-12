@@ -300,6 +300,13 @@ describe('RightContentHeader feedback popover', () => {
     expect(textarea).toBeTruthy();
     expect(textarea?.value).toBe('');
 
+    const firstCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    expect(firstCheckbox).toBeTruthy();
+    act(() => {
+      firstCheckbox?.click();
+    });
+    await flush();
+
     const submitButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('提交'));
     expect(submitButton).toBeTruthy();
 
@@ -361,5 +368,40 @@ describe('RightContentHeader feedback popover', () => {
     expect(mockSubmitFetch).not.toHaveBeenCalled();
     expect(container.textContent).toContain('输入不能为空');
     expect(container.textContent).not.toContain('请先完成必填项');
+  });
+
+  it('shows a selection required error when no checkbox is selected on submit', async () => {
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    const smileButton = getSmileButton();
+    expect(smileButton).toBeTruthy();
+
+    act(() => {
+      smileButton?.click();
+    });
+    await flush();
+
+    const lowScoreButton = getScoreButton(6);
+    expect(lowScoreButton).toBeTruthy();
+    act(() => {
+      lowScoreButton?.click();
+    });
+    await flush();
+
+    const submitButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('提交'));
+    expect(submitButton).toBeTruthy();
+
+    act(() => {
+      submitButton?.click();
+    });
+    await flush();
+
+    expect(mockSubmitFetch).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('选择不能为空');
+    expect(container.textContent).not.toContain('请先完成必填项');
+    expect(container.textContent).not.toContain('输入不能为空');
   });
 });

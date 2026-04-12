@@ -20,7 +20,7 @@ if ($ScriptDir) {
     . (Join-Path $ScriptDir "install-windows-helpers.ps1")
 }
 $ProjectRoot = if ($ScriptDir) { Split-Path -Parent $ScriptDir } else { $null }
-$RunDir = if ($ProjectRoot) { Join-Path $ProjectRoot ".cat-cafe/run/windows" } else { $null }
+$RunDir = if ($ProjectRoot) { Join-Path $ProjectRoot ".office-claw/run/windows" } else { $null }
 $RuntimeStateFile = if ($RunDir) { Join-Path $RunDir "runtime-state.json" } else { $null }
 $runtimeState = Read-WindowsRuntimeStateFile -StateFile $RuntimeStateFile
 

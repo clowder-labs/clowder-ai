@@ -54,7 +54,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: '谁最绿茶？',
         options: ['opus', 'codex', 'gemini'],
@@ -78,7 +78,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads/nonexistent/vote/start',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'test?', options: ['a', 'b'] },
     });
 
@@ -92,7 +92,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-2' },
+      headers: { 'x-office-claw-user': 'user-2' },
       payload: { question: 'test?', options: ['a', 'b'] },
     });
 
@@ -107,7 +107,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'q1?', options: ['a', 'b'] },
     });
 
@@ -115,7 +115,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'q2?', options: ['c', 'd'] },
     });
 
@@ -129,7 +129,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: '', options: ['a', 'b'] },
     });
 
@@ -143,7 +143,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['only-one'] },
     });
 
@@ -159,14 +159,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'] },
     });
 
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
@@ -182,14 +182,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'] },
     });
 
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'nonexistent' },
     });
 
@@ -203,7 +203,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
@@ -217,21 +217,21 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'] },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'b' },
     });
 
@@ -249,14 +249,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'], anonymous: true },
     });
 
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -272,7 +272,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -289,7 +289,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'] },
     });
 
@@ -297,14 +297,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -317,7 +317,7 @@ describe('Vote Routes', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(JSON.parse(getRes.body).vote, null);
   });
@@ -329,7 +329,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 404);
@@ -342,14 +342,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'] },
     });
 
     await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     const voteEvents = broadcasts.filter((b) => b.event === 'vote_closed');
@@ -364,7 +364,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'] },
     });
 
@@ -383,7 +383,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'], timeoutSec: 10 },
     });
 
@@ -395,7 +395,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
@@ -413,7 +413,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'Best?', options: ['x', 'y'] },
     });
 
@@ -421,14 +421,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'x' },
     });
 
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     const body = JSON.parse(res.body);
@@ -450,21 +450,21 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'], anonymous: true },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     const body = JSON.parse(res.body);
@@ -479,21 +479,21 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'], anonymous: true },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     const body = JSON.parse(res.body);
@@ -510,14 +510,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'], anonymous: true },
     });
 
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
@@ -536,14 +536,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'], anonymous: true },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
@@ -563,21 +563,21 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: 'pick?', options: ['a', 'b'], anonymous: true },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     const body = JSON.parse(res.body);
@@ -596,7 +596,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: '谁最绿茶？',
         options: ['opus', 'codex'],
@@ -616,7 +616,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: 'pick?',
         options: ['a', 'b'],
@@ -637,7 +637,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: '谁最绿茶？',
         options: ['opus', 'codex'],
@@ -649,7 +649,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'opus' },
+      headers: { 'x-office-claw-user': 'opus' },
       payload: { option: 'codex' },
     });
 
@@ -661,7 +661,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'codex' },
+      headers: { 'x-office-claw-user': 'codex' },
       payload: { option: 'opus' },
     });
 
@@ -688,7 +688,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: '谁最绿茶？',
         options: ['opus', 'codex'],
@@ -700,7 +700,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'intruder' },
+      headers: { 'x-office-claw-user': 'intruder' },
       payload: { option: 'opus' },
     });
 
@@ -720,7 +720,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: 'pick?',
         options: ['a', 'b'],
@@ -731,7 +731,7 @@ describe('Vote Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'random-user' },
+      headers: { 'x-office-claw-user': 'random-user' },
       payload: { option: 'a' },
     });
 
@@ -746,7 +746,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: 'timeout test?',
         options: ['a', 'b'],
@@ -765,7 +765,7 @@ describe('Vote Routes', () => {
     const closeRes = await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(closeRes.statusCode, 200);
 
@@ -781,7 +781,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: 'pick?',
         options: ['a', 'b'],
@@ -791,7 +791,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'a' },
     });
 
@@ -808,21 +808,21 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: '谁最绿茶？', options: ['opus', 'codex'] },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'opus' },
     });
 
     await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     // Rich block must be persisted as a message
@@ -844,21 +844,21 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: '谁最坏？', options: ['opus', 'codex'] },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'opus' },
     });
 
     await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(persistedMessages.length, 1);
@@ -877,21 +877,21 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { question: '谁最坏？', options: ['opus', 'codex'] },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: { option: 'opus' },
     });
 
     await app.inject({
       method: 'DELETE',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     const connectorMsgs = persistedMessages.filter((m) => m.source?.connector === 'vote-result');
@@ -907,7 +907,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: '谁最坏？',
         options: ['opus', 'codex'],
@@ -918,14 +918,14 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'opus' },
+      headers: { 'x-office-claw-user': 'opus' },
       payload: { option: 'codex' },
     });
 
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'codex' },
+      headers: { 'x-office-claw-user': 'codex' },
       payload: { option: 'opus' },
     });
 
@@ -942,7 +942,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote/start`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         question: '谁最绿茶？',
         options: ['opus', 'codex'],
@@ -953,7 +953,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'opus' },
+      headers: { 'x-office-claw-user': 'opus' },
       payload: { option: 'codex' },
     });
 
@@ -963,7 +963,7 @@ describe('Vote Routes', () => {
     await app.inject({
       method: 'POST',
       url: `/api/threads/${thread.id}/vote`,
-      headers: { 'x-cat-cafe-user': 'codex' },
+      headers: { 'x-office-claw-user': 'codex' },
       payload: { option: 'opus' },
     });
 

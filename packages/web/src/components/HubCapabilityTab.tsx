@@ -28,7 +28,7 @@ export interface SelectedSkillSummary {
 }
 
 function sourceToLabel(source: string): string {
-  if (source === 'cat-cafe') return '内置技能';
+  if (source === 'builtin') return '内置技能';
   if (source === 'external') return '用户添加技能';
   return '其他';
 }
@@ -183,7 +183,7 @@ export function HubCapabilityTab({
   const filteredDisplayedSkillItems = useMemo(() => {
     if (!normalizedSearchQuery) return sourceFilteredItems;
     return sourceFilteredItems.filter((item) => {
-      const sourceLabel = item.source === 'cat-cafe' ? '内置技能' : item.source === 'external' ? '用户添加技能' : '其他';
+      const sourceLabel = item.source === 'builtin' ? '内置技能' : item.source === 'external' ? '用户添加技能' : '其他';
       const haystack = [item.id, item.description ?? '', item.category ?? '', sourceLabel].join(' ').toLowerCase();
       return haystack.includes(normalizedSearchQuery);
     });

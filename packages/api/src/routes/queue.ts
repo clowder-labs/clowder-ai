@@ -360,7 +360,7 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
         const taskSnapshot = taskProgressStore ? await taskProgressStore.getSnapshot(threadId, catId as CatId) : null;
         if (taskSnapshot?.status !== 'interrupted' || taskSnapshot.interruptReason !== 'recoverable_pause') {
           reply.status(404);
-          return { error: '该猫当前未在执行', code: 'CAT_NOT_ACTIVE' };
+          return { error: '该智能体当前未在执行', code: 'CAT_NOT_ACTIVE' };
         }
 
         await sessionManager.delete(guard.userId, catId as CatId, threadId).catch(() => {});

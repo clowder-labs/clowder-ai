@@ -325,7 +325,7 @@ describe('POST /api/authorization/respond', () => {
     assert.equal(events[0].event, 'authorization:response');
   });
 
-  test('accepts X-Cat-Cafe-User header (frontend default)', async () => {
+  test('accepts X-Office-Claw-User header (frontend default)', async () => {
     const app = await createApp();
 
     const record = pendingStore.create({
@@ -339,7 +339,7 @@ describe('POST /api/authorization/respond', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/authorization/respond',
-      headers: { 'x-cat-cafe-user': 'frontend-user' },
+      headers: { 'x-office-claw-user': 'frontend-user' },
       payload: {
         requestId: record.requestId,
         granted: true,
@@ -435,7 +435,7 @@ describe('GET /api/authorization/pending', () => {
     assert.equal(JSON.parse(res.body).pending.length, 1);
   });
 
-  test('accepts X-Cat-Cafe-User header for pending list', async () => {
+  test('accepts X-Office-Claw-User header for pending list', async () => {
     const ruleStore = new AuthorizationRuleStore();
     const pendingStore = new PendingRequestStore();
     const auditStore = new AuthorizationAuditStore();
@@ -455,7 +455,7 @@ describe('GET /api/authorization/pending', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/authorization/pending?threadId=t1',
-      headers: { 'x-cat-cafe-user': 'frontend-user' },
+      headers: { 'x-office-claw-user': 'frontend-user' },
     });
 
     assert.equal(res.statusCode, 200);

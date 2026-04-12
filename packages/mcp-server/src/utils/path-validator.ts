@@ -33,9 +33,9 @@ const CAT_CAFE_SUBDIRS = ['chat', 'memory', 'workspace', 'assets', '.state'] as 
  */
 export function getDefaultConfig(): PathConfig {
   const homeDir = os.homedir();
-  const defaultCatCafeDir = path.join(homeDir, '.cat-cafe');
+  const defaultCatCafeDir = path.join(homeDir, '.office-claw');
 
-  const catCafeDir = process.env['CAT_CAFE_DATA_DIR'] ?? defaultCatCafeDir;
+  const catCafeDir = process.env['OFFICE_CLAW_DATA_DIR'] ?? defaultCatCafeDir;
 
   // 解析允许的工作目录
   const allowedWorkspaceDirs = process.env['ALLOWED_WORKSPACE_DIRS'];
@@ -122,7 +122,7 @@ export function ensureDir(dirPath: string): void {
 
 /**
  * 初始化 Clowder AI 目录结构
- * 创建 ~/.cat-cafe/ 及其子目录
+ * 创建 ~/.office-claw/ 及其子目录
  * @param config - 可选的配置
  */
 export function initCatCafeDir(config?: PathConfig): void {

@@ -9,14 +9,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import {
-  getFriendlyAgentErrorMessage,
-  getSensitiveInputErrorToastContent,
-  isSensitiveInputAgentError,
+  getAgentErrorToastContent,
 } from '@/hooks/agent-error-fallback';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import { parseSystemInfoContent } from './parse-system-info';
+import { requestThreadLiveRefresh, type ThreadLiveRefreshScope } from './thread-live-refresh';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -442,6 +441,12 @@ export function useAgentMessages() {
     terminalStreamSuppressionRef.current.delete(catId);
   }, []);
 
+  const requestActiveThreadRefresh = useCallback((scope: ThreadLiveRefreshScope, reason: string) => {
+    const threadId = useChatStore.getState().currentThreadId;
+    if (!threadId) return;
+    requestThreadLiveRefresh(threadId, scope, reason);
+  }, []);
+
   const shouldSuppressLateTerminalStreamEvent = useCallback(
     (catId: string, invocationId?: string): boolean => {
       const suppressedInvocationId = terminalStreamSuppressionRef.current.get(catId);
@@ -578,6 +583,7 @@ export function useAgentMessages() {
               replacedInvocationsRef.current.set(msg.catId, invocationId);
             }
           }
+          requestActiveThreadRefresh('messages', 'callback_message');
         } else {
           // CLI stream message (thinking): append to active stream bubble
           const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, { ensureStreaming: true });
@@ -763,6 +769,7 @@ export function useAgentMessages() {
               requestStreamCatchUp(tid);
             }
           }
+          requestActiveThreadRefresh('panels', 'done_final');
           sawStreamDataRef.current.delete(msg.catId);
         }
       } else if (msg.type === 'a2a_handoff') {
@@ -1056,6 +1063,7 @@ export function useAgentMessages() {
             if (parsed.block) {
               appendRichBlock(targetId, parsed.block);
             }
+            requestActiveThreadRefresh('messages', 'rich_block');
             consumed = true;
           } else if (parsed?.type === 'session_seal_requested') {
             // F24 Phase B: Session sealed — update session info + show notification
@@ -1114,42 +1122,14 @@ export function useAgentMessages() {
           origin: msg.origin,
         });
 
-        addMessage({
-          id: `err-${Date.now()}-${msg.catId}`,
-          type: 'assistant',
-          catId: msg.catId,
-          content: (() => {
-            const base = getFriendlyAgentErrorMessage(msg);
-            try {
-              const meta = JSON.parse(msg.content ?? '{}');
-              const subtype = meta?.errorSubtype;
-              if (subtype) {
-                const labels: Record<string, string> = {
-                  error_max_turns: '超出 turn 限制',
-                  error_max_budget_usd: '预算用尽',
-                  error_during_execution: '运行时错误',
-                  error_max_structured_output_retries: '结构化输出重试超限',
-                };
-                return labels[subtype] ? `${base} (${labels[subtype]})` : base;
-              }
-            } catch {
-              /* no subtype */
-            }
-            return base;
-          })(),
-          timestamp: Date.now(),
-          origin: 'stream',
+        const toast = getAgentErrorToastContent(msg);
+        useToastStore.getState().addToast({
+          type: 'error',
+          title: toast.title,
+          message: toast.message,
+          threadId: useChatStore.getState().currentThreadId,
+          duration: 8000,
         });
-        if (isSensitiveInputAgentError(msg)) {
-          const toast = getSensitiveInputErrorToastContent();
-          useToastStore.getState().addToast({
-            type: 'error',
-            title: toast.title,
-            message: toast.message,
-            threadId: useChatStore.getState().currentThreadId,
-            duration: 8000,
-          });
-        }
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {
           clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
@@ -1213,6 +1193,7 @@ export function useAgentMessages() {
       setHasActiveInvocation,
       setMessageUsage,
       requestStreamCatchUp,
+      requestActiveThreadRefresh,
       removeMessage,
     ],
   );

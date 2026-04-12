@@ -492,7 +492,7 @@ describe('Session Hooks Routes', () => {
 
       assert.equal(res.statusCode, 503);
       const body = JSON.parse(res.payload);
-      assert.ok(body.error.includes('CAT_CAFE_HOOK_TOKEN'));
+      assert.ok(body.error.includes('OFFICE_CLAW_HOOK_TOKEN'));
     });
 
     it('returns 401 for GET endpoint when token is missing', async () => {

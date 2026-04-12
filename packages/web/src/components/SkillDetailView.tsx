@@ -26,7 +26,7 @@ interface SkillDetailResponse {
   description?: string;
   triggers?: string[];
   category?: string;
-  source: "cat-cafe" | "external";
+  source: "builtin" | "external";
   enabled: boolean;
   installedAt?: string;
   mounts?: Record<string, boolean>;
@@ -71,7 +71,7 @@ const IMAGE_FILE_EXTENSIONS = new Set([
 ]);
 
 function sourceLabel(source: SkillDetailResponse["source"]): string {
-  return source === "cat-cafe" ? "官方" : "三方";
+  return source === "builtin" ? "官方" : "三方";
 }
 
 function statusLabel(value: boolean): string {

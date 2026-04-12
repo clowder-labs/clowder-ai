@@ -7,7 +7,7 @@
 /**
  * Capability Orchestrator — F041 配置编排器
  *
- * 读取 `.cat-cafe/capabilities.json` 唯一真相源，
+ * 读取 `.office-claw/capabilities.json` 唯一真相源，
  * 结合 catRegistry 的 provider 映射，
  * 生成三猫 CLI 的 MCP 配置文件。
  *
@@ -32,7 +32,7 @@ import {
 // ────────── Constants ──────────
 
 const CAPABILITIES_FILENAME = 'capabilities.json';
-const CAT_CAFE_DIR = '.cat-cafe';
+const CAT_CAFE_DIR = '.office-claw';
 
 const PENCIL_EXTENSIONS_DIR = resolve(homedir(), '.antigravity/extensions');
 const PENCIL_DIR_PREFIX = 'highagency.pencildev-';
@@ -115,6 +115,10 @@ export async function readCapabilitiesConfig(projectRoot: string): Promise<Capab
     const raw = await readFile(filePath, 'utf-8');
     const data = JSON.parse(raw) as CapabilitiesConfig;
     if (data.version !== 1 || !Array.isArray(data.capabilities)) return null;
+    // Migrate legacy source: 'cat-cafe' → 'builtin'
+    for (const cap of data.capabilities) {
+      if ((cap.source as string) === 'cat-cafe') cap.source = 'builtin';
+    }
     return data;
   } catch {
     return null;
@@ -180,34 +184,40 @@ export function buildCatCafeMcpDescriptor(projectRoot: string): McpServerDescrip
     command: 'node',
     args: [serverPath],
     enabled: true,
-    source: 'cat-cafe',
+    source: 'builtin',
   };
 }
 
-const CAT_CAFE_SPLIT_SERVER_IDS = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'] as const;
+const SPLIT_SERVER_IDS = ['office-claw-collab', 'office-claw-memory', 'office-claw-signals'] as const;
+/** Legacy server IDs from pre-rename — used for auto-migration of capabilities.json */
+const LEGACY_SPLIT_SERVER_MAP: Record<string, string> = {
+  'cat-cafe-collab': 'office-claw-collab',
+  'cat-cafe-memory': 'office-claw-memory',
+  'cat-cafe-signals': 'office-claw-signals',
+};
 
-function buildCatCafeSplitMcpDescriptors(projectRoot: string): McpServerDescriptor[] {
+function buildSplitMcpDescriptors(projectRoot: string): McpServerDescriptor[] {
   return [
     {
-      name: 'cat-cafe-collab',
+      name: 'office-claw-collab',
       command: 'node',
       args: [resolve(projectRoot, 'packages/mcp-server/dist/collab.js')],
       enabled: true,
-      source: 'cat-cafe',
+      source: 'builtin',
     },
     {
-      name: 'cat-cafe-memory',
+      name: 'office-claw-memory',
       command: 'node',
       args: [resolve(projectRoot, 'packages/mcp-server/dist/memory.js')],
       enabled: true,
-      source: 'cat-cafe',
+      source: 'builtin',
     },
     {
-      name: 'cat-cafe-signals',
+      name: 'office-claw-signals',
       command: 'node',
       args: [resolve(projectRoot, 'packages/mcp-server/dist/signals.js')],
       enabled: true,
-      source: 'cat-cafe',
+      source: 'builtin',
     },
   ];
 }
@@ -239,7 +249,7 @@ type LegacyCatCafeSeed = {
 };
 
 function buildSplitCapabilityEntries(projectRoot: string, legacySeed?: LegacyCatCafeSeed): CapabilityEntry[] {
-  const descriptors = buildCatCafeSplitMcpDescriptors(projectRoot);
+  const descriptors = buildSplitMcpDescriptors(projectRoot);
   const entries = descriptors.map((descriptor) => {
     const entry = toCapabilityEntry(descriptor);
     if (legacySeed) {
@@ -266,14 +276,39 @@ export function migrateLegacyCatCafeCapability(
   const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
   if (!projectRoot) return { migrated: false, config };
 
-  const splitSet = new Set(CAT_CAFE_SPLIT_SERVER_IDS);
+  // Phase 1: Rename old split server IDs (cat-cafe-* → office-claw-*)
+  let renamed = false;
+  const renamedCapabilities = config.capabilities.map((cap) => {
+    const newId = LEGACY_SPLIT_SERVER_MAP[cap.id];
+    if (newId && cap.type === 'mcp' && cap.mcpServer) {
+      renamed = true;
+      return { ...cap, id: newId, mcpServer: { ...cap.mcpServer, name: newId } };
+    }
+    return cap;
+  });
+  if (renamed) {
+    config = { ...config, capabilities: renamedCapabilities };
+  }
+
+  // Phase 1b: Migrate legacy source: 'cat-cafe' → 'builtin'
+  let sourceMigrated = false;
+  for (const cap of config.capabilities) {
+    if ((cap.source as string) === 'cat-cafe') {
+      cap.source = 'builtin';
+      sourceMigrated = true;
+    }
+  }
+  if (sourceMigrated) renamed = true;
+
+  // Phase 2: Check if split servers already exist (current or just-renamed)
+  const splitSet = new Set(SPLIT_SERVER_IDS);
   const hasSplit = config.capabilities.some((cap) =>
-    splitSet.has(cap.id as (typeof CAT_CAFE_SPLIT_SERVER_IDS)[number]),
+    splitSet.has(cap.id as (typeof SPLIT_SERVER_IDS)[number]),
   );
-  if (hasSplit) return { migrated: false, config };
+  if (hasSplit) return { migrated: renamed, config };
 
   const legacyCatCafe = config.capabilities.find((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe');
-  if (!legacyCatCafe) return { migrated: false, config };
+  if (!legacyCatCafe) return { migrated: renamed, config };
 
   const nextCapabilities = config.capabilities.filter((cap) => cap.id !== 'cat-cafe');
   const legacySeed: LegacyCatCafeSeed = { enabled: legacyCatCafe.enabled };
@@ -304,7 +339,7 @@ export async function bootstrapCapabilities(
   discoveryPaths: DiscoveryPaths,
   opts?: { catCafeRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
-  const catCafeServers = buildCatCafeSplitMcpDescriptors(opts?.catCafeRepoRoot ?? projectRoot);
+  const catCafeServers = buildSplitMcpDescriptors(opts?.catCafeRepoRoot ?? projectRoot);
   const externals = await discoverExternalMcpServers(discoveryPaths);
 
   const capabilities: CapabilityEntry[] = [];

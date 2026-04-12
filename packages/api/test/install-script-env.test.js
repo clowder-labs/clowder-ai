@@ -113,7 +113,7 @@ cat .env
 
 test('Claude empty API key removes stale installer-managed profile', () => {
   const envRoot = mkdtempSync(join(tmpdir(), 'clowder-install-claude-empty-'));
-  const catCafeDir = join(envRoot, '.cat-cafe');
+  const catCafeDir = join(envRoot, '.office-claw');
 
   try {
     mkdirSync(catCafeDir, { recursive: true });
@@ -248,9 +248,9 @@ for i in "\${!ENV_KEYS[@]}"; do write_env_key "\${ENV_KEYS[$i]}" "\${ENV_VALUES[
 cat .env
 `);
 
-    assert.match(output, /^CAT_CAFE_ALLOWED_CLIENTS='dare,relayclaw'$/m);
-    assert.match(output, /^CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS=''$/m);
-    assert.match(output, /^CAT_CAFE_BUILTIN_CLIENTS_ENABLED='false'$/m);
+    assert.match(output, /^OFFICE_CLAW_ALLOWED_CLIENTS='dare,relayclaw'$/m);
+    assert.match(output, /^OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS=''$/m);
+    assert.match(output, /^OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED='false'$/m);
     assert.doesNotMatch(output, /^CODEX_AUTH_MODE=/m);
     assert.doesNotMatch(output, /^OPENAI_API_KEY=/m);
     assert.doesNotMatch(output, /^OPENAI_BASE_URL=/m);

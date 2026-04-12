@@ -168,10 +168,10 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       reply.status(400);
       return { error: 'Invalid request', details: parsed.error.issues };
     }
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const before = collectConfigSnapshot();
@@ -221,10 +221,10 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       reply.status(400);
       return { error: 'Invalid request', details: parsed.error.issues };
     }
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     try {
@@ -318,7 +318,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
           auditLogs: resolve(apiCwd, process.env.AUDIT_LOG_DIR ?? './data/audit-logs'),
           runtimeLogs: resolve(apiCwd, './data/logs/api'),
           cliArchive: resolve(apiCwd, process.env.CLI_RAW_ARCHIVE_DIR ?? './data/cli-raw-archive'),
-          redisDevSandbox: resolve(home, '.cat-cafe/redis-dev-sandbox'),
+          redisDevSandbox: resolve(home, '.office-claw/redis-dev-sandbox'),
           uploads: resolve(apiCwd, process.env.UPLOAD_DIR ?? './uploads'),
         },
       },
@@ -331,10 +331,10 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
       reply.status(400);
       return { error: 'Invalid request', details: parsed.error.issues };
     }
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const updates = new Map<string, string | null>();

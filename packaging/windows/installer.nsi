@@ -103,7 +103,7 @@ Var DetectedRunningProcesses
 ; Returns "1" in $R0 if running, "0" otherwise
 Function CheckOfficeClawRunning
   StrCpy $R0 "0"
-  
+
   ; Check OfficeClaw.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" 2>nul | find /I "OfficeClaw.exe"'
   Pop $0
@@ -112,7 +112,7 @@ Function CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check jiuwenclaw.exe (sidecar agent)
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" 2>nul | find /I "jiuwenclaw.exe"'
   Pop $0
@@ -121,7 +121,7 @@ Function CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check redis-server.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
   Pop $0
@@ -130,7 +130,7 @@ Function CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
   nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
@@ -139,7 +139,7 @@ Function CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check python.exe processes that belong to OfficeClaw (from installed dir tools\python or vendor\.venv)
   nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
@@ -148,7 +148,7 @@ Function CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check processes whose command line contains 'jiuwenclaw' (case-insensitive)
   nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$found = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" } | Select-Object -First 1; if ($$found) { \"found\" }"'
   Pop $0
@@ -235,8 +235,13 @@ Function WelcomePageCreate
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  - Node.js 运行时$\r$\n  - Python 运行时$\r$\n  - Redis 数据库$\r$\n  - Web 管理界面$\r$\n  - MCP Server$\r$\n$\r$\n点击「下一步」选择安装位置。"
-  Pop $0
+  ${If} $ExistingInstallDir != ""
+    ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n已检测到本机已安装 ${APP_NAME}，本次将沿用现有安装目录进行更新。$\r$\n$\r$\n您下一步可以确认快捷方式和启动方式等安装选项。"
+    Pop $0
+  ${Else}
+    ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  - Node.js 运行时$\r$\n  - Python 运行时$\r$\n  - Redis 数据库$\r$\n  - Web 管理界面$\r$\n  - MCP Server$\r$\n$\r$\n点击「下一步」选择安装位置。"
+    Pop $0
+  ${EndIf}
 
   nsDialogs::Show
 FunctionEnd
@@ -348,7 +353,7 @@ FunctionEnd
 
 Function un.onInit
   SetShellVarContext current
-  
+
   ; Check if OfficeClaw is running before uninstall
   Call un.CheckOfficeClawRunning
   ${If} $R0 == "1"
@@ -442,7 +447,7 @@ FunctionEnd
   ; 2. Kill jiuwenclaw.exe (sidecar agent) by name
   nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" | find /I "jiuwenclaw.exe" >nul && taskkill /F /IM jiuwenclaw.exe >nul 2>&1'
   Pop $0
-  
+
   ; 3. Redis: try graceful shutdown via redis-cli first (preserves data), then force-kill if needed
   ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
   ${If} $0 != ""
@@ -457,46 +462,46 @@ FunctionEnd
     nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
     Pop $0
   ${EndIf}
-  
+
   ; 4. Multi-round force kill (10 rounds, 5s interval each) - ensures all processes are killed
   ;    Total ~50s wait time, guarantees all processes terminated and file handles released
   ;    Round 1-10: Kill processes whose command line contains 'jiuwenclaw' and path-based matches
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
-  
+
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
   Pop $0
   Sleep 5000
@@ -513,7 +518,7 @@ FunctionEnd
 ; Uninstall version of CheckOfficeClawRunning
 Function un.CheckOfficeClawRunning
   StrCpy $R0 "0"
-  
+
   ; Check OfficeClaw.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" 2>nul | find /I "OfficeClaw.exe"'
   Pop $0
@@ -522,7 +527,7 @@ Function un.CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check jiuwenclaw.exe (sidecar agent)
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" 2>nul | find /I "jiuwenclaw.exe"'
   Pop $0
@@ -531,7 +536,7 @@ Function un.CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check redis-server.exe
   nsExec::ExecToStack 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" 2>nul | find /I "redis-server.exe"'
   Pop $0
@@ -540,7 +545,7 @@ Function un.CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check node.exe processes that belong to OfficeClaw (from installed dir)
   nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
@@ -549,7 +554,7 @@ Function un.CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check python.exe processes that belong to OfficeClaw (from installed dir)
   nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1 }"'
   Pop $0
@@ -558,7 +563,7 @@ Function un.CheckOfficeClawRunning
     StrCpy $R0 "1"
     Return
   ${EndIf}
-  
+
   ; Check processes whose command line contains 'jiuwenclaw' (case-insensitive)
   nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$found = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" } | Select-Object -First 1; if ($$found) { \"found\" }"'
   Pop $0
@@ -582,7 +587,7 @@ FunctionEnd
   Pop $0
   nsExec::ExecToLog 'cmd /c if exist "$INSTDIR\docs" rd /s /q "$INSTDIR\docs"'
   Pop $0
-  nsExec::ExecToLog 'cmd /c if exist "$INSTDIR\cat-cafe-skills" rd /s /q "$INSTDIR\cat-cafe-skills"'
+  nsExec::ExecToLog 'cmd /c if exist "$INSTDIR\office-claw-skills" rd /s /q "$INSTDIR\office-claw-skills"'
   Pop $0
   nsExec::ExecToLog 'cmd /c if exist "$INSTDIR\installer-seed" rd /s /q "$INSTDIR\installer-seed"'
   Pop $0
@@ -605,7 +610,7 @@ FunctionEnd
   Delete "$INSTDIR\biome.json"
   Delete "$INSTDIR\tsconfig.base.json"
   Delete "$INSTDIR\.npmrc"
-  Delete "$INSTDIR\cat-template.json"
+  Delete "$INSTDIR\office-claw-template.json"
   Delete "$INSTDIR\pnpm-workspace.yaml"
 !macroend
 
@@ -665,7 +670,7 @@ Section "Install"
     DetailPrint "正在关闭正在运行的 OfficeClaw 进程..."
     Call CloseRunningServices
   ${EndIf}
-  
+
   CreateDirectory "$INSTDIR"
   Call CleanupManagedPayload
   DetailPrint "安装环境就绪..."
@@ -681,12 +686,12 @@ Section "Install"
 
   CreateDirectory "$INSTDIR\data"
   CreateDirectory "$INSTDIR\logs"
-  CreateDirectory "$INSTDIR\.cat-cafe"
+  CreateDirectory "$INSTDIR\.office-claw"
 
   IfFileExists "$INSTDIR\.env" +2 0
     CopyFiles /SILENT "$INSTDIR\.env.example" "$INSTDIR\.env"
-  IfFileExists "$INSTDIR\cat-config.json" +2 0
-    CopyFiles /SILENT "$INSTDIR\installer-seed\cat-config.json" "$INSTDIR\cat-config.json"
+  IfFileExists "$INSTDIR\office-claw-config.json" +2 0
+    CopyFiles /SILENT "$INSTDIR\installer-seed\office-claw-config.json" "$INSTDIR\office-claw-config.json"
 
   ; 检查并安装 WebView2 运行时
   DetailPrint "正在检查 WebView2 运行时..."
@@ -757,7 +762,7 @@ Section "Uninstall"
   ; Skip firewall rule cleanup: user-level installs do not create the rule.
 
   ; Ask user whether to remove user data
-  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n将删除：$\r$\n  · 安装目录下的配置、数据库、日志（.cat-cafe、data、logs、.env）$\r$\n  · 全局配置目录（$PROFILE\.cat-cafe）$\r$\n$\r$\n选择「否」将保留以上数据，但可能影响下次安装的配置初始化。" IDYES +3
+  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n将删除：$\r$\n  · 安装目录下的配置、数据库、日志（.office-claw、data、logs、.env）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）$\r$\n$\r$\n选择「否」将保留以上数据，但可能影响下次安装的配置初始化。" IDYES +3
     StrCpy $RemoveUserData "0"
     Goto +2
     StrCpy $RemoveUserData "1"
@@ -765,11 +770,11 @@ Section "Uninstall"
   ; Remove entire install dir via cmd rd for speed
   Delete "$INSTDIR\uninstall.exe"
   ${If} $RemoveUserData == "1"
-    ; Remove install dir (includes .cat-cafe, data, logs, SQLite files)
+    ; Remove install dir (includes .office-claw, data, logs, SQLite files)
     nsExec::ExecToLog 'cmd /c rd /s /q "$INSTDIR"'
     Pop $0
-    ; Remove global user profiles (~/.cat-cafe) — provider keys, model profiles, project roots
-    nsExec::ExecToLog 'cmd /c rd /s /q "$PROFILE\.cat-cafe"'
+    ; Remove global user profiles (~/.office-claw) — provider keys, model profiles, project roots
+    nsExec::ExecToLog 'cmd /c rd /s /q "$PROFILE\.office-claw"'
     Pop $0
   ${Else}
     Call un.CleanupManagedPayload

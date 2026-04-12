@@ -144,6 +144,17 @@ describe('ModelsPanel search', () => {
                 labels: ['proxy'],
                 developer: 'OpenAI',
               },
+              {
+                id: 'model_config:huawei-access:glm-4.5',
+                object: 'model',
+                name: 'glm-4.5',
+                description: 'self connected huawei maas model',
+                protocol: 'openai',
+                labels: ['proxy'],
+                developer: '华为云 MaaS',
+                baseUrl: 'https://api.modelarts-maas.com/openai/v1',
+                accessMode: 'huawei_maas_access',
+              },
             ],
           }),
         );
@@ -255,13 +266,14 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).toContain('deepseek-r1');
   });
 
-  it('shows the create-model button only when skip auth is enabled', async () => {
+  it('shows the correct model entry button for skip-auth and non-skip-auth flows', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
     await flushEffects();
 
     expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).toBeNull();
+    expect(container.querySelector('[data-testid="models-open-huawei-maas-model-modal"]')).not.toBeNull();
 
     act(() => root.unmount());
     container.remove();
@@ -277,6 +289,49 @@ describe('ModelsPanel search', () => {
     await flushEffects();
 
     expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-open-huawei-maas-model-modal"]')).toBeNull();
+  });
+
+  it('opens the Huawei MaaS access modal with a fixed disabled URL in non-skip-auth flow', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-huawei-maas-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+
+    await clickButton(openModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('接入华为云 MaaS模型');
+    expect(container.textContent).toContain('模型调用名称');
+    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    expect(urlInput).not.toBeNull();
+    expect(urlInput?.value).toBe('https://api.modelarts-maas.com/openai/v1');
+    expect(urlInput?.disabled).toBe(true);
+
+    act(() => root.unmount());
+    container.remove();
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openDefaultModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    expect(openDefaultModal).not.toBeNull();
+    await clickButton(openDefaultModal!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('模型名称');
   });
 
   it('renders grouped cards and model labels/developer', async () => {
@@ -287,8 +342,32 @@ describe('ModelsPanel search', () => {
 
     expect(container.textContent).toContain('MaaS (1)');
     expect(container.textContent).not.toContain('MaaS (2)');
+    expect(container.textContent).toContain('自接入华为云MaaS (1)');
     expect(container.textContent).toContain('text-gen');
     expect(container.textContent).toContain('DeepSeek');
+    expect(container.textContent).toContain('其他');
+  });
+
+  it('keeps Huawei MaaS access edit modal title and URL locked', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const editButton = container.querySelector(
+      '[data-testid="model-card-edit-model_config:huawei-access:glm-4.5"]',
+    ) as HTMLButtonElement | null;
+    expect(editButton).not.toBeNull();
+
+    await clickButton(editButton!);
+    await flushEffects();
+
+    expect(container.textContent).toContain('接入华为云 MaaS模型');
+    expect(container.textContent).not.toContain('编辑模型');
+    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    expect(urlInput).not.toBeNull();
+    expect(urlInput?.value).toBe('https://api.modelarts-maas.com/openai/v1');
+    expect(urlInput?.disabled).toBe(true);
   });
 
   it('filters cards by model name', async () => {
@@ -366,6 +445,67 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).not.toContain('gpt-5');
   });
 
+  it('refreshes model data when the refresh button is clicked', async () => {
+    let modelsRequestCount = 0;
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/maas-models') {
+        modelsRequestCount += 1;
+        return Promise.resolve(
+          jsonResponse({
+            list:
+              modelsRequestCount === 1
+                ? [
+                    {
+                      id: 'gpt-5',
+                      object: 'model',
+                      name: 'gpt-5',
+                      description: 'flagship model',
+                      protocol: 'openai',
+                      labels: ['text-gen'],
+                      developer: 'OpenAI',
+                    },
+                  ]
+                : [
+                    {
+                      id: 'deepseek-r1',
+                      object: 'model',
+                      name: 'deepseek-r1',
+                      description: 'reasoning model',
+                      protocol: 'huawei_maas',
+                      labels: ['reasoning'],
+                      developer: 'DeepSeek',
+                    },
+                  ],
+          }),
+        );
+      }
+      if (url === '/api/model-config-profiles') {
+        return Promise.resolve(jsonResponse({ providers: [] }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('gpt-5');
+    expect(container.textContent).not.toContain('deepseek-r1');
+
+    const refreshButton = container.querySelector('[data-testid="models-refresh-button"]') as HTMLButtonElement | null;
+    expect(refreshButton).not.toBeNull();
+
+    await clickButton(refreshButton!);
+    await flushEffects();
+
+    expect(mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('deepseek-r1');
+    expect(container.textContent).not.toContain('gpt-5');
+  });
+
   it('falls back to unified initial icon when model icon is missing', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -411,7 +551,7 @@ describe('ModelsPanel search', () => {
     expect(preview?.getAttribute('src')).toBe('http://localhost:3004/uploads/provider-gpt-5.png');
   });
 
-  it('submits create-model description without icon when icon is not provided', async () => {
+  it('submits create-model description with the current default icon payload', async () => {
     mockGetIsSkipAuth.mockReturnValue(true);
 
     await act(async () => {
@@ -459,18 +599,60 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const probeCall = mockApiFetch.mock.calls.find(
+    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    expect(payload.description).toBe('custom description for test');
+    expect(payload.icon).toBe('/images/mode-default-icon.svg');
+  });
+
+  it('serializes header rows into a headers object on create-model submit', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+
+    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
+    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
+    const addHeaderButton = container.querySelector('[data-testid="models-create-model-header-add"]') as HTMLButtonElement | null;
+    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+
+    expect(nameInput).not.toBeNull();
+    expect(urlInput).not.toBeNull();
+    expect(apiKeyInput).not.toBeNull();
+    expect(addHeaderButton).not.toBeNull();
+    expect(submitButton).not.toBeNull();
+
+    await changeInputValue(nameInput!, 'gpt-custom-with-headers');
+    await changeInputValue(urlInput!, 'https://proxy.example.com/v1');
+    await changeInputValue(apiKeyInput!, 'sk-test');
+    await clickButton(addHeaderButton!);
+
+    const headerKeyInput = container.querySelector('[data-testid="models-create-model-header-key-0"]') as HTMLInputElement | null;
+    const headerValueInput = container.querySelector('[data-testid="models-create-model-header-value-0"]') as HTMLInputElement | null;
+    expect(headerKeyInput).not.toBeNull();
+    expect(headerValueInput).not.toBeNull();
+
+    await changeInputValue(headerKeyInput!, 'X-App-Id');
+    await changeInputValue(headerValueInput!, 'cat-cafe');
+    await clickButton(submitButton!);
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(
       ([input, init]) =>
-        String(input) === '/api/provider-profiles/test-draft' &&
+        String(input) === '/api/model-config-profiles' &&
         typeof init === 'object' &&
         init !== null &&
         (init as RequestInit).method === 'POST',
     );
-    expect(probeCall).toBeTruthy();
-    expect(mockApiFetch.mock.calls.indexOf(probeCall!)).toBeLessThan(mockApiFetch.mock.calls.indexOf(postCall!));
+    expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
-    expect(payload.description).toBe('custom description for test');
-    expect(Object.prototype.hasOwnProperty.call(payload, 'icon')).toBe(false);
+    expect(payload.headers).toEqual({ 'X-App-Id': 'cat-cafe' });
   });
 
   it('submits create-model icon when random icon is generated', async () => {

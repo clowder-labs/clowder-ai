@@ -7,7 +7,7 @@ Endpoint: POST /v1/audio/transcriptions
 Returns: {"text": "transcribed text"}
 
 Usage:
-  source ~/.cat-cafe/asr-venv/bin/activate
+  source ~/.office-claw/asr-venv/bin/activate
   python scripts/qwen3-asr-api.py                                              # default: 8bit
   python scripts/qwen3-asr-api.py --model mlx-community/Qwen3-ASR-1.7B-4bit   # smaller
   python scripts/qwen3-asr-api.py --port 9876                                  # custom port
@@ -19,6 +19,7 @@ import argparse
 import asyncio
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -60,8 +61,9 @@ def _convert_to_wav(src_path: str) -> str:
     """Convert any audio format to 16kHz mono WAV via ffmpeg (Qwen3-ASR requires WAV)."""
     fd, wav_path = tempfile.mkstemp(suffix=".wav")
     os.close(fd)
+    ffmpeg_path = shutil.which("ffmpeg") or "ffmpeg"
     result = subprocess.run(
-        ["ffmpeg", "-y", "-i", src_path, "-ar", "16000", "-ac", "1", wav_path],
+        [ffmpeg_path, "-y", "-i", src_path, "-ar", "16000", "-ac", "1", wav_path],
         capture_output=True,
         timeout=30,
     )

@@ -153,11 +153,15 @@ vi.mock('@/utils/api-client', () => ({
 vi.mock('@/utils/userId', () => ({ getUserId: () => 'test-user' }));
 
 vi.mock('@/components/A2ACollapsible', () => ({ A2ACollapsible: () => null }));
-vi.mock('@/components/AgentsPanel', () => ({ AgentsPanel: () => null }));
+vi.mock('@/components/AgentsPanel', () => ({
+  AgentsPanel: () => React.createElement('div', { 'data-testid': 'agents-panel' }, 'agents panel'),
+}));
 vi.mock('@/components/AuthorizationCard', () => ({ AuthorizationCard: () => null }));
 vi.mock('@/components/BootcampListModal', () => ({ BootcampListModal: () => null }));
 vi.mock('@/components/CatCafeHub', () => ({ CatCafeHub: () => null }));
-vi.mock('@/components/ChannelsPanel', () => ({ ChannelsPanel: () => null }));
+vi.mock('@/components/ChannelsPanel', () => ({
+  ChannelsPanel: () => React.createElement('div', { 'data-testid': 'channels-panel' }, 'channels panel'),
+}));
 vi.mock('@/components/ChatContainerHeader', () => ({
   ChatContainerHeader: () => React.createElement('div', { 'data-testid': 'chat-header' }),
 }));
@@ -232,12 +236,48 @@ describe('ChatContainer empty state', () => {
     const logo = container.querySelector('[data-testid="chat-empty-officeclaw-logo"]') as HTMLImageElement | null;
     expect(logo).not.toBeNull();
     expect(logo?.getAttribute('src')).toBe('/images/OfficeClaw.svg');
-    expect(container.textContent).toContain('\u5236\u5b9a\u76ee\u6807\u81ea\u52a8\u89c4\u5212\u6267\u884c');
+    expect(container.textContent).toContain('AI\u6df1\u5ea6\u8d4b\u80fd\u5168\u573a\u666f\u529e\u516c');
     expect(container.textContent).toContain('\u667a\u80fd\u4f53\u914d\u7f6e');
-    expect(container.textContent).toContain('\u4e00\u952e\u63a5\u5165 IM');
+    expect(container.textContent).toContain('\u4e00\u952e\u63a5\u5165\u6e20\u9053');
     expect(container.textContent).toContain('\u591a\u667a\u80fd\u4f53\u7814\u7a76\u6a21\u5f0f');
     expect(container.textContent).toContain('multi_mention');
     expect(container.querySelector('[data-testid="empty-state-bootcamp"]')).toBeNull();
     expect(container.querySelector('[data-testid="empty-state-bootcamp-list"]')).toBeNull();
+  });
+
+  it('opens the agents panel when clicking 智能体配置 in the empty state', () => {
+    mockState = createMockStoreState();
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'default' }));
+    });
+
+    const agentsCard = container.querySelector('[data-testid="chat-empty-card-agents"]') as HTMLButtonElement | null;
+    expect(agentsCard).not.toBeNull();
+
+    act(() => {
+      agentsCard?.click();
+    });
+
+    expect(container.querySelector('[data-testid="agents-panel"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="channels-panel"]')).toBeNull();
+  });
+
+  it('opens the channels panel when clicking 一键渠道接入 in the empty state', () => {
+    mockState = createMockStoreState();
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'default' }));
+    });
+
+    const channelsCard = container.querySelector('[data-testid="chat-empty-card-channels"]') as HTMLButtonElement | null;
+    expect(channelsCard).not.toBeNull();
+
+    act(() => {
+      channelsCard?.click();
+    });
+
+    expect(container.querySelector('[data-testid="channels-panel"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="agents-panel"]')).toBeNull();
   });
 });
