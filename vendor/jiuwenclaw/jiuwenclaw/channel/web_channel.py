@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+from http import HTTPStatus
 import inspect
 import json
 import os
@@ -29,6 +30,22 @@ from jiuwenclaw.schema.message import Message, Mode, ReqMethod
 MethodHandler = Callable[..., Awaitable[None]]
 # 连接钩子签名: (ws) -> None | Awaitable[None]
 ConnectHook = Callable[..., Any]
+
+_ALLOWED_WS_ORIGIN_HOSTS = {"127.0.0.1", "localhost"}
+_FORBIDDEN_BODY = b"Forbidden: Origin not allowed\n"
+
+
+def _is_allowed_browser_origin(origin: str | None) -> bool:
+    """校验浏览器 Origin 是否来自允许的本机地址。"""
+    if origin is None:
+        return False
+
+    try:
+        parsed = urlparse(origin)
+    except ValueError:
+        return False
+
+    return parsed.hostname in _ALLOWED_WS_ORIGIN_HOSTS
 
 
 @dataclass
@@ -231,6 +248,7 @@ class WebChannel(BaseChannel):
             self._connection_handler,
             self.config.host,
             self.config.port,
+            process_request=self._process_request,
             ping_interval=20,
             ping_timeout=20,
         )
@@ -262,6 +280,36 @@ class WebChannel(BaseChannel):
     async def disconnect(self) -> None:
         """兼容方法：调用 stop."""
         await self.stop()
+
+    async def _process_request(self, path: str, request_headers: Any) -> Any:
+        """仅允许来自本机前端页面的浏览器握手。"""
+        origin = self._get_header_value(request_headers, "Origin")
+        allowed = _is_allowed_browser_origin(origin)
+        logger.info("WebChannel 握手检查 path=%s origin=%s allowed=%s", path, origin, allowed)
+        if allowed:
+            return None
+
+        logger.warning("WebChannel 握手拒绝 path=%s origin=%s reason=origin_not_allowed", path, origin)
+        return (
+            HTTPStatus.FORBIDDEN,
+            [
+                ("Content-Type", "text/plain; charset=utf-8"),
+                ("Content-Length", str(len(_FORBIDDEN_BODY))),
+            ],
+            _FORBIDDEN_BODY,
+        )
+
+    @staticmethod
+    def _get_header_value(headers: Any, key: str) -> str | None:
+        if headers is None:
+            return None
+        get = getattr(headers, "get", None)
+        if callable(get):
+            value = get(key)
+            if value is None:
+                value = get(key.lower())
+            return str(value) if value is not None else None
+        return None
 
     async def send(self, msg: Message) -> None:
         """向客户端发送消息（默认封装为 event 帧广播）."""
