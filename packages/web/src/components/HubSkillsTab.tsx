@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import styles from './HubSkillsTab.module.css';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
@@ -409,6 +410,7 @@ export function HubSkillsTab() {
         if (res.ok) {
           clearInstallStatus(skill);
           markSkillInstalled(skill);
+          notifySkillOptionsChanged();
           addToast({
             type: 'success',
             title: INSTALL_SUCCESS_TITLE,
