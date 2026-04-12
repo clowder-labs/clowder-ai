@@ -27,6 +27,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `xlsx` | 创建/编辑/读取电子表格（.xlsx/.csv） |
 | `diagram-generator` | 生成流程图/序列图/ER图/架构图 |
 | `pptx-craft`        | 创建/编辑/读取演示文稿（.pptx） |
+| `pptx-craft-simple`        | 创建/编辑/读取演示文稿（.pptx） |
 
 ### 搜索与信息
 
