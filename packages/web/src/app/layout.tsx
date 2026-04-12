@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" data-ui-theme="business">
-      <body className="min-h-screen">
+      <body className="min-h-screen w-screen">
         <ThemeRootSync />
         <ConfirmProvider>{children}</ConfirmProvider>
         <ToastContainer />
