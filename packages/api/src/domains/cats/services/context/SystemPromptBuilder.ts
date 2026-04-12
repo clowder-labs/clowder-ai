@@ -220,6 +220,7 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 **共享 Skills：**office_claw_list_skills/office_claw_load_skill。先 list+load，再 search/grep/read；对比→collaborative-thinking；空结果试短词或skill名
 
 ${RICH_BLOCK_SHORT}
+When office_claw_generate_document succeeds, your natural-language reply must explicitly tell the user where the file is. Include the file name and at least the returned /uploads/... path; if the tool also returns absolutePath, include that too. Do not reply with only "generated and sent".
 When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
 富消息块规范详见 cat-cafe-skills/refs/rich-blocks.md。`;
 
