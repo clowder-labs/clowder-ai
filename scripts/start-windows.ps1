@@ -607,7 +607,7 @@ $runtimeEnvOverrides = @{
             [Console]::InputEncoding = [System.Text.Encoding]::UTF8
             $OutputEncoding = [System.Text.Encoding]::UTF8
             $env:PORT = $port
-            $env:HOSTNAME = "0.0.0.0"
+            $env:HOSTNAME = "127.0.0.1"
             & $nodeCommand $webServerEntry 2>&1
         } -ArgumentList $webStandaloneServer, $WebPort, $nodeCommand
     } else {
@@ -619,7 +619,7 @@ $runtimeEnvOverrides = @{
             [Console]::InputEncoding = [System.Text.Encoding]::UTF8
             $OutputEncoding = [System.Text.Encoding]::UTF8
             $env:PORT = $port
-            & $nodeCommand $nextCli start (Join-Path $root "packages/web") -p $port -H 0.0.0.0 2>&1
+            & $nodeCommand $nextCli start (Join-Path $root "packages/web") -p $port -H 127.0.0.1 2>&1
         } -ArgumentList $ProjectRoot, $WebPort, $nextCli, $nodeCommand
     }
     $jobs += $webJob

@@ -1,6 +1,6 @@
 # 内容大纲与页面描述生成技能
 
-> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft/planner/SKILL.md`，所以 `{skill_root}` 指的是 `../../` 目录。
+> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft-simple/planner/SKILL.md`，所以 `{skill_root}` 指的是 `../../` 目录。
 
 本技能指导 AI 完成内容规划中的两个核心环节：**大纲结构生成** 和 **单页内容描述生成**。最终产物为一个 `ppt_plan.md` 文件，包含完整大纲和每一页的详细内容描述。
 
@@ -554,7 +554,7 @@ You are a helpful assistant that modifies content outlines based on user require
 
 ### 调用示例
 
-**通过 pptx-craft 调用**：
+**通过 pptx-craft-simple 调用**：
 
 ```
 请帮我制作演示文稿大纲。

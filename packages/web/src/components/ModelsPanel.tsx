@@ -29,10 +29,13 @@ const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
+const SELF_HUAWEI_MAAS_GROUP_LABEL = '自接入华为云MaaS';
 const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
+const HUAWEI_MAAS_ACCESS_LABEL = '接入华为云 MaaS模型';
+const HUAWEI_MAAS_ACCESS_URL = 'https://api.modelarts-maas.com/openai/v1';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
 const TEST_MODEL_CONNECTION_LABEL = '测试连通';
 const SAVE_MODEL_LABEL = '保存';
@@ -77,6 +80,8 @@ interface MassModelResponseItem {
   labels?: string[];
   developer?: string;
   icon?: string;
+  baseUrl?: string;
+  accessMode?: string;
   [key: string]: unknown;
 }
 
@@ -89,6 +94,8 @@ interface ModelCardData {
   developer: string;
   icon?: string;
   protocol: string;
+  baseUrl?: string;
+  accessMode?: 'huawei_maas_access';
   [key: string]: unknown;
 }
 
@@ -114,6 +121,8 @@ interface HeaderInputRow {
   key: string;
   value: string;
 }
+
+type CreateModelModalMode = 'default' | 'huawei-maas-access';
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
   for (const key of candidates) {
@@ -172,6 +181,9 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     pickStringField(item, ['developer', 'provider', 'vendor', 'publisher', 'company']) ?? DEFAULT_DEVELOPER;
   const icon = pickStringField(item, ['icon', 'logo', 'image', 'avatar']);
   const protocol = pickStringField(item, ['protocol']) ?? UNKNOWN_PROTOCOL_LABEL;
+  const baseUrl = typeof item.baseUrl === 'string' && item.baseUrl.trim() ? item.baseUrl.trim() : undefined;
+  const accessMode = item.accessMode === 'huawei_maas_access' ? 'huawei_maas_access' : undefined;
+  const resolvedDeveloper = accessMode === 'huawei_maas_access' ? '其他' : developer;
 
   return {
     id,
@@ -179,20 +191,35 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
     name: inferredName,
     description: inferredDescription,
     labels,
-    developer,
+    developer: resolvedDeveloper,
     icon,
     protocol,
+    ...(baseUrl ? { baseUrl } : {}),
+    ...(accessMode ? { accessMode } : {}),
   };
 }
 
-function protocolGroupLabel(protocol: string): string {
-  const trimmed = protocol.trim();
+function normalizeBaseUrlForComparison(baseUrl: string | undefined): string {
+  return baseUrl?.trim().replace(/\/+$/, '').toLowerCase() ?? '';
+}
+
+function isSelfHuaweiMaaSAccessCard(card: Pick<ModelCardData, 'accessMode' | 'baseUrl'>): boolean {
+  return (
+    card.accessMode === 'huawei_maas_access' &&
+    normalizeBaseUrlForComparison(card.baseUrl) === normalizeBaseUrlForComparison(HUAWEI_MAAS_ACCESS_URL)
+  );
+}
+
+function protocolGroupLabel(card: Pick<ModelCardData, 'protocol' | 'accessMode' | 'baseUrl'>): string {
+  if (isSelfHuaweiMaaSAccessCard(card)) return SELF_HUAWEI_MAAS_GROUP_LABEL;
+  const trimmed = card.protocol.trim();
   if (trimmed.toLowerCase() === 'huawei_maas') return HUAWEI_MAAS_GROUP_LABEL;
   return CUSTOM_MODEL_GROUP_LABEL;
 }
 
-function protocolGroupKey(protocol: string): string {
-  const trimmed = protocol.trim().toLowerCase();
+function protocolGroupKey(card: Pick<ModelCardData, 'protocol' | 'accessMode' | 'baseUrl'>): string {
+  if (isSelfHuaweiMaaSAccessCard(card)) return 'self_huawei_maas_access';
+  const trimmed = card.protocol.trim().toLowerCase();
   if (trimmed === 'huawei_maas') return 'huawei_maas';
   return 'custom_models';
 }
@@ -205,7 +232,7 @@ function buildModelSearchText(card: ModelCardData): string {
     card.object,
     card.developer,
     card.protocol,
-    protocolGroupLabel(card.protocol),
+    protocolGroupLabel(card),
     ...card.labels,
   ]
     .join(' ')
@@ -214,13 +241,13 @@ function buildModelSearchText(card: ModelCardData): string {
 
 function groupCards(cards: ModelCardData[]): ModelCardGroup[] {
   return cards.reduce<ModelCardGroup[]>((acc, item) => {
-    const key = protocolGroupKey(item.protocol || UNKNOWN_PROTOCOL_LABEL);
+    const key = protocolGroupKey(item);
     const existing = acc.find((group) => group.key === key);
     if (existing) {
       existing.items.push(item);
       return acc;
     }
-    acc.push({ key, label: protocolGroupLabel(key), items: [item] });
+    acc.push({ key, label: protocolGroupLabel(item), items: [item] });
     return acc;
   }, []);
 }
@@ -300,6 +327,7 @@ export function ModelsPanel() {
   const [resolvedProjectPath, setResolvedProjectPath] = useState<string | null>(null);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
+  const [createModelModalMode, setCreateModelModalMode] = useState<CreateModelModalMode>('default');
   const [createError, setCreateError] = useState<string | null>(null);
   const [createModelError, setCreateModelError] = useState<string | null>(null);
   const [createModelSuccess, setCreateModelSuccess] = useState<string | null>(null);
@@ -324,6 +352,7 @@ export function ModelsPanel() {
   const confirm = useConfirm();
 
   const isEditMode = Boolean(editingSourceId);
+  const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
   const canConfirmCreateModel = isEditMode
     ? modelNameInput?.trim().length > 0
@@ -440,6 +469,7 @@ export function ModelsPanel() {
 
   const closeCreateModelModal = () => {
     setShowCreateModelModal(false);
+    setCreateModelModalMode('default');
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setEditingSourceId(null);
@@ -447,18 +477,19 @@ export function ModelsPanel() {
     setEditingSourceModels([]);
   };
 
-  const resetCreateModelForm = () => {
+  const resetCreateModelForm = (mode: CreateModelModalMode = 'default') => {
     setModelNameInput('');
     setModelDescriptionInput('');
     setModelIconInput(DEFAULT_MODEL_ICON_SRC);
     setModelDisplayNameInput('');
-    setModelUrlInput('');
+    setModelUrlInput(mode === 'huawei-maas-access' ? HUAWEI_MAAS_ACCESS_URL : '');
     setModelApiKeyInput('');
     setModelHeaderRows([]);
   };
 
-  const handleOpenCreateModelModal = () => {
-    resetCreateModelForm();
+  const handleOpenCreateModelModal = (mode: CreateModelModalMode = 'default') => {
+    resetCreateModelForm(mode);
+    setCreateModelModalMode(mode);
     setEditingSourceId(null);
     setEditingOriginalModelName(null);
     setEditingSourceModels([]);
@@ -471,7 +502,8 @@ export function ModelsPanel() {
     const sourceId = resolveModelConfigSourceId(card.id);
     if (!sourceId || editModelBusy) return;
 
-    resetCreateModelForm();
+    resetCreateModelForm('default');
+    setCreateModelModalMode(card.accessMode === 'huawei_maas_access' ? 'huawei-maas-access' : 'default');
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setEditModelBusy(true);
@@ -495,7 +527,7 @@ export function ModelsPanel() {
       setModelDescriptionInput(provider?.description ?? card.description ?? '');
       setModelDisplayNameInput(provider?.displayName ?? '');
       setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || '');
-      setModelUrlInput(provider?.baseUrl ?? '');
+      setModelUrlInput(provider?.baseUrl ?? card.baseUrl ?? '');
       setModelApiKeyInput(provider?.apiKey ?? '');
       setModelHeaderRows(headersObjectToRows(provider?.headers));
       setShowCreateModelModal(true);
@@ -573,6 +605,7 @@ export function ModelsPanel() {
           ...(displayName ? { displayName } : {}),
           ...(description ? { description } : {}),
           ...(icon ? { icon } : {}),
+          ...(isHuaweiMaasAccessMode ? { accessMode: 'huawei_maas_access' as const } : {}),
           baseUrl: modelUrlInput.trim(),
           apiKey: modelApiKeyInput.trim(),
           ...(headers ? { headers } : {}),
@@ -648,10 +681,20 @@ export function ModelsPanel() {
           >
             ACP / 账号配置
           </button>
-          {true ? (
+          {!isSkipAuth ? (
             <button
               type="button"
-              onClick={handleOpenCreateModelModal}
+              onClick={() => handleOpenCreateModelModal('huawei-maas-access')}
+              data-testid="models-open-huawei-maas-model-modal"
+              className="ui-button-primary"
+            >
+              {HUAWEI_MAAS_ACCESS_LABEL}
+            </button>
+          ) : null}
+          {isSkipAuth ? (
+            <button
+              type="button"
+              onClick={() => handleOpenCreateModelModal('default')}
               data-testid="models-open-create-model-modal"
               className="ui-button-primary"
             >
@@ -848,7 +891,9 @@ export function ModelsPanel() {
         >
           <div className="flex w-[500px] max-h-[calc(100vh-4rem)] flex-col gap-5 overflow-hidden rounded-[8px] border border-[#E5EAF0] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-bold">{isEditMode ? '编辑模型' : CREATE_MODEL_LABEL}</h3>
+              <h3 className="text-[16px] font-bold">
+                {isEditMode ? '编辑' : isHuaweiMaasAccessMode ? HUAWEI_MAAS_ACCESS_LABEL : CREATE_MODEL_LABEL}
+              </h3>
               <button
                 type="button"
                 onClick={closeCreateModelModal}
@@ -863,7 +908,9 @@ export function ModelsPanel() {
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               <div className="space-y-1">
-                <p className="text-[12px] leading-[18px] text-[#2E3440]">{'模型名称'}</p>
+                <p className="text-[12px] leading-[18px] text-[#2E3440]">
+                  {isHuaweiMaasAccessMode ? '模型调用名称' : '模型名称'}
+                </p>
                 <input
                   data-testid="models-create-model-name-input"
                   value={modelNameInput}
@@ -962,7 +1009,8 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full"
+                  disabled={isHuaweiMaasAccessMode}
+                  className={`ui-input ui-form-focus w-full ${isHuaweiMaasAccessMode ? 'cursor-not-allowed bg-[#F7F8FA] text-[#9AA4B2]' : ''}`}
                   style={{ height: '28px' }}
                   required
                 />
@@ -1252,9 +1300,9 @@ function ModelsCreateModelConfigSource({
           addLabel="+ 添加模型"
           placeholder="输入模型名，如 gpt-4o-mini"
           emptyLabel="(至少添加 1 个模型)"
-      onChange={setModels}
-      minCount={0}
-    />
+          onChange={setModels}
+          minCount={0}
+        />
       </div>
       {successMessage ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p> : null}
       <div className="flex items-center justify-end gap-2">

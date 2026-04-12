@@ -621,6 +621,23 @@ skills:
     sop_step: null
     merged_from: null
 
+  pptx-craft-simple:
+    description: >
+      pptx-craft-simple 是一套单 agent 直出式演示文稿技能，适用于不需要多 agent 协作、希望直接完成研究、规划与生成全流程的 PPT 任务。
+    triggers:
+      - "ppt"
+      - "pptx"
+      - "PPT"
+      - "演示文稿"
+      - "幻灯片"
+    not_for:
+      - "普通文档"
+      - "零散润色"
+    output: ".pptx file"
+    next: []
+    sop_step: null
+    merged_from: null
+
   xlsx:
     description: >
       电子表格创建、编辑、数据分析。
