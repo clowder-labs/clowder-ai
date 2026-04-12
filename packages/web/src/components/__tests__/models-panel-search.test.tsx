@@ -366,6 +366,67 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).not.toContain('gpt-5');
   });
 
+  it('refreshes model data when the refresh button is clicked', async () => {
+    let modelsRequestCount = 0;
+    mockApiFetch.mockReset();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/maas-models') {
+        modelsRequestCount += 1;
+        return Promise.resolve(
+          jsonResponse({
+            list:
+              modelsRequestCount === 1
+                ? [
+                    {
+                      id: 'gpt-5',
+                      object: 'model',
+                      name: 'gpt-5',
+                      description: 'flagship model',
+                      protocol: 'openai',
+                      labels: ['text-gen'],
+                      developer: 'OpenAI',
+                    },
+                  ]
+                : [
+                    {
+                      id: 'deepseek-r1',
+                      object: 'model',
+                      name: 'deepseek-r1',
+                      description: 'reasoning model',
+                      protocol: 'huawei_maas',
+                      labels: ['reasoning'],
+                      developer: 'DeepSeek',
+                    },
+                  ],
+          }),
+        );
+      }
+      if (url === '/api/model-config-profiles') {
+        return Promise.resolve(jsonResponse({ providers: [] }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('gpt-5');
+    expect(container.textContent).not.toContain('deepseek-r1');
+
+    const refreshButton = container.querySelector('[data-testid="models-refresh-button"]') as HTMLButtonElement | null;
+    expect(refreshButton).not.toBeNull();
+
+    await clickButton(refreshButton!);
+    await flushEffects();
+
+    expect(mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(container.textContent).toContain('deepseek-r1');
+    expect(container.textContent).not.toContain('gpt-5');
+  });
+
   it('falls back to unified initial icon when model icon is missing', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
@@ -471,6 +532,57 @@ describe('ModelsPanel search', () => {
     const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
     expect(payload.description).toBe('custom description for test');
     expect(Object.prototype.hasOwnProperty.call(payload, 'icon')).toBe(false);
+  });
+
+  it('serializes header rows into a headers object on create-model submit', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+
+    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
+    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
+    const addHeaderButton = container.querySelector('[data-testid="models-create-model-header-add"]') as HTMLButtonElement | null;
+    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+
+    expect(nameInput).not.toBeNull();
+    expect(urlInput).not.toBeNull();
+    expect(apiKeyInput).not.toBeNull();
+    expect(addHeaderButton).not.toBeNull();
+    expect(submitButton).not.toBeNull();
+
+    await changeInputValue(nameInput!, 'gpt-custom-with-headers');
+    await changeInputValue(urlInput!, 'https://proxy.example.com/v1');
+    await changeInputValue(apiKeyInput!, 'sk-test');
+    await clickButton(addHeaderButton!);
+
+    const headerKeyInput = container.querySelector('[data-testid="models-create-model-header-key-0"]') as HTMLInputElement | null;
+    const headerValueInput = container.querySelector('[data-testid="models-create-model-header-value-0"]') as HTMLInputElement | null;
+    expect(headerKeyInput).not.toBeNull();
+    expect(headerValueInput).not.toBeNull();
+
+    await changeInputValue(headerKeyInput!, 'X-App-Id');
+    await changeInputValue(headerValueInput!, 'cat-cafe');
+    await clickButton(submitButton!);
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(
+      ([input, init]) =>
+        String(input) === '/api/model-config-profiles' &&
+        typeof init === 'object' &&
+        init !== null &&
+        (init as RequestInit).method === 'POST',
+    );
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    expect(payload.headers).toEqual({ 'X-App-Id': 'cat-cafe' });
   });
 
   it('submits create-model icon when random icon is generated', async () => {

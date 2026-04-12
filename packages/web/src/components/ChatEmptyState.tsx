@@ -78,7 +78,7 @@ export function ChatEmptyState({
                 className="h-[60px] w-auto shrink-0"
               />
             </h2>
-            <p className="mx-auto mt-2 max-w-xl text-sm leading-7 text-[#8E8E98] sm:text-[15px]">
+            <p className="mx-auto mt-[8px] max-w-xl text-sm leading-7 text-[#595959] sm:text-[16px]">
               AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
             </p>
           </div>
