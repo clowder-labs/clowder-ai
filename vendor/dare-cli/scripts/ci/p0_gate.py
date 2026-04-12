@@ -145,8 +145,8 @@ def main() -> int:
     for result in results:
         if result.passed or not result.raw_output:
             continue
-        logging.info(f"== {result.spec.label} raw output ==", file=sys.stderr)
-        logging.info(result.raw_output, file=sys.stderr)
+        logging.error(f"== {result.spec.label} raw output ==")
+        logging.error(result.raw_output)
 
     summary = format_summary(results)
     logging.info(summary)

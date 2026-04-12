@@ -436,7 +436,8 @@ class BaseSchemaValidator:
                             errors.append(
                                 f"  {xml_rel_path}: Line {elem.sourceline}: "
                                 f"<{elem_name}> r:{attr_name} references non-existent relationship '{rid_attr}' "
-                                f"(valid IDs: {', '.join(sorted(rid_to_type.keys())[:5])}{'...' if len(rid_to_type) > 5 else ''})"
+                                f"(valid IDs: {', '.join(sorted(rid_to_type.keys())[:5])}"
+                                f"{'...' if len(rid_to_type) > 5 else ''})"
                             )
                         elif attr_name == "id" and self.ELEMENT_RELATIONSHIP_TYPES:
                             expected_type = self._get_expected_relationship_type(
@@ -579,7 +580,8 @@ class BaseSchemaValidator:
                         relative_path = file_path.relative_to(self.unpacked_dir)
                         errors.append(
                             f'  {relative_path}: File with extension \'{extension}\' not '
-                            f'declared in [Content_Types].xml - should add: <Default Extension="{extension}" ContentType="{media_extensions[extension]}"/>'
+                            f'declared in [Content_Types].xml - should add: <Default '
+                            f'Extension="{extension}" ContentType="{media_extensions[extension]}"/>'
                         )
 
         except Exception as e:
@@ -816,12 +818,12 @@ class BaseSchemaValidator:
             return errors if errors else set()
 
     def _remove_template_tags_from_text_nodes(self, xml_doc):
+        logging.info(f"begin exec _remove_template_tags_from_text_nodes {self.schemas_dir}")
         warnings = []
         template_pattern = re.compile(r"\{\{[^}]*\}\}")
 
         xml_string = lxml.etree.tostring(xml_doc, encoding="unicode")
         xml_copy = lxml.etree.fromstring(xml_string)
-
         def process_text_content(text, content_type):
             if not text:
                 return text

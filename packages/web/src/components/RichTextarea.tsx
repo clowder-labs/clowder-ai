@@ -11,10 +11,12 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type UIEvent,
+  useEffect,
   useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { getMentionToCat } from '@/lib/mention-highlight';
 
@@ -57,16 +59,18 @@ export interface RichTextareaHandle {
 type Segment =
   | { type: 'text'; text: string }
   | { type: 'mention'; text: string }
-  | { type: 'skill'; text: string; iconUrl?: string | null }
+  | { type: 'skill'; text: string; token: string; iconUrl?: string | null }
   | { type: 'quick_action'; text: string; icon?: string; token: string };
 
 const MENTION_RIGHT_WHITESPACE_RE = /\s/;
+const SKILL_TOKEN_PREFIX = '[[skill:';
+const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 
 function buildSegments(value: string, skillOptions: RichSkillOption[], quickActionOptions: RichQuickActionOption[]): Segment[] {
   if (!value) return [{ type: 'text', text: '' }];
-  const sortedSkills = [...skillOptions].sort((a, b) => b.name.length - a.name.length);
+  const skillOptionByName = new Map(skillOptions.map((item) => [item.name.trim(), item] as const));
   const quickActionIconByLabel = new Map(quickActionOptions.map((item) => [item.label, item.icon]));
   const mentionToCat = getMentionToCat();
   const mentionAliases = Object.keys(mentionToCat).sort((a, b) => b.length - a.length);
@@ -74,6 +78,25 @@ function buildSegments(value: string, skillOptions: RichSkillOption[], quickActi
   let cursor = 0;
 
   while (cursor < value.length) {
+    if (value.startsWith(SKILL_TOKEN_PREFIX, cursor)) {
+      const end = value.indexOf(SKILL_TOKEN_SUFFIX, cursor + SKILL_TOKEN_PREFIX.length);
+      if (end > cursor) {
+        const token = value.slice(cursor, end + SKILL_TOKEN_SUFFIX.length);
+        const name = value.slice(cursor + SKILL_TOKEN_PREFIX.length, end).trim();
+        if (name) {
+          const skill = skillOptionByName.get(name);
+          segments.push({
+            type: 'skill',
+            text: name,
+            token,
+            iconUrl: skill?.iconUrl,
+          });
+          cursor = end + SKILL_TOKEN_SUFFIX.length;
+          continue;
+        }
+      }
+    }
+
     if (value.startsWith(QUICK_ACTION_TOKEN_PREFIX, cursor)) {
       const end = value.indexOf(QUICK_ACTION_TOKEN_SUFFIX, cursor + QUICK_ACTION_TOKEN_PREFIX.length);
       if (end > cursor) {
@@ -88,24 +111,6 @@ function buildSegments(value: string, skillOptions: RichSkillOption[], quickActi
         cursor = end + QUICK_ACTION_TOKEN_SUFFIX.length;
         continue;
       }
-    }
-
-    let matchedSkill: RichSkillOption | null = null;
-    for (const skill of sortedSkills) {
-      const name = skill.name;
-      if (!name) continue;
-      if (!value.startsWith(name, cursor)) continue;
-      const prev = cursor > 0 ? value[cursor - 1] : ' ';
-      const next = cursor + name.length < value.length ? value[cursor + name.length] : ' ';
-      if (/\s/.test(prev) && /\s/.test(next)) {
-        matchedSkill = skill;
-        break;
-      }
-    }
-    if (matchedSkill) {
-      segments.push({ type: 'skill', text: matchedSkill.name, iconUrl: matchedSkill.iconUrl });
-      cursor += matchedSkill.name.length;
-      continue;
     }
 
     const prev = cursor > 0 ? value[cursor - 1] : ' ';
@@ -310,6 +315,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   const isComposingRef = useRef(false);
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
   const shouldScrollToBottomRef = useRef(false);
+  const [showPlaceholder, setShowPlaceholder] = useState(() => !value);
   const segments = useMemo(() => buildSegments(value, skillOptions, quickActionOptions), [value, skillOptions, quickActionOptions]);
   const segmentSignature = useMemo(
     () =>
@@ -317,8 +323,9 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         .map((seg) => {
           if (seg.type === 'text') return `t:${seg.text}`;
           if (seg.type === 'mention') return `m:${seg.text}`;
+          if (seg.type === 'skill') return `s:${seg.token}`;
           if (seg.type === 'quick_action') return `q:${seg.token}`;
-          return `s:${seg.text}`;
+          return '';
         })
         .join(''),
     [segments],
@@ -426,7 +433,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
       }
       const token = document.createElement('span');
       token.setAttribute('data-token-type', 'skill');
-      token.setAttribute('data-token-value', seg.text);
+      token.setAttribute('data-token-value', seg.token);
       token.setAttribute('contenteditable', 'false');
       token.className =
         'inline-flex max-w-full translate-y-[-1px] items-center gap-1 text-[rgba(20,118,255,1)] text-[16px] leading-5 align-middle';
@@ -470,6 +477,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
     }
   }, [segments, segmentSignature, value]);
 
+  useEffect(() => {
+    if (isComposingRef.current) return;
+    setShowPlaceholder(!value);
+  }, [value]);
+
   const resolveEventElement = (target: EventTarget | null): HTMLElement | null => {
     if (!target) return null;
     if (target instanceof HTMLElement) return target;
@@ -479,7 +491,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
 
   return (
     <div className="relative">
-      {!value && placeholder && (
+      {showPlaceholder && placeholder && (
         <div className="pointer-events-none absolute left-4 top-4 text-[16px] text-gray-400">{placeholder}</div>
       )}
       <div
@@ -559,6 +571,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         }}
         onCompositionStart={() => {
           isComposingRef.current = true;
+          setShowPlaceholder(false);
         }}
         onCompositionEnd={() => {
           isComposingRef.current = false;
@@ -572,6 +585,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           if (nextState.value !== rawNext) {
             forceSyncPlainText(root, nextState.value, nextState.start, nextState.end);
           }
+          setShowPlaceholder(nextState.value.length === 0);
           onValueChange(nextState.value, nextState.start, nextState.end);
           onInput?.();
         }}

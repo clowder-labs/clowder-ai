@@ -15,6 +15,7 @@ Usage:
 """
 
 import os
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -56,8 +57,9 @@ def _ensure_shim() -> Path:
 
     src = Path(tempfile.gettempdir()) / "lo_socket_shim.c"
     src.write_text(_SHIM_SOURCE)
+    gcc_path = shutil.which("gcc") or "gcc"
     subprocess.run(
-        ["gcc", "-shared", "-fPIC", "-o", str(_SHIM_SO), str(src), "-ldl"],
+        [gcc_path, "-shared", "-fPIC", "-o", str(_SHIM_SO), str(src), "-ldl"],
         check=True,
         capture_output=True,
     )

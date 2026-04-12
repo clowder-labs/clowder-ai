@@ -771,7 +771,7 @@ export function CreateAgentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
       <div
-        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 overflow-hidden rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
         data-testid="create-agent-modal"
       >
         <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
@@ -829,7 +829,7 @@ export function CreateAgentModal({
                   type="button"
                   aria-label="Upload avatar"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                  className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />

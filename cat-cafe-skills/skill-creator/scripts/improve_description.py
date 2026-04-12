@@ -209,7 +209,7 @@ def main():
 
     skill_path = Path(args.skill_path)
     if not (skill_path / "SKILL.md").exists():
-        logging.info(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
+        logging.error(f"Error: No SKILL.md found at {skill_path}")
         sys.exit(1)
 
     eval_results = json.loads(Path(args.eval_results).read_text())
@@ -221,8 +221,8 @@ def main():
     current_description = eval_results["description"]
 
     if args.verbose:
-        logging.info(f"Current: {current_description}", file=sys.stderr)
-        logging.info(f"Score: {eval_results['summary']['passed']}/{eval_results['summary']['total']}", file=sys.stderr)
+        logging.error(f"Current: {current_description}")
+        logging.error(f"Score: {eval_results['summary']['passed']}/{eval_results['summary']['total']}")
 
     new_description = improve_description(
         skill_name=name,
@@ -234,7 +234,7 @@ def main():
     )
 
     if args.verbose:
-        logging.info(f"Improved: {new_description}", file=sys.stderr)
+        logging.error(f"Improved: {new_description}")
 
     # Output as JSON with both the new description and updated history
     output = {

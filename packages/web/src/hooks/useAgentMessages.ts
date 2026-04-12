@@ -17,6 +17,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import { parseSystemInfoContent } from './parse-system-info';
+import { requestThreadLiveRefresh, type ThreadLiveRefreshScope } from './thread-live-refresh';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -442,6 +443,12 @@ export function useAgentMessages() {
     terminalStreamSuppressionRef.current.delete(catId);
   }, []);
 
+  const requestActiveThreadRefresh = useCallback((scope: ThreadLiveRefreshScope, reason: string) => {
+    const threadId = useChatStore.getState().currentThreadId;
+    if (!threadId) return;
+    requestThreadLiveRefresh(threadId, scope, reason);
+  }, []);
+
   const shouldSuppressLateTerminalStreamEvent = useCallback(
     (catId: string, invocationId?: string): boolean => {
       const suppressedInvocationId = terminalStreamSuppressionRef.current.get(catId);
@@ -578,6 +585,7 @@ export function useAgentMessages() {
               replacedInvocationsRef.current.set(msg.catId, invocationId);
             }
           }
+          requestActiveThreadRefresh('messages', 'callback_message');
         } else {
           // CLI stream message (thinking): append to active stream bubble
           const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, { ensureStreaming: true });
@@ -763,6 +771,7 @@ export function useAgentMessages() {
               requestStreamCatchUp(tid);
             }
           }
+          requestActiveThreadRefresh('panels', 'done_final');
           sawStreamDataRef.current.delete(msg.catId);
         }
       } else if (msg.type === 'a2a_handoff') {
@@ -1056,6 +1065,7 @@ export function useAgentMessages() {
             if (parsed.block) {
               appendRichBlock(targetId, parsed.block);
             }
+            requestActiveThreadRefresh('messages', 'rich_block');
             consumed = true;
           } else if (parsed?.type === 'session_seal_requested') {
             // F24 Phase B: Session sealed — update session info + show notification
@@ -1213,6 +1223,7 @@ export function useAgentMessages() {
       setHasActiveInvocation,
       setMessageUsage,
       requestStreamCatchUp,
+      requestActiveThreadRefresh,
       removeMessage,
     ],
   );
