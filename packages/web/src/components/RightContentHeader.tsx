@@ -196,7 +196,7 @@ type FeedbackSubmitResponse = {
 };
 
 export function RightContentHeader() {
-  const { isMaximized, canMaximize, minimize, toggleMaximize, close } = useDesktopWindowControls();
+  const { isMaximized, canMaximize, minimize, toggleMaximize, close, startDrag } = useDesktopWindowControls();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
@@ -576,8 +576,111 @@ export function RightContentHeader() {
     selectedScore,
   ]);
 
+  const dragStateRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+  });
+
+  const handleHeaderMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 只响应左键
+      if (e.button !== 0) {
+        return;
+      }
+
+      // 排除按钮点击
+      if ((e.target as HTMLElement).closest('.ui-content-header-action')) {
+        return;
+      }
+
+      // 排除弹窗区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-popover')) {
+        return;
+      }
+
+      // 排除反馈锚点区域（笑脸按钮的容器）
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-anchor')) {
+        return;
+      }
+
+      // 记录鼠标按下的位置，等待 mousemove
+      dragStateRef.current = {
+        isDragging: false,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+    },
+    [],
+  );
+
+  const handleHeaderDoubleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 排除按钮点击
+      if ((e.target as HTMLElement).closest('.ui-content-header-action')) {
+        return;
+      }
+
+      // 排除弹窗区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-popover')) {
+        return;
+      }
+
+      // 排除反馈锚点区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-anchor')) {
+        return;
+      }
+
+      // 双击时切换最大化
+      toggleMaximize();
+    },
+    [toggleMaximize],
+  );
+
+  // 监听全局 mousemove 和 mouseup
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const state = dragStateRef.current;
+      // 如果鼠标按下了，但还没开始拖动
+      if (state.startX !== 0 && !state.isDragging) {
+        // 计算鼠标移动距离
+        const deltaX = Math.abs(e.clientX - state.startX);
+        const deltaY = Math.abs(e.clientY - state.startY);
+        // 如果移动超过 5px，认为是拖动意图
+        if (deltaX > 5 || deltaY > 5) {
+          state.isDragging = true;
+          // 触发拖动
+          startDrag();
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      // 重置状态
+      dragStateRef.current = {
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+      };
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [startDrag]);
+
   return (
-    <div ref={headerRef} className="ui-content-header" data-testid="right-content-header">
+    <div
+      ref={headerRef}
+      className="ui-content-header"
+      data-testid="right-content-header"
+      onMouseDown={handleHeaderMouseDown}
+      onDoubleClick={handleHeaderDoubleClick}
+    >
       <div aria-hidden="true" />
       <div className="ui-content-header-actions">
         <div className="ui-content-header-feedback-anchor">
