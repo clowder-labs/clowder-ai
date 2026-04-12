@@ -103,6 +103,25 @@ describe('CliOutputBlock', () => {
     expect(container.textContent).toContain('Read index.ts');
   });
 
+  it('keeps markdown output in a block wrapper with bottom padding', () => {
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: doneEvents,
+          status: 'done',
+        }),
+      );
+    });
+
+    const markdownWrapper = container.querySelector('[data-testid="cli-output-markdown"]') as HTMLDivElement | null;
+    expect(markdownWrapper).toBeTruthy();
+    expect(markdownWrapper?.className).toContain('pb-2');
+
+    const markdownHost = markdownWrapper?.firstElementChild as HTMLDivElement | null;
+    expect(markdownHost?.tagName).toBe('DIV');
+    expect(markdownHost?.querySelector('[data-testid="md"]')?.textContent).toBe('Looks good.');
+  });
+
   it('streaming status → always expanded, summary says tool call is running', () => {
     act(() => {
       root.render(

@@ -593,7 +593,7 @@ function ToolsSection({
 interface CliOutputBlockProps {
   events: CliEvent[];
   status: CliStatus;
-  message: ChatMessage;
+  message?: ChatMessage;
   thinkingMode?: 'debug' | 'play';
   defaultExpanded?: boolean;
   breedColor?: string;
@@ -823,13 +823,14 @@ export function CliOutputBlock({
           )}
         </div>
       )}
-      { (toolUses.length > 0 || message.thinking) && <div className="h-0 border-t-[1px] border-[#F0F0F0] my-3" /> }
+      {(toolUses.length > 0 || message?.thinking) && <div className="h-0 border-t-[1px] border-[#F0F0F0] my-3" />}
       <div
-        className=" text-base leading-relaxed cli-output-md"
+        className="cli-output-md pb-2 text-base leading-relaxed"
+        data-testid="cli-output-markdown"
       >
-        <span>
+        <div>
           <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
-        </span>
+        </div>
       </div>
       {localPresentationFile && (
         <PptAttachmentCard file={localPresentationFile} projectPath={projectPath} status={status} />
