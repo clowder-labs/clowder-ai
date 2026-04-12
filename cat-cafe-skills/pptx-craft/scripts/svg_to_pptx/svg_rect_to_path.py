@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Tuple, Dict, List
 from xml.etree import ElementTree as ET
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent))
 from constants import DIR_ALIAS_MAP
 
 

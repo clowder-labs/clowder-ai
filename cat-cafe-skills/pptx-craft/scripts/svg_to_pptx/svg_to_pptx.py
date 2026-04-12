@@ -44,7 +44,7 @@ except ImportError:
     sys.exit(1)
 
 # Import project utility modules
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent))
 try:
     from project_utils import get_project_info
     from config import CANVAS_FORMATS
@@ -906,10 +906,11 @@ def create_pptx_with_native_svg(
                     # Update slide.xml.rels to add notes association
                     with open(rels_path, 'r', encoding='utf-8') as f:
                         slide_rels_content = f.read()
-                    notes_rel = (f'  <Relationship Id="rId10" '
-                                 f'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" '
+                    notes_rel = (f'  <Relationship Id="rId10" Type="http://schemas.openxmlformats'
+                                 f'.org/officeDocument/2006/relationships/notesSlide" '
                                  f'Target="../notesSlides/notesSlide{slide_num}.xml"/>')
-                    slide_rels_content = slide_rels_content.replace('</Relationships>', notes_rel + '\n</Relationships>')
+                    slide_rels_content = slide_rels_content.replace('</Relationships>',
+                                                                    notes_rel + '\n</Relationships>')
                     with open(rels_path, 'w', encoding='utf-8') as f:
                         f.write(slide_rels_content)
 
@@ -960,7 +961,8 @@ def create_pptx_with_native_svg(
         if enable_notes:
             for i in range(1, len(svg_files) + 1):
                 override = (f'  <Override PartName="/ppt/notesSlides/notesSlide{i}.xml" '
-                            f'ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>')
+                            f'ContentType="application/vnd.openxmlformats'
+                            f'-officedocument.presentationml.notesSlide+xml"/>')
                 if override not in content_types:
                     content_types = content_types.replace('</Types>', override + '\n</Types>')
             with open(content_types_path, 'w', encoding='utf-8') as f:
@@ -991,7 +993,9 @@ def create_pptx_with_native_svg(
 
 def main():
     # Build transition effect option list
-    transition_choices = list(TRANSITIONS.keys()) if TRANSITIONS else ['fade', 'push', 'wipe', 'split', 'reveal', 'cover', 'random']
+    transition_choices = list(TRANSITIONS.keys()) if TRANSITIONS else ['fade',
+                                                                       'push', 'wipe', 'split',
+                                                                       'reveal', 'cover', 'random']
 
     parser = argparse.ArgumentParser(
         description='PPT Master - SVG to PPTX Tool (Office Compatibility Mode)',
@@ -1036,7 +1040,8 @@ Speaker notes (enabled by default):
     parser.add_argument('-s', '--source', type=str, default='pages',
                         help='SVG source: pages/output/final or any subdirectory name (default: pages)')
     parser.add_argument('-f',
-                        '--format', type=str, choices=list(CANVAS_FORMATS.keys()), default=None, help='Specify canvas format')
+                        '--format', type=str, choices=list(CANVAS_FORMATS.keys()),
+                        default=None, help='Specify canvas format')
     parser.add_argument('-q', '--quiet', action='store_true', help='Quiet mode')
 
     # Compatibility mode arguments

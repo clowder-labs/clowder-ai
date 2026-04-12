@@ -519,7 +519,7 @@ def main():
     args = parser.parse_args()
 
     if not args.quiet:
-        logging.info(f"正在解析: {args.file}", file=sys.stderr)
+        logging.error(f"正在解析: {args.file}")
 
     try:
         parser_obj = FinancialParser(args.file)
@@ -530,7 +530,7 @@ def main():
         elif args.format == 'csv':
             csv_path = parser_obj.to_csv(args.output)
             if not args.quiet:
-                logging.info(f"已导出到: {csv_path}", file=sys.stderr)
+                logging.error(f"已导出到: {csv_path}")
         elif args.format == 'all':
             logging.info(parser_obj.to_markdown())
             logging.info("\n---\n")
@@ -542,7 +542,7 @@ def main():
             logging.info(parser_obj.to_markdown())
 
     except Exception as e:
-        logging.info(f"错误: {e}", file=sys.stderr)
+        logging.error(f"错误: {e}")
         sys.exit(1)
 
 

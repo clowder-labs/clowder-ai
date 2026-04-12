@@ -2,6 +2,7 @@
 Validator for tracked changes in Word documents.
 """
 import logging
+import shutil
 import subprocess
 import tempfile
 import zipfile
@@ -20,6 +21,7 @@ class RedliningValidator:
         }
 
     def repair(self) -> int:
+        logging.info(f"Repairing {self.original_docx}")
         return 0
 
     def validate(self):
@@ -122,7 +124,7 @@ class RedliningValidator:
             error_parts.extend(["Differences:", "============", git_diff])
         else:
             error_parts.append("Unable to generate word diff (git not available)")
-
+        logging.info(f"_generate_detailed_diff {self.original_docx}")
         return "\n".join(error_parts)
 
     def _get_git_word_diff(self, original_text, modified_text):
@@ -135,10 +137,10 @@ class RedliningValidator:
 
                 original_file.write_text(original_text, encoding="utf-8")
                 modified_file.write_text(modified_text, encoding="utf-8")
-
+                git_path = shutil.which("git") or "git"
                 result = subprocess.run(
                     [
-                        "git",
+                        git_path,
                         "diff",
                         "--word-diff=plain",
                         "--word-diff-regex=.",  
@@ -167,7 +169,7 @@ class RedliningValidator:
 
                 result = subprocess.run(
                     [
-                        "git",
+                        git_path,
                         "diff",
                         "--word-diff=plain",
                         "-U0",  

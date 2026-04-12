@@ -2,6 +2,7 @@
 Validator for Word document XML files against XSD schemas.
 """
 import logging
+import os
 import random
 import re
 import tempfile
@@ -190,7 +191,7 @@ class DOCXSchemaValidator(BaseSchemaValidator):
                 with zipfile.ZipFile(original, "r") as zip_ref:
                     zip_ref.extractall(temp_dir)
 
-                doc_xml_path = temp_dir + "/word/document.xml"
+                doc_xml_path = os.path.join(temp_dir, "word", "document.xml")
                 root = lxml.etree.parse(doc_xml_path).getroot()
 
                 paragraphs = root.findall(f".//{{{self.WORD_2006_NAMESPACE}}}p")
@@ -320,24 +321,20 @@ class DOCXSchemaValidator(BaseSchemaValidator):
             doc_root = lxml.etree.parse(str(document_xml)).getroot()
             namespaces = {"w": self.WORD_2006_NAMESPACE}
 
-            range_starts = {
-                elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
-                for elem in doc_root.xpath(
-                    ".//w:commentRangeStart", namespaces=namespaces
-                )
-            }
-            range_ends = {
-                elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
-                for elem in doc_root.xpath(
-                    ".//w:commentRangeEnd", namespaces=namespaces
-                )
-            }
-            references = {
-                elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
-                for elem in doc_root.xpath(
-                    ".//w:commentReference", namespaces=namespaces
-                )
-            }
+            range_starts = set()
+            for elem in doc_root.xpath(".//w:commentRangeStart", namespaces=namespaces):
+                val = elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
+                range_starts.add(val)
+
+            range_ends = set()
+            for elem in doc_root.xpath(".//w:commentRangeEnd", namespaces=namespaces):
+                val = elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
+                range_ends.add(val)
+
+            references = set()
+            for elem in doc_root.xpath(".//w:commentReference", namespaces=namespaces):
+                val = elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
+                references.add(val)
 
             orphaned_ends = range_ends - range_starts
             for comment_id in sorted(
@@ -358,12 +355,9 @@ class DOCXSchemaValidator(BaseSchemaValidator):
             comment_ids = set()
             if comments_xml and comments_xml.exists():
                 comments_root = lxml.etree.parse(str(comments_xml)).getroot()
-                comment_ids = {
-                    elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
-                    for elem in comments_root.xpath(
-                        ".//w:comment", namespaces=namespaces
-                    )
-                }
+                for elem in comments_root.xpath(".//w:comment", namespaces=namespaces):
+                    val = elem.get(f"{{{self.WORD_2006_NAMESPACE}}}id")
+                    comment_ids.add(val)
 
                 marker_ids = range_starts | range_ends | references
                 invalid_refs = marker_ids - comment_ids
@@ -390,10 +384,10 @@ class DOCXSchemaValidator(BaseSchemaValidator):
 
     def repair(self) -> int:
         repairs = super().repair()
-        repairs += self.repair_durableId()
+        repairs += self.repair_durable_id()
         return repairs
 
-    def repair_durableId(self) -> int:
+    def repair_durable_id(self) -> int:
         repairs = 0
 
         for xml_file in self.xml_files:

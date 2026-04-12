@@ -395,7 +395,8 @@ class SVGQualityChecker:
         # Fix suggestions
         if self.summary['errors'] > 0 or self.summary['warnings'] > 0:
             logging.info(f"\n[TIP] Common fixes:")
-            logging.info(f"  1. viewBox issues: Ensure consistency with canvas format (see references/canvas-formats.md)")
+            logging.info(f"  1. viewBox issues: Ensure consistency with canvas "
+                         f"format (see references/canvas-formats.md)")
             logging.info(f"  2. foreignObject: Use <text> + <tspan> for manual line breaks")
             logging.info(f"  3. Font issues: Use system UI font stack")
 

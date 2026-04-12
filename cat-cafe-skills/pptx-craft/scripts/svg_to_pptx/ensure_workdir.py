@@ -107,7 +107,7 @@ def main():
         # 输出路径（供调用方捕获）
         logging.info(workdir)
     except Exception as e:
-        logging.info(f"错误：创建目录失败 - {e}", file=sys.stderr)
+        logging.error(f"错误：创建目录失败 - {e}")
         sys.exit(1)
 
 

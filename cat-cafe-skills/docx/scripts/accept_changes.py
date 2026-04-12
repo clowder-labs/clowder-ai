@@ -97,9 +97,10 @@ def _setup_libreoffice_macro() -> bool:
         return True
 
     if not macro_dir.exists():
+        soffice_path = shutil.which("soffice") or "soffice"
         subprocess.run(
             [
-                "soffice",
+                soffice_path,
                 "--headless",
                 f"-env:UserInstallation=file://{LIBREOFFICE_PROFILE}",
                 "--terminate_after_init",

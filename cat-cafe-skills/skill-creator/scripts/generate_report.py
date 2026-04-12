@@ -320,7 +320,7 @@ def main():
 
     if args.output:
         Path(args.output).write_text(html_output)
-        logging.info(f"Report written to {args.output}", file=sys.stderr)
+        logging.error(f"Report written to {args.output}")
     else:
         logging.info(html_output)
 

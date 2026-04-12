@@ -114,12 +114,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         trace_paths = _resolve_trace_paths(args)
     except FileNotFoundError as exc:
-        logging.info(f"Error: {exc}", file=sys.stderr)
+        logging.error(f"Error: {exc}")
         return 1
 
     missing_paths = [path for path in trace_paths if not path.exists()]
     if missing_paths:
-        logging.info(f"Error: trace file not found: {missing_paths[0]}", file=sys.stderr)
+        logging.error(f"Error: trace file not found: {missing_paths[0]}")
         return 1
 
     aggregate = {
