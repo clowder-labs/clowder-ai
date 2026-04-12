@@ -102,7 +102,7 @@ export function PushSettingsPanel() {
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-gray-800">推送通知</h3>
         <p className="text-sm text-gray-600">
-          开启后，回复、权限请求等会推送到系统通知栏（即使不在 OfficeClaw 页面）。
+          开启后，智能体回复、权限请求等会推送到系统通知栏（即使不在 OfficeClaw 页面）。
         </p>
       </div>
 
@@ -203,7 +203,7 @@ export function PushSettingsPanel() {
       <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
         <div>
           <p className="text-sm font-medium text-gray-700">{isSubscribed ? '已开启推送' : '推送已关闭'}</p>
-          <p className="text-xs text-gray-500">{isSubscribed ? '消息会推送到通知栏' : '点击开启接收推送'}</p>
+          <p className="text-xs text-gray-500">{isSubscribed ? '智能体消息会推送到通知栏' : '点击开启接收智能体推送'}</p>
         </div>
         <button
           onClick={isSubscribed ? unsubscribe : subscribe}

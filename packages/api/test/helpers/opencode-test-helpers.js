@@ -69,7 +69,7 @@ export async function collect(iterable) {
 // ── Cat Cafe identifiers ──
 
 export const CAT_CAFE_HANDLES = ['@opus', '@codex', '@gemini', '@sonnet', '@gpt52', '@opencode'];
-export const CAT_CAFE_CAT_IDS = ['opus', 'codex', 'gemini', 'sonnet', 'gpt52'];
+export const OFFICE_CLAW_CAT_IDS = ['opus', 'codex', 'gemini', 'sonnet', 'gpt52'];
 
 // ── OMOC event fixtures ──
 

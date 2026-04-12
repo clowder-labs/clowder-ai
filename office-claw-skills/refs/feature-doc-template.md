@@ -19,11 +19,11 @@ created: {YYYY-MM-DD}
 
 # F{NNN}: {Feature Name}
 
-> **Status**: spec | **Owner**: {猫猫名} | **Priority**: {P0/P1/P2}
+> **Status**: spec | **Owner**: {智能体名} | **Priority**: {P0/P1/P2}
 
 ## Why
 
-{一段话说清楚为什么要做。铲屎官原话如有请引用。}
+{一段话说清楚为什么要做。用户原话如有请引用。}
 
 ## What
 

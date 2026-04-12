@@ -196,7 +196,7 @@ export function ChatInputActionButton({
             disabled={isSendDisabled}
             className="inline-flex hidden h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#9B7EBD] text-white hover:bg-[#8A6DAC] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             aria-label="排队发送"
-            title="排队发送 — 忙完后处理"
+            title="排队发送 — 智能体完成后处理"
           >
             <QueueSendIcon className="w-5 h-5" />
           </button>
@@ -206,7 +206,7 @@ export function ChatInputActionButton({
               disabled={isSendDisabled}
               className="inline-flex hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs text-red-500 hover:bg-red-50 disabled:opacity-40 transition-colors  ml-2"
               aria-label="强制发送"
-              title="强制发送 — 中断"
+              title="强制发送 — 中断当前智能体"
             >
               <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                 <path

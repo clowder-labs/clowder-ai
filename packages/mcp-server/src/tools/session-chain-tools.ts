@@ -20,19 +20,19 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL']!;
+const API_URL = process.env['OFFICE_CLAW_API_URL']!;
 
 function resolveToolUserId(): string {
-  return process.env['CAT_CAFE_USER_ID'] ?? 'default-user';
+  return process.env['OFFICE_CLAW_USER_ID'] ?? 'default-user';
 }
 
 function resolveToolCatId(): string | undefined {
-  return process.env['CAT_CAFE_CAT_ID'];
+  return process.env['OFFICE_CLAW_CAT_ID'];
 }
 
 function buildAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
-    'x-cat-cafe-user': resolveToolUserId(),
+    'x-office-claw-user': resolveToolUserId(),
   };
   const catId = resolveToolCatId();
   if (catId) headers['x-cat-id'] = catId;

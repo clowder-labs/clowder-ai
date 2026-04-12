@@ -156,7 +156,7 @@ export const providerProfileTestRoutes: FastifyPluginAsync<ProviderProfilesRoute
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = testBodySchema.safeParse(request.body);

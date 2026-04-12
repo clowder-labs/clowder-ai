@@ -48,7 +48,7 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
     console.log('projectRoot:', projectRoot);
     const curversion = getPackageVersion(projectRoot) ?? '0.1.0';
     try {
-      const userId = request.headers['x-cat-cafe-user'] as string;
+      const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
       if (!userId) {
         throw new Error('Unauthorized: Missing user ID');
       }

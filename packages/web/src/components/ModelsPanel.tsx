@@ -1241,7 +1241,7 @@ function ModelsCreateModelConfigSource({
         value={headersText}
         onChange={(event) => setHeadersText(event.target.value)}
         rows={4}
-        placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
+        placeholder={'可选请求头(JSON)，如 {"X-App-Id":"my-app"}'}
         className="ui-textarea w-full rounded px-3 py-2 text-sm"
       />
       <div className="space-y-2">

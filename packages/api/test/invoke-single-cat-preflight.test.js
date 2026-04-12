@@ -78,8 +78,8 @@ function addBareRemote(repoDir) {
 describe('invokeSingleCat shared-state preflight', () => {
   before(async () => {
     originalCwd = process.cwd();
-    originalPreflightDisable = process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT;
-    delete process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT;
+    originalPreflightDisable = process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT;
+    delete process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT;
     const auditDir = mkdtempSync(join(tmpdir(), 'cat-audit-'));
     tempDirs.push(auditDir);
     process.env.AUDIT_LOG_DIR = auditDir;
@@ -90,9 +90,9 @@ describe('invokeSingleCat shared-state preflight', () => {
   after(() => {
     process.chdir(originalCwd);
     if (originalPreflightDisable === undefined) {
-      delete process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT;
+      delete process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT;
     } else {
-      process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT = originalPreflightDisable;
+      process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT = originalPreflightDisable;
     }
     for (const dir of tempDirs) {
       try {
@@ -177,9 +177,9 @@ describe('invokeSingleCat shared-state preflight', () => {
     const bare = addBareRemote(repo);
     tempDirs.push(repo, bare);
 
-    // Stage cat-template.json but don't commit — git diff --cached catches this
-    writeFileSync(join(repo, 'cat-template.json'), '{}');
-    execSync('git add cat-template.json', { cwd: repo, stdio: 'ignore' });
+    // Stage office-claw-template.json but don't commit — git diff --cached catches this
+    writeFileSync(join(repo, 'office-claw-template.json'), '{}');
+    execSync('git add office-claw-template.json', { cwd: repo, stdio: 'ignore' });
 
     process.chdir(repo);
 
@@ -218,7 +218,7 @@ describe('invokeSingleCat shared-state preflight', () => {
 
     const warned = msgs.find((m) => m.type === 'system_info' && m.content?.includes('⚠️'));
     assert.ok(warned, 'should have ⚠️ warning message');
-    assert.ok(warned.content.includes('cat-template.json'), 'warning should name the file');
+    assert.ok(warned.content.includes('office-claw-template.json'), 'warning should name the file');
 
     // Service SHOULD have been called
     assert.equal(serviceCalled, true, 'service.invoke MUST be called when preflight only warns');

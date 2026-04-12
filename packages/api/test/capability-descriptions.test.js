@@ -22,8 +22,8 @@ function makeCapability(id, command, args = []) {
 }
 
 describe('describeMcpCapability', () => {
-  it('returns known static descriptions for cat-cafe split servers', () => {
-    const desc = describeMcpCapability(makeCapability('cat-cafe-collab', 'node', ['dist/collab.js']));
+  it('returns known static descriptions for office-claw split servers', () => {
+    const desc = describeMcpCapability(makeCapability('office-claw-collab', 'node', ['dist/collab.js']));
     assert.ok(desc?.includes('协作核心'));
   });
 

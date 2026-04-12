@@ -4,10 +4,10 @@
 function Mount-InstallerSkills {
     param([string]$ProjectRoot)
 
-    $skillsSource = Join-Path $ProjectRoot "cat-cafe-skills"
+    $skillsSource = Join-Path $ProjectRoot "office-claw-skills"
     $cliDirs = @("$env:USERPROFILE\.claude", "$env:USERPROFILE\.codex", "$env:USERPROFILE\.gemini")
     if (-not (Test-Path $skillsSource)) {
-        Write-Warn "cat-cafe-skills/ not found - skills mount skipped"
+        Write-Warn "office-claw-skills/ not found - skills mount skipped"
         return
     }
 
@@ -128,7 +128,7 @@ function Add-ProcessPathPrefix {
 
 function Resolve-PortableRedisLayout {
     param([string]$ProjectRoot)
-    $root = Join-Path $ProjectRoot ".cat-cafe\redis\windows"
+    $root = Join-Path $ProjectRoot ".office-claw\redis\windows"
     [pscustomobject]@{
         Root = $root
         ArchiveDir = Join-Path $root "archives"
@@ -491,17 +491,17 @@ function Ensure-WindowsRedis {
         return $true
     }
 
-    Write-Warn "Redis not found - attempting portable install into .cat-cafe/redis/windows"
+    Write-Warn "Redis not found - attempting portable install into .office-claw/redis/windows"
     try {
         $layout = Resolve-PortableRedisLayout -ProjectRoot $ProjectRoot
         $headers = @{ "User-Agent" = "ClowderAI-Installer" }
-        $redisReleaseApi = if ($env:CAT_CAFE_WINDOWS_REDIS_RELEASE_API) {
-            $env:CAT_CAFE_WINDOWS_REDIS_RELEASE_API.Trim()
+        $redisReleaseApi = if ($env:OFFICE_CLAW_WINDOWS_REDIS_RELEASE_API) {
+            $env:OFFICE_CLAW_WINDOWS_REDIS_RELEASE_API.Trim()
         } else {
             "https://api.github.com/repos/redis-windows/redis-windows/releases/latest"
         }
-        $redisDownloadUrl = if ($env:CAT_CAFE_WINDOWS_REDIS_DOWNLOAD_URL) {
-            $env:CAT_CAFE_WINDOWS_REDIS_DOWNLOAD_URL.Trim()
+        $redisDownloadUrl = if ($env:OFFICE_CLAW_WINDOWS_REDIS_DOWNLOAD_URL) {
+            $env:OFFICE_CLAW_WINDOWS_REDIS_DOWNLOAD_URL.Trim()
         } else {
             $null
         }
@@ -519,7 +519,7 @@ function Ensure-WindowsRedis {
             }
             $archivePath = Join-Path $layout.ArchiveDir $archiveName
             $releaseTag = "manual-override"
-            Write-Host "  Redis archive source: explicit CAT_CAFE_WINDOWS_REDIS_DOWNLOAD_URL"
+            Write-Host "  Redis archive source: explicit OFFICE_CLAW_WINDOWS_REDIS_DOWNLOAD_URL"
             Write-Host "  Downloading $archiveName..."
             Invoke-WebRequest -Uri $redisDownloadUrl -OutFile $archivePath -Headers $headers -UseBasicParsing
         } else {
@@ -554,7 +554,7 @@ function Ensure-WindowsRedis {
 
         Set-Content -Path $layout.VersionFile -Value $releaseTag -Encoding ascii
         Write-Ok "Redis installed: $($portableRedis.BinDir)"
-        Write-Warn "Portable Redis will be reused from .cat-cafe/redis/windows on later starts."
+        Write-Warn "Portable Redis will be reused from .office-claw/redis/windows on later starts."
         return $true
     } catch {
         Write-Warn "Redis auto-install failed - install Redis manually or rerun with an external Redis URL"
@@ -786,13 +786,13 @@ function Set-GeminiApiKeyMode {
 function Set-ModelArtsCustomEnv {
     param($State)
 
-    # CAT_CAFE_CLIENT_LABELS is the single source of truth:
+    # OFFICE_CLAW_CLIENT_LABELS is the single source of truth:
     # keys = enabled clients, values = console display names.
     # Format: "clientId:DisplayName,clientId:DisplayName"
     # Available client IDs: anthropic | openai | google | dare | opencode | antigravity | relayclaw
     # Example: "dare:jiuwen,anthropic:Claude,opencode:OpenCode"
-    Set-InstallerEnvValue $State "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
-    Set-InstallerEnvValue $State "CAT_CAFE_CLIENT_LABELS" "dare:dare,relayclaw:jiuwen"
+    Set-InstallerEnvValue $State "OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED" "false"
+    Set-InstallerEnvValue $State "OFFICE_CLAW_CLIENT_LABELS" "dare:dare,relayclaw:jiuwen"
     Add-InstallerEnvDelete $State "CODEX_AUTH_MODE"
     Add-InstallerEnvDelete $State "OPENAI_API_KEY"
     Add-InstallerEnvDelete $State "OPENAI_BASE_URL"

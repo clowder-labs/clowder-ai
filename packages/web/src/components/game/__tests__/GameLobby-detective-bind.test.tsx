@@ -40,10 +40,10 @@ describe('GameLobby detective mode', () => {
     // This tests the contract: if detectiveCatId is set but the cat
     // is not in selectedCats, canStart should be false.
     // We verify this by checking the static render includes the
-    // "请选择智能体绑定视角" hint (no cat bound in initial render).
+    // "请选择一个智能体绑定视角" hint (no cat bound in initial render).
     const html = renderToStaticMarkup(
       <GameLobby mode="detective" cats={fakeCats} onConfirm={vi.fn()} onCancel={vi.fn()} />,
     );
-    expect(html).toContain('请选择智能体绑定视角');
+    expect(html).toContain('请选择一个智能体绑定视角');
   });
 });

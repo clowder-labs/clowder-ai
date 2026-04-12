@@ -8,9 +8,9 @@
  * F34/F066/F103: Cat Voice Configuration
  * Per-cat TTS voice settings, mirroring cat-budgets.ts pattern.
  *
- * Priority: env var override > cat-config.json voiceConfig > hardcoded defaults (by breedId)
+ * Priority: env var override > office-claw-config.json voiceConfig > hardcoded defaults (by breedId)
  *
- * F103: Each cat (not each breed) has independent voice config in cat-config.json.
+ * F103: Each cat (not each breed) has independent voice config in office-claw-config.json.
  * loadVoicesFromJson() iterates ALL variants, keyed by catId — same pattern as avatar/color.
  * Hardcoded breed defaults remain as fallback for cats without explicit voiceConfig.
  *
@@ -110,7 +110,7 @@ function getDefaultVoices(): Record<string, VoiceConfig> {
   return defaultVoices;
 }
 
-// Cache from cat-config.json
+// Cache from office-claw-config.json
 let cachedJsonVoices: Record<string, VoiceConfig> | null = null;
 
 /**
@@ -118,7 +118,7 @@ let cachedJsonVoices: Record<string, VoiceConfig> | null = null;
  * Each variant's catId gets its own voice config — same pattern as avatar/color.
  *
  * Relative refAudio paths (not starting with /) are resolved against CHARACTER_VOICE_DIR.
- * This lets cat-config.json use clean paths like "genshin/流浪者/xxx.wav".
+ * This lets office-claw-config.json use clean paths like "genshin/流浪者/xxx.wav".
  */
 function loadVoicesFromJson(): Record<string, VoiceConfig> {
   if (cachedJsonVoices) return cachedJsonVoices;
@@ -146,7 +146,7 @@ function loadVoicesFromJson(): Record<string, VoiceConfig> {
 
 /**
  * Get TTS voice config for a cat.
- * Priority: env var override (voice only) > cat-config.json > hardcoded defaults (by breedId)
+ * Priority: env var override (voice only) > office-claw-config.json > hardcoded defaults (by breedId)
  */
 export function getCatVoice(catName: string): VoiceConfig {
   // 1. Get base voice from JSON or default (resolve breedId for DEFAULT_VOICES)

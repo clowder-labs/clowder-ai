@@ -6,11 +6,11 @@ You are the Ragdoll cat (Claude), the lead architect and core developer of this 
 ## Safety Rules (Iron Laws)
 1. **Data Storage Sanctuary** — Never delete/flush your Redis database, SQLite files, or any persistent storage. Use temporary instances for testing.
 2. **Process Self-Preservation** — Never kill your parent process or modify your startup config in ways that prevent restart.
-3. **Config Immutability** — Never modify `cat-config.json`, `.env`, or MCP config at runtime. Config changes require human action.
+3. **Config Immutability** — Never modify `office-claw-config.json`, `.env`, or MCP config at runtime. Config changes require human action.
 4. **Network Boundary** — Never access localhost ports that don't belong to your service.
 
 ## Development Flow
-See `cat-cafe-skills/` for the full skill-based workflow:
+See `office-claw-skills/` for the full skill-based workflow:
 - `feat-lifecycle` — Feature lifecycle management
 - `tdd` — Test-driven development
 - `quality-gate` — Pre-review self-check
@@ -42,10 +42,10 @@ done
 
 ```bash
 # 全局 profiles
-rm -f ~/.cat-cafe/provider-profiles* ~/.cat-cafe/acp-model-profiles* ~/.cat-cafe/known-project-roots.json ~/.cat-cafe/migrated-project-roots.json
+rm -f ~/.office-claw/provider-profiles* ~/.office-claw/acp-model-profiles* ~/.office-claw/known-project-roots.json ~/.office-claw/migrated-project-roots.json
 # 安装目录 profiles + catalog
 INSTALL_DIR="/c/Users/Administrator/AppData/Local/Programs/OfficeClaw"
-rm -f "$INSTALL_DIR/.cat-cafe/provider-profiles"* "$INSTALL_DIR/.cat-cafe/acp-model-profiles"* "$INSTALL_DIR/.cat-cafe/cat-catalog.json"
+rm -f "$INSTALL_DIR/.office-claw/provider-profiles"* "$INSTALL_DIR/.office-claw/acp-model-profiles"* "$INSTALL_DIR/.office-claw/office-claw-catalog.json"
 ```
 
 ### 2. Build + Bundle
@@ -93,8 +93,8 @@ INSTALL_DIR="/c/Users/Administrator/AppData/Local/Programs/OfficeClaw"
 BUNDLE_DIR="D:/02.code/clowder-ai/dist/windows/bundle"
 
 # 同步 managed paths
-for item in packages scripts cat-cafe-skills tools installer-seed vendor \
-  .clowder-release.json .env.example LICENSE cat-template.json modelarts-preset.json pnpm-workspace.yaml; do
+for item in packages scripts office-claw-skills tools installer-seed vendor \
+  .clowder-release.json .env.example LICENSE office-claw-template.json modelarts-preset.json pnpm-workspace.yaml; do
   [ -e "$BUNDLE_DIR/$item" ] && rm -rf "$INSTALL_DIR/$item" && cp -a "$BUNDLE_DIR/$item" "$INSTALL_DIR/$item"
 done
 
@@ -120,10 +120,10 @@ node "$INSTALL_DIR/scripts/install-auth-config.mjs" modelarts-preset apply \
 ```bash
 node -e "
 const fs = require('fs');
-const dir = '$INSTALL_DIR/.cat-cafe';
+const dir = '$INSTALL_DIR/.office-claw';
 const pp = JSON.parse(fs.readFileSync(dir+'/provider-profiles.json','utf8'));
 pp.providers.filter(p=>!p.builtin).forEach(p => console.log(p.id, p.kind, p.command||''));
-const cat = JSON.parse(fs.readFileSync(dir+'/cat-catalog.json','utf8'));
+const cat = JSON.parse(fs.readFileSync(dir+'/office-claw-catalog.json','utf8'));
 cat.breeds.forEach(b => { const v=b.variants[0]; console.log(b.catId, v.provider, v.accountRef); });
 "
 ```

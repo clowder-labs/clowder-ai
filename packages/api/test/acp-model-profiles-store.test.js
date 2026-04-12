@@ -15,15 +15,15 @@ function sleep(ms) {
 }
 
 async function makeTmpDir(prefix) {
-  return mkdtemp(join(homedir(), `.cat-cafe-acp-model-profile-${prefix}-`));
+  return mkdtemp(join(homedir(), `.office-claw-acp-model-profile-${prefix}-`));
 }
 
 describe('acp model profile store', () => {
   it('readAcpModelProfiles does not rewrite already-normalized files', async () => {
     const { createAcpModelProfile, readAcpModelProfiles } = await import('../dist/config/acp-model-profiles.js');
     const projectRoot = await makeTmpDir('clean-read');
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
     try {
       await createAcpModelProfile(projectRoot, {
@@ -34,8 +34,8 @@ describe('acp model profile store', () => {
         apiKey: 'sk-test',
       });
 
-      const metaPath = join(projectRoot, '.cat-cafe', 'acp-model-profiles.json');
-      const secretsPath = join(projectRoot, '.cat-cafe', 'acp-model-profiles.secrets.local.json');
+      const metaPath = join(projectRoot, '.office-claw', 'acp-model-profiles.json');
+      const secretsPath = join(projectRoot, '.office-claw', 'acp-model-profiles.secrets.local.json');
       const before = await Promise.all([stat(metaPath), stat(secretsPath)]);
 
       await sleep(25);
@@ -45,8 +45,8 @@ describe('acp model profile store', () => {
       assert.equal(after[0].mtimeMs, before[0].mtimeMs);
       assert.equal(after[1].mtimeMs, before[1].mtimeMs);
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(projectRoot, { recursive: true, force: true });
     }
   });
@@ -54,11 +54,11 @@ describe('acp model profile store', () => {
   it('readAcpModelProfiles rewrites files once when normalization changes stored data', async () => {
     const { readAcpModelProfiles } = await import('../dist/config/acp-model-profiles.js');
     const projectRoot = await makeTmpDir('dirty-read');
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
     try {
-      const catCafeDir = join(projectRoot, '.cat-cafe');
+      const catCafeDir = join(projectRoot, '.office-claw');
       await mkdir(catCafeDir, { recursive: true });
       const metaPath = join(catCafeDir, 'acp-model-profiles.json');
       const secretsPath = join(catCafeDir, 'acp-model-profiles.secrets.local.json');
@@ -105,8 +105,8 @@ describe('acp model profile store', () => {
       assert.equal(normalized.profiles[0].model, 'gpt-4.1');
       assert.equal(normalized.profiles[0].topP, undefined);
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(projectRoot, { recursive: true, force: true });
     }
   });

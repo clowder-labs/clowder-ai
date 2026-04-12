@@ -68,9 +68,9 @@ export interface CatData {
   variantLabel?: string;
   /** F32-b P4: Whether this is the default variant for its breed */
   isDefaultVariant?: boolean;
-  /** F32-b P4: Breed-level display name (e.g. "布偶猫"), for group headings */
+  /** F32-b P4: Breed-level display name (e.g. "办公智能体"), for group headings */
   breedDisplayName?: string;
-  /** F127: Seed cats come from cat-template.json; runtime cats are added later */
+  /** F127: Seed cats come from office-claw-template.json; runtime cats are added later */
   source: 'seed' | 'runtime';
   embeddedRuntimeKind?: 'agentteams_acp';
   /** F127: Roster metadata used by Hub ownership/lead markers */

@@ -85,7 +85,7 @@ describe('Collection routes atomicity (real Fastify inject)', () => {
       method: 'POST',
       url: '/api/signals/collections',
       headers: {
-        'x-cat-cafe-user': 'test-user',
+        'x-office-claw-user': 'test-user',
         'content-type': 'application/json',
       },
       payload: {
@@ -112,7 +112,7 @@ describe('Collection routes atomicity (real Fastify inject)', () => {
       method: 'POST',
       url: '/api/signals/collections',
       headers: {
-        'x-cat-cafe-user': 'test-user',
+        'x-office-claw-user': 'test-user',
         'content-type': 'application/json',
       },
       payload: {
@@ -132,7 +132,7 @@ describe('Collection routes atomicity (real Fastify inject)', () => {
       method: 'POST',
       url: '/api/signals/collections',
       headers: {
-        'x-cat-cafe-user': 'test-user',
+        'x-office-claw-user': 'test-user',
         'content-type': 'application/json',
       },
       payload: { name: 'My Collection' },
@@ -149,7 +149,7 @@ describe('Collection routes atomicity (real Fastify inject)', () => {
       method: 'PATCH',
       url: `/api/signals/collections/${colId}`,
       headers: {
-        'x-cat-cafe-user': 'test-user',
+        'x-office-claw-user': 'test-user',
         'content-type': 'application/json',
       },
       payload: {

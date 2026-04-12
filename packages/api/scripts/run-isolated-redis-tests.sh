@@ -115,7 +115,7 @@ else
 fi
 
 export REDIS_URL="redis://127.0.0.1:${PORT}/15"
-export CAT_CAFE_REDIS_TEST_ISOLATED=1
+export OFFICE_CLAW_REDIS_TEST_ISOLATED=1
 
 cd "$API_DIR"
 

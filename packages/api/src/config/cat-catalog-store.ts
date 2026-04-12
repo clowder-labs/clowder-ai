@@ -13,9 +13,9 @@ import { builtinAccountIdForClient, readBootstrapBindingsSync } from './provider
 import type { BootstrapBinding, BuiltinAccountClient } from './provider-profiles.types.js';
 import { resolveProviderProfilesRootSync } from './provider-profiles-root.js';
 
-const CAT_CAFE_DIR = '.cat-cafe';
+const CAT_CAFE_DIR = '.office-claw';
 const META_FILENAME = 'provider-profiles.json';
-const CAT_CATALOG_FILENAME = 'cat-catalog.json';
+const CAT_CATALOG_FILENAME = 'office-claw-catalog.json';
 const log = createModuleLogger('cat-catalog-store');
 
 function safePath(projectRoot: string, ...segments: string[]): string {
@@ -446,7 +446,7 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
       // full template would re-add members the preset explicitly removed.
       const isPresetCatalog = (existingCatalog as unknown as Record<string, unknown>).preset === true;
       if (!isPresetCatalog) {
-        const sourcePath = existsSync(resolve(projectRoot, 'cat-config.json')) ? resolve(projectRoot, 'cat-config.json') : templatePath;
+        const sourcePath = existsSync(resolve(projectRoot, 'office-claw-config.json')) ? resolve(projectRoot, 'office-claw-config.json') : templatePath;
         const sourceCatalog = JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
         const reconciled = reconcileCatalogWithSourceCatalog(existingCatalog, sourceCatalog);
         if (reconciled.dirty) {
@@ -460,10 +460,10 @@ export function bootstrapCatCatalog(projectRoot: string, templatePath: string): 
     return catalogPath;
   }
 
-  // Prefer cat-config.json (real runtime config with owner data) over cat-template.json
+  // Prefer office-claw-config.json (real runtime config with owner data) over office-claw-template.json
   // for bootstrapping the catalog. The template is only used for fresh installations
-  // where cat-config.json doesn't exist (e.g. new clones from the open-source repo).
-  const legacyConfigPath = resolve(projectRoot, 'cat-config.json');
+  // where office-claw-config.json doesn't exist (e.g. new clones from the open-source repo).
+  const legacyConfigPath = resolve(projectRoot, 'office-claw-config.json');
   const sourcePath = existsSync(legacyConfigPath) ? legacyConfigPath : templatePath;
   const template = JSON.parse(readFileSync(sourcePath, 'utf-8')) as CatCafeConfig;
   const runtimeCatalog = filterBootstrapCatalog(template, projectRoot);

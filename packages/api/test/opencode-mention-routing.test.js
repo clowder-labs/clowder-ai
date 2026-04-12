@@ -477,12 +477,12 @@ describe('OpenCodeAgentService — routed prompt with system context', () => {
   });
 });
 
-// ── P2 fix: Guard test binding fixture to cat-template.json truth source ──
+// ── P2 fix: Guard test binding fixture to office-claw-template.json truth source ──
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const configPath = resolve(__dirname, '..', '..', '..', 'cat-template.json');
+const configPath = resolve(__dirname, '..', '..', '..', 'office-claw-template.json');
 
-describe('Fixture guard — allPatterns matches cat-template.json truth source', () => {
+describe('Fixture guard — allPatterns matches office-claw-template.json truth source', () => {
   let catConfig;
 
   before(() => {
@@ -490,19 +490,19 @@ describe('Fixture guard — allPatterns matches cat-template.json truth source',
     catConfig = JSON.parse(raw);
   });
 
-  it('opencode mentionPatterns in fixture match cat-template.json', () => {
+  it('opencode mentionPatterns in fixture match office-claw-template.json', () => {
     const breed = catConfig.breeds.find((b) => b.id === 'golden-chinchilla');
-    assert.ok(breed, 'golden-chinchilla breed exists in cat-template.json');
+    assert.ok(breed, 'golden-chinchilla breed exists in office-claw-template.json');
     const fixturePatterns = allPatterns.get('opencode');
     assert.ok(fixturePatterns, 'opencode exists in test fixture');
     assert.deepEqual(
       [...fixturePatterns].sort(),
       [...breed.mentionPatterns].sort(),
-      'fixture mentionPatterns must match cat-template.json truth source',
+      'fixture mentionPatterns must match office-claw-template.json truth source',
     );
   });
 
-  it('all fixture cats patterns are a subset of cat-template.json (no phantom patterns)', () => {
+  it('all fixture cats patterns are a subset of office-claw-template.json (no phantom patterns)', () => {
     // Guard: fixture patterns must exist in the truth source — prevents phantom patterns
     // that would make tests pass for patterns that were removed from production config.
     // Note: fixture may be a subset (e.g., opus fixture omits @ragdoll for simplicity)
@@ -510,12 +510,12 @@ describe('Fixture guard — allPatterns matches cat-template.json truth source',
     for (const [catId, fixturePatterns] of allPatterns) {
       const breedId = catIdToBreed[catId];
       const breed = catConfig.breeds.find((b) => b.id === breedId);
-      assert.ok(breed, `breed ${breedId} exists in cat-template.json`);
+      assert.ok(breed, `breed ${breedId} exists in office-claw-template.json`);
       const configSet = new Set(breed.mentionPatterns.map((p) => p.toLowerCase()));
       for (const pattern of fixturePatterns) {
         assert.ok(
           configSet.has(pattern.toLowerCase()),
-          `fixture pattern "${pattern}" for ${catId} must exist in cat-template.json`,
+          `fixture pattern "${pattern}" for ${catId} must exist in office-claw-template.json`,
         );
       }
     }

@@ -13,7 +13,7 @@ const { signalsRoutes } = await import('../dist/routes/signals.js');
 const { ensureSignalWorkspace, resolveSignalPaths } = await import('../dist/domains/signals/config/sources-loader.js');
 const { ArticleStoreService } = await import('../dist/domains/signals/services/article-store.js');
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
 function toIsoDay(value) {
   return value.toISOString().slice(0, 10);

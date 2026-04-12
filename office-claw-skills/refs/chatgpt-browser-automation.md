@@ -1,6 +1,6 @@
 # ChatGPT 浏览器自动化参考
 
-> 验证日期：2026-03-10 | 验证猫：Ragdoll Opus 4.6
+> 验证日期：2026-03-10 | 验证智能体：Ragdoll Opus 4.6
 > 工具：`mcp__claude-in-chrome__*`
 
 本文档记录通过 Chrome MCP 操作 ChatGPT Web UI 的实测 DOM 知识。
@@ -196,7 +196,7 @@ a.click();
 const fileInput = document.querySelectorAll('input[type="file"]')[0];
 
 // 用 DataTransfer API 创建文件
-const content = fs.readFileSync('docs/research/xxx.md', 'utf-8'); // 在猫端读
+const content = fs.readFileSync('docs/research/xxx.md', 'utf-8'); // 在智能体端读
 const file = new File([content], 'research-context.md', { type: 'text/markdown' });
 const dataTransfer = new DataTransfer();
 dataTransfer.items.add(file);
@@ -269,7 +269,7 @@ fileInput.dispatchEvent(new Event('change', { bubbles: true }));
 8. JS: fetch('/api/auth/session') → 拿 accessToken
 9. JS: fetch('/backend-api/conversation/{id}', {headers: {Authorization: 'Bearer '+token}})
 10. 解析 JSON: 找最大 tool 消息 → widget state → report_message.content.parts[0]
-11. Blob 下载 → 猫用 cp 移到 docs/research/YYYY-MM-DD-{topic}/chatgpt/report.md
+11. Blob 下载 → 智能体用 cp 移到 docs/research/YYYY-MM-DD-{topic}/chatgpt/report.md
 ```
 
 ## 图片生成（2026-03-10 实测验证 ✅）

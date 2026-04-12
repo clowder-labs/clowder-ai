@@ -12,8 +12,8 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, test } from 'node:test';
 
-const ALICE = { 'x-cat-cafe-user': 'alice' };
-const BOB = { 'x-cat-cafe-user': 'bob' };
+const ALICE = { 'x-office-claw-user': 'alice' };
+const BOB = { 'x-office-claw-user': 'bob' };
 
 describe('usage route', () => {
   /** @type {typeof import('../dist/routes/usage.js').clearUsageCache} */

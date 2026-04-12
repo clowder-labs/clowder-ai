@@ -46,7 +46,7 @@ $ScriptDir = Split-Path -Parent $ScriptPath
 $ProjectRoot = Split-Path -Parent $ScriptDir
 Set-Location $ProjectRoot
 
-Write-Host "Cat Cafe - Windows Startup" -ForegroundColor Cyan
+Write-Host "OfficeClaw - Windows Startup" -ForegroundColor Cyan
 Write-Host "=========================="
 
 try {
@@ -138,7 +138,7 @@ $ConfiguredRedisUrl = if ($env:REDIS_URL) { $env:REDIS_URL.Trim() } else { "" }
 $ApiPort = $ConfiguredApiPort
 $WebPort = $ConfiguredWebPort
 $RedisPort = $ConfiguredRedisPort
-$RunDir = Join-Path $ProjectRoot ".cat-cafe/run/windows"
+$RunDir = Join-Path $ProjectRoot ".office-claw/run/windows"
 $ApiPidFile = Join-Path $RunDir "api-$ApiPort.pid"
 $WebPidFile = Join-Path $RunDir "web-$WebPort.pid"
 $RuntimeStateFile = Join-Path $RunDir "runtime-state.json"
@@ -270,7 +270,7 @@ function Resolve-ServiceRuntimePort {
     return $randomPort
 }
 
-$PreferRandomPorts = Test-TruthyEnvFlag -Value $env:CAT_CAFE_WINDOWS_RANDOM_PORTS -Default ($bundledRelease -and -not $Dev)
+$PreferRandomPorts = Test-TruthyEnvFlag -Value $env:OFFICE_CLAW_WINDOWS_RANDOM_PORTS -Default ($bundledRelease -and -not $Dev)
 $BundledDefaultRedisUrl = "redis://localhost:$ConfiguredRedisPort"
 if ($PreferRandomPorts -and $ConfiguredRedisUrl -and ($ConfiguredRedisUrl.ToLowerInvariant() -eq $BundledDefaultRedisUrl.ToLowerInvariant())) {
     Remove-Item Env:REDIS_URL -ErrorAction SilentlyContinue
@@ -404,7 +404,7 @@ if ($useExternalRedis) {
                 }
             } else {
                 Write-Warn "Redis not installed - using memory storage"
-                Write-Warn "Run .\\scripts\\install.ps1 again to fetch the project-local Redis bundle into .cat-cafe/redis/windows."
+                Write-Warn "Run .\\scripts\\install.ps1 again to fetch the project-local Redis bundle into .office-claw/redis/windows."
                 $useRedis = $false
             }
         } catch {
@@ -463,7 +463,7 @@ try {
     # -- Configure MCP server path -------------------------------
     $mcpPath = Join-Path $ProjectRoot "packages/mcp-server/dist/index.js"
     if (Test-Path $mcpPath) {
-        $env:CAT_CAFE_MCP_SERVER_PATH = $mcpPath
+        $env:OFFICE_CLAW_MCP_SERVER_PATH = $mcpPath
         Write-Ok "MCP server path: $mcpPath"
     }
 
@@ -498,14 +498,14 @@ $runtimeEnvOverrides = @{
     REDIS_URL = $env:REDIS_URL
     REDIS_PORT = $env:REDIS_PORT
     MEMORY_STORE = $env:MEMORY_STORE
-    CAT_CAFE_MCP_SERVER_PATH = $env:CAT_CAFE_MCP_SERVER_PATH
+    OFFICE_CLAW_MCP_SERVER_PATH = $env:OFFICE_CLAW_MCP_SERVER_PATH
     API_SERVER_PORT = $ApiPort
     FRONTEND_PORT = $WebPort
     NEXT_PUBLIC_API_URL = "http://127.0.0.1:$ApiPort"
 }
     if ($bundledRelease) {
-        $runtimeEnvOverrides.CAT_CAFE_CONFIG_ROOT = $ProjectRoot
-        $bundledTemplatePath = Join-Path $ProjectRoot "cat-template.json"
+        $runtimeEnvOverrides.OFFICE_CLAW_CONFIG_ROOT = $ProjectRoot
+        $bundledTemplatePath = Join-Path $ProjectRoot "office-claw-template.json"
         if (Test-Path $bundledTemplatePath) {
             $runtimeEnvOverrides.CAT_TEMPLATE_PATH = $bundledTemplatePath
         }
@@ -641,7 +641,7 @@ $runtimeEnvOverrides = @{
 
     Write-Host ""
     Write-Host "  ========================================" -ForegroundColor Green
-    Write-Host "  Cat Cafe started!" -ForegroundColor Green
+    Write-Host "  OfficeClaw started!" -ForegroundColor Green
     Write-Host "  ========================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Frontend: http://localhost:$WebPort"

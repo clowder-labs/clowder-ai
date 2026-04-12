@@ -82,7 +82,7 @@ export const sessions = new Map<string, UserInfo>();
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => {
 
-  const skipAuth = process.env.CAT_CAFE_SKIP_AUTH === '1' || process.env.CAT_CAFE_SKIP_AUTH === 'true';
+  const skipAuth = process.env.OFFICE_CLAW_SKIP_AUTH === '1' || process.env.OFFICE_CLAW_SKIP_AUTH === 'true';
 
   // 检查登录状态接口
   app.get('/api/islogin', async (request) => {
@@ -90,7 +90,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
       return { islogin: true, hascode: true, userId: 'debug-user', isskip: true };
     }
     const hascode = secureConfig.get('lastPromotionCode') ? true : false;
-    const userId = request.headers['x-cat-cafe-user'] as string;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
     if (!userId) {
       return { islogin: false, hascode, isskip: false };
     }
@@ -153,7 +153,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     // 创建session（简单实现，生产环境应该生成JWT token）
     const sessionId = `session-${Date.now()}-${Math.random()}`;
     // 设置header返回给前端
-    reply.header('X-Cat-Cafe-User', userInfo.userId);
+    reply.header('X-Office-Claw-User', userInfo.userId);
     reply.header('X-Session-Id', sessionId);
 
     return { success: true, userId: userInfo.userId, message: '登录成功' };
@@ -161,7 +161,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
 
   // 退出登录接口
   app.post('/api/logout', async (request) => {
-    const userId = request.headers['x-cat-cafe-user'] as string;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
 
     if (userId) {
       // 删除 session
@@ -287,7 +287,7 @@ async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: stri
       method: 'GET',
       url: '/api/maas-models',
       headers: {
-        'x-cat-cafe-user': userId,
+        'x-office-claw-user': userId,
         'x-refresh': 'true',
       },
     });

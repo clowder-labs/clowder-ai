@@ -374,12 +374,12 @@ function normalizeSecretsFile(raw) {
 
 /**
  * Resolve the global storage root for provider-profiles.
- * Runtime reads from ~/.cat-cafe/ (or CAT_CAFE_GLOBAL_CONFIG_ROOT), so the
+ * Runtime reads from ~/.office-claw/ (or OFFICE_CLAW_GLOBAL_CONFIG_ROOT), so the
  * installer must write to the same location.
  */
 function resolveGlobalCatCafeDir() {
-  const root = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT || homedir();
-  return path.join(root, '.cat-cafe');
+  const root = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT || homedir();
+  return path.join(root, '.office-claw');
 }
 
 function ensureStorage(_projectDir) {
@@ -405,9 +405,9 @@ function writeState(profileFile, secretsFile, profiles, secrets) {
 }
 
 function writeCatalog(projectDir, catalog) {
-  const catalogDir = path.join(projectDir, '.cat-cafe');
+  const catalogDir = path.join(projectDir, '.office-claw');
   mkdirSync(catalogDir, { recursive: true });
-  const catalogFile = path.join(catalogDir, 'cat-catalog.json');
+  const catalogFile = path.join(catalogDir, 'office-claw-catalog.json');
   writeFileSync(catalogFile, `${JSON.stringify(catalog, null, 2)}\n`);
 }
 
@@ -453,10 +453,10 @@ function defaultCliForProvider(provider) {
 }
 
 function readSeedTemplate() {
-  const templatePath = new URL('../cat-template.json', import.meta.url);
+  const templatePath = new URL('../office-claw-template.json', import.meta.url);
   const template = readJson(templatePath, null);
   if (!template?.breeds || !template?.roster) {
-    throw new Error('Failed to load cat-template.json for ModelArts preset');
+    throw new Error('Failed to load office-claw-template.json for ModelArts preset');
   }
   return template;
 }
@@ -540,7 +540,7 @@ function applyModelartsPreset(projectDir, apiKey) {
   for (const member of preset.members) {
     const base = template.roster[member.catId];
     if (!base) {
-      throw new Error(`ModelArts preset roster template for "${member.catId}" not found in cat-template.json`);
+      throw new Error(`ModelArts preset roster template for "${member.catId}" not found in office-claw-template.json`);
     }
     roster[member.catId] = { ...base, available: true };
   }
@@ -619,9 +619,9 @@ function applyModelartsPreset(projectDir, apiKey) {
     applyEnvChanges(
       envFile,
       [
-        'CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false',
-        `CAT_CAFE_CLIENT_LABELS=${clientLabels}`,
-        'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED=true',
+        'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED=false',
+        `OFFICE_CLAW_CLIENT_LABELS=${clientLabels}`,
+        'OFFICE_CLAW_MODEL_CONFIG_FALLBACK_ENABLED=true',
       ],
       [],
     );
@@ -642,7 +642,7 @@ function removeInstallerApiKeyAccount(projectDir, client, profileId) {
   const secretsFile = path.join(globalDir, 'provider-profiles.secrets.local.json');
   if (!existsSync(profileFile) && !existsSync(secretsFile)) return;
 
-  const catalogFile = path.join(projectDir, '.cat-cafe', 'cat-catalog.json');
+  const catalogFile = path.join(projectDir, '.office-claw', 'office-claw-catalog.json');
   if (existsSync(catalogFile)) {
     const catalog = readJson(catalogFile, null);
     const boundCats = (catalog?.breeds ?? [])

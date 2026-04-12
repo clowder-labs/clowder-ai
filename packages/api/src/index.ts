@@ -208,6 +208,10 @@ export function getSocketManager(): SocketManager {
 
 const PROCESS_START_AT = Date.now();
 
+// Migrate deprecated CAT_CAFE_* env vars → OFFICE_CLAW_* (dual-read fallback)
+import { migrateDeprecatedEnvVars } from './config/env-registry.js';
+migrateDeprecatedEnvVars();
+
 async function main(): Promise<void> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
   const app = Fastify({
@@ -485,7 +489,7 @@ async function main(): Promise<void> {
             const { resolve: resolvePath } = await import('path');
             const upstreamsPath =
               process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH ||
-              resolvePath(process.cwd(), '.cat-cafe', 'proxy-upstreams.json');
+              resolvePath(process.cwd(), '.office-claw', 'proxy-upstreams.json');
             const upstreams = JSON.parse(readFileSync(upstreamsPath, 'utf-8'));
             const firstSlug = Object.keys(upstreams)[0];
             if (!firstSlug) return null;
@@ -698,7 +702,7 @@ async function main(): Promise<void> {
               executablePath,
               appDir,
               pythonBin,
-              homeDir: join(projectRoot, '.cat-cafe', 'relayclaw', id),
+              homeDir: join(projectRoot, '.office-claw', 'relayclaw', id),
               modelName: config.defaultModel,
             },
           });
@@ -728,14 +732,14 @@ async function main(): Promise<void> {
   await syncAgentRegistry(catRegistry.getAllConfigs());
 
   // F089 Phase 2: Shared instances for tmux agent pane execution (opt-in)
-  const enableTmuxAgent = process.env.CAT_CAFE_TMUX_AGENT === '1';
+  const enableTmuxAgent = process.env.OFFICE_CLAW_TMUX_AGENT === '1';
   let tmuxGateway: TmuxGateway | undefined;
   if (enableTmuxAgent) {
     try {
       tmuxGateway = new TmuxGateway();
       app.log.info(`[tmux] enabled — binary: ${tmuxGateway.tmuxBin}`);
     } catch (err) {
-      app.log.error(`[tmux] CAT_CAFE_TMUX_AGENT=1 but tmux not found: ${(err as Error).message}`);
+      app.log.error(`[tmux] OFFICE_CLAW_TMUX_AGENT=1 but tmux not found: ${(err as Error).message}`);
     }
   }
   const agentPaneRegistry = tmuxGateway ? new AgentPaneRegistry() : undefined;
@@ -1087,7 +1091,7 @@ async function main(): Promise<void> {
     sessionSealer,
   });
   await app.register(sessionTranscriptRoutes, { sessionChainStore, threadStore, transcriptReader });
-  const hookToken = process.env.CAT_CAFE_HOOK_TOKEN || '';
+  const hookToken = process.env.OFFICE_CLAW_HOOK_TOKEN || '';
   await app.register(sessionHooksRoutes, {
     sessionChainStore,
     sessionSealer,

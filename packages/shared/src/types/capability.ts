@@ -34,8 +34,8 @@ export interface McpServerDescriptor {
   enabled: boolean;
   /** Optional working directory */
   workingDir?: string;
-  /** Origin: Cat Cafe's own MCP or user-configured external */
-  source: 'cat-cafe' | 'external';
+  /** Origin: built-in MCP or user-configured external */
+  source: 'builtin' | 'external';
 }
 
 /** Per-cat override for a capability */
@@ -59,10 +59,10 @@ export interface CapabilityEntry {
   /** MCP server descriptor (only for type: 'mcp') */
   mcpServer?: Omit<McpServerDescriptor, 'name' | 'enabled' | 'source'>;
   /** Source origin */
-  source: 'cat-cafe' | 'external';
+  source: 'builtin' | 'external';
 }
 
-/** Root schema for .cat-cafe/capabilities.json */
+/** Root schema for .office-claw/capabilities.json */
 export interface CapabilitiesConfig {
   /** Schema version */
   version: 1;
@@ -76,7 +76,7 @@ export interface CapabilitiesConfig {
 export interface CapabilityBoardItem {
   id: string;
   type: 'mcp' | 'skill' | 'limb';
-  source: 'cat-cafe' | 'external';
+  source: 'builtin' | 'external';
   enabled: boolean;
   /** Per-cat effective state (global + overrides resolved) */
   cats: Record<string, boolean>;

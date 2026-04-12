@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import { skillsRoutes } from '../dist/routes/skills.js';
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 const TEST_BODY_LIMIT = 10 * 1024 * 1024;
 const testDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(testDir, '..', '..', '..');
@@ -441,9 +441,9 @@ describe('Skills Route', () => {
 
   it('POST /api/skills/upload rejects too many files', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-limit-'));
-    mkdirSync(join(tempRoot, 'cat-cafe-skills'), { recursive: true });
-    const previousRoot = process.env.CAT_CAFE_CONFIG_ROOT;
-    process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
+    mkdirSync(join(tempRoot, 'office-claw-skills'), { recursive: true });
+    const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
     const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
     await app.register(skillsRoutes);
@@ -466,16 +466,16 @@ describe('Skills Route', () => {
     assert.match(body.error, /文件数量过多/);
 
     await app.close();
-    if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
-    else process.env.CAT_CAFE_CONFIG_ROOT = previousRoot;
+    if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousRoot;
     rmSync(tempRoot, { recursive: true, force: true });
   });
 
   it('POST /api/skills/upload rejects oversized total payload', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-size-'));
-    mkdirSync(join(tempRoot, 'cat-cafe-skills'), { recursive: true });
-    const previousRoot = process.env.CAT_CAFE_CONFIG_ROOT;
-    process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
+    mkdirSync(join(tempRoot, 'office-claw-skills'), { recursive: true });
+    const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
     const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
     await app.register(skillsRoutes);
@@ -504,8 +504,8 @@ describe('Skills Route', () => {
     assert.match(body.error, /上传文件总大小超过 4MB 限制/);
 
     await app.close();
-    if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
-    else process.env.CAT_CAFE_CONFIG_ROOT = previousRoot;
+    if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousRoot;
     rmSync(tempRoot, { recursive: true, force: true });
   });
 
@@ -513,8 +513,8 @@ describe('Skills Route', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-cleanup-'));
     const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
     mkdirSync(userSkillsRoot, { recursive: true });
-    const previousRoot = process.env.CAT_CAFE_CONFIG_ROOT;
-    process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
+    const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
     const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
     await app.register(skillsRoutes);
@@ -585,8 +585,8 @@ describe('Skills Route', () => {
     assert.equal(fileBody.content, 'hello from uploaded persistent skill');
 
     await app.close();
-    if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
-    else process.env.CAT_CAFE_CONFIG_ROOT = previousRoot;
+    if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousRoot;
     rmSync(tempRoot, { recursive: true, force: true });
   });
 
@@ -614,9 +614,9 @@ describe('Skills Route', () => {
 
   it('POST /api/skills/upload rejects Chinese skill names', async () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-name-'));
-    mkdirSync(join(tempRoot, 'cat-cafe-skills'), { recursive: true });
-    const previousRoot = process.env.CAT_CAFE_CONFIG_ROOT;
-    process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
+    mkdirSync(join(tempRoot, 'office-claw-skills'), { recursive: true });
+    const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
     const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
     await app.register(skillsRoutes);
@@ -637,8 +637,8 @@ describe('Skills Route', () => {
     assert.match(body.error, /不能包含中文字符/);
 
     await app.close();
-    if (previousRoot === undefined) delete process.env.CAT_CAFE_CONFIG_ROOT;
-    else process.env.CAT_CAFE_CONFIG_ROOT = previousRoot;
+    if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousRoot;
     rmSync(tempRoot, { recursive: true, force: true });
   });
 });
