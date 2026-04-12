@@ -11,9 +11,12 @@
  */
 
 import { hostname as getHostname } from 'node:os';
+import * as https from 'node:https';
 import type { WriteRequest, TimeSeries, Label, Sample } from './prometheus-remote-write.js';
 import { encodeWriteRequest } from './prometheus-remote-write.js';
 import { snappyCompress } from './snappy.js';
+
+const insecureAgent = new https.Agent({ rejectUnauthorized: false });
 
 export interface AomMetricsReporterConfig {
   endpoint: string;
@@ -90,41 +93,53 @@ export class AomMetricsReporter {
     const rawPayload = encodeWriteRequest(writeRequest);
     const compressedPayload = snappyCompress(rawPayload);
 
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.token}`,
-      'Content-Type': 'application/x-protobuf',
-      'X-Prometheus-Remote-Write-Version': '0.1.0',
-      'User-Agent': 'cat-cafe-metrics-reporter/1.0',
-    };
+    return this.sendRequest(compressedPayload);
+  }
 
-    try {
-      const response = await fetch(this.endpoint, {
+  private sendRequest(body: Buffer): Promise<AomMetricsReporterResult> {
+    return new Promise((resolve) => {
+      const url = new URL(this.endpoint);
+      const options: https.RequestOptions = {
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: url.pathname + url.search,
         method: 'POST',
-        headers,
-        body: compressedPayload,
-        signal: AbortSignal.timeout(this.timeout),
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          'Content-Type': 'application/x-protobuf',
+          'X-Prometheus-Remote-Write-Version': '0.1.0',
+          'User-Agent': 'cat-cafe-metrics-reporter/1.0',
+          'Content-Length': body.length,
+        },
+        agent: insecureAgent,
+        timeout: this.timeout,
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          const status = res.statusCode ?? 0;
+          if (status >= 200 && status < 300) {
+            resolve({ success: true, status });
+          } else {
+            resolve({ success: false, status, message: data });
+          }
+        });
       });
 
-      if (response.ok) {
-        return { success: true, status: response.status };
-      }
+      req.on('error', (err) => {
+        resolve({ success: false, status: 0, message: err.message });
+      });
 
-      let message: string | undefined;
-      try {
-        message = await response.text();
-      } catch {
-        message = `HTTP ${response.status}`;
-      }
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ success: false, status: 0, message: 'Timeout' });
+      });
 
-      return { success: false, status: response.status, message };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[AomMetricsReporter] Fetch failed for ${this.endpoint}: ${message}`);
-      if (err instanceof Error && err.cause) {
-        console.error(`[AomMetricsReporter] Cause: ${String(err.cause)}`);
-      }
-      return { success: false, status: 0, message };
-    }
+      req.write(body);
+      req.end();
+    });
   }
 
   async reportSingleMetric(
@@ -160,20 +175,10 @@ export function createAomMetricsReporterFromEnv(): AomMetricsReporter | null {
   const hostname = process.env.AOM_HOSTNAME;
   const timeout = process.env.AOM_TIMEOUT ? parseInt(process.env.AOM_TIMEOUT, 10) : undefined;
 
-  console.log(`[AomMetricsReporter] Environment config:`);
-  console.log(`  AOM_METRICS_ENDPOINT: ${endpoint ? '✓' : '✗ (missing)'}`);
-  console.log(`  AOM_PROJECT_ID: ${projectId ? '✓' : '✗ (missing)'}`);
-  console.log(`  AOM_TOKEN: ${token ? `${token.slice(0, 8)}...${token.slice(-4)}` : '✗ (missing)'}`);
-  console.log(`  AOM_INSTANCE_ID: ${instanceId ?? '(default)'}`);
-  console.log(`  AOM_HOSTNAME: ${hostname ?? '(default)'}`);
-  console.log(`  AOM_TIMEOUT: ${timeout ?? '(default 30000)'}ms`);
-
   if (!endpoint || !projectId || !token) {
-    console.log(`[AomMetricsReporter] ❌ Missing required config, reporter disabled`);
     return null;
   }
 
-  console.log(`[AomMetricsReporter] ✓ Reporter enabled`);
   return new AomMetricsReporter({
     endpoint,
     projectId,
