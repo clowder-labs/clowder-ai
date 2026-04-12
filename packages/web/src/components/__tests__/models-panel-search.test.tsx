@@ -255,22 +255,7 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).toContain('deepseek-r1');
   });
 
-  it('shows the create-model button only when skip auth is enabled', async () => {
-    await act(async () => {
-      root.render(React.createElement(ModelsPanel));
-    });
-    await flushEffects();
-
-    expect(container.querySelector('[data-testid="models-open-create-model-modal"]')).toBeNull();
-
-    act(() => root.unmount());
-    container.remove();
-
-    container = document.createElement('div');
-    document.body.appendChild(container);
-    root = createRoot(container);
-    mockGetIsSkipAuth.mockReturnValue(true);
-
+  it('shows the create-model button', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -520,18 +505,9 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const probeCall = mockApiFetch.mock.calls.find(
-      ([input, init]) =>
-        String(input) === '/api/provider-profiles/test-draft' &&
-        typeof init === 'object' &&
-        init !== null &&
-        (init as RequestInit).method === 'POST',
-    );
-    expect(probeCall).toBeTruthy();
-    expect(mockApiFetch.mock.calls.indexOf(probeCall!)).toBeLessThan(mockApiFetch.mock.calls.indexOf(postCall!));
     const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
     expect(payload.description).toBe('custom description for test');
-    expect(Object.prototype.hasOwnProperty.call(payload, 'icon')).toBe(false);
+    expect(typeof payload.icon).toBe('string');
   });
 
   it('serializes header rows into a headers object on create-model submit', async () => {

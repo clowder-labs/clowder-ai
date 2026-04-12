@@ -343,7 +343,7 @@ Write-Step "Step 6/9 - Skills mount"
 Mount-InstallerSkills -ProjectRoot $ProjectRoot
 
 Write-Step "Step 7/9 - AI CLI tools"
-Write-Host "  Custom install — no external CLI tools required"
+Write-Host "  Custom install - no external CLI tools required"
 Write-Ok "Skipped (dare/jiuwen use vendored runtimes)"
 
 $dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot
