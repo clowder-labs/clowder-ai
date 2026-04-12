@@ -1,9 +1,9 @@
 ---
-name: pptx-craft
+name: pptx-craft-simple
 description: "PPT 全流程技能，main agent 直接完成研究、规划、生成全部流程。"
 ---
 
-> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft/SKILL.md`，所以 `{skill_root}` 指的是 `../../` 目录。
+> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft-simple/SKILL.md`，所以 `{skill_root}` 指的是 `../../` 目录。
 
 # PPT Pipeline — Main Agent
 
@@ -87,7 +87,7 @@ Main agent 与用户交互，收集三项必需信息：
 **时间戳目录生成**：
 
 ```bash
-python {skill_root}/pptx-craft/scripts/generate_timestamp_dir.py output/
+python {skill_root}/pptx-craft-simple/scripts/generate_timestamp_dir.py output/
 ```
 
 **研究判定规则**：
@@ -213,7 +213,7 @@ python {skill_root}/pptx-craft/scripts/generate_timestamp_dir.py output/
 
 检查用户是否指定了模板风格（如华为风格）：
 - 检查用户请求中是否包含模板关键词（如"华为风格"、"huawei"等）
-- 如识别到模板关键词，读取对应的模板文件：`{skill_root}/pptx-craft/styles/{模板名}.md`
+- 如识别到模板关键词，读取对应的模板文件：`{skill_root}/pptx-craft-simple/styles/{模板名}.md`
 
 #### 阶段 5.2：输入验证
 
@@ -339,7 +339,7 @@ viewBox="0 0 1280 720"，文件命名 `page_N.svg`
 
 1. **生成预览图**：
    ```bash
-   python {skill_root}/pptx-craft/scripts/svg_to_pptx/svg_to_png_preview.py {output_dir} --suffix "_preview"
+   python {skill_root}/pptx-craft-simple/scripts/svg_to_pptx/svg_to_png_preview.py {output_dir} --suffix "_preview"
    ```
 
 2. **读取预览图检查**：必须使用 Read 工具读取 `page_N_preview.png`，逐页对比检查。
@@ -402,7 +402,7 @@ viewBox="0 0 1280 720"，文件命名 `page_N.svg`
 
 1. **调用转换脚本**：
    ```bash
-   cd {output_dir} && python {skill_root}/pptx-craft/scripts/svg_to_pptx/svg_to_pptx.py .
+   cd {output_dir} && python {skill_root}/pptx-craft-simple/scripts/svg_to_pptx/svg_to_pptx.py .
    ```
    该脚本会将 `{output_dir}/pages/page_N.svg` 转换为 `{output_dir}/pages.pptx`
 

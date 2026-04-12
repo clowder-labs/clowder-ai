@@ -127,7 +127,7 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
   return {
     success: true,
     name: localName,
-    localPath: `.cat-cafe/skills/${localName}`,
+    localPath: `.office-claw/skills/${localName}`,
     mounts,
   };
 }
