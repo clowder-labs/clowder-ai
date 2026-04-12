@@ -294,7 +294,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
         </button>
       </div>
 
-      <div className="ui-panel min-h-0 flex-1 overflow-hidden border-0 p-6 shadow-none">
+      <div className="ui-panel min-h-0 flex-1 overflow-hidden border-0 shadow-none">
         {isLoading ? (
           <div className="flex h-full min-h-0 items-center justify-center">
             <div className="text-[12px] text-[#9AA3B2]">加载中...</div>

@@ -121,4 +121,15 @@ describe('AgentsPanel scroll behavior', () => {
     expect(textarea?.style.height).toBe('960px');
     expect(textarea?.style.overflowY).toBe('hidden');
   });
+
+  it('renders the 灵魂配置 tab as disabled without selected styling', async () => {
+    await act(async () => {
+      root.render(React.createElement(AgentsPanel));
+    });
+
+    const personaTab = container.querySelector('[data-testid="agent-tab-persona"]') as HTMLButtonElement | null;
+    expect(personaTab).not.toBeNull();
+    expect(personaTab?.disabled).toBe(true);
+    expect(personaTab?.className).not.toContain('bg-[rgba(230,230,230,1)]');
+  });
 });
