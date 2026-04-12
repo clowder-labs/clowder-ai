@@ -34,6 +34,7 @@ export interface RichQuickActionOption {
 interface RichTextareaProps {
   value: string;
   onValueChange: (value: string, selectionStart: number, selectionEnd: number) => void;
+  onCompositionStateChange?: (isComposing: boolean) => void;
   onInput?: () => void;
   onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
   onPaste?: (e: ClipboardEvent<HTMLDivElement>) => void;
@@ -297,6 +298,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   {
     value,
     onValueChange,
+    onCompositionStateChange,
     onInput,
     onKeyDown,
     onPaste,
@@ -572,9 +574,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         onCompositionStart={() => {
           isComposingRef.current = true;
           setShowPlaceholder(false);
+          onCompositionStateChange?.(true);
         }}
         onCompositionEnd={() => {
           isComposingRef.current = false;
+          onCompositionStateChange?.(false);
           const root = rootRef.current;
           if (!root) return;
           const rawNext = Array.from(root.childNodes).map((n) => serializeNode(n)).join('');
