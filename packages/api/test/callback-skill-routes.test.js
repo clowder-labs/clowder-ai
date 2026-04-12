@@ -23,7 +23,7 @@ describe('callback-skill-routes', () => {
     process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
     const skillsRoot = join(tempRoot, 'office-claw-skills');
-    const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
+    const userSkillsRoot = join(tempRoot, '.office-claw', 'skills');
     mkdirSync(skillsRoot, { recursive: true });
     mkdirSync(userSkillsRoot, { recursive: true });
 
@@ -141,7 +141,7 @@ Use this skill carefully.
     };
   }
 
-  it('lists installed Cat Cafe skills for authenticated callbacks', async () => {
+  it('lists installed OfficeClaw skills for authenticated callbacks', async () => {
     app = Fastify();
     await registerFn(app, { registry: createMockRegistry() });
     await app.ready();
@@ -336,10 +336,10 @@ Use this skill carefully.
     assert.equal(body.name, 'remote-skill');
     assert.equal(body.source, 'skillhub');
     assert.ok(body.skillMarkdown.includes('# Remote Skill'));
-    assert.ok(body.skillDir.replaceAll('\\', '/').endsWith('/.cat-cafe/skills/remote-skill'));
+    assert.ok(body.skillDir.replaceAll('\\', '/').endsWith('/.office-claw/skills/remote-skill'));
     assert.ok(
       body.files.some((filePath) =>
-        filePath.replaceAll('\\', '/').endsWith('/.cat-cafe/skills/remote-skill/scripts/helper.sh'),
+        filePath.replaceAll('\\', '/').endsWith('/.office-claw/skills/remote-skill/scripts/helper.sh'),
       ),
     );
     assert.equal(body.filesOmittedCount, 0);

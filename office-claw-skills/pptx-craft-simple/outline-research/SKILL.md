@@ -6,7 +6,7 @@ metadata:
   dependencies: []
 ---
 
-> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft/outline-research/SKILL.md`，所以 `{skill_root}` 指的是 `../../../` 目录。
+> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft-simple/outline-research/SKILL.md`，所以 `{skill_root}` 指的是 `../../../` 目录。
 
 # 大纲驱动的两阶段研究技能（Outline-Driven Research）
 
@@ -110,7 +110,7 @@ metadata:
 **目录生成方式**：调用技能根目录下的脚本：
 
 ```bash
-node {skill_root}/pptx-craft/scripts/utils/generate_timestamp_dir.js [output_base]
+node {skill_root}/pptx-craft-simple/scripts/utils/generate_timestamp_dir.js [output_base]
 ```
 
 - `output_base` 指定输出基础目录，如不传则默认在当前工作目录的 `output/` 下创建
@@ -170,9 +170,9 @@ node {skill_root}/pptx-craft/scripts/utils/generate_timestamp_dir.js [output_bas
 
 用户显式指定路径时，不添加时间戳子目录。
 
-### 场景 3: 作为 pptx-craft 子技能
+### 场景 3: 作为 pptx-craft-simple 子技能
 
-当 pptx-craft 主控 Agent 需要先规划后研究时，可创建 subagent 调用本技能：
+当 pptx-craft-simple 主控 Agent 需要先规划后研究时，可创建 subagent 调用本技能：
 
 ```
 请基于以下主题生成 PPT 大纲并执行两阶段研究。
@@ -188,7 +188,7 @@ node {skill_root}/pptx-craft/scripts/utils/generate_timestamp_dir.js [output_bas
 - 研究报告：{output_dir}/research.md
 ```
 
-当 pptx-craft 传入 `output_dir` 时，属于"用户指定路径"模式，不再生成时间戳子目录。
+当 pptx-craft-simple 传入 `output_dir` 时，属于"用户指定路径"模式，不再生成时间戳子目录。
 
 ### 场景 4: 仅生成大纲（跳过研究）
 
@@ -201,7 +201,7 @@ node {skill_root}/pptx-craft/scripts/utils/generate_timestamp_dir.js [output_bas
 ### 上游：用户需求
 - 本技能接收用户的主题和要求作为输入
 
-### 下游：pptx-craft designer
+### 下游：pptx-craft-simple designer
 - `research.md` 作为设计师的研究报告输入，用于生成幻灯片内容
 - `outline.md` 作为设计师的页面结构依据，用于生成 HTML 幻灯片
 
@@ -209,7 +209,7 @@ node {skill_root}/pptx-craft/scripts/utils/generate_timestamp_dir.js [output_bas
 ```
 用户需求 → [outline-research] → outline.md + research.md
                                          ↓
-                                  [pptx-craft designer] → HTML slides
+                                  [pptx-craft-simple designer] → HTML slides
 ```
 
 ---

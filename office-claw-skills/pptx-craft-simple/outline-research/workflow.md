@@ -39,7 +39,7 @@
 ### 0.2 自动生成时间戳目录（默认模式）
 
 ```bash
-node {skill_root}/pptx-craft/scripts/utils/generate_timestamp_dir.js [output_base]
+node {skill_root}/pptx-craft-simple/scripts/utils/generate_timestamp_dir.js [output_base]
 ```
 
 - `output_base` 指定输出基础目录，如不传则默认在当前工作目录的 `output/` 下创建
@@ -649,7 +649,7 @@ WebSearch #1 → 等结果 → WebSearch #2 → 等结果 → ...
 
 ```
 0. 初始化输出目录
-   └─ node {skill_root}/pptx-craft/scripts/utils/generate_timestamp_dir.js output/
+   └─ node {skill_root}/pptx-craft-simple/scripts/utils/generate_timestamp_dir.js output/
    └─ output_dir = <技能根目录>/output/20260327_143052_000/
 
 1. 需求调研（Topic Investigation）

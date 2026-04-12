@@ -1,6 +1,6 @@
 # HTML 幻灯片生成技能
 
-> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft/designer/SKILL.md`，所以 `{skill_root}` 指的是 `../../../` 目录。
+> **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft-simple/designer/SKILL.md`，所以 `{skill_root}` 指的是 `../../../` 目录。
 
 ## 路径约定
 
@@ -10,7 +10,7 @@
 
 | 路径            | 说明                                   |
 | --------------- | -------------------------------------- |
-| `{skill_root}/pptx-craft/styles/` | 风格模板目录（相对于 skills 根目录） |
+| `{skill_root}/pptx-craft-simple/styles/` | 风格模板目录（相对于 skills 根目录） |
 
 ---
 
@@ -78,7 +78,7 @@
 
 ```bash
 # 安装工具链依赖（含 Playwright）
-cd skills/pptx-craft
+cd skills/pptx-craft-simple
 npm install
 npx playwright install chromium
 npx playwright install-deps chromium
@@ -96,12 +96,12 @@ npx playwright install-deps chromium
 
 - 检查用户请求中是否包含模板关键词（如"华为风格"、"huawei"、"使用 XX 模板"等）
 - 如识别到模板关键词，读取对应的模板文件：
-  - 华为风格：读取 `{skill_root}/pptx-craft/styles/huawei.md`
-  - 其他模板：读取 `{skill_root}/pptx-craft/styles/{模板名}.md`
+  - 华为风格：读取 `{skill_root}/pptx-craft-simple/styles/huawei.md`
+  - 其他模板：读取 `{skill_root}/pptx-craft-simple/styles/{模板名}.md`
 
 #### 模板使用流程
 
-1. **读取模板描述**：读取 `{skill_root}/pptx-craft/styles/{模板名}.md` 文件，理解模板的视觉规范和设计原则
+1. **读取模板描述**：读取 `{skill_root}/pptx-craft-simple/styles/{模板名}.md` 文件，理解模板的视觉规范和设计原则
 2. **读取模板示例**：如存在 `styles/{模板名}.pptx.html`，可参考其布局和样式
 3. **应用模板规范**：在阶段 3（HTML 幻灯片生成）中严格遵循模板规范
 
@@ -169,7 +169,7 @@ npx playwright install-deps chromium
 
 3. **解析元信息**：
    - 从 `ppt_plan.md` 头部提取 `style_id`（如存在）
-   - 根据 `style_id` 加载对应的视觉规范（读取 `{skill_root}/pptx-craft/styles/{style_id}.md`）
+   - 根据 `style_id` 加载对应的视觉规范（读取 `{skill_root}/pptx-craft-simple/styles/{style_id}.md`）
 
 #### 2.4 验证通过后
 
@@ -213,7 +213,7 @@ npx playwright install-deps chromium
 - subagent prompt 必传材料：
   a. 用户原始任务原文
   b. 该页 `ppt_plan.md` 内容
-  c. 风格参考文档路径（如华为风格：`{skill_root}/pptx-craft/styles/huawei.md`）
+  c. 风格参考文档路径（如华为风格：`{skill_root}/pptx-craft-simple/styles/huawei.md`）
   d. 输出文件路径
 
 **内容要求**：
@@ -337,7 +337,7 @@ npx playwright install-deps chromium
 **最终产物**：
 - `page-N.pptx.html` - 分页 HTML 文件
 
-> **注意**：HTML 校验、布局修复、CDN 依赖补充等后处理工作由 Main Agent（pptx-craft）统一执行，Designer 仅负责生成。
+> **注意**：HTML 校验、布局修复、CDN 依赖补充等后处理工作由 Main Agent（pptx-craft-simple）统一执行，Designer 仅负责生成。
 
 ---
 
@@ -2155,7 +2155,7 @@ event_type: "html_completed", file_path: "output/pages/page-1.pptx.html"
 
 ### 调用示例
 
-**通过 pptx-craft 调用**：
+**通过 pptx-craft-simple 调用**：
 
 ```
 请根据 ppt_plan.md 生成 HTML 幻灯片。
