@@ -82,7 +82,8 @@ export function registerCallbackDocumentRoutes(
     }
 
     const fileStats = await stat(destPath);
-    const fileUrl = `/uploads/${uniqueName}`;
+    const uploadPath = `uploads/${uniqueName}`;
+    const fileUrl = `/${uploadPath}`;
 
     // Create file RichBlock and buffer it (same pattern as create-rich-block)
     const fileBlock: RichBlock = {
@@ -112,6 +113,8 @@ export function registerCallbackDocumentRoutes(
     return {
       status: 'ok',
       url: fileUrl,
+      uploadPath,
+      absolutePath: destPath,
       fileName: result.fileName,
       format: result.format,
       mimeType: result.mimeType,
