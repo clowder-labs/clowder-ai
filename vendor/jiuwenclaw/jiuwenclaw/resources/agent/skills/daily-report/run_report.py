@@ -730,7 +730,7 @@ def main():
             date_str = date
 
             if enable_ai:
-                logging.info("INFO: AI 智能分析已启用", file=sys.stderr)
+                logging.error("INFO: AI 智能分析已启用")
 
         elif args.type == "weekly":
             date = args.date or datetime.now(_REPORT_TZ).strftime("%Y-%m-%d")
@@ -761,7 +761,7 @@ def main():
             logging.info(content)
 
     except Exception as e:
-        logging.info(f"ERROR:{e}", file=sys.stderr)
+        logging.error(f"ERROR:{e}")
         import traceback
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)

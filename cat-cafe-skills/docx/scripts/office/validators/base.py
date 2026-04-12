@@ -2,12 +2,15 @@
 Base validator with common validation logic for document files.
 """
 
+# 标准库
 import re
+import logging
 from pathlib import Path
 
+# 第三方库
 import defusedxml.minidom
 import lxml.etree
-import logging
+
 
 class BaseSchemaValidator:
 
@@ -818,6 +821,7 @@ class BaseSchemaValidator:
             return errors if errors else set()
 
     def _remove_template_tags_from_text_nodes(self, xml_doc):
+        logging.info(f"begin to remove template tags from text nodes{self.schemas_dir}")
         warnings = []
         template_pattern = re.compile(r"\{\{[^}]*\}\}")
 

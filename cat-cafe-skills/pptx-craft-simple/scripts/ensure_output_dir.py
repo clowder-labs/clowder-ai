@@ -25,7 +25,7 @@ def ensure_output_dir(output_dir: str) -> Path:
 
     # 防护检查：拒绝已包含 pages 的路径
     if resolved_path.name == "pages":
-        logging.info("Error: Do not pass a path ending in 'pages' to this script", file=sys.stderr)
+        logging.error("Error: Do not pass a path ending in 'pages' to this script")
         sys.exit(1)
 
     # 始终在传入目录下创建 "pages" 子目录
@@ -34,7 +34,7 @@ def ensure_output_dir(output_dir: str) -> Path:
 
     # 验证目录存在
     if not pages_dir.is_dir():
-        logging.info(f"Error: Failed to create directory {pages_dir}", file=sys.stderr)
+        logging.error(f"Error: Failed to create directory {pages_dir}")
         sys.exit(1)
 
     return pages_dir.resolve()
@@ -42,7 +42,7 @@ def ensure_output_dir(output_dir: str) -> Path:
 
 def main():
     if len(sys.argv) < 2:
-        logging.info("Usage: python ensure_output_dir.py <output_dir>", file=sys.stderr)
+        logging.error("Usage: python ensure_output_dir.py <output_dir>")
         sys.exit(1)
 
     output_dir = sys.argv[1]

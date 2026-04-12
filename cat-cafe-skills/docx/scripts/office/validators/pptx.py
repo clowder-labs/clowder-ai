@@ -180,13 +180,10 @@ class PPTXSchemaValidator(BaseSchemaValidator):
             try:
                 root = lxml.etree.parse(str(rels_file)).getroot()
 
-                layout_rels = [
-                    rel
-                    for rel in root.findall(
-                        f".//{{{self.PACKAGE_RELATIONSHIPS_NAMESPACE}}}Relationship"
-                    )
-                    if "slideLayout" in rel.get("Type", "")
-                ]
+                layout_rels = []
+                for rel in root.findall(f".//{{{self.PACKAGE_RELATIONSHIPS_NAMESPACE}}}Relationship"):
+                    if "slideLayout" in rel.get("Type", ""):
+                        layout_rels.append(rel)
 
                 if len(layout_rels) > 1:
                     errors.append(

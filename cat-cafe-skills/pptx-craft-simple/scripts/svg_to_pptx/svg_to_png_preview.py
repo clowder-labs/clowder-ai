@@ -26,7 +26,7 @@ from typing import Set, Optional
 from xml.etree import ElementTree as ET
 
 # Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent))
 
 from svg_to_pptx import convert_svg_to_png, find_svg_files, get_png_renderer_info
 

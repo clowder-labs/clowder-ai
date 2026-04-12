@@ -889,7 +889,8 @@ class SVGPositionValidator:
         positions = {}
 
         # Extract rect elements
-        rect_pattern = r'<rect[^>]*(?:id="([^"]*)")?[^>]*x="([^"]*)"[^>]*y="([^"]*)"[^>]*(?:width="([^"]*)")?[^>]*(?:height="([^"]*)")?'
+        rect_pattern = (r'<rect[^>]*(?:id="([^"]*)")?[^>]*x="([^"]*)"[^>]*y'
+                        r'="([^"]*)"[^>]*(?:width="([^"]*)")?[^>]*(?:height="([^"]*)")?')
         for match in re.finditer(rect_pattern, svg_content):
             id_val = match.group(1) or f"rect_{len(positions)}"
             positions[id_val] = {
@@ -1460,7 +1461,8 @@ Common commands:
                 for attr, value in attrs.items():
                     logging.info(f"  {attr}: {value}")
         else:
-            logging.info("Validation mode requires an expected coordinates file; use --extract to extract coordinates first")
+            logging.info("Validation mode requires an expected coordinates file; "
+                         "use --extract to extract coordinates first")
 
     elif args.command == 'analyze':
         analyze_svg_file(args.svg_file)

@@ -297,7 +297,8 @@ def generate_markdown(benchmark: dict) -> str:
         "",
         f"**Model**: {metadata['executor_model']}",
         f"**Date**: {metadata['timestamp']}",
-        f"**Evals**: {', '.join(map(str, metadata['evals_run']))} ({metadata['runs_per_configuration']} runs each per configuration)",
+        f"**Evals**: {', '.join(map(str, metadata['evals_run']))} "
+        f"({metadata['runs_per_configuration']} runs each per configuration)",
         "",
         "## Summary",
         "",

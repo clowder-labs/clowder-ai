@@ -83,7 +83,7 @@ def _run_validation(
             try:
                 author = infer_author_func(unpacked_dir, original_file)
             except ValueError as e:
-                logging.info(f"Warning: {e} Using default author 'Claude'.", file=sys.stderr)
+                logging.error(f"Warning: {e} Using default author 'Claude'.")
 
         validators = [
             DOCXSchemaValidator(unpacked_dir, original_file),
@@ -117,16 +117,20 @@ def _condense_xml(xml_file: Path) -> None:
                 continue
 
             for child in list(element.childNodes):
-                if (
-                    child.nodeType == child.TEXT_NODE
-                    and child.nodeValue
-                    and child.nodeValue.strip() == ""
-                ) or child.nodeType == child.COMMENT_NODE:
+                # 把复杂条件拆分成变量，满足 G.CTL.03
+                is_empty_text = (
+                        child.nodeType == child.TEXT_NODE
+                        and child.nodeValue
+                        and child.nodeValue.strip() == ""
+                )
+                is_comment = child.nodeType == child.COMMENT_NODE
+
+                if is_empty_text or is_comment:
                     element.removeChild(child)
 
         xml_file.write_bytes(dom.toxml(encoding="UTF-8"))
     except Exception as e:
-        logging.info(f"ERROR: Failed to parse {xml_file.name}: {e}", file=sys.stderr)
+        logging.error(f"ERROR: Failed to parse {xml_file.name}: {e}")
         raise
 
 
