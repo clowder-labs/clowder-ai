@@ -111,7 +111,7 @@ describe('POST /api/messages decision notification route policy', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '继续', threadId: 'thread-1' },
     });
 
@@ -140,7 +140,7 @@ describe('POST /api/messages decision notification route policy', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '请你决定这个 PR 是否合入', threadId: 'thread-1' },
     });
 

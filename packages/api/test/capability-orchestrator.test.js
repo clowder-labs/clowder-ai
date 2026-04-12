@@ -65,16 +65,16 @@ describe('readCapabilitiesConfig', () => {
   });
 
   it('reads valid capabilities.json', async () => {
-    await mkdir(join(dir, '.cat-cafe'), { recursive: true });
+    await mkdir(join(dir, '.office-claw'), { recursive: true });
     await writeFile(
-      join(dir, '.cat-cafe', 'capabilities.json'),
+      join(dir, '.office-claw', 'capabilities.json'),
       JSON.stringify(
         makeConfig([
           {
             id: 'cat-cafe',
             type: 'mcp',
             enabled: true,
-            source: 'cat-cafe',
+            source: 'builtin',
             mcpServer: { command: 'node', args: ['index.js'] },
           },
         ]),
@@ -94,15 +94,15 @@ describe('readCapabilitiesConfig', () => {
   });
 
   it('returns null for invalid JSON', async () => {
-    await mkdir(join(dir, '.cat-cafe'), { recursive: true });
-    await writeFile(join(dir, '.cat-cafe', 'capabilities.json'), 'not json');
+    await mkdir(join(dir, '.office-claw'), { recursive: true });
+    await writeFile(join(dir, '.office-claw', 'capabilities.json'), 'not json');
     const config = await readCapabilitiesConfig(dir);
     assert.equal(config, null);
   });
 
   it('returns null for wrong version', async () => {
-    await mkdir(join(dir, '.cat-cafe'), { recursive: true });
-    await writeFile(join(dir, '.cat-cafe', 'capabilities.json'), JSON.stringify({ version: 99, capabilities: [] }));
+    await mkdir(join(dir, '.office-claw'), { recursive: true });
+    await writeFile(join(dir, '.office-claw', 'capabilities.json'), JSON.stringify({ version: 99, capabilities: [] }));
     const config = await readCapabilitiesConfig(dir);
     assert.equal(config, null);
   });
@@ -118,14 +118,14 @@ describe('writeCapabilitiesConfig', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('creates .cat-cafe/ dir and writes config', async () => {
+  it('creates .office-claw/ dir and writes config', async () => {
     const config = makeConfig([
       { id: 'test', type: 'mcp', enabled: true, source: 'external', mcpServer: { command: 'echo', args: [] } },
     ]);
 
     await writeCapabilitiesConfig(dir, config);
 
-    const raw = await readFile(join(dir, '.cat-cafe', 'capabilities.json'), 'utf-8');
+    const raw = await readFile(join(dir, '.office-claw', 'capabilities.json'), 'utf-8');
     const parsed = JSON.parse(raw);
     assert.equal(parsed.version, 1);
     assert.equal(parsed.capabilities.length, 1);
@@ -137,7 +137,7 @@ describe('writeCapabilitiesConfig', () => {
         id: 'cat-cafe',
         type: 'mcp',
         enabled: true,
-        source: 'cat-cafe',
+        source: 'builtin',
         mcpServer: { command: 'node', args: ['server.js'] },
       },
       {
@@ -426,7 +426,7 @@ describe('buildCatCafeMcpDescriptor', () => {
     assert.equal(desc.command, 'node');
     assert.ok(desc.args[0].includes('mcp-server/dist/index.js'));
     assert.equal(desc.enabled, true);
-    assert.equal(desc.source, 'cat-cafe');
+    assert.equal(desc.source, 'builtin');
   });
 });
 
@@ -464,18 +464,18 @@ describe('bootstrapCapabilities', () => {
     // cat-cafe split(3) + filesystem
     assert.equal(config.capabilities.length, 4);
 
-    const catCafeCollab = config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+    const catCafeCollab = config.capabilities.find((c) => c.id === 'office-claw-collab');
     assert.ok(catCafeCollab);
-    assert.equal(catCafeCollab.source, 'cat-cafe');
+    assert.equal(catCafeCollab.source, 'builtin');
     assert.equal(catCafeCollab.enabled, true);
 
-    const catCafeMemory = config.capabilities.find((c) => c.id === 'cat-cafe-memory');
+    const catCafeMemory = config.capabilities.find((c) => c.id === 'office-claw-memory');
     assert.ok(catCafeMemory);
-    assert.equal(catCafeMemory.source, 'cat-cafe');
+    assert.equal(catCafeMemory.source, 'builtin');
 
-    const catCafeSignals = config.capabilities.find((c) => c.id === 'cat-cafe-signals');
+    const catCafeSignals = config.capabilities.find((c) => c.id === 'office-claw-signals');
     assert.ok(catCafeSignals);
-    assert.equal(catCafeSignals.source, 'cat-cafe');
+    assert.equal(catCafeSignals.source, 'builtin');
 
     const fs = config.capabilities.find((c) => c.id === 'filesystem');
     assert.ok(fs);
@@ -507,9 +507,9 @@ describe('bootstrapCapabilities', () => {
     // Only split built-ins should exist (legacy cat-cafe external duplicate skipped)
     const catCafeEntries = config.capabilities.filter((c) => c.id === 'cat-cafe');
     assert.equal(catCafeEntries.length, 0);
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-collab'));
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-memory'));
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-signals'));
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-collab'));
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-memory'));
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-signals'));
   });
 
   it('uses catCafeRepoRoot for cat-cafe MCP descriptor when provided', async () => {
@@ -526,7 +526,7 @@ describe('bootstrapCapabilities', () => {
       { catCafeRepoRoot: '/host-repo' },
     );
 
-    const splitIds = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'];
+    const splitIds = ['office-claw-collab', 'office-claw-memory', 'office-claw-signals'];
     for (const splitId of splitIds) {
       const cap = config.capabilities.find((c) => c.id === splitId);
       assert.ok(cap, `${splitId} should exist after bootstrap`);
@@ -547,7 +547,7 @@ describe('migrateLegacyCatCafeCapability', () => {
         id: 'cat-cafe',
         type: 'mcp',
         enabled: false,
-        source: 'cat-cafe',
+        source: 'builtin',
         overrides: [{ catId: 'codex', enabled: true }],
         mcpServer: {
           command: 'node',
@@ -567,9 +567,9 @@ describe('migrateLegacyCatCafeCapability', () => {
 
     const migrated = migrateLegacyCatCafeCapability(config, { projectRoot: '/repo' });
     assert.equal(migrated.migrated, true);
-    const collab = migrated.config.capabilities.find((c) => c.id === 'cat-cafe-collab');
-    const memory = migrated.config.capabilities.find((c) => c.id === 'cat-cafe-memory');
-    const signals = migrated.config.capabilities.find((c) => c.id === 'cat-cafe-signals');
+    const collab = migrated.config.capabilities.find((c) => c.id === 'office-claw-collab');
+    const memory = migrated.config.capabilities.find((c) => c.id === 'office-claw-memory');
+    const signals = migrated.config.capabilities.find((c) => c.id === 'office-claw-signals');
     assert.ok(collab);
     assert.ok(memory);
     assert.ok(signals);
@@ -594,7 +594,7 @@ describe('resolveServersForCat', () => {
         id: 'cat-cafe',
         type: 'mcp',
         enabled: true,
-        source: 'cat-cafe',
+        source: 'builtin',
         mcpServer: { command: 'node', args: ['index.js'] },
       },
       { id: 'disabled', type: 'mcp', enabled: false, source: 'external', mcpServer: { command: 'echo', args: [] } },
@@ -629,7 +629,7 @@ describe('resolveServersForCat', () => {
 
   it('skips skill entries', () => {
     const config = makeConfig([
-      { id: 'cat-cafe', type: 'mcp', enabled: true, source: 'cat-cafe', mcpServer: { command: 'node', args: [] } },
+      { id: 'cat-cafe', type: 'mcp', enabled: true, source: 'builtin', mcpServer: { command: 'node', args: [] } },
       { id: 'some-skill', type: 'skill', enabled: true, source: 'external' },
     ]);
 
@@ -726,7 +726,7 @@ describe('generateCliConfigs', () => {
         id: 'cat-cafe',
         type: 'mcp',
         enabled: true,
-        source: 'cat-cafe',
+        source: 'builtin',
         mcpServer: { command: 'node', args: ['server.js'] },
       },
     ]);
@@ -790,10 +790,10 @@ describe('generateCliConfigs', () => {
     const config = makeConfig([
       { id: 'jetbrains', type: 'mcp', enabled: true, source: 'external', mcpServer: { command: '', args: [] } },
       {
-        id: 'cat-cafe-collab',
+        id: 'office-claw-collab',
         type: 'mcp',
         enabled: true,
-        source: 'cat-cafe',
+        source: 'builtin',
         mcpServer: { command: 'node', args: ['collab.js'] },
       },
     ]);
@@ -802,7 +802,7 @@ describe('generateCliConfigs', () => {
     const data = JSON.parse(await readFile(paths.google, 'utf-8'));
 
     assert.equal(data.mcpServers.jetbrains, undefined, 'invalid managed entry should be removed');
-    assert.ok(data.mcpServers['cat-cafe-collab'], 'valid managed entry should remain');
+    assert.ok(data.mcpServers['office-claw-collab'], 'valid managed entry should remain');
   });
 
   it('serializes streamableHttp to Claude config and omits it from Codex/Gemini', async () => {
@@ -877,10 +877,10 @@ describe('generateCliConfigs', () => {
 
       const config = makeConfig([
         {
-          id: 'cat-cafe-collab',
+          id: 'office-claw-collab',
           type: 'mcp',
           enabled: true,
-          source: 'cat-cafe',
+          source: 'builtin',
           mcpServer: { command: 'node', args: ['collab.js'] },
         },
       ]);
@@ -888,7 +888,7 @@ describe('generateCliConfigs', () => {
       await generateCliConfigs(config, paths);
 
       const claudeData = JSON.parse(await readFile(paths.anthropic, 'utf-8'));
-      assert.deepEqual(Object.keys(claudeData.mcpServers), ['cat-cafe-collab']);
+      assert.deepEqual(Object.keys(claudeData.mcpServers), ['office-claw-collab']);
     } finally {
       restoreCatRegistry(snapshot);
     }
@@ -925,9 +925,9 @@ describe('orchestrate', () => {
     assert.ok(config);
     assert.equal(config.version, 1);
     // At minimum, split cat-cafe MCP servers should be present
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-collab'));
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-memory'));
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-signals'));
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-collab'));
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-memory'));
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-signals'));
   });
 
   it('uses existing capabilities.json on subsequent runs', async () => {

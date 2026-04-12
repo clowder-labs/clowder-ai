@@ -126,7 +126,7 @@ describe('Session bind history import', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/threads/${thread.id}/sessions/opus/bind`,
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
         payload: { cliSessionId: 'cli-rebound' },
       });
 
@@ -146,7 +146,7 @@ describe('Session bind history import', () => {
       const historyRes = await app.inject({
         method: 'GET',
         url: `/api/messages?threadId=${thread.id}`,
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
       });
       assert.equal(historyRes.statusCode, 200);
       const historyBody = JSON.parse(historyRes.body);
@@ -165,7 +165,7 @@ describe('Session bind history import', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: `/api/threads/${thread.id}/sessions/opus/bind`,
-        headers: { 'x-cat-cafe-user': 'user-1' },
+        headers: { 'x-office-claw-user': 'user-1' },
         payload: { cliSessionId: 'cli-no-history' },
       });
 
@@ -208,7 +208,7 @@ describe('Session bind history import', () => {
         const res = await app.inject({
           method: 'PATCH',
           url: `/api/threads/${thread.id}/sessions/opus/bind`,
-          headers: { 'x-cat-cafe-user': 'user-1' },
+          headers: { 'x-office-claw-user': 'user-1' },
           payload: { cliSessionId },
         });
         assert.equal(res.statusCode, 200);

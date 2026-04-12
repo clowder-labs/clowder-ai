@@ -106,7 +106,7 @@ describe('authRoutes /api/login', () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.json().success, true);
     assert.equal(refreshCount, 1);
-    assert.equal(refreshHeaders?.['x-cat-cafe-user'], 'demo-domain:demo-domain');
+    assert.equal(refreshHeaders?.['x-office-claw-user'], 'demo-domain:demo-domain');
     assert.equal(refreshHeaders?.['x-refresh'], 'true');
 
     await app.close();

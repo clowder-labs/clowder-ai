@@ -42,7 +42,7 @@ export const claudeRescueRoutes: FastifyPluginAsync<ClaudeRescueRoutesOptions> =
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const result = await findBrokenClaudeThinkingSessions();
@@ -53,7 +53,7 @@ export const claudeRescueRoutes: FastifyPluginAsync<ClaudeRescueRoutesOptions> =
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = rescueBodySchema.safeParse(request.body);

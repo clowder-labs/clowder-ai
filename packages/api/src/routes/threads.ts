@@ -101,7 +101,7 @@ const bootcampStateSchema = z
 
 const createThreadSchema = z
   .object({
-    /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+    /** Legacy fallback only; preferred identity source is X-Office-Claw-User header. */
     userId: z.string().min(1).max(100).optional(),
     title: z.string().min(1).max(200).optional(),
     projectPath: z.string().min(1).max(500).optional(),
@@ -268,7 +268,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     let thread;

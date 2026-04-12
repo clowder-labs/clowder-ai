@@ -5,7 +5,7 @@
  */
 
 /**
- * InstalledSkillRegistry — .cat-cafe/installed-skills.json 持久化层
+ * InstalledSkillRegistry — .office-claw/installed-skills.json 持久化层
  *
  * 管理通过 SkillHub 安装的远程 skill 记录。
  * 使用全局 mutex 串行化读写，防止并发丢失更新。
@@ -52,7 +52,7 @@ async function serialize<T>(fn: () => Promise<T>): Promise<T> {
 
 /** 获取 registry 文件路径 */
 function getRegistryPath(catCafeRoot: string): string {
-  return join(catCafeRoot, '.cat-cafe', REGISTRY_FILENAME);
+  return join(catCafeRoot, '.office-claw', REGISTRY_FILENAME);
 }
 
 /** 读取 installed-skills.json，损坏时返回空 registry */

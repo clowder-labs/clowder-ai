@@ -10,7 +10,7 @@
  * Claude 通过 --mcp-config 原生支持 MCP，不需要注入。
  *
  * Skills-as-source-of-truth: Full API docs live in
- *   cat-cafe-skills/refs/mcp-callbacks.md
+ *   refs/mcp-callbacks.md
  * Prompt injection is minimal: credentials + tool list + skill reference.
  * HTTP endpoints preserved as fallback only.
  */
@@ -59,25 +59,25 @@ function resolveExampleHandle(opts: McpCallbackOptions): string {
 /**
  * Build MCP callback instructions for prompt injection.
  * Minimal: @teammate rules + credentials + tool list + skill reference.
- * Full API docs are in cat-cafe-skills/refs/mcp-callbacks.md.
+ * Full API docs are in refs/mcp-callbacks.md.
  */
 export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
   const exampleHandle = resolveExampleHandle(opts);
   return `## 协作方式
 
 ### @队友
-另起一行写 \`@猫名\`（行中间无效），并在同一段写动作请求。多只猫各占一行。
+另起一行写 \`@智能体名\`（行中间无效），并在同一段写动作请求。多个智能体各占一行。
 动作词示例：\`请确认/请处理/请决策/请看一下\`。
 同族多分身时用**唯一句柄**（如 \`${exampleHandle}\`）。
 ✅ 正确：\`${exampleHandle} 请确认这个安排\`
 ❌ 错误：为了 @ 队友去调 post-message
 
 ### HTTP回调
-凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`
+凭证: \`$OFFICE_CLAW_INVOCATION_ID\` + \`$OFFICE_CLAW_CALLBACK_TOKEN\`
 工具: post-message/cross-post-message/register-pr-tracking/thread-context/list-threads/feat-index/list-tasks/pending-mentions/update-task/create-rich-block/search-evidence/reflect/retain-memory/request-permission
 跨thread: cross-post-message
 查消息: thread-context + \`catId\`/\`keyword\`
 查feature: feat-index + \`featId\`/\`query\`
-用法: GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\`
-富消息: GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\``;
+用法: GET \`$OFFICE_CLAW_API_URL/api/callbacks/instructions\`
+富消息: GET \`$OFFICE_CLAW_API_URL/api/callbacks/rich-block-rules\``;
 }

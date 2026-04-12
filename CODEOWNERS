@@ -14,12 +14,12 @@ packages/mcp-server/        @zts212653
 packages/web/               @zts212653
 
 # Skills and governance
-cat-cafe-skills/            @zts212653
+office-claw-skills/         @zts212653
 
 # CI and scripts
 .github/                    @zts212653
 scripts/                    @zts212653
 
 # Configuration
-cat-config.json             @zts212653
+office-claw-config.json     @zts212653
 sync-manifest.yaml          @zts212653

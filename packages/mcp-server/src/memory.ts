@@ -30,7 +30,7 @@ function createBaseServer(name: string): McpServer {
  * reflection, session chain, and memory retention tools registered.
  */
 export function createMemoryServer(): McpServer {
-  const server = createBaseServer('cat-cafe-memory-mcp');
+  const server = createBaseServer('office-claw-memory-mcp');
   registerMemoryToolset(server);
   return server;
 }
@@ -39,15 +39,15 @@ async function main(): Promise<void> {
   initCatCafeDir();
   const server = createMemoryServer();
   const transport = new StdioServerTransport();
-  console.error('[cat-cafe-memory] MCP Server starting...');
+  console.error('[office-claw-memory] MCP Server starting...');
   await server.connect(transport);
-  console.error('[cat-cafe-memory] MCP Server running on stdio');
+  console.error('[office-claw-memory] MCP Server running on stdio');
 }
 
 const isEntryPoint = process.argv[1] && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
 if (isEntryPoint) {
   main().catch((err) => {
-    console.error('[cat-cafe-memory] Fatal error:', err);
+    console.error('[office-claw-memory] Fatal error:', err);
     process.exit(1);
   });
 }

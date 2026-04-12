@@ -30,7 +30,7 @@ function createBaseServer(name: string): McpServer {
  * (inbox, search, study, article management) registered.
  */
 export function createSignalsServer(): McpServer {
-  const server = createBaseServer('cat-cafe-signals-mcp');
+  const server = createBaseServer('office-claw-signals-mcp');
   registerSignalToolset(server);
   return server;
 }
@@ -39,15 +39,15 @@ async function main(): Promise<void> {
   initCatCafeDir();
   const server = createSignalsServer();
   const transport = new StdioServerTransport();
-  console.error('[cat-cafe-signals] MCP Server starting...');
+  console.error('[office-claw-signals] MCP Server starting...');
   await server.connect(transport);
-  console.error('[cat-cafe-signals] MCP Server running on stdio');
+  console.error('[office-claw-signals] MCP Server running on stdio');
 }
 
 const isEntryPoint = process.argv[1] && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
 if (isEntryPoint) {
   main().catch((err) => {
-    console.error('[cat-cafe-signals] Fatal error:', err);
+    console.error('[office-claw-signals] Fatal error:', err);
     process.exit(1);
   });
 }

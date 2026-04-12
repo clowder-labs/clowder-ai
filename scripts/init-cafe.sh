@@ -64,7 +64,7 @@ setup_data_dir() {
     echo ""
     echo "创建数据目录..."
 
-    DATA_DIR="${CAT_CAFE_DATA_DIR:-$HOME/.cat-cafe}"
+    DATA_DIR="${OFFICE_CLAW_DATA_DIR:-$HOME/.office-claw}"
 
     mkdir -p "$DATA_DIR/chat"
     mkdir -p "$DATA_DIR/memory"

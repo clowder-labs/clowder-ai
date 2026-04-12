@@ -180,14 +180,14 @@ function PathAction({
 function buildConfigFiles(projectRoot: string) {
   return [
     {
-      name: 'cat-template.json',
-      path: `${projectRoot}/cat-template.json`,
-      desc: '模板（只读 seed）',
+      name: 'office-claw-template.json',
+      path: `${projectRoot}/office-claw-template.json`,
+      desc: '智能体模板（只读 seed）',
       isDir: false,
     },
     {
-      name: '.cat-cafe/cat-catalog.json',
-      path: `${projectRoot}/.cat-cafe/cat-catalog.json`,
+      name: '.office-claw/office-claw-catalog.json',
+      path: `${projectRoot}/.office-claw/office-claw-catalog.json`,
       desc: '运行时成员真相源',
       isDir: false,
     },

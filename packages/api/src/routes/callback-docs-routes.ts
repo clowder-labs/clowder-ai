@@ -7,7 +7,7 @@
 /**
  * Callback Documentation Routes
  * On-demand fallback endpoints for MCP callback API reference and rich block
- * usage rules. Primary source of truth is in cat-cafe-skills/ (Skills system).
+ * usage rules. Primary source of truth is in office-claw-skills/ (Skills system).
  *
  * These endpoints are unauthenticated — they serve static documentation
  * that is safe to expose. Kept as fallback for when skills are not readable.
@@ -25,9 +25,9 @@ function stripFrontmatter(content: string): string {
   return match ? content.slice(match[0].length).trimStart() : content;
 }
 
-/** Resolve path to a refs file in cat-cafe-skills/refs/. */
+/** Resolve path to a refs file in the skills refs directory. */
 function refsPath(fileName: string): string {
-  return resolve(resolveCatCafeHostRoot(process.cwd()), 'cat-cafe-skills', 'refs', fileName);
+  return resolve(resolveCatCafeHostRoot(process.cwd()), 'office-claw-skills', 'refs', fileName);
 }
 
 /**
@@ -50,7 +50,7 @@ export const registerCallbackDocsRoutes: FastifyPluginAsync = async (app) => {
       return { instructions };
     } catch {
       reply.code(503);
-      return { error: 'Refs file not readable. Ensure cat-cafe-skills/refs/mcp-callbacks.md exists.' };
+      return { error: 'Refs file not readable. Ensure refs/mcp-callbacks.md exists in the skills directory.' };
     }
   });
 };

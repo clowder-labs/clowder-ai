@@ -65,7 +65,7 @@ export class OpenCodeAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     // P1-2: runtime model override takes precedence over constructor model
-    const effectiveModel = options?.callbackEnv?.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE ?? this.model;
+    const effectiveModel = options?.callbackEnv?.OFFICE_CLAW_ANTHROPIC_MODEL_OVERRIDE ?? this.model;
     const args = this.buildArgs(prompt, options?.sessionId, effectiveModel, options?.cliConfigArgs);
     const cwd = options?.workingDirectory;
     const childEnv = this.buildEnv(options?.callbackEnv);
@@ -219,7 +219,7 @@ export class OpenCodeAgentService implements AgentService {
     const env: Record<string, string | null> = { ...callbackEnv };
 
     // F189: When OPENCODE_CONFIG is set (custom provider via runtime config file),
-    // credentials are injected via {env:CAT_CAFE_OC_*} substitution in the config.
+    // credentials are injected via {env:OFFICE_CLAW_OC_*} substitution in the config.
     // Clear anthropic env vars to prevent opencode from using the builtin anthropic provider.
     if (callbackEnv?.OPENCODE_CONFIG) {
       env[ANTHROPIC_API_KEY_ENV] = null;
@@ -229,7 +229,7 @@ export class OpenCodeAgentService implements AgentService {
       return env;
     }
 
-    const profileMode = callbackEnv?.CAT_CAFE_ANTHROPIC_PROFILE_MODE;
+    const profileMode = callbackEnv?.OFFICE_CLAW_ANTHROPIC_PROFILE_MODE;
 
     // Subscription mode must not inherit API-key credentials from parent env.
     if (profileMode === 'subscription') {
@@ -241,7 +241,7 @@ export class OpenCodeAgentService implements AgentService {
     }
 
     // API key: callbackEnv > constructor > process.env
-    const apiKey = callbackEnv?.CAT_CAFE_ANTHROPIC_API_KEY ?? callbackEnv?.[OPENCODE_API_KEY_ENV] ?? this.apiKey;
+    const apiKey = callbackEnv?.OFFICE_CLAW_ANTHROPIC_API_KEY ?? callbackEnv?.[OPENCODE_API_KEY_ENV] ?? this.apiKey;
     if (apiKey) {
       env[ANTHROPIC_API_KEY_ENV] = apiKey;
     }
@@ -249,7 +249,7 @@ export class OpenCodeAgentService implements AgentService {
     // Base URL: callbackEnv > constructor > process.env
     // Pass through as-is — user configures the exact URL expected by their endpoint.
     // opencode CLI calls {ANTHROPIC_BASE_URL}/messages directly.
-    const rawBaseUrl = callbackEnv?.CAT_CAFE_ANTHROPIC_BASE_URL ?? this.baseUrl;
+    const rawBaseUrl = callbackEnv?.OFFICE_CLAW_ANTHROPIC_BASE_URL ?? this.baseUrl;
     if (rawBaseUrl) {
       env[ANTHROPIC_BASE_URL_ENV] = rawBaseUrl;
     }

@@ -20,19 +20,19 @@ import type { McpServerDescriptor } from '@cat-cafe/shared';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 const GEMINI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
-  CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
-  CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
-  CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
-  CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
-  CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+  OFFICE_CLAW_API_URL: '${OFFICE_CLAW_API_URL}',
+  OFFICE_CLAW_INVOCATION_ID: '${OFFICE_CLAW_INVOCATION_ID}',
+  OFFICE_CLAW_CALLBACK_TOKEN: '${OFFICE_CLAW_CALLBACK_TOKEN}',
+  OFFICE_CLAW_USER_ID: '${OFFICE_CLAW_USER_ID}',
+  OFFICE_CLAW_SIGNAL_USER: '${OFFICE_CLAW_SIGNAL_USER}',
 };
 
-function isCatCafeServer(name: string): boolean {
-  return name === 'cat-cafe' || name.startsWith('cat-cafe-');
+function isBuiltinServer(name: string): boolean {
+  return name === 'cat-cafe' || name.startsWith('cat-cafe-') || name.startsWith('office-claw-');
 }
 
 function ensureGeminiCatCafeEnv(name: string, env?: Record<string, string>): Record<string, string> | undefined {
-  if (!isCatCafeServer(name)) return env;
+  if (!isBuiltinServer(name)) return env;
   return {
     ...GEMINI_CAT_CAFE_ENV_PLACEHOLDERS,
     ...(env ?? {}),
@@ -220,7 +220,7 @@ export async function writeGeminiMcpConfig(filePath: string, servers: McpServerD
   // Keep legacy cat-cafe entries functional even when they are preserved as
   // non-managed servers (e.g. migration leftovers in user's settings).
   for (const [name, value] of Object.entries(existingMcp)) {
-    if (!isCatCafeServer(name)) continue;
+    if (!isBuiltinServer(name)) continue;
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
     const cfg = value as Record<string, unknown>;
     const currentEnv = toStringRecord(cfg.env);

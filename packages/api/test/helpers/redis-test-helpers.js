@@ -9,7 +9,7 @@
  * Enforces isolated test Redis and provides keyPrefix-safe cleanup.
  */
 
-const ISOLATION_FLAG = 'CAT_CAFE_REDIS_TEST_ISOLATED';
+const ISOLATION_FLAG = 'OFFICE_CLAW_REDIS_TEST_ISOLATED';
 
 function parseRedisUrl(redisUrl) {
   try {

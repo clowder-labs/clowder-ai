@@ -38,25 +38,25 @@ describe('ThreadCatStatus', () => {
     const html = renderToStaticMarkup(
       React.createElement(ThreadCatStatus, { threadState: makeState({ opus: 'streaming' }), unreadCount: 0 }),
     );
-    expect(html).toContain('ᓚᘏᗢ');
+    expect(html).toContain('●');
     expect(html).toContain('animate-cat-bounce');
     expect(html).toContain('text-amber-500');
   });
 
-  it('shows green cat + check when done', () => {
+  it('shows green indicator + check when done', () => {
     const html = renderToStaticMarkup(
       React.createElement(ThreadCatStatus, { threadState: makeState({ opus: 'done' }), unreadCount: 0 }),
     );
-    expect(html).toContain('ᓚᘏᗢ');
+    expect(html).toContain('●');
     expect(html).toContain('text-green-500');
     expect(html).toContain('✓');
   });
 
-  it('shows red shaking cat on error', () => {
+  it('shows red shaking indicator on error', () => {
     const html = renderToStaticMarkup(
       React.createElement(ThreadCatStatus, { threadState: makeState({ opus: 'error' }), unreadCount: 0 }),
     );
-    expect(html).toContain('ᓚᘏᗢ');
+    expect(html).toContain('●');
     expect(html).toContain('animate-cat-shake');
     expect(html).toContain('text-red-500');
   });
@@ -76,14 +76,14 @@ describe('ThreadCatStatus', () => {
     expect(html).toContain('99+');
   });
 
-  it('shows both cat and unread badge together', () => {
+  it('shows both status indicator and unread badge together', () => {
     const html = renderToStaticMarkup(
       React.createElement(ThreadCatStatus, {
         threadState: makeState({ codex: 'streaming' }),
         unreadCount: 3,
       }),
     );
-    expect(html).toContain('ᓚᘏᗢ');
+    expect(html).toContain('●');
     expect(html).toContain('3');
   });
 
@@ -105,8 +105,8 @@ describe('ThreadCatStatus', () => {
         hasUserMention: true,
       }),
     );
-    expect(html).toContain('🐾');
-    expect(html).toContain('猫猫 @ 了你');
+    expect(html).toContain('📌');
+    expect(html).toContain('智能体 @ 了你');
   });
 
   it('shows red unread badge when hasUserMention is true', () => {
@@ -140,7 +140,7 @@ describe('ThreadCatStatus', () => {
         hasUserMention: true,
       }),
     );
-    expect(html).toContain('🐾');
+    expect(html).toContain('📌');
   });
 });
 

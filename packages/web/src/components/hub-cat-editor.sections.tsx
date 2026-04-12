@@ -92,7 +92,7 @@ export function IdentitySection({
         ariaLabel="Nickname"
         value={form.nickname}
         onChange={(value) => onChange({ nickname: value })}
-        placeholder="可选，铲屎官给的昵称"
+        placeholder="可选，用户自定义昵称"
       />
       <TextField
         label="角色描述"
@@ -329,7 +329,7 @@ export function AccountSection({
   loadingProfiles: boolean;
   /** When provided, only these client IDs are shown in the Client dropdown. */
   availableClientIds?: ReadonlySet<string>;
-  /** Custom display labels for clients (from CAT_CAFE_CLIENT_LABELS env). */
+  /** Custom display labels for clients (from OFFICE_CLAW_CLIENT_LABELS env). */
   clientLabels?: Record<string, string>;
   onChange: (patch: FormPatch) => void;
 }) {

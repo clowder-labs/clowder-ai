@@ -166,9 +166,9 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-789',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-789',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-789',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-789',
     };
 
     const promise = collect(
@@ -191,9 +191,9 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-123',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-456',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-123',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-456',
     };
 
     const promise = collect(service.invoke('test', { callbackEnv }));
@@ -201,8 +201,8 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     await promise;
 
     const spawnOpts = spawnFn.mock.calls[0].arguments[2];
-    assert.equal(spawnOpts.env.CAT_CAFE_INVOCATION_ID, 'inv-123');
-    assert.equal(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN, 'tok-456');
+    assert.equal(spawnOpts.env.OFFICE_CLAW_INVOCATION_ID, 'inv-123');
+    assert.equal(spawnOpts.env.OFFICE_CLAW_CALLBACK_TOKEN, 'tok-456');
   });
 
   test('injects bundled Python Scripts into gemini child PATH', async () => {
@@ -461,9 +461,9 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-1',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-1',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-1',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-1',
     };
 
     const msgs = await collect(service.invoke('Design a logo', { callbackEnv }));
@@ -489,9 +489,9 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-2',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-2',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-2',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-2',
     };
 
     await collect(service.invoke('Design a logo', { callbackEnv }));
@@ -504,8 +504,8 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     const spawnOpts = call.arguments[2];
     assert.equal(spawnOpts.detached, true);
     assert.equal(spawnOpts.stdio, 'ignore');
-    assert.equal(spawnOpts.env.CAT_CAFE_INVOCATION_ID, 'inv-2');
-    assert.equal(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN, 'tok-2');
+    assert.equal(spawnOpts.env.OFFICE_CLAW_INVOCATION_ID, 'inv-2');
+    assert.equal(spawnOpts.env.OFFICE_CLAW_CALLBACK_TOKEN, 'tok-2');
   });
 
   test('errors when callbackEnv is missing', async () => {
@@ -545,9 +545,9 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-async',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-async',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-async',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-async',
     };
 
     const msgs = await collect(service.invoke('test', { callbackEnv }));
@@ -574,9 +574,9 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-3',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-3',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-3',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-3',
     };
 
     const msgs = await collect(service.invoke('test', { callbackEnv }));
@@ -605,9 +605,9 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-4',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-4',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-4',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-4',
     };
 
     const msgs = await collect(service.invoke('test', { callbackEnv }));
@@ -653,9 +653,9 @@ describe('GeminiAgentService (adapter selection)', () => {
     });
 
     const callbackEnv = {
-      CAT_CAFE_API_URL: 'http://localhost:3004',
-      CAT_CAFE_INVOCATION_ID: 'inv-5',
-      CAT_CAFE_CALLBACK_TOKEN: 'tok-5',
+      OFFICE_CLAW_API_URL: 'http://localhost:3004',
+      OFFICE_CLAW_INVOCATION_ID: 'inv-5',
+      OFFICE_CLAW_CALLBACK_TOKEN: 'tok-5',
     };
 
     await collect(service.invoke('test', { callbackEnv }));

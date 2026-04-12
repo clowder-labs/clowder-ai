@@ -43,10 +43,10 @@ const log = createModuleLogger('claude-agent');
 
 const PERMISSION_MODE = 'bypassPermissions';
 
-const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
-const ANTHROPIC_PROFILE_API_KEY = 'CAT_CAFE_ANTHROPIC_API_KEY';
-const ANTHROPIC_PROFILE_BASE_URL = 'CAT_CAFE_ANTHROPIC_BASE_URL';
-const ANTHROPIC_MODEL_OVERRIDE_KEY = 'CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE';
+const ANTHROPIC_PROFILE_MODE_KEY = 'OFFICE_CLAW_ANTHROPIC_PROFILE_MODE';
+const ANTHROPIC_PROFILE_API_KEY = 'OFFICE_CLAW_ANTHROPIC_API_KEY';
+const ANTHROPIC_PROFILE_BASE_URL = 'OFFICE_CLAW_ANTHROPIC_BASE_URL';
+const ANTHROPIC_MODEL_OVERRIDE_KEY = 'OFFICE_CLAW_ANTHROPIC_MODEL_OVERRIDE';
 
 /** Default fallback model for Claude CLI when the real model is set via env var mapping. */
 const ANTHROPIC_CLI_FALLBACK_MODEL = 'claude-opus-4-6';
@@ -177,7 +177,7 @@ export class ClaudeAgentService implements AgentService {
     this.spawnFn = options?.spawnFn;
     // F32-b: model from options > env (getCatModel) > default
     this.model = options?.model ?? getCatModel(this.catId as string);
-    const configuredPath = options?.mcpServerPath ?? process.env.CAT_CAFE_MCP_SERVER_PATH;
+    const configuredPath = options?.mcpServerPath ?? process.env.OFFICE_CLAW_MCP_SERVER_PATH;
     if (configuredPath && configuredPath.trim().length > 0) {
       this.mcpServerPath = isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath);
     } else {
@@ -360,7 +360,7 @@ export class ClaudeAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `布偶猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
+            error: `Claude CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };

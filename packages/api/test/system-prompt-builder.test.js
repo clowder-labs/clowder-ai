@@ -569,6 +569,8 @@ describe('SystemPromptBuilder', () => {
     assert.ok(identity.includes('office_claw_get_thread_context'), 'Should contain thread context tool');
     assert.ok(identity.includes('office_claw_list_skills'), 'Should contain skill catalog tool');
     assert.ok(identity.includes('office_claw_load_skill'), 'Should contain skill load tool');
+    assert.ok(identity.includes('your natural-language reply must explicitly tell the user where the file is'));
+    assert.ok(identity.includes('/uploads/...'));
     assert.ok(
       identity.includes('计划/TDD/对比/worktree：先 list+load，再 search/grep/read'),
       'Should teach runtime MCP skill trigger semantics',

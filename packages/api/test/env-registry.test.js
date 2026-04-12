@@ -200,7 +200,7 @@ describe('GET /api/config/env-summary (route)', () => {
   it('projectRoot follows CAT_TEMPLATE_PATH directory when set', async () => {
     const { configRoutes } = await import('../dist/routes/config.js');
     const tempRoot = mkdtempSync(resolve(tmpdir(), 'cat-cafe-env-summary-'));
-    const templatePath = resolve(tempRoot, 'cat-template.json');
+    const templatePath = resolve(tempRoot, 'office-claw-template.json');
     writeFileSync(templatePath, '{}', 'utf8');
     setEnv('CAT_TEMPLATE_PATH', templatePath);
     const app = Fastify({ logger: false });
@@ -265,7 +265,7 @@ describe('PATCH /api/config/env (route)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'FRONTEND_URL', value: 'http://localhost:3200' }],
         },
@@ -352,7 +352,7 @@ describe('PATCH /api/config/env (route)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'FRONTEND_URL', value: literal }],
         },
@@ -391,7 +391,7 @@ describe('PATCH /api/config/env (route)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'FRONTEND_URL', value: literal }],
         },
@@ -430,7 +430,7 @@ describe('PATCH /api/config/env (route)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'OPENAI_API_KEY', value: 'sk-new' }],
         },
@@ -476,7 +476,7 @@ describe('PATCH /api/config/env (route)', () => {
         const res = await app.inject({
           method: 'PATCH',
           url: '/api/config/env',
-          headers: { 'x-cat-cafe-user': 'codex' },
+          headers: { 'x-office-claw-user': 'codex' },
           payload: {
             updates: [{ name, value: `${name}-changed` }],
           },
@@ -511,7 +511,7 @@ describe('PATCH /api/config/env (route)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'CAT_OPUS_MAX_PROMPT_CHARS', value: '180000' }],
         },
@@ -545,7 +545,7 @@ describe('PATCH /api/config/env (route)', () => {
       const apiPortRes = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'API_SERVER_PORT', value: '3203' }],
         },
@@ -556,7 +556,7 @@ describe('PATCH /api/config/env (route)', () => {
       const previewPortRes = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'PREVIEW_GATEWAY_PORT', value: '4200' }],
         },
@@ -590,7 +590,7 @@ describe('PATCH /api/config/env (route)', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/config/env',
-        headers: { 'x-cat-cafe-user': 'codex' },
+        headers: { 'x-office-claw-user': 'codex' },
         payload: {
           updates: [{ name: 'REDIS_URL', value: 'redis://localhost:6398/15' }],
         },

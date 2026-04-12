@@ -11,7 +11,7 @@ import type { AcpModelProfilesMetaFile, AcpModelProfilesSecretsFile } from './ac
 import { normalizeMetaState, normalizeSecretsState } from './acp-model-profiles.normalize.js';
 import { resolveProviderProfilesRoot } from './provider-profiles-root.js';
 
-const CAT_CAFE_DIR = '.cat-cafe';
+const CAT_CAFE_DIR = '.office-claw';
 const META_FILENAME = 'acp-model-profiles.json';
 const SECRETS_FILENAME = 'acp-model-profiles.secrets.local.json';
 const PROVIDER_PROFILES_FILENAME = 'provider-profiles.json';

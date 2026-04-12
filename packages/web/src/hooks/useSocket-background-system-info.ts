@@ -300,7 +300,7 @@ export function consumeBackgroundSystemInfo(
         sysVariant = 'a2a_followup';
       }
     } else if (parsed?.type === 'mode_switch_proposal') {
-      const by = parsed.proposedBy ?? '猫猫';
+      const by = parsed.proposedBy ?? '智能体';
       sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
     } else if (parsed?.type === 'silent_completion') {
       // Bugfix: silent-exit — cat ran tools but produced no text response

@@ -111,7 +111,7 @@ describe('signal sources loader', () => {
     process.env.SIGNALS_ROOT_DIR = '';
 
     const paths = resolveSignalPaths();
-    const expectedRoot = join(homedir(), '.cat-cafe', 'signals');
+    const expectedRoot = join(homedir(), '.office-claw', 'signals');
 
     assert.equal(paths.rootDir, expectedRoot);
   });

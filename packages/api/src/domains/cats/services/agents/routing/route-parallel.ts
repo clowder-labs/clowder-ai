@@ -73,7 +73,7 @@ export async function* routeParallel(
   } = options;
   const thinkingMode = options.thinkingMode ?? 'play';
   // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
-  const mcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
+  const mcpServerPath = process.env.OFFICE_CLAW_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
   const degradationMsgs: AgentMessage[] = [];

@@ -10,7 +10,7 @@ import type { CatStatusType, ThreadState } from '@/stores/chat-types';
 
 /**
  * ASCII cat status indicator for thread sidebar.
- * Shows ᓚᘏᗢ with CSS animation + color based on aggregate thread state.
+ * Shows status indicator with CSS animation + color based on aggregate thread state.
  */
 
 function aggregateStatus(ts: ThreadState): 'idle' | 'working' | 'done' | 'error' {
@@ -46,13 +46,13 @@ export function ThreadCatStatus({
     <span className="inline-flex items-center gap-0.5 flex-shrink-0">
       {status !== 'idle' && (
         <span className={`text-xs ${statusClasses[status]}`} title={status}>
-          ᓚᘏᗢ
+          ●
         </span>
       )}
       {status === 'done' && <span className="text-green-500 text-[10px]">&#10003;</span>}
       {hasUserMention && (
         <span className="text-[11px]" title="智能体 @ 了你">
-          🐾
+          📌
         </span>
       )}
       {unreadCount > 0 && (

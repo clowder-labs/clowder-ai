@@ -33,7 +33,7 @@ describe('Audit routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/audit/thread/thread-system',
-      headers: { 'x-cat-cafe-user': 'default-user' },
+      headers: { 'x-office-claw-user': 'default-user' },
     });
 
     assert.equal(res.statusCode, 200);
