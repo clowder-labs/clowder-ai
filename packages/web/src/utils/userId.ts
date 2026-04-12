@@ -11,6 +11,7 @@
 
 const STORAGE_KEY = 'cat-cafe-userId';
 const SKIP_AUTH_KEY = 'cat-cafe-isskip';
+const USER_NAME_KEY = 'cat-cafe-userName';
 const DEFAULT_USER = 'default-user';
 
 export function getUserId(): string {
@@ -29,6 +30,40 @@ export function getUserId(): string {
 export function setUserId(id: string): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem(STORAGE_KEY, id);
+  }
+}
+
+export function getUserName(): string {
+  if (typeof window === 'undefined') return '';
+  const stored = localStorage.getItem(USER_NAME_KEY);
+  if (stored) return stored;
+
+  const userId = localStorage.getItem(STORAGE_KEY) ?? '';
+  const parts = userId.split(':');
+  return parts.length > 1 ? parts[1] || parts[0] : userId;
+}
+
+export function setUserName(name: string): void {
+  if (typeof window !== 'undefined') {
+    if (name.trim()) {
+      localStorage.setItem(USER_NAME_KEY, name.trim());
+    } else {
+      localStorage.removeItem(USER_NAME_KEY);
+    }
+  }
+}
+
+export function setAuthIdentity({ userId, userName }: { userId: string; userName?: string }): void {
+  setUserId(userId);
+  if (typeof userName === 'string') {
+    setUserName(userName);
+  }
+}
+
+export function clearAuthIdentity(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(USER_NAME_KEY);
   }
 }
 

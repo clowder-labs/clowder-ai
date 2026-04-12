@@ -1,0 +1,119 @@
+/*
+ * *
+ *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ *
+ */
+
+'use client';
+
+import Image from 'next/image';
+import type { ReactNode } from 'react';
+
+const FEATURE_CARDS = [
+  {
+    icon: '/images/login1.svg',
+    title: '专业办公级AI PPT生产力',
+    description: '专业办公级AI PPT生成能力，一键完成高质量PPT创作与美化',
+  },
+  {
+    icon: '/images/login2.svg',
+    title: '专家团思辨模式',
+    description: '多智能体对等协同思辨，通过投票推选核心Leader智能体，统领指挥、协同执行复杂任务',
+  },
+  {
+    icon: '/images/login3.svg',
+    title: '预置办公场景精品Skill',
+    description: '预置PPT、Word、Excel等办公场景Skill，轻松解锁高效工作流',
+  },
+  {
+    icon: '/images/login4.svg',
+    title: '全渠道接入，支持微信直连',
+    description: '支持飞书、微信、钉钉、小艺等多平台接入，微信直连更便捷，实现全场景办公覆盖',
+  },
+] as const;
+
+export function AuthLoadingAnimation({
+  label = '处理中',
+  detail,
+}: {
+  label?: string;
+  detail?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-4">
+      <div className="relative h-16 w-16" aria-hidden="true">
+        <span className="absolute inset-0 rounded-full border border-[#F1C3A2]/50" />
+        <span className="absolute inset-[6px] rounded-full border-4 border-[#F6E4D3] border-t-[#D9864B] animate-spin" />
+        <span className="absolute inset-[18px] rounded-full bg-gradient-to-br from-[#FFE5CF] via-[#FFF6EE] to-white shadow-[0_10px_24px_-18px_rgba(217,134,75,0.8)]" />
+      </div>
+      <div className="text-center">
+        <p className="text-base font-semibold text-[#2B2F36]">{label}</p>
+        {detail ? <p className="mt-2 text-sm leading-6 text-[#6B7280]">{detail}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+export function AuthShell({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1280px] flex-col gap-10 lg:min-h-[calc(100vh-5rem)] lg:flex-row lg:items-center lg:gap-14">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+          <div className="flex w-full max-w-[760px] flex-col items-center">
+            <div>
+              <Image
+                data-testid="login-hero-officeclaw-logo"
+                src="/images/OfficeClaw.svg"
+                alt="OfficeClaw"
+                width={248}
+                height={56}
+                className="h-14 w-auto"
+                priority
+              />
+            </div>
+
+            <p className="mb-10 max-w-xl text-center text-xl font-semibold leading-10 text-gray-600 sm:text-2xl sm:leading-[48px]">
+              AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
+            </p>
+
+            <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+              {FEATURE_CARDS.map((feature) => (
+                <div key={feature.title} className="w-full min-w-0 rounded-2xl border border-white/70 bg-white/70 p-5 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.3)] backdrop-blur-sm">
+                  <div className="mb-3">
+                    <Image src={feature.icon} alt={feature.title} width={32} height={32} />
+                  </div>
+                  <h3 className="mb-1 text-sm font-semibold text-gray-900">{feature.title}</h3>
+                  <p className="text-sm leading-relaxed text-gray-600">{feature.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full max-w-[450px] flex-shrink-0 lg:w-[clamp(320px,36vw,450px)]">
+          <div className="mx-auto w-full rounded-[28px] border border-[#F5D7BE] bg-white/90 p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.38)] backdrop-blur sm:p-8">
+            <div className="mb-8 text-center">
+              {eyebrow ? (
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-[#D9864B]">{eyebrow}</p>
+              ) : null}
+              <h2 className="mb-2 text-2xl font-bold text-gray-900">{title}</h2>
+              {description ? <p className="text-sm leading-6 text-gray-600">{description}</p> : null}
+            </div>
+
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

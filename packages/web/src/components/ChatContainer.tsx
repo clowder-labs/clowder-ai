@@ -61,6 +61,7 @@ import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
 import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
+import { AuthLoadingAnimation, AuthShell } from './auth/AuthShell';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
@@ -99,12 +100,23 @@ type ChatContainerProps =
 
 function AuthLoadingPanel() {
   return (
-    <div className="flex h-full items-center justify-center" data-testid="chat-container-loading-panel">
-      <div className="text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/chart/loading.svg" alt="加载中" className="mx-auto h-8 w-8 animate-spin" />
-        <p className="mt-3 text-gray-600">加载中...</p>
-      </div>
+    <div data-testid="chat-container-loading-panel">
+      <AuthShell
+        eyebrow="Workspace"
+        title="正在准备登录环境"
+        description="系统正在校验统一认证状态并初始化你的 OfficeClaw 会话，请稍候。"
+      >
+        <div className="space-y-6">
+          <AuthLoadingAnimation
+            label="正在检查登录状态并准备跳转"
+            detail="如果当前尚未登录，系统会自动打开华为云统一认证；已登录则会直接进入工作台。"
+          />
+
+          <div className="rounded-2xl border border-[#F8DFC9] bg-[#FFF7F0] px-4 py-4 text-sm leading-6 text-[#7A4E2B]">
+            首次进入时会顺带完成认证状态同步与缓存检查，耗时可能会略长一些。
+          </div>
+        </div>
+      </AuthShell>
     </div>
   );
 }
@@ -126,6 +138,8 @@ export function ChatContainer(props: ChatContainerProps) {
         setIsSkipAuth(Boolean(data?.isskip));
         if (data?.islogin) {
           setIsLoggedIn(true);
+        } else if (data?.pendingInvitation) {
+          router.replace('/login/invitation');
         } else {
           router.replace('/login');
         }
@@ -143,6 +157,10 @@ export function ChatContainer(props: ChatContainerProps) {
       cancelled = true;
     };
   }, [props.requireLoginCheck, router]);
+
+  if (!authChecked) {
+    return <AuthLoadingPanel />;
+  }
 
   if (authChecked && !isLoggedIn) {
     return null;

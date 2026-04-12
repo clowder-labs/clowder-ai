@@ -37,8 +37,10 @@ describe('authRoutes /api/login', () => {
 
   it('refreshes maas models after a successful login resolves modelInfo', async () => {
     const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-'));
+    const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
+    setEnv('HOME', configRoot);
 
     const { authRoutes } = await importAuthRoutesFresh();
     const app = Fastify();
@@ -110,6 +112,7 @@ describe('authRoutes /api/login', () => {
     assert.equal(refreshHeaders?.['x-refresh'], 'true');
 
     await app.close();
+    process.env.HOME = originalHome;
     rmSync(configRoot, { recursive: true, force: true });
   });
 });

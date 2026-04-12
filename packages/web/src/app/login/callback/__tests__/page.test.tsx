@@ -7,12 +7,11 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import LoginPage from '../page';
+import LoginCallbackPage from '../page';
 import { apiFetch } from '@/utils/api-client';
-import { setIsSkipAuth } from '@/utils/userId';
+import { setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 const mockRouterReplace = vi.fn();
-const mockLocationReplace = vi.fn();
 
 vi.mock('next/image', () => ({
   default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => React.createElement('img', props),
@@ -27,10 +26,12 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  setAuthIdentity: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockSetAuthIdentity = vi.mocked(setAuthIdentity);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 const originalLocation = window.location;
 
@@ -47,7 +48,7 @@ async function flush() {
   });
 }
 
-describe('LoginPage', () => {
+describe('LoginCallbackPage', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -57,37 +58,29 @@ describe('LoginPage', () => {
   });
 
   beforeEach(() => {
+    vi.useFakeTimers();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
 
     mockRouterReplace.mockReset();
-    mockLocationReplace.mockReset();
     mockApiFetch.mockReset();
+    mockSetAuthIdentity.mockReset();
     mockSetIsSkipAuth.mockReset();
 
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: {
         ...originalLocation,
-        href: 'http://localhost:3003/login',
-        replace: mockLocationReplace,
+        href: 'http://localhost:3003/login/callback?ticket=test-ticket',
       },
     });
-
-    mockApiFetch.mockResolvedValue(
-      jsonResponse({
-        islogin: false,
-        isskip: false,
-        pendingInvitation: false,
-        loginUrl: 'https://auth.example.com/login',
-      }),
-    );
   });
 
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: originalLocation,
@@ -99,52 +92,47 @@ describe('LoginPage', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('redirects to external unified auth when not logged in', async () => {
+  it('stores identity and redirects home after callback success', async () => {
+    mockApiFetch.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        userId: 'domain-1:alice',
+        userName: 'alice',
+        redirectTo: '/',
+      }),
+    );
+
     await act(async () => {
-      root.render(React.createElement(LoginPage));
+      root.render(React.createElement(LoginCallbackPage));
     });
     await flush();
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/islogin');
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/login/callback',
+      expect.objectContaining({ method: 'POST' }),
+    );
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
-    expect(mockLocationReplace).toHaveBeenCalledWith('https://auth.example.com/login');
-    expect(mockRouterReplace).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('即将进入统一认证');
-    expect(container.textContent).not.toContain('�');
-  });
-
-  it('redirects to home when already logged in', async () => {
-    mockApiFetch.mockResolvedValueOnce(
-      jsonResponse({
-        islogin: true,
-        isskip: false,
-      }),
-    );
-
-    await act(async () => {
-      root.render(React.createElement(LoginPage));
-    });
-    await flush();
-
+    expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'domain-1:alice', userName: 'alice' });
     expect(mockRouterReplace).toHaveBeenCalledWith('/');
-    expect(mockLocationReplace).not.toHaveBeenCalled();
   });
 
-  it('redirects to invitation page when subscription activation is pending', async () => {
+  it('redirects to invitation page when activation code is required', async () => {
     mockApiFetch.mockResolvedValueOnce(
       jsonResponse({
-        islogin: false,
-        isskip: false,
-        pendingInvitation: true,
+        success: true,
+        needCode: true,
+        userId: 'domain-1:alice',
+        userName: 'alice',
+        redirectTo: '/login/invitation',
       }),
     );
 
     await act(async () => {
-      root.render(React.createElement(LoginPage));
+      root.render(React.createElement(LoginCallbackPage));
     });
     await flush();
 
+    expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'domain-1:alice', userName: 'alice' });
     expect(mockRouterReplace).toHaveBeenCalledWith('/login/invitation');
-    expect(mockLocationReplace).not.toHaveBeenCalled();
   });
 });

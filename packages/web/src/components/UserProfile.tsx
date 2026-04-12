@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
-import { getIsSkipAuth, getUserId } from '@/utils/userId';
+import { clearAuthIdentity, getIsSkipAuth, getUserId, getUserName } from '@/utils/userId';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
 
@@ -52,15 +52,10 @@ export function UserProfile({ className }: UserProfileProps) {
   const themePopoverRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const userId = getUserId();
+  const storedUserName = getUserName();
   const { theme, setTheme } = useTheme();
 
-  const getUserName = () => {
-    if (userId === 'default-user') return '未登录';
-    const parts = userId.split(':');
-    return parts.length > 1 ? parts[1] || parts[0] : parts[0];
-  };
-
-  const userName = getUserName();
+  const userName = storedUserName || (userId === 'default-user' ? '未登录' : userId);
   const avatarLetter = userName.charAt(0).toUpperCase();
   const profileActionClass =
     'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[14px] font-normal leading-[20px]';
@@ -140,7 +135,14 @@ export function UserProfile({ className }: UserProfileProps) {
       });
 
       if (response.ok) {
-        localStorage.removeItem('cat-cafe-userId');
+        const data = await response.json();
+        clearAuthIdentity();
+
+        if (typeof window !== 'undefined' && typeof data?.logoutUrl === 'string' && data.logoutUrl) {
+          window.location.assign(data.logoutUrl);
+          return;
+        }
+
         router.replace('/login');
       } else {
         console.error('退出登录失败');
