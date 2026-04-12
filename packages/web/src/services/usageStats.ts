@@ -20,6 +20,26 @@ interface SessionSummary {
   };
 }
 
+export interface UsageStatsDataset {
+  threads: Array<{
+    id: string;
+    title?: string | null;
+  }>;
+  sessionsByThreadId: Record<
+    string,
+    Array<{
+      id: string;
+      updatedAt?: number;
+      lastUsage?: {
+        inputTokens?: number;
+        outputTokens?: number;
+        cacheReadTokens?: number;
+        costUsd?: number;
+      };
+    }>
+  >;
+}
+
 export interface UsageStatsItem {
   id: string;
   sessionName: string;
@@ -119,26 +139,16 @@ function sumSessionTokens(
   return hasValue ? total : null;
 }
 
-export async function fetchUsageStatsPage(query: UsageStatsPageQuery): Promise<UsageStatsPageResult> {
-  const now = Date.now();
+export function buildUsageStatsPageFromDataset(
+  dataset: UsageStatsDataset,
+  query: UsageStatsPageQuery,
+  now = Date.now(),
+): UsageStatsPageResult {
   const rangeStart = resolveRangeStart(now, query.range);
 
-  const threadsResponse = await apiFetch('/api/threads');
-  if (!threadsResponse.ok) {
-    throw new Error(await readApiError(threadsResponse));
-  }
-
-  const threads = normalizeThreads(await threadsResponse.json());
-
-  const rowsWithSortKey = await Promise.all(
-    threads.map(async (thread) => {
-      const sessionsResponse = await apiFetch(`/api/threads/${thread.id}/sessions`);
-      if (!sessionsResponse.ok) {
-        throw new Error(await readApiError(sessionsResponse));
-      }
-
-      const sessions = normalizeSessions(await sessionsResponse.json());
-
+  const filteredItems = dataset.threads
+    .map((thread) => {
+      const sessions = dataset.sessionsByThreadId[thread.id] ?? [];
       const sessionsInRange = sessions.filter((session) => {
         const updatedAt = session.updatedAt;
         return typeof updatedAt === 'number' && updatedAt >= rangeStart && updatedAt <= now;
@@ -171,10 +181,7 @@ export async function fetchUsageStatsPage(query: UsageStatsPageQuery): Promise<U
           occurredAt: toLocalDateTime(latestSession.updatedAt),
         } satisfies UsageStatsItem,
       };
-    }),
-  );
-
-  const filteredItems = rowsWithSortKey
+    })
     .filter((entry): entry is { sortKey: number; item: UsageStatsItem } => entry != null)
     .sort((left, right) => right.sortKey - left.sortKey)
     .map((entry) => entry.item);
@@ -188,4 +195,34 @@ export async function fetchUsageStatsPage(query: UsageStatsPageQuery): Promise<U
     pageSize: query.pageSize,
     total: filteredItems.length,
   };
+}
+
+export async function fetchUsageStatsDataset(): Promise<UsageStatsDataset> {
+  const threadsResponse = await apiFetch('/api/threads');
+  if (!threadsResponse.ok) {
+    throw new Error(await readApiError(threadsResponse));
+  }
+
+  const threads = normalizeThreads(await threadsResponse.json());
+  const sessionEntries = await Promise.all(
+    threads.map(async (thread) => {
+      const sessionsResponse = await apiFetch(`/api/threads/${thread.id}/sessions`);
+      if (!sessionsResponse.ok) {
+        throw new Error(await readApiError(sessionsResponse));
+      }
+
+      const sessions = normalizeSessions(await sessionsResponse.json());
+      return [thread.id, sessions] as const;
+    }),
+  );
+
+  return {
+    threads,
+    sessionsByThreadId: Object.fromEntries(sessionEntries),
+  };
+}
+
+export async function fetchUsageStatsPage(query: UsageStatsPageQuery): Promise<UsageStatsPageResult> {
+  const dataset = await fetchUsageStatsDataset();
+  return buildUsageStatsPageFromDataset(dataset, query);
 }
