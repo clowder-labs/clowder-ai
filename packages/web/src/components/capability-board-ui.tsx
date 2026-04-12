@@ -107,9 +107,9 @@ export function ExtensionIcon({ className }: { className?: string }) {
 }
 
 function getSourceLabel(source: CapabilityBoardItem['source']): string {
-  if (source === 'cat-cafe') return '官方';
-  if (source === 'external') return '三方';
-  return '未知';
+  if (source === 'cat-cafe') return '内置技能';
+  if (source === 'external') return '用户添加技能';
+  return '其他';
 }
 
 export function CapabilitySection({

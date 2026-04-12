@@ -771,7 +771,7 @@ export function CreateAgentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
       <div
-        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 overflow-hidden rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
         data-testid="create-agent-modal"
       >
         <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
