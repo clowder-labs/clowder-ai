@@ -75,7 +75,13 @@ async function clickButton(button: HTMLElement) {
   });
 }
 
-function mockOverflow(node: Element, clientWidth: number, scrollWidth: number, clientHeight: number, scrollHeight: number) {
+function mockOverflow(
+  node: Element,
+  clientWidth: number,
+  scrollWidth: number,
+  clientHeight: number,
+  scrollHeight: number,
+) {
   Object.defineProperty(node, 'clientWidth', {
     configurable: true,
     value: clientWidth,
@@ -175,9 +181,6 @@ describe('ModelsPanel search', () => {
             ],
           }),
         );
-      }
-      if (url === '/api/provider-profiles/test-draft') {
-        return Promise.resolve(jsonResponse({ ok: true, mode: 'api_key', status: 200 }));
       }
       return Promise.resolve(jsonResponse({}));
     });
@@ -308,7 +311,9 @@ describe('ModelsPanel search', () => {
 
     expect(container.textContent).toContain('接入华为云 MaaS模型');
     expect(container.textContent).toContain('模型调用名称');
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
     expect(urlInput).not.toBeNull();
     expect(urlInput?.value).toBe('https://api.modelarts-maas.com/openai/v1');
     expect(urlInput?.disabled).toBe(true);
@@ -326,7 +331,9 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const openDefaultModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    const openDefaultModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
     expect(openDefaultModal).not.toBeNull();
     await clickButton(openDefaultModal!);
     await flushEffects();
@@ -364,7 +371,9 @@ describe('ModelsPanel search', () => {
 
     expect(container.textContent).toContain('接入华为云 MaaS模型');
     expect(container.textContent).not.toContain('编辑模型');
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
     expect(urlInput).not.toBeNull();
     expect(urlInput?.value).toBe('https://api.modelarts-maas.com/openai/v1');
     expect(urlInput?.disabled).toBe(true);
@@ -514,7 +523,9 @@ describe('ModelsPanel search', () => {
 
     const fallbackIcon = container.querySelector('[data-testid="model-card-icon-alpha-custom"]');
     const customModelCard = fallbackIcon?.closest('article');
-    const huaweiTitle = Array.from(container.querySelectorAll('h4')).find((node) => node.textContent?.includes('deepseek-r1'));
+    const huaweiTitle = Array.from(container.querySelectorAll('h4')).find((node) =>
+      node.textContent?.includes('deepseek-r1'),
+    );
     const huaweiModelCard = huaweiTitle?.closest('article');
     expect(fallbackIcon).not.toBeNull();
     expect(fallbackIcon?.textContent).toContain('A');
@@ -530,7 +541,9 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const icon = container.querySelector('[data-testid="model-card-icon-model_config:gpt-source:gpt-5"]') as HTMLImageElement | null;
+    const icon = container.querySelector(
+      '[data-testid="model-card-icon-model_config:gpt-source:gpt-5"]',
+    ) as HTMLImageElement | null;
     expect(icon).not.toBeNull();
     expect(icon?.getAttribute('src')).toBe('http://localhost:3004/uploads/gpt-5.png');
   });
@@ -541,7 +554,9 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const editButton = container.querySelector('[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]') as HTMLButtonElement | null;
+    const editButton = container.querySelector(
+      '[data-testid="model-card-edit-model_config:gpt-source:gpt-5"]',
+    ) as HTMLButtonElement | null;
     expect(editButton).not.toBeNull();
     await clickButton(editButton!);
     await flushEffects();
@@ -559,20 +574,30 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
     expect(openModal).not.toBeNull();
     await clickButton(openModal!);
 
-    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
     const descriptionInput = container.querySelector(
       '[data-testid="models-create-model-description-textarea"]',
     ) as HTMLTextAreaElement | null;
     const displayNameInput = container.querySelector(
       '[data-testid="models-create-model-display-name-input"]',
     ) as HTMLInputElement | null;
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
-    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
-    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    const submitButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
 
     expect(nameInput).not.toBeNull();
     expect(descriptionInput).not.toBeNull();
@@ -599,7 +624,7 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(payload.description).toBe('custom description for test');
     expect(payload.icon).toBe('/images/mode-default-icon.svg');
   });
@@ -612,15 +637,27 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
     expect(openModal).not.toBeNull();
     await clickButton(openModal!);
 
-    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
-    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
-    const addHeaderButton = container.querySelector('[data-testid="models-create-model-header-add"]') as HTMLButtonElement | null;
-    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    const addHeaderButton = container.querySelector(
+      '[data-testid="models-create-model-header-add"]',
+    ) as HTMLButtonElement | null;
+    const submitButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
 
     expect(nameInput).not.toBeNull();
     expect(urlInput).not.toBeNull();
@@ -633,8 +670,12 @@ describe('ModelsPanel search', () => {
     await changeInputValue(apiKeyInput!, 'sk-test');
     await clickButton(addHeaderButton!);
 
-    const headerKeyInput = container.querySelector('[data-testid="models-create-model-header-key-0"]') as HTMLInputElement | null;
-    const headerValueInput = container.querySelector('[data-testid="models-create-model-header-value-0"]') as HTMLInputElement | null;
+    const headerKeyInput = container.querySelector(
+      '[data-testid="models-create-model-header-key-0"]',
+    ) as HTMLInputElement | null;
+    const headerValueInput = container.querySelector(
+      '[data-testid="models-create-model-header-value-0"]',
+    ) as HTMLInputElement | null;
     expect(headerKeyInput).not.toBeNull();
     expect(headerValueInput).not.toBeNull();
 
@@ -651,7 +692,7 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(payload.headers).toEqual({ 'X-App-Id': 'cat-cafe' });
   });
 
@@ -663,15 +704,25 @@ describe('ModelsPanel search', () => {
     });
     await flushEffects();
 
-    const openModal = container.querySelector('[data-testid="models-open-create-model-modal"]') as HTMLButtonElement | null;
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
     expect(openModal).not.toBeNull();
     await clickButton(openModal!);
 
-    const nameInput = container.querySelector('[data-testid="models-create-model-name-input"]') as HTMLInputElement | null;
-    const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
-    const apiKeyInput = container.querySelector('[data-testid="models-create-model-api-key-input"]') as HTMLInputElement | null;
+    const nameInput = container.querySelector(
+      '[data-testid="models-create-model-name-input"]',
+    ) as HTMLInputElement | null;
+    const urlInput = container.querySelector(
+      '[data-testid="models-create-model-url-input"]',
+    ) as HTMLInputElement | null;
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
     const randomIconButton = container.querySelector('[aria-label="Random model icon"]') as HTMLButtonElement | null;
-    const submitButton = container.querySelector('[data-testid="models-create-model-confirm"]') as HTMLButtonElement | null;
+    const submitButton = container.querySelector(
+      '[data-testid="models-create-model-confirm"]',
+    ) as HTMLButtonElement | null;
 
     expect(nameInput).not.toBeNull();
     expect(urlInput).not.toBeNull();
@@ -694,7 +745,7 @@ describe('ModelsPanel search', () => {
         (init as RequestInit).method === 'POST',
     );
     expect(postCall).toBeTruthy();
-    const payload = JSON.parse(String(((postCall?.[1] as RequestInit).body ?? '')));
+    const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(typeof payload.icon).toBe('string');
     expect(payload.icon.startsWith('data:image/svg+xml')).toBe(true);
   });
