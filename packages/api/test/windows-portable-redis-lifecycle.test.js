@@ -53,6 +53,8 @@ test('Windows PowerShell scripts stay ASCII-only to avoid console codepage issue
 
 test('Windows startup resolves portable Redis from the shared helper before global PATH lookup', () => {
   assert.match(startWindowsScript, /install-windows-helpers\.ps1/);
+  assert.match(helpersScript, /function Test-CommandLineContainsLiteral/);
+  assert.match(helpersScript, /IndexOf\(\$Needle, \[System\.StringComparison\]::OrdinalIgnoreCase\) -ge 0/);
   assert.match(startWindowsScript, /Resolve-PortableRedisBinaries -ProjectRoot \$ProjectRoot/);
   assert.match(startWindowsScript, /Resolve-PortableRedisLayout -ProjectRoot \$ProjectRoot/);
   assert.match(helpersScript, /function Resolve-GlobalRedisBinaries/);
@@ -69,7 +71,11 @@ test('Windows startup provisions vendored jiuwenClaw runtime before API client d
   assert.match(helpersScript, /\.venv\\Scripts\\python\.exe/);
   assert.match(helpersScript, /Resolve-ToolCommandWithRetry -Name "python" -Attempts 2/);
   assert.match(helpersScript, /Resolve-ToolCommandWithRetry -Name "py" -Attempts 2/);
-  assert.match(helpersScript, /& \$venvPython -m pip install -e \./);
+  assert.match(
+    helpersScript,
+    /Runtime startup: no pip install allowed\. Dependencies must be installed at build\/install time\./,
+  );
+  assert.doesNotMatch(helpersScript, /& \$venvPython -m pip install -e \./);
   assert.match(startWindowsScript, /\$jiuwenClawRuntimeReady = Ensure-WindowsJiuwenClawRuntime -ProjectRoot \$ProjectRoot/);
 });
 
@@ -95,6 +101,10 @@ test('Windows stop script only stops Clowder-owned API and frontend listeners', 
   assert.match(stopWindowsScript, /Write-Warn "Skipping non-Clowder \$Name listener on port \$Port/);
   assert.match(stopWindowsScript, /Write-Warn "\$Name \(port \$Port\) - no Clowder-owned listener found"/);
   assert.match(stopWindowsScript, /\$normalizedRoot = \$ClowderProjectRoot\.TrimEnd\('\\', '\/'\) \+ '\\'/);
+  assert.match(
+    stopWindowsScript,
+    /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \$normalizedRoot/,
+  );
 });
 
 test('Windows startup preserves runtime Redis overrides, validates artifacts, and exits when service jobs stop', () => {
@@ -164,6 +174,10 @@ test('Windows startup only stops Clowder-owned listeners and records managed ser
   assert.match(startWindowsScript, /function Set-ManagedProcessId/);
   assert.match(startWindowsScript, /function Test-ClowderOwnedProcess/);
   assert.match(startWindowsScript, /Get-CimInstance Win32_Process -Filter "ProcessId = \$ProcessId"/);
+  assert.match(
+    startWindowsScript,
+    /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \$normalizedRoot/,
+  );
   assert.match(startWindowsScript, /Port \$Port \(\$Name\) is in use by non-Clowder PID/);
   assert.match(
     startWindowsScript,
@@ -171,6 +185,23 @@ test('Windows startup only stops Clowder-owned listeners and records managed ser
   );
   assert.match(startWindowsScript, /Set-ManagedProcessId -Port \(\[int\]\$ApiPort\) -PidFile \$ApiPidFile/);
   assert.match(startWindowsScript, /Clear-ManagedProcessId -PidFile \$ApiPidFile/);
+});
+
+test('Windows ownership checks treat project roots as literal strings instead of wildcard patterns', () => {
+  assert.match(
+    startWindowsScript,
+    /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \(\$ProjectRoot \+ '"'\)/,
+  );
+  assert.match(
+    stopWindowsScript,
+    /Test-CommandLineContainsLiteral -CommandLine \$commandLine -Needle \(\$ClowderProjectRoot \+ '"'\)/,
+  );
+  assert.match(
+    stopWindowsScript,
+    /Test-CommandLineContainsLiteral -CommandLine \$cmdLine -Needle \$ProjectRoot/,
+  );
+  assert.doesNotMatch(startWindowsScript, /-like "\*\$normalizedRoot\*"/);
+  assert.doesNotMatch(stopWindowsScript, /-like "\*\$ClowderProjectRoot/);
 });
 
 test('Windows bundled runtime prefers random frontend, API, and Redis ports and persists runtime state for shutdown', () => {

@@ -54,6 +54,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 |-------|----------|
 | `agent-browser` | 无头浏览器自动化（点击/截图/填表） |
 | `auto-updater` | 自动更新 Clawdbot 和已安装 skill |
+| `mcp-builder` | Build MCP servers (Python / Node / TypeScript) |
 
 ### 生活与会议
 

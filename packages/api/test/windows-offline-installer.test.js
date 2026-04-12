@@ -243,7 +243,6 @@ test('Windows startup script pins bundled config roots for packaged releases', (
   );
   assert.match(startWindowsScript, /Starting Frontend \(port \$WebPort, standalone\)/);
   assert.match(startWindowsScript, /\$env:HOSTNAME = "127\.0\.0\.1"/);
-  assert.match(windowsBuilder, /const hostname = process\.env\.HOSTNAME \|\| '127\.0\.0\.1';/);
 });
 
 test('Windows skill mount keeps refs and top-level skill metadata files', () => {
@@ -266,34 +265,38 @@ test('NSIS installer is per-user, upgrades in-place, and preserves runtime data 
   assert.match(nsisScript, /!define DEFAULT_INSTALL_DIR "\$LOCALAPPDATA\\Programs\\\$\{APP_NAME\}"/);
   assert.match(nsisScript, /!define AUTOSTART_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Run"/);
   assert.match(nsisScript, /!define AUTOSTART_VALUE "\$\{APP_NAME\}"/);
-  assert.match(nsisScript, /Var AgreeRadio/);
-  assert.match(nsisScript, /Var DisagreeRadio/);
   assert.match(nsisScript, /InstallDir "\$\{DEFAULT_INSTALL_DIR\}"/);
   assert.match(nsisScript, /InstallDirRegKey HKCU "\$\{INSTALL_KEY\}" "InstallDir"/);
-  assert.match(nsisScript, /!define MUI_DIRECTORYPAGE_VARIABLE \$SelectedInstallDir/);
-  assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection/);
-  assert.match(nsisScript, /!define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave/);
+  assert.match(nsisScript, /Page custom DirectoryPageCreate DirectoryPageLeave/);
   assert.match(nsisScript, /Page custom OptionsPageCreate OptionsPageLeave/);
-  assert.match(nsisScript, /Function \.onVerifyInstDir/);
   assert.match(nsisScript, /Var SelectedInstallDir/);
   assert.match(nsisScript, /Var ExistingInstallDir/);
+  assert.match(nsisScript, /Var AgreeRadio/);
+  assert.match(nsisScript, /Var DisagreeRadio/);
+  assert.match(nsisScript, /Var NextButton/);
+  assert.match(nsisScript, /Var DirectoryDialog/);
+  assert.match(nsisScript, /Var DirectoryInput/);
+  assert.match(nsisScript, /Var DirectoryBrowseButton/);
+  assert.match(nsisScript, /Var IsExistingInstall/);
   assert.match(nsisScript, /Var CreateStartMenuShortcut/);
   assert.match(nsisScript, /Var CreateDesktopShortcut/);
   assert.match(nsisScript, /Var EnableAutoStart/);
+  assert.match(nsisScript, /Function LicensePageCreate/);
+  assert.match(nsisScript, /Function OnAgreementChanged/);
+  assert.match(nsisScript, /Function UpdateNextButtonState/);
+  assert.match(nsisScript, /\$\{NSD_CreateLink\} 56u 25u 100% 10u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateLink\} 56u 40u 100% 10u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateRadioButton\} 0 100u 100% 12u "/);
+  assert.match(nsisScript, /\$\{NSD_CreateRadioButton\} 0 115u 100% 12u "/);
+  assert.match(nsisScript, /NSD_GetState} \$AgreeRadio \$0/);
+  assert.match(nsisScript, /Function DirectoryPageCreate/);
+  assert.match(nsisScript, /Function DirectoryPageLeave/);
+  assert.match(nsisScript, /Function OnDirectoryBrowseClicked/);
+  assert.match(nsisScript, /Function NormalizeSelectedInstallDir/);
   assert.match(nsisScript, /Function OptionsPageCreate/);
   assert.match(nsisScript, /Function OptionsPageLeave/);
   assert.match(nsisScript, /Function ResolveInstallOptionDefaults/);
   assert.match(nsisScript, /Call ResolveInstallOptionDefaults/);
-  assert.match(nsisScript, /\$\{NSD_CreateRadioButton\} 0 100u 100% 12u "我同意此协议\(&A\)"/);
-  assert.match(nsisScript, /\$\{NSD_CreateRadioButton\} 0 115u 100% 12u "我不同意此协议\(&D\)"/);
-  assert.match(nsisScript, /\$\{NSD_OnClick\} \$AgreeRadio OnAgreementChanged/);
-  assert.match(nsisScript, /\$\{NSD_OnClick\} \$DisagreeRadio OnAgreementChanged/);
-  assert.match(nsisScript, /Function UpdateNextButtonState/);
-  assert.match(nsisScript, /\$\{NSD_GetState\} \$AgreeRadio \$0/);
-  assert.match(nsisScript, /Function RestoreInstallDirSelection/);
-  assert.match(nsisScript, /\$\{If\} \$SelectedInstallDir == ""/);
-  assert.match(nsisScript, /StrLen \$0 \$SelectedInstallDir/);
-  assert.match(nsisScript, /Function VerifyInstallDirLeave/);
   assert.match(nsisScript, /RequestExecutionLevel user/);
   assert.match(nsisScript, /Function CloseRunningServices/);
   assert.match(
@@ -335,8 +338,31 @@ test('NSIS installer reuses the recorded install dir instead of allowing duplica
   assert.match(nsisScript, /Call ResolveExistingInstallDir/);
   assert.match(nsisScript, /StrCpy \$INSTDIR \$ExistingInstallDir/);
   assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$ExistingInstallDir/);
-  assert.match(nsisScript, /MessageBox MB_ICONINFORMATION\|MB_OK "/);
-  assert.match(nsisScript, /Function RestoreInstallDirSelection/);
-  assert.match(nsisScript, /\$\{If\} \$ExistingInstallDir != ""/);
-  assert.match(nsisScript, /Abort/);
+  assert.match(nsisScript, /StrCpy \$IsExistingInstall "1"/);
+  assert.match(nsisScript, /Function DirectoryPageCreate/);
+  assert.match(nsisScript, /安装目录不可修改，如需更换位置请先卸载当前版本/);
+  assert.match(nsisScript, /EnableWindow \$DirectoryInput 0/);
+});
+
+test('NSIS installer normalizes fresh custom install roots to an OfficeClaw subdirectory', () => {
+  assert.match(nsisScript, /Function NormalizeSelectedInstallDir/);
+  assert.match(nsisScript, /Call NormalizeSelectedInstallDir/);
+  assert.match(nsisScript, /StrCpy \$SelectedInstallDir "\$0\\\$\{APP_NAME\}"/);
+  assert.match(nsisScript, /StrCpy \$INSTDIR \$SelectedInstallDir/);
+  assert.match(nsisScript, /StrCpy \$4 \$0 "" \$3/);
+  assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$0/);
+});
+
+test('NSIS installer updates the directory page field immediately after browsing to a parent folder', () => {
+  assert.match(nsisScript, /Function DirectoryPageCreate/);
+  assert.match(nsisScript, /自动在其下创建 \$\{APP_NAME\} 子目录/);
+  assert.match(nsisScript, /\$\{NSD_CreateText\} 55u 35u 205u 12u "\$SelectedInstallDir"/);
+  assert.match(nsisScript, /\$\{NSD_CreateButton\} 265u 35u 35u 12u "浏览\.\.\."/);
+  assert.match(nsisScript, /Function OnDirectoryBrowseClicked/);
+  assert.match(nsisScript, /NSD_GetText} \$DirectoryInput \$0/);
+  assert.match(nsisScript, /nsDialogs::SelectFolderDialog "选择安装目录" \$0/);
+  assert.match(nsisScript, /\$\{If\} \$0 == error/);
+  assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$0/);
+  assert.match(nsisScript, /Call NormalizeSelectedInstallDir/);
+  assert.match(nsisScript, /NSD_SetText} \$DirectoryInput \$SelectedInstallDir/);
 });
