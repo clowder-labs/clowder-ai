@@ -119,6 +119,10 @@ export class AomMetricsReporter {
       return { success: false, status: response.status, message };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error(`[AomMetricsReporter] Fetch failed for ${this.endpoint}: ${message}`);
+      if (err instanceof Error && err.cause) {
+        console.error(`[AomMetricsReporter] Cause: ${String(err.cause)}`);
+      }
       return { success: false, status: 0, message };
     }
   }
@@ -152,17 +156,30 @@ export function createAomMetricsReporterFromEnv(): AomMetricsReporter | null {
   const endpoint = process.env.AOM_METRICS_ENDPOINT;
   const projectId = process.env.AOM_PROJECT_ID;
   const token = process.env.AOM_TOKEN;
+  const instanceId = process.env.AOM_INSTANCE_ID;
+  const hostname = process.env.AOM_HOSTNAME;
+  const timeout = process.env.AOM_TIMEOUT ? parseInt(process.env.AOM_TIMEOUT, 10) : undefined;
+
+  console.log(`[AomMetricsReporter] Environment config:`);
+  console.log(`  AOM_METRICS_ENDPOINT: ${endpoint ? '✓' : '✗ (missing)'}`);
+  console.log(`  AOM_PROJECT_ID: ${projectId ? '✓' : '✗ (missing)'}`);
+  console.log(`  AOM_TOKEN: ${token ? `${token.slice(0, 8)}...${token.slice(-4)}` : '✗ (missing)'}`);
+  console.log(`  AOM_INSTANCE_ID: ${instanceId ?? '(default)'}`);
+  console.log(`  AOM_HOSTNAME: ${hostname ?? '(default)'}`);
+  console.log(`  AOM_TIMEOUT: ${timeout ?? '(default 30000)'}ms`);
 
   if (!endpoint || !projectId || !token) {
+    console.log(`[AomMetricsReporter] ❌ Missing required config, reporter disabled`);
     return null;
   }
 
+  console.log(`[AomMetricsReporter] ✓ Reporter enabled`);
   return new AomMetricsReporter({
     endpoint,
     projectId,
     token,
-    instanceId: process.env.AOM_INSTANCE_ID,
-    hostname: process.env.AOM_HOSTNAME,
-    timeout: process.env.AOM_TIMEOUT ? parseInt(process.env.AOM_TIMEOUT, 10) : undefined,
+    instanceId,
+    hostname,
+    timeout,
   });
 }

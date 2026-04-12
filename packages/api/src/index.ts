@@ -177,6 +177,11 @@ import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
+import {
+  createAomMetricsReporterFromEnv,
+  createTokenUsageReporter,
+  initMetricsService,
+} from './services/metrics/index.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
 import {
@@ -1168,6 +1173,20 @@ async function main(): Promise<void> {
   initVoiceBlockSynthesizer(ttsRegistry, ttsCacheDir);
   initStreamingTtsRegistry(ttsRegistry);
   startTtsCacheCleaner(ttsCacheDir);
+
+  // Token Usage Reporter (AOM metrics, 1-minute interval)
+  const aomReporter = createAomMetricsReporterFromEnv();
+  if (aomReporter) {
+    initMetricsService();
+    const tokenUsageReporter = createTokenUsageReporter({
+      reporter: aomReporter,
+      intervalMs: 60_000,
+    });
+    tokenUsageReporter.start();
+    app.log.info('[api] Token usage reporter started');
+  } else {
+    app.log.info('[api] Token usage reporter disabled (AOM not configured)');
+  }
 
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? '';
