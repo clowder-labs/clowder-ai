@@ -152,6 +152,10 @@ function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
+function isHuaweiMaasAccessBaseUrl(baseUrl: string | undefined): boolean {
+  return normalizeBaseUrlForComparison(baseUrl) === normalizeBaseUrlForComparison(HUAWEI_MAAS_ACCESS_URL);
+}
+
 function normalizeModel(item: MassModelResponseItem, index: number): ModelCardData {
   const nameFromKnownFields = pickStringField(item, [
     'name',
@@ -183,7 +187,7 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
   const protocol = pickStringField(item, ['protocol']) ?? UNKNOWN_PROTOCOL_LABEL;
   const baseUrl = typeof item.baseUrl === 'string' && item.baseUrl.trim() ? item.baseUrl.trim() : undefined;
   const accessMode = item.accessMode === 'huawei_maas_access' ? 'huawei_maas_access' : undefined;
-  const resolvedDeveloper = accessMode === 'huawei_maas_access' ? '其他' : developer;
+  const resolvedDeveloper = isHuaweiMaasAccessBaseUrl(baseUrl) ? '其他' : developer;
 
   return {
     id,
@@ -204,10 +208,7 @@ function normalizeBaseUrlForComparison(baseUrl: string | undefined): string {
 }
 
 function isSelfHuaweiMaaSAccessCard(card: Pick<ModelCardData, 'accessMode' | 'baseUrl'>): boolean {
-  return (
-    card.accessMode === 'huawei_maas_access' &&
-    normalizeBaseUrlForComparison(card.baseUrl) === normalizeBaseUrlForComparison(HUAWEI_MAAS_ACCESS_URL)
-  );
+  return isHuaweiMaasAccessBaseUrl(card.baseUrl);
 }
 
 function protocolGroupLabel(card: Pick<ModelCardData, 'protocol' | 'accessMode' | 'baseUrl'>): string {
@@ -503,7 +504,7 @@ export function ModelsPanel() {
     if (!sourceId || editModelBusy) return;
 
     resetCreateModelForm('default');
-    setCreateModelModalMode(card.accessMode === 'huawei_maas_access' ? 'huawei-maas-access' : 'default');
+    setCreateModelModalMode(isSelfHuaweiMaaSAccessCard(card) ? 'huawei-maas-access' : 'default');
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setEditModelBusy(true);

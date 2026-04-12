@@ -153,7 +153,6 @@ describe('ModelsPanel search', () => {
                 labels: ['proxy'],
                 developer: '华为云 MaaS',
                 baseUrl: 'https://api.modelarts-maas.com/openai/v1',
-                accessMode: 'huawei_maas_access',
               },
             ],
           }),
@@ -348,7 +347,7 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).toContain('其他');
   });
 
-  it('keeps Huawei MaaS access edit modal title and URL locked', async () => {
+  it('keeps Huawei MaaS access edit modal URL locked and uses edit title', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -362,8 +361,10 @@ describe('ModelsPanel search', () => {
     await clickButton(editButton!);
     await flushEffects();
 
-    expect(container.textContent).toContain('接入华为云 MaaS模型');
-    expect(container.textContent).not.toContain('编辑模型');
+    const modalTitle = container.querySelector(
+      '[data-testid="models-create-model-modal"] h3',
+    ) as HTMLHeadingElement | null;
+    expect(modalTitle?.textContent).toBe('编辑');
     const urlInput = container.querySelector('[data-testid="models-create-model-url-input"]') as HTMLInputElement | null;
     expect(urlInput).not.toBeNull();
     expect(urlInput?.value).toBe('https://api.modelarts-maas.com/openai/v1');
