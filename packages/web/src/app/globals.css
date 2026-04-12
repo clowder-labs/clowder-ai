@@ -263,7 +263,7 @@
   --card-muted-bg: var(--surface-card-muted);
   --card-border: #e6e6e6;
   --card-radius: 16px;
-  --card-padding: 21px;
+  --card-padding: 24px;
   --card-hover-border: var(--border-accent);
   --card-hover-bg: #ffffff;
   --card-shadow: var(--shadow-card-soft);
@@ -388,7 +388,7 @@
   --card-radius: 16px;
   --card-padding: 24px;
   --card-hover-border: var(--border-accent);
-  --card-hover-bg: var(--card-muted-bg);
+  --card-hover-bg: #ffffff;
   --card-shadow: var(--shadow-card-soft);
   --card-hover-shadow: 0px 4px 16px 0px rgba(0, 0, 0, 0.08);
   --card-disabled-bg: color-mix(in srgb, var(--surface-card-muted) 88%, white);
