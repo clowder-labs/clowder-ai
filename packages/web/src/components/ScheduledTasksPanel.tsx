@@ -285,7 +285,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                       </div>
                       <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[#1F2329]">{task.taskName}</h3>
                     </div>
-                    {task.source === 'dynamic' ? (
+                    {task.source === 'dynamic' && false ? (
                       <button
                         type="button"
                         role="switch"
