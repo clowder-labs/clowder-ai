@@ -3,20 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 OfficeClaw Skills。路由规则定义在 `manifest.yaml`。
 
-## Skills 列表（24 个）
-
-### 开发流程链
-```
-feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → tdd
-    → quality-gate → request-review → receive-review
-    → merge-gate → feat-lifecycle(完成)
-```
-
-| Skill | 触发场景 | SOP Step |
-|-------|----------|----------|
-| `collaborative-thinking` | brainstorm/多智能体讨论/收敛 | — |
-| `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
-| `self-evolution` | scope 守护/流程改进/知识沉淀 | — |
+## Skills 列表（5 个）
  
 ### 文档处理
 
@@ -25,51 +12,14 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `pdf` | 读取/合并/拆分/加密/OCR PDF 文件 |
 | `docx` | 创建/编辑 Word 文档（.docx） |
 | `xlsx` | 创建/编辑/读取电子表格（.xlsx/.csv） |
-| `diagram-generator` | 生成流程图/序列图/ER图/架构图 |
 | `pptx-craft`        | 创建/编辑/读取演示文稿（.pptx） |
 | `pptx-craft-simple`        | 创建/编辑/读取演示文稿（.pptx） |
-
-### 搜索与信息
-
-| Skill | 触发场景 |
-|-------|----------|
-| `weather` | 查天气/温度/天气预报 |
-| `github` | GitHub issue/PR/CI 查询操作 |
-| `multi-search-engine` | 17 搜索引擎聚合搜索 |
-| `summarize` | URL/播客/文件内容摘要提取 |
-
-### AI 智能
-
-| Skill | 触发场景 |
-|-------|----------|
-| `adaptive-reasoning` | 自动评估任务复杂度，调整推理级别 |
-| `proactive-agent` | 主动式 agent，预判需求并持续改进 |
-| `persistent-agent-memory` | Agent 持久化记忆（跨 session 上下文） |
-| `self-improving-agent` | 捕获错误/纠正，持续自我改进 |
-| `cross-agent-handoff`          | 协作交接  |
-
-### 工具与自动化
-
-| Skill | 触发场景 |
-|-------|----------|
-| `agent-browser` | 无头浏览器自动化（点击/截图/填表） |
-| `auto-updater` | 自动更新 Clawdbot 和已安装 skill |
-| `mcp-builder` | Build MCP servers (Python / Node / TypeScript) |
 
 ### 生活与会议
 
 | Skill | 触发场景 |
 |-------|----------|
-| `daily-life-autopilot` | 日常生活管理（邮件/日程/提醒/账单） |
 | `meeting-autopilot-pro` | 会议全生命周期（准备/笔记/跟进） |
-
-### 安全与质量
-
-| Skill | 触发场景 |
-|-------|----------|
-| `credential-manager` | API 密钥/凭证集中管理（.env 标准化） |
-| `skill-vetter` | 安装 skill 前的安全审查 |
-| `skill-creator` | 创建/修改/优化 skill |
 
 ### 参考文件（refs/，按需读取）
 
