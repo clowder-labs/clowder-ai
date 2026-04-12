@@ -147,6 +147,7 @@ const OTHER_ISSUE_LENGTH_ERROR_MESSAGE = '\u8bf7\u5c06\u5185\u5bb9\u63a7\u5236\u
 const DETAIL_MAX_LENGTH = 1000;
 const DETAIL_LENGTH_ERROR_MESSAGE = '\u8bf7\u5c06\u5185\u5bb9\u63a7\u5236\u57281000\u5b57\u7b26\u4ee5\u5185';
 const DETAIL_PREFILL_TEMPLATE = '\u3010\u4f7f\u7528\u573a\u666f\u3011\uff1a\n\u3010\u4f18\u5316\u610f\u89c1\u3011\uff1a';
+const REQUIRED_SELECT_ERROR_MESSAGE = '\u9009\u62e9\u4e0d\u80fd\u4e3a\u7a7a';
 const REQUIRED_INPUT_ERROR_MESSAGE = '\u8f93\u5165\u4e0d\u80fd\u4e3a\u7a7a';
 
 function getSelectedScoreIconSrc(score: number): string | null {
@@ -192,6 +193,7 @@ export function RightContentHeader() {
   const [highScoreSelectedIssues, setHighScoreSelectedIssues] = useState<string[]>([]);
   const [lowScoreDetail, setLowScoreDetail] = useState('');
   const [isDetailTooLong, setIsDetailTooLong] = useState(false);
+  const [isIssueRequiredError, setIsIssueRequiredError] = useState(false);
   const [isOtherIssueRequiredError, setIsOtherIssueRequiredError] = useState(false);
   const [otherIssueDetail, setOtherIssueDetail] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
@@ -226,6 +228,7 @@ export function RightContentHeader() {
     setHighScoreSelectedIssues([]);
     setLowScoreDetail('');
     setIsDetailTooLong(false);
+    setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
     setOtherIssueDetail('');
     setIsSubmittingFeedback(false);
@@ -284,6 +287,7 @@ export function RightContentHeader() {
 
   useEffect(() => {
     if (isLowScoreDetailVisible) return;
+    setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
   }, [isLowScoreDetailVisible]);
 
@@ -341,6 +345,9 @@ export function RightContentHeader() {
       if (!nextIssues.includes('other_issue')) {
         setIsOtherIssueRequiredError(false);
       }
+      if (nextIssues.length > 0) {
+        setIsIssueRequiredError(false);
+      }
 
       return nextIssues;
     });
@@ -373,6 +380,7 @@ export function RightContentHeader() {
 
   const handleSubmitFeedback = useCallback(async () => {
     if (!isLowScoreDetailVisible) {
+      setIsIssueRequiredError(false);
       setIsOtherIssueRequiredError(false);
     }
 
@@ -387,12 +395,17 @@ export function RightContentHeader() {
       });
       return;
     }
-    if (isLowScoreDetailVisible) {
+    if (isLowScoreDetailVisible || isHighScoreDetailVisible) {
+      const hasIssueSelection = currentSelectedIssues.length > 0;
       const needOtherIssueInput = currentSelectedIssues.includes('other_issue');
       const hasOtherIssueInput = otherIssueDetail.trim().length > 0;
 
+      setIsIssueRequiredError(!hasIssueSelection);
       setIsOtherIssueRequiredError(needOtherIssueInput && !hasOtherIssueInput);
 
+      if (!hasIssueSelection) {
+        return;
+      }
       if (needOtherIssueInput && !hasOtherIssueInput) {
         return;
       }
@@ -544,6 +557,7 @@ export function RightContentHeader() {
     currentIssueOptions,
     currentSelectedIssues,
     closeFeedbackPopover,
+    isHighScoreDetailVisible,
     isLowScoreDetailVisible,
     isSubmittingFeedback,
     lowScoreDetail,
@@ -686,6 +700,11 @@ export function RightContentHeader() {
                               </p>
                             ) : null}
                           </>
+                        ) : null}
+                        {isIssueRequiredError ? (
+                          <p className="ui-content-header-feedback-other-error">
+                            {REQUIRED_SELECT_ERROR_MESSAGE}
+                          </p>
                         ) : null}
                       </div>
                       <div className="ui-content-header-feedback-low-score-section">
