@@ -983,7 +983,7 @@ class JiuWenClaw:
             try:
                 await self._tool_manager.register_request_scoped_cat_cafe_mcp(cat_cafe_mcp)
             except Exception as exc:
-                logger.warning("[JiuWenClaw] ensure request-scoped Cat Cafe MCP failed: %s", exc)
+                logger.warning("[JiuWenClaw] ensure request-scoped Cat Cafe MCP failed.")
 
         config_base = get_config()
         self._instance._config.prompt_template = [{
