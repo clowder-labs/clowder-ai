@@ -94,14 +94,10 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     if (!userId) {
       return { islogin: false, hascode, isskip: false };
     }
-    const userInfo: UserInfo = secureConfig.get(`${userId}-new`) as UserInfo;
-    const expiresAt = secureConfig.get(userId) || userInfo?.expiresAt;
-    if (!expiresAt || new Date(userInfo.expiresAt).getTime() < new Date().getTime()) {
+    const userInfo: UserInfo = secureConfig.get(userId) as UserInfo;
+    const expiresAt = userInfo?.expiresAt;
+    if (!expiresAt || new Date(expiresAt).getTime() < new Date().getTime()) {
       return { islogin: false, hascode, isskip: false };
-    }
-    const isFirstIsLoginCall = !sessions.has(userInfo.userId);
-    if (isFirstIsLoginCall) {
-      await refreshMaaSModelsAfterLogin(request, userInfo.userId);
     }
     sessions.set(userInfo.userId, { ...userInfo });
     return { islogin: true, hascode, userId, isskip: false };
@@ -145,8 +141,7 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     userInfo.userId = `${domainName}:${name ?? ''}`;
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
     userInfo.modelInfo = modelInfo ?? {};
-    secureConfig.set(userInfo.userId, userInfo.expiresAt);
-    secureConfig.set(`${userInfo.userId}-new`, userInfo);
+    secureConfig.set(userInfo.userId, userInfo);
     sessions.set(userInfo.userId, { ...userInfo });
     await refreshMaaSModelsAfterLogin(request, userInfo.userId);
 
