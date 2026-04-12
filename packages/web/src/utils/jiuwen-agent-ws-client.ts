@@ -89,26 +89,30 @@ export class JiuwenAgentWsClient {
   }
 
   connect(): Promise<void> {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      return Promise.resolve();
-    }
     if (this.connectPromise) {
       return this.connectPromise;
+    }
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return Promise.resolve();
     }
 
     this.connectPromise = new Promise((resolve, reject) => {
       const ws = new WebSocket(this.url);
+      let opened = false;
       let settled = false;
 
       this.ws = ws;
 
       ws.onopen = () => {
-        settled = true;
-        this.connectPromise = null;
-        resolve();
+        opened = true;
       };
 
       ws.onmessage = (event) => {
+        if (!settled) {
+          settled = true;
+          this.connectPromise = null;
+          resolve();
+        }
         this.handleMessage(event.data);
       };
 
@@ -125,7 +129,7 @@ export class JiuwenAgentWsClient {
         this.rejectPending(new JiuwenAgentWsError('WebSocket connection closed unexpectedly'));
         if (!settled) {
           settled = true;
-          reject(new JiuwenAgentWsError('WebSocket connection closed unexpectedly'));
+          reject(new JiuwenAgentWsError(opened ? 'WebSocket connection closed unexpectedly' : 'jiuwen connection failed'));
         }
       };
     });

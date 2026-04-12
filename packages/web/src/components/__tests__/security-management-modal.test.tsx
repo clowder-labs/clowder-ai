@@ -6,6 +6,7 @@ import SecurityManagementModal from '../SecurityManagementModal';
 const mocks = vi.hoisted(() => ({
   configGet: vi.fn(),
   configSet: vi.fn(),
+  disconnect: vi.fn(),
 }));
 
 vi.mock('@/utils/jiuwen-agent-ws-client', () => ({
@@ -13,6 +14,7 @@ vi.mock('@/utils/jiuwen-agent-ws-client', () => ({
     return {
       configGet: mocks.configGet,
       configSet: mocks.configSet,
+      disconnect: mocks.disconnect,
     };
   }),
 }));
@@ -32,6 +34,7 @@ describe('SecurityManagementModal', () => {
     root = createRoot(container);
     mocks.configGet.mockReset();
     mocks.configSet.mockReset();
+    mocks.disconnect.mockReset();
     mocks.configGet.mockResolvedValue({
       request_id: 'req-1',
       channel_id: 'web',
@@ -188,5 +191,19 @@ describe('SecurityManagementModal', () => {
 
     expect(pageToggle?.getAttribute('aria-checked')).toBe('true');
     expect(container.textContent).toContain('save failed');
+  });
+
+  it('disconnects the websocket client when the modal closes', async () => {
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+    });
+    await flush();
+
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: false, onClose: vi.fn() }));
+      await Promise.resolve();
+    });
+
+    expect(mocks.disconnect).toHaveBeenCalled();
   });
 });

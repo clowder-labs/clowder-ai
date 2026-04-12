@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { JiuwenAgentWsClient } from '@/utils/jiuwen-agent-ws-client';
 import { AppModal } from './AppModal';
 
@@ -90,6 +90,7 @@ function updateToolValue(
 }
 
 export default function SecurityManagementModal({ open, onClose }: SecurityManagementModalProps) {
+  const clientRef = useRef<JiuwenAgentWsClient | null>(null);
   const [permissionsConfig, setPermissionsConfig] = useState<PermissionsConfig | null>(null);
   const [approvalBarEnabled, setApprovalBarEnabled] = useState(false);
   const [policies, setPolicies] = useState<SecurityPolicyItem[]>([]);
@@ -100,9 +101,15 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
   const [savingPolicyIds, setSavingPolicyIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      clientRef.current?.disconnect();
+      clientRef.current = null;
+      return;
+    }
 
     let cancelled = false;
+    const client = new JiuwenAgentWsClient();
+    clientRef.current = client;
 
     async function loadPermissions() {
       setLoading(true);
@@ -110,7 +117,6 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
       setSaveError(null);
 
       try {
-        const client = new JiuwenAgentWsClient();
         const response = await client.configGet(['permissions']);
         const permissions = response.payload?.trees?.permissions as PermissionsConfig | undefined;
         const error = response.payload?.error;
@@ -141,11 +147,17 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
 
     return () => {
       cancelled = true;
+      if (clientRef.current === client) {
+        client.disconnect();
+        clientRef.current = null;
+      }
     };
   }, [open]);
 
   const handleToggleApprovalBar = async () => {
     if (savingApprovalBar) return;
+    const client = clientRef.current;
+    if (!client) return;
 
     const previousEnabled = approvalBarEnabled;
     const nextEnabled = !previousEnabled;
@@ -154,7 +166,6 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
     setSavingApprovalBar(true);
 
     try {
-      const client = new JiuwenAgentWsClient();
       const response = await client.configSet({
         permissions: {
           enabled: nextEnabled,
@@ -178,6 +189,8 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
 
   const handleTogglePolicy = async (id: string) => {
     if (savingPolicyIds[id]) return;
+    const client = clientRef.current;
+    if (!client) return;
 
     const previousPolicies = policies;
     const previousConfig = permissionsConfig;
@@ -207,7 +220,6 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
     setSavingPolicyIds((current) => ({ ...current, [id]: true }));
 
     try {
-      const client = new JiuwenAgentWsClient();
       const response = await client.configSet({
         permissions: {
           tools: {

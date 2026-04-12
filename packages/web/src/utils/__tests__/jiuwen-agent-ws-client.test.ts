@@ -89,16 +89,29 @@ describe('jiuwen-agent-ws-client', () => {
     expect(() => resolveJiuwenAgentWsUrl()).toThrow('jiuwen WebSocket URL is not configured');
   });
 
-  it('connects and ignores connection ack before resolving requests', async () => {
+  it('waits for the first frame before resolving connect and sending requests', async () => {
     const client = new JiuwenAgentWsClient();
     const connectPromise = client.connect();
     const socket = MockWebSocket.instances[0]!;
+    let connected = false;
+
+    void connectPromise.then(() => {
+      connected = true;
+    });
 
     socket.open();
-    await connectPromise;
+    await Promise.resolve();
+
+    expect(connected).toBe(false);
 
     const responsePromise = client.configGet(['permissions']);
     await Promise.resolve();
+    expect(socket.sent).toHaveLength(0);
+
+    socket.message({ type: 'event', event: 'connection.ack', payload: { status: 'ready' } });
+    await connectPromise;
+    await Promise.resolve();
+
     const sent = JSON.parse(socket.sent[0] ?? '{}') as {
       request_id: string;
       req_method: string;
@@ -108,7 +121,6 @@ describe('jiuwen-agent-ws-client', () => {
     expect(sent.req_method).toBe('config.get');
     expect(sent.params.config_paths).toEqual(['permissions']);
 
-    socket.message({ type: 'event', event: 'connection.ack', payload: { status: 'ready' } });
     socket.message({
       request_id: sent.request_id,
       channel_id: 'web',
@@ -129,6 +141,7 @@ describe('jiuwen-agent-ws-client', () => {
     const connectPromise = client.connect();
     const socket = MockWebSocket.instances[0]!;
     socket.open();
+    socket.message({ type: 'event', event: 'connection.ack', payload: { status: 'ready' } });
     await connectPromise;
 
     const responsePromise = client.configSet({
@@ -170,6 +183,7 @@ describe('jiuwen-agent-ws-client', () => {
     const connectPromise = client.connect();
     const socket = MockWebSocket.instances[0]!;
     socket.open();
+    socket.message({ type: 'event', event: 'connection.ack', payload: { status: 'ready' } });
     await connectPromise;
 
     const responsePromise = client.configGet(['permissions']);
