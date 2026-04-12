@@ -87,12 +87,21 @@ internal sealed class LauncherForm : Form
     [DllImport("user32.dll")]
     private static extern bool SetWindowPlacement(IntPtr hWnd, [In] ref WINDOWPLACEMENT lpwndpl);
 
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+
     private const int SW_RESTORE = 9;
     private const int SW_SHOWMINIMIZED = 2;
+    private const int WM_NCLBUTTONDOWN = 0xA1;
+    private const int HTCAPTION = 0x2;
     private const string WindowMinimizeMessage = "window.minimize";
     private const string WindowToggleMaximizeMessage = "window.toggleMaximize";
     private const string WindowCloseMessage = "window.close";
     private const string WindowSyncStateMessage = "window.syncState";
+    private const string WindowStartDragMessage = "window.startDrag";
     private const string WindowStateMessageType = "window.state";
 
     [StructLayout(LayoutKind.Sequential)]
@@ -398,10 +407,30 @@ internal sealed class LauncherForm : Form
             case WindowSyncStateMessage:
                 PublishWindowState();
                 return;
+            case WindowStartDragMessage:
+                StartWindowDrag();
+                return;
             default:
                 AppendLog("Ignoring unknown WebView2 message: " + message);
                 return;
         }
+    }
+
+    private void StartWindowDrag()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)StartWindowDrag);
+            return;
+        }
+
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+
+        ReleaseCapture();
+        SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
     }
 
     private void ToggleMaximize()
