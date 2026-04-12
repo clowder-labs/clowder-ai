@@ -873,6 +873,11 @@ class JiuClawReActAgent(ReActAgent):
                 "output_tokens": total_output_tokens,
                 "total_tokens": total_total_tokens,
             }
+        logger.warning(
+            "[ReActAgent] max_iterations reached without completion session_id=%s max_iterations=%d",
+            session_id or "",
+            self._config.max_iterations,
+        )
         return {
             "output": "Max iterations reached without completion",
             "result_type": "error",
@@ -922,7 +927,36 @@ class JiuClawReActAgent(ReActAgent):
                             output_content = output_content.get("output", "")
                         was_streamed = final_result.get("_streamed", False)
 
-                    if was_streamed:
+                    final_result_type = (
+                        (final_result.get("result_type") if isinstance(final_result, dict) else None)
+                        or "answer"
+                    )
+
+                    # invoke() errors must surface as chat.error: _parse_stream_chunk only checks
+                    # payload["result_type"] at the top level, not nested inside output.
+                    if final_result_type == "error":
+                        err_text = (
+                            output_content
+                            if isinstance(output_content, str) and output_content
+                            else str(
+                                (final_result.get("output") if isinstance(final_result, dict) else "")
+                                or "未知错误"
+                            )
+                        )
+                        err_payload: Dict[str, Any] = {
+                            "output": err_text,
+                            "result_type": "error",
+                        }
+                        if _usage:
+                            err_payload["usage"] = _usage
+                        await session.write_stream(
+                            OutputSchema(
+                                type="answer",
+                                index=0,
+                                payload=err_payload,
+                            )
+                        )
+                    elif was_streamed:
                         # Content was already streamed via _call_llm_stream
                         # Send final answer marker only (with usage if available)
                         payload = {
@@ -977,7 +1011,7 @@ class JiuClawReActAgent(ReActAgent):
                                     )
                                 )
                     else:
-                        # Short content: send as single answer
+                        # Short success: send as single answer (preserve invoke dict shape)
                         await session.write_stream(
                             OutputSchema(
                                 type="answer",

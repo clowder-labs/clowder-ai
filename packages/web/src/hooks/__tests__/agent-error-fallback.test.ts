@@ -80,6 +80,19 @@ describe('getFriendlyAgentErrorMessage', () => {
     );
   });
 
+  it('explains jiuwenclaw max ReAct iterations explicitly', () => {
+    expect(
+      getFriendlyAgentErrorMessage({
+        error: 'Max iterations reached without completion',
+      }),
+    ).toBe(
+      '已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。',
+    );
+    expect(getFriendlyAgentErrorMessage({ error: 'max_iterations_reached' })).toBe(
+      '已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。',
+    );
+  });
+
   it('distinguishes connection errors from abrupt exit errors', () => {
     // Connection errors
     expect(getFriendlyAgentErrorMessage({ error: 'connection failed' })).toBe(
