@@ -95,7 +95,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: {
         content: '你好猫猫',
         threadId: 'thread-1',
@@ -131,7 +131,7 @@ describe('POST /api/messages deliveryMode', () => {
     await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '第一条', threadId: 'thread-1', deliveryMode: 'queue' },
     });
 
@@ -139,7 +139,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '第二条', threadId: 'thread-1', deliveryMode: 'queue' },
     });
 
@@ -173,7 +173,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: 'overflow', threadId: 'thread-1', deliveryMode: 'queue' },
     });
 
@@ -199,7 +199,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '会失败', threadId: 'thread-1', deliveryMode: 'queue' },
     });
 
@@ -217,7 +217,7 @@ describe('POST /api/messages deliveryMode', () => {
     const _res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '强制发送', threadId: 'thread-1', deliveryMode: 'force' },
     });
 
@@ -240,7 +240,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '直接发送', threadId: 'thread-1', deliveryMode: 'immediate' },
     });
 
@@ -270,7 +270,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '直接发送', threadId: 'thread-1', deliveryMode: 'immediate' },
     });
     assert.equal(res.statusCode, 200);
@@ -302,7 +302,7 @@ describe('POST /api/messages deliveryMode', () => {
       url: '/api/messages',
       headers: {
         'content-type': `multipart/form-data; boundary=${boundary}`,
-        'x-cat-cafe-user': 'user-1',
+        'x-office-claw-user': 'user-1',
       },
       payload,
     });
@@ -345,7 +345,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: 'A的消息', threadId: 'thread-1', deliveryMode: 'queue' },
     });
 
@@ -381,7 +381,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '测试取消', threadId: 'thread-1' },
     });
 
@@ -409,7 +409,7 @@ describe('POST /api/messages deliveryMode', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '自动排队', threadId: 'thread-1' },
     });
 

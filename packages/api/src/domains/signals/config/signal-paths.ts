@@ -16,7 +16,7 @@ export interface SignalPaths {
   readonly sourcesFile: string;
 }
 
-const DEFAULT_SIGNAL_ROOT_DIR = join(homedir(), '.cat-cafe', 'signals');
+const DEFAULT_SIGNAL_ROOT_DIR = join(homedir(), '.office-claw', 'signals');
 
 function normalizeRootDir(value: string | undefined): string | undefined {
   const trimmed = value?.trim();

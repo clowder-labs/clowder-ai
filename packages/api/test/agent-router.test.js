@@ -244,7 +244,7 @@ function createAvailabilityConfigProject(availabilityOverrides = {}) {
       },
     ],
   });
-  const templatePath = resolve(projectRoot, 'cat-template.json');
+  const templatePath = resolve(projectRoot, 'office-claw-template.json');
   writeFileSync(
     templatePath,
     JSON.stringify(

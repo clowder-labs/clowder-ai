@@ -69,7 +69,7 @@ describe('Bootcamp Flow Integration', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/api/threads',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         title: '🎓 猫猫训练营',
         bootcampState: {

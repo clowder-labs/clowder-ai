@@ -29,10 +29,10 @@ const nsisScript = readFileSync(join(repoRoot, 'packaging', 'windows', 'installe
 const windowsInstallHelpersScript = readFileSync(join(repoRoot, 'scripts', 'install-windows-helpers.ps1'), 'utf8');
 
 test('Windows offline installer keeps mutable state outside managed payload cleanup', () => {
-  assert.deepEqual(WINDOWS_PRESERVE_PATHS, ['.env', 'cat-config.json', 'data', 'logs', '.cat-cafe']);
+  assert.deepEqual(WINDOWS_PRESERVE_PATHS, ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw']);
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('packages'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('scripts'));
-  assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('cat-cafe-skills'));
+  assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('office-claw-skills'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('tools'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('installer-seed'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('vendor'));
@@ -42,7 +42,7 @@ test('Windows offline installer keeps mutable state outside managed payload clea
   assert.equal(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('CLAUDE.md'), false);
   assert.equal(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('GEMINI.md'), false);
   assert.equal(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('data'), false);
-  assert.equal(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('.cat-cafe'), false);
+  assert.equal(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('.office-claw'), false);
 });
 
 test('Windows offline installer normalizes bundled Node versions and filters copied repo paths', () => {
@@ -231,7 +231,7 @@ test('Windows startup script pins bundled config roots for packaged releases', (
   const startWindowsScript = readFileSync(join(repoRoot, 'scripts', 'start-windows.ps1'), 'utf8');
   assert.match(startWindowsScript, /Mount-InstallerSkills -ProjectRoot \$ProjectRoot/);
   assert.match(startWindowsScript, /if \(\$bundledRelease\) \{/);
-  assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_CAFE_CONFIG_ROOT = \$ProjectRoot/);
+  assert.match(startWindowsScript, /\$runtimeEnvOverrides\.OFFICE_CLAW_CONFIG_ROOT = \$ProjectRoot/);
   assert.match(startWindowsScript, /\$runtimeEnvOverrides\.CAT_TEMPLATE_PATH = \$bundledTemplatePath/);
   assert.match(startWindowsScript, /\$webStandaloneServer = Join-Path \$ProjectRoot "packages\/web\/server\.js"/);
   assert.match(

@@ -151,7 +151,7 @@ describe('push routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/push/status',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -194,14 +194,14 @@ describe('push routes', () => {
     const testRes = await appWithPush.inject({
       method: 'POST',
       url: '/api/push/test',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
     });
     assert.equal(testRes.statusCode, 200);
 
     const statusRes = await appWithPush.inject({
       method: 'GET',
       url: '/api/push/status',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
     });
     assert.equal(statusRes.statusCode, 200);
     const body = JSON.parse(statusRes.payload);
@@ -231,7 +231,7 @@ describe('push routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/push/subscribe',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: {
         subscription: {
           endpoint: 'https://push.example.com/sub/1',
@@ -260,7 +260,7 @@ describe('push routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/push/subscribe',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: {
         subscription: {
           endpoint: 'https://push.example.com/sub/new',
@@ -283,7 +283,7 @@ describe('push routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/push/subscribe',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: {
         subscription: {
           endpoint: 'not-a-url',
@@ -305,7 +305,7 @@ describe('push routes', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/push/subscribe',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
       payload: { endpoint: 'https://push.example.com/sub/1' },
     });
     assert.equal(res.statusCode, 200);
@@ -325,7 +325,7 @@ describe('push routes', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/api/push/subscribe',
-      headers: { 'x-cat-cafe-user': 'intruder' },
+      headers: { 'x-office-claw-user': 'intruder' },
       payload: { endpoint: 'https://push.example.com/sub/1' },
     });
     assert.equal(res.statusCode, 404);
@@ -336,7 +336,7 @@ describe('push routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/push/test',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
     });
     assert.equal(res.statusCode, 503);
   });
@@ -360,7 +360,7 @@ describe('push routes', () => {
     const res = await appWithPush.inject({
       method: 'POST',
       url: '/api/push/test',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
     });
 
     assert.equal(res.statusCode, 409);
@@ -410,7 +410,7 @@ describe('push routes', () => {
     const res = await appWithPush.inject({
       method: 'POST',
       url: '/api/push/test',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -457,7 +457,7 @@ describe('push routes', () => {
     const res = await appWithPush.inject({
       method: 'POST',
       url: '/api/push/test',
-      headers: { 'x-cat-cafe-user': 'owner' },
+      headers: { 'x-office-claw-user': 'owner' },
     });
 
     assert.equal(res.statusCode, 502);

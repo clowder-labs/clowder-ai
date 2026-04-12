@@ -845,7 +845,13 @@
       "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F139-unified-schedule-abstraction.md",
       "id": "F139"
+    },
+    {
+      "id": "F140",
+      "name": "De-Cat Branding — 去除用户可见的 Cat Cafe 痕迹",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F140-de-cat-branding.md"
     }
   ],
-  "generated_at": "2026-03-27T03:29:31.270Z"
+  "generated_at": "2026-04-10T05:42:00.000Z"
 }

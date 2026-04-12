@@ -58,7 +58,7 @@ describe('POST /api/tts/stream (SSE)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/tts/stream',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: { text: '' },
     });
     assert.equal(res.statusCode, 400);
@@ -69,7 +69,7 @@ describe('POST /api/tts/stream (SSE)', () => {
       method: 'POST',
       url: '/api/tts/stream',
       headers: {
-        'x-cat-cafe-user': 'test-user',
+        'x-office-claw-user': 'test-user',
         'content-type': 'application/json',
       },
       payload: JSON.stringify({ text: '第一句话。第二句话。第三句话。' }),
@@ -105,7 +105,7 @@ describe('POST /api/tts/stream (SSE)', () => {
       method: 'POST',
       url: '/api/tts/stream',
       headers: {
-        'x-cat-cafe-user': 'test-user',
+        'x-office-claw-user': 'test-user',
         'content-type': 'application/json',
       },
       payload: JSON.stringify({ text: '你好世界' }),
@@ -127,7 +127,7 @@ describe('POST /api/tts/stream (SSE)', () => {
       method: 'POST',
       url: '/api/tts/synthesize',
       headers: {
-        'x-cat-cafe-user': 'test-user',
+        'x-office-claw-user': 'test-user',
         'content-type': 'application/json',
       },
       payload: JSON.stringify({ text: '测试回归' }),

@@ -35,7 +35,7 @@ describe('POST /api/leaderboard/events', () => {
       method: 'POST',
       url: '/api/leaderboard/events',
       payload: VALID_EVENT,
-      // No x-cat-cafe-user header
+      // No x-office-claw-user header
     });
     assert.equal(res.statusCode, 401);
     assert.ok(JSON.parse(res.body).error.includes('Authentication'));
@@ -47,7 +47,7 @@ describe('POST /api/leaderboard/events', () => {
       method: 'POST',
       url: '/api/leaderboard/events',
       payload: VALID_EVENT,
-      headers: { 'x-cat-cafe-user': 'user1' },
+      headers: { 'x-office-claw-user': 'user1' },
     });
     assert.equal(res.statusCode, 200);
     assert.equal(JSON.parse(res.body).status, 'ok');
@@ -56,7 +56,7 @@ describe('POST /api/leaderboard/events', () => {
 
   it('deduplicates by eventId', async () => {
     const { app, gameStore } = await buildApp();
-    const headers = { 'x-cat-cafe-user': 'user1' };
+    const headers = { 'x-office-claw-user': 'user1' };
     await app.inject({ method: 'POST', url: '/api/leaderboard/events', payload: VALID_EVENT, headers });
     const res = await app.inject({ method: 'POST', url: '/api/leaderboard/events', payload: VALID_EVENT, headers });
     assert.equal(JSON.parse(res.body).status, 'duplicate');
@@ -76,7 +76,7 @@ describe('POST /api/leaderboard/events', () => {
         payload: { achievementId: 'cvo-first-review' },
         timestamp: new Date().toISOString(),
       },
-      headers: { 'x-cat-cafe-user': 'user1' },
+      headers: { 'x-office-claw-user': 'user1' },
     });
     assert.equal(res.statusCode, 200);
     const unlocked = achievementStore.getUnlocked('user1');
@@ -99,7 +99,7 @@ describe('POST /api/leaderboard/events', () => {
       method: 'POST',
       url: '/api/leaderboard/events',
       payload: VALID_EVENT,
-      headers: { 'x-cat-cafe-user': 'user1' },
+      headers: { 'x-office-claw-user': 'user1' },
     });
     assert.equal(r2.statusCode, 200);
     assert.equal(JSON.parse(r2.body).status, 'ok');
@@ -112,7 +112,7 @@ describe('POST /api/leaderboard/events', () => {
       method: 'POST',
       url: '/api/leaderboard/events',
       payload: { ...VALID_EVENT, eventId: 'evt-bad', source: 'invalid' },
-      headers: { 'x-cat-cafe-user': 'user1' },
+      headers: { 'x-office-claw-user': 'user1' },
     });
     assert.equal(res.statusCode, 400);
   });

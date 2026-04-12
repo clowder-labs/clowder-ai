@@ -184,7 +184,7 @@ export class RelayClawAgentService implements AgentService {
     const modelName = this.config.modelName?.trim() || '';
     const scopeHash = createHash('sha256').update([apiBase, apiKey, modelName].join('\n')).digest('hex').slice(0, 12);
     const baseHomeDir =
-      this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
+      this.config.homeDir?.trim() || join(process.cwd(), '.office-claw', 'relayclaw', this.catId as string);
 
     return {
       key: `auto:${scopeHash}`,

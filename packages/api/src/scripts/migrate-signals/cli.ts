@@ -21,7 +21,7 @@ const USAGE = [
   '',
   'Options:',
   '  --from <path>       legacy Signal Hunter root (required)',
-  '  --to <path>         target signals root (default: SIGNALS_ROOT_DIR or ~/.cat-cafe/signals)',
+  '  --to <path>         target signals root (default: SIGNALS_ROOT_DIR or ~/.office-claw/signals)',
   '  --dry-run           parse + plan only, do not write files',
   '  --redis-url <url>   optional Redis URL for index write-through',
   '  --help              print this help',

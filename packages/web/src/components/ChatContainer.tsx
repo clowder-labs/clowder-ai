@@ -736,6 +736,8 @@ function ThreadModeChatContainer({
                       bootcampCount={bootcampCount}
                       isCurrentBootcampThread={!!storeThreads.find((t) => t.id === threadId)?.bootcampState}
                       onOpenBootcampList={() => setShowBootcampList(true)}
+                      onAgentsClick={() => setSidebarMenu('agents')}
+                      onChannelsClick={() => setSidebarMenu('channels')}
                     />
                   ) : (
                     renderItems.map((item) =>

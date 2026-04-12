@@ -35,6 +35,7 @@ const WINDOW_MINIMIZE_MESSAGE = 'window.minimize';
 const WINDOW_TOGGLE_MAXIMIZE_MESSAGE = 'window.toggleMaximize';
 const WINDOW_CLOSE_MESSAGE = 'window.close';
 const WINDOW_SYNC_STATE_MESSAGE = 'window.syncState';
+const WINDOW_START_DRAG_MESSAGE = 'window.startDrag';
 const WINDOW_STATE_MESSAGE = 'window.state';
 
 function getWebViewBridge(): WebViewBridge | null {
@@ -105,6 +106,10 @@ export function useDesktopWindowControls() {
     postMessage(WINDOW_CLOSE_MESSAGE);
   }, [postMessage]);
 
+  const startDrag = useCallback(() => {
+    postMessage(WINDOW_START_DRAG_MESSAGE);
+  }, [postMessage]);
+
   return {
     isDesktopHost,
     isMaximized: Boolean(windowState.isMaximized),
@@ -112,5 +117,6 @@ export function useDesktopWindowControls() {
     minimize,
     toggleMaximize,
     close,
+    startDrag,
   };
 }

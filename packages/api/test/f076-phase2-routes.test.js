@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import Fastify from 'fastify';
 
-const H = { 'x-cat-cafe-user': 'user1' };
+const H = { 'x-office-claw-user': 'user1' };
 
 /** Helper: create a project and return its id */
 async function createProject(app, headers = H) {
@@ -140,7 +140,7 @@ describe('F076 Phase 2: Intent Card + Risk Detection Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/external-projects/${projectId}/risk-summary`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -334,7 +334,7 @@ describe('F076 Phase 2: Resolution Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/external-projects/${projectId}/resolutions`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -562,7 +562,7 @@ describe('F076 Phase 2: Slice Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/external-projects/${projectId}/slices`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -765,7 +765,7 @@ describe('F076 Phase 2: Reflux Pattern Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/external-projects/${projectId}/reflux-patterns`,
-      headers: { 'x-cat-cafe-user': 'other' },
+      headers: { 'x-office-claw-user': 'other' },
     });
     assert.equal(res.statusCode, 404);
   });

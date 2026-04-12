@@ -229,24 +229,24 @@ function makeSiblingTemplate(seedCatId) {
 }
 
 describe('cat-catalog-store', () => {
-  // Isolate provider profiles to a clean tmpdir so tests don't read from ~/.cat-cafe/
+  // Isolate provider profiles to a clean tmpdir so tests don't read from ~/.office-claw/
   let savedGlobalRoot;
   const isolationRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-isolation-'));
   before(() => {
-    savedGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = isolationRoot;
+    savedGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = isolationRoot;
   });
   beforeEach(() => {
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = isolationRoot;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = isolationRoot;
   });
   after(() => {
-    if (savedGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
+    if (savedGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
   });
 
   it('bootstraps managed clients with bindings while preserving skipped seed members', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-default-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(makeF127BootstrapTemplate(), null, 2));
 
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
@@ -266,12 +266,12 @@ describe('cat-catalog-store', () => {
 
   it('bootstraps installer api_key bindings while preserving skipped seed members', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-installer-'));
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
-    const templatePath = join(projectRoot, 'cat-template.json');
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(makeF127BootstrapTemplate(), null, 2));
-    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.cat-cafe', 'provider-profiles.json'),
+      join(projectRoot, '.office-claw', 'provider-profiles.json'),
       JSON.stringify(
         {
           version: 3,
@@ -312,7 +312,7 @@ describe('cat-catalog-store', () => {
 
   it('preserves explicit seed account markers while bootstrapping runtime catalog', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-f127-explicit-seed-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = makeF127BootstrapTemplate();
     const codexBreed = template.breeds.find((breed) => breed.catId === 'codex');
     if (!codexBreed) throw new Error('codex breed missing from template');
@@ -330,7 +330,7 @@ describe('cat-catalog-store', () => {
 
   it('treats relayclaw seed variants as openai bootstrap clients', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-relayclaw-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = makeF127BootstrapTemplate();
     template.breeds.push({
       id: 'jiuwenclaw',
@@ -361,9 +361,9 @@ describe('cat-catalog-store', () => {
     assert.equal(breed?.variants?.[0]?.accountRef, 'codex');
   });
 
-  it('bootstraps .cat-cafe/cat-catalog.json from cat-template.json', () => {
+  it('bootstraps .office-claw/office-claw-catalog.json from office-claw-template.json', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = validConfig();
     writeFileSync(templatePath, JSON.stringify(template, null, 2));
 
@@ -384,15 +384,15 @@ describe('cat-catalog-store', () => {
     );
   });
 
-  it('keeps existing .cat-cafe/cat-catalog.json runtime edits while backfilling missing accountRef bindings', () => {
+  it('keeps existing .office-claw/office-claw-catalog.json runtime edits while backfilling missing accountRef bindings', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
 
     const runtimeConfig = validConfig();
     runtimeConfig.breeds[0].displayName = '运行时布偶猫';
-    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
-    writeFileSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), JSON.stringify(runtimeConfig, null, 2));
+    mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
+    writeFileSync(join(projectRoot, '.office-claw', 'office-claw-catalog.json'), JSON.stringify(runtimeConfig, null, 2));
 
     const catalogPath = bootstrapCatCatalog(projectRoot, templatePath);
     const hydrated = JSON.parse(readFileSync(catalogPath, 'utf-8'));
@@ -402,7 +402,7 @@ describe('cat-catalog-store', () => {
 
   it('creates a new runtime member without corrupting v2 top-level fields', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
@@ -443,7 +443,7 @@ describe('cat-catalog-store', () => {
 
   it('updates an existing runtime member in place', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
@@ -466,7 +466,7 @@ describe('cat-catalog-store', () => {
 
   it('keeps sessionChain updates scoped to non-default variants', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = validConfig();
     template.breeds[0].features = { sessionChain: true };
     template.breeds[0].variants.push({
@@ -496,7 +496,7 @@ describe('cat-catalog-store', () => {
 
   it('keeps roleDescription updates scoped to non-default variants', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = validConfig();
     template.breeds[0].variants.push({
       id: 'opus-sonnet',
@@ -525,7 +525,7 @@ describe('cat-catalog-store', () => {
 
   it('keeps roleDescription updates scoped to the default variant', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = validConfig();
     template.breeds[0].variants.push({
       id: 'opus-sonnet',
@@ -554,7 +554,7 @@ describe('cat-catalog-store', () => {
 
   it('keeps sessionChain updates scoped to the default variant', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = validConfig();
     template.breeds[0].features = { sessionChain: true };
     template.breeds[0].variants.push({
@@ -584,7 +584,7 @@ describe('cat-catalog-store', () => {
 
   it('does not overwrite runtime catalog when validation fails', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
@@ -601,7 +601,7 @@ describe('cat-catalog-store', () => {
 
   it('rejects runtime members that reuse an alias from another cat', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
@@ -631,7 +631,7 @@ describe('cat-catalog-store', () => {
 
   it('deletes a runtime-created member without touching the rest of the catalog', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
@@ -667,7 +667,7 @@ describe('cat-catalog-store', () => {
 
   it('blocks seed deletion even when CAT_TEMPLATE_PATH points to an unreadable in-project file', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-stale-template-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
@@ -694,8 +694,8 @@ describe('cat-catalog-store', () => {
     mkdirSync(projectRoot, { recursive: true });
     mkdirSync(siblingRoot, { recursive: true });
 
-    const templatePath = join(projectRoot, 'cat-template.json');
-    const siblingTemplatePath = join(siblingRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
+    const siblingTemplatePath = join(siblingRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     writeFileSync(siblingTemplatePath, JSON.stringify(makeSiblingTemplate('shadow-seed'), null, 2));
 
@@ -742,8 +742,8 @@ describe('cat-catalog-store', () => {
     mkdirSync(projectRoot, { recursive: true });
     mkdirSync(siblingRoot, { recursive: true });
 
-    const templatePath = join(projectRoot, 'cat-template.json');
-    const siblingTemplatePath = join(siblingRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
+    const siblingTemplatePath = join(siblingRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     writeFileSync(siblingTemplatePath, JSON.stringify(makeSiblingTemplate('shadow-seed'), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
@@ -782,9 +782,9 @@ describe('cat-catalog-store', () => {
 
   it('api_key bootstrap uses profile model when template defaultModel is not in profile', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-model-'));
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
-    const templatePath = join(projectRoot, 'cat-template.json');
-    const catCafeDir = join(projectRoot, '.cat-cafe');
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
+    const templatePath = join(projectRoot, 'office-claw-template.json');
+    const catCafeDir = join(projectRoot, '.office-claw');
     mkdirSync(catCafeDir, { recursive: true });
 
     writeFileSync(
@@ -853,7 +853,7 @@ describe('cat-catalog-store', () => {
 
   it('displayName change on default variant syncs into breed mentionPatterns', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     writeFileSync(templatePath, JSON.stringify(validConfig(), null, 2));
     bootstrapCatCatalog(projectRoot, templatePath);
 
@@ -879,7 +879,7 @@ describe('cat-catalog-store', () => {
 
   it('displayName change on non-default variant materializes variant mentionPatterns without polluting breed', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = validConfig();
     template.breeds[0].variants.push({
       id: 'opus-sonnet',
@@ -916,7 +916,7 @@ describe('cat-catalog-store', () => {
 
   it('name-only update on non-default variant does not corrupt breed mentionPatterns', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'cat-catalog-store-'));
-    const templatePath = join(projectRoot, 'cat-template.json');
+    const templatePath = join(projectRoot, 'office-claw-template.json');
     const template = validConfig();
     template.breeds[0].variants.push({
       id: 'opus-sonnet',

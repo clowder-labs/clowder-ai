@@ -159,7 +159,7 @@ export default function LoginPage() {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">专家团思辨模式</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  多智能体对等协同思辨，通过投票推选核心Leader智能体，统领指挥、协同执行复杂任务
+                  多智能体专家团对等协同，思辨讨论，充分发挥群体智慧，避免单一模型幻觉，决策失误的问题
                 </p>
               </div>
 

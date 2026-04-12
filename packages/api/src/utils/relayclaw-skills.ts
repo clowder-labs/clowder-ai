@@ -10,7 +10,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CapabilitiesConfig, CapabilityEntry } from '@cat-cafe/shared';
 
-const CAT_CAFE_SKILLS_MANIFEST = join('cat-cafe-skills', 'manifest.yaml');
+const CAT_CAFE_SKILLS_MANIFEST = join('office-claw-skills', 'manifest.yaml');
 
 let cachedCatCafeSkillsSourceDir: string | null = null;
 
@@ -64,7 +64,7 @@ function listFilesRecursively(dir: string, root = dir): string[] {
 
 function readCapabilitiesConfigSync(projectRoot: string): CapabilitiesConfig | null {
   try {
-    const raw = readFileSync(join(projectRoot, '.cat-cafe', 'capabilities.json'), 'utf-8');
+    const raw = readFileSync(join(projectRoot, '.office-claw', 'capabilities.json'), 'utf-8');
     const data = JSON.parse(raw) as CapabilitiesConfig;
     if (data.version !== 1 || !Array.isArray(data.capabilities)) return null;
     return data;
@@ -87,13 +87,13 @@ export function resolveCatCafeSkillsSourceDir(): string {
   while (dir !== dirname(dir)) {
     const candidate = join(dir, CAT_CAFE_SKILLS_MANIFEST);
     if (existsSync(candidate)) {
-      cachedCatCafeSkillsSourceDir = join(dir, 'cat-cafe-skills');
+      cachedCatCafeSkillsSourceDir = join(dir, 'office-claw-skills');
       return cachedCatCafeSkillsSourceDir;
     }
     dir = dirname(dir);
   }
 
-  cachedCatCafeSkillsSourceDir = join(process.cwd(), 'cat-cafe-skills');
+  cachedCatCafeSkillsSourceDir = join(process.cwd(), 'office-claw-skills');
   return cachedCatCafeSkillsSourceDir;
 }
 

@@ -25,16 +25,16 @@ describe('signal fetcher launchd scripts', () => {
       env: {
         ...process.env,
         HOME: '/tmp/cat-cafe-home',
-        SIGNAL_FETCHER_LABEL: 'com.cat-cafe.signal-fetcher',
+        SIGNAL_FETCHER_LABEL: 'com.office-claw.signal-fetcher',
         SIGNAL_FETCH_HOUR: '7',
         SIGNAL_FETCH_MINUTE: '30',
       },
     });
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    assert.match(result.stdout, /<string>com.cat-cafe.signal-fetcher<\/string>/);
-    assert.match(result.stdout, /<string>\/tmp\/cat-cafe-home\/\.cat-cafe\/signals\/logs\/fetch\.log<\/string>/);
-    assert.match(result.stdout, /<string>\/tmp\/cat-cafe-home\/\.cat-cafe\/signals\/logs\/fetch-error\.log<\/string>/);
+    assert.match(result.stdout, /<string>com.office-claw.signal-fetcher<\/string>/);
+    assert.match(result.stdout, /<string>\/tmp\/cat-cafe-home\/\.office-claw\/signals\/logs\/fetch\.log<\/string>/);
+    assert.match(result.stdout, /<string>\/tmp\/cat-cafe-home\/\.office-claw\/signals\/logs\/fetch-error\.log<\/string>/);
     assert.match(result.stdout, /<integer>7<\/integer>/);
     assert.match(result.stdout, /<integer>30<\/integer>/);
   });

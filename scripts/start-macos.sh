@@ -5,7 +5,7 @@
 # Equivalent of start-windows.ps1 for macOS.
 #
 # Environment:
-#   CAT_CAFE_MACOS_BUNDLED=1  — set by Swift launcher
+#   OFFICE_CLAW_MACOS_BUNDLED=1  — set by Swift launcher
 #   PATH includes tools/node/bin and tools/redis/bin
 
 set -euo pipefail
@@ -39,12 +39,12 @@ BUNDLED_NODE="$PROJECT_ROOT/tools/node/bin/node"
 BUNDLED_REDIS="$PROJECT_ROOT/tools/redis/bin/redis-server"
 BUNDLED_REDIS_CLI="$PROJECT_ROOT/tools/redis/bin/redis-cli"
 
-# Data directories (use ~/.cat-cafe for v1 compatibility)
-CAT_CAFE_HOME="${CAT_CAFE_GLOBAL_CONFIG_ROOT:-$HOME/.cat-cafe}"
-REDIS_DATA_DIR="${REDIS_DATA_DIR:-$CAT_CAFE_HOME/redis-prod}"
-RUNTIME_STATE_DIR="$CAT_CAFE_HOME/run/macos"
+# Data directories (use ~/.office-claw for v1 compatibility)
+OFFICE_CLAW_HOME="${OFFICE_CLAW_GLOBAL_CONFIG_ROOT:-$HOME/.office-claw}"
+REDIS_DATA_DIR="${REDIS_DATA_DIR:-$OFFICE_CLAW_HOME/redis-prod}"
+RUNTIME_STATE_DIR="$OFFICE_CLAW_HOME/run/macos"
 RUNTIME_STATE_FILE="$RUNTIME_STATE_DIR/runtime-state.json"
-LOG_DIR="$CAT_CAFE_HOME/logs"
+LOG_DIR="$OFFICE_CLAW_HOME/logs"
 
 mkdir -p "$REDIS_DATA_DIR" "$RUNTIME_STATE_DIR" "$LOG_DIR"
 
@@ -112,10 +112,10 @@ falsy_env() {
     return 1
 }
 PREFER_RANDOM_PORTS=false
-if [ "${CAT_CAFE_MACOS_BUNDLED:-}" = "1" ] && ! falsy_env "${CAT_CAFE_MACOS_RANDOM_PORTS:-}"; then
+if [ "${OFFICE_CLAW_MACOS_BUNDLED:-}" = "1" ] && ! falsy_env "${OFFICE_CLAW_MACOS_RANDOM_PORTS:-}"; then
     PREFER_RANDOM_PORTS=true
 fi
-if truthy_env "${CAT_CAFE_MACOS_RANDOM_PORTS:-}"; then
+if truthy_env "${OFFICE_CLAW_MACOS_RANDOM_PORTS:-}"; then
     PREFER_RANDOM_PORTS=true
 fi
 
@@ -217,7 +217,7 @@ log "  Redis: $REDIS_VERSION"
 # ─── First-boot: apply modelarts preset if not done yet ──────────────
 
 PRESET_FILE="$PROJECT_ROOT/modelarts-preset.json"
-CATALOG_FILE="$PROJECT_ROOT/.cat-cafe/cat-catalog.json"
+CATALOG_FILE="$PROJECT_ROOT/.office-claw/office-claw-catalog.json"
 INSTALLER_SCRIPT="$PROJECT_ROOT/scripts/install-auth-config.mjs"
 
 if [ -f "$PRESET_FILE" ] && [ -f "$INSTALLER_SCRIPT" ]; then

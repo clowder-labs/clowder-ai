@@ -66,7 +66,7 @@ describe('Commands Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {
         threadId: ownThreadId,
       },
@@ -82,7 +82,7 @@ describe('Commands Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {},
     });
 
@@ -93,7 +93,7 @@ describe('Commands Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {
         threadId: ownThreadId,
       },
@@ -105,7 +105,7 @@ describe('Commands Routes', () => {
     assert.equal(body.degraded, false);
   });
 
-  it('uses X-Cat-Cafe-User header over legacy payload userId', async () => {
+  it('uses X-Office-Claw-User header over legacy payload userId', async () => {
     await messageStore.append({
       content: 'TODO: header identity should win',
       userId: 'test-user',
@@ -115,7 +115,7 @@ describe('Commands Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {
         threadId: ownThreadId,
         userId: 'legacy-user-should-not-win',
@@ -149,7 +149,7 @@ describe('Commands Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {
         threadId: otherThreadId,
       },

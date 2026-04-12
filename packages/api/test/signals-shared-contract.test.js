@@ -39,7 +39,7 @@ describe('shared signals contract', () => {
       fetchedAt: '2026-02-18T08:01:00.000Z',
       status: 'inbox',
       tags: ['release', 'model'],
-      filePath: '/home/user/.cat-cafe/signals/library/openai/2026-02-18-gpt6.md',
+      filePath: '/home/user/.office-claw/signals/library/openai/2026-02-18-gpt6.md',
     };
 
     const parsedSource = shared.SignalSourceSchema.parse(validSource);

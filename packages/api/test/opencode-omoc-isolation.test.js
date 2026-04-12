@@ -10,7 +10,7 @@ import { OpenCodeAgentService } from '../dist/domains/cats/services/agents/provi
 import { transformOpenCodeEvent } from '../dist/domains/cats/services/agents/providers/opencode-event-transform.js';
 import { ensureFakeCliOnPath } from './helpers/fake-cli-path.js';
 import {
-  CAT_CAFE_CAT_IDS,
+  OFFICE_CLAW_CAT_IDS,
   CAT_CAFE_HANDLES,
   collect,
   createMockProcess,
@@ -41,7 +41,7 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
       const agentTarget = result.toolInput?.agent;
       assert.ok(agentTarget, 'delegate-task must have agent field in input');
       assert.ok(OMOC_INTERNAL_AGENTS.includes(agentTarget), `agent "${agentTarget}" must be OMOC-internal`);
-      assert.ok(!CAT_CAFE_CAT_IDS.includes(agentTarget), `agent "${agentTarget}" must NOT be a Cat Cafe cat`);
+      assert.ok(!OFFICE_CLAW_CAT_IDS.includes(agentTarget), `agent "${agentTarget}" must NOT be a Cat Cafe cat`);
     }
   });
 
@@ -128,6 +128,6 @@ describe('OMOC Sisyphus Isolation (AC-9)', () => {
     const result = transformOpenCodeEvent(maliciousEvent, 'opencode');
     assert.ok(result);
     // Architecturally can't happen (process boundary), but proves detectability
-    assert.ok(CAT_CAFE_CAT_IDS.includes(result.toolInput?.agent), 'should detect Cat Cafe cat ID in agent field');
+    assert.ok(OFFICE_CLAW_CAT_IDS.includes(result.toolInput?.agent), 'should detect Cat Cafe cat ID in agent field');
   });
 });

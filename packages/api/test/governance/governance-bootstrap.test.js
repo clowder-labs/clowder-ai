@@ -24,8 +24,8 @@ describe('GovernanceBootstrapService', () => {
   beforeEach(async () => {
     catCafeRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-root-'));
     targetProject = await mkdtemp(join(tmpdir(), 'target-project-'));
-    // Create cat-cafe-skills source directory (bootstrap symlinks to it)
-    await mkdir(join(catCafeRoot, 'cat-cafe-skills'), { recursive: true });
+    // Create office-claw-skills source directory (bootstrap symlinks to it)
+    await mkdir(join(catCafeRoot, 'office-claw-skills'), { recursive: true });
   });
 
   afterEach(async () => {
@@ -60,14 +60,14 @@ describe('GovernanceBootstrapService', () => {
     const svc = new GovernanceBootstrapService(catCafeRoot);
     await svc.bootstrap(targetProject, { dryRun: false });
 
-    const sourcePath = resolve(catCafeRoot, 'cat-cafe-skills');
+    const sourcePath = resolve(catCafeRoot, 'office-claw-skills');
     for (const dir of ['.claude/skills', '.codex/skills', '.gemini/skills']) {
       const linkPath = join(targetProject, dir);
       const stat = await lstat(linkPath);
       assert.ok(stat.isSymbolicLink(), `${dir} should be a symlink`);
       const target = await readlink(linkPath);
       const resolved = resolve(dirname(linkPath), target);
-      assert.equal(resolved, sourcePath, `${dir} should point to cat-cafe-skills`);
+      assert.equal(resolved, sourcePath, `${dir} should point to office-claw-skills`);
     }
   });
 
@@ -141,11 +141,11 @@ describe('GovernanceBootstrapService', () => {
     }
   });
 
-  it('saves bootstrap report to .cat-cafe/', async () => {
+  it('saves bootstrap report to .office-claw/', async () => {
     const svc = new GovernanceBootstrapService(catCafeRoot);
     await svc.bootstrap(targetProject, { dryRun: false });
 
-    const reportPath = join(targetProject, '.cat-cafe/governance-bootstrap-report.json');
+    const reportPath = join(targetProject, '.office-claw/governance-bootstrap-report.json');
     const raw = await readFile(reportPath, 'utf-8');
     const report = JSON.parse(raw);
     assert.equal(report.projectPath, targetProject);

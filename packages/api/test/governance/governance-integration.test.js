@@ -21,7 +21,7 @@ describe('governance integration with capability-orchestrator', () => {
   beforeEach(async () => {
     catCafeRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-root-'));
     externalProject = await mkdtemp(join(tmpdir(), 'external-project-'));
-    await mkdir(join(catCafeRoot, 'cat-cafe-skills'), { recursive: true });
+    await mkdir(join(catCafeRoot, 'office-claw-skills'), { recursive: true });
   });
 
   afterEach(async () => {

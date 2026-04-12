@@ -144,7 +144,7 @@ describe('StudyFoldArea navigation', () => {
       noteToggle.click();
     });
 
-    // Verify apiFetch was called (not bare fetch) — ensures X-Cat-Cafe-User header is sent
+    // Verify apiFetch was called (not bare fetch) — ensures X-Office-Claw-User header is sent
     expect(mockApiFetch).toHaveBeenCalledWith('/api/signals/articles/article_fetch/notes/note_fetch');
     // Content should be rendered
     expect(container.textContent).toContain('Study insight here');

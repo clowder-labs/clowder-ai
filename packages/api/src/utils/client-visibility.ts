@@ -19,13 +19,17 @@ export type VisibleClientId =
 const ALL_CLIENT_IDS: VisibleClientId[] = ['anthropic', 'openai', 'google', 'dare', 'opencode', 'antigravity', 'relayclaw', 'acp'];
 const ALL_BUILTIN_AUTH_CLIENTS: BuiltinAccountClient[] = ['anthropic', 'openai', 'google', 'dare', 'opencode'];
 
+function readEnvCompat(legacyKey: string, officeClawKey: string): string | undefined {
+  return process.env[legacyKey] ?? process.env[officeClawKey];
+}
+
 function isBuiltinClientsEnabled(): boolean {
-  const raw = process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED;
+  const raw = readEnvCompat('CAT_CAFE_BUILTIN_CLIENTS_ENABLED', 'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED');
   return raw === 'true' || raw === '1';
 }
 
 function isBuiltinClientsExplicitlyDisabled(): boolean {
-  const raw = process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED;
+  const raw = readEnvCompat('CAT_CAFE_BUILTIN_CLIENTS_ENABLED', 'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED');
   return raw === 'false' || raw === '0';
 }
 
@@ -48,17 +52,17 @@ export function getAllowedClientIds(): VisibleClientId[] {
     ALL_CLIENT_IDS.includes(k as VisibleClientId),
   );
 
-  // When builtin clients are explicitly disabled, CAT_CAFE_CLIENT_LABELS is
+  // When builtin clients are explicitly disabled, OFFICE_CLAW_CLIENT_LABELS is
   // the single source of truth: its keys define which clients are enabled,
   // its values define console display names.
   if (isBuiltinClientsExplicitlyDisabled()) {
     if (labelKeys.length > 0) return ALL_CLIENT_IDS.filter((id) => labelKeys.includes(id));
     // Fallback to CAT_CAFE_ALLOWED_CLIENTS if no labels configured
-    return parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, []);
+    return parseCsvEnv(readEnvCompat('CAT_CAFE_ALLOWED_CLIENTS', 'OFFICE_CLAW_ALLOWED_CLIENTS'), ALL_CLIENT_IDS, []);
   }
 
   // Default (env not set): merge ALLOWED_CLIENTS and label keys
-  const base = parseCsvEnv(process.env.CAT_CAFE_ALLOWED_CLIENTS, ALL_CLIENT_IDS, ALL_CLIENT_IDS);
+  const base = parseCsvEnv(readEnvCompat('CAT_CAFE_ALLOWED_CLIENTS', 'OFFICE_CLAW_ALLOWED_CLIENTS'), ALL_CLIENT_IDS, ALL_CLIENT_IDS);
   if (labelKeys.length === 0) return base;
   const merged = new Set([...base, ...labelKeys]);
   return ALL_CLIENT_IDS.filter((id) => merged.has(id));
@@ -85,7 +89,7 @@ export function getVisibleBuiltinAuthClients(): BuiltinAccountClient[] {
   const allowedBuiltinClients = getAllowedBuiltinBindingClients();
   const defaultFallback = isBuiltinClientsExplicitlyDisabled() ? [] : allowedBuiltinClients;
   return parseCsvEnv(
-    process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS,
+    readEnvCompat('CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS', 'OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS'),
     ALL_BUILTIN_AUTH_CLIENTS,
     defaultFallback,
   ).filter((client) => allowedBuiltinClients.includes(client));
@@ -137,11 +141,11 @@ export function getUiHints(): {
 }
 
 /**
- * Parse CAT_CAFE_CLIENT_LABELS env var into a client→label map.
+ * Parse CAT_CAFE_CLIENT_LABELS / OFFICE_CLAW_CLIENT_LABELS into a client→label map.
  * Format: "dare:九问,opencode:OC" → { dare: "九问", opencode: "OC" }
  */
 export function getClientLabels(): Record<string, string> {
-  const raw = process.env.CAT_CAFE_CLIENT_LABELS;
+  const raw = readEnvCompat('CAT_CAFE_CLIENT_LABELS', 'OFFICE_CLAW_CLIENT_LABELS');
   if (!raw?.trim()) return {};
   const labels: Record<string, string> = {};
   for (const pair of raw.split(',')) {

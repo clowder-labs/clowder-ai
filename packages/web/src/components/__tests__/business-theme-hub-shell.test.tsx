@@ -76,7 +76,7 @@ describe('business theme hub shell', () => {
               {
                 id: 'ops-skill',
                 type: 'skill',
-                source: 'cat-cafe',
+                source: 'builtin',
                 enabled: true,
                 cats: { office: true },
                 description: 'automation helper',
