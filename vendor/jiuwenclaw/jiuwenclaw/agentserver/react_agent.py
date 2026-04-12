@@ -539,6 +539,10 @@ class JiuClawReActAgent(ReActAgent):
         # Validate and fix incomplete context before entering ReAct loop
         await self._fix_incomplete_tool_context(context)
 
+        # 将前端 todo 面板同步到当前 request 作用域（避免仍显示上一轮任务的列表）
+        if session is not None and session_id:
+            await self._emit_todo_updated(session, session_id)
+
         # ReAct loop
         for iteration in range(self._config.max_iterations):
             # Pause checkpoint: block here if paused until resume
