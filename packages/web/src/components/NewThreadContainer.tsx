@@ -189,7 +189,7 @@ export function NewThreadContainer() {
   );
 
   return (
-    <div className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+    <div className="ui-shell-surface flex h-screen h-dvh w-screen">
       <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
         <ThreadSidebar
           className="w-full"
@@ -205,12 +205,12 @@ export function NewThreadContainer() {
         <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
       </div>
 
-      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div className="min-w-0 flex-1">
         <div className="flex h-full min-h-0 min-w-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
           <RightContentHeader />
-          <div className="relative flex-1 min-h-0 overflow-hidden">
+          <div className="relative flex-1 min-h-0">
             {sidebarMenu !== 'chat' && (
-              <div className="ui-shell-surface h-full overflow-hidden px-8 pt-6 pb-5">
+              <div className="ui-shell-surface h-full px-8 pt-6 pb-5">
                 {sidebarMenu === 'models' && <ModelsPanel />}
                 {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
