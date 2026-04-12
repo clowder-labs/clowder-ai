@@ -768,7 +768,6 @@ select:-webkit-autofill:focus {
     display: flex;
     width: 100%;
     flex-direction: column;
-    overflow: hidden;
     border: 1px solid var(--border-elevated);
     border-radius: 1rem;
     background: var(--surface-neutral-white);
@@ -789,7 +788,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-modal-title {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-heading-strong);
   }
