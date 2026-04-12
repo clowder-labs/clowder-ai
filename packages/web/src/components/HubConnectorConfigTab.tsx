@@ -305,11 +305,11 @@ export function HubConnectorConfigTab() {
       });
       const data = (await res.json().catch(() => ({}))) as ConnectorTestResult;
       if (!res.ok || !data.ok) {
-        const pieces = [data.error ?? '测试失败', data.details].filter(Boolean);
+        const pieces = data.error ?? data.details ?? '测试失败';
         addToast({
           type: 'error',
           title: '测试连接失败',
-          message: pieces.join('：'),
+          message: pieces,
           duration: 5000,
         });
         return;
