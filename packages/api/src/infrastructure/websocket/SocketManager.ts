@@ -18,10 +18,28 @@ import type {
   InvocationTracker,
 } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
+import { FRONTEND_DEFAULT_USER_ID, resolveEffectiveUserId } from '../../utils/request-identity.js';
 import { classifyAgentErrorCode } from '../../utils/model-sensitive-input-error.js';
 import { createModuleLogger } from '../logger.js';
 
 const log = createModuleLogger('ws');
+
+function readSocketHandshakeUserId(socket: Socket): string | null {
+  const auth = socket.handshake.auth;
+  if (auth && typeof auth === 'object' && !Array.isArray(auth)) {
+    const userId = Reflect.get(auth, 'userId');
+    if (typeof userId === 'string' && userId.trim()) {
+      return userId.trim();
+    }
+  }
+
+  const queryUserId = socket.handshake.query?.userId;
+  if (typeof queryUserId === 'string' && queryUserId.trim()) {
+    return queryUserId.trim();
+  }
+
+  return null;
+}
 
 /**
  * Build the sequence of AgentMessages to broadcast after a successful cancel.
@@ -95,9 +113,11 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      // Server determines identity — never trust client-supplied userId.
-      // In single-user mode, all connections are 'default-user'.
-      const userId = 'default-user';
+      // Browser/API defaults use the "default-user" sentinel. When a deployment
+      // routes frontend-visible data under DEFAULT_OWNER_USER_ID, map the socket
+      // connection to that effective user so emitToUser reaches the UI.
+      const requestedUserId = readSocketHandshakeUserId(socket) ?? FRONTEND_DEFAULT_USER_ID;
+      const userId = resolveEffectiveUserId(requestedUserId) ?? FRONTEND_DEFAULT_USER_ID;
 
       log.info({ socketId: socket.id, userId }, 'Client connected');
       log.debug(

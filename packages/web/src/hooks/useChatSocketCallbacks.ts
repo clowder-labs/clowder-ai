@@ -54,9 +54,15 @@ export function useChatSocketCallbacks({
         handleAgentMessage(msg);
         return true;
       },
-      onThreadCreated: () => {
+      onThreadCreated: (data) => {
+        // Refresh thread list for sidebar
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('cat-cafe:threads-refresh'));
+        }
+        // Navigate to new thread when created via connector command (e.g. /new in Feishu/Telegram)
+        // This matches the behavior of onGameThreadCreated
+        if (data.source === 'connector_command' && data.threadId) {
+          onNavigateToThread?.(data.threadId);
         }
       },
       onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),

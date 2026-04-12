@@ -20,10 +20,35 @@ import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerMo
 import { SectionGroup } from './SectionGroup';
 import { sanitizeThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
-import { getProjectPaths, type ThreadGroup } from './thread-utils';
+import { applyRealtimeThreadActivity, getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 import { useCollapseState } from './use-collapse-state';
 import { useProjectPins } from './use-project-pins';
+
+const MAX_SIDEBAR_RESTORE_FRAMES = 90;
+const SIDEBAR_SCROLL_STORAGE_KEY = 'cat-cafe:sidebar-scroll:v1';
+
+function readSidebarScrollTop(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = window.sessionStorage.getItem(SIDEBAR_SCROLL_STORAGE_KEY);
+    if (!raw) return 0;
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeSidebarScrollTop(nextTop: number): void {
+  if (typeof window === 'undefined') return;
+  const safeTop = Number.isFinite(nextTop) && nextTop > 0 ? nextTop : 0;
+  try {
+    window.sessionStorage.setItem(SIDEBAR_SCROLL_STORAGE_KEY, String(safeTop));
+  } catch {
+    // ignore storage failures
+  }
+}
 
 interface ThreadSidebarProps {
   onClose?: () => void;
@@ -93,6 +118,8 @@ export function ThreadSidebar({
   const [govHealth, setGovHealth] = useState<Record<string, string>>({});
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const filterToggleRef = useRef<HTMLButtonElement>(null);
+  const scrollRegionRef = useRef<HTMLDivElement>(null);
+  const restoreFrameRef = useRef<number | null>(null);
 
   // Shared seq maps 鈥?created once, cross-referenced between pin/fav toggle instances
   const pinSeqMap = useRef(new Map<string, number>());
@@ -175,6 +202,67 @@ export function ThreadSidebar({
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [showFilter]);
 
+  const cancelPendingScrollRestore = useCallback(() => {
+    if (restoreFrameRef.current !== null) {
+      cancelAnimationFrame(restoreFrameRef.current);
+      restoreFrameRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRegionRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      writeSidebarScrollTop(el.scrollTop);
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      handleScroll();
+      el.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  const scheduleScrollRestore = useCallback(
+    (targetTop: number) => {
+      cancelPendingScrollRestore();
+      if (!Number.isFinite(targetTop) || targetTop <= 0) return;
+
+      let framesRemaining = MAX_SIDEBAR_RESTORE_FRAMES;
+      const apply = () => {
+        const el = scrollRegionRef.current;
+        if (!el) {
+          restoreFrameRef.current = null;
+          return;
+        }
+
+        const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+        const clampedTop = Math.min(targetTop, maxTop);
+        el.scrollTop = clampedTop;
+
+        const canSettle = maxTop >= targetTop;
+        const reachedTarget = Math.abs(el.scrollTop - clampedTop) <= 1;
+        if ((canSettle && reachedTarget) || framesRemaining <= 0) {
+          writeSidebarScrollTop(el.scrollTop);
+          restoreFrameRef.current = null;
+          return;
+        }
+
+        framesRemaining -= 1;
+        restoreFrameRef.current = requestAnimationFrame(apply);
+      };
+
+      restoreFrameRef.current = requestAnimationFrame(apply);
+    },
+    [cancelPendingScrollRestore],
+  );
+
+  useEffect(() => {
+    scheduleScrollRestore(readSidebarScrollTop());
+    return cancelPendingScrollRestore;
+  }, [threads.length, isLoadingThreads, pathname, scheduleScrollRestore, cancelPendingScrollRestore]);
+
   // F070: Fetch governance health for all registered external projects
   useEffect(() => {
     (async () => {
@@ -195,7 +283,7 @@ export function ThreadSidebar({
 
   const navigateToThread = useCallback(
     (threadId: string) => {
-      router.push(threadId === 'default' ? '/' : `/thread/${threadId}`);
+      router.push(threadId === 'default' ? '/' : `/thread/${threadId}`, { scroll: false });
     },
     [router],
   );
@@ -405,6 +493,10 @@ export function ThreadSidebar({
   const handleSelect = useCallback(
     (threadId: string) => {
       onThreadSelect?.();
+      const scrollRegion = scrollRegionRef.current;
+      if (scrollRegion) {
+        writeSidebarScrollTop(scrollRegion.scrollTop);
+      }
       const isAlreadyOnThreadRoute =
         (threadId === 'default' && pathname === '/') || pathname === `/thread/${threadId}`;
       if (threadId === currentThreadId && isAlreadyOnThreadRoute) return;
@@ -421,8 +513,12 @@ export function ThreadSidebar({
   );
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
+  const threadsWithRealtimeActivity = useMemo(
+    () => applyRealtimeThreadActivity(threads, threadStates),
+    [threads, threadStates],
+  );
   const filteredThreads = useMemo(() => {
-    let result = threads;
+    let result = threadsWithRealtimeActivity;
     if (normalizedQuery) {
       result = result.filter((thread) => {
         const displayTitle = (thread.title?.trim() || (thread.id === 'default' ? '大厅' : '未命名会话')).toLowerCase();
@@ -438,18 +534,18 @@ export function ThreadSidebar({
     }
 
     return result;
-  }, [threads, normalizedQuery, filterOption]);
+  }, [threadsWithRealtimeActivity, normalizedQuery, filterOption]);
 
   const unreadIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const thread of threads) {
+    for (const thread of threadsWithRealtimeActivity) {
       const ts = threadStates[thread.id];
       if (ts && ts.unreadCount > 0) {
         ids.add(thread.id);
       }
     }
     return ids;
-  }, [threads, threadStates]);
+  }, [threadsWithRealtimeActivity, threadStates]);
 
   // F072: Mark all threads as read
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
@@ -482,7 +578,7 @@ export function ThreadSidebar({
     return groups;
   }, [filteredThreads]);
   const displayThreadGroups = useMemo(() => threadGroups, [threadGroups]);
-  const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
+  const existingProjects = useMemo(() => getProjectPaths(threadsWithRealtimeActivity), [threadsWithRealtimeActivity]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
   const hasVisibleThreads = useMemo(
     () => displayThreadGroups.some((group) => (group.threads?.length ?? 0) > 0),
@@ -747,7 +843,7 @@ export function ThreadSidebar({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div ref={scrollRegionRef} className="flex-1 overflow-y-auto" data-testid="thread-sidebar-scroll-region">
           {isLoadingThreads && threads.length === 0 && (
             <div className="text-center py-4 text-xs text-gray-400">加载中..</div>
           )}
