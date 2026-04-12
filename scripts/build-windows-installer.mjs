@@ -80,6 +80,7 @@ export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'tools',
   'installer-seed',
   'vendor',
+  'assets',
   '.clowder-release.json',
   '.env.example',
   'LICENSE',
