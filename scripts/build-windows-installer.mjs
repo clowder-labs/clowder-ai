@@ -162,7 +162,7 @@ process.env.NODE_ENV = 'production';
 process.chdir(__dirname);
 
 const currentPort = parseInt(process.env.PORT, 10) || 3000;
-const hostname = process.env.HOSTNAME || '0.0.0.0';
+const hostname = process.env.HOSTNAME || '127.0.0.1';
 
 let keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT, 10);
 

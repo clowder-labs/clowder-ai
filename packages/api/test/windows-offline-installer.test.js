@@ -239,7 +239,8 @@ test('Windows startup script pins bundled config roots for packaged releases', (
     /\$usingStandaloneWebRuntime = \(-not \$Dev\) -and \(Test-Path \$webStandaloneServer\)/,
   );
   assert.match(startWindowsScript, /Starting Frontend \(port \$WebPort, standalone\)/);
-  assert.match(startWindowsScript, /\$env:HOSTNAME = "0\.0\.0\.0"/);
+  assert.match(startWindowsScript, /\$env:HOSTNAME = "127\.0\.0\.1"/);
+  assert.match(windowsBuilder, /const hostname = process\.env\.HOSTNAME \|\| '127\.0\.0\.1';/);
 });
 
 test('Windows skill mount keeps refs and top-level skill metadata files', () => {
