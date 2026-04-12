@@ -264,13 +264,13 @@ export function UserProfile({ className }: UserProfileProps) {
                 用量统计
               </button>
 
-              <button
+              {/* <button
                 className={profileActionClass}
                 onClick={handleOpenSecurityManagement}
               >
                 <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 安全管理
-              </button>
+              </button> */}
 
               <button
                 className={profileActionClass}

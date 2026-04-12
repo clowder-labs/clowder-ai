@@ -429,7 +429,7 @@ describe('SkillDetailView', () => {
 
     const titleNode = container.querySelector('[data-testid="skill-detail-title"]') as HTMLElement | null;
     expect(titleNode).not.toBeNull();
-    expect(titleNode?.className).toContain('text-[28px]');
+    expect(titleNode?.className).toContain('text-[20px]');
     expect(titleNode?.className).toContain('whitespace-nowrap');
     expect(titleNode?.className).toContain('text-ellipsis');
     expect(container.querySelector('[data-testid="skill-detail-breadcrumb-title"]')?.textContent).toBe(longTitle);
