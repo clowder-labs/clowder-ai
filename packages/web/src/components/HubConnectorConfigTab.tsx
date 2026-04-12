@@ -197,6 +197,31 @@ export function HubConnectorConfigTab() {
 
     setSaving(true);
     setSaveResult(null);
+
+    if (TESTABLE_PLATFORMS.includes(platform.id)) {
+      const payload = Object.fromEntries(
+        platform.fields
+          .map((field) => [field.envName, fieldValues[field.envName]])
+          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
+      );
+      const testRes = await apiFetch(`/api/connector/test/${platform.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const testData = (await testRes.json().catch(() => ({}))) as ConnectorTestResult;
+      if (!testRes.ok || !testData.ok) {
+        setSaving(false);
+        addToast({
+          type: 'error',
+          title: '保存配置失败',
+          message: '测试连接不成功，请检查配置是否正确',
+          duration: 5000,
+        });
+        return;
+      }
+    }
+
     try {
       const res = await apiFetch('/api/config/env', {
         method: 'PATCH',

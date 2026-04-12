@@ -295,12 +295,14 @@ Approach each task methodically and deliver high-quality results."""
 
             logger.info(f"[Subagent] Execution completed, task_id={task.task_id}")
 
-            # 11. Extract result
+            # 11. Extract result and usage
             result_text = ""
+            subagent_usage = None
             if isinstance(response, dict):
                 result_text = response.get("output", "")
                 if isinstance(result_text, dict):
                     result_text = result_text.get("output", str(result_text))
+                subagent_usage = response.get("usage")
             elif hasattr(response, "content"):
                 result_text = response.content
             elif hasattr(response, "text"):
@@ -308,11 +310,15 @@ Approach each task methodically and deliver high-quality results."""
             else:
                 result_text = str(response)
 
+            if subagent_usage:
+                logger.info(f"[Subagent] task_id={task.task_id} usage: {subagent_usage}")
+
             return SubagentResult(
                 success=True,
                 task_id=task.task_id,
                 role_id=task.role_id,
                 result=result_text,
+                usage=subagent_usage,
             )
 
         except asyncio.TimeoutError:

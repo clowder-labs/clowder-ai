@@ -327,12 +327,37 @@ internal sealed class LauncherForm : Form
         if (!_exitRequested && eventArgs.CloseReason == CloseReason.UserClosing)
         {
             eventArgs.Cancel = true;
-            HideToTray();
+            ShowCloseConfirmationDialog();
             return;
         }
 
         _notifyIcon.Visible = false;
         StopManagedServices();
+    }
+
+    private void ShowCloseConfirmationDialog()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)ShowCloseConfirmationDialog);
+            return;
+        }
+
+        using (var dialog = new CloseConfirmationDialog())
+        {
+            var result = dialog.ShowDialog(this);
+            if (result == DialogResult.OK)
+            {
+                if (dialog.ShouldMinimize)
+                {
+                    HideToTray();
+                }
+                else
+                {
+                    RequestExit();
+                }
+            }
+        }
     }
 
     private void OnWebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs eventArgs)
@@ -368,7 +393,7 @@ internal sealed class LauncherForm : Form
                 ToggleMaximize();
                 return;
             case WindowCloseMessage:
-                HideToTray();
+                ShowCloseConfirmationDialog();
                 return;
             case WindowSyncStateMessage:
                 PublishWindowState();
@@ -1041,5 +1066,77 @@ internal sealed class DoubleBufferedPanel : Panel
             ControlStyles.OptimizedDoubleBuffer,
             true
         );
+    }
+}
+
+internal sealed class CloseConfirmationDialog : Form
+{
+    private readonly RadioButton _minimizeRadio;
+    private readonly RadioButton _exitRadio;
+    private readonly Button _okButton;
+    private readonly Button _cancelButton;
+
+    public bool ShouldMinimize
+    {
+        get { return _minimizeRadio.Checked; }
+    }
+
+    public CloseConfirmationDialog()
+    {
+        Text = "OfficeClaw";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        StartPosition = FormStartPosition.CenterParent;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ShowInTaskbar = false;
+        ClientSize = new Size(320, 140);
+        AutoScaleMode = AutoScaleMode.Font;
+
+        var promptLabel = new Label
+        {
+            Text = "关闭窗口时，您希望如何处理？",
+            Location = new Point(12, 12),
+            Size = new Size(296, 20),
+        };
+
+        _minimizeRadio = new RadioButton
+        {
+            Text = "最小化到托盘（继续运行）",
+            Location = new Point(24, 40),
+            Size = new Size(280, 24),
+            Checked = true,
+        };
+
+        _exitRadio = new RadioButton
+        {
+            Text = "直接退出（关闭应用）",
+            Location = new Point(24, 68),
+            Size = new Size(280, 24),
+        };
+
+        _okButton = new Button
+        {
+            Text = "确定",
+            DialogResult = DialogResult.OK,
+            Location = new Point(140, 100),
+            Size = new Size(80, 28),
+        };
+
+        _cancelButton = new Button
+        {
+            Text = "取消",
+            DialogResult = DialogResult.Cancel,
+            Location = new Point(228, 100),
+            Size = new Size(80, 28),
+        };
+
+        Controls.Add(promptLabel);
+        Controls.Add(_minimizeRadio);
+        Controls.Add(_exitRadio);
+        Controls.Add(_okButton);
+        Controls.Add(_cancelButton);
+
+        AcceptButton = _okButton;
+        CancelButton = _cancelButton;
     }
 }
