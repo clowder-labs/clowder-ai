@@ -27,22 +27,18 @@ metadata:
 node {skill_root}/pptx-craft/scripts/check-env.js
 ```
 
-脚本会检测：
-- Node.js 版本
-- npm 依赖（node_modules）
-- Chromium 浏览器
+脚本会检测：Node.js 版本、npm 依赖、Chromium 浏览器。
 
-**按脚本提示安装缺失项，直到显示「环境就绪」。**
+**按脚本提示安装缺失项，执行顺序如下**：
 
-**安装流程**（国内网络）：
+1. **npm install**（较快，约1分钟）→ 必须完成
+2. **npx playwright install chromium**（约150MB，5-10分钟）→ 必须尝试安装
 
-```bash
-cd {skill_root}/pptx-craft
-npm install
-npx playwright install chromium
-```
+**如果 Chromium 安装超时**：
+- 继续执行 Stage 1-3（研究、规划、HTML生成）
+- **在 Stage 4（PPTX导出）前，重新执行检测脚本**
 
-> **说明**：npm install 安装 JS 依赖包，playwright install chromium 下载浏览器二进制文件（约150MB），因为文件非常大，建议命令的执行超时时间至少配置为600秒。
+**不要跳过 Chromium 安装步骤**，即使预计耗时较长也要先尝试执行。
 
 ---
 
