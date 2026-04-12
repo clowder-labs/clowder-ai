@@ -9,8 +9,22 @@ import { clearDebugEvents, configureDebug, dumpBubbleTimeline } from '@/debug/in
 import type { ChatMessage } from '../chat-types';
 import { useChatStore } from '../chatStore';
 
-function makeMsg(id: string, content = 'hello'): ChatMessage {
-  return { id, type: 'user', content, timestamp: Date.now() };
+function makeMsg(id: string, content = 'hello', timestamp = Date.now()): ChatMessage {
+  return { id, type: 'user', content, timestamp };
+}
+
+function makeAssistantMsg(id: string, content = 'hello', timestamp = Date.now()): ChatMessage {
+  return { id, type: 'assistant', catId: 'opus', content, timestamp };
+}
+
+function makeConnectorMsg(id: string, content = 'hello', timestamp = Date.now()): ChatMessage {
+  return {
+    id,
+    type: 'user',
+    content,
+    source: { connector: 'weixin', label: '微信', icon: '/images/connectors/weixin.png' },
+    timestamp,
+  };
 }
 
 describe('chatStore multi-thread state', () => {
@@ -36,6 +50,9 @@ describe('chatStore multi-thread state', () => {
       splitPaneTargetId: null,
       currentThreadId: 'thread-a',
       currentProjectPath: 'default',
+      _unreadSuppressedUntil: {},
+      _pendingAckCount: {},
+      _lastReadAtByThread: {},
       threads: [],
       isLoadingThreads: false,
     });
@@ -122,7 +139,7 @@ describe('chatStore multi-thread state', () => {
     });
 
     it('adds to map when thread is not active', () => {
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('m1'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('m1'));
       // Flat state unchanged
       expect(useChatStore.getState().messages).toHaveLength(0);
       // Map updated
@@ -308,7 +325,7 @@ describe('chatStore multi-thread state', () => {
   describe('unread tracking', () => {
     it('incrementUnread updates background thread', () => {
       // Set up a background thread with state
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('u1'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('u1'));
       useChatStore.getState().incrementUnread('thread-b');
       const ts = useChatStore.getState().threadStates['thread-b'];
       // 1 from addMessageToThread + 1 from incrementUnread
@@ -316,8 +333,18 @@ describe('chatStore multi-thread state', () => {
     });
 
     it('clearUnread resets count', () => {
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('u2'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('u2'));
       useChatStore.getState().clearUnread('thread-b');
+      expect(useChatStore.getState().threadStates['thread-b']?.unreadCount).toBe(0);
+    });
+
+    it('counts connector-sourced user bubbles as unread', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeConnectorMsg('wx-1', '来自微信的提问'));
+      expect(useChatStore.getState().threadStates['thread-b']?.unreadCount).toBe(1);
+    });
+
+    it('does not count local user bubbles without connector source as unread', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('local-1', '本地用户输入'));
       expect(useChatStore.getState().threadStates['thread-b']?.unreadCount).toBe(0);
     });
 
@@ -440,7 +467,7 @@ describe('chatStore multi-thread state', () => {
 
     it('clearUnread sets suppression that blocks initThreadUnread', () => {
       // Background thread gets unread
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s1'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('s1'));
       expect(useChatStore.getState().threadStates['thread-b']?.unreadCount).toBe(1);
 
       // User opens thread-b (simulated) — clearUnread fires
@@ -453,7 +480,7 @@ describe('chatStore multi-thread state', () => {
     });
 
     it('suppression persists until confirmUnreadAck (#586)', () => {
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s2'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('s2'));
       useChatStore.getState().clearUnread('thread-b');
 
       // Even after a long time, suppression holds (Infinity, not 10s)
@@ -472,8 +499,8 @@ describe('chatStore multi-thread state', () => {
     });
 
     it('clearAllUnread suppresses all threads', () => {
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s3'));
-      useChatStore.getState().addMessageToThread('thread-c', makeMsg('s4'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('s3'));
+      useChatStore.getState().addMessageToThread('thread-c', makeAssistantMsg('s4'));
 
       useChatStore.getState().clearAllUnread();
       expect(useChatStore.getState().threadStates['thread-b']?.unreadCount).toBe(0);
@@ -487,11 +514,11 @@ describe('chatStore multi-thread state', () => {
     });
 
     it('suppression does not block genuinely new messages via addMessageToThread', () => {
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s5'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('s5', 'hello', 1_000));
       useChatStore.getState().clearUnread('thread-b');
 
       // A genuinely new WebSocket message arrives — addMessageToThread should still work
-      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s6'));
+      useChatStore.getState().addMessageToThread('thread-b', makeAssistantMsg('s6', 'hello again', 1_001));
       expect(useChatStore.getState().threadStates['thread-b']?.unreadCount).toBe(1);
     });
   });

@@ -351,7 +351,27 @@ async def _fetch_webpage_async(
         id="mcp_fetch_webpage",
         name="mcp_fetch_webpage",
         description="Fetch webpage text content from URL with concurrent fallback. Returns status/title/plain text content.",
-        properties={"truncate_length": 5000},
+        properties={"truncate_length": 60000},
+        input_params={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL of the webpage to fetch",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": "Maximum characters of content to return (500-50000, default 12000)",
+                    "default": 12000,
+                },
+                "timeout_seconds": {
+                    "type": "integer",
+                    "description": "HTTP request timeout in seconds (3-10, default 5)",
+                    "default": 5,
+                },
+            },
+            "required": ["url"],
+        },
     ),
 )
 async def mcp_fetch_webpage(
