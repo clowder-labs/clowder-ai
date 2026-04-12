@@ -1,16 +1,11 @@
-﻿/*
- * *
- *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
- *
- */
-
-'use client';
+﻿'use client';
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth, getUserId } from '@/utils/userId';
+import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
 
 interface UserProfileProps {
@@ -21,24 +16,30 @@ const THEME_OPTIONS: Array<{
   id: ThemeType;
   label: string;
   swatchBackground: string;
+  selectedBadgeBackground: string;
 }> = [
   {
     id: 'business',
-    label: '灰白浅色',
+    label: '灰白',
     swatchBackground:
       'linear-gradient(-50.71deg, rgba(237, 244, 246, 1), rgba(235, 235, 235, 1) 100%)',
+    selectedBadgeBackground: 'rgb(59,130,246)',
   },
   {
     id: 'warm',
-    label: '橙白浅色',
+    label: '橙白',
     swatchBackground:
       'linear-gradient(144.26deg, rgba(255, 203, 162, 1), rgba(255, 236, 221, 1) 100%)',
+    selectedBadgeBackground: 'rgb(204,109,26)',
   },
 ];
+
+const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html';
 
 export function UserProfile({ className }: UserProfileProps) {
   const [showPanel, setShowPanel] = useState(false);
   const [showThemePanel, setShowThemePanel] = useState(false);
+  const [showUsageStats, setShowUsageStats] = useState(false);
   const [showVersionUpdate, setShowVersionUpdate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
@@ -82,6 +83,16 @@ export function UserProfile({ className }: UserProfileProps) {
     });
   };
 
+  const handleOpenUsageStats = () => {
+    setShowUsageStats(true);
+    setShowThemePanel(false);
+    setShowPanel(false);
+  };
+
+  const handleCloseUsageStats = () => {
+    setShowUsageStats(false);
+  };
+
   const handleOpenVersionUpdate = () => {
     setShowVersionUpdate(true);
     setShowThemePanel(false);
@@ -107,6 +118,12 @@ export function UserProfile({ className }: UserProfileProps) {
 
   const handleSelectTheme = (nextTheme: ThemeType) => {
     setTheme(nextTheme);
+    setShowThemePanel(false);
+    setShowPanel(false);
+  };
+
+  const handleOpenHelp = () => {
+    window.open(HELP_URL, '_blank', 'noopener,noreferrer');
     setShowThemePanel(false);
     setShowPanel(false);
   };
@@ -194,7 +211,7 @@ export function UserProfile({ className }: UserProfileProps) {
         </div>
 
         <svg
-          className={`h-4 w-4 shrink-0 text-[#191919] transition-transform ${showPanel ? 'rotate-90' : ''}`}
+          className="h-4 w-4 shrink-0 text-[#191919] transition-transform"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -206,7 +223,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
       {showPanel && (
         <div
-          className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 mb-2 rounded-[var(--radius-lg)]"
+          className="ui-overlay-card absolute bottom-full left-3 right-3 z-50 -mb-[4px] rounded-[var(--radius-lg)]"
           data-testid="user-profile-panel"
           ref={profilePanelRef}
         >
@@ -217,7 +234,7 @@ export function UserProfile({ className }: UserProfileProps) {
                   <span className="text-base font-bold text-[#191919]">{avatarLetter}</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-base font-normal text-gray-900" title={userName}>
+                  <div className="truncate text-[16px] font-normal text-gray-900" title={userName}>
                     {userName}
                   </div>
                 </div>
@@ -227,6 +244,14 @@ export function UserProfile({ className }: UserProfileProps) {
             <div className="mb-3 border-t border-gray-200" />
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
+              <button
+                 className={`hidden ${profileActionClass}`}
+                onClick={handleOpenUsageStats}
+              >
+                <img src="/icons/userprofile/usage.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
+                用量统计
+              </button>
+
               <button
                 className={profileActionClass}
                 onClick={handleOpenVersionUpdate}
@@ -260,7 +285,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 </button>
               </div>
 
-              <button className={`hidden ${profileActionClass}`}>
+              <button className={profileActionClass} onClick={handleOpenHelp}>
                 <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 帮助
               </button>
@@ -272,7 +297,7 @@ export function UserProfile({ className }: UserProfileProps) {
                 <button
                   onClick={handleLogout}
                   disabled={isLoading}
-                  className="ui-button-default mt-4 h-7 w-full text-sm"
+                  className="ui-button-default mt-4 h-7 w-full text-[12px]"
                 >
                   {isLoading ? '退出中...' : '退出登录'}
                 </button>
@@ -309,10 +334,11 @@ export function UserProfile({ className }: UserProfileProps) {
                       />
                       {isActive && (
                         <div
-                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white"
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-white"
                           data-testid={`user-theme-selected-badge-${option.id}`}
+                          style={{ backgroundColor: option.selectedBadgeBackground }}
                         >
-                          <svg className="h-2.5 w-2.5" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
+                          <svg className="h-[12px] w-[12px]" viewBox="0 0 16 16" fill="#191919" aria-hidden="true">
                             <path
                               d="M4 8.25 6.5 10.75 12 5.25"
                               stroke="currentColor"
@@ -335,6 +361,7 @@ export function UserProfile({ className }: UserProfileProps) {
         </div>
       )}
 
+      {showUsageStats ? <UsageStatsModal open={showUsageStats} onClose={handleCloseUsageStats} /> : null}
       <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} />
     </div>
   );

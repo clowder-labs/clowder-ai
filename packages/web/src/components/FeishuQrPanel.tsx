@@ -7,6 +7,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { SpinnerIcon } from './HubConfigIcons';
@@ -21,12 +22,13 @@ interface FeishuQrPanelProps {
 
 function statusMessage(status: QrState, errorMsg: string | null) {
   if (status === 'expired') return '二维码已过期，请重新生成';
-  if (status === 'denied') return '授权被拒绝，请重试并在飞书上确认';
+  if (status === 'denied') return '授权已被拒绝，请重试并在飞书上确认';
   if (status === 'error') return errorMsg ?? '获取二维码失败';
   return null;
 }
 
 export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: FeishuQrPanelProps) {
+  const addToast = useToastStore((s) => s.addToast);
   const [qrState, setQrState] = useState<QrState>(configured ? 'confirmed' : 'idle');
   const [disconnecting, setDisconnecting] = useState(false);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
       setErrorMsg(null);
     }
   }, [configured, stopPolling]);
+
   useEffect(() => () => stopPolling(), [stopPolling]);
 
   const schedulePoll = useCallback(
@@ -88,8 +91,9 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
             }
             return;
           }
+
           setQrState('error');
-          setErrorMsg('Unexpected QR status');
+          setErrorMsg('二维码状态异常');
           setQrUrl(null);
         } catch {
           if (terminalRef.current || requestId !== requestSeqRef.current) return;
@@ -113,7 +117,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setQrState('error');
-        setErrorMsg(data.error ?? 'Failed to fetch QR code');
+        setErrorMsg(data.error ?? '获取二维码失败');
         return;
       }
 
@@ -131,12 +135,31 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
     setDisconnecting(true);
     try {
       const res = await apiFetch('/api/connector/feishu/disconnect', { method: 'POST' });
-      if (res.ok) {
-        setQrState('idle');
-        onDisconnected?.();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        addToast({
+          type: 'error',
+          title: '断开连接失败',
+          message: data.error ?? '断开失败',
+          duration: 5000,
+        });
+        return;
       }
+      setQrState('idle');
+      addToast({
+        type: 'success',
+        title: '断开连接成功',
+        message: '已断开连接。',
+        duration: 3000,
+      });
+      onDisconnected?.();
     } catch {
-      // button stays enabled for retry
+      addToast({
+        type: 'error',
+        title: '断开连接失败',
+        message: '网络错误',
+        duration: 5000,
+      });
     } finally {
       setDisconnecting(false);
     }
@@ -150,8 +173,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
           disconnecting={disconnecting}
           onDisconnect={handleDisconnect}
           disconnectTestId="feishu-disconnect"
-        >
-        </ConnectorConnectedState>
+        />
       </div>
     );
   }
@@ -162,7 +184,7 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
     <div className="space-y-3" data-testid="feishu-qr-panel">
       {(qrState === 'idle' || qrState === 'expired' || qrState === 'error' || qrState === 'denied') && (
         <div className="space-y-2">
-          {message && <p className="text-xs text-gray-500">{message}</p>}
+          {message && <p className="text-xs text-red-600">{message}</p>}
           <button
             type="button"
             onClick={handleFetchQr}
@@ -182,11 +204,20 @@ export function FeishuQrPanel({ configured, onConfirmed, onDisconnected }: Feish
       )}
 
       {qrState === 'waiting' && qrUrl && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white p-4">
-          <img src={qrUrl} alt="Feishu QR code" className="h-48 w-48 rounded-lg" data-testid="feishu-qr-image" />
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex flex-col gap-3" style={{ width: 'fit-content' }} data-testid="feishu-qr-waiting-shell">
+          <div
+            className="p-3 border-[#f0f0f0] bg-[#fff]"
+            style={{ boxShadow: '0 4px 16px 0 rgba(0,0,0,0.08)' }}
+            data-testid="feishu-qr-card"
+          >
+            <img src={qrUrl} alt="飞书二维码" className="w-48 h-48 rounded-lg" data-testid="feishu-qr-image" />
+          </div>
+          <div
+            className="flex items-center justify-center gap-2 text-gray-500 text-xs"
+            data-testid="feishu-qr-waiting-text"
+          >
             <SpinnerIcon />
-            <span>用飞书扫描二维码并确认授权</span>
+            <span>用飞书扫描二维码</span>
           </div>
         </div>
       )}

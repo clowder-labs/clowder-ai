@@ -314,6 +314,22 @@ describe('ConnectorInvokeTrigger', () => {
     assert.strictEqual(trackerMock.completes[0].threadId, 'thread-1');
   });
 
+  it('notifies outbound hook on delivery batch done', async () => {
+    const notifications = /** @type {Array<{threadId: string, chainDone: boolean}>} */ ([]);
+    const outboundHook = {
+      deliver: async () => {},
+      notifyDeliveryBatchDone: async (threadId, chainDone) => {
+        notifications.push({ threadId, chainDone });
+      },
+    };
+
+    const trigger = createTrigger({ outboundHook });
+    trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
+    await waitForTrigger();
+
+    assert.deepStrictEqual(notifications, [{ threadId: 'thread-1', chainDone: true }]);
+  });
+
   it('skips duplicate invocations', async () => {
     recordMock.setDuplicate();
     const trigger = createTrigger();
@@ -357,6 +373,28 @@ describe('ConnectorInvokeTrigger', () => {
 
     // Should still complete tracker (finally block)
     assert.strictEqual(trackerMock.completes.length, 1);
+  });
+
+  it('delivers connector-visible fallback reply when invocation crashes', async () => {
+    routerMock = mockRouter({ throwError: new Error('Huawei MaaS session not found') });
+    const deliverCalls = /** @type {Array<unknown[]>} */ ([]);
+    const outboundHook = {
+      async deliver(...args) {
+        deliverCalls.push(args);
+      },
+    };
+    const trigger = createTrigger({ router: routerMock.router, outboundHook });
+
+    trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
+    await waitForTrigger();
+
+    assert.strictEqual(deliverCalls.length, 1, 'Should send one fallback error reply to connector');
+    assert.strictEqual(deliverCalls[0][0], 'thread-1');
+    assert.ok(
+      String(deliverCalls[0][1]).includes('重新登录'),
+      `Expected re-login hint in fallback reply, got: ${deliverCalls[0][1]}`,
+    );
+    assert.strictEqual(deliverCalls[0][6], 'msg-1');
   });
 
   it('marks failed on persistence failure', async () => {

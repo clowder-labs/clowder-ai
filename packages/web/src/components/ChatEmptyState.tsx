@@ -28,16 +28,16 @@ const heroCards: EmptyStateCard[] = [
   {
     id: 'agents',
     title: '智能体配置',
-    description: '设置智能体人设及记忆，让 OfficeClaw 更了解你。',
+    description: '设置智能体人设，让 OfficeClaw 更了解你。',
     imageSrc: '/images/chat-empty-agent.svg',
     imageAlt: '智能体配置',
   },
   {
     id: 'channels',
-    title: '一键接入 IM',
+    title: '一键接入渠道',
     description: '一键接入飞书、微信、钉钉、小艺渠道，无缝推进办公流程。',
     imageSrc: '/images/chat-empty-im.svg',
-    imageAlt: '一键接入 IM',
+    imageAlt: '一键接入渠道',
   },
 ];
 
@@ -71,10 +71,9 @@ export function ChatEmptyState({
                 alt="OfficeClaw"
                 className="h-[60px] w-auto shrink-0"
               />
-              <span>，制定目标自动规划执行</span>
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[#8E8E98] sm:text-[15px]">
-              即刻拥有专属 AI 专家，成为 7x24 小时在线的超级助手。
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-7 text-[#8E8E98] sm:text-[15px]">
+              AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
             </p>
           </div>
 

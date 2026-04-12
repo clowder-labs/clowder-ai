@@ -21,6 +21,48 @@ const repoRoot = resolve(__dirname, '..');
 const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
 const DEFAULT_WEBVIEW2_VERSION = process.env.CLOWDER_WEBVIEW2_VERSION ?? '1.0.3856.49';
 const WEBVIEW2_BOOTSTRAPPER_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+
+const stepTimings = [];
+let currentStepName = null;
+let currentStepStart = null;
+
+function startStep(name) {
+  if (currentStepName !== null) {
+    const elapsed = Date.now() - currentStepStart;
+    stepTimings.push({ name: currentStepName, elapsed });
+  }
+  currentStepName = name;
+  currentStepStart = Date.now();
+}
+
+function endCurrentStep() {
+  if (currentStepName !== null) {
+    const elapsed = Date.now() - currentStepStart;
+    stepTimings.push({ name: currentStepName, elapsed });
+    currentStepName = null;
+  }
+}
+
+function formatDuration(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60000)}m ${((ms % 60000) / 1000).toFixed(0)}s`;
+}
+
+function printTimingSummary() {
+  if (stepTimings.length === 0) return;
+  const total = stepTimings.reduce((a, b) => a + b.elapsed, 0);
+  process.stdout.write('\n[windows-installer] Timing Summary:\n');
+  process.stdout.write('─'.repeat(50) + '\n');
+  const sorted = [...stepTimings].sort((a, b) => b.elapsed - a.elapsed);
+  for (const { name, elapsed } of sorted) {
+    const pct = ((elapsed / total) * 100).toFixed(1);
+    process.stdout.write(`  ${name.padEnd(35)} ${formatDuration(elapsed).padStart(8)} (${pct}%)\n`);
+  }
+  process.stdout.write('─'.repeat(50) + '\n');
+  process.stdout.write(`  ${'TOTAL'.padEnd(35)} ${formatDuration(total).padStart(8)}\n\n`);
+}
+
 const WINDOWS_RUNTIME_NPM_ARGS = [
   'install',
   '--omit=dev',
@@ -355,6 +397,7 @@ Options:
 }
 
 function logStep(message) {
+  startStep(message);
   process.stdout.write(`\n[windows-installer] ${message}\n`);
 }
 
@@ -504,6 +547,7 @@ function copyTopLevelProject(bundleDir) {
     'cat-cafe-skills',
     'LICENSE',
     '.env.example',
+    '.inner.env',
     'cat-template.json',
     'modelarts-preset.json',
     'pnpm-workspace.yaml',
@@ -808,8 +852,41 @@ function pruneDateFnsLocales(rootDir) {
   }
 }
 
-function createRuntimePackageJson(sourcePath, options = {}) {
+function resolveInstalledPackageVersion(nodeModulesDir, packageName) {
+  const packageJsonPath = join(nodeModulesDir, packageName, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return null;
+  }
+  const installed = readJson(packageJsonPath);
+  return typeof installed.version === 'string' && installed.version.trim().length > 0 ? installed.version.trim() : null;
+}
+
+function resolveInstalledPackageVersionFrom(nodeModulesDirs, packageName) {
+  for (const nodeModulesDir of nodeModulesDirs) {
+    const installedVersion = resolveInstalledPackageVersion(nodeModulesDir, packageName);
+    if (installedVersion) {
+      return installedVersion;
+    }
+  }
+  return null;
+}
+
+function pinRuntimeDependencyVersions(sourceDir, dependencies, overrides = {}) {
+  const nodeModulesDirs = [join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
+  return Object.fromEntries(
+    Object.entries(dependencies).map(([dependency, specifier]) => {
+      if (overrides[dependency]) {
+        return [dependency, overrides[dependency]];
+      }
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      return [dependency, installedVersion ?? specifier];
+    }),
+  );
+}
+
+export function createRuntimePackageJson(sourcePath, options = {}) {
   const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
   const runtimePackage = {
     name: source.name,
     version: source.version,
@@ -828,16 +905,16 @@ function createRuntimePackageJson(sourcePath, options = {}) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
 
-  const dependencies = { ...(source.dependencies ?? {}) };
-  if (dependencies['@cat-cafe/shared']) {
-    dependencies['@cat-cafe/shared'] = 'file:../shared';
-  }
+  const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
+    '@cat-cafe/shared': 'file:../shared',
+  });
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
   }
 
-  if (source.optionalDependencies && Object.keys(source.optionalDependencies).length > 0) {
-    runtimePackage.optionalDependencies = source.optionalDependencies;
+  const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
+  if (Object.keys(optionalDependencies).length > 0) {
+    runtimePackage.optionalDependencies = optionalDependencies;
   }
 
   return runtimePackage;
@@ -845,19 +922,21 @@ function createRuntimePackageJson(sourcePath, options = {}) {
 
 function createBundledApiRuntimePackageJson(sourcePath) {
   const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
   const runtimePackage = createRuntimePackageJson(sourcePath, {
     scripts: {
       start: 'node dist/index.js',
     },
   });
+  const nodeModulesDirs = [join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
   const runtimeDependencies = Object.fromEntries(
     API_RUNTIME_EXTERNAL_DEPENDENCIES.flatMap((dependency) => {
-      const sourceVersion = source.dependencies?.[dependency];
-      if (sourceVersion) {
-        return [[dependency, sourceVersion]];
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      if (installedVersion) {
+        return [[dependency, installedVersion]];
       }
-      const installedVersion = resolveInstalledPackageVersion(ROOT_NODE_MODULES_DIR, dependency);
-      return installedVersion ? [[dependency, installedVersion]] : [];
+      const sourceVersion = source.dependencies?.[dependency];
+      return sourceVersion ? [[dependency, sourceVersion]] : [];
     }),
   );
   if (Object.keys(runtimeDependencies).length > 0) {
@@ -869,30 +948,23 @@ function createBundledApiRuntimePackageJson(sourcePath) {
   return runtimePackage;
 }
 
-function resolveInstalledPackageVersion(nodeModulesDir, packageName) {
-  const packageJsonPath = join(nodeModulesDir, packageName, 'package.json');
-  if (!existsSync(packageJsonPath)) {
-    return null;
-  }
-  const installed = readJson(packageJsonPath);
-  return typeof installed.version === 'string' && installed.version.trim().length > 0 ? installed.version.trim() : null;
-}
-
-function createStandaloneWebRuntimePackageJson(sourcePath) {
+export function createStandaloneWebRuntimePackageJson(sourcePath) {
   const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
   const runtimePackage = createRuntimePackageJson(sourcePath, {
     scripts: {
       start: 'node server.js',
     },
   });
+  const nodeModulesDirs = [WEB_STANDALONE_NODE_MODULES_DIR, join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
   const runtimeDependencies = Object.fromEntries(
     WEB_RUNTIME_DEPENDENCIES.flatMap((dependency) => {
-      const sourceVersion = source.dependencies?.[dependency];
-      if (sourceVersion) {
-        return [[dependency, sourceVersion]];
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      if (installedVersion) {
+        return [[dependency, installedVersion]];
       }
-      const installedVersion = resolveInstalledPackageVersion(WEB_STANDALONE_NODE_MODULES_DIR, dependency);
-      return installedVersion ? [[dependency, installedVersion]] : [];
+      const sourceVersion = source.dependencies?.[dependency];
+      return sourceVersion ? [[dependency, sourceVersion]] : [];
     }),
   );
   if (Object.keys(runtimeDependencies).length > 0) {
@@ -1444,7 +1516,9 @@ async function main() {
     createPayloadTar(bundleDir, payloadTar);
     logStep('Compiling NSIS installer');
     invokeMakensis(installerScript, outputExe, payloadTar, packageJson.version);
-    logStep(`Installer ready at ${outputExe}`);
+    endCurrentStep();
+    process.stdout.write(`\n[windows-installer] Installer ready at ${outputExe}\n`);
+    printTimingSummary();
     return;
   }
 
@@ -1456,7 +1530,9 @@ async function main() {
     logStep('Building WebView2 desktop launcher');
     buildWindowsDesktopLauncher(bundleDir, options);
     stageWindowsDesktopAssets(bundleDir);
-    logStep(`Launcher rebuilt in ${bundleDir}`);
+    endCurrentStep();
+    process.stdout.write(`\n[windows-installer] Launcher rebuilt in ${bundleDir}\n`);
+    printTimingSummary();
     return;
   }
 
@@ -1534,7 +1610,9 @@ async function main() {
   });
 
   if (options.bundleOnly) {
-    logStep(`Offline bundle ready at ${bundleDir}`);
+    endCurrentStep();
+    process.stdout.write(`\n[windows-installer] Offline bundle ready at ${bundleDir}\n`);
+    printTimingSummary();
     return;
   }
 
@@ -1544,7 +1622,9 @@ async function main() {
 
   logStep('Compiling NSIS installer');
   invokeMakensis(installerScript, outputExe, payloadTar, packageJson.version);
-  logStep(`Installer ready at ${outputExe}`);
+  endCurrentStep();
+  process.stdout.write(`\n[windows-installer] Installer ready at ${outputExe}\n`);
+  printTimingSummary();
 }
 
 const isMainModule = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

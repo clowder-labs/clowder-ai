@@ -22,19 +22,31 @@
  */
 
 import type { CatId, RelayClawChunkPayload, RelayClawWsFrame } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage } from '../../types.js';
+
+const log = createModuleLogger('relayclaw-event-transform');
+
+const RELAYCLAW_TRANSPORT_ERROR_TEXT_PATTERNS = [
+  /^\s*\[(?:错误|error)\]\s*jiuwen WebSocket connection closed unexpectedly\s*$/i,
+  /^\s*jiuwen WebSocket connection closed unexpectedly\s*$/i,
+] as const;
 
 function msg(type: AgentMessage['type'], catId: CatId, content?: string): AgentMessage {
   return { type, catId, content, timestamp: Date.now() };
 }
 
+export function isRelayClawTransportErrorText(content: unknown): content is string {
+  if (typeof content !== 'string') return false;
+  const normalized = content.trim();
+  if (!normalized) return false;
+  return RELAYCLAW_TRANSPORT_ERROR_TEXT_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 /**
  * Transform a single relay-claw WS chunk into an AgentMessage (or null to skip).
  */
-export function transformRelayClawChunk(
-  frame: RelayClawWsFrame,
-  catId: CatId,
-): AgentMessage | null {
+export function transformRelayClawChunk(frame: RelayClawWsFrame, catId: CatId): AgentMessage | null {
   // connection.ack is handled at connection level, not yielded as a message
   if (frame.type === 'event' && frame.event === 'connection.ack') {
     return null;
@@ -52,11 +64,12 @@ export function transformRelayClawChunk(
     case 'chat.delta': {
       const content = payload.content;
       if (!content) return null;
+      if (isRelayClawTransportErrorText(content)) return null;
       if (payload.source_chunk_type === 'llm_reasoning') {
         return {
           type: 'system_info',
           catId,
-          content: JSON.stringify({ type: 'thinking', catId, text: content }),
+          content: JSON.stringify({ type: 'thinking', catId, text: content, mergeStrategy: 'append' }),
           timestamp: Date.now(),
         };
       }
@@ -114,7 +127,9 @@ export function transformRelayClawChunk(
 
     default: {
       // Unknown event: extract content if present, otherwise skip
+      log.warn({ eventType, requestId: frame.request_id }, 'jiuwen unknown event type — possible protocol drift');
       const content = payload.content;
+      if (isRelayClawTransportErrorText(content)) return null;
       if (content) return msg('text', catId, content);
       return null;
     }

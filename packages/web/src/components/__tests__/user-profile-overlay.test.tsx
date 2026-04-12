@@ -6,18 +6,21 @@
 
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserProfile } from '../UserProfile';
 
 const mockReplace = vi.fn();
 const mockSetTheme = vi.fn();
+const mockWindowOpen = vi.fn();
+let currentTheme: 'business' | 'warm' = 'business';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
-  useTheme: () => ({ theme: 'business', setTheme: mockSetTheme }),
+  useTheme: () => ({ theme: currentTheme, setTheme: mockSetTheme }),
 }));
 
 vi.mock('@/utils/api-client', () => ({
@@ -33,6 +36,15 @@ vi.mock('../VersionUpdateModal', () => ({
   default: () => null,
 }));
 
+const usageStatsModalSpy = vi.fn();
+
+vi.mock('../UsageStatsModal', () => ({
+  UsageStatsModal: (props: { open: boolean; onClose: () => void }) => {
+    usageStatsModalSpy(props);
+    return props.open ? React.createElement('div', { 'data-testid': 'usage-stats-modal' }) : null;
+  },
+}));
+
 describe('UserProfile overlay classes', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -40,14 +52,22 @@ describe('UserProfile overlay classes', () => {
   beforeAll(() => {
     (globalThis as { React?: typeof React }).React = React;
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    Object.defineProperty(window, 'open', {
+      configurable: true,
+      writable: true,
+      value: mockWindowOpen,
+    });
   });
 
   beforeEach(() => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    currentTheme = 'business';
     mockReplace.mockReset();
     mockSetTheme.mockReset();
+    mockWindowOpen.mockReset();
+    usageStatsModalSpy.mockReset();
   });
 
   afterEach(() => {
@@ -65,6 +85,17 @@ describe('UserProfile overlay classes', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
   }
+
+  it('renders a stable fallback name on the server before browser user state loads', async () => {
+    expect(renderToString(React.createElement(UserProfile))).toContain('未登录');
+
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    expect(container.textContent).toContain('Alice');
+  });
 
   it('opens the theme popover on click instead of hover', async () => {
     act(() => {
@@ -186,4 +217,158 @@ describe('UserProfile overlay classes', () => {
     expect(container.querySelector('[data-testid="user-theme-popover"]')).toBeNull();
     expect(container.querySelector('[data-testid="user-profile-theme-arrow"]')).toBeTruthy();
   });
+
+  it('uses the warm selected badge color for the orange-white theme option', async () => {
+    currentTheme = 'warm';
+
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    const panel = container.querySelector('[data-testid="user-profile-panel"]') as HTMLDivElement | null;
+    const themeAnchor = container.querySelector('[data-testid="user-profile-theme-anchor"]') as HTMLDivElement | null;
+    const themeTrigger = container.querySelector('[data-testid="user-profile-theme-trigger"]') as HTMLButtonElement | null;
+    const rootElement = container.firstElementChild as HTMLElement | null;
+
+    expect(panel).toBeTruthy();
+    expect(themeAnchor).toBeTruthy();
+    expect(themeTrigger).toBeTruthy();
+    expect(rootElement).toBeTruthy();
+
+    Object.defineProperty(rootElement!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 20,
+        top: 100,
+        right: 220,
+        bottom: 300,
+        width: 200,
+        height: 200,
+        x: 20,
+        y: 100,
+        toJSON: () => ({}),
+      }),
+    });
+    Object.defineProperty(themeAnchor!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 32,
+        top: 180,
+        right: 204,
+        bottom: 220,
+        width: 172,
+        height: 40,
+        x: 32,
+        y: 180,
+        toJSON: () => ({}),
+      }),
+    });
+    Object.defineProperty(panel!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 32,
+        top: 116,
+        right: 208,
+        bottom: 296,
+        width: 176,
+        height: 180,
+        x: 32,
+        y: 116,
+        toJSON: () => ({}),
+      }),
+    });
+
+    act(() => {
+      themeTrigger?.click();
+    });
+    await flush();
+
+    const warmBadge = container.querySelector('[data-testid="user-theme-selected-badge-warm"]') as HTMLDivElement | null;
+    expect(warmBadge).toBeTruthy();
+    expect(warmBadge?.style.backgroundColor).toBe('rgb(204, 109, 26)');
+  });
+
+  it('opens the help document when the help action is clicked', async () => {
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    const helpButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('帮助'));
+    expect(helpButton).toBeTruthy();
+
+    act(() => {
+      helpButton?.click();
+    });
+
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html',
+      '_blank',
+      'noopener,noreferrer',
+    );
+  });
+
+   it('shows usage stats above version update and opens the usage modal', async () => {
+ 	     act(() => {
+ 	       root.render(React.createElement(UserProfile));
+ 	     });
+ 	     await flush();
+ 	 
+ 	     const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+ 	     expect(toggle).toBeTruthy();
+ 	 
+ 	     act(() => {
+ 	       toggle?.click();
+ 	     });
+ 	     await flush();
+ 	 
+ 	     const actions = container.querySelector('[data-testid="user-profile-content-actions"]');
+ 	     expect(actions).toBeTruthy();
+ 	 
+ 	     const actionButtons = actions ? Array.from(actions.querySelectorAll('button')) : [];
+ 	     const usageButton = actionButtons.find((button) => button.textContent?.includes('用量统计'));
+ 	     const versionButton = actionButtons.find((button) => button.textContent?.includes('版本更新'));
+ 	 
+ 	     expect(usageButton).toBeTruthy();
+ 	     expect(versionButton).toBeTruthy();
+ 	     expect(actionButtons.indexOf(usageButton as HTMLButtonElement)).toBeLessThan(
+ 	       actionButtons.indexOf(versionButton as HTMLButtonElement),
+ 	     );
+ 	     expect(usageStatsModalSpy).toHaveBeenLastCalledWith(
+ 	       expect.objectContaining({
+ 	         open: false,
+ 	         onClose: expect.any(Function),
+ 	       }),
+ 	     );
+ 	 
+ 	     act(() => {
+ 	       usageButton?.click();
+ 	     });
+ 	     await flush();
+ 	 
+ 	     expect(container.querySelector('[data-testid="usage-stats-modal"]')).toBeTruthy();
+ 	     expect(usageStatsModalSpy).toHaveBeenLastCalledWith(
+ 	       expect.objectContaining({
+ 	         open: true,
+ 	         onClose: expect.any(Function),
+ 	       }),
+ 	     );
+ 	   });
 });

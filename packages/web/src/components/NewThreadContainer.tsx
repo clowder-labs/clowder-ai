@@ -8,6 +8,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { QUICK_ACTIONS } from '@/config/quick-actions';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
@@ -21,6 +22,7 @@ import { ChatInput } from './ChatInput';
 import { DirectoryBrowserModal } from './DirectoryBrowserModal';
 import { ModelsPanel } from './ModelsPanel';
 import { RightContentHeader } from './RightContentHeader';
+import { ScheduledTasksPanel } from './ScheduledTasksPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { ThreadSidebar } from './ThreadSidebar';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -28,6 +30,16 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 const HOME_DRAFT_THREAD_ID = '__new__';
 const SIDEBAR_DEFAULT = 240;
 const MAIN_PANEL_MIN_WIDTH = 900;
+const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
+const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+
+function buildScheduledTaskQuickActionInsertText(): string | null {
+  const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === SCHEDULED_TASK_QUICK_ACTION_ICON);
+  const label = scheduledTaskAction?.label?.trim();
+  if (!label) return null;
+  return `${QUICK_ACTION_TOKEN_PREFIX}${label}${QUICK_ACTION_TOKEN_SUFFIX} `;
+}
 
 function getFolderNameFromPath(path: string): string {
   const normalized = path.replace(/[\\/]+$/, '');
@@ -43,12 +55,16 @@ function getCreateThreadErrorMessage(status: number, detail?: unknown): string {
 export function NewThreadContainer() {
   const router = useRouter();
   const setCurrentThread = useChatStore((s) => s.setCurrentThread);
+  const threads = useChatStore((s) => s.threads);
   const setPendingNewThreadSend = useChatStore((s) => s.setPendingNewThreadSend);
   const attachPendingNewThreadTarget = useChatStore((s) => s.attachPendingNewThreadTarget);
   const clearPendingNewThreadSend = useChatStore((s) => s.clearPendingNewThreadSend);
+  const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
   const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>('chat');
+  const [sidebarMenu, setSidebarMenu] = useState<
+    'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks'
+  >('chat');
   const [isFolderBrowserOpen, setIsFolderBrowserOpen] = useState(false);
   const [cwdPath, setCwdPath] = useState<string | null>(null);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
@@ -58,6 +74,15 @@ export function NewThreadContainer() {
     'cat-cafe:sidebarWidth',
     SIDEBAR_DEFAULT,
   );
+  const scheduledTaskQuickActionInsertText = useMemo(() => buildScheduledTaskQuickActionInsertText(), []);
+  const handleCreateScheduledTask = useCallback(() => {
+    setSidebarMenu('chat');
+    if (!scheduledTaskQuickActionInsertText) return;
+    setPendingChatInsert({
+      threadId: HOME_DRAFT_THREAD_ID,
+      text: scheduledTaskQuickActionInsertText,
+    });
+  }, [scheduledTaskQuickActionInsertText, setPendingChatInsert]);
   const socketCallbacks = useMemo(
     () => ({
       onMessage: () => {},
@@ -69,7 +94,8 @@ export function NewThreadContainer() {
     }),
     [],
   );
-  useSocket(socketCallbacks);
+  const watchedThreadIds = useMemo(() => threads.map((thread) => thread.id), [threads]);
+  useSocket(socketCallbacks, undefined, watchedThreadIds);
 
   const handleFolderSelect = useCallback((path: string) => {
     setSelectedFolderPath(path);
@@ -184,11 +210,12 @@ export function NewThreadContainer() {
           <RightContentHeader />
           <div className="relative flex-1 overflow-hidden">
             {sidebarMenu !== 'chat' && (
-              <div className="ui-shell-surface h-full overflow-hidden px-8 pt-12 pb-5">
+              <div className="ui-shell-surface h-full overflow-hidden px-8 pt-6 pb-5">
                 {sidebarMenu === 'models' && <ModelsPanel />}
                 {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
                 {sidebarMenu === 'skills' && <SkillsPanel />}
+                {sidebarMenu === 'scheduledTasks' && <ScheduledTasksPanel onCreateTask={handleCreateScheduledTask} />}
               </div>
             )}
             {sidebarMenu === 'chat' && (

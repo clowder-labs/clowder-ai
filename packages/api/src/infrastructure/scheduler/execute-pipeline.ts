@@ -80,6 +80,7 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
   const startMs = Date.now();
   const tickCount = (tickCounts.get(task.id) ?? 0) + 1;
   tickCounts.set(task.id, tickCount);
+  const allowSelfEchoSuppression = task.display?.subjectKind === 'thread';
 
   // Step 1: Enabled check
   if (!task.enabled()) return;
@@ -143,6 +144,7 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
     const gateResult = await task.admission.gate(gateCtx);
 
     if (!gateResult.run) {
+      logger.info(`[scheduler] ${task.id}: gate skipped (${gateResult.reason})`);
       if (task.outcome.whenNoSignal === 'record') {
         ledger.record({
           task_id: task.id,
@@ -168,9 +170,10 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
       const itemStartMs = Date.now();
 
       // AC-D2: Self-echo suppression — skip thread workItems where this task recently posted
-      if (emissionStore && item.subjectKey.startsWith('thread-')) {
+      if (allowSelfEchoSuppression && emissionStore && item.subjectKey.startsWith('thread-')) {
         const threadId = item.subjectKey.slice(7);
         if (emissionStore.isSuppressed(task.id, threadId)) {
+          logger.info(`[scheduler] ${task.id}/${item.subjectKey}: skipped by self-echo suppression`);
           ledger.record({
             task_id: task.id,
             subject_key: item.subjectKey,
@@ -216,7 +219,7 @@ export async function executeTaskPipeline(ctx: PipelineContext): Promise<void> {
       });
 
       // AC-D2: Record emission after successful thread-scoped delivery for self-echo suppression
-      if (outcome === 'RUN_DELIVERED' && emissionStore && item.subjectKey.startsWith('thread-')) {
+      if (allowSelfEchoSuppression && outcome === 'RUN_DELIVERED' && emissionStore && item.subjectKey.startsWith('thread-')) {
         const threadId = item.subjectKey.slice(7);
         const suppressionMs = task.trigger.type === 'interval' ? Math.max(task.trigger.ms * 2, 60_000) : 300_000;
         emissionStore.record({

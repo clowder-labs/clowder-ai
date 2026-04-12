@@ -141,7 +141,7 @@ export default function LoginPage() {
               />
             </div>
             <p className="mb-10 max-w-xl text-center text-xl font-semibold leading-10 text-gray-600 sm:text-2xl sm:leading-[48px]">
-              即刻拥有专属 AI 享 7x24 小时 稳定在线的超级助手
+              AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
             </p>
 
             <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
@@ -149,8 +149,8 @@ export default function LoginPage() {
                 <div className="mb-3">
                   <Image src="/images/login1.svg" alt="AI PPT" width={32} height={32} />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">专业级 AI PPT 生产力</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">行业专业级 AI 生成能力，一键完成高质量 PPT。</p>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">专业办公级AI PPT生产力</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">专业办公级AI PPT生成能力，一键完成高质量PPT创作与美化</p>
               </div>
 
               <div className="w-full min-w-0">
@@ -159,24 +159,24 @@ export default function LoginPage() {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">专家团思辨模式</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  支持创建多角色，高效分工，零门槛组建专属专家团队。
+                  多智能体对等协同思辨，通过投票推选核心Leader智能体，统领指挥、协同执行复杂任务
                 </p>
               </div>
 
               <div className="w-full min-w-0">
                 <div className="mb-3">
-                  <Image src="/images/login3.svg" alt="一键本地部署" width={32} height={32} />
+                  <Image src="/images/login3.svg" alt="工具分级管控，数据安全防护" width={32} height={32} />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">一键本地部署</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">具备本地文件读写能力，无缝处理多格式文件。</p>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">预置办公场景精品Skill</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">预置PPT、Word、Excel等办公场景Skill，轻松解锁高效工作流</p>
               </div>
 
               <div className="w-full min-w-0">
                 <div className="mb-3">
-                  <Image src="/images/login4.svg" alt="多渠道接入" width={32} height={32} />
+                  <Image src="/images/login4.svg" alt="预置办公场景精品Skill" width={32} height={32} />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">多渠道接入</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">可接入飞书、微信、钉钉、小艺等多渠道。</p>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">全渠道接入，支持微信直连</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">支持飞书、微信、钉钉、小艺等多平台接入，微信直连更便捷，实现全场景办公覆盖</p>
               </div>
             </div>
           </div>

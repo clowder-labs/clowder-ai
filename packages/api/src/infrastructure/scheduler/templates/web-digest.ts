@@ -4,6 +4,7 @@
  *
  */
 
+import { getDefaultCatId } from '../../../config/cat-config-loader.js';
 import type { TaskSpec_P1 } from '../types.js';
 import type { DynamicTaskParams, TaskTemplate } from './types.js';
 
@@ -49,7 +50,7 @@ export const webDigestTemplate: TaskTemplate = {
             if (!ctx.invokeTrigger) {
               throw new Error('invokeTrigger not available for browser-required digest');
             }
-            const catId = targetCatId ?? ctx.assignedCatId ?? 'opus';
+            const catId = targetCatId ?? ctx.assignedCatId ?? getDefaultCatId();
             const topicLine = topic ? `\n重点关注：${topic}` : '';
             const triggerContent =
               `[定时任务] 请使用 browser-automation 抓取并汇总网页内容\n` +

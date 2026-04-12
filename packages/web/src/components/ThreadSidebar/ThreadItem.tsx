@@ -11,6 +11,7 @@ import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { CatAvatar } from '../CatAvatar';
+import { OverflowTooltip } from '../shared/OverflowTooltip';
 import { formatRelativeTime } from './thread-utils';
 
 export interface ThreadItemProps {
@@ -134,7 +135,8 @@ export function ThreadItem({
   const unreadCount = Math.max(0, threadState?.unreadCount ?? 0);
   const showUnreadBadge = unreadCount > 0;
   const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
-  const canDelete = id !== 'default' && onDelete;
+  const isThreadRunning = !!threadState?.hasActiveInvocation;
+  const canDelete = id !== 'default' && onDelete && !isThreadRunning;
   const canRename = id !== 'default' && onRename;
   const canPin = id !== 'default' && onTogglePin;
 
@@ -237,7 +239,7 @@ export function ThreadItem({
     }
   }, [onRename, draftTitle, title, id]);
 
-  const rawTitle = title ?? (id === 'default' ? '大厅' : '未命名对话');
+  const rawTitle = title ?? (id === 'default' ? '大厅' : '未命名会话');
   const displayTitle = normalizeTitleMentions(rawTitle, cats);
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
@@ -250,10 +252,6 @@ export function ThreadItem({
       ),
     ),
   ).slice(0, 4);
-  const tooltipLines = [displayTitle];
-  if (participantNames) tooltipLines.push(`参与: ${participantNames}`);
-  tooltipLines.push(formatRelativeTime(lastActiveAt, false));
-  const tooltip = tooltipLines.join('\n');
   const contextMenuItemClass =
     'block w-full whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none';
   const openContextMenu = useCallback((clientX: number, clientY: number, anchorY?: number) => {
@@ -278,7 +276,6 @@ export function ThreadItem({
         const itemRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
         openContextMenu(e.clientX, e.clientY, itemRect.top + itemRect.height / 2);
       }}
-      title={tooltip}
     >
       <div className="flex items-center gap-[10px]">
         <div className="relative shrink-0">
@@ -345,7 +342,9 @@ export function ThreadItem({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="ui-thread-title block min-w-0 flex-1 truncate text-[#191919] font-semibold">{displayTitle}</span>
+            <OverflowTooltip content={displayTitle} className="min-w-0 flex-1">
+              <span className="ui-thread-title block min-w-0 truncate text-[#191919] font-semibold">{displayTitle}</span>
+            </OverflowTooltip>
             {sourceLabel && (
               <span className="shrink-0 rounded-full bg-[rgba(20,118,255,0.1)] px-2 py-[1px] text-[10px] leading-4 text-[rgba(20,118,255,1)]">
                 {sourceLabel}
@@ -430,7 +429,7 @@ export function ThreadItem({
               }}
               className={contextMenuItemClass}
             >
-              导出对话
+              导出会话
             </button>
           )}
 
@@ -443,7 +442,7 @@ export function ThreadItem({
               }}
               className={contextMenuItemClass}
             >
-              删除对话
+              删除会话
             </button>
           )}
         </div>

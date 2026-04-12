@@ -6,6 +6,9 @@
 
 import type { RelayClawWsFrame } from '@cat-cafe/shared';
 import { WebSocket as NodeWebSocket } from 'ws';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+
+const log = createModuleLogger('relayclaw-connection');
 
 type RelayClawWebSocketCtor = typeof WebSocket;
 
@@ -70,7 +73,9 @@ export class RelayClawConnectionManager implements RelayClawConnection {
 
   constructor(options: RelayClawConnectionManagerOptions) {
     this.requestQueues = options.requestQueues;
-    this.wsFactory = options.wsFactory ?? ((url) => new (resolveRelayClawWebSocketCtor())(url));
+    this.wsFactory =
+      options.wsFactory ??
+      ((url) => new NodeWebSocket(url, { headers: { Origin: 'http://127.0.0.1' } }) as unknown as WebSocket);
   }
 
   async ensureConnected(url: string, signal?: AbortSignal): Promise<void> {
@@ -128,6 +133,7 @@ export class RelayClawConnectionManager implements RelayClawConnection {
         try {
           frame = JSON.parse(data) as RelayClawWsFrame;
         } catch {
+          log.warn({ dataPreview: data.slice(0, 200) }, 'jiuwen frame JSON parse failed — possible protocol drift');
           return;
         }
 
@@ -139,9 +145,18 @@ export class RelayClawConnectionManager implements RelayClawConnection {
         }
 
         const requestId = frame.request_id;
-        if (!requestId) return;
+        if (!requestId) {
+          log.debug({ eventType: frame.payload?.event_type }, 'jiuwen frame without request_id — skipped');
+          return;
+        }
         const queue = this.requestQueues.get(requestId);
-        if (!queue) return;
+        if (!queue) {
+          log.warn(
+            { requestId, eventType: frame.payload?.event_type },
+            'jiuwen frame for unknown/expired request — possible late delivery',
+          );
+          return;
+        }
         queue.put(frame);
         if (frame.is_complete === true || frame.payload?.is_complete === true) {
           queue.put(null);

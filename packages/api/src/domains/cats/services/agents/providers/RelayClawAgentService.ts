@@ -17,7 +17,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
+import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
+
+const log = createModuleLogger('relayclaw-agent');
 import { appendLocalUploadPathHints } from './image-cli-bridge.js';
 import { extractUploadRefs } from './image-paths.js';
 import {
@@ -33,7 +36,7 @@ import {
   type RelayClawSidecarController,
   type RelayClawSidecarControllerDeps,
 } from './relayclaw-sidecar.js';
-import { transformRelayClawChunk } from './relayclaw-event-transform.js';
+import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
 const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -44,10 +47,7 @@ export interface RelayClawAgentServiceOptions {
 
 export interface RelayClawAgentServiceDeps {
   createConnection?: RelayClawConnectionFactory;
-  createSidecarController?: (
-    catId: CatId,
-    config: RelayClawAgentConfig,
-  ) => RelayClawSidecarController;
+  createSidecarController?: (catId: CatId, config: RelayClawAgentConfig) => RelayClawSidecarController;
   sidecarDeps?: RelayClawSidecarControllerDeps;
 }
 
@@ -102,10 +102,7 @@ export class RelayClawAgentService implements AgentService {
   private readonly catId: CatId;
   private readonly config: RelayClawAgentConfig;
   private readonly createConnection: RelayClawConnectionFactory;
-  private readonly createSidecarController: (
-    catId: CatId,
-    config: RelayClawAgentConfig,
-  ) => RelayClawSidecarController;
+  private readonly createSidecarController: (catId: CatId, config: RelayClawAgentConfig) => RelayClawSidecarController;
   private readonly scopes = new Map<string, RelayClawScopeRuntime>();
 
   constructor(options: RelayClawAgentServiceOptions, deps?: RelayClawAgentServiceDeps) {
@@ -144,9 +141,12 @@ export class RelayClawAgentService implements AgentService {
     const onAbort = () => queue.abort();
     signal.addEventListener('abort', onAbort, { once: true });
 
+    const sendTs = Date.now();
     try {
-      runtime.connection.send(buildRequest(requestId, channelId, sessionId, prompt, options));
-      yield* this.consumeFrames(queue, signal, options?.signal);
+      const request = buildRequest(requestId, channelId, sessionId, prompt, options);
+      log.info({ requestId, catId: this.catId, sessionId, promptLen: prompt.length }, 'jiuwen request sent');
+      runtime.connection.send(request);
+      yield* this.consumeFrames(requestId, queue, signal, options?.signal, sendTs);
     } catch (err) {
       if (options?.signal?.aborted) {
         yield agentMsg('done', this.catId);
@@ -182,11 +182,9 @@ export class RelayClawAgentService implements AgentService {
     const apiBase = callbackEnv.API_BASE || callbackEnv.OPENAI_BASE_URL || callbackEnv.OPENAI_API_BASE || '';
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
     const modelName = this.config.modelName?.trim() || '';
-    const scopeHash = createHash('sha256')
-      .update([apiBase, apiKey, modelName].join('\n'))
-      .digest('hex')
-      .slice(0, 12);
-    const baseHomeDir = this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
+    const scopeHash = createHash('sha256').update([apiBase, apiKey, modelName].join('\n')).digest('hex').slice(0, 12);
+    const baseHomeDir =
+      this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
 
     return {
       key: `auto:${scopeHash}`,
@@ -227,17 +225,27 @@ export class RelayClawAgentService implements AgentService {
   }
 
   private async *consumeFrames(
+    requestId: string,
     queue: FrameQueue,
     signal: AbortSignal,
     callerSignal?: AbortSignal,
+    sendTs?: number,
   ): AsyncIterable<AgentMessage> {
     let sawError = false;
     let streamedText = '';
     let usage: TokenUsage | undefined;
+    let frameCount = 0;
+    let firstFrameLogged = false;
 
     while (!signal.aborted) {
       const frame = await queue.take();
       if (frame === null) break;
+      frameCount++;
+      if (!firstFrameLogged) {
+        firstFrameLogged = true;
+        const ttfb = sendTs ? Date.now() - sendTs : undefined;
+        log.info({ requestId, catId: this.catId, ttfbMs: ttfb }, 'jiuwen first frame received');
+      }
 
       // Extract usage from frame metadata (typically on chat.final frame)
       if (frame.metadata?.usage) {
@@ -260,6 +268,9 @@ export class RelayClawAgentService implements AgentService {
         }
       } else if (payload?.event_type === 'chat.final') {
         const finalText = normalizeRelayClawFinalContent(payload.content);
+        if (isRelayClawTransportErrorText(finalText)) {
+          continue;
+        }
         const deltaToEmit = computeFinalTextDelta(streamedText, finalText);
         if (deltaToEmit) {
           streamedText += deltaToEmit;
@@ -287,6 +298,8 @@ export class RelayClawAgentService implements AgentService {
       };
     }
 
+    const durationMs = sendTs ? Date.now() - sendTs : undefined;
+    log.info({ requestId, catId: this.catId, frameCount, durationMs, sawError, usage }, 'jiuwen request complete');
     yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
   }
 }
@@ -381,4 +394,5 @@ function buildRequest(
 
 export const __relayClawInternals = {
   isSidecarReady,
+  isRelayClawTransportErrorText,
 };

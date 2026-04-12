@@ -25,6 +25,7 @@ import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 import { useVoiceStream } from '@/hooks/useVoiceStream';
 import { useWorkspaceNavigate } from '@/hooks/useWorkspaceNavigate';
 import { getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
+import { QUICK_ACTIONS } from '@/config/quick-actions';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
 import { useGameStore } from '@/stores/gameStore';
@@ -52,6 +53,7 @@ import { ParallelStatusBar } from './ParallelStatusBar';
 import { QueuePanel } from './QueuePanel';
 import { RightContentHeader } from './RightContentHeader';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
+import { ScheduledTasksPanel } from './ScheduledTasksPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -62,7 +64,17 @@ import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
-const MAIN_PANEL_MIN_WIDTH = 900;
+const MAIN_PANEL_MIN_WIDTH = 660;
+const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
+const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+
+function buildScheduledTaskQuickActionInsertText(): string | null {
+  const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === SCHEDULED_TASK_QUICK_ACTION_ICON);
+  const label = scheduledTaskAction?.label?.trim();
+  if (!label) return null;
+  return `${QUICK_ACTION_TOKEN_PREFIX}${label}${QUICK_ACTION_TOKEN_SUFFIX} `;
+}
 
 function getFolderNameFromPath(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -82,7 +94,7 @@ type ChatContainerProps =
       mode?: 'thread';
       threadId: string;
       requireLoginCheck?: boolean;
-      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+      initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
     };
 
 function AuthLoadingPanel() {
@@ -155,7 +167,7 @@ function ThreadModeChatContainer({
   authChecked,
 }: {
   threadId: string;
-  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills';
+  initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
   authChecked: boolean;
 }) {
   const {
@@ -173,8 +185,10 @@ function ThreadModeChatContainer({
     confirmUnreadAck,
     armUnreadSuppression,
     consumePendingNewThreadSend,
+    setPendingChatInsert,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
+  const threads = useChatStore((s) => s.threads);
 
   // F101: Game state from Zustand store
   const gameView = useGameStore((s) => s.gameView);
@@ -216,9 +230,20 @@ function ThreadModeChatContainer({
     timestamp: number;
     catId: string;
   } | null>(null);
-  const [sidebarMenu, setSidebarMenu] = useState<'chat' | 'models' | 'agents' | 'channels' | 'skills'>(
+  const [sidebarMenu, setSidebarMenu] = useState<
+    'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks'
+  >(
     initialSidebarMenu,
   );
+  const scheduledTaskQuickActionInsertText = useMemo(() => buildScheduledTaskQuickActionInsertText(), []);
+  const handleCreateScheduledTask = useCallback(() => {
+    setSidebarMenu('chat');
+    if (!scheduledTaskQuickActionInsertText) return;
+    setPendingChatInsert({
+      threadId,
+      text: scheduledTaskQuickActionInsertText,
+    });
+  }, [scheduledTaskQuickActionInsertText, setPendingChatInsert, threadId]);
   // F106: fetch bootcamp count independently of sidebar lifecycle
   // refreshKey increments only on modal close to avoid duplicate fetch on open
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -482,6 +507,22 @@ function ThreadModeChatContainer({
     return firstAvailableCatId;
   }, [firstAvailableCatId, messages, targetCats]);
 
+  // Bugfix: 将被停止的 intent recognition 持久化为真实 store 消息，
+  // 使其稳定出现在新 user message 之前（正确的对话顺序）。
+  // 必须在 handleSend（addMessage user msg）之前调用。
+  const persistStoppedIntentRecognition = useCallback(() => {
+    if (!stoppedIntentRecognition) return;
+    addMessage({
+      id: `intent-recognition-stopped-${stoppedIntentRecognition.timestamp}`,
+      type: 'assistant',
+      catId: stoppedIntentRecognition.catId,
+      content: 'stopped',
+      timestamp: stoppedIntentRecognition.timestamp + 1,
+      variant: 'intent_recognition',
+    } as ChatMessageData);
+    setStoppedIntentRecognition(null);
+  }, [stoppedIntentRecognition, addMessage]);
+
   useEffect(() => {
     if (!stoppedIntentRecognition) return;
 
@@ -518,8 +559,6 @@ function ThreadModeChatContainer({
     [threadId, getCatById],
   );
 
-  const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
-
   useVoiceAutoPlay();
   useVoiceStream();
   useVadInterrupt();
@@ -529,20 +568,22 @@ function ThreadModeChatContainer({
   const setSplitPaneThreadIds = useChatStore((s) => s.setSplitPaneThreadIds);
   const setSplitPaneTarget = useChatStore((s) => s.setSplitPaneTarget);
 
+  const watchedThreadIds = useMemo(() => {
+    const ids = new Set<string>(threads.map((thread) => thread.id));
+    for (const splitThreadId of splitPaneThreadIds) {
+      ids.add(splitThreadId);
+    }
+    return [...ids];
+  }, [threads, splitPaneThreadIds]);
+
+  const { cancelInvocation } = useSocket(socketCallbacks, threadId, watchedThreadIds);
+
   useEffect(() => {
     if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
       setSplitPaneThreadIds([threadId]);
       setSplitPaneTarget(threadId);
     }
   }, [viewMode, splitPaneThreadIds.length, threadId, setSplitPaneThreadIds, setSplitPaneTarget]);
-
-  useEffect(() => {
-    if (viewMode === 'split' && splitPaneThreadIds.length > 0) {
-      // Join rooms for all threads in panes + the current active thread
-      const allIds = new Set([...splitPaneThreadIds, threadId]);
-      syncRooms([...allIds]);
-    }
-  }, [viewMode, splitPaneThreadIds, threadId, syncRooms]);
 
   useEffect(() => {
     clearUnread(threadId);
@@ -674,6 +715,7 @@ function ThreadModeChatContainer({
               {sidebarMenu === 'agents' && <AgentsPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}
               {sidebarMenu === 'skills' && <SkillsPanel />}
+              {sidebarMenu === 'scheduledTasks' && <ScheduledTasksPanel onCreateTask={handleCreateScheduledTask} />}
             </div>
           )}
           {sidebarMenu === 'chat' && (
@@ -771,6 +813,9 @@ function ThreadModeChatContainer({
             key={threadId}
             threadId={threadId}
             onSend={(content, images, whisper, deliveryMode) => {
+              // 先将被停止的 intent recognition bubble 持久化为真实消息，
+              // 确保它出现在新 user message 之前（正确的对话顺序）
+              persistStoppedIntentRecognition();
               scrollToBottom('smooth');
               handleSend(content, images, undefined, whisper, deliveryMode);
             }}
