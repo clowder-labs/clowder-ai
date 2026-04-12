@@ -84,3 +84,4 @@ class SubagentResult(BaseModel):
     result: str | None = None
     error: str | None = None
     output_files: list[str] = Field(default_factory=list)
+    usage: dict[str, int] | None = None

@@ -501,11 +501,15 @@ class JiuClawReActAgent(ReActAgent):
                     session,  # Pass session for streaming
                 )
                 # Accumulate token usage
-                if hasattr(ai_message, 'usage_metadata') and ai_message.usage_metadata:
-                    um = ai_message.usage_metadata
+                _has_um = hasattr(ai_message, 'usage_metadata')
+                _um_val = ai_message.usage_metadata if _has_um else None
+                logger.info(f"[USAGE_DEBUG] _call_llm returned: has_usage_metadata={_has_um}, usage_metadata={_um_val}")
+                if _has_um and _um_val:
+                    um = _um_val
                     total_input_tokens += getattr(um, 'input_tokens', 0) or 0
                     total_output_tokens += getattr(um, 'output_tokens', 0) or 0
                     total_total_tokens += getattr(um, 'total_tokens', 0) or 0
+                    logger.info(f"[USAGE_DEBUG] Accumulated: input={total_input_tokens}, output={total_output_tokens}, total={total_total_tokens}")
                 # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
                     ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
@@ -657,6 +661,13 @@ class JiuClawReActAgent(ReActAgent):
                                 self._maybe_inject_skill_compliance(tool_msg, getattr(tc, "name", ""))
                                 self._detect_script_failure(tc, tool_msg)
                                 self._truncate_tool_message(tool_msg, tc.name)
+                            # Accumulate subagent token usage into parent totals
+                            if isinstance(_result, dict) and _result.get("usage"):
+                                sub_usage = _result["usage"]
+                                total_input_tokens += sub_usage.get("input_tokens", 0) or 0
+                                total_output_tokens += sub_usage.get("output_tokens", 0) or 0
+                                total_total_tokens += sub_usage.get("total_tokens", 0) or 0
+                                logger.info(f"[USAGE_DEBUG] Accumulated subagent usage: {sub_usage}, parent totals: input={total_input_tokens}, output={total_output_tokens}")
                             await context.add_messages(tool_msg)
                             if session is not None:
                                 await self._emit_tool_result(session, tc, _result)
@@ -710,6 +721,8 @@ class JiuClawReActAgent(ReActAgent):
                         "output_tokens": total_output_tokens,
                         "total_tokens": total_total_tokens,
                     }
+                # DEBUG: Log accumulated usage before return
+                logger.info(f"[USAGE_DEBUG] ReAct agent returning with usage: {usage}, total_input={total_input_tokens}, total_output={total_output_tokens}")
                 return {
                     "output": ai_message.content,
                     "result_type": "answer",

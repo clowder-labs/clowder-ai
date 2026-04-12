@@ -1791,6 +1791,12 @@ class JiuWenClaw:
                     chunk_metadata = None
                     if isinstance(data, dict) and data.get("usage"):
                         chunk_metadata = {"usage": data.pop("usage")}
+                        # DEBUG: Log usage promotion to metadata
+                        logger.info(f"[USAGE_DEBUG] interface.py promoting usage to metadata: {chunk_metadata.get('usage')}")
+                    else:
+                        # DEBUG: Log when no usage to promote (high-frequency, every delta chunk)
+                        if isinstance(data, dict):
+                            logger.debug(f"[USAGE_DEBUG] interface.py NO usage in payload. event_type={data.get('event_type')}, keys={list(data.keys())}")
 
                     yield AgentResponseChunk(
                         request_id=rid,
@@ -1865,6 +1871,8 @@ class JiuWenClaw:
                     usage = None
                     if isinstance(payload, dict):
                         usage = payload.get("usage")
+                        # DEBUG: Log usage extraction from answer chunk
+                        logger.info(f"[USAGE_DEBUG] interface.py answer chunk: payload has usage={usage}, payload keys={list(payload.keys())}")
                         if payload.get("result_type") == "error":
                             result = {
                                 "event_type": "chat.error",
