@@ -33,7 +33,7 @@ _SKILL_INITIAL_LOAD_PARAMS = {
     "properties": {
         "skill_name": {
             "type": "string",
-            "description": "要加载的 skill 名称，支持多层路径如 a/b",
+            "description": "要加载的 skill 名称，会在 skill 目录中递归查找匹配的目录名",
         },
     },
     "required": ["skill_name"],
@@ -67,25 +67,56 @@ _SKILL_READ_CONTENT_PARAMS = {
 
 
 def _find_skill_dir(skill_name: str) -> Path | None:
-    """在所有 skill 源目录中查找指定名称的 skill 目录。
+    """在所有 skill 源目录中递归查找指定名称的 skill 目录。
 
-    支持多层路径，如 "a/b" 表示 base_dir/a/b/SKILL.md。
+    skill_name 仅匹配目录名（不包含路径分隔符），会在 base_dir 下递归搜索
+    所有名为 skill_name 且包含 SKILL.md 的子目录。
     """
-    parts = skill_name.replace("\\", "/").strip("/").split("/")
+    # 不允许路径分隔符
+    clean = skill_name.replace("\\", "/").strip("/")
+    if "/" in clean:
+        clean = clean.rsplit("/", 1)[-1]
+    skill_name = clean
+
     for base_dir in get_agent_skill_source_dirs():
         if not base_dir.exists():
             continue
-        candidate = base_dir.joinpath(*parts)
-        if candidate.is_dir() and (candidate / "SKILL.md").is_file():
-            return candidate
-        # 兼容：遍历一级子目录做简单名匹配（单层 skill_name 的快速路径）
-        if len(parts) == 1:
-            for child in base_dir.iterdir():
-                if not child.is_dir() or child.name.startswith("_"):
-                    continue
-                if child.name == skill_name and (child / "SKILL.md").is_file():
-                    return child
+        result = _recursive_find_skill(base_dir, skill_name)
+        if result is not None:
+            return result
     return None
+
+
+def _recursive_find_skill(directory: Path, skill_name: str) -> Path | None:
+    """递归查找名为 skill_name 且包含 SKILL.md 的目录。"""
+    skip_dirs = {"node_modules", ".git", "__pycache__", ".mypy_cache", ".pytest_cache"}
+    try:
+        for child in directory.iterdir():
+            if not child.is_dir() or child.name in skip_dirs or child.name.startswith("."):
+                continue
+            if child.name == skill_name and (child / "SKILL.md").is_file():
+                return child
+            result = _recursive_find_skill(child, skill_name)
+            if result is not None:
+                return result
+    except PermissionError:
+        pass
+    return None
+
+
+def _recursive_collect_skills(directory: Path, names: list[str], seen: set[str]) -> None:
+    """递归收集所有包含 SKILL.md 的 skill 目录名。"""
+    skip_dirs = {"node_modules", ".git", "__pycache__", ".mypy_cache", ".pytest_cache"}
+    try:
+        for child in directory.iterdir():
+            if not child.is_dir() or child.name in skip_dirs or child.name.startswith("."):
+                continue
+            if (child / "SKILL.md").is_file() and child.name not in seen:
+                names.append(child.name)
+                seen.add(child.name)
+            _recursive_collect_skills(child, names, seen)
+    except PermissionError:
+        pass
 
 
 def _build_tree(directory: Path, prefix: str = "", max_depth: int = 3, depth: int = 0) -> str:
@@ -248,21 +279,15 @@ class LoadSkillToolkit:
 
     @staticmethod
     def _list_available_skill_names() -> list[str]:
-        """列出所有可用的 skill 名称。"""
+        """列出所有可用的 skill 名称（递归查找）。"""
         names: list[str] = []
         seen: set[str] = set()
         for base_dir in get_agent_skill_source_dirs():
             if not base_dir.exists():
                 continue
             try:
-                for child in sorted(base_dir.iterdir(), key=lambda x: x.name):
-                    if not child.is_dir() or child.name.startswith("_"):
-                        continue
-                    if child.name in seen:
-                        continue
-                    if (child / "SKILL.md").is_file():
-                        names.append(child.name)
-                        seen.add(child.name)
+                _recursive_collect_skills(base_dir, names, seen)
             except Exception:
                 continue
+        names.sort()
         return names

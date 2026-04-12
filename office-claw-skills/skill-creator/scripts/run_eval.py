@@ -33,6 +33,15 @@ class RunEval:
     trigger_threshold: float
     model: str | None
 
+@dataclass
+class RunContext:
+    query: str
+    skill_name: str
+    skill_description: str
+    timeout: int
+    project_root: str
+    model: str | None
+
 def find_project_root() -> Path:
     """Find the project root by walking up from cwd looking for .claude/.
 
@@ -46,14 +55,7 @@ def find_project_root() -> Path:
     return current
 
 
-def run_single_query(
-    query: str,
-    skill_name: str,
-    skill_description: str,
-    timeout: int,
-    project_root: str,
-    model: str | None = None,
-) -> bool:
+def run_single_query(ctx: RunContext) -> bool:
     """Run a single query and return whether the skill was triggered.
 
     Creates a command file in .claude/commands/ so it appears in Claude's
@@ -63,33 +65,33 @@ def run_single_query(
     full assistant message, which only arrives after tool execution.
     """
     unique_id = uuid.uuid4().hex[:8]
-    clean_name = f"{skill_name}-skill-{unique_id}"
-    project_commands_dir = Path(project_root) / ".claude" / "commands"
+    clean_name = f"{ctx.skill_name}-skill-{unique_id}"
+    project_commands_dir = Path(ctx.project_root) / ".claude" / "commands"
     command_file = project_commands_dir / f"{clean_name}.md"
 
     try:
         project_commands_dir.mkdir(parents=True, exist_ok=True)
         # Use YAML block scalar to avoid breaking on quotes in description
-        indented_desc = "\n  ".join(skill_description.split("\n"))
+        indented_desc = "\n  ".join(ctx.skill_description.split("\n"))
         command_content = (
             f"---\n"
             f"description: |\n"
             f"  {indented_desc}\n"
             f"---\n\n"
-            f"# {skill_name}\n\n"
-            f"This skill handles: {skill_description}\n"
+            f"# {ctx.skill_name}\n\n"
+            f"This skill handles: {ctx.skill_description}\n"
         )
         command_file.write_text(command_content)
 
         cmd = [
             "claude",
-            "-p", query,
+            "-p", ctx.query,
             "--output-format", "stream-json",
             "--verbose",
             "--include-partial-messages",
         ]
-        if model:
-            cmd.extend(["--model", model])
+        if ctx.model:
+            cmd.extend(["--model", ctx.model])
 
         # Remove CLAUDECODE env var to allow nesting claude -p inside a
         # Claude Code session. The guard is for interactive terminal conflicts;
@@ -100,7 +102,7 @@ def run_single_query(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            cwd=project_root,
+            cwd=ctx.project_root,
             env=env,
         )
 
@@ -112,7 +114,7 @@ def run_single_query(
         accumulated_json = ""
 
         try:
-            while time.time() - start_time < timeout:
+            while time.time() - start_time < ctx.timeout:
                 if process.poll() is not None:
                     remaining = process.stdout.read()
                     if remaining:
@@ -194,7 +196,6 @@ def run_single_query(
         if command_file.exists():
             command_file.unlink()
 
-
 def run_eval(eval_params: RunEval) -> dict:
     """Run the full eval set and return results."""
     results = []
@@ -203,15 +204,15 @@ def run_eval(eval_params: RunEval) -> dict:
         future_to_info = {}
         for item in eval_params.eval_set:
             for run_idx in range(eval_params.runs_per_query):
-                future = executor.submit(
-                    run_single_query,
-                    item["query"],
-                    eval_params.skill_name,
-                    eval_params.description,
-                    eval_params.timeout,
-                    str(eval_params.project_root),
-                    eval_params.model,
+                ctx = RunContext(
+                    query=item["query"],
+                    skill_name=eval_params.skill_name,
+                    skill_description=eval_params.description,
+                    timeout=eval_params.timeout,
+                    project_root=str(eval_params.project_root),
+                    model=eval_params.model,
                 )
+                future = executor.submit(run_single_query, ctx)
                 future_to_info[future] = (item, run_idx)
 
         query_triggers: dict[str, list[bool]] = {}

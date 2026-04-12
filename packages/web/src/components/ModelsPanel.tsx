@@ -240,7 +240,12 @@ function normalizeModelConnectionError(raw: string | null | undefined): string {
   if (lower.includes('invalid project path')) return '当前项目路径无效，无法测试该模型配置';
   if (lower.includes('identity required')) return '身份校验失败，请刷新页面后重试';
   if (lower.includes('provider test did not execute')) return '测试请求未成功发出，请检查 Base URL 是否正确';
-  if (lower.includes('fetch failed') || lower.includes('network') || lower.includes('econn') || lower.includes('enotfound')) {
+  if (
+    lower.includes('fetch failed') ||
+    lower.includes('network') ||
+    lower.includes('econn') ||
+    lower.includes('enotfound')
+  ) {
     return '无法连接到模型服务，请检查 Base URL、网络或代理配置';
   }
   if (
@@ -510,9 +515,12 @@ export function ModelsPanel() {
     if (!editingSourceId) return [modelNameInput.trim()].filter(Boolean);
     const nextModel = modelNameInput.trim();
     const previousModel = editingOriginalModelName?.trim() || '';
-    const sourceModels = editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
+    const sourceModels =
+      editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
     const replacedModels = sourceModels.map((name) => (name === previousModel ? nextModel : name));
-    return Array.from(new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)));
+    return Array.from(
+      new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)),
+    );
   };
 
   const handleTestModelConnection = async () => {
@@ -563,7 +571,7 @@ export function ModelsPanel() {
           ...(icon ? { icon } : {}),
           ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
           ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
-          ...(headers ? { headers } : {}),
+          headers: headers ?? {},
           models: mergedModels,
           ...(projectPath ? { projectPath } : {}),
         };
@@ -575,7 +583,7 @@ export function ModelsPanel() {
           ...(icon ? { icon } : {}),
           baseUrl: modelUrlInput.trim(),
           apiKey: modelApiKeyInput.trim(),
-          ...(headers ? { headers } : {}),
+          headers: headers ?? {},
           models: [modelNameInput.trim()],
           ...(projectPath ? { projectPath } : {}),
         };
@@ -721,67 +729,108 @@ export function ModelsPanel() {
                   {group.items.map((card) => {
                     const cardIconSrc = resolveUploadedIconUrl(card.icon);
                     return (
-                    <article
-                      key={card.id}
-                      className={['ui-card', group.key === 'huawei_maas' ? null : 'ui-card-hover', 'group flex min-h-[194px] flex-col gap-4']
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      <div>
-                        <div className="flex items-start gap-3">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {cardIconSrc ? (
-                            <img
-                              src={cardIconSrc}
-                              alt={`${card.name} icon`}
-                              width={48}
-                              height={48}
-                              className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
-                              data-testid={`model-card-icon-${card.id}`}
-                            />
-                          ) : (
-                            <div className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] p-1.5">
-                              <NameInitialIcon
-                                name={card.name}
-                                dataTestId={`model-card-icon-${card.id}`}
-                                className="h-full w-full rounded-[var(--radius-md)] border-0 shadow-none"
+                      <article
+                        key={card.id}
+                        className={[
+                          'ui-card',
+                          group.key === 'huawei_maas' ? null : 'ui-card-hover',
+                          'group flex min-h-[194px] flex-col gap-4',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
+                        <div>
+                          <div className="flex items-start gap-3">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            {cardIconSrc ? (
+                              <img
+                                src={cardIconSrc}
+                                alt={`${card.name} icon`}
+                                width={48}
+                                height={48}
+                                className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
+                                data-testid={`model-card-icon-${card.id}`}
                               />
-                            </div>
-                          )}
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <OverflowTooltip
-                                content={card.name}
-                                className="min-w-0 flex-1"
-                                as="h4"
-                                textClassName="block truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]"
-                              />
-                            </div>
-                            {card.labels.length > 0 ? (
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                {card.labels.map((label, index) => (
-                                  <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
-                                    {label}
-                                  </span>
-                                ))}
+                            ) : (
+                              <div className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] p-1.5">
+                                <NameInitialIcon
+                                  name={card.name}
+                                  dataTestId={`model-card-icon-${card.id}`}
+                                  className="h-full w-full rounded-[var(--radius-md)] border-0 shadow-none"
+                                />
                               </div>
-                            ) : null}
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <OverflowTooltip
+                                  content={card.name}
+                                  className="min-w-0 flex-1"
+                                  as="h4"
+                                  textClassName="block truncate text-[var(--font-size-xl)] font-semibold text-[var(--text-primary)]"
+                                />
+                              </div>
+                              {card.labels.length > 0 ? (
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  {card.labels.map((label, index) => (
+                                    <span key={`${card.id}-label-${label}-${index}`} className="ui-badge-muted">
+                                      {label}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <OverflowTooltip content={card.description} className="w-full">
-                        <p className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden">
-                          {card.description}
-                        </p>
-                      </OverflowTooltip>
+                        <OverflowTooltip content={card.description} className="w-full">
+                          <p className="text-[13px] leading-6 text-[var(--text-secondary)] line-clamp-2 overflow-hidden">
+                            {card.description}
+                          </p>
+                        </OverflowTooltip>
 
-                      <div className="mt-auto flex items-end justify-between gap-3">
-                        <div className="min-h-5 text-xs leading-5">
-                          {card.protocol !== 'huawei_maas' ? (
-                            <div className="relative">
-                              <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
+                        <div className="mt-auto flex items-end justify-between gap-3">
+                          <div className="min-h-5 text-xs leading-5">
+                            {card.protocol !== 'huawei_maas' ? (
+                              <div className="relative">
+                                <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] transition-opacity duration-200 group-hover:opacity-0">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={VENDOR_ICON}
+                                    alt={`${card.developer} icon`}
+                                    width={16}
+                                    height={16}
+                                    className="h-4 w-4 rounded-sm object-cover"
+                                  />
+                                  <span>{card.developer}</span>
+                                </span>
+                                <div className="absolute left-0 top-0 flex items-center whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    data-testid={`model-card-edit-${card.id}`}
+                                    disabled={editModelBusy}
+                                    onClick={() => {
+                                      void handleOpenEditModelModal(card);
+                                    }}
+                                    className="whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline"
+                                  >
+                                    编辑
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={deletingModelId === card.id}
+                                    onClick={() => {
+                                      void handleDeleteModel(card.id, card.name);
+                                    }}
+                                    data-testid={`model-card-delete-${card.id}`}
+                                    className="ml-[24px] whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
+                                  >
+                                    {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={VENDOR_ICON}
@@ -792,47 +841,10 @@ export function ModelsPanel() {
                                 />
                                 <span>{card.developer}</span>
                               </span>
-                              <div className="absolute left-0 top-0 flex items-center whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                                <button
-                                  type="button"
-                                  data-testid={`model-card-edit-${card.id}`}
-                                  disabled={editModelBusy}
-                                  onClick={() => {
-                                    void handleOpenEditModelModal(card);
-                                  }}
-                                  className="whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline"
-                                >
-                                  编辑
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={deletingModelId === card.id}
-                                  onClick={() => {
-                                    void handleDeleteModel(card.id, card.name);
-                                  }}
-                                  data-testid={`model-card-delete-${card.id}`}
-                                  className="ml-[24px] whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
-                                >
-                                  {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={VENDOR_ICON}
-                                alt={`${card.developer} icon`}
-                                width={16}
-                                height={16}
-                                className="h-4 w-4 rounded-sm object-cover"
-                              />
-                              <span>{card.developer}</span>
-                            </span>
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </article>
+                      </article>
                     );
                   })}
                 </div>
@@ -912,11 +924,7 @@ export function ModelsPanel() {
                     className="group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={modelIconPreviewSrc}
-                      alt="Model icon preview"
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={modelIconPreviewSrc} alt="Model icon preview" className="h-full w-full object-cover" />
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/70 text-[12px] font-semibold text-[#3B82F6] opacity-0 transition group-hover:opacity-100">
                       上传
                     </span>
@@ -989,7 +997,11 @@ export function ModelsPanel() {
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头（可选）'}</p>
                 <div className="space-y-2">
                   {modelHeaderRows.map((row, index) => (
-                    <div key={row.id} className="flex items-center gap-[4px]" data-testid={`models-create-model-header-row-${index}`}>
+                    <div
+                      key={row.id}
+                      className="flex items-center gap-[4px]"
+                      data-testid={`models-create-model-header-row-${index}`}
+                    >
                       <input
                         type="text"
                         value={row.key}
@@ -1037,12 +1049,18 @@ export function ModelsPanel() {
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={closeCreateModelModal} className="ui-button-default ui-modal-action-button">
+              <button
+                type="button"
+                onClick={closeCreateModelModal}
+                className="ui-button-default ui-modal-action-button"
+              >
                 {CREATE_MODEL_CANCEL_LABEL}
               </button>
               <button
                 type="button"
-                disabled={!canTestModelConnection || testModelBusy || saveModelBusy || modelIconUploading || editModelBusy}
+                disabled={
+                  !canTestModelConnection || testModelBusy || saveModelBusy || modelIconUploading || editModelBusy
+                }
                 onClick={handleTestModelConnection}
                 data-testid="models-create-model-test"
                 className="ui-button-default ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1051,7 +1069,9 @@ export function ModelsPanel() {
               </button>
               <button
                 type="button"
-                disabled={!canConfirmCreateModel || saveModelBusy || testModelBusy || modelIconUploading || editModelBusy}
+                disabled={
+                  !canConfirmCreateModel || saveModelBusy || testModelBusy || modelIconUploading || editModelBusy
+                }
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
                 className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1153,8 +1173,8 @@ function buildHeadersObject(rows: HeaderInputRow[]): Record<string, string> | nu
 
   if (normalizedEntries.length === 0) return null;
 
-  const duplicatedKey = normalizedEntries.find(([key], index) =>
-    normalizedEntries.findIndex(([existingKey]) => existingKey === key) !== index,
+  const duplicatedKey = normalizedEntries.find(
+    ([key], index) => normalizedEntries.findIndex(([existingKey]) => existingKey === key) !== index,
   );
   if (duplicatedKey) {
     throw new Error(`请求头键名重复：${duplicatedKey[0]}`);
@@ -1252,11 +1272,13 @@ function ModelsCreateModelConfigSource({
           addLabel="+ 添加模型"
           placeholder="输入模型名，如 gpt-4o-mini"
           emptyLabel="(至少添加 1 个模型)"
-      onChange={setModels}
-      minCount={0}
-    />
+          onChange={setModels}
+          minCount={0}
+        />
       </div>
-      {successMessage ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p> : null}
+      {successMessage ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>
+      ) : null}
       <div className="flex items-center justify-end gap-2">
         <button
           type="button"
