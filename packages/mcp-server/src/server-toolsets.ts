@@ -98,8 +98,8 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
     'List Cat Cafe shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
   office_claw_load_skill: 'Load one Cat Cafe shared skill by exact name.',
   office_claw_update_task: 'Update status of a task you own (doing/blocked/done).',
-  office_claw_create_rich_block: 'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
-  office_claw_generate_document: 'Generate PDF/DOCX/MD from Markdown and deliver to IM.',
+  office_claw_create_rich_block:
+    'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
   office_claw_request_permission: 'Request user permission before a sensitive action.',
   office_claw_check_permission_status: 'Check status of a permission request by requestId.',
   office_claw_register_pr_tracking: 'Register a PR for review notification routing.',
