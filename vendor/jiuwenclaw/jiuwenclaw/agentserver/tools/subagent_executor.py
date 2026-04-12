@@ -344,7 +344,12 @@ Approach each task methodically and deliver high-quality results."""
         system_prompt: str,
     ) -> "JiuClawReActAgent":
         """Create subagent instance with inherited tools."""
-        # Lazy import to avoid circular dependency
+        from openjiuwen.core.runner import Runner
+        from openjiuwen.core.sys_operation import (
+            LocalWorkConfig,
+            OperationMode,
+            SysOperationCard,
+        )
         from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent
 
         card = AgentCard(
@@ -356,6 +361,19 @@ Approach each task methodically and deliver high-quality results."""
 
         # Build config with custom system prompt
         config = self._build_subagent_config(task, system_prompt)
+
+        if not config.sys_operation_id:
+            try:
+                workspace_dir = task.workspace_dir or str(get_agent_root_dir())
+                sysop_card = SysOperationCard(
+                    mode=OperationMode.LOCAL,
+                    work_config=LocalWorkConfig(work_dir=workspace_dir),
+                )
+                Runner.resource_mgr.add_sys_operation(sysop_card)
+                config.sys_operation_id = sysop_card.id
+            except Exception as exc:
+                logger.warning("[Subagent] Failed to create SysOperation for subagent: %s", exc)
+
         subagent.configure(config)
 
         # Inherit tools from parent agent
