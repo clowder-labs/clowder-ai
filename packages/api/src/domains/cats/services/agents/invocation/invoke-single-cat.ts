@@ -111,7 +111,7 @@ function abortableNext<T>(iter: AsyncIterator<T>, signal: AbortSignal): Promise<
   });
 }
 
-const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
+const ANTHROPIC_PROFILE_MODE_KEY = 'OFFICE_CLAW_ANTHROPIC_PROFILE_MODE';
 const ANTHROPIC_PROFILE_MODE_API_KEY = 'api_key';
 
 /** Derive a URL-safe slug from profile ID for proxy routing. */
@@ -121,9 +121,9 @@ function deriveProxySlug(profileId: string): string {
   return match?.[1] ?? profileId.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
-/** Register/update upstream mapping in .cat-cafe/proxy-upstreams.json (hot-reloaded by proxy). */
+/** Register/update upstream mapping in .office-claw/proxy-upstreams.json (hot-reloaded by proxy). */
 function registerProxyUpstream(projectRoot: string, slug: string, targetUrl: string): void {
-  const dir = resolve(projectRoot, '.cat-cafe');
+  const dir = resolve(projectRoot, '.office-claw');
   const filePath = resolve(dir, 'proxy-upstreams.json');
   let upstreams: Record<string, string> = {};
   try {
@@ -282,12 +282,12 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   };
 
   const callbackEnv: Record<string, string> = {
-    CAT_CAFE_API_URL: apiUrl,
-    CAT_CAFE_INVOCATION_ID: invocationId,
-    CAT_CAFE_CALLBACK_TOKEN: callbackToken,
-    CAT_CAFE_USER_ID: userId,
-    CAT_CAFE_CAT_ID: catId,
-    ...(process.env.CAT_CAFE_SIGNAL_USER ? { CAT_CAFE_SIGNAL_USER: process.env.CAT_CAFE_SIGNAL_USER } : {}),
+    OFFICE_CLAW_API_URL: apiUrl,
+    OFFICE_CLAW_INVOCATION_ID: invocationId,
+    OFFICE_CLAW_CALLBACK_TOKEN: callbackToken,
+    OFFICE_CLAW_USER_ID: userId,
+    OFFICE_CLAW_CAT_ID: catId,
+    ...(process.env.OFFICE_CLAW_SIGNAL_USER ? { OFFICE_CLAW_SIGNAL_USER: process.env.OFFICE_CLAW_SIGNAL_USER } : {}),
   };
 
   const auditLog = getEventAuditLog();
@@ -311,7 +311,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   // Tests run on feature branches with intentionally unpushed commits. Those suites
   // need to exercise routing/invocation behavior without having local git state turn
   // every invocation into a governance block, so test runners can opt out explicitly.
-  if (process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1') {
+  if (process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT !== '1') {
     // L2 behavior is warn-only during interactive invocation. Hard safety still lives
     // in L1/L3 (`pre-commit` + CI / merge gate); blocking regular chat invocations on
     // local git state made multi-cat routing unusable whenever shared-state lagged.
@@ -821,16 +821,16 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // Pass protocol hint to CLI via callbackEnv (used by OpenCode/Claude for model prefix)
     if (effectiveProtocol) {
-      callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL = effectiveProtocol;
+      callbackEnv.OFFICE_CLAW_EFFECTIVE_PROTOCOL = effectiveProtocol;
     }
 
     if (effectiveProtocol === 'anthropic') {
       if (resolvedAccount?.authType === 'api_key') {
-        callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'api_key';
-        if (resolvedAccount.apiKey) callbackEnv.CAT_CAFE_ANTHROPIC_API_KEY = resolvedAccount.apiKey;
+        callbackEnv.OFFICE_CLAW_ANTHROPIC_PROFILE_MODE = 'api_key';
+        if (resolvedAccount.apiKey) callbackEnv.OFFICE_CLAW_ANTHROPIC_API_KEY = resolvedAccount.apiKey;
         // Pass model override so ClaudeAgentService can use env var mapping
         // for non-Anthropic model names (e.g. glm-5 on BigModel).
-        if (defaultModel) callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = defaultModel;
+        if (defaultModel) callbackEnv.OFFICE_CLAW_ANTHROPIC_MODEL_OVERRIDE = defaultModel;
         if (resolvedAccount.baseUrl) {
           const proxyPortStr = process.env.ANTHROPIC_PROXY_PORT || '9877';
           const proxyPortNum = parseInt(proxyPortStr, 10);
@@ -840,23 +840,23 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             if (proxyAlive) {
               const slug = deriveProxySlug(resolvedAccount.id);
               registerProxyUpstream(configProjectRoot, slug, resolvedAccount.baseUrl);
-              callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPortStr}/${slug}`;
+              callbackEnv.OFFICE_CLAW_ANTHROPIC_BASE_URL = `http://127.0.0.1:${proxyPortStr}/${slug}`;
             } else {
               log.warn(
                 { proxyPort: proxyPortStr, baseUrl: resolvedAccount.baseUrl },
                 'Proxy unreachable, falling back to direct upstream',
               );
-              callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = resolvedAccount.baseUrl;
+              callbackEnv.OFFICE_CLAW_ANTHROPIC_BASE_URL = resolvedAccount.baseUrl;
             }
           } else {
             if (proxyEnabled && (Number.isNaN(proxyPortNum) || proxyPortNum <= 0 || proxyPortNum > 65535)) {
               log.warn({ proxyPort: proxyPortStr }, 'Invalid ANTHROPIC_PROXY_PORT, falling back to direct upstream');
             }
-            callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL = resolvedAccount.baseUrl;
+            callbackEnv.OFFICE_CLAW_ANTHROPIC_BASE_URL = resolvedAccount.baseUrl;
           }
         }
       } else {
-        callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
+        callbackEnv.OFFICE_CLAW_ANTHROPIC_PROFILE_MODE = 'subscription';
       }
     } else if (effectiveProtocol === 'openai') {
       if (modelConfigBinding?.protocol === 'openai') {
@@ -891,9 +891,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     } else if (effectiveProtocol === 'huawei_maas') {
       const runtimeConfig = resolveHuaweiMaaSRuntimeConfig(userId);
       const headersJson = JSON.stringify(runtimeConfig.defaultHeaders);
-      callbackEnv.CAT_CAFE_HUAWEI_MAAS_ENABLED = '1';
-      callbackEnv.CAT_CAFE_HUAWEI_MAAS_BASE_URL = runtimeConfig.baseUrl;
-      callbackEnv.CAT_CAFE_HUAWEI_MAAS_HEADERS_JSON = headersJson;
+      callbackEnv.OFFICE_CLAW_HUAWEI_MAAS_ENABLED = '1';
+      callbackEnv.OFFICE_CLAW_HUAWEI_MAAS_BASE_URL = runtimeConfig.baseUrl;
+      callbackEnv.OFFICE_CLAW_HUAWEI_MAAS_HEADERS_JSON = headersJson;
       callbackEnv.CODEX_AUTH_MODE = 'api_key';
       callbackEnv.OPENAI_API_KEY = runtimeConfig.apiKey;
       callbackEnv.OPENAI_BASE_URL = runtimeConfig.baseUrl;
@@ -913,7 +913,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     } else if (provider === 'anthropic' || provider === 'opencode') {
       // Fallback for unresolved accounts on anthropic/opencode providers
-      callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE = 'subscription';
+      callbackEnv.OFFICE_CLAW_ANTHROPIC_PROFILE_MODE = 'subscription';
     }
 
     // Scheme A: jiuwen sidecar reads MODEL_CONTEXT_WINDOW from spawn env (relayclaw only).
@@ -930,15 +930,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Dare has its own env vars regardless of protocol-based injection above
     if (provider === 'dare') {
       if (effectiveProtocol === 'huawei_maas') {
-        callbackEnv.CAT_CAFE_DARE_ADAPTER = 'openai';
+        callbackEnv.OFFICE_CLAW_DARE_ADAPTER = 'openai';
         if (callbackEnv.OPENAI_API_KEY) callbackEnv.DARE_API_KEY = callbackEnv.OPENAI_API_KEY;
         if (callbackEnv.OPENAI_BASE_URL) callbackEnv.DARE_ENDPOINT = callbackEnv.OPENAI_BASE_URL;
       } else if (modelConfigBinding?.protocol === 'openai') {
-        callbackEnv.CAT_CAFE_DARE_ADAPTER = 'openai';
+        callbackEnv.OFFICE_CLAW_DARE_ADAPTER = 'openai';
         if (callbackEnv.OPENAI_API_KEY) callbackEnv.DARE_API_KEY = callbackEnv.OPENAI_API_KEY;
         if (callbackEnv.OPENAI_BASE_URL) callbackEnv.DARE_ENDPOINT = callbackEnv.OPENAI_BASE_URL;
       } else if (resolvedAccount?.authType === 'api_key') {
-        if (resolvedAccount.protocol) callbackEnv.CAT_CAFE_DARE_ADAPTER = resolvedAccount.protocol;
+        if (resolvedAccount.protocol) callbackEnv.OFFICE_CLAW_DARE_ADAPTER = resolvedAccount.protocol;
         if (resolvedAccount.apiKey) callbackEnv.DARE_API_KEY = resolvedAccount.apiKey;
         if (resolvedAccount.baseUrl) callbackEnv.DARE_ENDPOINT = resolvedAccount.baseUrl;
       }
@@ -953,7 +953,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       const assembledModel = defaultModel.startsWith(`${ocProviderName}/`)
         ? defaultModel
         : `${ocProviderName}/${defaultModel}`;
-      callbackEnv.CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE = assembledModel;
+      callbackEnv.OFFICE_CLAW_ANTHROPIC_MODEL_OVERRIDE = assembledModel;
       try {
         // Infer apiType from ocProviderName (not effectiveProtocol — protocol UI was removed).
         // Most third-party APIs are OpenAI-compatible; only "anthropic" and "google" need

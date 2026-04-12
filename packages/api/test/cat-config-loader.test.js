@@ -28,7 +28,7 @@ const {
 /** Create a temp JSON file with given content, return path */
 function writeTempConfig(data) {
   const dir = mkdtempSync(join(tmpdir(), 'cat-template-'));
-  const path = join(dir, 'cat-template.json');
+  const path = join(dir, 'office-claw-template.json');
   writeFileSync(path, JSON.stringify(data));
   return path;
 }
@@ -73,7 +73,7 @@ describe('cat-config-loader', () => {
       assert.equal(config.breeds[0].id, 'ragdoll');
     });
 
-    it('loads default project cat-template.json when no path/env provided', () => {
+    it('loads default project office-claw-template.json when no path/env provided', () => {
       const saved = process.env.CAT_TEMPLATE_PATH;
       delete process.env.CAT_TEMPLATE_PATH;
       try {
@@ -90,15 +90,15 @@ describe('cat-config-loader', () => {
       }
     });
 
-    it('prefers .cat-cafe/cat-catalog.json over cat-template.json for default loads', () => {
+    it('prefers .office-claw/office-claw-catalog.json over office-claw-template.json for default loads', () => {
       const projectDir = mkdtempSync(join(tmpdir(), 'cat-template-project-'));
-      const templatePath = join(projectDir, 'cat-template.json');
+      const templatePath = join(projectDir, 'office-claw-template.json');
       writeFileSync(templatePath, JSON.stringify(validConfig()));
-      const runtimeDir = join(projectDir, '.cat-cafe');
+      const runtimeDir = join(projectDir, '.office-claw');
       mkdirSync(runtimeDir, { recursive: true });
       const runtimeConfig = validConfig();
       runtimeConfig.breeds[0].displayName = '运行时布偶猫';
-      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(runtimeConfig));
+      writeFileSync(join(runtimeDir, 'office-claw-catalog.json'), JSON.stringify(runtimeConfig));
 
       const saved = process.env.CAT_TEMPLATE_PATH;
       process.env.CAT_TEMPLATE_PATH = templatePath;
@@ -116,23 +116,23 @@ describe('cat-config-loader', () => {
 
     it('deep-merges catalog overlay onto config base (preserves base-only fields)', () => {
       const projectDir = mkdtempSync(join(tmpdir(), 'cat-merge-project-'));
-      const templatePath = join(projectDir, 'cat-template.json');
+      const templatePath = join(projectDir, 'office-claw-template.json');
 
       // Base config: breed has teamStrengths and caution (fields catalog might not have)
       const base = validConfig();
       base.breeds[0].teamStrengths = 'base-only-strength';
       base.breeds[0].caution = 'base-only-caution';
       writeFileSync(templatePath, JSON.stringify(base));
-      writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
+      writeFileSync(join(projectDir, 'office-claw-config.json'), JSON.stringify(base));
 
       // Catalog: same breed with different displayName, but missing teamStrengths/caution
-      const runtimeDir = join(projectDir, '.cat-cafe');
+      const runtimeDir = join(projectDir, '.office-claw');
       mkdirSync(runtimeDir, { recursive: true });
       const catalog = validConfig();
       catalog.breeds[0].displayName = '运行时布偶猫';
       delete catalog.breeds[0].teamStrengths;
       delete catalog.breeds[0].caution;
-      writeFileSync(join(runtimeDir, 'cat-catalog.json'), JSON.stringify(catalog));
+      writeFileSync(join(runtimeDir, 'office-claw-catalog.json'), JSON.stringify(catalog));
 
       const saved = process.env.CAT_TEMPLATE_PATH;
       process.env.CAT_TEMPLATE_PATH = templatePath;
@@ -264,7 +264,7 @@ describe('cat-config-loader', () => {
     });
 
     it('throws clear error when file not found', () => {
-      assert.throws(() => loadCatConfig('/nonexistent/cat-template.json'), /Failed to read cat config/);
+      assert.throws(() => loadCatConfig('/nonexistent/office-claw-template.json'), /Failed to read cat config/);
     });
 
     it('rejects empty variants array', () => {
@@ -478,7 +478,7 @@ describe('cat-config-loader', () => {
     });
 
     it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
-      // Uses the actual project cat-config.json
+      // Uses the actual project office-claw-config.json
       const config = loadCatConfig();
       assert.equal(isSessionChainEnabled('gemini', config), true);
       assert.equal(isSessionChainEnabled('opus', config), true);
@@ -889,7 +889,7 @@ describe('F32-b P4c: personality fallback to default variant', () => {
 });
 
 describe('F32-b P4c: Sonnet variant in project config', () => {
-  it('project cat-template.json loads with Sonnet variant', () => {
+  it('project office-claw-template.json loads with Sonnet variant', () => {
     const config = loadCatConfig();
     const ragdoll = config.breeds.find((b) => b.id === 'ragdoll');
     assert.ok(ragdoll, 'ragdoll breed exists');

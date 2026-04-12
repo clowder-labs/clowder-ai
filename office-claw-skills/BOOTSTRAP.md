@@ -1,7 +1,7 @@
-# Cat Café Skills Bootstrap
+# OfficeClaw Skills Bootstrap
 
 <EXTREMELY_IMPORTANT>
-你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
+你已加载 OfficeClaw Skills。路由规则定义在 `manifest.yaml`。
 
 ## Skills 列表（24 个）
 
@@ -14,7 +14,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 | Skill | 触发场景 | SOP Step |
 |-------|----------|----------|
-| `collaborative-thinking` | brainstorm/多猫讨论/收敛 | — |
+| `collaborative-thinking` | brainstorm/多智能体讨论/收敛 | — |
 | `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
 | `self-evolution` | scope 守护/流程改进/知识沉淀 | — |
  
@@ -74,9 +74,9 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 | 文件 | 内容 |
 |------|------|
-| `refs/shared-rules.md` | 三猫共用协作规则（单一真相源） |
+| `refs/shared-rules.md` | 协作规则（单一真相源） |
 | `refs/decision-matrix.md` | 决策权漏斗矩阵 |
-| `refs/commit-signatures.md` | 猫猫签名表 + @ 句柄 |
+| `refs/commit-signatures.md` | 智能体签名表 + @ 句柄 |
 | `refs/pr-template.md` | PR 模板 + 云端 review 触发模板 |
 | `refs/review-request-template.md` | Review 请求信模板 |
 | `refs/vision-evidence-workflow.md` | 前端截图/录屏证据流程（B1） |
@@ -88,9 +88,9 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 1. **Skill 适用就必须加载，没有选择**
 2. **完整流程见 `docs/SOP.md`**
-3. **三条铁律**：Redis production Redis (sacred) / 同一个体不能 self-review / 不能冒充其他猫
-4. **共用规则在 `refs/shared-rules.md`**（不在各猫文件里重复）
-5. **Reviewer 选择是动态匹配**（`docs/SOP.md` 配对规则），禁止写死“reviewer 是Ragdoll”
+3. **三条铁律**：Redis production Redis (sacred) / 同一个体不能 self-review / 不能冒充其他智能体
+4. **共用规则在 `refs/shared-rules.md`**（不在各智能体文件里重复）
+5. **Reviewer 选择是动态匹配**（`docs/SOP.md` 配对规则），禁止写死"reviewer 是Ragdoll"
 
 ## 使用方式
 
@@ -100,9 +100,9 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 
 ## 新增/修改 skill
 
-1. 在 `cat-cafe-skills/{name}/` 创建 SKILL.md
+1. 在 `{skills-dir}/{name}/` 创建 SKILL.md
 2. 在 `manifest.yaml` 添加路由条目
-3. 创建 symlink：`ln -s .../cat-cafe-skills/{name} ~/.{claude,codex,gemini}/skills/{name}`（OpenCode 读 `~/.claude/`，自动覆盖）
+3. 创建 symlink：`ln -s .../{skills-dir}/{name} ~/.{claude,codex,gemini}/skills/{name}`（OpenCode 读 `~/.claude/`，自动覆盖）
 4. 运行 `pnpm check:skills` 验证
 
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.

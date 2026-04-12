@@ -245,7 +245,7 @@ function toConfiguredModelList(
       enabled: true,
       description:
         binding.protocol === 'huawei_maas'
-          ? '来自 ~/.cat-cafe/model.json'
+          ? '来自 ~/.office-claw/model.json'
           : binding.description?.trim() || `自定义模型源 · ${binding.displayName?.trim() || binding.id}`,
       ...(binding.icon ? { icon: binding.icon } : {}),
     })),

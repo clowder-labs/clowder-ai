@@ -366,7 +366,7 @@ describe('Game API Routes', () => {
       assert.equal(res.statusCode, 400);
     });
 
-    it('uses X-Cat-Cafe-User header for userId when provided', async () => {
+    it('uses X-Office-Claw-User header for userId when provided', async () => {
       // Separate app instance with tracking threadStore
       const trackingCalls = [];
       const trackingThreadStore = {
@@ -388,7 +388,7 @@ describe('Game API Routes', () => {
       const res = await trackingApp.inject({
         method: 'POST',
         url: '/api/game/start',
-        headers: { 'x-cat-cafe-user': 'you' },
+        headers: { 'x-office-claw-user': 'you' },
         payload: {
           gameType: 'werewolf',
           humanRole: 'player',

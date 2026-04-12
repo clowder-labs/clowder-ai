@@ -44,9 +44,9 @@ export class SkillInstallError extends Error {
  * 2. 冲突检测（本地同名拒绝，远程覆盖允许）
  * 3. 从 SkillHub 下载 SKILL.md
  * 4. 验证 frontmatter + 文件大小
- * 5. 写入 cat-cafe-skills/{localName}/SKILL.md
+ * 5. 写入 office-claw-skills/{localName}/SKILL.md
  * 6. 创建 provider symlinks
- * 7. 更新 .cat-cafe/installed-skills.json
+ * 7. 更新 .office-claw/installed-skills.json
  */
 export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequest): Promise<SkillHubInstallResult> {
   const localName = req.localName ?? req.skill;
@@ -138,7 +138,7 @@ export async function installSkill(catCafeRoot: string, req: SkillHubInstallRequ
  * 1. 检查 skill 在 installed-skills.json 中
  * 2. 检查 skill 不在 BOOTSTRAP.md 中（防止误删本地 skill）
  * 3. 删除 provider symlinks
- * 4. 删除 cat-cafe-skills/{name}/ 目录
+ * 4. 删除 office-claw-skills/{name}/ 目录
  * 5. 更新 registry
  */
 export async function uninstallSkill(catCafeRoot: string, name: string, bootstrapNames: Set<string>): Promise<void> {

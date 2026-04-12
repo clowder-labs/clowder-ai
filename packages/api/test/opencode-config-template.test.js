@@ -311,7 +311,7 @@ describe('generateOpenCodeRuntimeConfig', () => {
 });
 
 describe('writeOpenCodeRuntimeConfig', () => {
-  test('writes per-catId config file to .cat-cafe directory', () => {
+  test('writes per-catId config file to .office-claw directory', () => {
     const tmpRoot = mkdtempSync(join(tmpdir(), 'oc-config-test-'));
     try {
       const configPath = writeOpenCodeRuntimeConfig(tmpRoot, 'test-cat', {
@@ -321,7 +321,7 @@ describe('writeOpenCodeRuntimeConfig', () => {
       });
 
       assert.ok(existsSync(configPath), 'config file must exist');
-      assert.ok(configPath.includes('.cat-cafe'), 'must be in .cat-cafe dir');
+      assert.ok(configPath.includes('.office-claw'), 'must be in .office-claw dir');
       assert.ok(configPath.includes('opencode-runtime-test-cat'), 'must include catId');
 
       const content = JSON.parse(readFileSync(configPath, 'utf-8'));

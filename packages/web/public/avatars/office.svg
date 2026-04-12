@@ -5,32 +5,13 @@
       <stop offset="100%" stop-color="#1E3F6F"/>
     </linearGradient>
   </defs>
-  <!-- Background circle -->
   <circle cx="64" cy="64" r="64" fill="url(#bg)"/>
-  <!-- Cat ears -->
-  <path d="M30 52 L40 20 L55 45 Z" fill="#C0C8D4" stroke="#8A9BB5" stroke-width="1"/>
-  <path d="M98 52 L88 20 L73 45 Z" fill="#C0C8D4" stroke="#8A9BB5" stroke-width="1"/>
-  <path d="M34 48 L42 24 L53 44 Z" fill="#E8EBF0"/>
-  <path d="M94 48 L86 24 L75 44 Z" fill="#E8EBF0"/>
-  <!-- Cat face -->
-  <ellipse cx="64" cy="68" rx="32" ry="30" fill="#E8EBF0"/>
-  <!-- Eyes -->
-  <ellipse cx="52" cy="62" rx="5" ry="6" fill="#2B5797"/>
-  <ellipse cx="76" cy="62" rx="5" ry="6" fill="#2B5797"/>
-  <circle cx="53.5" cy="60.5" r="1.5" fill="white"/>
-  <circle cx="77.5" cy="60.5" r="1.5" fill="white"/>
-  <!-- Nose -->
-  <path d="M62 72 L64 75 L66 72 Z" fill="#B08E9A"/>
-  <!-- Mouth -->
-  <path d="M58 77 Q64 82 70 77" fill="none" stroke="#B08E9A" stroke-width="1.2" stroke-linecap="round"/>
-  <!-- Tie -->
-  <path d="M58 90 L64 98 L70 90 L64 93 Z" fill="#3A6DB5"/>
-  <path d="M60 88 L68 88 L64 92 Z" fill="#4A7DC5"/>
-  <!-- Collar -->
-  <path d="M48 86 Q64 92 80 86" fill="none" stroke="#C0C8D4" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Whiskers -->
-  <line x1="25" y1="68" x2="45" y2="70" stroke="#B0B8C4" stroke-width="0.8"/>
-  <line x1="25" y1="74" x2="45" y2="74" stroke="#B0B8C4" stroke-width="0.8"/>
-  <line x1="83" y1="70" x2="103" y2="68" stroke="#B0B8C4" stroke-width="0.8"/>
-  <line x1="83" y1="74" x2="103" y2="74" stroke="#B0B8C4" stroke-width="0.8"/>
+  <rect x="34" y="26" width="60" height="76" rx="12" fill="#E8EBF0"/>
+  <rect x="42" y="34" width="34" height="7" rx="3.5" fill="#B7C6DA"/>
+  <rect x="42" y="47" width="44" height="5" rx="2.5" fill="#C7D3E2"/>
+  <rect x="42" y="58" width="44" height="5" rx="2.5" fill="#C7D3E2"/>
+  <rect x="42" y="69" width="30" height="5" rx="2.5" fill="#C7D3E2"/>
+  <circle cx="82" cy="83" r="14" fill="#3A6DB5"/>
+  <path d="M82 75 V91" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M74 83 H90" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
 </svg>

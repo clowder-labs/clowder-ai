@@ -6,7 +6,7 @@
 
 /**
  * MCP Callback Tools — core callbacks
- * 鉴权: process.env CAT_CAFE_INVOCATION_ID + CAT_CAFE_CALLBACK_TOKEN
+ * 鉴权: process.env OFFICE_CLAW_INVOCATION_ID + OFFICE_CLAW_CALLBACK_TOKEN
  */
 
 import { randomUUID } from 'node:crypto';
@@ -23,15 +23,15 @@ interface CallbackConfig {
 }
 
 export function getCallbackConfig(): CallbackConfig | null {
-  const apiUrl = process.env['CAT_CAFE_API_URL'];
-  const invocationId = process.env['CAT_CAFE_INVOCATION_ID'];
-  const callbackToken = process.env['CAT_CAFE_CALLBACK_TOKEN'];
+  const apiUrl = process.env['OFFICE_CLAW_API_URL'];
+  const invocationId = process.env['OFFICE_CLAW_INVOCATION_ID'];
+  const callbackToken = process.env['OFFICE_CLAW_CALLBACK_TOKEN'];
   if (!apiUrl || !invocationId || !callbackToken) return null;
   return { apiUrl, invocationId, callbackToken };
 }
 
 export const NO_CONFIG_ERROR =
-  'Clowder AI callback not configured. Missing CAT_CAFE_API_URL, CAT_CAFE_INVOCATION_ID, or CAT_CAFE_CALLBACK_TOKEN environment variables.';
+  'Clowder AI callback not configured. Missing OFFICE_CLAW_API_URL, OFFICE_CLAW_INVOCATION_ID, or OFFICE_CLAW_CALLBACK_TOKEN environment variables.';
 // ============ HTTP helpers ============
 
 export async function callbackPost(

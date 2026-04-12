@@ -151,11 +151,11 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
       service.invoke('hello from outside cwd', {
         workingDirectory: tmpRoot,
         callbackEnv: {
-          CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
-          CAT_CAFE_INVOCATION_ID: 'inv-test-1',
-          CAT_CAFE_CALLBACK_TOKEN: 'tok-test-1',
-          CAT_CAFE_USER_ID: 'user-test-1\nline2',
-          CAT_CAFE_SIGNAL_USER: 'codex',
+          OFFICE_CLAW_API_URL: 'http://127.0.0.1:3004',
+          OFFICE_CLAW_INVOCATION_ID: 'inv-test-1',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'tok-test-1',
+          OFFICE_CLAW_USER_ID: 'user-test-1\nline2',
+          OFFICE_CLAW_SIGNAL_USER: 'codex',
         },
       }),
     );
@@ -163,16 +163,16 @@ test('injects cat-cafe MCP config when workingDirectory contains mcp-server', as
     await promise;
 
     const args = spawnFn.mock.calls[0].arguments[1];
-    assert.ok(args.includes('mcp_servers.cat-cafe.command="node"'));
-    const mcpArgsConfig = args.find((arg) => arg.startsWith('mcp_servers.cat-cafe.args=['));
+    assert.ok(args.includes('mcp_servers.office-claw.command="node"'));
+    const mcpArgsConfig = args.find((arg) => arg.startsWith('mcp_servers.office-claw.args=['));
     assert.ok(mcpArgsConfig, 'must inject cat-cafe mcp args config');
     assert.match(mcpArgsConfig, /packages\/mcp-server\/dist\/index\.js/);
-    assert.ok(args.includes('mcp_servers.cat-cafe.enabled=true'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_API_URL="http://127.0.0.1:3004"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_INVOCATION_ID="inv-test-1"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_CALLBACK_TOKEN="tok-test-1"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_USER_ID="user-test-1\\nline2"'));
-    assert.ok(args.includes('mcp_servers.cat-cafe.env.CAT_CAFE_SIGNAL_USER="codex"'));
+    assert.ok(args.includes('mcp_servers.office-claw.enabled=true'));
+    assert.ok(args.includes('mcp_servers.office-claw.env.OFFICE_CLAW_API_URL="http://127.0.0.1:3004"'));
+    assert.ok(args.includes('mcp_servers.office-claw.env.OFFICE_CLAW_INVOCATION_ID="inv-test-1"'));
+    assert.ok(args.includes('mcp_servers.office-claw.env.OFFICE_CLAW_CALLBACK_TOKEN="tok-test-1"'));
+    assert.ok(args.includes('mcp_servers.office-claw.env.OFFICE_CLAW_USER_ID="user-test-1\\nline2"'));
+    assert.ok(args.includes('mcp_servers.office-claw.env.OFFICE_CLAW_SIGNAL_USER="codex"'));
   } finally {
     rmSync(tmpRoot, { recursive: true, force: true });
   }
@@ -722,7 +722,7 @@ test('callbackEnv model override takes precedence over constructor model', async
   const promise = collect(
     service.invoke('model override test', {
       callbackEnv: {
-        CAT_CAFE_OPENAI_MODEL_OVERRIDE: 'gpt-5.4-mini',
+        OFFICE_CLAW_OPENAI_MODEL_OVERRIDE: 'gpt-5.4-mini',
       },
     }),
   );
@@ -990,7 +990,7 @@ test('redacts nested callback tokens before archiving raw events', async () => {
         type: 'agent_message',
         text: 'hello',
         callbackEnv: {
-          CAT_CAFE_CALLBACK_TOKEN: 'nested-secret',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'nested-secret',
         },
         nested: {
           callbackToken: 'deep-secret',
@@ -1004,7 +1004,7 @@ test('redacts nested callback tokens before archiving raw events', async () => {
   assert.equal(rawArchive.append.mock.callCount(), 1);
   const archived = rawArchive.append.mock.calls[0].arguments[1];
   assert.equal(archived.callbackToken, '[redacted]');
-  assert.equal(archived.item.callbackEnv.CAT_CAFE_CALLBACK_TOKEN, '[redacted]');
+  assert.equal(archived.item.callbackEnv.OFFICE_CLAW_CALLBACK_TOKEN, '[redacted]');
   assert.equal(archived.item.nested.callbackToken, '[redacted]');
 });
 

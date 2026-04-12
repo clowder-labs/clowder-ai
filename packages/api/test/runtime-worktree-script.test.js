@@ -89,7 +89,7 @@ function withStubbedPnpmEnv(projectDir) {
   const { binDir, logFile } = createPnpmStub(projectDir);
   return {
     ...process.env,
-    CAT_CAFE_RUNTIME_RESTART_OK: '1',
+    OFFICE_CLAW_RUNTIME_RESTART_OK: '1',
     PATH: `${binDir}:${process.env.PATH}`,
     RUNTIME_TEST_PNPM_LOG: logFile,
   };
@@ -147,7 +147,7 @@ describe('runtime-worktree.sh', () => {
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: { ...process.env, OFFICE_CLAW_RUNTIME_RESTART_OK: '1' },
     });
 
     assert.equal(result.status, 0);
@@ -179,7 +179,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: { ...process.env, OFFICE_CLAW_RUNTIME_RESTART_OK: '1' },
     });
 
     assert.equal(result.status, 0, `exit=${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
@@ -195,7 +195,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: { ...process.env, OFFICE_CLAW_RUNTIME_RESTART_OK: '1' },
     });
 
     assert.notEqual(result.status, 0);
@@ -276,7 +276,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
     const result = spawnSync('bash', [join(projectDir, 'scripts', 'runtime-worktree.sh'), 'start', '--no-sync'], {
       cwd: projectDir,
       encoding: 'utf8',
-      env: { ...process.env, CAT_CAFE_RUNTIME_RESTART_OK: '1' },
+      env: { ...process.env, OFFICE_CLAW_RUNTIME_RESTART_OK: '1' },
     });
 
     assert.equal(result.status, 0, `exit=${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
@@ -343,7 +343,7 @@ server.listen(3010,'127.0.0.1',()=>setInterval(()=>{},1000));`,
       encoding: 'utf8',
       env: {
         ...process.env,
-        CAT_CAFE_RUNTIME_DIR: projectDir,
+        OFFICE_CLAW_RUNTIME_DIR: projectDir,
       },
     });
 

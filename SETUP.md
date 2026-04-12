@@ -97,7 +97,7 @@ Redis is the persistent store for threads, messages, tasks, and memory.
 REDIS_URL=redis://localhost:6399
 ```
 
-The `pnpm start` command auto-starts Redis on port 6399. Data persists in `~/.cat-cafe/redis-dev/`.
+The `pnpm start` command auto-starts Redis on port 6399. Data persists in `~/.office-claw/redis-dev/`.
 
 **No Redis?** Use `pnpm start --memory` for in-memory mode (data lost on restart — fine for trying things out).
 
@@ -137,7 +137,7 @@ These services are disabled by default. Set the corresponding `*_ENABLED=1` flag
 
 **Starting voice services:**
 ```bash
-# TTS (Text-to-Speech) — requires Python 3, creates venv at ~/.cat-cafe/tts-venv
+# TTS (Text-to-Speech) — requires Python 3, creates venv at ~/.office-claw/tts-venv
 ./scripts/tts-server.sh                    # default: Qwen3-TTS (三猫声线)
 TTS_PROVIDER=edge-tts ./scripts/tts-server.sh  # edge-tts fallback (no GPU needed)
 
@@ -156,7 +156,7 @@ ANTHROPIC_PROXY_ENABLED=1          # default: 0 (disabled)
 ANTHROPIC_PROXY_PORT=9877          # proxy listen port
 ```
 
-Configure upstreams in `.cat-cafe/proxy-upstreams.json`:
+Configure upstreams in `.office-claw/proxy-upstreams.json`:
 ```json
 { "my-gateway": "https://your-gateway.example.com/api" }
 ```

@@ -27,7 +27,7 @@ describe('auth routes', () => {
     app = Fastify();
     app.get('/api/maas-models', async (request) => {
       refreshCount += 1;
-      assert.equal(request.headers['x-cat-cafe-user'], userId);
+      assert.equal(request.headers['x-office-claw-user'], userId);
       assert.equal(request.headers['x-refresh'], 'true');
       return { models: [] };
     });
@@ -59,7 +59,7 @@ describe('auth routes', () => {
     const firstResponse = await app.inject({
       method: 'GET',
       url: '/api/islogin',
-      headers: { 'x-cat-cafe-user': userId },
+      headers: { 'x-office-claw-user': userId },
     });
 
     assert.equal(firstResponse.statusCode, 200);
@@ -69,7 +69,7 @@ describe('auth routes', () => {
     const secondResponse = await app.inject({
       method: 'GET',
       url: '/api/islogin',
-      headers: { 'x-cat-cafe-user': userId },
+      headers: { 'x-office-claw-user': userId },
     });
 
     assert.equal(secondResponse.statusCode, 200);

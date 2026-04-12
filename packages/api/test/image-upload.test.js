@@ -599,7 +599,7 @@ describe('multipart image target routing', () => {
       url: '/api/messages',
       headers: {
         'content-type': `multipart/form-data; boundary=${boundary}`,
-        'x-cat-cafe-user': 'alice',
+        'x-office-claw-user': 'alice',
       },
       payload,
     });

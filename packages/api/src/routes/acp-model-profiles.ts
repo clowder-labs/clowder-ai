@@ -26,7 +26,7 @@ export const acpModelProfilesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = projectQuerySchema.safeParse(request.query);
@@ -51,7 +51,7 @@ export const acpModelProfilesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = createAcpModelProfileBodySchema.safeParse(request.body);
@@ -93,7 +93,7 @@ export const acpModelProfilesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = updateAcpModelProfileBodySchema.safeParse(request.body);
@@ -136,7 +136,7 @@ export const acpModelProfilesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = projectQueryBodySchema.safeParse(request.body ?? {});

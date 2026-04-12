@@ -29,43 +29,43 @@ describe('resolveActiveProjectRoot', () => {
     for (const key of Object.keys(savedEnv)) delete savedEnv[key];
   });
 
-  it('returns CAT_CAFE_CONFIG_ROOT when set to a valid directory', () => {
+  it('returns OFFICE_CLAW_CONFIG_ROOT when set to a valid directory', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'cfg-root-'));
-    setEnv('CAT_CAFE_CONFIG_ROOT', tmp);
+    setEnv('OFFICE_CLAW_CONFIG_ROOT', tmp);
     setEnv('CAT_TEMPLATE_PATH', undefined);
     assert.equal(resolveActiveProjectRoot('/some/random/path'), tmp);
   });
 
-  it('ignores CAT_CAFE_CONFIG_ROOT when it points to a non-existent path', () => {
-    setEnv('CAT_CAFE_CONFIG_ROOT', '/nonexistent/path/that/does/not/exist');
+  it('ignores OFFICE_CLAW_CONFIG_ROOT when it points to a non-existent path', () => {
+    setEnv('OFFICE_CLAW_CONFIG_ROOT', '/nonexistent/path/that/does/not/exist');
     setEnv('CAT_TEMPLATE_PATH', undefined);
     // Should fall through to monorepo root logic (won't be our fake path)
     const result = resolveActiveProjectRoot('/some/random/path');
     assert.notEqual(result, '/nonexistent/path/that/does/not/exist');
   });
 
-  it('ignores CAT_CAFE_CONFIG_ROOT when it points to a file, not a directory', () => {
+  it('ignores OFFICE_CLAW_CONFIG_ROOT when it points to a file, not a directory', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'cfg-root-'));
     const filePath = join(tmp, 'not-a-dir.txt');
     writeFileSync(filePath, 'hello');
-    setEnv('CAT_CAFE_CONFIG_ROOT', filePath);
+    setEnv('OFFICE_CLAW_CONFIG_ROOT', filePath);
     setEnv('CAT_TEMPLATE_PATH', undefined);
     const result = resolveActiveProjectRoot('/some/random/path');
     assert.notEqual(result, filePath);
   });
 
-  it('CAT_CAFE_CONFIG_ROOT takes precedence over CAT_TEMPLATE_PATH', () => {
+  it('OFFICE_CLAW_CONFIG_ROOT takes precedence over CAT_TEMPLATE_PATH', () => {
     const configRoot = mkdtempSync(join(tmpdir(), 'cfg-root-'));
     const templateDir = mkdtempSync(join(tmpdir(), 'tmpl-'));
     const templateFile = join(templateDir, 'template.yaml');
     writeFileSync(templateFile, 'template: true');
-    setEnv('CAT_CAFE_CONFIG_ROOT', configRoot);
+    setEnv('OFFICE_CLAW_CONFIG_ROOT', configRoot);
     setEnv('CAT_TEMPLATE_PATH', templateFile);
     assert.equal(resolveActiveProjectRoot('/some/random/path'), configRoot);
   });
 
-  it('falls back to monorepo root when CAT_CAFE_CONFIG_ROOT is unset', () => {
-    setEnv('CAT_CAFE_CONFIG_ROOT', undefined);
+  it('falls back to monorepo root when OFFICE_CLAW_CONFIG_ROOT is unset', () => {
+    setEnv('OFFICE_CLAW_CONFIG_ROOT', undefined);
     setEnv('CAT_TEMPLATE_PATH', undefined);
     // Create a tmp dir with pnpm-workspace.yaml to simulate monorepo
     const tmp = mkdtempSync(join(tmpdir(), 'monorepo-'));

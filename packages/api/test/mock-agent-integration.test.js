@@ -297,7 +297,7 @@ describe('F32-a Mock Agent Integration', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/capabilities',
-        headers: { 'x-cat-cafe-user': 'test-user' },
+        headers: { 'x-office-claw-user': 'test-user' },
       });
       assert.equal(res.statusCode, 200);
       const body = JSON.parse(res.body);

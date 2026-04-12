@@ -1,6 +1,6 @@
 # Claude.ai 浏览器自动化参考
 
-> 验证日期：2026-03-10 | 验证猫：Ragdoll Opus 4.6
+> 验证日期：2026-03-10 | 验证智能体：Ragdoll Opus 4.6
 > 工具：`mcp__claude-in-chrome__*`
 
 本文档记录通过 Chrome MCP 操作 Claude.ai Web UI 的实测 DOM 知识。
@@ -120,7 +120,7 @@ DOM 路径：
 7. 轮询等待完成（检查 "Research complete" 文本出现，每 30s，最长 20min）
 8. 点击 Artifact 卡片打开报告
 9. 点击 "Copy options" → "Download as Markdown"
-10. 猫用 cp ~/Downloads/{file}.md → docs/research/YYYY-MM-DD-{topic}/claude/report.md
+10. 智能体用 cp ~/Downloads/{file}.md → docs/research/YYYY-MM-DD-{topic}/claude/report.md
 ```
 
 ## 已知限制

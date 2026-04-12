@@ -50,7 +50,7 @@ export async function sessionHooksRoutes(app: FastifyInstance, opts: SessionHook
   app.addHook('onRequest', async (request, reply) => {
     if (!hookToken) {
       reply.status(503);
-      reply.send({ error: 'Hook authentication not configured (set CAT_CAFE_HOOK_TOKEN)' });
+      reply.send({ error: 'Hook authentication not configured (set OFFICE_CLAW_HOOK_TOKEN)' });
       return;
     }
     const provided = request.headers['x-cat-cafe-hook-token'];

@@ -47,7 +47,7 @@ export class ImageExporter {
 
       const page = await this.browser.newPage();
 
-      await page.setExtraHTTPHeaders({ 'X-Cat-Cafe-User': userId });
+      await page.setExtraHTTPHeaders({ 'X-Office-Claw-User': userId });
       await page.setViewport({ width: VIEWPORT_WIDTH, height: CHUNK_HEIGHT });
 
       const exportUrl = new URL(url);

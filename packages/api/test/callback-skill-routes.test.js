@@ -20,9 +20,9 @@ describe('callback-skill-routes', () => {
   beforeEach(async () => {
     originalEnv = { ...process.env };
     tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-skill-callbacks-'));
-    process.env.CAT_CAFE_CONFIG_ROOT = tempRoot;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
 
-    const skillsRoot = join(tempRoot, 'cat-cafe-skills');
+    const skillsRoot = join(tempRoot, 'office-claw-skills');
     const userSkillsRoot = join(tempRoot, '.cat-cafe', 'skills');
     mkdirSync(skillsRoot, { recursive: true });
     mkdirSync(userSkillsRoot, { recursive: true });
@@ -86,7 +86,7 @@ Use this skill carefully.
     writeFileSync(join(userSkillsRoot, 'remote-skill', 'scripts', 'helper.sh'), '#!/usr/bin/env bash\n', 'utf-8');
 
     writeFileSync(
-      join(tempRoot, '.cat-cafe', 'installed-skills.json'),
+      join(tempRoot, '.office-claw', 'installed-skills.json'),
       JSON.stringify(
         {
           version: 1,
@@ -170,7 +170,7 @@ Use this skill carefully.
   });
 
   it('matches mixed-intent ACP skill queries via token aliases', async () => {
-    const skillsRoot = join(tempRoot, 'cat-cafe-skills');
+    const skillsRoot = join(tempRoot, 'office-claw-skills');
     const fixtures = {
       'writing-plans': ['写实施计划', 'implementation plan', 'planning', '拆分步骤'],
       'collaborative-thinking': ['brainstorm', '方案对比', '收敛决策', '多角度讨论'],
@@ -206,7 +206,7 @@ Use this skill carefully.
   });
 
   it('ranks collaborative-thinking first for compare-and-converge phrasing', async () => {
-    const skillsRoot = join(tempRoot, 'cat-cafe-skills');
+    const skillsRoot = join(tempRoot, 'office-claw-skills');
     mkdirSync(join(skillsRoot, 'collaborative-thinking'), { recursive: true });
     writeFileSync(
       join(skillsRoot, 'collaborative-thinking', 'SKILL.md'),
@@ -235,7 +235,7 @@ Use this skill carefully.
   });
 
   it('ranks worktree first for branch-isolation phrasing', async () => {
-    const skillsRoot = join(tempRoot, 'cat-cafe-skills');
+    const skillsRoot = join(tempRoot, 'office-claw-skills');
     mkdirSync(join(skillsRoot, 'worktree'), { recursive: true });
     writeFileSync(
       join(skillsRoot, 'worktree', 'SKILL.md'),
@@ -264,7 +264,7 @@ Use this skill carefully.
   });
 
   it('ranks tdd first for mixed red-green-refactor planning phrasing', async () => {
-    const skillsRoot = join(tempRoot, 'cat-cafe-skills');
+    const skillsRoot = join(tempRoot, 'office-claw-skills');
     mkdirSync(join(skillsRoot, 'writing-plans'), { recursive: true });
     writeFileSync(
       join(skillsRoot, 'writing-plans', 'SKILL.md'),
@@ -293,7 +293,7 @@ Use this skill carefully.
   });
 
   it('ranks explicit skill name above generic planning phrasing', async () => {
-    const skillsRoot = join(tempRoot, 'cat-cafe-skills');
+    const skillsRoot = join(tempRoot, 'office-claw-skills');
     mkdirSync(join(skillsRoot, 'writing-plans'), { recursive: true });
     writeFileSync(
       join(skillsRoot, 'writing-plans', 'SKILL.md'),

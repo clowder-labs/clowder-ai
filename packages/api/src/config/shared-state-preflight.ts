@@ -13,8 +13,8 @@
  * Shared state files (must match .githooks/pre-commit + shared-rules.md §14):
  *   - docs/ROADMAP.md
  *   - docs/ROADMAP.md
- *   - cat-template.json
- *   - cat-config.json
+ *   - office-claw-template.json
+ *   - office-claw-config.json
  */
 import { execFileSync } from 'node:child_process';
 import { createModuleLogger } from '../infrastructure/logger.js';

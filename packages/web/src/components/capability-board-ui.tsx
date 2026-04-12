@@ -13,7 +13,7 @@ import { SkillAvatar } from './SkillAvatar';
 export interface CapabilityBoardItem {
   id: string;
   type: 'mcp' | 'skill';
-  source: 'cat-cafe' | 'external';
+  source: 'builtin' | 'external';
   enabled: boolean;
   cats: Record<string, boolean>;
   description?: string;
@@ -107,7 +107,7 @@ export function ExtensionIcon({ className }: { className?: string }) {
 }
 
 function getSourceLabel(source: CapabilityBoardItem['source']): string {
-  if (source === 'cat-cafe') return '内置技能';
+  if (source === 'builtin') return '内置技能';
   if (source === 'external') return '用户添加技能';
   return '其他';
 }
@@ -278,7 +278,7 @@ export function StatusDot({ status }: { status: 'connected' | 'disconnected' | '
 export function SkillHealthBanner({ health, items }: { health: SkillHealthSummary; items?: CapabilityBoardItem[] }) {
   const allGood = health.allMounted && health.registrationConsistent;
   const mountFailures = (items ?? [])
-    .filter((item) => item.type === 'skill' && item.source === 'cat-cafe' && item.mounts)
+    .filter((item) => item.type === 'skill' && item.source === 'builtin' && item.mounts)
     .filter((item) => !Object.values(item.mounts!).every(Boolean))
     .map((item) => ({
       id: item.id,

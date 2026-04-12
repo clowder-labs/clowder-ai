@@ -73,7 +73,7 @@ const MOCK_ENV_SUMMARY = {
       auditLogs: '/tmp/project/data/audit-logs',
       runtimeLogs: '/tmp/project/data/runtime-logs',
       cliArchive: '/tmp/project/data/cli-raw-archive',
-      redisDevSandbox: '/tmp/home/.cat-cafe/redis-dev-sandbox',
+      redisDevSandbox: '/tmp/home/.office-claw/redis-dev-sandbox',
       uploads: '/tmp/project/uploads',
     },
   },
@@ -146,8 +146,8 @@ describe('HubEnvFilesTab', () => {
 
     const sectionTitles = Array.from(container.querySelectorAll('h3')).map((node) => node.textContent?.trim());
     expect(sectionTitles.slice(0, 3)).toEqual(['环境变量', '配置文件', '数据目录']);
-    expect(container.textContent).toContain('cat-template.json');
-    expect(container.textContent).toContain('.cat-cafe/cat-catalog.json');
+    expect(container.textContent).toContain('office-claw-template.json');
+    expect(container.textContent).toContain('.office-claw/office-claw-catalog.json');
     expect(container.textContent).toContain('当前环境变量、配置文件、数据目录三段式不变');
     expect(container.textContent).toContain('变量值可直接编辑，保存后自动回填 .env');
     expect(container.textContent).toContain('写回 .env 后需重启相关服务生效');

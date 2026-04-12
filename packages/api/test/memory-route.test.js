@@ -37,7 +37,7 @@ describe('Memory API Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {
         threadId: ownThreadId,
         key: 'project-goal',
@@ -59,7 +59,7 @@ describe('Memory API Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {
         threadId: ownThreadId,
         key: 'decision',
@@ -78,7 +78,7 @@ describe('Memory API Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: { threadId: 'thread-1' },
     });
 
@@ -90,14 +90,14 @@ describe('Memory API Routes', () => {
     await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: { threadId: ownThreadId, key: 'goal', value: 'Test', updatedBy: 'user' },
     });
 
     const res = await app.inject({
       method: 'GET',
       url: `/api/memory?threadId=${ownThreadId}&key=goal`,
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -110,7 +110,7 @@ describe('Memory API Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/memory?threadId=${ownThreadId}&key=unknown`,
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 404);
@@ -120,20 +120,20 @@ describe('Memory API Routes', () => {
     await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: { threadId: ownThreadId, key: 'a', value: '1', updatedBy: 'user' },
     });
     await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: { threadId: ownThreadId, key: 'b', value: '2', updatedBy: 'user' },
     });
 
     const res = await app.inject({
       method: 'GET',
       url: `/api/memory?threadId=${ownThreadId}`,
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -145,14 +145,14 @@ describe('Memory API Routes', () => {
     await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: { threadId: ownThreadId, key: 'temp', value: 'x', updatedBy: 'user' },
     });
 
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/memory?threadId=${ownThreadId}&key=temp`,
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 204);
@@ -161,7 +161,7 @@ describe('Memory API Routes', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/api/memory?threadId=${ownThreadId}&key=temp`,
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
     assert.equal(getRes.statusCode, 404);
   });
@@ -170,17 +170,17 @@ describe('Memory API Routes', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/api/memory?threadId=${ownThreadId}&key=unknown`,
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 404);
   });
 
-  it('uses X-Cat-Cafe-User header over legacy userId query', async () => {
+  it('uses X-Office-Claw-User header over legacy userId query', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/memory?userId=legacy-user-should-not-win',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
       payload: {
         threadId: ownThreadId,
         key: 'header-priority',
@@ -205,7 +205,7 @@ describe('Memory API Routes', () => {
     await app.inject({
       method: 'POST',
       url: '/api/memory',
-      headers: { 'x-cat-cafe-user': 'other-user' },
+      headers: { 'x-office-claw-user': 'other-user' },
       payload: {
         threadId: otherThreadId,
         key: 'secret',
@@ -217,7 +217,7 @@ describe('Memory API Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/memory?threadId=${otherThreadId}&key=secret`,
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 403);

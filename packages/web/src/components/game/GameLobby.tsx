@@ -194,7 +194,7 @@ export function GameLobby({ mode, cats, onConfirm, onCancel }: GameLobbyProps) {
                 </button>
               ))}
             </div>
-            {!detectiveCatId && <div className="text-xs text-ww-danger mt-2">请选择智能体绑定视角</div>}
+            {!detectiveCatId && <div className="text-xs text-ww-danger mt-2">请选择一个智能体绑定视角</div>}
           </div>
         )}
 

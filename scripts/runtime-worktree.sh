@@ -6,9 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEFAULT_RUNTIME_DIR="$(cd "$PROJECT_DIR/.." && pwd)/cat-cafe-runtime"
 
-RUNTIME_DIR="${CAT_CAFE_RUNTIME_DIR:-$DEFAULT_RUNTIME_DIR}"
-RUNTIME_BRANCH="${CAT_CAFE_RUNTIME_BRANCH:-runtime/main-sync}"
-REMOTE_NAME="${CAT_CAFE_RUNTIME_REMOTE:-origin}"
+RUNTIME_DIR="${OFFICE_CLAW_RUNTIME_DIR:-$DEFAULT_RUNTIME_DIR}"
+RUNTIME_BRANCH="${OFFICE_CLAW_RUNTIME_BRANCH:-runtime/main-sync}"
+REMOTE_NAME="${OFFICE_CLAW_RUNTIME_REMOTE:-origin}"
 FORCE=false
 RUN_INSTALL=true
 SYNC_BEFORE_START=true
@@ -31,7 +31,7 @@ Defaults:
 
 Safety:
   start refuses to kill an active API by default.
-  To intentionally restart runtime, set CAT_CAFE_RUNTIME_RESTART_OK=1.
+  To intentionally restart runtime, set OFFICE_CLAW_RUNTIME_RESTART_OK=1.
 EOF
 }
 
@@ -246,12 +246,12 @@ ensure_restart_authorized() {
     return 0
   fi
 
-  if [ "${CAT_CAFE_RUNTIME_RESTART_OK:-0}" = "1" ]; then
-    info "CAT_CAFE_RUNTIME_RESTART_OK=1; proceeding with explicit runtime restart."
+  if [ "${OFFICE_CLAW_RUNTIME_RESTART_OK:-0}" = "1" ]; then
+    info "OFFICE_CLAW_RUNTIME_RESTART_OK=1; proceeding with explicit runtime restart."
     return 0
   fi
 
-  die "API port appears active. Refusing to restart runtime by default (anti-self-TERM guard). If intentional, rerun with CAT_CAFE_RUNTIME_RESTART_OK=1."
+  die "API port appears active. Refusing to restart runtime by default (anti-self-TERM guard). If intentional, rerun with OFFICE_CLAW_RUNTIME_RESTART_OK=1."
 }
 
 ensure_runtime_clean() {
@@ -375,7 +375,7 @@ start_runtime_worktree() {
     ensure_runtime_start_prereqs
     info "running in-place (deployment mode): $PROJECT_DIR"
     cd "$PROJECT_DIR"
-    exec env CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 ./scripts/start-dev.sh --prod-web --profile=opensource ${START_ARGS[@]+"${START_ARGS[@]}"}
+    exec env OFFICE_CLAW_STRICT_PROFILE_DEFAULTS=1 ./scripts/start-dev.sh --prod-web --profile=opensource ${START_ARGS[@]+"${START_ARGS[@]}"}
   fi
 
   if ! worktree_exists; then
@@ -403,7 +403,7 @@ start_runtime_worktree() {
   cd "$RUNTIME_DIR"
   # Runtime = production: auto-inject --prod-web for PWA + Tailscale support.
   # Bash 3.2 + set -u: empty-array expansion can throw "unbound variable".
-  exec env CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 ./scripts/start-dev.sh --prod-web --profile=opensource ${START_ARGS[@]+"${START_ARGS[@]}"}
+  exec env OFFICE_CLAW_STRICT_PROFILE_DEFAULTS=1 ./scripts/start-dev.sh --prod-web --profile=opensource ${START_ARGS[@]+"${START_ARGS[@]}"}
 }
 
 COMMAND="${1:-status}"

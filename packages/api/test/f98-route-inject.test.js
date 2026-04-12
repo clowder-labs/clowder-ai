@@ -136,7 +136,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/events`,
-      headers: { 'x-cat-cafe-user': 'other-user' },
+      headers: { 'x-office-claw-user': 'other-user' },
     });
     assert.equal(res.statusCode, 403);
   });
@@ -146,7 +146,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/sessions/nonexistent/events',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -160,7 +160,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/events?view=banana`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
@@ -174,7 +174,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/events?view=raw`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -189,7 +189,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/events`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -203,7 +203,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/events?view=chat`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -221,7 +221,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/events?view=handoff`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
@@ -249,7 +249,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/sessions/nonexistent/invocations/inv-xyz',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -261,7 +261,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/invocations/inv-nonexistent`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -273,7 +273,7 @@ describe('F98 Route Inject: session-transcript', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}/invocations/${invId}`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);

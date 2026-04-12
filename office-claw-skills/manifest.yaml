@@ -1,4 +1,4 @@
-# Cat Café Skills Manifest — 路由单一真相源
+# OfficeClaw Skills Manifest — 路由单一真相源
 # 所有 skill 的触发规则、排除条件、产出契约、链式导航在此定义。
 # CLAUDE.md / AGENTS.md / GEMINI.md 的路由表当前手工同步（Wave 2 计划自动生成）。
 # lint 规则：pnpm check:skills（Wave 2 计划增强为 manifest 一致性校验）
@@ -223,7 +223,7 @@ skills:
   self-evolution:
     description: >
       Scope Guard + Process Evolution + Knowledge Evolution — 主动护栏与自我进化。
-      Use when: 铲屎官 scope 发散偏离愿景、同类错误反复出现、SOP 流程缺口、有价值的知识/方法论值得沉淀。
+      Use when: 用户 scope 发散偏离愿景、同类错误反复出现、SOP 流程缺口、有价值的知识/方法论值得沉淀。
       Not for: 日常 SOP 推进（正常执行）、一次性个案 bug fix。
       Output: Scope 收束提醒 / 流程改进提案 / 知识沉淀提案。
     triggers:
@@ -296,7 +296,7 @@ skills:
   deep-research:
     description: >
       多源深度调研管道（Web Deep Research + Coder 合成）。
-      Use when: 技术问题需要多源调查、设计决策需要证据、铲屎官说"调研"/"research"。
+      Use when: 技术问题需要多源调查、设计决策需要证据、用户说"调研"/"research"。
       Not for: 简单搜索（直接用 WebSearch）、已有结论的确认。
       Output: 调研报告 + 证据合成。
     triggers:
@@ -314,9 +314,9 @@ skills:
   # ── Skill 编写 ──
   writing-skills:
     description: >
-      创建或修改 Cat Café skill 的元技能（含 CSO、测试、发布）。
+      创建或修改 OfficeClaw skill 的元技能（含 CSO、测试、发布）。
       Use when: 写新 skill、修改现有 skill、验证 skill 质量；
-      或者功能实现中产出了 SKILL.md / cat-cafe-skills/ 新目录 / manifest.yaml skill 条目。
+      或者功能实现中产出了 SKILL.md / skills 新目录 / manifest.yaml skill 条目。
       Not for: 使用 skill（直接触发对应 skill）。
       Output: 新/更新的 SKILL.md + manifest 条目 + symlinks。
     triggers:
@@ -324,7 +324,7 @@ skills:
       - "新 skill"
       - "修改 skill"
       - "SKILL.md"
-      - "cat-cafe-skills/"
+      - "office-claw-skills/"
       - "manifest.yaml skill"
       - "创建 hook"
       - "新增 hook"
@@ -394,9 +394,9 @@ skills:
   # ── Workspace 导航 (F131) ──
   workspace-navigator:
     description: >
-      智能体可编程导航 Workspace 面板：铲屎官说模糊意图，智能体找到路径，自动打开文件/目录。
-      Use when: 铲屎官说"打开日志""看看代码""打开设计图""帮我打开那个文档"等模糊指令。
-      Not for: 打开 localhost 前端页面（用 browser-preview）、纯代码编写（不涉及展示给铲屎官看）。
+      智能体可编程导航 Workspace 面板：用户说模糊意图，智能体找到路径，自动打开文件/目录。
+      Use when: 用户说"打开日志""看看代码""打开设计图""帮我打开那个文档"等模糊指令。
+      Not for: 打开 localhost 前端页面（用 browser-preview）、纯代码编写（不涉及展示给用户看）。
       Output: Hub 右侧 Workspace 面板自动打开并导航到目标文件/目录。
     triggers:
       - "打开文件"
@@ -425,7 +425,7 @@ skills:
   browser-preview:
     description: >
       Hub 内嵌浏览器预览 localhost 应用。
-      Use when: 写前端代码、跑 dev server、需要看页面效果、调 UI、铲屎官说"看看效果"。
+      Use when: 写前端代码、跑 dev server、需要看页面效果、调 UI、用户说"看看效果"。
       Not for: 后端纯 API 开发、不涉及页面的工作。
       Output: 前端页面在 Hub browser panel 中实时预览。
     triggers:
@@ -453,10 +453,10 @@ skills:
   # ── 健康提醒 (F085) ──
   hyperfocus-brake:
     description: >
-      铲屎官健康提醒：三猫撒娇打断 hyperfocus。
+      用户健康提醒：智能体撒娇打断 hyperfocus。
       Use when: hook 触发提醒、用户输入 /hyperfocus-brake。
-      Not for: 正常工作流程、非铲屎官用户。
-      Output: 三猫温柔提醒 + typed check-in。
+      Not for: 正常工作流程、非用户用户。
+      Output: 智能体温柔提醒 + typed check-in。
     triggers:
       - "hyperfocus"
       - "休息提醒"
@@ -464,7 +464,7 @@ skills:
       - "/hyperfocus-brake"
     not_for:
       - "正常工作"
-      - "非铲屎官"
+      - "非用户"
     output: "Three-cat empathetic check-in"
     next: []
     sop_step: null
@@ -496,7 +496,7 @@ skills:
     sop_step: null
     merged_from: null
 
-  # ── 猫猫训练营引导 (F087) ──
+  # ── 智能体训练营引导 (F087) ──
   bootcamp-guide:
     description: >
       CVO 新手训练营引导模式：Phase 驱动的新手引导行为。
@@ -520,7 +520,7 @@ skills:
   image-generation:
     description: >
       通过 Chrome MCP 浏览器自动化，在 Gemini / ChatGPT 上生成图片并下载。
-      Use when: 需要生成概念图、UI 参考图、像素画素材、猫猫头像、任何图片资产。
+      Use when: 需要生成概念图、UI 参考图、像素画素材、智能体头像、任何图片资产。
       Not for: Pencil .pen 文件内的简单形状/布局（用 pencil-design）。
       Output: 生成的图片文件（PNG）保存到项目 assets/ 目录。
     triggers:
@@ -1140,30 +1140,30 @@ refs:
     path: "refs/requirements-checklist-template.md"
     source: "F046 Phase B B3"
   decision-matrix:
-    description: "决策权漏斗矩阵（铲屎官/三猫/自治）"
+    description: "决策权漏斗矩阵（用户/智能体/自治）"
     path: "refs/decision-matrix.md"
     source: "CLAUDE.md + AGENTS.md + GEMINI.md 共用"
   commit-signatures:
-    description: "猫猫 commit 签名表"
+    description: "智能体 commit 签名表"
     path: "refs/commit-signatures.md"
     source: "CLAUDE.md + AGENTS.md + GEMINI.md 共用"
   shared-rules:
-    description: "三猫共用协作规则（交接五件套、提问原则、开放邀请、技术债务、Review 立场等）"
+    description: "智能体共用协作规则（交接五件套、提问原则、开放邀请、技术债务、Review 立场等）"
     path: "refs/shared-rules.md"
     source: "CLAUDE.md + AGENTS.md + GEMINI.md 去重合并"
 
 # ─── 三条铁律（仅此三条） ──────────────────────────────
 iron_laws:
   - id: redis-sanctuary
-    rule: "Redis 6399 是铲屎官数据圣域，Worktree 开发只用 6398"
+    rule: "Redis 6399 是用户数据圣域，Worktree 开发只用 6398"
   - id: no-self-review
     rule: "同一个体不能 review 自己的代码（跨 family 优先，可降级到同 family 不同个体）"
   - id: no-impersonation
-    rule: "不能冒充其他猫，身份是硬约束常量"
+    rule: "不能冒充其他智能体，身份是硬约束常量"
 
 # ─── F073 P4: SOP 导航牌 ──────────────────────────────
 # 阶段 → 建议 skill → 硬规则 → 常见坑
-# 告示牌哲学：猫看了自己决定行动，这里只给导航信息。
+# 告示牌哲学：智能体看了自己决定行动，这里只给导航信息。
 # SystemPromptBuilder 读 workflow-sop stage 后在此查找对应导航。
 sop_navigation:
   kickoff:
@@ -1171,7 +1171,7 @@ sop_navigation:
     hard_rules:
       - "Feature spec 必须有 AC + 需求点 checklist"
     pitfalls:
-      - "没有铲屎官确认就直接开始实现"
+      - "没有用户确认就直接开始实现"
   impl:
     suggested_skill: tdd
     hard_rules:
@@ -1204,10 +1204,10 @@ sop_navigation:
   completion:
     suggested_skill: feat-lifecycle
     hard_rules:
-      - "feat close 前必须跨猫愿景守护"
+      - "feat close 前必须跨智能体愿景守护"
       - "PR merged + check:features 通过"
     pitfalls:
-      - "没有 @ 其他猫做愿景守护就直接 close"
+      - "没有 @ 其他智能体做愿景守护就直接 close"
 
 # ─── lint 规则 ──────────────────────────────────────────
 lint:
@@ -1219,7 +1219,7 @@ lint:
     - id: next-exists
       check: "next 指向的 skill 必须在 manifest 中存在"
     - id: no-hardcoded-cats
-      check: "skill 内容禁止硬编码猫名句柄（用角色/roster 引用）"
+      check: "skill 内容禁止硬编码智能体名句柄（用角色/roster 引用）"
     - id: sop-consistent
       check: "sop_step 引用与 SOP.md 一致"
     - id: no-overmerge

@@ -50,7 +50,7 @@ unset PROJECT_ALLOWED_ROOTS_APPEND
 printf '%s' "$(resolve_provider_profiles_dir)"
 `);
 
-      assert.equal(output, join(canonicalRepoRoot, '.cat-cafe'));
+      assert.equal(output, join(canonicalRepoRoot, '.office-claw'));
     },
   );
 });
@@ -68,7 +68,7 @@ unset PROJECT_ALLOWED_ROOTS_APPEND
 printf '%s' "$(resolve_provider_profiles_dir)"
 `);
 
-      assert.equal(output, join(worktreeRoot, '.cat-cafe'));
+      assert.equal(output, join(worktreeRoot, '.office-claw'));
     },
   );
 });
@@ -87,7 +87,7 @@ unset PROJECT_ALLOWED_ROOTS_APPEND
 printf '%s' "$(resolve_provider_profiles_dir)"
 `);
 
-      assert.equal(output, join(canonicalRepoRoot, '.cat-cafe'));
+      assert.equal(output, join(canonicalRepoRoot, '.office-claw'));
     },
   );
 });
@@ -111,7 +111,7 @@ unset PROJECT_ALLOWED_ROOTS_APPEND
 printf '%s' "$(resolve_provider_profiles_dir)"
 `);
 
-        assert.equal(output, join(worktreeRoot, '.cat-cafe'));
+        assert.equal(output, join(worktreeRoot, '.office-claw'));
       },
     );
   } finally {
@@ -160,9 +160,9 @@ PROJECT_DIR="${childDir}"
 printf '%s' "$(resolve_provider_profiles_dir)"
 `);
 
-    const parentCatCafe = join(realpathSync(parentRepo), '.cat-cafe');
+    const parentCatCafe = join(realpathSync(parentRepo), '.office-claw');
     assert.notEqual(output, parentCatCafe, 'Must NOT write profiles to parent repo');
-    assert.equal(output, join(childDir, '.cat-cafe'), 'Must stay local to the child project');
+    assert.equal(output, join(childDir, '.office-claw'), 'Must stay local to the child project');
   } finally {
     rmSync(parentRepo, { recursive: true, force: true });
   }
@@ -182,9 +182,9 @@ PROJECT_DIR="${archiveDir}"
 printf '%s' "$(resolve_provider_profiles_dir)"
 `);
 
-    const outerCatCafe = join(realpathSync(outerRepo), '.cat-cafe');
+    const outerCatCafe = join(realpathSync(outerRepo), '.office-claw');
     assert.notEqual(output, outerCatCafe, 'Must NOT write profiles to outer repo');
-    assert.equal(output, join(archiveDir, '.cat-cafe'), 'Must stay local to the archive');
+    assert.equal(output, join(archiveDir, '.office-claw'), 'Must stay local to the archive');
   } finally {
     rmSync(outerRepo, { recursive: true, force: true });
   }
@@ -210,9 +210,9 @@ PROJECT_DIR="${impostorDir}"
 printf '%s' "$(resolve_provider_profiles_dir)"
 `);
 
-    const victimCatCafe = join(realpathSync(victimRepo), '.cat-cafe');
+    const victimCatCafe = join(realpathSync(victimRepo), '.office-claw');
     assert.notEqual(output, victimCatCafe, 'Must NOT write profiles to victim repo (forged .git)');
-    assert.equal(output, join(impostorDir, '.cat-cafe'), 'Must stay local when gitdir back-ref does not match');
+    assert.equal(output, join(impostorDir, '.office-claw'), 'Must stay local when gitdir back-ref does not match');
   } finally {
     rmSync(realWorktreeDir, { recursive: true, force: true });
     rmSync(victimRepo, { recursive: true, force: true });

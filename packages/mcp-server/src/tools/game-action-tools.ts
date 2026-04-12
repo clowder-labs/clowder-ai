@@ -8,13 +8,13 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL']!;
+const API_URL = process.env['OFFICE_CLAW_API_URL']!;
 
 function buildHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
-  const userId = process.env['CAT_CAFE_USER_ID'];
-  if (userId) headers['x-cat-cafe-user'] = userId;
-  const catId = process.env['CAT_CAFE_CAT_ID'];
+  const userId = process.env['OFFICE_CLAW_USER_ID'];
+  if (userId) headers['x-office-claw-user'] = userId;
+  const catId = process.env['OFFICE_CLAW_CAT_ID'];
   if (catId) headers['x-cat-id'] = catId;
   headers['content-type'] = 'application/json';
   return headers;

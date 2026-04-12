@@ -1,7 +1,7 @@
 # PR 模板 + 云端 Review 触发模板
 
-> 单一真相源。所有猫猫开 PR 和触发云端 review 都用这些模板。
-> 修改本文件 = 三猫行为同步，不再有格式不一致问题。
+> 单一真相源。所有智能体开 PR 和触发云端 review 都用这些模板。
+> 修改本文件 = 智能体行为同步，不再有格式不一致问题。
 
 ## PR Body 模板
 
@@ -17,10 +17,10 @@
 ## Original Requirements（必填）
 
 - Discussion/Interview: *(internal reference removed)*
-- **原始需求摘录（≤5 行，直接粘贴铲屎官原话）**：
-  > {例："我要能看到三只猫分别挂了哪些 Skill，按猫分类，一目了然"}
-- 铲屎官核心痛点：{用铲屎官自己的话概括}
-- **请 Reviewer 对照上面的摘录判断：交付物是否解决了铲屎官的问题？**
+- **原始需求摘录（≤5 行，直接粘贴用户原话）**：
+  > {例："我要能看到各智能体分别挂了哪些 Skill，按智能体分类，一目了然"}
+- 用户核心痛点：{用用户自己的话概括}
+- **请 Reviewer 对照上面的摘录判断：交付物是否解决了用户的问题？**
 
 ## Plan / ADR
 
@@ -47,7 +47,7 @@ pnpm -r --if-present run build         # 成功
 **本地 Review**: [x] {reviewer 纯文本句柄，如 gpt52} 已 review 并放行
 **云端 Review**: [ ] PR 创建后在 **comment** 中触发（见下方模板）
 
-<!-- 猫猫签名（纯文本，禁止 @）: 例如 Maine Coon/Maine Coon (codex) -->
+<!-- 智能体签名（纯文本，禁止 @）: 例如 Maine Coon/Maine Coon (codex) -->
 ```
 
 ## 云端 Review 触发 Comment 模板
@@ -75,7 +75,7 @@ TRIGGER_URL="$(gh pr view {PR_NUMBER} --json comments | jq -r --arg sha "$SHORT_
 
 触发后执行策略（必须遵守）：
 
-1. 进入**等待通知**模式，优先等 Cat Café 的 `GitHub Review 通知`
+1. 进入**等待通知**模式，优先等 OfficeClaw 的 `GitHub Review 通知`
 2. 不要高频轮询，不要“看起来没回就再发一次”
 3. 10 分钟无通知，只允许一次人工检查：
 
@@ -109,7 +109,7 @@ Please review latest commit {SHORT_SHA} for P1/P2 only.
 - 同一 commit 不要重复触发；有新 commit（新 SHA）再触发下一轮
 - 触发后等待通知；未收到通知前禁止二次触发同一 SHA
 - **PR body（含 HTML 注释）禁止出现任何 `@句柄`（例如 `(@codex)`）**
-- 铲屎官教训：2026-02-28 某 PR 在 body 里写 `@codex review`，导致 Codex 回复"需要权限"而非执行 review
+- 用户教训：2026-02-28 某 PR 在 body 里写 `@codex review`，导致 Codex 回复"需要权限"而非执行 review
 - 新增反面案例：2026-03-02 PR #160 在 body 签名写 `(@codex)`，触发环境提示评论，污染 review 流程
 
 ## 常见 QA（必须读）

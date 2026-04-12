@@ -8,8 +8,8 @@ import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL']!;
-const SIGNAL_USER = process.env['CAT_CAFE_SIGNAL_USER']?.trim() || 'codex';
+const API_URL = process.env['OFFICE_CLAW_API_URL']!;
+const SIGNAL_USER = process.env['OFFICE_CLAW_SIGNAL_USER']?.trim() || 'codex';
 
 interface SignalArticleLike {
   readonly id: string;
@@ -29,7 +29,7 @@ async function apiJson(
 ): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
   try {
     const headers = new Headers(init?.headers);
-    headers.set('X-Cat-Cafe-User', SIGNAL_USER);
+    headers.set('X-Office-Claw-User', SIGNAL_USER);
     if (init?.body && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }

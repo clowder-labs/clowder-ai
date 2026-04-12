@@ -51,7 +51,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
   app.addHook('preHandler', async (req, reply) => {
     if (!resolveUserId(req)) {
       reply.status(401);
-      return reply.send({ error: 'Identity required (X-Cat-Cafe-User header or userId query)' });
+      return reply.send({ error: 'Identity required (X-Office-Claw-User header or userId query)' });
     }
   });
 
@@ -65,7 +65,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     Body: { worktreeId: string; cols?: number; rows?: number };
   }>('/api/terminal/sessions', async (req, reply) => {
     if (!tmuxGateway)
-      return reply.status(503).send({ error: 'Terminal not available (CAT_CAFE_TMUX_AGENT not enabled)' });
+      return reply.status(503).send({ error: 'Terminal not available (OFFICE_CLAW_TMUX_AGENT not enabled)' });
     const { worktreeId, cols = 80, rows = 24 } = req.body;
     const userId = resolveUserId(req) as string; // preHandler guarantees non-null
 

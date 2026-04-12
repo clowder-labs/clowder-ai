@@ -7,7 +7,7 @@
 ## 概述
 
 F133 实现了 GitHub CI/CD 执行结果自动追踪：注册 PR 后，系统每分钟轮询 CI 状态，
-状态变化时自动投递通知到对话 thread。CI 失败唤醒猫，CI 成功只投递消息。
+状态变化时自动投递通知到对话 thread。CI 失败唤醒智能体，CI 成功只投递消息。
 
 ## 架构
 
@@ -26,7 +26,7 @@ register_pr_tracking (MCP tool)
         ▼
   deliverConnectorMessage()   ◄── 共享投递（connector: github-ci）
         │
-        ├─ CI fail → ConnectorInvokeTrigger (priority: normal) → 唤醒猫
+        ├─ CI fail → ConnectorInvokeTrigger (priority: normal) → 唤醒智能体
         └─ CI pass → 消息投递但不唤醒
 ```
 
@@ -93,7 +93,7 @@ Commit: `abc1234`
 
 **`gh` 不可用时**：优雅降级 — log warning，不 crash，跳过该 PR。
 
-## 猫猫处理策略
+## 智能体处理策略
 
 ### 收到 CI 失败通知
 
