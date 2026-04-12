@@ -13,7 +13,7 @@ import test from 'node:test';
 import { runHelper, runHelperResult, runHelperWithEnv } from './install-auth-config-test-helpers.js';
 
 function readInstallerState(projectRoot) {
-  const profileDir = join(projectRoot, '.cat-cafe');
+  const profileDir = join(projectRoot, '.office-claw');
   const profileFile = join(profileDir, 'provider-profiles.json');
   const secretsFile = join(profileDir, 'provider-profiles.secrets.local.json');
   return {
@@ -234,7 +234,7 @@ test('modelarts-preset apply seeds one shared profile and exactly two runtime me
     });
     assert.equal(secrets.profiles['modelarts-shared'].apiKey, 'modelarts-shared-key');
 
-    const catalog = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), 'utf8'));
+    const catalog = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'office-claw-catalog.json'), 'utf8'));
     assert.deepEqual(
       catalog.breeds.map((breed) => ({
         catId: breed.catId,
@@ -285,10 +285,10 @@ test('client-auth remove fails when the installer-managed account is still refer
       'codex-key',
     ]);
 
-    const runtimeDir = join(projectRoot, '.cat-cafe');
+    const runtimeDir = join(projectRoot, '.office-claw');
     mkdirSync(runtimeDir, { recursive: true });
     writeFileSync(
-      join(runtimeDir, 'cat-catalog.json'),
+      join(runtimeDir, 'office-claw-catalog.json'),
       `${JSON.stringify(
         {
           version: 2,
@@ -351,7 +351,7 @@ test('claude-profile remove is a no-op on a fresh project without provider profi
 
   try {
     runHelper(['claude-profile', 'remove', '--project-dir', projectRoot]);
-    assert.equal(existsSync(join(projectRoot, '.cat-cafe')), false);
+    assert.equal(existsSync(join(projectRoot, '.office-claw')), false);
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
@@ -376,7 +376,7 @@ test('claude-profile set preserves non-anthropic bindings when migrating a legac
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-claude-profile-legacy-v2-'));
 
   try {
-    const profileDir = join(projectRoot, '.cat-cafe');
+    const profileDir = join(projectRoot, '.office-claw');
     mkdirSync(profileDir, { recursive: true });
     writeFileSync(
       join(profileDir, 'provider-profiles.json'),
@@ -459,7 +459,7 @@ test('claude-profile v2 migration preserves non-installer accounts and secrets o
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-claude-v2-migrate-'));
 
   try {
-    const profileDir = join(projectRoot, '.cat-cafe');
+    const profileDir = join(projectRoot, '.office-claw');
     mkdirSync(profileDir, { recursive: true });
     const profileFile = join(profileDir, 'provider-profiles.json');
     const secretsFile = join(profileDir, 'provider-profiles.secrets.local.json');
@@ -572,7 +572,7 @@ test('claude-profile set fails fast on malformed provider profile JSON', () => {
   const projectRoot = mkdtempSync(join(tmpdir(), 'clowder-install-claude-bad-profile-'));
 
   try {
-    const profileDir = join(projectRoot, '.cat-cafe');
+    const profileDir = join(projectRoot, '.office-claw');
     const profileFile = join(profileDir, 'provider-profiles.json');
     const secretsFile = join(profileDir, 'provider-profiles.secrets.local.json');
     mkdirSync(profileDir, { recursive: true });

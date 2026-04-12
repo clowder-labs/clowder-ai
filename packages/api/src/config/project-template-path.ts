@@ -17,5 +17,5 @@ export function resolveProjectTemplatePath(projectRoot: string): string {
     const resolvedEnvPath = resolve(envPath);
     if (isWithinProjectRoot(projectRoot, resolvedEnvPath)) return resolvedEnvPath;
   }
-  return resolve(projectRoot, 'cat-template.json');
+  return resolve(projectRoot, 'office-claw-template.json');
 }

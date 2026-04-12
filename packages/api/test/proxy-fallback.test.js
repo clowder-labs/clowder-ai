@@ -41,8 +41,8 @@ describe('F115 AC-C3: proxy fallback to direct upstream', { concurrency: false }
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
       await createProviderProfile(root, {
@@ -105,17 +105,17 @@ describe('F115 AC-C3: proxy fallback to direct upstream', { concurrency: false }
       }
 
       const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
-      assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE, 'api_key');
+      assert.equal(callbackEnv.OFFICE_CLAW_ANTHROPIC_PROFILE_MODE, 'api_key');
       // Should fall back to direct upstream, NOT http://127.0.0.1:19871/slug
       assert.equal(
-        callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL,
+        callbackEnv.OFFICE_CLAW_ANTHROPIC_BASE_URL,
         'https://api.test-gateway.example',
         'should fall back to direct upstream when proxy is unreachable',
       );
-      assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_API_KEY, 'sk-test-fallback');
+      assert.equal(callbackEnv.OFFICE_CLAW_ANTHROPIC_API_KEY, 'sk-test-fallback');
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(root, { recursive: true, force: true });
     }
   });
@@ -126,8 +126,8 @@ describe('F115 AC-C3: proxy fallback to direct upstream', { concurrency: false }
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
       await createProviderProfile(root, {
@@ -191,19 +191,19 @@ describe('F115 AC-C3: proxy fallback to direct upstream', { concurrency: false }
       const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
       // Must stay api_key, NOT silently degrade to subscription
       assert.equal(
-        callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE,
+        callbackEnv.OFFICE_CLAW_ANTHROPIC_PROFILE_MODE,
         'api_key',
         'should keep api_key mode even with invalid proxy port',
       );
       // Should fall back to direct upstream
       assert.equal(
-        callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL,
+        callbackEnv.OFFICE_CLAW_ANTHROPIC_BASE_URL,
         'https://api.nan-port.example',
         'should fall back to direct upstream with invalid proxy port',
       );
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(root, { recursive: true, force: true });
     }
   });

@@ -43,7 +43,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/connector/test/dingtalk',
-      headers: { 'X-Cat-Cafe-User': 'tester' },
+      headers: { 'X-Office-Claw-User': 'tester' },
       payload: {
         DINGTALK_APP_KEY: 'test_app_key',
         DINGTALK_APP_SECRET: 'test_app_secret',
@@ -67,7 +67,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/connector/test/dingtalk',
-      headers: { 'X-Cat-Cafe-User': 'tester' },
+      headers: { 'X-Office-Claw-User': 'tester' },
       payload: {},
     });
 
@@ -113,7 +113,7 @@ describe('POST /api/connector/test/dingtalk', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/connector/test/dingtalk',
-      headers: { 'X-Cat-Cafe-User': 'tester' },
+      headers: { 'X-Office-Claw-User': 'tester' },
       payload: {
         DINGTALK_APP_KEY: 'bad_key',
         DINGTALK_APP_SECRET: 'bad_secret',

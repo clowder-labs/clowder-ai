@@ -750,7 +750,7 @@ describe('HubCatEditor', () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
-  it('uses ~/.cat-cafe/model.json profiles instead of provider-profiles when available', async () => {
+  it('uses ~/.office-claw/model.json profiles instead of provider-profiles when available', async () => {
     const onSaved = vi.fn(() => Promise.resolve());
     useChatStore.getState().setCurrentProject('/tmp/project');
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
@@ -902,7 +902,7 @@ describe('HubCatEditor', () => {
     expect(payload.defaultModel).toBe('glm-5');
   });
 
-  it('loads ACP providers from provider-profiles when client is ACP even if ~/.cat-cafe/model.json exists', async () => {
+  it('loads ACP providers from provider-profiles when client is ACP even if ~/.office-claw/model.json exists', async () => {
     const onSaved = vi.fn(() => Promise.resolve());
     useChatStore.getState().setCurrentProject('/tmp/project');
     mockApiFetch.mockImplementation((path: string) => {

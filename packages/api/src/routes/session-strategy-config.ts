@@ -75,10 +75,10 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
    * The override is deep-merged with the base strategy at read time.
    */
   app.patch<{ Params: { catId: string } }>('/api/config/session-strategy/:catId', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const { catId } = request.params;
@@ -133,10 +133,10 @@ export async function sessionStrategyConfigRoutes(app: FastifyInstance, _opts: F
    * Remove a runtime override for a variant cat — it falls back to lower-priority sources.
    */
   app.delete<{ Params: { catId: string } }>('/api/config/session-strategy/:catId', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const { catId } = request.params;

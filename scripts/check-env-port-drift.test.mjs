@@ -813,7 +813,7 @@ describe(
   { skip: !isHomeRepo && 'sync infrastructure not present (open-source repo)' },
   () => {
     it('workspace-navigator uses API_SERVER_PORT env instead of hardcoded 3002 fallbacks', () => {
-      const content = readFileSync(resolve(ROOT, 'cat-cafe-skills/workspace-navigator/SKILL.md'), 'utf-8');
+      const content = readFileSync(resolve(ROOT, 'office-claw-skills/workspace-navigator/SKILL.md'), 'utf-8');
       assert.doesNotMatch(
         content,
         /API_SERVER_PORT=3002|API_SERVER_PORT:-3002/,

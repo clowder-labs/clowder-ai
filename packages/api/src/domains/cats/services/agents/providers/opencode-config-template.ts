@@ -17,9 +17,9 @@
  *
  * Custom provider flow (F189):
  *   1. invoke-single-cat.ts calls writeOpenCodeRuntimeConfig() before each invoke
- *   2. Config written to {projectRoot}/.cat-cafe/opencode-runtime-{catId}.json
+ *   2. Config written to {projectRoot}/.office-claw/opencode-runtime-{catId}.json
  *   3. OPENCODE_CONFIG env var points to the file
- *   4. Credentials injected via {env:CAT_CAFE_OC_API_KEY} / {env:CAT_CAFE_OC_BASE_URL}
+ *   4. Credentials injected via {env:OFFICE_CLAW_OC_API_KEY} / {env:OFFICE_CLAW_OC_BASE_URL}
  *   5. Per-catId files isolate multiple opencode members in the same session
  */
 
@@ -72,8 +72,8 @@ export function generateOpenCodeConfig(options: OpenCodeConfigOptions): OpenCode
 // ── Custom provider runtime config (F189) ────────────────────────────────
 
 /** Env var names injected into the child process for {env:VAR} substitution. */
-export const OC_API_KEY_ENV = 'CAT_CAFE_OC_API_KEY';
-export const OC_BASE_URL_ENV = 'CAT_CAFE_OC_BASE_URL';
+export const OC_API_KEY_ENV = 'OFFICE_CLAW_OC_API_KEY';
+export const OC_BASE_URL_ENV = 'OFFICE_CLAW_OC_BASE_URL';
 
 /**
  * Maps our api type shorthand to the npm package name expected by opencode.
@@ -156,7 +156,7 @@ export function parseOpenCodeModel(model: string): { providerName: string; model
  * Write an opencode runtime config file for a specific cat member.
  * Returns the absolute path to the written config file.
  *
- * File location: {projectRoot}/.cat-cafe/opencode-runtime-{catId}.json
+ * File location: {projectRoot}/.office-claw/opencode-runtime-{catId}.json
  * Regenerated before each invoke to pick up mid-session config changes.
  */
 export function writeOpenCodeRuntimeConfig(
@@ -164,7 +164,7 @@ export function writeOpenCodeRuntimeConfig(
   catId: string,
   options: OpenCodeRuntimeConfigOptions,
 ): string {
-  const configDir = join(projectRoot, '.cat-cafe');
+  const configDir = join(projectRoot, '.office-claw');
   mkdirSync(configDir, { recursive: true });
   const configPath = join(configDir, `opencode-runtime-${catId}.json`);
   const config = generateOpenCodeRuntimeConfig(options);

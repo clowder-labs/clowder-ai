@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { before, beforeEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
 
-const USER_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const USER_HEADERS = { 'x-office-claw-user': 'test-user' };
 
 // Minimal in-memory backlog store stub (only needs get)
 function createStubBacklogStore() {
@@ -236,7 +236,7 @@ describe('WorkflowSop API routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/backlog/item-1/workflow-sop',
-      headers: { 'x-cat-cafe-user': 'other-user' },
+      headers: { 'x-office-claw-user': 'other-user' },
     });
     assert.equal(res.statusCode, 404);
     assert.equal(JSON.parse(res.payload).error, 'Backlog item not found');
@@ -246,7 +246,7 @@ describe('WorkflowSop API routes', () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/api/backlog/item-1/workflow-sop',
-      headers: { 'x-cat-cafe-user': 'other-user', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'other-user', 'content-type': 'application/json' },
       payload: { featureId: 'F073', stage: 'impl' },
     });
     assert.equal(res.statusCode, 404);

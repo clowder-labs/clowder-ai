@@ -45,6 +45,7 @@ packages/web/public/worker-*.js
 
 # F041 capabilities local state (bootstrapped per-machine)
 .cat-cafe/
+.office-claw/
 
 # Claude Code skills — cat-cafe symlinks are tracked; plugin-generated ones are not
 .claude/skills/pencil-renderer
@@ -142,3 +143,4 @@ evidence.sqlite-wal
 forzadata-*.txt
 __pycache__/
 *.pyc
+*.egg-info/

@@ -216,9 +216,9 @@ describe('AgentRouter + Services wiring', () => {
     // Claude spawn should have been called with env containing callback vars
     assert.equal(claudeSpawn._calls.length, 1);
     const spawnOpts = claudeSpawn._calls[0].options;
-    assert.ok(spawnOpts.env.CAT_CAFE_INVOCATION_ID, 'should have invocation ID');
-    assert.ok(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN, 'should have callback token');
-    assert.ok(spawnOpts.env.CAT_CAFE_API_URL, 'should have API URL');
+    assert.ok(spawnOpts.env.OFFICE_CLAW_INVOCATION_ID, 'should have invocation ID');
+    assert.ok(spawnOpts.env.OFFICE_CLAW_CALLBACK_TOKEN, 'should have callback token');
+    assert.ok(spawnOpts.env.OFFICE_CLAW_API_URL, 'should have API URL');
   });
 
   test('passes callbackEnv to Codex service', async () => {
@@ -240,8 +240,8 @@ describe('AgentRouter + Services wiring', () => {
 
     assert.equal(codexSpawn._calls.length, 1);
     const spawnOpts = codexSpawn._calls[0].options;
-    assert.ok(spawnOpts.env.CAT_CAFE_INVOCATION_ID);
-    assert.ok(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN);
+    assert.ok(spawnOpts.env.OFFICE_CLAW_INVOCATION_ID);
+    assert.ok(spawnOpts.env.OFFICE_CLAW_CALLBACK_TOKEN);
   });
 
   test('passes callbackEnv to Gemini service', async () => {
@@ -263,8 +263,8 @@ describe('AgentRouter + Services wiring', () => {
 
     assert.equal(geminiSpawn._calls.length, 1);
     const spawnOpts = geminiSpawn._calls[0].options;
-    assert.ok(spawnOpts.env.CAT_CAFE_INVOCATION_ID);
-    assert.ok(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN);
+    assert.ok(spawnOpts.env.OFFICE_CLAW_INVOCATION_ID);
+    assert.ok(spawnOpts.env.OFFICE_CLAW_CALLBACK_TOKEN);
   });
 
   // --- InvocationRegistry 接线验证 ---
@@ -287,8 +287,8 @@ describe('AgentRouter + Services wiring', () => {
     await collect(router.route('user-1', '@opus @codex hello'));
 
     // Collect invocation IDs from both spawns
-    const opusId = claudeSpawn._calls[0].options.env.CAT_CAFE_INVOCATION_ID;
-    const codexId = codexSpawn._calls[0].options.env.CAT_CAFE_INVOCATION_ID;
+    const opusId = claudeSpawn._calls[0].options.env.OFFICE_CLAW_INVOCATION_ID;
+    const codexId = codexSpawn._calls[0].options.env.OFFICE_CLAW_INVOCATION_ID;
 
     assert.ok(opusId, 'opus should have invocation ID');
     assert.ok(codexId, 'codex should have invocation ID');
@@ -313,7 +313,7 @@ describe('AgentRouter + Services wiring', () => {
     await collect(router.route('user-1', 'hello'));
 
     const env = claudeSpawn._calls[0].options.env;
-    const record = registry.verify(env.CAT_CAFE_INVOCATION_ID, env.CAT_CAFE_CALLBACK_TOKEN);
+    const record = registry.verify(env.OFFICE_CLAW_INVOCATION_ID, env.OFFICE_CLAW_CALLBACK_TOKEN);
     assert.ok(record, 'credentials should be verifiable');
     assert.equal(record.userId, 'user-1');
     assert.equal(record.catId, 'opus');
@@ -509,8 +509,8 @@ describe('MCP callback end-to-end flow', () => {
       method: 'POST',
       url: '/api/callbacks/post-message',
       payload: {
-        invocationId: env.CAT_CAFE_INVOCATION_ID,
-        callbackToken: env.CAT_CAFE_CALLBACK_TOKEN,
+        invocationId: env.OFFICE_CLAW_INVOCATION_ID,
+        callbackToken: env.OFFICE_CLAW_CALLBACK_TOKEN,
         content: 'Callback message from cat!',
       },
     });

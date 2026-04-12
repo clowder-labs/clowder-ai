@@ -103,7 +103,7 @@ describe('anthropic-proxy upstream timeout (AC-C4)', () => {
     hungPort = hungServer.address().port;
 
     tmpDir = mkdtempSync(join(tmpdir(), 'proxy-timeout-'));
-    const catCafeDir = join(tmpDir, '.cat-cafe');
+    const catCafeDir = join(tmpDir, '.office-claw');
     mkdirSync(catCafeDir, { recursive: true });
     const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
     writeFileSync(upstreamsPath, JSON.stringify({ 'hung-upstream': `http://127.0.0.1:${hungPort}` }));
@@ -159,7 +159,7 @@ describe('anthropic-proxy does NOT truncate slow streaming (P1 review fix)', () 
     slowPort = slowServer.address().port;
 
     tmpDir = mkdtempSync(join(tmpdir(), 'proxy-slow-'));
-    const catCafeDir = join(tmpDir, '.cat-cafe');
+    const catCafeDir = join(tmpDir, '.office-claw');
     mkdirSync(catCafeDir, { recursive: true });
     const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
     writeFileSync(upstreamsPath, JSON.stringify({ 'slow-upstream': `http://127.0.0.1:${slowPort}` }));
@@ -211,7 +211,7 @@ describe('anthropic-proxy Phase E upstream hardening', () => {
     const upstreamPort = upstream.address().port;
 
     const tmpDir = mkdtempSync(join(tmpdir(), 'proxy-network-retry-'));
-    const catCafeDir = join(tmpDir, '.cat-cafe');
+    const catCafeDir = join(tmpDir, '.office-claw');
     mkdirSync(catCafeDir, { recursive: true });
     const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
     writeFileSync(upstreamsPath, JSON.stringify({ sponsor: `http://127.0.0.1:${upstreamPort}` }));
@@ -240,7 +240,7 @@ describe('anthropic-proxy Phase E upstream hardening', () => {
   it('includes causeCode for terminal network failures', async () => {
     const upstreamPort = await getFreePort();
     const tmpDir = mkdtempSync(join(tmpdir(), 'proxy-cause-code-'));
-    const catCafeDir = join(tmpDir, '.cat-cafe');
+    const catCafeDir = join(tmpDir, '.office-claw');
     mkdirSync(catCafeDir, { recursive: true });
     const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
     writeFileSync(upstreamsPath, JSON.stringify({ sponsor: `http://127.0.0.1:${upstreamPort}` }));
@@ -285,7 +285,7 @@ describe('anthropic-proxy Phase E upstream hardening', () => {
     const upstreamPort = upstream.address().port;
 
     const tmpDir = mkdtempSync(join(tmpdir(), 'proxy-content-length-'));
-    const catCafeDir = join(tmpDir, '.cat-cafe');
+    const catCafeDir = join(tmpDir, '.office-claw');
     mkdirSync(catCafeDir, { recursive: true });
     const upstreamsPath = join(catCafeDir, 'proxy-upstreams.json');
     writeFileSync(upstreamsPath, JSON.stringify({ sponsor: `http://127.0.0.1:${upstreamPort}` }));

@@ -90,7 +90,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { threadId } = request.params;
@@ -155,7 +155,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { sessionId } = request.params;
@@ -187,7 +187,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { sessionId } = request.params;
@@ -296,7 +296,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { threadId, catId } = request.params;

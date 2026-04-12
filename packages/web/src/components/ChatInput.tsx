@@ -97,8 +97,14 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
 const MAX_INPUT_LENGTH = 5000;
+const SKILL_TOKEN_PREFIX = '[[skill:';
+const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
+
+function getSkillToken(name: string): string {
+  return `${SKILL_TOKEN_PREFIX}${name}${SKILL_TOKEN_SUFFIX}`;
+}
 
 function getQuickActionToken(label: string): string {
   return `${QUICK_ACTION_TOKEN_PREFIX}${label}${QUICK_ACTION_TOKEN_SUFFIX}`;
@@ -144,32 +150,11 @@ function normalizeMentionsForSend(input: string, catOptions: CatOption[]): strin
   return output;
 }
 
-function normalizeSkillsForSend(input: string, skillOptions: SkillOption[]): string {
-  let output = input;
-  const sortedSkills = [...skillOptions].sort((a, b) => b.name.length - a.name.length);
-  for (const skill of sortedSkills) {
-    const name = skill.name.trim();
-    if (!name) continue;
-    const escaped = escapeRegExp(name);
-    // Standalone skill names are normalized to the explicit trigger phrase.
-    // Skip names that are already inside "使用 xxx 技能".
-    const standaloneRe = new RegExp(`(^|\\s)${escaped}(?=\\s|$)`, 'gi');
-    output = output.replace(standaloneRe, (full, leadingWhitespace: string | undefined, offset: number, source: string) => {
-      const leading = leadingWhitespace ?? '';
-      const matchedName = full.slice(leading.length);
-      const start = offset + leading.length;
-      const end = start + matchedName.length;
-      const before = source.slice(0, start);
-      const after = source.slice(end);
-      if (/使用\s*$/.test(before) && /^\s*技能/.test(after)) return full;
-      return `${leading}使用 ${name} 技能`;
-    });
-
-    // Canonicalize any explicit trigger phrase spacing.
-    const phraseRe = new RegExp(`使用\\s*${escaped}\\s*技能`, 'gi');
-    output = output.replace(phraseRe, `使用 ${name} 技能`);
-  }
-  return output.replace(/\s+/g, ' ').trim();
+function normalizeSkillsForSend(input: string): string {
+  return input.replace(/\[\[skill:([^\]]+)\]\]/g, (_match, rawName: string) => {
+    const name = rawName.trim();
+    return name ? `使用 ${name} 技能` : '';
+  });
 }
 
 function getSkillInitial(name: string): string {
@@ -448,7 +433,7 @@ export function ChatInput({
       if (whisperMode && whisperTargets.size === 0) return;
       const trimmed = input.trim();
       const payload = normalizeMentionsForSend(
-        normalizeSkillsForSend(normalizeQuickActionsForSend(trimmed), skillOptions),
+        normalizeSkillsForSend(normalizeQuickActionsForSend(trimmed)),
         catOptions,
       );
       if (payload && !disabled) {
@@ -603,7 +588,7 @@ export function ChatInput({
       const leftJoiner = before.endsWith(' ') ? '' : ' ';
       const rightJoiner = ' ';
       const normalizedAfter = after.replace(/^\s+/, '');
-      const triggerText = skillName;
+      const triggerText = getSkillToken(skillName);
       const next = `${before}${leftJoiner}${triggerText}${rightJoiner}${normalizedAfter}`;
       setInput(next);
       setShowSkillMenu(false);

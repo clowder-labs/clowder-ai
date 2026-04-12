@@ -159,15 +159,15 @@ describe('RelayClawAgentService', () => {
     writeFileSync(appPy, '');
     writeFileSync(pythonBin, '');
 
-    const previousAppDir = process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+    const previousAppDir = process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
     try {
-      process.env.CAT_CAFE_RELAYCLAW_APP_DIR = appDir;
+      process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = appDir;
       assert.equal(jiuwenClawBundleAvailable(), true);
     } finally {
       if (previousAppDir === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_APP_DIR = previousAppDir;
+        process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = previousAppDir;
       }
     }
   });
@@ -178,16 +178,16 @@ describe('RelayClawAgentService', () => {
     mkdirSync(dirname(exePath), { recursive: true });
     writeFileSync(exePath, '');
 
-    const previousExe = process.env.CAT_CAFE_RELAYCLAW_EXE;
+    const previousExe = process.env.OFFICE_CLAW_RELAYCLAW_EXE;
     try {
-      process.env.CAT_CAFE_RELAYCLAW_EXE = exePath;
+      process.env.OFFICE_CLAW_RELAYCLAW_EXE = exePath;
       assert.equal(resolveJiuwenClawExecutable(), exePath);
       assert.equal(jiuwenClawBundleAvailable(), true);
     } finally {
       if (previousExe === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_EXE;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_EXE;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_EXE = previousExe;
+        process.env.OFFICE_CLAW_RELAYCLAW_EXE = previousExe;
       }
     }
   });
@@ -496,12 +496,12 @@ describe('RelayClawAgentService', () => {
     writeFileSync(pythonBin, '');
 
     const spawned = [];
-    const previousAppDir = process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
-    const previousPython = process.env.CAT_CAFE_RELAYCLAW_PYTHON;
+    const previousAppDir = process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
+    const previousPython = process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
 
     try {
-      process.env.CAT_CAFE_RELAYCLAW_APP_DIR = appDir;
-      process.env.CAT_CAFE_RELAYCLAW_PYTHON = pythonBin;
+      process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = appDir;
+      process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = pythonBin;
 
       const controller = new DefaultRelayClawSidecarController(
         'office',
@@ -543,14 +543,14 @@ describe('RelayClawAgentService', () => {
       assert.equal(spawned[0].killed, false);
     } finally {
       if (previousAppDir === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_APP_DIR = previousAppDir;
+        process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = previousAppDir;
       }
       if (previousPython === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_PYTHON;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_PYTHON = previousPython;
+        process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = previousPython;
       }
     }
   });
@@ -585,11 +585,11 @@ describe('RelayClawAgentService', () => {
       uploadDir: '/tmp/cat-cafe-uploads',
       contentBlocks: [{ type: 'image', url: '/uploads/test-image.png' }],
       callbackEnv: {
-        CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
-        CAT_CAFE_INVOCATION_ID: 'invocation-123',
-        CAT_CAFE_CALLBACK_TOKEN: 'callback-token',
-        CAT_CAFE_USER_ID: 'codex',
-        CAT_CAFE_CAT_ID: 'relayclaw-debug',
+        OFFICE_CLAW_API_URL: 'http://127.0.0.1:3004',
+        OFFICE_CLAW_INVOCATION_ID: 'invocation-123',
+        OFFICE_CLAW_CALLBACK_TOKEN: 'callback-token',
+        OFFICE_CLAW_USER_ID: 'codex',
+        OFFICE_CLAW_CAT_ID: 'relayclaw-debug',
       },
     })) {
       // exhaust stream
@@ -616,7 +616,7 @@ describe('RelayClawAgentService', () => {
       normalizedMcpPath.endsWith('/packages/mcp-server/dist/index.js'),
       'cat-cafe MCP should point at the local MCP server bundle',
     );
-    assert.equal(capturedRequest.params.cat_cafe_mcp.env.CAT_CAFE_INVOCATION_ID, 'invocation-123');
+    assert.equal(capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_INVOCATION_ID, 'invocation-123');
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
     assert.match(normalizedQuery, /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/);
   });

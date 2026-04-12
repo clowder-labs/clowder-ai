@@ -254,7 +254,7 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
     const resp = await app.inject({
       method: 'POST',
       url: '/api/game/start',
-      headers: { 'x-cat-cafe-user': 'route-test-user' },
+      headers: { 'x-office-claw-user': 'route-test-user' },
       payload: {
         gameType: 'werewolf',
         playerCount: 7,
@@ -342,7 +342,7 @@ describe('Phase H P1 Fixes — definition-level regression guards', () => {
     const resp = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'msg-route-user' },
+      headers: { 'x-office-claw-user': 'msg-route-user' },
       payload: { content: '/game werewolf god-view', threadId: 'thread-msg-test' },
     });
 

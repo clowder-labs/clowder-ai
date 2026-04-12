@@ -11,12 +11,12 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const configPath = resolve(__dirname, '..', '..', '..', 'cat-template.json');
+const configPath = resolve(__dirname, '..', '..', '..', 'office-claw-template.json');
 
-describe('cat-template.json — 金渐层 (opencode) validation', () => {
+describe('office-claw-template.json — 金渐层 (opencode) validation', () => {
   let config;
 
-  test('cat-template.json is valid JSON', () => {
+  test('office-claw-template.json is valid JSON', () => {
     const raw = readFileSync(configPath, 'utf-8');
     config = JSON.parse(raw);
     assert.ok(config);
@@ -55,7 +55,7 @@ describe('cat-template.json — 金渐层 (opencode) validation', () => {
 
   test('cat-config-loader can parse the config without errors', async () => {
     const { loadCatConfig } = await import('../dist/config/cat-config-loader.js');
-    // loadCatConfig reads from the repo root's cat-template.json
+    // loadCatConfig reads from the repo root's office-claw-template.json
     const result = loadCatConfig(configPath);
     assert.ok(result.breeds.length > 0);
     const goldenChinchilla = result.breeds.find((b) => b.id === 'golden-chinchilla');

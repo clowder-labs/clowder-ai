@@ -127,8 +127,8 @@ if (-not $gitCommand) {
 $ProjectRoot = Resolve-ProjectRoot
 $authState = New-InstallerAuthState -ProjectRoot $ProjectRoot
 
-if ($env:CAT_CAFE_NPM_REGISTRY) {
-    $env:NPM_CONFIG_REGISTRY = $env:CAT_CAFE_NPM_REGISTRY.Trim()
+if ($env:OFFICE_CLAW_NPM_REGISTRY) {
+    $env:NPM_CONFIG_REGISTRY = $env:OFFICE_CLAW_NPM_REGISTRY.Trim()
     Write-Ok "npm registry override: $($env:NPM_CONFIG_REGISTRY)"
 }
 

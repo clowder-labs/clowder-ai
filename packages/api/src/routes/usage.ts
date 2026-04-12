@@ -8,7 +8,7 @@
  * Usage Routes — F051 daily consumption
  * GET /api/usage/daily — 按日 × 猫聚合 token 消耗报表
  *
- * Auth: requires X-Cat-Cafe-User identity header.
+ * Auth: requires X-Office-Claw-User identity header.
  * Data is scoped to the requesting user's invocations.
  */
 
@@ -52,7 +52,7 @@ export const usageRoutes: FastifyPluginAsync<UsageRoutesOptions> = async (app, o
     // Header-only auth: no query param fallback, no default-user fallback
     const userId = resolveHeaderUserId(request);
     if (!userId) {
-      return reply.status(401).send({ error: 'Missing X-Cat-Cafe-User header' });
+      return reply.status(401).send({ error: 'Missing X-Office-Claw-User header' });
     }
 
     const daysParam = request.query.days;

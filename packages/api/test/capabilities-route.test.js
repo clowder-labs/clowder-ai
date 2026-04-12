@@ -23,7 +23,7 @@ import {
   writeCapabilitiesConfig,
 } from '../dist/config/capabilities/capability-orchestrator.js';
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
 /** @param {string} prefix */
 async function makeTmpDir(prefix) {
@@ -52,7 +52,7 @@ describe('PATCH capabilities logic', () => {
           id: 'cat-cafe',
           type: 'mcp',
           enabled: true,
-          source: 'cat-cafe',
+          source: 'builtin',
           mcpServer: { command: 'node', args: ['server.js'] },
         },
         {
@@ -107,7 +107,7 @@ describe('PATCH capabilities logic', () => {
           id: 'cat-cafe',
           type: 'mcp',
           enabled: true,
-          source: 'cat-cafe',
+          source: 'builtin',
           mcpServer: { command: 'node', args: ['server.js'] },
         },
         { id: 'cross-cat-handoff', type: 'skill', enabled: true, source: 'external' },
@@ -510,7 +510,7 @@ describe('GET /api/capabilities (Fastify)', () => {
     for (const item of body.items) {
       assert.ok(item.id, 'item should have id');
       assert.ok(['mcp', 'skill'].includes(item.type), 'type should be mcp or skill');
-      assert.ok(['cat-cafe', 'external'].includes(item.source), 'source should be cat-cafe or external');
+      assert.ok(['builtin', 'external'].includes(item.source), 'source should be builtin or external');
       assert.equal(typeof item.enabled, 'boolean', 'enabled should be boolean');
       assert.ok(typeof item.cats === 'object', 'cats should be an object');
     }
@@ -525,7 +525,7 @@ describe('GET /api/capabilities (Fastify)', () => {
     await app.close();
   });
 
-  it('does not treat cat-cafe-skills/refs as a skill', async () => {
+  it('does not treat office-claw-skills/refs as a skill', async () => {
     const Fastify = (await import('fastify')).default;
     const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
 
@@ -543,7 +543,7 @@ describe('GET /api/capabilities (Fastify)', () => {
     const body = res.json();
 
     const catCafeSkillIds = (body.items ?? [])
-      .filter((i) => i.type === 'skill' && i.source === 'cat-cafe')
+      .filter((i) => i.type === 'skill' && i.source === 'builtin')
       .map((i) => i.id);
     assert.ok(!catCafeSkillIds.includes('refs'), 'refs/ is a reference folder, not a skill');
 

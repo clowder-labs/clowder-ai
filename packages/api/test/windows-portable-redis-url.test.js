@@ -108,8 +108,8 @@ test('Windows portable Redis defers REDIS_URL to runtime instead of hardcoding l
   assert.doesNotMatch(installScript, /REDIS_URL=redis:\/\/localhost:6379/);
 });
 
-test('Windows installer keeps portable Redis inside the project .cat-cafe directory', () => {
-  assert.match(helpersScript, /Join-Path \$ProjectRoot "\.cat-cafe\\redis\\windows"/);
+test('Windows installer keeps portable Redis inside the project .office-claw directory', () => {
+  assert.match(helpersScript, /Join-Path \$ProjectRoot "\.office-claw\\redis\\windows"/);
   assert.match(helpersScript, /ArchiveDir = Join-Path \$[A-Za-z]+ "archives"/);
   assert.match(helpersScript, /Data = Join-Path \$[A-Za-z]+ "data"/);
   assert.match(helpersScript, /Logs = Join-Path \$[A-Za-z]+ "logs"/);
@@ -117,8 +117,8 @@ test('Windows installer keeps portable Redis inside the project .cat-cafe direct
 });
 
 test('Windows installer allows explicit Redis release API and archive URL overrides', () => {
-  assert.match(helpersScript, /\$redisReleaseApi = if \(\$env:CAT_CAFE_WINDOWS_REDIS_RELEASE_API\)/);
-  assert.match(helpersScript, /\$redisDownloadUrl = if \(\$env:CAT_CAFE_WINDOWS_REDIS_DOWNLOAD_URL\)/);
+  assert.match(helpersScript, /\$redisReleaseApi = if \(\$env:OFFICE_CLAW_WINDOWS_REDIS_RELEASE_API\)/);
+  assert.match(helpersScript, /\$redisDownloadUrl = if \(\$env:OFFICE_CLAW_WINDOWS_REDIS_DOWNLOAD_URL\)/);
   assert.match(helpersScript, /Invoke-RestMethod -Uri \$redisReleaseApi -Headers \$headers/);
   assert.match(helpersScript, /if \(\$redisDownloadUrl\) \{/);
   assert.match(

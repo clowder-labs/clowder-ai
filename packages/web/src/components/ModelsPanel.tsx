@@ -12,6 +12,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
+import { AgentManagementIcon } from './AgentManagementIcon';
 import { NameInitialIcon } from './NameInitialIcon';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
@@ -33,11 +34,12 @@ const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
-const CREATE_MODEL_CONFIRM_LABEL = '测试并保存';
+const TEST_MODEL_CONNECTION_LABEL = '测试连通';
+const SAVE_MODEL_LABEL = '保存';
+const MODEL_CONNECTION_SUCCESS_LABEL = '连通测试通过，可以继续保存模型配置';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
-const EMPTY_MODEL_ICON_DATA_URL =
-  'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2296%22%20height%3D%2296%22%20viewBox%3D%220%200%2096%2096%22%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%2290%22%20height%3D%2290%22%20rx%3D%2245%22%20fill%3D%22%23F8FAFC%22%20stroke%3D%22%23CBD5E1%22%20stroke-width%3D%223%22%20stroke-dasharray%3D%226%206%22/%3E%3Cpath%20d%3D%22M48%2034v28M34%2048h28%22%20stroke%3D%22%2394A3B8%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22/%3E%3C/svg%3E';
+const DEFAULT_MODEL_ICON_SRC = '/images/mode-default-icon.svg';
 
 function SparklesIcon() {
   return (
@@ -103,7 +105,14 @@ interface ModelConfigProviderItem {
   icon?: string;
   baseUrl?: string;
   apiKey?: string;
+  headers?: Record<string, string>;
   models?: string[];
+}
+
+interface HeaderInputRow {
+  id: string;
+  key: string;
+  value: string;
 }
 
 function pickStringField(item: MassModelResponseItem, candidates: string[]): string | undefined {
@@ -263,7 +272,7 @@ async function runDraftModelConfigProbe(input: {
   apiKey: string;
   models: string[];
   displayName?: string;
-}): Promise<void> {
+}): Promise<string | null> {
   const res = await apiFetch('/api/provider-profiles/test-draft', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -276,10 +285,11 @@ async function runDraftModelConfigProbe(input: {
       ...(input.displayName ? { displayName: input.displayName } : {}),
     }),
   });
-  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  const body = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
   if (!res.ok) {
     throw new Error(normalizeModelConnectionError(body.error ?? `请求失败 (${res.status})`));
   }
+  return body.message?.trim() || null;
 }
 
 export function ModelsPanel() {
@@ -292,7 +302,9 @@ export function ModelsPanel() {
   const [showCreateModelModal, setShowCreateModelModal] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createModelError, setCreateModelError] = useState<string | null>(null);
-  const [createModelBusy, setCreateModelBusy] = useState(false);
+  const [createModelSuccess, setCreateModelSuccess] = useState<string | null>(null);
+  const [testModelBusy, setTestModelBusy] = useState(false);
+  const [saveModelBusy, setSaveModelBusy] = useState(false);
   const [modelNameInput, setModelNameInput] = useState('');
   const [modelDescriptionInput, setModelDescriptionInput] = useState('');
   const [modelIconInput, setModelIconInput] = useState('');
@@ -300,7 +312,7 @@ export function ModelsPanel() {
   const [modelDisplayNameInput, setModelDisplayNameInput] = useState('');
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
-  const [modelHeadersInput, setModelHeadersInput] = useState('');
+  const [modelHeaderRows, setModelHeaderRows] = useState<HeaderInputRow[]>([]);
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [editingOriginalModelName, setEditingOriginalModelName] = useState<string | null>(null);
@@ -312,10 +324,12 @@ export function ModelsPanel() {
   const confirm = useConfirm();
 
   const isEditMode = Boolean(editingSourceId);
-  const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? EMPTY_MODEL_ICON_DATA_URL;
+  const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
   const canConfirmCreateModel = isEditMode
     ? modelNameInput?.trim().length > 0
     : modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
+  const canTestModelConnection =
+    modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -357,7 +371,7 @@ export function ModelsPanel() {
         message: `确认删除模型“${cardName || cardId}”？此操作不可恢复。`,
         confirmLabel: '删除',
         cancelLabel: '取消',
-        variant: 'danger',
+        variant: 'default',
       });
       if (!ok) return;
       setDeletingModelId(cardId);
@@ -397,35 +411,8 @@ export function ModelsPanel() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setLoading(true);
-      try {
-        const res = await apiFetch(buildModelsUrl());
-        if (!res.ok) {
-          if (!cancelled) setCards([]);
-          return;
-        }
-        const json = (await res.json()) as {
-          projectPath?: string;
-          list?: MassModelResponseItem[];
-          models?: MassModelResponseItem[];
-        };
-        const source = Array.isArray(json.list) ? json.list : Array.isArray(json.models) ? json.models : [];
-        if (!cancelled) {
-          setCards(source.map(normalizeModel));
-          setResolvedProjectPath(typeof json.projectPath === 'string' ? json.projectPath : null);
-        }
-      } catch {
-        if (!cancelled) setCards([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [buildModelsUrl]);
+    void fetchModels();
+  }, [fetchModels]);
 
   const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
 
@@ -454,6 +441,7 @@ export function ModelsPanel() {
   const closeCreateModelModal = () => {
     setShowCreateModelModal(false);
     setCreateModelError(null);
+    setCreateModelSuccess(null);
     setEditingSourceId(null);
     setEditingOriginalModelName(null);
     setEditingSourceModels([]);
@@ -462,11 +450,11 @@ export function ModelsPanel() {
   const resetCreateModelForm = () => {
     setModelNameInput('');
     setModelDescriptionInput('');
-    setModelIconInput('');
+    setModelIconInput(DEFAULT_MODEL_ICON_SRC);
     setModelDisplayNameInput('');
     setModelUrlInput('');
     setModelApiKeyInput('');
-    setModelHeadersInput('');
+    setModelHeaderRows([]);
   };
 
   const handleOpenCreateModelModal = () => {
@@ -475,6 +463,7 @@ export function ModelsPanel() {
     setEditingOriginalModelName(null);
     setEditingSourceModels([]);
     setCreateModelError(null);
+    setCreateModelSuccess(null);
     setShowCreateModelModal(true);
   };
 
@@ -484,6 +473,7 @@ export function ModelsPanel() {
 
     resetCreateModelForm();
     setCreateModelError(null);
+    setCreateModelSuccess(null);
     setEditModelBusy(true);
     try {
       const projectPath = resolveProjectPathForPayload();
@@ -507,6 +497,7 @@ export function ModelsPanel() {
       setModelIconInput(provider?.icon?.trim() || card.icon?.trim() || '');
       setModelUrlInput(provider?.baseUrl ?? '');
       setModelApiKeyInput(provider?.apiKey ?? '');
+      setModelHeaderRows(headersObjectToRows(provider?.headers));
       setShowCreateModelModal(true);
     } catch (error) {
       setCreateModelError(error instanceof Error ? error.message : String(error));
@@ -515,12 +506,45 @@ export function ModelsPanel() {
     }
   };
 
-  const handleCreateModel = async () => {
-    if (!canConfirmCreateModel || createModelBusy) return;
+  const resolveDraftModelNames = () => {
+    if (!editingSourceId) return [modelNameInput.trim()].filter(Boolean);
+    const nextModel = modelNameInput.trim();
+    const previousModel = editingOriginalModelName?.trim() || '';
+    const sourceModels = editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
+    const replacedModels = sourceModels.map((name) => (name === previousModel ? nextModel : name));
+    return Array.from(new Set((replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean)));
+  };
+
+  const handleTestModelConnection = async () => {
+    if (!canTestModelConnection || testModelBusy || saveModelBusy) return;
     setCreateModelError(null);
-    setCreateModelBusy(true);
+    setCreateModelSuccess(null);
+    setTestModelBusy(true);
     try {
-      const headers = parseHeadersJson(modelHeadersInput);
+      const projectPath = resolveProjectPathForPayload();
+      const displayName = modelDisplayNameInput.trim();
+      const probeMessage = await runDraftModelConfigProbe({
+        ...(projectPath ? { projectPath } : {}),
+        baseUrl: modelUrlInput.trim(),
+        apiKey: modelApiKeyInput.trim(),
+        models: resolveDraftModelNames(),
+        displayName: displayName || modelNameInput.trim(),
+      });
+      setCreateModelSuccess(probeMessage || MODEL_CONNECTION_SUCCESS_LABEL);
+    } catch (error) {
+      setCreateModelError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setTestModelBusy(false);
+    }
+  };
+
+  const handleCreateModel = async () => {
+    if (!canConfirmCreateModel || saveModelBusy || testModelBusy) return;
+    setCreateModelError(null);
+    setCreateModelSuccess(null);
+    setSaveModelBusy(true);
+    try {
+      const headers = buildHeadersObject(modelHeaderRows);
       const description = modelDescriptionInput.trim();
       const displayName = modelDisplayNameInput.trim();
       const icon = modelIconInput.trim();
@@ -532,16 +556,7 @@ export function ModelsPanel() {
       if (editingSourceId) {
         method = 'PUT';
         url = `/api/model-config-profiles/${encodeURIComponent(editingSourceId)}`;
-        const nextModel = modelNameInput.trim();
-        const previousModel = editingOriginalModelName?.trim() || '';
-        const sourceModels =
-          editingSourceModels.length > 0 ? [...editingSourceModels] : previousModel ? [previousModel] : [];
-        const replacedModels = sourceModels.map((name) => (name === previousModel ? nextModel : name));
-        const mergedModels = Array.from(
-          new Set(
-            (replacedModels.length > 0 ? replacedModels : [nextModel]).map((name) => name.trim()).filter(Boolean),
-          ),
-        );
+        const mergedModels = resolveDraftModelNames();
         payload = {
           ...(displayName ? { displayName } : {}),
           description: description || null,
@@ -553,13 +568,6 @@ export function ModelsPanel() {
           ...(projectPath ? { projectPath } : {}),
         };
       } else {
-        await runDraftModelConfigProbe({
-          ...(projectPath ? { projectPath } : {}),
-          baseUrl: modelUrlInput.trim(),
-          apiKey: modelApiKeyInput.trim(),
-          models: [modelNameInput.trim()],
-          displayName: displayName || modelNameInput.trim(),
-        });
         payload = {
           sourceId: generateModelConfigSourceId(),
           ...(displayName ? { displayName } : {}),
@@ -588,7 +596,7 @@ export function ModelsPanel() {
     } catch (error) {
       setCreateModelError(error instanceof Error ? error.message : String(error));
     } finally {
-      setCreateModelBusy(false);
+      setSaveModelBusy(false);
     }
   };
 
@@ -597,11 +605,13 @@ export function ModelsPanel() {
     if (!file) return;
     if (file.size > MODEL_ICON_MAX_BYTES) {
       setCreateModelError('图标文件大小不能超过 200KB');
+      setCreateModelSuccess(null);
       event.target.value = '';
       return;
     }
 
     setCreateModelError(null);
+    setCreateModelSuccess(null);
     setModelIconUploading(true);
     try {
       const uploaded = await uploadAvatarAsset(file);
@@ -614,24 +624,23 @@ export function ModelsPanel() {
     }
   };
 
+  const handleAddHeaderRow = () => {
+    setModelHeaderRows((rows) => [...rows, createEmptyHeaderRow()]);
+  };
+
+  const handleHeaderRowChange = (rowId: string, field: 'key' | 'value', value: string) => {
+    setModelHeaderRows((rows) => rows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row)));
+  };
+
+  const handleRemoveHeaderRow = (rowId: string) => {
+    setModelHeaderRows((rows) => rows.filter((row) => row.id !== rowId));
+  };
+
   return (
     <div className="ui-page-shell">
-      <div className="ui-page-header">
+      <div className="ui-page-header-inline mb-4">
         <h1 className="ui-page-title">{MODEL_TITLE}</h1>
-      </div>
-
-      <section className="flex shrink-0 justify-between gap-2 pb-6" data-testid="models-toolbar">
-        <div className="relative mr-2 flex-1">
-          <input
-            type="search"
-            aria-label="搜索模型"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={SEARCH_PLACEHOLDER}
-            className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
-          />
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => openHub('provider-profiles')}
@@ -639,7 +648,7 @@ export function ModelsPanel() {
           >
             ACP / 账号配置
           </button>
-          {isSkipAuth ? (
+          {true ? (
             <button
               type="button"
               onClick={handleOpenCreateModelModal}
@@ -649,6 +658,32 @@ export function ModelsPanel() {
               {CREATE_MODEL_LABEL}
             </button>
           ) : null}
+        </div>
+      </div>
+
+      <section className="shrink-0 pb-6" data-testid="models-toolbar">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <input
+              type="search"
+              aria-label="搜索模型"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={SEARCH_PLACEHOLDER}
+              className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+            />
+          </div>
+          <button
+            type="button"
+            aria-label="刷新"
+            title="刷新"
+            data-testid="models-refresh-button"
+            onClick={() => void fetchModels()}
+            disabled={loading}
+            className="inline-flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[8px] border border-[var(--border-default)] bg-[var(--surface-panel)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <AgentManagementIcon name="refresh" className="h-4 w-4" />
+          </button>
         </div>
       </section>
 
@@ -776,7 +811,7 @@ export function ModelsPanel() {
                                     void handleDeleteModel(card.id, card.name);
                                   }}
                                   data-testid={`model-card-delete-${card.id}`}
-                                  className="ml-3 whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
+                                  className="ml-[24px] whitespace-nowrap text-[14px] font-bold text-[var(--text-accent)] hover:underline disabled:opacity-50"
                                 >
                                   {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
                                 </button>
@@ -874,7 +909,7 @@ export function ModelsPanel() {
                     type="button"
                     aria-label="Upload model icon"
                     onClick={() => modelIconFileInputRef.current?.click()}
-                    className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
+                    className="group relative flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-transparent transition hover:border-[var(--border-accent)]"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -905,9 +940,9 @@ export function ModelsPanel() {
                         const nextVariant = Math.floor(Math.random() * 10_000);
                         setModelIconInput(buildNameInitialIconDataUrl(modelNameInput, nextVariant));
                       }}
-                      className="ui-button-default h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[var(--radius-sm)] p-0"
+                      className="h-[28px] w-[28px] min-h-[28px] min-w-[28px] p-0"
                     >
-                      <SparklesIcon />
+                      <AgentManagementIcon name="random" />
                     </button>
                   </div>
                 </div>
@@ -952,17 +987,52 @@ export function ModelsPanel() {
               </div>
               <div className="space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头（可选）'}</p>
-                <textarea
-                  data-testid="models-create-model-headers-textarea"
-                  value={modelHeadersInput}
-                  onChange={(event) => setModelHeadersInput(event.target.value)}
-                  rows={4}
-                  placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
-                  className="ui-textarea ui-form-focus w-full rounded px-3 py-2 text-sm"
-                />
+                <div className="space-y-2">
+                  {modelHeaderRows.map((row, index) => (
+                    <div key={row.id} className="flex items-center gap-[4px]" data-testid={`models-create-model-header-row-${index}`}>
+                      <input
+                        type="text"
+                        value={row.key}
+                        onChange={(event) => handleHeaderRowChange(row.id, 'key', event.target.value)}
+                        placeholder="请求头的键名"
+                        className="ui-input ui-form-focus h-[28px] flex-1"
+                        data-testid={`models-create-model-header-key-${index}`}
+                      />
+                      <input
+                        type="text"
+                        value={row.value}
+                        onChange={(event) => handleHeaderRowChange(row.id, 'value', event.target.value)}
+                        placeholder="请求头的值"
+                        className="ui-input ui-form-focus h-[28px] flex-1"
+                        data-testid={`models-create-model-header-value-${index}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveHeaderRow(row.id)}
+                        aria-label={`请求头 ${index + 1}`}
+                        className="h-[16px] w-[16px] min-h-[16px] min-w-[16px] p-0"
+                        data-testid={`models-create-model-header-remove-${index}`}
+                      >
+                        <AgentManagementIcon name="delete" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleAddHeaderRow}
+                    className="inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
+                    data-testid="models-create-model-header-add"
+                  >
+                    <AgentManagementIcon name="add" className="h-4 w-4" />
+                    <span>添加</span>
+                  </button>
+                </div>
               </div>
               {createModelError ? (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
+              ) : null}
+              {createModelSuccess ? (
+                <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{createModelSuccess}</p>
               ) : null}
             </div>
 
@@ -972,12 +1042,21 @@ export function ModelsPanel() {
               </button>
               <button
                 type="button"
-                disabled={!canConfirmCreateModel || createModelBusy || modelIconUploading || editModelBusy}
+                disabled={!canTestModelConnection || testModelBusy || saveModelBusy || modelIconUploading || editModelBusy}
+                onClick={handleTestModelConnection}
+                data-testid="models-create-model-test"
+                className="ui-button-default ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {testModelBusy ? '测试中...' : TEST_MODEL_CONNECTION_LABEL}
+              </button>
+              <button
+                type="button"
+                disabled={!canConfirmCreateModel || saveModelBusy || testModelBusy || modelIconUploading || editModelBusy}
                 onClick={handleCreateModel}
                 data-testid="models-create-model-confirm"
                 className="ui-button-primary ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {createModelBusy ? (isEditMode ? '保存中...' : '测试中...') : isEditMode ? '保存' : CREATE_MODEL_CONFIRM_LABEL}
+                {saveModelBusy ? '保存中...' : SAVE_MODEL_LABEL}
               </button>
             </div>
           </div>
@@ -1038,6 +1117,52 @@ function parseHeadersJson(value: string): Record<string, string> | null {
   return Object.fromEntries(entries);
 }
 
+function generateHeaderRowId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (typeof uuid === 'string' && uuid.trim()) {
+    return uuid;
+  }
+  return `hdr-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function createEmptyHeaderRow(): HeaderInputRow {
+  return { id: generateHeaderRowId(), key: '', value: '' };
+}
+
+function headersObjectToRows(headers?: Record<string, string> | null): HeaderInputRow[] {
+  if (!headers) return [];
+  return Object.entries(headers).map(([key, value]) => ({
+    id: generateHeaderRowId(),
+    key,
+    value,
+  }));
+}
+
+function buildHeadersObject(rows: HeaderInputRow[]): Record<string, string> | null {
+  const normalizedEntries: Array<readonly [string, string]> = [];
+
+  for (const row of rows) {
+    const key = row.key.trim();
+    const value = row.value.trim();
+    if (!key && !value) continue;
+    if (!key || !value) {
+      throw new Error('请求头的键名和值都必须填写');
+    }
+    normalizedEntries.push([key, value] as const);
+  }
+
+  if (normalizedEntries.length === 0) return null;
+
+  const duplicatedKey = normalizedEntries.find(([key], index) =>
+    normalizedEntries.findIndex(([existingKey]) => existingKey === key) !== index,
+  );
+  if (duplicatedKey) {
+    throw new Error(`请求头键名重复：${duplicatedKey[0]}`);
+  }
+
+  return Object.fromEntries(normalizedEntries);
+}
+
 function generateModelConfigSourceId(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
   if (typeof uuid === 'string' && uuid.trim()) {
@@ -1063,7 +1188,9 @@ function ModelsCreateModelConfigSource({
   const [apiKey, setApiKey] = useState('');
   const [headersText, setHeadersText] = useState('');
   const [models, setModels] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [probeBusy, setProbeBusy] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const canCreate =
     displayName.trim().length > 0 && baseUrl.trim().length > 0 && apiKey.trim().length > 0 && models.length > 0;
@@ -1114,7 +1241,7 @@ function ModelsCreateModelConfigSource({
         value={headersText}
         onChange={(event) => setHeadersText(event.target.value)}
         rows={4}
-        placeholder={'可选请求头(JSON)，如 {"X-App-Id":"cat-cafe"}'}
+        placeholder={'可选请求头(JSON)，如 {"X-App-Id":"my-app"}'}
         className="ui-textarea w-full rounded px-3 py-2 text-sm"
       />
       <div className="space-y-2">
@@ -1125,54 +1252,77 @@ function ModelsCreateModelConfigSource({
           addLabel="+ 添加模型"
           placeholder="输入模型名，如 gpt-4o-mini"
           emptyLabel="(至少添加 1 个模型)"
-          onChange={setModels}
-          minCount={0}
-        />
+      onChange={setModels}
+      minCount={0}
+    />
       </div>
-      <button
-        type="button"
-        disabled={busy || !canCreate}
-        onClick={async () => {
-          onError(null);
-          setBusy(true);
-          try {
-            const headers = parseHeadersJson(headersText);
-            await runDraftModelConfigProbe({
-              ...(projectPath ? { projectPath } : {}),
-              baseUrl: baseUrl.trim(),
-              apiKey: apiKey.trim(),
-              models,
-              displayName: displayName.trim(),
-            });
-            const res = await apiFetch('/api/model-config-profiles', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({
+      {successMessage ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p> : null}
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          disabled={probeBusy || saveBusy || !canCreate}
+          onClick={async () => {
+            onError(null);
+            setSuccessMessage(null);
+            setProbeBusy(true);
+            try {
+              const probeMessage = await runDraftModelConfigProbe({
                 ...(projectPath ? { projectPath } : {}),
-                sourceId: sourceId.trim(),
-                displayName: displayName.trim(),
                 baseUrl: baseUrl.trim(),
                 apiKey: apiKey.trim(),
-                ...(headers ? { headers } : {}),
                 models,
-              }),
-            });
-            const body = (await res.json().catch(() => ({}))) as { error?: string };
-            if (!res.ok) {
-              throw new Error(body.error ?? `请求失败 (${res.status})`);
+                displayName: displayName.trim(),
+              });
+              setSuccessMessage(probeMessage || MODEL_CONNECTION_SUCCESS_LABEL);
+            } catch (createError) {
+              onError(createError instanceof Error ? createError.message : String(createError));
+            } finally {
+              setProbeBusy(false);
             }
-            reset();
-            await onCreated();
-          } catch (createError) {
-            onError(createError instanceof Error ? createError.message : String(createError));
-          } finally {
-            setBusy(false);
-          }
-        }}
-        className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
-      >
-        {busy ? '测试中...' : '测试并保存'}
-      </button>
+          }}
+          className="ui-button-default disabled:opacity-50"
+        >
+          {probeBusy ? '测试中...' : TEST_MODEL_CONNECTION_LABEL}
+        </button>
+        <button
+          type="button"
+          disabled={probeBusy || saveBusy || !canCreate}
+          onClick={async () => {
+            onError(null);
+            setSuccessMessage(null);
+            setSaveBusy(true);
+            try {
+              const headers = parseHeadersJson(headersText);
+              const res = await apiFetch('/api/model-config-profiles', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  ...(projectPath ? { projectPath } : {}),
+                  sourceId: sourceId.trim(),
+                  displayName: displayName.trim(),
+                  baseUrl: baseUrl.trim(),
+                  apiKey: apiKey.trim(),
+                  ...(headers ? { headers } : {}),
+                  models,
+                }),
+              });
+              const body = (await res.json().catch(() => ({}))) as { error?: string };
+              if (!res.ok) {
+                throw new Error(body.error ?? `请求失败 (${res.status})`);
+              }
+              reset();
+              await onCreated();
+            } catch (createError) {
+              onError(createError instanceof Error ? createError.message : String(createError));
+            } finally {
+              setSaveBusy(false);
+            }
+          }}
+          className="rounded bg-[#111418] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2A3038] disabled:opacity-50"
+        >
+          {saveBusy ? '保存中...' : SAVE_MODEL_LABEL}
+        </button>
+      </div>
     </div>
   );
 }

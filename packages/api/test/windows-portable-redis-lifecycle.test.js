@@ -84,7 +84,7 @@ test('Windows startup quotes portable Redis file arguments before Start-Process'
 test('Windows stop script only stops Clowder-owned API and frontend listeners', () => {
   assert.match(
     stopWindowsScript,
-    /\$RunDir = if \(\$ProjectRoot\) \{ Join-Path \$ProjectRoot "\.cat-cafe\/run\/windows" \} else \{ \$null \}/,
+    /\$RunDir = if \(\$ProjectRoot\) \{ Join-Path \$ProjectRoot "\.office-claw\/run\/windows" \} else \{ \$null \}/,
   );
   assert.match(stopWindowsScript, /Get-ManagedProcessId/);
   assert.match(stopWindowsScript, /Test-ClowderOwnedProcess/);
@@ -158,7 +158,7 @@ test('Windows startup reuses existing local Redis listeners even when they are n
 });
 
 test('Windows startup only stops Clowder-owned listeners and records managed service PIDs', () => {
-  assert.match(startWindowsScript, /\$RunDir = Join-Path \$ProjectRoot "\.cat-cafe\/run\/windows"/);
+  assert.match(startWindowsScript, /\$RunDir = Join-Path \$ProjectRoot "\.office-claw\/run\/windows"/);
   assert.match(startWindowsScript, /\$ApiPidFile = Join-Path \$RunDir "api-\$ApiPort\.pid"/);
   assert.match(startWindowsScript, /function Get-ManagedProcessId/);
   assert.match(startWindowsScript, /function Set-ManagedProcessId/);

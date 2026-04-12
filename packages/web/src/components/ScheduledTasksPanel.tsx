@@ -62,6 +62,7 @@ type ScheduleControlSnapshot = {
   globalEnabled: boolean;
   overrideEnabledByTaskId: Map<string, boolean>;
 };
+const TASK_TIME_ICON = '/icons/time-time.svg';
 
 function toChineseWeekdays(dayOfWeek: string): string {
   const map: Record<string, string> = {
@@ -269,8 +270,8 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
   };
 
   const taskIconMaskStyle = {
-    WebkitMaskImage: 'url(/icons/scheduled-task.svg)',
-    maskImage: 'url(/icons/scheduled-task.svg)',
+    WebkitMaskImage: `url(${TASK_TIME_ICON})`,
+    maskImage: `url(${TASK_TIME_ICON})`,
     WebkitMaskRepeat: 'no-repeat',
     maskRepeat: 'no-repeat',
     WebkitMaskPosition: 'center',
@@ -324,8 +325,8 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                 <div className="flex h-full flex-col gap-4">
                   <div className="flex h-[48px] items-start justify-between gap-3">
                     <div className="flex h-full min-w-0 items-center gap-3">
-                      <div className="flex h-full w-8 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(250,250,250,1)]">
-                        <img src="/icons/scheduled-task.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(250,250,250,1)]">
+                        <img src={TASK_TIME_ICON} alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
                       </div>
                       <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[#1F2329]">{task.taskName}</h3>
                     </div>

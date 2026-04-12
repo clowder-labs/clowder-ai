@@ -1,5 +1,5 @@
 {
-  "$schema": "./cat-template.json",
+  "$schema": "./office-claw-template.json",
   "_comment": "ModelArts 定制部署预设配置。修改此文件后重新运行 install 即可生效。",
   "sharedAccount": {
     "profileId": "modelarts-shared",

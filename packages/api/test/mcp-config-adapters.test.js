@@ -249,7 +249,7 @@ describe('writeClaudeMcpConfig', () => {
   it('writes enabled servers to .mcp.json', async () => {
     const file = join(dir, '.mcp.json');
     await writeClaudeMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
       { name: 'disabled', command: 'echo', args: [], enabled: false, source: 'external' },
     ]);
 
@@ -300,7 +300,7 @@ describe('writeCodexMcpConfig', () => {
   it('writes MCP servers to TOML', async () => {
     const file = join(dir, 'config.toml');
     await writeCodexMcpConfig(file, [
-      { name: 'cat_cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'cat_cafe', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
       { name: 'disabled', command: 'echo', args: [], enabled: false, source: 'external' },
     ]);
 
@@ -338,7 +338,7 @@ describe('writeGeminiMcpConfig', () => {
   it('writes enabled servers to settings.json', async () => {
     const file = join(dir, 'settings.json');
     await writeGeminiMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
       { name: 'disabled', command: 'echo', args: [], enabled: false, source: 'external' },
     ]);
 
@@ -362,16 +362,16 @@ describe('writeGeminiMcpConfig', () => {
   it('injects callback env placeholders for managed cat-cafe servers', async () => {
     const file = join(dir, 'settings.json');
     await writeGeminiMcpConfig(file, [
-      { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'office-claw-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
-    assert.deepEqual(data.mcpServers['cat-cafe-collab'].env, {
-      CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
-      CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
-      CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
-      CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
-      CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+    assert.deepEqual(data.mcpServers['office-claw-collab'].env, {
+      OFFICE_CLAW_API_URL: '${OFFICE_CLAW_API_URL}',
+      OFFICE_CLAW_INVOCATION_ID: '${OFFICE_CLAW_INVOCATION_ID}',
+      OFFICE_CLAW_CALLBACK_TOKEN: '${OFFICE_CLAW_CALLBACK_TOKEN}',
+      OFFICE_CLAW_USER_ID: '${OFFICE_CLAW_USER_ID}',
+      OFFICE_CLAW_SIGNAL_USER: '${OFFICE_CLAW_SIGNAL_USER}',
     });
   });
 
@@ -387,16 +387,16 @@ describe('writeGeminiMcpConfig', () => {
     );
 
     await writeGeminiMcpConfig(file, [
-      { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'office-claw-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
     assert.deepEqual(data.mcpServers['cat-cafe'].env, {
-      CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
-      CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
-      CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
-      CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
-      CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+      OFFICE_CLAW_API_URL: '${OFFICE_CLAW_API_URL}',
+      OFFICE_CLAW_INVOCATION_ID: '${OFFICE_CLAW_INVOCATION_ID}',
+      OFFICE_CLAW_CALLBACK_TOKEN: '${OFFICE_CLAW_CALLBACK_TOKEN}',
+      OFFICE_CLAW_USER_ID: '${OFFICE_CLAW_USER_ID}',
+      OFFICE_CLAW_SIGNAL_USER: '${OFFICE_CLAW_SIGNAL_USER}',
     });
   });
 
@@ -414,7 +414,7 @@ describe('writeGeminiMcpConfig', () => {
 
     await writeGeminiMcpConfig(file, [
       { name: 'pencil', command: '/new/pencil', args: ['--app', 'antigravity'], enabled: true, source: 'external' },
-      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'cat-cafe', command: 'node', args: ['index.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
@@ -450,7 +450,7 @@ describe('P1-2: writers preserve non-managed MCP servers', () => {
 
     // Cat Cafe orchestrator writes only managed servers
     await writeClaudeMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
@@ -481,7 +481,7 @@ enabled = true
     );
 
     await writeCodexMcpConfig(file, [
-      { name: 'cat_cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'cat_cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'builtin' },
     ]);
 
     const raw = await readFile(file, 'utf-8');
@@ -508,7 +508,7 @@ enabled = true
     );
 
     await writeGeminiMcpConfig(file, [
-      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'cat-cafe' },
+      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'builtin' },
     ]);
 
     const data = JSON.parse(await readFile(file, 'utf-8'));
@@ -542,7 +542,7 @@ describe('round-trip: read → write → read', () => {
         args: ['./mcp/index.js'],
         env: { PORT: '3000' },
         enabled: true,
-        source: /** @type {const} */ ('cat-cafe'),
+        source: /** @type {const} */ ('builtin'),
       },
       { name: 'fs', command: 'npx', args: ['-y', '@mcp/fs'], enabled: true, source: /** @type {const} */ ('external') },
     ];
@@ -564,7 +564,7 @@ describe('round-trip: read → write → read', () => {
         command: 'node',
         args: ['index.js'],
         enabled: true,
-        source: /** @type {const} */ ('cat-cafe'),
+        source: /** @type {const} */ ('builtin'),
       },
       { name: 'disabled', command: 'echo', args: [], enabled: false, source: /** @type {const} */ ('external') },
     ];
@@ -589,7 +589,7 @@ describe('round-trip: read → write → read', () => {
         command: 'node',
         args: ['index.js'],
         enabled: true,
-        source: /** @type {const} */ ('cat-cafe'),
+        source: /** @type {const} */ ('builtin'),
         workingDir: '/tmp',
       },
     ];

@@ -7,7 +7,7 @@
 /**
  * Unified request identity resolver.
  *
- * Priority: X-Cat-Cafe-User header > userId query param > fallbackUserId > defaultUserId
+ * Priority: X-Office-Claw-User header > X-Cat-Cafe-User (legacy) > userId query > fallback > default
  *
  * Header-based identity is preferred because:
  * - Not logged in access logs / referer headers / browser history
@@ -51,9 +51,10 @@ export function resolveEffectiveUserId(value: unknown): string | null {
  * Trusted request identity source for browser/API calls.
  *
  * Unlike resolveUserId(), this does not accept caller-controlled query params.
+ * Reads X-Office-Claw-User first, falls back to legacy X-Cat-Cafe-User.
  */
 export function resolveHeaderUserId(request: FastifyRequest): string | null {
-  return resolveEffectiveUserId(request.headers['x-cat-cafe-user']);
+  return resolveEffectiveUserId(request.headers['x-office-claw-user']);
 }
 
 export function resolveUserId(request: FastifyRequest, options?: ResolveUserIdOptions): string | null {

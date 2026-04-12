@@ -111,7 +111,7 @@ describe('Queue gate: thread-level enqueue (regression)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '@opus 你好', threadId: 'thread-1' },
     });
 
@@ -135,7 +135,7 @@ describe('Queue gate: thread-level enqueue (regression)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '@opus 你好', threadId: 'thread-2' },
     });
 
@@ -149,7 +149,7 @@ describe('Queue gate: thread-level enqueue (regression)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      headers: { 'x-office-claw-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '@opus 排队发', threadId: 'thread-1', deliveryMode: 'queue' },
     });
 

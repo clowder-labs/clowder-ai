@@ -7,7 +7,7 @@ Endpoint: POST /v1/audio/transcriptions
 Returns: {"text": "transcribed text"}
 
 Usage:
-  source ~/.cat-cafe/asr-venv/bin/activate
+  source ~/.office-claw/asr-venv/bin/activate
   python scripts/qwen3-asr-api.py                                              # default: 8bit
   python scripts/qwen3-asr-api.py --model mlx-community/Qwen3-ASR-1.7B-4bit   # smaller
   python scripts/qwen3-asr-api.py --port 9876                                  # custom port

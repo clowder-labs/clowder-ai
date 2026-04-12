@@ -12,29 +12,29 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
 /** @param {string} prefix */
 async function makeTmpDir(prefix) {
-  return mkdtemp(join(homedir(), `.cat-cafe-provider-profile-route-${prefix}-`));
+  return mkdtemp(join(homedir(), `.office-claw-provider-profile-route-${prefix}-`));
 }
 
 /** @param {string} prefix */
 async function makeWorkspaceDir(prefix) {
-  return mkdtemp(join(process.cwd(), '..', '..', `.cat-cafe-provider-profile-route-workspace-${prefix}-`));
+  return mkdtemp(join(process.cwd(), '..', '..', `.office-claw-provider-profile-route-workspace-${prefix}-`));
 }
 
 describe('provider profiles routes', () => {
   /** @type {string | undefined} */ let savedGlobalRoot;
 
   function setGlobalRoot(dir) {
-    savedGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = dir;
+    savedGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = dir;
   }
 
   function restoreGlobalRoot() {
-    if (savedGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
+    if (savedGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
   }
 
   it('migrates legacy v1 provider profiles with anthropic protocol metadata', async () => {
@@ -42,7 +42,7 @@ describe('provider profiles routes', () => {
     const projectDir = await makeTmpDir('legacy-v1');
     setGlobalRoot(projectDir);
     try {
-      const catCafeDir = join(projectDir, '.cat-cafe');
+      const catCafeDir = join(projectDir, '.office-claw');
       await mkdir(catCafeDir, { recursive: true });
       await writeFile(
         join(catCafeDir, 'provider-profiles.json'),
@@ -85,7 +85,7 @@ describe('provider profiles routes', () => {
     const projectDir = await makeTmpDir('legacy-v2');
     setGlobalRoot(projectDir);
     try {
-      const catCafeDir = join(projectDir, '.cat-cafe');
+      const catCafeDir = join(projectDir, '.office-claw');
       await mkdir(catCafeDir, { recursive: true });
       await writeFile(
         join(catCafeDir, 'provider-profiles.json'),
@@ -144,7 +144,7 @@ describe('provider profiles routes', () => {
     const projectDir = await makeTmpDir('legacy-acp-command');
     setGlobalRoot(projectDir);
     try {
-      const catCafeDir = join(projectDir, '.cat-cafe');
+      const catCafeDir = join(projectDir, '.office-claw');
       await mkdir(catCafeDir, { recursive: true });
       await writeFile(
         join(catCafeDir, 'provider-profiles.json'),
@@ -345,10 +345,10 @@ describe('provider profiles routes', () => {
   });
 
   it('GET /api/provider-profiles hides builtin auth cards when the install preset disables them', async () => {
-    const previousAllowedClients = process.env.CAT_CAFE_ALLOWED_CLIENTS;
-    const previousVisibleBuiltinAuthClients = process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS;
-    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'dare,relayclaw';
-    process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
+    const previousAllowedClients = process.env.OFFICE_CLAW_ALLOWED_CLIENTS;
+    const previousVisibleBuiltinAuthClients = process.env.OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS;
+    process.env.OFFICE_CLAW_ALLOWED_CLIENTS = 'dare,relayclaw';
+    process.env.OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
 
     const Fastify = (await import('fastify')).default;
     const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
@@ -384,24 +384,24 @@ describe('provider profiles routes', () => {
       assert.ok(list.providers.some((p) => p.id === 'modelarts-shared'), 'custom profile should still be visible');
       assert.deepEqual(Object.keys(list.bootstrapBindings), ['dare']);
     } finally {
-      if (previousAllowedClients === undefined) delete process.env.CAT_CAFE_ALLOWED_CLIENTS;
-      else process.env.CAT_CAFE_ALLOWED_CLIENTS = previousAllowedClients;
-      if (previousVisibleBuiltinAuthClients === undefined) delete process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS;
-      else process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = previousVisibleBuiltinAuthClients;
+      if (previousAllowedClients === undefined) delete process.env.OFFICE_CLAW_ALLOWED_CLIENTS;
+      else process.env.OFFICE_CLAW_ALLOWED_CLIENTS = previousAllowedClients;
+      if (previousVisibleBuiltinAuthClients === undefined) delete process.env.OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS;
+      else process.env.OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS = previousVisibleBuiltinAuthClients;
       await rm(projectDir, { recursive: true, force: true });
       await app.close();
     }
   });
 
-  it('GET /api/provider-profiles shows all builtin auth when CAT_CAFE_BUILTIN_CLIENTS_ENABLED=true', async () => {
+  it('GET /api/provider-profiles shows all builtin auth when OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED=true', async () => {
     const saved = {
-      allowed: process.env.CAT_CAFE_ALLOWED_CLIENTS,
-      visible: process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS,
-      toggle: process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED,
+      allowed: process.env.OFFICE_CLAW_ALLOWED_CLIENTS,
+      visible: process.env.OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS,
+      toggle: process.env.OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED,
     };
-    process.env.CAT_CAFE_ALLOWED_CLIENTS = 'dare,relayclaw';
-    process.env.CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
-    process.env.CAT_CAFE_BUILTIN_CLIENTS_ENABLED = 'true';
+    process.env.OFFICE_CLAW_ALLOWED_CLIENTS = 'dare,relayclaw';
+    process.env.OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS = '';
+    process.env.OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED = 'true';
 
     const Fastify = (await import('fastify')).default;
     const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
@@ -425,10 +425,10 @@ describe('provider profiles routes', () => {
       for (const [key, val] of Object.entries(saved)) {
         const envKey =
           key === 'allowed'
-            ? 'CAT_CAFE_ALLOWED_CLIENTS'
+            ? 'OFFICE_CLAW_ALLOWED_CLIENTS'
             : key === 'visible'
-              ? 'CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS'
-              : 'CAT_CAFE_BUILTIN_CLIENTS_ENABLED';
+              ? 'OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS'
+              : 'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED';
         if (val === undefined) delete process.env[envKey];
         else process.env[envKey] = val;
       }
@@ -785,7 +785,7 @@ describe('provider profiles routes', () => {
 
     const projectDir = await makeTmpDir('default-root');
     setGlobalRoot(projectDir);
-    const templatePath = join(projectDir, 'cat-template.json');
+    const templatePath = join(projectDir, 'office-claw-template.json');
     await writeFile(templatePath, '{}\n', 'utf-8');
     const prevTemplate = process.env.CAT_TEMPLATE_PATH;
     process.env.CAT_TEMPLATE_PATH = templatePath;

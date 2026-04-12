@@ -50,7 +50,7 @@ describe('limb-tools handlers (no callback config)', () => {
 
   beforeEach(() => {
     // Clear callback env vars so handlers return error
-    for (const key of ['CAT_CAFE_API_URL', 'CAT_CAFE_INVOCATION_ID', 'CAT_CAFE_CALLBACK_TOKEN']) {
+    for (const key of ['OFFICE_CLAW_API_URL', 'OFFICE_CLAW_INVOCATION_ID', 'OFFICE_CLAW_CALLBACK_TOKEN']) {
       origEnv[key] = process.env[key];
       delete process.env[key];
     }

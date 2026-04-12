@@ -378,46 +378,46 @@ provider_profiles_candidate_root_is_allowed() {
 resolve_provider_profiles_dir() {
     local git_entry="$PROJECT_DIR/.git"
     if [[ ! -e "$git_entry" ]]; then
-        printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
+        printf '%s/.office-claw\n' "$PROJECT_DIR"; return
     fi
     if [[ -d "$git_entry" ]]; then
-        printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
+        printf '%s/.office-claw\n' "$PROJECT_DIR"; return
     fi
     if [[ -f "$git_entry" ]] && command -v git &>/dev/null; then
         local gitdir="" worktrees_dir="" common_git_dir="" candidate=""
         gitdir="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-dir 2>/dev/null || true)"
-        [[ -n "$gitdir" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        [[ -n "$gitdir" ]] || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
         worktrees_dir="$(dirname "$gitdir" 2>/dev/null)"
-        [[ "$(basename "$worktrees_dir" 2>/dev/null)" == "worktrees" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        [[ "$(basename "$worktrees_dir" 2>/dev/null)" == "worktrees" ]] || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
         common_git_dir="$(dirname "$worktrees_dir" 2>/dev/null)"
-        [[ "$(basename "$common_git_dir" 2>/dev/null)" == ".git" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        [[ "$(basename "$common_git_dir" 2>/dev/null)" == ".git" ]] || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
 
         local backref_file="$gitdir/gitdir" backref_resolved=""
         if [[ ! -f "$backref_file" ]]; then
-            printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
+            printf '%s/.office-claw\n' "$PROJECT_DIR"; return
         fi
-        backref_resolved="$(cd "$gitdir" 2>/dev/null && realpath "$(head -1 "$backref_file" 2>/dev/null)" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        backref_resolved="$(cd "$gitdir" 2>/dev/null && realpath "$(head -1 "$backref_file" 2>/dev/null)" 2>/dev/null)" || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
         local git_entry_resolved=""
-        git_entry_resolved="$(realpath "$git_entry" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        [[ "$backref_resolved" == "$git_entry_resolved" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        git_entry_resolved="$(realpath "$git_entry" 2>/dev/null)" || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
+        [[ "$backref_resolved" == "$git_entry_resolved" ]] || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
 
         local commondir_file="$gitdir/commondir" commondir_value="" commondir_resolved=""
         if [[ ! -f "$commondir_file" ]]; then
-            printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return
+            printf '%s/.office-claw\n' "$PROJECT_DIR"; return
         fi
-        commondir_value="$(head -1 "$commondir_file" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        [[ -n "$commondir_value" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        commondir_resolved="$(cd "$gitdir" 2>/dev/null && realpath "$commondir_value" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        commondir_value="$(head -1 "$commondir_file" 2>/dev/null)" || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
+        [[ -n "$commondir_value" ]] || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
+        commondir_resolved="$(cd "$gitdir" 2>/dev/null && realpath "$commondir_value" 2>/dev/null)" || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
         local common_git_dir_resolved=""
-        common_git_dir_resolved="$(realpath "$common_git_dir" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        [[ "$commondir_resolved" == "$common_git_dir_resolved" ]] || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
+        common_git_dir_resolved="$(realpath "$common_git_dir" 2>/dev/null)" || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
+        [[ "$commondir_resolved" == "$common_git_dir_resolved" ]] || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
 
         candidate="$(dirname "$common_git_dir_resolved")"
-        candidate="$(normalize_path_for_compare "$candidate" 2>/dev/null)" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        provider_profiles_candidate_root_is_allowed "$candidate" || { printf '%s/.cat-cafe\n' "$PROJECT_DIR"; return; }
-        printf '%s/.cat-cafe\n' "$candidate"; return
+        candidate="$(normalize_path_for_compare "$candidate" 2>/dev/null)" || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
+        provider_profiles_candidate_root_is_allowed "$candidate" || { printf '%s/.office-claw\n' "$PROJECT_DIR"; return; }
+        printf '%s/.office-claw\n' "$candidate"; return
     fi
-    printf '%s/.cat-cafe\n' "$PROJECT_DIR"
+    printf '%s/.office-claw\n' "$PROJECT_DIR"
 }
 docker_detected() {
     [[ -f /.dockerenv ]] || grep -qsw docker /proc/1/cgroup 2>/dev/null
@@ -469,14 +469,14 @@ set_gemini_api_key_mode() {
     [[ -n "$model" ]] && collect_env "CAT_GEMINI_MODEL" "$model" || clear_env "CAT_GEMINI_MODEL"
 }
 apply_modelarts_custom_env() {
-    # CAT_CAFE_CLIENT_LABELS is the single source of truth:
+    # OFFICE_CLAW_CLIENT_LABELS is the single source of truth:
     # keys = enabled clients, values = console display names.
     # Format: "clientId:DisplayName,clientId:DisplayName"
     # Available client IDs: anthropic | openai | google | dare | opencode | antigravity | relayclaw
     # Example: "dare:jiuwen,anthropic:Claude,opencode:OpenCode"
-    # CAT_CAFE_BUILTIN_CLIENTS_ENABLED=false hides all builtin auth.
-    collect_env "CAT_CAFE_BUILTIN_CLIENTS_ENABLED" "false"
-    collect_env "CAT_CAFE_CLIENT_LABELS" "dare:dare,relayclaw:jiuwen"
+    # OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED=false hides all builtin auth.
+    collect_env "OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED" "false"
+    collect_env "OFFICE_CLAW_CLIENT_LABELS" "dare:dare,relayclaw:jiuwen"
     clear_env "CODEX_AUTH_MODE"
     clear_env "OPENAI_API_KEY"; clear_env "OPENAI_BASE_URL"; clear_env "OPENAI_API_BASE"; clear_env "CAT_CODEX_MODEL"
     clear_env "GEMINI_API_KEY"; clear_env "GEMINI_BASE_URL"; clear_env "CAT_GEMINI_MODEL"
@@ -673,7 +673,7 @@ build_step "api" pnpm --dir packages/api run build
 build_step "web" env NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=3072}" pnpm --dir packages/web run build
 ok "Build complete"
 # Skills: per-skill user-level symlinks (ADR-009)
-SKILLS_SOURCE="$PROJECT_DIR/cat-cafe-skills"
+SKILLS_SOURCE="$PROJECT_DIR/office-claw-skills"
 if [[ -d "$SKILLS_SOURCE" ]]; then
     for tdir in "$HOME/.claude/skills" "$HOME/.codex/skills" "$HOME/.gemini/skills"; do
         mkdir -p "$tdir"
@@ -681,7 +681,7 @@ if [[ -d "$SKILLS_SOURCE" ]]; then
             [[ -d "$sd" ]] || continue; sn=$(basename "$sd"); [[ "$sn" == "refs" ]] && continue; ln -sfn "$sd" "$tdir/$sn"
         done
     done; ok "Skills linked"
-else fail "cat-cafe-skills/ not found"; exit 1; fi
+else fail "office-claw-skills/ not found"; exit 1; fi
 
 # F135: DARE CLI (狸花猫) — clone + venv setup
 # Pin to a known-good commit for reproducible installs (bump via PR when upgrading DARE).

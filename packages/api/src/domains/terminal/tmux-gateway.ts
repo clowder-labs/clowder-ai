@@ -24,11 +24,11 @@ function isExecutable(p: string): boolean {
 
 /**
  * Resolve the absolute path to the tmux binary.
- * Priority: CAT_CAFE_TMUX_PATH env → well-known Homebrew/system paths → PATH lookup.
+ * Priority: OFFICE_CLAW_TMUX_PATH env → well-known Homebrew/system paths → PATH lookup.
  */
 function resolveTmuxBin(): string {
   // biome-ignore lint/complexity/useLiteralKeys: process.env requires bracket notation for non-standard keys
-  const envPath = process.env['CAT_CAFE_TMUX_PATH'];
+  const envPath = process.env['OFFICE_CLAW_TMUX_PATH'];
   if (envPath && isExecutable(envPath)) return envPath;
 
   const candidates = [
@@ -44,7 +44,7 @@ function resolveTmuxBin(): string {
   try {
     return execFileSync('/usr/bin/which', ['tmux'], { encoding: 'utf8' }).trim();
   } catch {
-    throw new Error('tmux not found. Install tmux or set CAT_CAFE_TMUX_PATH to its absolute path.');
+    throw new Error('tmux not found. Install tmux or set OFFICE_CLAW_TMUX_PATH to its absolute path.');
   }
 }
 

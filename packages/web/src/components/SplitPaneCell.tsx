@@ -71,7 +71,7 @@ export function SplitPaneCell({
     >
       {/* Pane header */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex-shrink-0">
-        <span className={`text-xs ${statusColor}`}>{catStatus !== 'idle' ? 'ᓚᘏᗢ' : ''}</span>
+        <span className={`text-xs ${statusColor}`}>{catStatus !== 'idle' ? '●' : ''}</span>
         <span className="text-xs font-medium text-gray-700 truncate flex-1">{threadTitle}</span>
         {threadState.isLoading && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
         {threadState.unreadCount > 0 && (

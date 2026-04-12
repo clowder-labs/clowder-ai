@@ -1354,7 +1354,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   async function withSanitizedOpencodeConfig(run) {
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const registrySnapshot = catRegistry.getAllConfigs();
-    const baselineConfigs = toAllCatConfigs(loadCatConfig(join(process.cwd(), '..', '..', 'cat-template.json')));
+    const baselineConfigs = toAllCatConfigs(loadCatConfig(join(process.cwd(), '..', '..', 'office-claw-template.json')));
     const baselineOpencodeConfig = baselineConfigs.opencode;
     assert.ok(baselineOpencodeConfig, 'opencode config should exist in baseline catalog');
 
@@ -2487,12 +2487,12 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const root = await mkdtemp(join(tmpdir(), 'embedded-agentteams-model-config-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
-    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await mkdir(join(root, '.office-claw'), { recursive: true });
     await mkdir(join(root, 'tools', 'python'), { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     await writeFile(join(root, 'tools', 'python', 'python.exe'), '', 'utf-8');
     await writeFile(
-      join(root, '.cat-cafe', 'model.json'),
+      join(root, '.office-claw', 'model.json'),
       `${JSON.stringify(
         {
           'my-openai-proxy': {
@@ -2513,10 +2513,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'utf-8',
     );
 
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
-    process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
+    process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
     try {
       const registrySnapshot = catRegistry.getAllConfigs();
@@ -2593,8 +2593,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         'X-Workspace': 'sandbox',
       });
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
       await rm(root, { recursive: true, force: true });
@@ -2606,20 +2606,20 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const root = await mkdtemp(join(tmpdir(), 'embedded-agentteams-huawei-maas-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
-    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await mkdir(join(root, '.office-claw'), { recursive: true });
     await mkdir(join(root, 'tools', 'python'), { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     await writeFile(join(root, 'tools', 'python', 'python.exe'), '', 'utf-8');
     await writeFile(
-      join(root, '.cat-cafe', 'model.json'),
+      join(root, '.office-claw', 'model.json'),
       `${JSON.stringify({ 'huawei-maas': [{ id: 'glm-5' }, { id: 'qwen3-32b' }] }, null, 2)}\n`,
       'utf-8',
     );
 
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
-    process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../cat-template.json', import.meta.url));
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
+    process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
     try {
       sessions.set('user-agentteams-huawei-maas', {
@@ -2703,8 +2703,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         Authorization: 'Basic YXBwLWtleTphcHAtc2VjcmV0',
       });
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
       await rm(root, { recursive: true, force: true });
@@ -2934,7 +2934,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   it('F127 P1: falls back to CAT_TEMPLATE_PATH project when thread projectPath is absent', async () => {
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const templateRoot = await mkdtemp(join(tmpdir(), 'f127-active-template-'));
-    await writeFile(join(templateRoot, 'cat-template.json'), '{}', 'utf-8');
+    await writeFile(join(templateRoot, 'office-claw-template.json'), '{}', 'utf-8');
     const boundProfile = await createProviderProfile(templateRoot, {
       provider: 'openai',
       name: 'template-bound-openai',
@@ -2970,7 +2970,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const deps = makeDeps();
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
     try {
-      process.env.CAT_TEMPLATE_PATH = join(templateRoot, 'cat-template.json');
+      process.env.CAT_TEMPLATE_PATH = join(templateRoot, 'office-claw-template.json');
       await collect(
         invokeSingleCat(deps, {
           catId: boundCatId,
@@ -3005,8 +3005,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     await mkdir(isolatedApiDir, { recursive: true });
     await writeFile(join(isolatedRepoRoot, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
 
-    const prevGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = staleTemplateRoot;
+    const prevGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = staleTemplateRoot;
     await createProviderProfile(staleTemplateRoot, {
       provider: 'openai',
       name: 'stale-openai',
@@ -3017,7 +3017,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       setActive: true,
     });
     // Switch global root to the isolated repo so the stale profile is invisible
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = isolatedRepoRoot;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = isolatedRepoRoot;
 
     const optionsSeen = [];
     const service = {
@@ -3047,8 +3047,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       process.chdir(previousCwd);
       if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
-      if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
+      if (prevGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
       await rm(staleTemplateRoot, { recursive: true, force: true });
       await rm(isolatedRepoRoot, { recursive: true, force: true });
     }
@@ -3067,10 +3067,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    const templateRaw = await readFile(join(process.cwd(), '..', '..', 'cat-template.json'), 'utf-8');
-    await writeFile(join(root, 'cat-template.json'), templateRaw, 'utf-8');
-    const prevGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    const templateRaw = await readFile(join(process.cwd(), '..', '..', 'office-claw-template.json'), 'utf-8');
+    await writeFile(join(root, 'office-claw-template.json'), templateRaw, 'utf-8');
+    const prevGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     const activatedProfile = await createProviderProfile(root, {
       provider: 'openai',
@@ -3083,7 +3083,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       setActive: false,
     });
 
-    bootstrapCatCatalog(root, join(root, 'cat-template.json'));
+    bootstrapCatCatalog(root, join(root, 'office-claw-template.json'));
     const catalogPath = resolveCatCatalogPath(root);
     const runtimeCatalog = JSON.parse(await readFile(catalogPath, 'utf-8'));
     const codexBreed = runtimeCatalog.breeds.find((breed) => breed.catId === 'codex');
@@ -3125,8 +3125,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
+      if (prevGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
       await rm(root, { recursive: true, force: true });
     }
 
@@ -3217,20 +3217,20 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.OPENAI_API_BASE, 'https://api.bound.example');
   });
 
-  it('F127: injects Huawei MaaS runtime headers for dare cats bound via ~/.cat-cafe/model.json', async () => {
+  it('F127: injects Huawei MaaS runtime headers for dare cats bound via ~/.office-claw/model.json', async () => {
     const { sessions } = await import('../dist/routes/auth.js');
     const root = await mkdtemp(join(tmpdir(), 'f127-huawei-maas-model-config-dare-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
-    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await mkdir(join(root, '.office-claw'), { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     await writeFile(
-      join(root, '.cat-cafe', 'model.json'),
+      join(root, '.office-claw', 'model.json'),
       `${JSON.stringify({ 'huawei-maas': [{ id: 'glm-5' }] }, null, 2)}\n`,
       'utf-8',
     );
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
       sessions.set('user-f127-huawei-maas-model-config', {
@@ -3293,28 +3293,28 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       }
 
       const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
-      assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'huawei_maas');
-      assert.equal(callbackEnv.CAT_CAFE_HUAWEI_MAAS_ENABLED, '1');
+      assert.equal(callbackEnv.OFFICE_CLAW_EFFECTIVE_PROTOCOL, 'huawei_maas');
+      assert.equal(callbackEnv.OFFICE_CLAW_HUAWEI_MAAS_ENABLED, '1');
       assert.equal(callbackEnv.OPENAI_BASE_URL, 'https://api.modelarts-maas.com/v2');
       assert.equal(callbackEnv.OPENAI_API_BASE, 'https://api.modelarts-maas.com/v2');
       assert.equal(callbackEnv.OPENAI_API_KEY, 'huawei-maas-session');
       assert.equal(callbackEnv.DARE_ENDPOINT, 'https://api.modelarts-maas.com/v2');
       assert.equal(callbackEnv.DARE_API_KEY, 'huawei-maas-session');
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it('F127: injects custom openai-compatible runtime config for relayclaw cats bound via ~/.cat-cafe/model.json', async () => {
+  it('F127: injects custom openai-compatible runtime config for relayclaw cats bound via ~/.office-claw/model.json', async () => {
     const root = await mkdtemp(join(tmpdir(), 'f127-custom-model-config-relayclaw-'));
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
-    await mkdir(join(root, '.cat-cafe'), { recursive: true });
+    await mkdir(join(root, '.office-claw'), { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
     await writeFile(
-      join(root, '.cat-cafe', 'model.json'),
+      join(root, '.office-claw', 'model.json'),
       `${JSON.stringify(
         {
           'my-openai-proxy': {
@@ -3334,8 +3334,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       )}\n`,
       'utf-8',
     );
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
       const registrySnapshot = catRegistry.getAllConfigs();
@@ -3383,7 +3383,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       }
 
       const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
-      assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'openai');
+      assert.equal(callbackEnv.OFFICE_CLAW_EFFECTIVE_PROTOCOL, 'openai');
       assert.equal(callbackEnv.CODEX_AUTH_MODE, 'api_key');
       assert.equal(callbackEnv.OPENAI_API_KEY, 'sk-custom-proxy');
       assert.equal(callbackEnv.OPENROUTER_API_KEY, 'sk-custom-proxy');
@@ -3398,8 +3398,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
       );
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(root, { recursive: true, force: true });
     }
   });
@@ -3482,8 +3482,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const apiDir = join(root, 'packages', 'api');
     await mkdir(apiDir, { recursive: true });
     await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
-    const prevGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = root;
+    const prevGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
     const registrySnapshot = catRegistry.getAllConfigs();
     const originalConfig = catRegistry.tryGet('codex')?.config;
     assert.ok(originalConfig, 'codex config should exist in registry');
@@ -3526,8 +3526,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       for (const [id, config] of Object.entries(registrySnapshot)) {
         catRegistry.register(id, config);
       }
-      if (prevGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
+      if (prevGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = prevGlobalRoot;
       await rm(root, { recursive: true, force: true });
     }
 
@@ -3671,7 +3671,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
-    assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'openai');
+    assert.equal(callbackEnv.OFFICE_CLAW_EFFECTIVE_PROTOCOL, 'openai');
     assert.equal(callbackEnv.OPENAI_BASE_URL, 'https://openrouter.ai/api/v1');
     assert.equal(callbackEnv.OPENAI_API_KEY, 'sk-openrouter-key');
     assert.equal(callbackEnv.OPENROUTER_API_KEY, 'sk-openrouter-key');
@@ -3741,8 +3741,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }
 
     const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
-    assert.equal(callbackEnv.CAT_CAFE_EFFECTIVE_PROTOCOL, 'openai');
-    assert.equal(callbackEnv.CAT_CAFE_DARE_ADAPTER, 'openai');
+    assert.equal(callbackEnv.OFFICE_CLAW_EFFECTIVE_PROTOCOL, 'openai');
+    assert.equal(callbackEnv.OFFICE_CLAW_DARE_ADAPTER, 'openai');
     assert.equal(callbackEnv.DARE_API_KEY, 'sk-dare-modelarts');
     assert.equal(callbackEnv.DARE_ENDPOINT, 'https://modelarts.example/v1');
   });

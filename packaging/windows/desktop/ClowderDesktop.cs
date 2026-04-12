@@ -162,7 +162,7 @@ internal sealed class LauncherForm : Form
         );
         _projectRoot = ResolveProjectRoot();
         _logFilePath = Path.Combine(_projectRoot, "logs", "desktop-launcher.log");
-        _runtimeStatePath = Path.Combine(_projectRoot, ".cat-cafe", "run", "windows", "runtime-state.json");
+        _runtimeStatePath = Path.Combine(_projectRoot, ".office-claw", "run", "windows", "runtime-state.json");
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
@@ -812,7 +812,7 @@ internal sealed class LauncherForm : Form
 
     private async Task InitializeWebViewAsync()
     {
-        var userDataFolder = Path.Combine(_projectRoot, ".cat-cafe", "webview2");
+        var userDataFolder = Path.Combine(_projectRoot, ".office-claw", "webview2");
         Directory.CreateDirectory(userDataFolder);
 
         _webView = new WebView2

@@ -80,7 +80,7 @@ async function listSubdirs(dir: string, exclude?: string[]): Promise<string[] | 
 
 /**
  * Returns subdirectory names that contain a readable SKILL.md.
- * This prevents non-skill folders (e.g. cat-cafe-skills/refs) from being
+ * This prevents non-skill folders (e.g. office-claw-skills/refs) from being
  * treated as skills and synced into capabilities.json / Hub UI.
  */
 async function listSkillSubdirs(dir: string, exclude?: string[]): Promise<string[] | null> {
@@ -98,7 +98,7 @@ async function listSkillSubdirs(dir: string, exclude?: string[]): Promise<string
   return names;
 }
 
-/** Accept symlink target when it points to expected path OR main-repo cat-cafe-skills/{skillName}. */
+/** Accept symlink target when it points to expected path OR main-repo office-claw-skills/{skillName}. */
 async function isCorrectSymlink(
   linkPath: string,
   expectedTarget: string,
@@ -121,7 +121,7 @@ async function isCorrectSymlink(
     if (skillName && fallbackSkillsRoot) {
       const parentDir = dirname(normalizedDest);
       const nameMatches = normalizedDest.endsWith(`${sep}${skillName}`);
-      const isCatCafeSkillsDir = basename(parentDir) === 'cat-cafe-skills';
+      const isCatCafeSkillsDir = basename(parentDir) === 'office-claw-skills';
       const resolvedFallbackRoot = (await realpath(fallbackSkillsRoot).catch(() => fallbackSkillsRoot)).replace(
         /[/\\]$/,
         '',
@@ -363,9 +363,9 @@ async function parseManifestSkillMeta(skillsSrcDir: string): Promise<Map<string,
 
 /** Known MCP server descriptions */
 const MCP_DESCRIPTIONS: Record<string, string> = {
-  'cat-cafe-collab': '三猫协作工具 — 消息、上下文、任务、权限等（协作核心）',
-  'cat-cafe-memory': '三猫记忆工具 — 证据检索、反思、会话链回放',
-  'cat-cafe-signals': '信号猎手工具 — inbox 检索、搜索、摘要',
+  'office-claw-collab': '协作工具 — 消息、上下文、任务、权限等（协作核心）',
+  'office-claw-memory': '记忆工具 — 证据检索、反思、会话链回放',
+  'office-claw-signals': '信号工具 — inbox 检索、搜索、摘要',
 };
 const MAX_CONCURRENT_MCP_PROBES = 4;
 const DOCKER_GATEWAY_DESCRIPTION_BASE =
@@ -437,7 +437,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     // Multi-project: accept ?projectPath=... to manage capabilities for any project
@@ -483,7 +483,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const projectSkillsDir = join(projectRoot, '.claude', 'skills');
     const claudeProjectSkills = await listSubdirs(projectSkillsDir);
 
-    // Scan cat-cafe-skills/ for official skills
+    // Scan office-claw-skills/ for official skills
     const hostRoot = resolveCatCafeHostRoot(process.cwd());
     const catCafeSkillsDir = CAT_CAFE_SKILLS_SRC;
     const userInstalledSkillsDir = resolveUserSkillsRoot(hostRoot);
@@ -493,7 +493,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
 
     const projectScanOk = claudeProjectSkills !== null;
 
-    // Official skills come from cat-cafe-skills/ directory
+    // Official skills come from office-claw-skills/ directory
     const projectSkillNames = new Set([
       ...(claudeProjectSkills ?? []),
       ...(catCafeOwnSkills ?? []),
@@ -530,7 +530,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     for (const skills of Object.values(providerSkills)) {
       for (const s of skills) allSkillNames.add(s);
     }
-    // Cloud P2: include source-only Cat Cafe skills (present in cat-cafe-skills/ but not mounted
+    // Cloud P2: include source-only Cat Cafe skills (present in office-claw-skills/ but not mounted
     // into any provider directory yet) so mount health can detect missing mounts.
     if (catCafeOwnSkills !== null) {
       for (const s of catCafeOwnSkills) allSkillNames.add(s);
@@ -544,11 +544,11 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     for (const skillName of allSkillNames) {
       const exists = config.capabilities.some((c) => c.type === 'skill' && c.id === skillName);
       if (!exists) {
-        // F041 re-open fix: project-level skills → 'cat-cafe', user-level → 'external'
+        // F041 re-open fix: project-level skills → 'builtin', user-level → 'external'
         const source = remoteInstalledNames.has(skillName)
           ? ('external' as const)
           : projectSkillNames.has(skillName)
-            ? ('cat-cafe' as const)
+            ? ('builtin' as const)
             : ('external' as const);
         config.capabilities.push({
           id: skillName,
@@ -563,7 +563,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // 4. Build skill metadata lookup (description + triggers + category)
     // Categories + registration must be parsed from the SAME root used for mount checks.
     const mainRepo = await resolveMainRepoPath();
-    const mainSkillsSrc = join(mainRepo, 'cat-cafe-skills');
+    const mainSkillsSrc = join(mainRepo, 'office-claw-skills');
     // Use dir existence (not skill count) to avoid treating existing-but-empty as "missing".
     const mountSkillsSrc = catCafeOwnSkills !== null && hasProjectCatCafeSkillsDir ? catCafeSkillsDir : mainSkillsSrc;
 
@@ -573,7 +573,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     for (const cap of config.capabilities) {
       if (cap.type !== 'skill') continue;
       const isPresetSkill = bootstrapSkillNames.has(cap.id);
-      const newSource = isPresetSkill ? 'cat-cafe' : 'external';
+      const newSource = isPresetSkill ? 'builtin' : 'external';
       if (cap.source !== newSource) {
         cap.source = newSource;
         configDirty = true;
@@ -654,7 +654,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         cats,
       };
       const meta =
-        cap.source === 'cat-cafe'
+        cap.source === 'builtin'
           ? (manifestMetaMap.get(cap.id) ?? skillMetaMap.get(cap.id))
           : skillMetaMap.get(cap.id);
       const installedDescription = installedDescriptionMap.get(cap.id);
@@ -708,13 +708,13 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // 6. Mount health check for cat-cafe skills
-    // Multi-project: validate mounts against the selected project's cat-cafe-skills
-    // if it exists; otherwise fall back to host repo's cat-cafe-skills.
+    // Multi-project: validate mounts against the selected project's office-claw-skills
+    // if it exists; otherwise fall back to host repo's office-claw-skills.
 
     const mountSourceNames = new Set(
       mountSkillsSrc === catCafeSkillsDir ? (catCafeOwnSkills ?? []) : ((await listSkillSubdirs(mountSkillsSrc)) ?? []),
     );
-    const catCafeSkillItems = items.filter((i) => i.type === 'skill' && i.source === 'cat-cafe');
+    const catCafeSkillItems = items.filter((i) => i.type === 'skill' && i.source === 'builtin');
     const providerDirs = {
       claude: join(home, '.claude', 'skills'),
       codex: join(home, '.codex', 'skills'),
@@ -791,7 +791,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const body = request.body as CapabilityPatchRequest | undefined;

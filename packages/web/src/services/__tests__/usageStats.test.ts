@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchUsageStatsPage } from '../usageStats';
 
 const mocks = vi.hoisted(() => ({
@@ -10,15 +10,8 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 describe('usageStats service', () => {
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     mocks.apiFetch.mockReset();
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    consoleLogSpy.mockRestore();
   });
 
   it('fetches threads and sessions, then filters and paginates by range on the frontend', async () => {
@@ -91,13 +84,6 @@ describe('usageStats service', () => {
     expect(mocks.apiFetch).toHaveBeenNthCalledWith(2, '/api/threads/thread-1/sessions');
     expect(mocks.apiFetch).toHaveBeenNthCalledWith(3, '/api/threads/thread-2/sessions');
     expect(mocks.apiFetch).toHaveBeenNthCalledWith(4, '/api/threads/thread-3/sessions');
-    expect(consoleLogSpy).toHaveBeenCalledWith('[usage-stats] threads', [
-      { id: 'thread-1', title: '' },
-      { id: 'thread-2', title: '你好' },
-      { id: 'thread-3', title: 'too old' },
-    ]);
-    expect(consoleLogSpy).toHaveBeenCalledWith('[usage-stats] thread sessions (thread-1)', threadOneSessions);
-    expect(consoleLogSpy).toHaveBeenCalledWith('[usage-stats] thread sessions (thread-2)', threadTwoSessions);
     expect(result.total).toBe(2);
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({

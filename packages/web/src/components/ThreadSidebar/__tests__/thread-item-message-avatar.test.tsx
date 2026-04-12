@@ -14,14 +14,20 @@ vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({
     cats: [],
     getCatById: (id: string) =>
-      id === 'jiuwenclaw'
-        ? {
-            id: 'jiuwenclaw',
-            displayName: '九文爪',
-            avatar: '/avatars/jiuwen.png',
-            color: { primary: '#123456', secondary: '#abcdef' },
-          }
-        : undefined,
+      ({
+        jiuwenclaw: {
+          id: 'jiuwenclaw',
+          displayName: '九文爪',
+          avatar: '/avatars/jiuwen.png',
+          color: { primary: '#123456', secondary: '#abcdef' },
+        },
+        codex: {
+          id: 'codex',
+          displayName: '办公智能体',
+          avatar: '/avatars/codex.png',
+          color: { primary: '#654321', secondary: '#fedcba' },
+        },
+      })[id],
   }),
 }));
 
@@ -89,6 +95,87 @@ describe('ThreadItem message avatar', () => {
     const img = container.querySelector('img[alt="九文爪"]') as HTMLImageElement | null;
     expect(img).toBeTruthy();
     expect(img?.getAttribute('src')).toBe('/avatars/jiuwen.png');
+  });
+
+  it('prefers the latest assistant reply for sidebar avatar and description across refreshes', () => {
+    const now = Date.now();
+
+    act(() => {
+      root.render(
+        React.createElement(ThreadItem, {
+          id: 'thread-2',
+          title: '历史刷新',
+          participants: [],
+          lastActiveAt: now,
+          isActive: false,
+          onSelect: vi.fn(),
+          threadState: {
+            ...DEFAULT_THREAD_STATE,
+            unreadCount: 0,
+            targetCats: ['jiuwenclaw'],
+            messages: [
+              {
+                id: 'msg-user',
+                type: 'user',
+                content: '请 @jiuwenclaw 处理这个会话',
+                timestamp: now - 1_000,
+              },
+              {
+                id: 'msg-assistant',
+                type: 'assistant',
+                catId: 'codex',
+                content: '我来处理',
+                timestamp: now,
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    let img = container.querySelector('img[alt="办公智能体"]') as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute('src')).toBe('/avatars/codex.png');
+    expect(container.textContent).toContain('办公智能体');
+
+    act(() => {
+      root.render(
+        React.createElement(ThreadItem, {
+          id: 'thread-2',
+          title: '历史刷新',
+          participants: [],
+          lastActiveAt: now,
+          isActive: false,
+          onSelect: vi.fn(),
+          threadState: {
+            ...DEFAULT_THREAD_STATE,
+            unreadCount: 0,
+            targetCats: [],
+            messages: [
+              {
+                id: 'msg-user',
+                type: 'user',
+                content: '请 @jiuwenclaw 处理这个会话',
+                timestamp: now - 1_000,
+              },
+              {
+                id: 'msg-assistant',
+                type: 'assistant',
+                catId: 'codex',
+                content: '我来处理',
+                timestamp: now,
+              },
+            ],
+          },
+        }),
+      );
+    });
+
+    img = container.querySelector('img[alt="办公智能体"]') as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute('src')).toBe('/avatars/codex.png');
+    expect(container.textContent).toContain('办公智能体');
+    expect(container.textContent).not.toContain('九文爪');
   });
 
   it('renders a 32x32 sidebar avatar and keeps png images proportionally scaled', () => {

@@ -231,9 +231,9 @@ test('preserves inherited Anthropic credentials when no profile mode override is
     const promise = collect(
       service.invoke('hello', {
         callbackEnv: {
-          CAT_CAFE_API_URL: 'http://localhost:3004',
-          CAT_CAFE_INVOCATION_ID: 'inv-keep',
-          CAT_CAFE_CALLBACK_TOKEN: 'token-keep',
+          OFFICE_CLAW_API_URL: 'http://localhost:3004',
+          OFFICE_CLAW_INVOCATION_ID: 'inv-keep',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'token-keep',
         },
       }),
     );
@@ -265,10 +265,10 @@ test('F062: subscription profile clears inherited ANTHROPIC env vars', async () 
     const promise = collect(
       service.invoke('hello', {
         callbackEnv: {
-          CAT_CAFE_API_URL: 'http://localhost:3004',
-          CAT_CAFE_INVOCATION_ID: 'inv-1',
-          CAT_CAFE_CALLBACK_TOKEN: 'token-1',
-          CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'subscription',
+          OFFICE_CLAW_API_URL: 'http://localhost:3004',
+          OFFICE_CLAW_INVOCATION_ID: 'inv-1',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'token-1',
+          OFFICE_CLAW_ANTHROPIC_PROFILE_MODE: 'subscription',
         },
       }),
     );
@@ -300,12 +300,12 @@ test('F062: api_key profile injects ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL', a
     const promise = collect(
       service.invoke('hello', {
         callbackEnv: {
-          CAT_CAFE_API_URL: 'http://localhost:3004',
-          CAT_CAFE_INVOCATION_ID: 'inv-2',
-          CAT_CAFE_CALLBACK_TOKEN: 'token-2',
-          CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'api_key',
-          CAT_CAFE_ANTHROPIC_API_KEY: 'sk-sponsor',
-          CAT_CAFE_ANTHROPIC_BASE_URL: 'https://sponsor.example.com',
+          OFFICE_CLAW_API_URL: 'http://localhost:3004',
+          OFFICE_CLAW_INVOCATION_ID: 'inv-2',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'token-2',
+          OFFICE_CLAW_ANTHROPIC_PROFILE_MODE: 'api_key',
+          OFFICE_CLAW_ANTHROPIC_API_KEY: 'sk-sponsor',
+          OFFICE_CLAW_ANTHROPIC_BASE_URL: 'https://sponsor.example.com',
         },
       }),
     );
@@ -337,9 +337,9 @@ test('injects bundled Python Scripts into claude child PATH', async () => {
     const promise = collect(
       service.invoke('hello', {
         callbackEnv: {
-          CAT_CAFE_API_URL: 'http://localhost:3004',
-          CAT_CAFE_INVOCATION_ID: 'inv-path',
-          CAT_CAFE_CALLBACK_TOKEN: 'token-path',
+          OFFICE_CLAW_API_URL: 'http://localhost:3004',
+          OFFICE_CLAW_INVOCATION_ID: 'inv-path',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'token-path',
           PATH: 'C:\\ClaudeCustom',
         },
       }),
@@ -747,7 +747,7 @@ test('returns undefined when no default MCP server candidate exists', () => {
   }
 });
 
-test('falls back to default MCP path when CAT_CAFE_MCP_SERVER_PATH is empty', async () => {
+test('falls back to default MCP path when OFFICE_CLAW_MCP_SERVER_PATH is empty', async () => {
   const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-empty-env-'));
   const apiCwd = join(root, 'packages', 'api');
   const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
@@ -756,21 +756,21 @@ test('falls back to default MCP path when CAT_CAFE_MCP_SERVER_PATH is empty', as
   writeFileSync(join(mcpDistDir, 'index.js'), 'export {};', 'utf8');
 
   const previousCwd = process.cwd();
-  const previousEnv = process.env.CAT_CAFE_MCP_SERVER_PATH;
+  const previousEnv = process.env.OFFICE_CLAW_MCP_SERVER_PATH;
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
 
   try {
     process.chdir(apiCwd);
-    process.env.CAT_CAFE_MCP_SERVER_PATH = '';
+    process.env.OFFICE_CLAW_MCP_SERVER_PATH = '';
 
     const service = new ClaudeAgentService({ spawnFn });
     const promise = collect(
       service.invoke('hello', {
         callbackEnv: {
-          CAT_CAFE_API_URL: 'http://localhost:3004',
-          CAT_CAFE_INVOCATION_ID: 'inv-1',
-          CAT_CAFE_CALLBACK_TOKEN: 'token-1',
+          OFFICE_CLAW_API_URL: 'http://localhost:3004',
+          OFFICE_CLAW_INVOCATION_ID: 'inv-1',
+          OFFICE_CLAW_CALLBACK_TOKEN: 'token-1',
         },
       }),
     );
@@ -785,9 +785,9 @@ test('falls back to default MCP path when CAT_CAFE_MCP_SERVER_PATH is empty', as
   } finally {
     process.chdir(previousCwd);
     if (previousEnv === undefined) {
-      delete process.env.CAT_CAFE_MCP_SERVER_PATH;
+      delete process.env.OFFICE_CLAW_MCP_SERVER_PATH;
     } else {
-      process.env.CAT_CAFE_MCP_SERVER_PATH = previousEnv;
+      process.env.OFFICE_CLAW_MCP_SERVER_PATH = previousEnv;
     }
     rmSync(root, { recursive: true, force: true });
   }

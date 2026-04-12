@@ -16,14 +16,16 @@
  */
 import { createHash } from 'node:crypto';
 
-export const GOVERNANCE_PACK_VERSION = '1.3.0';
+export const GOVERNANCE_PACK_VERSION = '1.4.0';
 
-export const MANAGED_BLOCK_START = '<!-- CLOWDER-GOVERNANCE-START -->';
-export const MANAGED_BLOCK_END = '<!-- CLOWDER-GOVERNANCE-END -->';
+export const MANAGED_BLOCK_START = '<!-- OFFICE-CLAW-GOVERNANCE-START -->';
+export const MANAGED_BLOCK_END = '<!-- OFFICE-CLAW-GOVERNANCE-END -->';
 
-/** Legacy markers from pre-1.3.0 — used for upgrade migration only. */
-export const LEGACY_BLOCK_START = '<!-- CAT-CAFE-GOVERNANCE-START -->';
-export const LEGACY_BLOCK_END = '<!-- CAT-CAFE-GOVERNANCE-END -->';
+/** Legacy markers — used for upgrade migration only (three-generation compat). */
+export const LEGACY_MARKERS: Array<{ start: string; end: string }> = [
+  { start: '<!-- CLOWDER-GOVERNANCE-START -->', end: '<!-- CLOWDER-GOVERNANCE-END -->' },
+  { start: '<!-- CAT-CAFE-GOVERNANCE-START -->', end: '<!-- CAT-CAFE-GOVERNANCE-END -->' },
+];
 
 const HARD_CONSTRAINTS = `## Governance Rules (Auto-managed)
 
@@ -37,8 +39,8 @@ const HARD_CONSTRAINTS = `## Governance Rules (Auto-managed)
 - A2A handoff uses five-tuple: What / Why / Tradeoff / Open Questions / Next Action
 - Vision Guardian: Read original requirements before starting. AC completion ≠ feature complete.
 - Review flow: quality-gate → request-review → receive-review → merge-gate
-- Skills are available via symlinked cat-cafe-skills/ — load the relevant skill before each workflow step
-- Shared rules: See cat-cafe-skills/refs/shared-rules.md for full collaboration contract
+- Skills are available via symlinked skills directory — load the relevant skill before each workflow step
+- Shared rules: See refs/shared-rules.md for full collaboration contract
 
 ### Quality Discipline (overrides "try simplest approach first")
 - **Bug: find root cause before fixing**. No guess-and-patch. Steps: reproduce → logs → call chain → confirm root cause → fix
