@@ -50,7 +50,7 @@ InstallDir "${DEFAULT_INSTALL_DIR}"
 InstallDirRegKey HKCU "${INSTALL_KEY}" "InstallDir"
 BrandingText "${APP_NAME} Offline Installer"
 ShowInstDetails show
-ShowUninstDetails nevershow
+ShowUninstDetails show
 
 Var SelectedInstallDir
 Var ExistingInstallDir
@@ -61,11 +61,8 @@ Page custom LicensePageCreate LicensePageLeave
 ; --------------- Welcome page (custom nsDialogs, no left bitmap) ---------------
 Page custom WelcomePageCreate
 
-; --------------- Directory page ---------------
-!define MUI_DIRECTORYPAGE_VARIABLE $SelectedInstallDir
-!define MUI_PAGE_CUSTOMFUNCTION_PRE RestoreInstallDirSelection
-!define MUI_PAGE_CUSTOMFUNCTION_LEAVE VerifyInstallDirLeave
-!insertmacro MUI_PAGE_DIRECTORY
+; --------------- Directory page (custom nsDialogs) ---------------
+Page custom DirectoryPageCreate DirectoryPageLeave
 
 ; --------------- Options page ---------------
 Page custom OptionsPageCreate OptionsPageLeave
@@ -88,6 +85,9 @@ Var AgreeRadio
 Var DisagreeRadio
 Var NextButton
 Var WelcomeDialog
+Var DirectoryDialog
+Var DirectoryInput
+Var DirectoryBrowseButton
 Var OptionsDialog
 Var StartMenuShortcutCheckbox
 Var DesktopShortcutCheckbox
@@ -98,6 +98,11 @@ Var CreateStartMenuShortcut
 Var CreateDesktopShortcut
 Var EnableAutoStart
 Var DetectedRunningProcesses
+Var DirPageWarningLabel
+Var IsExistingInstall
+Var DirDialog
+Var DirText
+Var DirBrowseBtn
 
 ; Check if OfficeClaw-related processes are running
 ; Returns "1" in $R0 if running, "0" otherwise
@@ -235,13 +240,8 @@ Function WelcomePageCreate
     Abort
   ${EndIf}
 
-  ${If} $ExistingInstallDir != ""
-    ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n已检测到本机已安装 ${APP_NAME}，本次将沿用现有安装目录进行更新。$\r$\n$\r$\n您下一步可以确认快捷方式和启动方式等安装选项。"
-    Pop $0
-  ${Else}
-    ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  - Node.js 运行时$\r$\n  - Python 运行时$\r$\n  - Redis 数据库$\r$\n  - Web 管理界面$\r$\n  - MCP Server$\r$\n$\r$\n点击「下一步」选择安装位置。"
-    Pop $0
-  ${EndIf}
+  ${NSD_CreateLabel} 0 0 100% 80% "欢迎使用 ${APP_NAME} v${APP_VERSION} 安装向导。$\r$\n$\r$\n${APP_NAME} 是一套开箱即用的本地 AI 运行环境，安装完成后即可使用。$\r$\n$\r$\n本安装包包含以下组件：$\r$\n  - Node.js 运行时$\r$\n  - Python 运行时$\r$\n  - Redis 数据库$\r$\n  - Web 管理界面$\r$\n  - MCP Server$\r$\n$\r$\n点击「下一步」继续。"
+  Pop $0
 
   nsDialogs::Show
 FunctionEnd
@@ -336,9 +336,10 @@ Function .onInit
   ${If} $ExistingInstallDir != ""
     StrCpy $INSTDIR $ExistingInstallDir
     StrCpy $SelectedInstallDir $ExistingInstallDir
-    MessageBox MB_ICONINFORMATION|MB_OK "检测到已安装的 ${APP_NAME}，本次安装将更新现有目录：$\r$\n$ExistingInstallDir$\r$\n$\r$\n如需更换安装位置，请先卸载当前版本。"
+    StrCpy $IsExistingInstall "1"
   ${Else}
     StrCpy $SelectedInstallDir $INSTDIR
+    StrCpy $IsExistingInstall "0"
   ${EndIf}
 
   ; Check if OfficeClaw is running
@@ -360,13 +361,6 @@ Function un.onInit
     MessageBox MB_ICONQUESTION|MB_YESNO "检测到 OfficeClaw 正在运行。$\r$\n$\r$\n卸载需要关闭正在运行的 OfficeClaw 及相关进程。$\r$\n$\r$\n是否关闭进程并继续卸载？$\r$\n$\r$\n选择「是」将关闭所有相关进程后继续卸载。$\r$\n选择「否」将退出卸载程序。" IDYES proceed_uninstall
     Abort
   proceed_uninstall:
-  ${EndIf}
-FunctionEnd
-
-Function .onVerifyInstDir
-  StrLen $0 $INSTDIR
-  ${If} $0 > 200
-    Abort
   ${EndIf}
 FunctionEnd
 
@@ -407,33 +401,174 @@ Function ResolveInstallOptionDefaults
   ${EndIf}
 FunctionEnd
 
-Function RestoreInstallDirSelection
-  ${If} $ExistingInstallDir != ""
-    StrCpy $INSTDIR $ExistingInstallDir
-    StrCpy $SelectedInstallDir $ExistingInstallDir
+Function DirectoryPageCreate
+  ${If} $IsExistingInstall == "1"
+    !insertmacro MUI_HEADER_TEXT "安装目录" "本次安装将更新现有安装"
+  ${Else}
+    !insertmacro MUI_HEADER_TEXT "选择安装目录" "选择 ${APP_NAME} 的安装位置"
+  ${EndIf}
+  
+  nsDialogs::Create 1018
+  Pop $DirDialog
+  ${If} $DirDialog == error
     Abort
+  ${EndIf}
+  
+  ${If} $IsExistingInstall == "1"
+    ; 已安装场景：显示警告和只读目录
+    ${NSD_CreateLabel} 0 0 100% 30u "检测到已安装的 ${APP_NAME}，本次安装将更新现有目录：$\r$\n$\r$\n安装目录不可修改，如需更换位置请先卸载当前版本。"
+    Pop $DirPageWarningLabel
+    SetCtlColors $DirPageWarningLabel 0x0000FF transparent
+    
+    ${NSD_CreateLabel} 0 35u 50u 12u "安装目录："
+    Pop $0
+    
+    ${NSD_CreateText} 55u 35u 245u 12u "$ExistingInstallDir"
+    Pop $DirText
+    EnableWindow $DirText 0
+    SetCtlColors $DirText 0x808080 0xF0F0F0
+    
+    ; 不显示浏览按钮
+  ${Else}
+    ; 新装场景：可编辑的目录选择
+    ${NSD_CreateLabel} 0 0 100% 24u "选择 ${APP_NAME} 的安装位置。$\r$\n$\r$\n建议使用默认目录，安装路径过长可能导致部分功能异常。"
+    Pop $0
+    
+    ${NSD_CreateLabel} 0 35u 50u 12u "安装目录："
+    Pop $0
+    
+    ${NSD_CreateText} 55u 35u 205u 12u "$SelectedInstallDir"
+    Pop $DirText
+    
+    ${NSD_CreateButton} 265u 35u 35u 12u "浏览..."
+    Pop $DirBrowseBtn
+    ${NSD_OnClick} $DirBrowseBtn OnDirBrowseClick
+  ${EndIf}
+  
+  nsDialogs::Show
+FunctionEnd
+
+Function OnDirBrowseClick
+  Pop $0
+  nsDialogs::SelectFolderDialog "选择安装目录" "$SelectedInstallDir"
+  Pop $0
+  ${If} $0 != ""
+    StrCpy $SelectedInstallDir $0
+    ${NSD_SetText} $DirText "$SelectedInstallDir"
   ${EndIf}
 
   ${If} $SelectedInstallDir == ""
-    StrCpy $SelectedInstallDir $INSTDIR
+    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
   ${Else}
-    StrCpy $INSTDIR $SelectedInstallDir
+    Call NormalizeSelectedInstallDir
   ${EndIf}
+
+  StrCpy $INSTDIR $SelectedInstallDir
+
+  ${NSD_CreateLabel} 0 0 100% 20u "请选择安装路径。若选择父目录，安装器会自动在其下创建 ${APP_NAME} 子目录。"
+  Pop $0
+
+  ${NSD_CreateText} 0 28u 78% 12u "$SelectedInstallDir"
+  Pop $DirectoryInput
+
+  ${NSD_CreateBrowseButton} 82% 27u 18% 14u "浏览..."
+  Pop $DirectoryBrowseButton
+  ${NSD_OnClick} $DirectoryBrowseButton OnDirectoryBrowseClicked
+
+  nsDialogs::Show
 FunctionEnd
 
-Function VerifyInstallDirLeave
+Function OnDirectoryBrowseClicked
+  ${If} $DirectoryInput == 0
+    Return
+  ${EndIf}
+
+  ${NSD_GetText} $DirectoryInput $0
+  nsDialogs::SelectFolderDialog "选择安装目录" $0
+  Pop $0
+  ${If} $0 == error
+    Return
+  ${EndIf}
+  StrCpy $SelectedInstallDir $0
+  Call NormalizeSelectedInstallDir
+  StrCpy $INSTDIR $SelectedInstallDir
+  ${NSD_SetText} $DirectoryInput $SelectedInstallDir
+FunctionEnd
+
+Function NormalizeSelectedInstallDir
   ${If} $ExistingInstallDir != ""
+    Return
+  ${EndIf}
+
+  StrCpy $0 $SelectedInstallDir
+
+trim_trailing_separator:
+  StrLen $1 $0
+  ${If} $1 <= 3
+    Goto check_suffix
+  ${EndIf}
+
+  IntOp $2 $1 - 1
+  StrCpy $3 $0 1 $2
+  ${If} $3 == "\"
+  ${OrIf} $3 == "/"
+    StrCpy $0 $0 $2
+    Goto trim_trailing_separator
+  ${EndIf}
+
+check_suffix:
+  ${If} $0 == ""
+    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
+    Return
+  ${EndIf}
+
+  StrLen $1 "${APP_NAME}"
+  StrLen $2 $0
+  ${If} $2 >= $1
+    IntOp $3 $2 - $1
+    StrCpy $4 $0 "" $3
+    ${If} $4 == "${APP_NAME}"
+      ${If} $3 == 0
+        StrCpy $SelectedInstallDir $0
+        Return
+      ${EndIf}
+
+      IntOp $5 $3 - 1
+      StrCpy $6 $0 1 $5
+      ${If} $6 == "\"
+      ${OrIf} $6 == "/"
+        StrCpy $SelectedInstallDir $0
+        Return
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+
+  StrCpy $SelectedInstallDir "$0\${APP_NAME}"
+FunctionEnd
+
+Function DirectoryPageLeave
+  ${If} $IsExistingInstall == "1"
+    ; 已安装场景，保持原目录
     StrCpy $INSTDIR $ExistingInstallDir
     StrCpy $SelectedInstallDir $ExistingInstallDir
     Return
   ${EndIf}
-
-  StrCpy $SelectedInstallDir $INSTDIR
+  
+  ; 新装场景，获取用户输入
+  ${NSD_GetText} $DirText $SelectedInstallDir
+  
   StrLen $0 $SelectedInstallDir
   ${If} $0 > 200
     MessageBox MB_ICONEXCLAMATION|MB_OK "安装路径过长（$0 字符），请选择较短的路径。"
     Abort
   ${EndIf}
+  
+  ${If} $SelectedInstallDir == ""
+    MessageBox MB_ICONEXCLAMATION|MB_OK "请选择安装目录。"
+    Abort
+  ${EndIf}
+  
+  StrCpy $INSTDIR $SelectedInstallDir
 FunctionEnd
 
 ; Force-kill every process related to installed OfficeClaw (launcher, node API, Redis, jiuwenclaw, python).
@@ -747,6 +882,7 @@ SectionEnd
 Var RemoveUserData
 
 Section "Uninstall"
+  DetailPrint "正在停止 OfficeClaw 及相关进程..."
   Call un.CloseRunningServices
 
   Delete "${STARTMENU_DIR}\${APP_NAME}.lnk"

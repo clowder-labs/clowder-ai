@@ -126,6 +126,16 @@ function Add-ProcessPathPrefix {
     }
 }
 
+function Test-CommandLineContainsLiteral {
+    param([string]$CommandLine, [string]$Needle)
+
+    if (-not $CommandLine -or -not $Needle) {
+        return $false
+    }
+
+    return $CommandLine.IndexOf($Needle, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+}
+
 function Resolve-PortableRedisLayout {
     param([string]$ProjectRoot)
     $root = Join-Path $ProjectRoot ".office-claw\redis\windows"

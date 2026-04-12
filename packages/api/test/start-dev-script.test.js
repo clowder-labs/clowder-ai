@@ -561,7 +561,7 @@ printf '%s' "$(frontend_launch_command)"
 `,
   );
 
-  assert.equal(output, 'cd packages/web && PORT=3013 exec pnpm exec next start -p 3013 -H 0.0.0.0');
+  assert.equal(output, 'cd packages/web && PORT=3013 exec pnpm exec next start -p 3013 -H 127.0.0.1');
 });
 
 test('print_manual_download_source_summary returns zero under set -e even when no overrides are set', () => {

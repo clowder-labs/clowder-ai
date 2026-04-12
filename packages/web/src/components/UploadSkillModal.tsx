@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import { AgentManagementIcon } from './AgentManagementIcon';
 import { Alert } from './shared/Alert';
 import { OverflowTooltip } from './shared/OverflowTooltip';
@@ -562,6 +563,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
       });
       const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (data.success) {
+        notifySkillOptionsChanged();
         handleClose();
         onSuccess();
       } else {

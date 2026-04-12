@@ -7,7 +7,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { type CSSProperties, KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  KeyboardEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useCatData } from '@/hooks/useCatData';
 import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
@@ -18,7 +27,12 @@ import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { useToastStore } from '@/stores/toastStore';
 import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
 import { apiFetch } from '@/utils/api-client';
-import { fetchSkillOptionsWithCache, seedSkillOptionsCache, type SkillOption } from '@/utils/skill-options-cache';
+import {
+  fetchSkillOptionsWithCache,
+  seedSkillOptionsCache,
+  SKILL_OPTIONS_UPDATED_EVENT,
+  type SkillOption,
+} from '@/utils/skill-options-cache';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
 import {
@@ -247,6 +261,8 @@ export function ChatInput({
   const [skillFilter, setSkillFilter] = useState('');
   const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
   const [skillOptionsLoading, setSkillOptionsLoading] = useState(false);
+  const skillOptionsRequestSeqRef = useRef(0);
+  const skillOptionsMountedRef = useRef(true);
   const [images, setImages] = useState<File[]>([]);
   const isPreparingImages = false;
   const [whisperMode, setWhisperMode] = useState(false);
@@ -298,23 +314,20 @@ export function ChatInput({
     });
   }, []);
 
-  const handleQuickAction = useCallback(
-    (action: QuickActionConfig) => {
-      const token = getQuickActionToken(action.label);
-      const next = `${token} `;
-      setInput(next);
-      setPendingQuickPromptExpand(false);
-      setShowQuickPrompts(true);
-      setTimeout(() => {
-        const el = textareaRef.current;
-        if (!el) return;
-        const cursorPos = next.length;
-        el.focus();
-        el.setSelectionRange(cursorPos, cursorPos);
-      }, 0);
-    },
-    [],
-  );
+  const handleQuickAction = useCallback((action: QuickActionConfig) => {
+    const token = getQuickActionToken(action.label);
+    const next = `${token} `;
+    setInput(next);
+    setPendingQuickPromptExpand(false);
+    setShowQuickPrompts(true);
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      const cursorPos = next.length;
+      el.focus();
+      el.setSelectionRange(cursorPos, cursorPos);
+    }, 0);
+  }, []);
 
   const handleQuickPrompt = useCallback(
     (prompt: string) => {
@@ -377,7 +390,6 @@ export function ChatInput({
     }
   }, [pendingQuickPromptExpand, selectedQuickAction]);
 
-
   const filteredCatOptions = useMemo(() => {
     if (!mentionFilter) return catOptions;
     const lower = mentionFilter.toLowerCase();
@@ -395,23 +407,40 @@ export function ChatInput({
     return skillOptions.filter((item) => item.name.toLowerCase().includes(lower));
   }, [skillFilter, skillOptions]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadSkillOptions = useCallback((force = false) => {
+    const requestId = ++skillOptionsRequestSeqRef.current;
     setSkillOptionsLoading(true);
-    fetchSkillOptionsWithCache()
+    void fetchSkillOptionsWithCache(force ? { force: true } : undefined)
       .then((options) => {
-        if (cancelled) return;
+        if (!skillOptionsMountedRef.current || skillOptionsRequestSeqRef.current !== requestId) return;
         setSkillOptions(options);
         // Keep shared cache warm so message renderer can reuse immediately.
         seedSkillOptionsCache(options);
       })
       .finally(() => {
-        if (!cancelled) setSkillOptionsLoading(false);
+        if (!skillOptionsMountedRef.current || skillOptionsRequestSeqRef.current !== requestId) return;
+        setSkillOptionsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    skillOptionsMountedRef.current = true;
+    loadSkillOptions();
+    return () => {
+      skillOptionsMountedRef.current = false;
+      skillOptionsRequestSeqRef.current += 1;
+    };
+  }, [loadSkillOptions]);
+
+  useEffect(() => {
+    const handleSkillOptionsUpdated = () => {
+      loadSkillOptions(true);
+    };
+    window.addEventListener(SKILL_OPTIONS_UPDATED_EVENT, handleSkillOptionsUpdated);
+    return () => {
+      window.removeEventListener(SKILL_OPTIONS_UPDATED_EVENT, handleSkillOptionsUpdated);
+    };
+  }, [loadSkillOptions]);
 
   const activeMenu = showMentions ? 'mention' : showGameMenu ? 'game' : showSkillMenu ? 'skill' : null;
   const gameMenuItems = gameStep === 'list' ? GAME_LIST : WEREWOLF_MODES;
@@ -486,7 +515,7 @@ export function ChatInput({
     const ta = textareaRef.current;
     const root = ta?.getElement();
     if (!root) return;
-    const offset = mentionStart >= 0 ? mentionStart : ta?.getSelectionStart() ?? 0;
+    const offset = mentionStart >= 0 ? mentionStart : (ta?.getSelectionStart() ?? 0);
     const anchorRect = ta?.getClientRectAtOffset(offset) ?? root.getBoundingClientRect();
     const menuWidth = 200;
     const menuHeight = Math.max(120, menuRef.current?.offsetHeight ?? 220);
@@ -531,7 +560,7 @@ export function ChatInput({
         setLobbyMode(null);
         router.push(`/thread/${data.gameThreadId}`);
         // Hydrate game state immediately (socket reconnect won't fire for same connection)
-        reconnectGame(data.gameThreadId).catch(() => { });
+        reconnectGame(data.gameThreadId).catch(() => {});
       } catch (err) {
         useChatStore.getState().addMessage({
           id: `game-err-${Date.now()}`,
@@ -706,12 +735,12 @@ export function ChatInput({
         if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab' || e.key === 'Escape') {
           e.preventDefault();
         }
-          closeMenus();
-          setMentionStart(-1);
-          setMentionEnd(-1);
-          setMentionFilter('');
-          setSkillFilter('');
-          return;
+        closeMenus();
+        setMentionStart(-1);
+        setMentionEnd(-1);
+        setMentionFilter('');
+        setSkillFilter('');
+        return;
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -848,6 +877,10 @@ export function ChatInput({
     (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
+      const hasText = Array.from(items).some(
+        (item) => item.kind === 'string' && (item.type === 'text/plain' || item.type === 'text/html'),
+      );
+      if (hasText) return;
       const pastedFiles: File[] = [];
       for (let i = 0; i < items.length; i++) {
         if (items[i].kind !== 'file') continue;
@@ -1038,8 +1071,7 @@ export function ChatInput({
           background:
             'linear-gradient(90deg,rgba(255,246,190,1),rgba(253,159,112,1) 20%,rgba(239,131,250,1) 43%,rgba(128,134,254,1) 73%,rgba(160,244,255,1) 97%)',
         }}
-      >
-      </div>
+      ></div>
       {/* F39: Queue status bar — visible when cat is running */}
       {hasActiveInvocation && (
         <div className="px-4 pt-2 hidden items-center gap-2 mx-auto w-[80%]">
@@ -1123,12 +1155,13 @@ export function ChatInput({
                 key={cat.id}
                 onClick={() => !isActive && toggleWhisperTarget(cat.id)}
                 disabled={isActive}
-                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${isActive
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  isActive
                     ? 'text-gray-300 border-gray-200 bg-gray-50 cursor-not-allowed'
                     : isSelected
                       ? 'border-current bg-amber-50 font-medium'
                       : 'text-gray-400 border-gray-200 hover:border-gray-400'
-                  }`}
+                }`}
                 style={!isActive && isSelected ? { color: cat.color } : undefined}
                 title={isActive ? `${cat.label.replace('@', '')} 执行中，不可选` : undefined}
               >
@@ -1169,10 +1202,11 @@ export function ChatInput({
           {/* Mobile: + toggle button */}
           <button
             onClick={() => setMobileToolbar((v) => !v)}
-            className={`p-3 rounded-xl transition-all md:hidden ${mobileToolbar
+            className={`p-3 rounded-xl transition-all md:hidden ${
+              mobileToolbar
                 ? 'text-cocreator-primary bg-cocreator-light rotate-45'
                 : 'text-gray-400 hover:text-cocreator-primary hover:bg-white'
-              }`}
+            }`}
             aria-label="展开工具栏"
           >
             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -1242,7 +1276,9 @@ export function ChatInput({
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
                       onScroll={handleTextareaScroll}
-                      placeholder={hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'}
+                      placeholder={
+                        hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'
+                      }
                       className="chat-input-textarea block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
@@ -1265,182 +1301,185 @@ export function ChatInput({
                   </div>
                   <div className="px-[10px] pb-[10px]">
                     <div className="flex items-center justify-between gap-2">
-                    <div className="relative">
-                      <button
-                        ref={skillBtnRef}
-                        type="button"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const ta = textareaRef.current;
-                          const start = ta?.getSelectionStart() ?? input.length;
-                          const end = ta?.getSelectionEnd() ?? input.length;
-                          skillInsertAnchorRef.current = { start, end };
-                        }}
-                        onClick={handleSkillClick}
-                        className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,0.8)] px-3 py-[5px] text-xs text-[#191919] transition-colors hover:bg-gray-50"
-                      >
-                        <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
-                        技能
-                      </button>
-                      {showSkillMenu && (
-                        <div
-                          ref={menuRef}
-                          className="absolute bottom-full left-0 mb-2 z-[200] flex w-[200px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+                      <div className="relative">
+                        <button
+                          ref={skillBtnRef}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            const ta = textareaRef.current;
+                            const start = ta?.getSelectionStart() ?? input.length;
+                            const end = ta?.getSelectionEnd() ?? input.length;
+                            skillInsertAnchorRef.current = { start, end };
+                          }}
+                          onClick={handleSkillClick}
+                          className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,0.8)] px-3 py-[5px] text-xs text-[#191919] transition-colors hover:bg-gray-50"
                         >
-                          <div className="px-1 pt-0 pb-2">
-                            <div className="relative">
-                              <svg
-                                className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <circle cx="11" cy="11" r="7" />
-                                <path d="M20 20l-3.5-3.5" />
-                              </svg>
-                              <input
-                                value={skillFilter}
-                                onChange={(e) => {
-                                  setSkillFilter(e.target.value);
-                                  setSelectedIdx(0);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (filteredSkillOptions.length === 0) {
+                          <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+                          技能
+                        </button>
+                        {showSkillMenu && (
+                          <div
+                            ref={menuRef}
+                            className="absolute bottom-full left-0 mb-2 z-[200] flex w-[200px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+                          >
+                            <div className="px-1 pt-0 pb-2">
+                              <div className="relative">
+                                <svg
+                                  className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <circle cx="11" cy="11" r="7" />
+                                  <path d="M20 20l-3.5-3.5" />
+                                </svg>
+                                <input
+                                  value={skillFilter}
+                                  onChange={(e) => {
+                                    setSkillFilter(e.target.value);
+                                    setSelectedIdx(0);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (filteredSkillOptions.length === 0) {
+                                      if (e.key === 'Escape') {
+                                        e.preventDefault();
+                                        closeMenus();
+                                      }
+                                      return;
+                                    }
+                                    if (e.key === 'ArrowDown') {
+                                      e.preventDefault();
+                                      setSelectedIdx((idx) => (idx + 1) % filteredSkillOptions.length);
+                                      return;
+                                    }
+                                    if (e.key === 'ArrowUp') {
+                                      e.preventDefault();
+                                      setSelectedIdx(
+                                        (idx) => (idx - 1 + filteredSkillOptions.length) % filteredSkillOptions.length,
+                                      );
+                                      return;
+                                    }
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const skill = filteredSkillOptions[selectedIdx];
+                                      if (skill) insertSkill(skill.name);
+                                      return;
+                                    }
                                     if (e.key === 'Escape') {
                                       e.preventDefault();
                                       closeMenus();
                                     }
-                                    return;
-                                  }
-                                  if (e.key === 'ArrowDown') {
-                                    e.preventDefault();
-                                    setSelectedIdx((idx) => (idx + 1) % filteredSkillOptions.length);
-                                    return;
-                                  }
-                                  if (e.key === 'ArrowUp') {
-                                    e.preventDefault();
-                                    setSelectedIdx((idx) => (idx - 1 + filteredSkillOptions.length) % filteredSkillOptions.length);
-                                    return;
-                                  }
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    const skill = filteredSkillOptions[selectedIdx];
-                                    if (skill) insertSkill(skill.name);
-                                    return;
-                                  }
-                                  if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    closeMenus();
-                                  }
-                                }}
-                                placeholder="请输入关键字搜索"
-                                className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-sm"
-                              />
+                                  }}
+                                  placeholder="请输入关键字搜索"
+                                  className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-sm"
+                                />
+                              </div>
                             </div>
-                          </div>
-                          <div className="max-h-[260px] overflow-y-auto">
-                            {skillOptionsLoading &&
-                              Array.from({ length: 5 }).map((_, i) => (
-                                <div
-                                  key={`skill-loading-${i}`}
-                                  className="flex h-[24px] w-full items-center gap-2 rounded-[6px] p-2"
-                                  style={{ animationDelay: `${i * 70}ms` }}
-                                >
-                                  <div className="h-4 w-4 shrink-0 rounded-sm bg-gray-200/70 animate-pulse" />
-                                  <div className="h-3 w-[120px] rounded bg-gray-200/70 animate-pulse" />
-                                </div>
-                              ))}
-                            {!skillOptionsLoading &&
-                              filteredSkillOptions.map((skill, i) => (
-                                <button
-                                  key={skill.name}
-                                  type="button"
-                                  ref={(node) => {
-                                    skillOptionRefs.current[i] = node;
-                                  }}
-                                  className={`flex h-[34px] w-full items-center gap-2 rounded-[6px] p-2 text-left text-[12px] font-normal text-[#191919] transition-colors ${i === selectedIdx ? 'bg-[rgba(245,245,245,1)]' : 'hover:bg-[rgba(245,245,245,1)]'
+                            <div className="max-h-[260px] overflow-y-auto">
+                              {skillOptionsLoading &&
+                                Array.from({ length: 5 }).map((_, i) => (
+                                  <div
+                                    key={`skill-loading-${i}`}
+                                    className="flex h-[24px] w-full items-center gap-2 rounded-[6px] p-2"
+                                    style={{ animationDelay: `${i * 70}ms` }}
+                                  >
+                                    <div className="h-4 w-4 shrink-0 rounded-sm bg-gray-200/70 animate-pulse" />
+                                    <div className="h-3 w-[120px] rounded bg-gray-200/70 animate-pulse" />
+                                  </div>
+                                ))}
+                              {!skillOptionsLoading &&
+                                filteredSkillOptions.map((skill, i) => (
+                                  <button
+                                    key={skill.name}
+                                    type="button"
+                                    ref={(node) => {
+                                      skillOptionRefs.current[i] = node;
+                                    }}
+                                    className={`flex h-[34px] w-full items-center gap-2 rounded-[6px] p-2 text-left text-[12px] font-normal text-[#191919] transition-colors ${
+                                      i === selectedIdx ? 'bg-[rgba(245,245,245,1)]' : 'hover:bg-[rgba(245,245,245,1)]'
                                     }`}
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    insertSkill(skill.name);
-                                  }}
-                                >
-                                  <SkillOptionIcon name={skill.name} iconUrl={skill.iconUrl} />
-                                  <span className="truncate">{skill.name}</span>
-                                </button>
-                              ))}
-                            {!skillOptionsLoading && filteredSkillOptions.length === 0 && (
-                              <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
-                            )}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      insertSkill(skill.name);
+                                    }}
+                                  >
+                                    <SkillOptionIcon name={skill.name} iconUrl={skill.iconUrl} />
+                                    <span className="truncate">{skill.name}</span>
+                                  </button>
+                                ))}
+                              {!skillOptionsLoading && filteredSkillOptions.length === 0 && (
+                                <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
+                              )}
+                            </div>
+                            <div className="px-4 py-2">
+                              <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
+                            </div>
+                            <button
+                              type="button"
+                              className="inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                closeMenus();
+                                window.dispatchEvent(
+                                  new CustomEvent('cat-cafe:open-sidebar-menu', { detail: { menu: 'skills' } }),
+                                );
+                              }}
+                            >
+                              管理技能
+                            </button>
                           </div>
-                          <div className="px-4 py-2">
-                            <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
-                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center">
+                        <OverflowTooltip
+                          content={selectedFolderTitle?.trim() || folderButtonLabel}
+                          forceShow={shouldShowFolderTooltip}
+                          copyable={shouldShowFolderTooltip}
+                          className="mr-2 flex items-center"
+                        >
                           <button
                             type="button"
-                            className="inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              closeMenus();
-                              window.dispatchEvent(
-                                new CustomEvent('cat-cafe:open-sidebar-menu', { detail: { menu: 'skills' } }),
-                              );
-                            }}
+                            data-testid="folder-select-button"
+                            onClick={onOpenFolderPicker}
+                            disabled={isFolderButtonDisabled}
+                            className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
                           >
-                            管理技能
+                            <FolderBadgeIcon className="h-6 w-6 shrink-0" />
+                            <span className="truncate">{folderButtonLabel}</span>
                           </button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center">
-                      <OverflowTooltip
-                        content={selectedFolderTitle?.trim() || folderButtonLabel}
-                        forceShow={shouldShowFolderTooltip}
-                        copyable={shouldShowFolderTooltip}
-                        className="mr-2 flex items-center"
-                      >
-                        <button
-                          type="button"
-                          data-testid="folder-select-button"
-                          onClick={onOpenFolderPicker}
-                          disabled={isFolderButtonDisabled}
-                          className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
-                        >
-                          <FolderBadgeIcon className="h-6 w-6 shrink-0" />
-                          <span className="truncate">{folderButtonLabel}</span>
-                        </button>
-                      </OverflowTooltip>
-                      <OverflowTooltip content="选择附件" forceShow className="inline-flex">
-                        <button
-                          type="button"
-                          data-testid="attach-file-button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                          aria-label="选择附件"
-                        >
-                          <AttachIcon className="h-5 w-5" />
-                        </button>
-                      </OverflowTooltip>
-                      <ChatInputActionButton
-                        onTranscript={handleTranscript}
-                        onSend={handleSend}
-                        onStop={onStop}
-                        onQueueSend={handleQueueSend}
-                        onForceSend={handleForceSend}
-                        disabled={disabled}
-                        sendDisabled={sendTemporarilyDisabled}
-                        hasActiveInvocation={hasActiveInvocation}
-                        hasText={!!input.trim()}
-                      />
-                    </div>
+                        </OverflowTooltip>
+                        <OverflowTooltip content="选择附件" forceShow className="inline-flex">
+                          <button
+                            type="button"
+                            data-testid="attach-file-button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                            aria-label="选择附件"
+                          >
+                            <AttachIcon className="h-5 w-5" />
+                          </button>
+                        </OverflowTooltip>
+                        <ChatInputActionButton
+                          onTranscript={handleTranscript}
+                          onSend={handleSend}
+                          onStop={onStop}
+                          onQueueSend={handleQueueSend}
+                          onForceSend={handleForceSend}
+                          disabled={disabled}
+                          sendDisabled={sendTemporarilyDisabled}
+                          hasActiveInvocation={hasActiveInvocation}
+                          hasText={!!input.trim()}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              <p className="mt-2 mb-4 text-center text-[12px] font-normal leading-[20px] text-[rgb(194,194,194)]">
-                内容由AI生成，仅供参考
-              </p>
+                <p className="mt-2 mb-4 text-center text-[12px] font-normal leading-[20px] text-[rgb(194,194,194)]">
+                  内容由AI生成，仅供参考
+                </p>
               </div>
             </div>
           </div>

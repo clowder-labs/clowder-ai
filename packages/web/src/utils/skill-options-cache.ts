@@ -21,10 +21,12 @@ interface CapabilitiesResponseLite {
 }
 
 const SKILL_CACHE_TTL_MS = 5 * 60 * 1000;
+export const SKILL_OPTIONS_UPDATED_EVENT = 'cat-cafe:skill-options-updated';
 
 let cachedSkillOptions: SkillOption[] | null = null;
 let cachedSkillOptionsAt = 0;
 let skillOptionsInFlight: Promise<SkillOption[]> | null = null;
+let skillOptionsEpoch = 0;
 
 export function getCachedSkillOptions(): SkillOption[] | null {
   const now = Date.now();
@@ -49,12 +51,28 @@ export function seedSkillOptionsCache(options: SkillOption[]): void {
   cachedSkillOptionsAt = Date.now();
 }
 
-export async function fetchSkillOptionsWithCache(): Promise<SkillOption[]> {
-  const cached = getCachedSkillOptions();
-  if (cached) return cached;
-  if (skillOptionsInFlight) return skillOptionsInFlight;
+export function invalidateSkillOptionsCache(): void {
+  cachedSkillOptions = null;
+  cachedSkillOptionsAt = 0;
+  skillOptionsEpoch += 1;
+  skillOptionsInFlight = null;
+}
 
-  skillOptionsInFlight = (async () => {
+export function notifySkillOptionsChanged(): void {
+  invalidateSkillOptionsCache();
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(SKILL_OPTIONS_UPDATED_EVENT));
+}
+
+export async function fetchSkillOptionsWithCache(options?: { force?: boolean }): Promise<SkillOption[]> {
+  const force = options?.force === true;
+  const cached = getCachedSkillOptions();
+  if (!force && cached) return cached;
+  if (!force && skillOptionsInFlight) return skillOptionsInFlight;
+
+  const requestEpoch = skillOptionsEpoch;
+
+  const request = (async () => {
     try {
       const res = await apiFetch('/api/capabilities?probe=true');
       if (!res.ok) return [];
@@ -67,14 +85,22 @@ export async function fetchSkillOptionsWithCache(): Promise<SkillOption[]> {
         ),
       );
       const options = names.map((name) => ({ name }));
-      seedSkillOptionsCache(options);
+      if (skillOptionsEpoch === requestEpoch) {
+        seedSkillOptionsCache(options);
+      }
       return options;
     } catch {
       return [];
     } finally {
-      skillOptionsInFlight = null;
+      if (skillOptionsInFlight === request) {
+        skillOptionsInFlight = null;
+      }
     }
   })();
 
-  return skillOptionsInFlight;
+  if (!force) {
+    skillOptionsInFlight = request;
+  }
+
+  return request;
 }

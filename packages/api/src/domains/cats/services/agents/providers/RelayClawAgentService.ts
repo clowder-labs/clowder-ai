@@ -117,7 +117,7 @@ export class RelayClawAgentService implements AgentService {
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
     const signal = buildSignal(this.config.timeoutMs ?? DEFAULT_RELAYCLAW_TIMEOUT_MS, options?.signal);
-    const channelId = this.config.channelId ?? 'catcafe';
+    const channelId = this.config.channelId ?? 'officeclaw';
     const sessionId = resolveRelayClawSessionId(channelId, options);
     const scope = this.resolveScope(options);
     const runtime = this.getOrCreateScopeRuntime(scope);
