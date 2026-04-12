@@ -10,15 +10,41 @@ metadata:
 
 > **路径变量说明**：`{skill_root}` 指向 `skills/` 目录。本文档位于 `skills/pptx-craft/SKILL.md`，所以 `{skill_root}` 指的是 `../../` 目录。
 
-## 环境要求（首次使用前阅读）
+## 环境要求
 
-**环境要求**：
 - Node.js >= 18.0.0
 - npm（随 Node.js 安装）
 
 ---
 
 # PPT Pipeline — Main Agent
+
+## Stage 0: 环境检测（必选前置）
+
+**每次启动前执行环境检测脚本**：
+
+```bash
+node {skill_root}/pptx-craft/scripts/check-env.js
+```
+
+脚本会检测：
+- Node.js 版本
+- npm 依赖（node_modules）
+- Chromium 浏览器
+
+**按脚本提示安装缺失项，直到显示「环境就绪」。**
+
+**安装流程**（国内网络）：
+
+```bash
+cd {skill_root}/pptx-craft
+npm install
+npx playwright install chromium
+```
+
+> **说明**：npm install 安装 JS 依赖包，playwright install chromium 下载浏览器二进制文件（约150MB），因为文件非常大，建议命令的执行超时时间至少配置为600秒。
+
+---
 
 ## 意图分类
 
