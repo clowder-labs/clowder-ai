@@ -55,6 +55,7 @@ function getCreateThreadErrorMessage(status: number, detail?: unknown): string {
 export function NewThreadContainer() {
   const router = useRouter();
   const setCurrentThread = useChatStore((s) => s.setCurrentThread);
+  const threads = useChatStore((s) => s.threads);
   const setPendingNewThreadSend = useChatStore((s) => s.setPendingNewThreadSend);
   const attachPendingNewThreadTarget = useChatStore((s) => s.attachPendingNewThreadTarget);
   const clearPendingNewThreadSend = useChatStore((s) => s.clearPendingNewThreadSend);
@@ -93,7 +94,8 @@ export function NewThreadContainer() {
     }),
     [],
   );
-  useSocket(socketCallbacks);
+  const watchedThreadIds = useMemo(() => threads.map((thread) => thread.id), [threads]);
+  useSocket(socketCallbacks, undefined, watchedThreadIds);
 
   const handleFolderSelect = useCallback((path: string) => {
     setSelectedFolderPath(path);

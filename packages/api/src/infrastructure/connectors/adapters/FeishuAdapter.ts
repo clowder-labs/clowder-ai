@@ -22,8 +22,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { RichBlock } from '@cat-cafe/shared';
+import { resolveFeishuOpenApiBaseUrl } from '../feishu-open-platform.js';
 
-const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
+const FEISHU_OPEN_API_BASE_URL = resolveFeishuOpenApiBaseUrl();
 
 const execFileAsync = promisify(execFile);
 
