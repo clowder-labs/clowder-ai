@@ -48,6 +48,13 @@ from jiuwenclaw.utils import (
     logger,
 )
 from jiuwenclaw.config import get_config
+from jiuwenclaw.agentserver.llm_io_trace import (
+    log_invoke_input,
+    log_invoke_output,
+    log_reasoning_delta,
+    log_stream_input,
+    log_stream_output,
+)
 from jiuwenclaw.agentserver.context_window_unload import (
     context_engine_compression_enabled,
     effective_token_budget,
@@ -63,6 +70,8 @@ _react_config = get_config().get("react", {})
 ANSWER_CHUNK_SIZE = _react_config.get("answer_chunk_size", 500)
 STREAM_CHUNK_THRESHOLD = _react_config.get("stream_chunk_threshold", 50)
 STREAM_CHARACTER_THRESHOLD = _react_config.get("stream_character_threshold", 2000)
+# DEBUG reasoning_delta: merge this many stream chunks per log line to reduce volume.
+REASONING_TRACE_LOG_BATCH = 5
 _llm_max_tokens_env = os.environ.get("LLM_MAX_TOKENS", "").strip()
 LLM_MAX_TOKENS = int(_llm_max_tokens_env) if _llm_max_tokens_env else 16384
 
@@ -215,7 +224,8 @@ class JiuClawReActAgent(ReActAgent):
         messages: List,
         tools: Optional[List[ToolInfo]] = None,
         session: Optional[Session] = None,
-        chunk_threshold: int = 10
+        chunk_threshold: int = 10,
+        react_iteration: Optional[int] = None,
     ) -> AssistantMessage:
         """Call LLM with messages and optional tools (streaming if session provided)
 
@@ -224,6 +234,7 @@ class JiuClawReActAgent(ReActAgent):
             tools: Optional tool definitions (List[ToolInfo])
             session: Optional Session for streaming output
             chunk_threshold: Number of chunks to accumulate before sending (default: 10)
+            react_iteration: 1-based ReAct loop index for DEBUG LLM I/O trace logs
 
         Returns:
             AssistantMessage from LLM
@@ -233,16 +244,39 @@ class JiuClawReActAgent(ReActAgent):
         # If session provided, use streaming mode for real-time output
         if session is not None:
             return await self._call_llm_stream(
-                llm, messages, tools, session, chunk_threshold
+                llm,
+                messages,
+                tools,
+                session,
+                chunk_threshold,
+                react_iteration=react_iteration,
             )
         else:
-            # Non-streaming mode for backward compatibility
-            return await llm.invoke(
+            model_name = getattr(self._config, "model_name", "") or ""
+            sid = (self._current_session_id or "") or ""
+            log_invoke_input(
+                session_id=sid,
+                request_id="",
+                iteration=react_iteration,
+                model_name=model_name,
+                messages=messages,
+                tools=tools,
+                max_tokens=LLM_MAX_TOKENS,
+            )
+            result = await llm.invoke(
                 model=self._config.model_name,
                 messages=messages,
                 tools=tools,
                 max_tokens=LLM_MAX_TOKENS,
             )
+            log_invoke_output(
+                session_id=sid,
+                request_id="",
+                iteration=react_iteration,
+                model_name=model_name,
+                assistant_msg=result,
+            )
+            return result
 
     async def _call_llm_stream(
         self,
@@ -250,7 +284,8 @@ class JiuClawReActAgent(ReActAgent):
         messages: List,
         tools: Optional[List[ToolInfo]],
         session: Session,
-        chunk_threshold: int
+        chunk_threshold: int,
+        react_iteration: Optional[int] = None,
     ) -> AssistantMessage:
         """Stream LLM invocation and send partial answers when content exceeds threshold
 
@@ -267,6 +302,39 @@ class JiuClawReActAgent(ReActAgent):
         accumulated_chunk = None
         chunk_count = 0
         last_sent_length = 0  # Track last sent content length
+        reasoning_seq = 0
+        session_hint = (
+            getattr(session, "conversation_id", None)
+            or getattr(session, "session_id", None)
+            or ""
+        )
+        trace_session_id = (self._current_session_id or session_hint or "") or ""
+        trace_request_id = (getattr(session, "request_id", None) or "") or ""
+        model_name = getattr(self._config, "model_name", "") or ""
+        reasoning_trace_pending: List[Tuple[int, str]] = []
+
+        def emit_reasoning_trace_batch() -> None:
+            if not reasoning_trace_pending:
+                return
+            log_reasoning_delta(
+                session_id=trace_session_id,
+                request_id=trace_request_id,
+                iteration=react_iteration,
+                model_name=model_name,
+                reasoning_seq=reasoning_trace_pending[0][0],
+                fragment="".join(t[1] for t in reasoning_trace_pending),
+            )
+            reasoning_trace_pending.clear()
+
+        log_stream_input(
+            session_id=trace_session_id,
+            request_id=trace_request_id,
+            iteration=react_iteration,
+            model_name=model_name,
+            messages=messages,
+            tools=tools,
+            max_tokens=LLM_MAX_TOKENS,
+        )
 
         try:
             async for chunk in llm.stream(
@@ -283,6 +351,11 @@ class JiuClawReActAgent(ReActAgent):
 
                 # Stream output for reasoning content (skip if stopped due to repeat)
                 if chunk.reasoning_content and not self._stop_reasoning_output:
+                    reasoning_trace_pending.append(
+                        (reasoning_seq, str(chunk.reasoning_content))
+                    )
+                    if len(reasoning_trace_pending) >= REASONING_TRACE_LOG_BATCH:
+                        emit_reasoning_trace_batch()
                     stream_output = OutputSchema(
                         type="llm_reasoning",
                         index=chunk_count,
@@ -293,6 +366,7 @@ class JiuClawReActAgent(ReActAgent):
                     )
                     await session.write_stream(stream_output)
                     chunk_count += 1
+                    reasoning_seq += 1
 
                 # Check if accumulated content exceeds threshold
                 if accumulated_chunk is not None and accumulated_chunk.content:
@@ -318,6 +392,8 @@ class JiuClawReActAgent(ReActAgent):
                             )
                             chunk_count += 1
                             last_sent_length = current_length
+
+            emit_reasoning_trace_batch()
 
             # Send any remaining content that didn't reach threshold
             if accumulated_chunk is not None and accumulated_chunk.content:
@@ -346,7 +422,7 @@ class JiuClawReActAgent(ReActAgent):
                 raise ValueError("LLM returned empty response")
 
             # Convert accumulated chunk to AssistantMessage
-            return AssistantMessage(
+            assistant_msg = AssistantMessage(
                 role=accumulated_chunk.role or "assistant",
                 content=accumulated_chunk.content or "",
                 tool_calls=accumulated_chunk.tool_calls or [],
@@ -355,8 +431,17 @@ class JiuClawReActAgent(ReActAgent):
                 parser_content=getattr(accumulated_chunk, 'parser_content', None),
                 reasoning_content=getattr(accumulated_chunk, 'reasoning_content', None),
             )
+            log_stream_output(
+                session_id=trace_session_id,
+                request_id=trace_request_id,
+                iteration=react_iteration,
+                model_name=model_name,
+                assistant_msg=assistant_msg,
+            )
+            return assistant_msg
 
         except Exception as e:
+            emit_reasoning_trace_batch()
             logger.error(f"Failed to stream LLM output: {e}")
             raise
 
@@ -506,6 +591,7 @@ class JiuClawReActAgent(ReActAgent):
                     messages,
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
+                    react_iteration=iteration + 1,
                 )
                 # Accumulate token usage
                 _has_um = hasattr(ai_message, 'usage_metadata')
@@ -544,6 +630,7 @@ class JiuClawReActAgent(ReActAgent):
                     messages,
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
+                    react_iteration=iteration + 1,
                 )
                 # Accumulate token usage (retry path)
                 if hasattr(ai_message, 'usage_metadata') and ai_message.usage_metadata:
