@@ -27,7 +27,12 @@ import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { useToastStore } from '@/stores/toastStore';
 import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
 import { apiFetch } from '@/utils/api-client';
-import { fetchSkillOptionsWithCache, seedSkillOptionsCache, type SkillOption } from '@/utils/skill-options-cache';
+import {
+  fetchSkillOptionsWithCache,
+  seedSkillOptionsCache,
+  SKILL_OPTIONS_UPDATED_EVENT,
+  type SkillOption,
+} from '@/utils/skill-options-cache';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
 import {
@@ -256,6 +261,8 @@ export function ChatInput({
   const [skillFilter, setSkillFilter] = useState('');
   const [skillOptions, setSkillOptions] = useState<SkillOption[]>([]);
   const [skillOptionsLoading, setSkillOptionsLoading] = useState(false);
+  const skillOptionsRequestSeqRef = useRef(0);
+  const skillOptionsMountedRef = useRef(true);
   const [images, setImages] = useState<File[]>([]);
   const isPreparingImages = false;
   const [whisperMode, setWhisperMode] = useState(false);
@@ -400,23 +407,40 @@ export function ChatInput({
     return skillOptions.filter((item) => item.name.toLowerCase().includes(lower));
   }, [skillFilter, skillOptions]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadSkillOptions = useCallback((force = false) => {
+    const requestId = ++skillOptionsRequestSeqRef.current;
     setSkillOptionsLoading(true);
-    fetchSkillOptionsWithCache()
+    void fetchSkillOptionsWithCache(force ? { force: true } : undefined)
       .then((options) => {
-        if (cancelled) return;
+        if (!skillOptionsMountedRef.current || skillOptionsRequestSeqRef.current !== requestId) return;
         setSkillOptions(options);
         // Keep shared cache warm so message renderer can reuse immediately.
         seedSkillOptionsCache(options);
       })
       .finally(() => {
-        if (!cancelled) setSkillOptionsLoading(false);
+        if (!skillOptionsMountedRef.current || skillOptionsRequestSeqRef.current !== requestId) return;
+        setSkillOptionsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    skillOptionsMountedRef.current = true;
+    loadSkillOptions();
+    return () => {
+      skillOptionsMountedRef.current = false;
+      skillOptionsRequestSeqRef.current += 1;
+    };
+  }, [loadSkillOptions]);
+
+  useEffect(() => {
+    const handleSkillOptionsUpdated = () => {
+      loadSkillOptions(true);
+    };
+    window.addEventListener(SKILL_OPTIONS_UPDATED_EVENT, handleSkillOptionsUpdated);
+    return () => {
+      window.removeEventListener(SKILL_OPTIONS_UPDATED_EVENT, handleSkillOptionsUpdated);
+    };
+  }, [loadSkillOptions]);
 
   const activeMenu = showMentions ? 'mention' : showGameMenu ? 'game' : showSkillMenu ? 'skill' : null;
   const gameMenuItems = gameStep === 'list' ? GAME_LIST : WEREWOLF_MODES;

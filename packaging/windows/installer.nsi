@@ -85,6 +85,9 @@ Var AgreeRadio
 Var DisagreeRadio
 Var NextButton
 Var WelcomeDialog
+Var DirectoryDialog
+Var DirectoryInput
+Var DirectoryBrowseButton
 Var OptionsDialog
 Var StartMenuShortcutCheckbox
 Var DesktopShortcutCheckbox
@@ -361,13 +364,6 @@ Function un.onInit
   ${EndIf}
 FunctionEnd
 
-Function .onVerifyInstDir
-  StrLen $0 $INSTDIR
-  ${If} $0 > 200
-    Abort
-  ${EndIf}
-FunctionEnd
-
 Function ResolveExistingInstallDir
   ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
   ${If} $0 == ""
@@ -460,6 +456,94 @@ Function OnDirBrowseClick
     StrCpy $SelectedInstallDir $0
     ${NSD_SetText} $DirText "$SelectedInstallDir"
   ${EndIf}
+
+  ${If} $SelectedInstallDir == ""
+    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
+  ${Else}
+    Call NormalizeSelectedInstallDir
+  ${EndIf}
+
+  StrCpy $INSTDIR $SelectedInstallDir
+
+  ${NSD_CreateLabel} 0 0 100% 20u "请选择安装路径。若选择父目录，安装器会自动在其下创建 ${APP_NAME} 子目录。"
+  Pop $0
+
+  ${NSD_CreateText} 0 28u 78% 12u "$SelectedInstallDir"
+  Pop $DirectoryInput
+
+  ${NSD_CreateBrowseButton} 82% 27u 18% 14u "浏览..."
+  Pop $DirectoryBrowseButton
+  ${NSD_OnClick} $DirectoryBrowseButton OnDirectoryBrowseClicked
+
+  nsDialogs::Show
+FunctionEnd
+
+Function OnDirectoryBrowseClicked
+  ${If} $DirectoryInput == 0
+    Return
+  ${EndIf}
+
+  ${NSD_GetText} $DirectoryInput $0
+  nsDialogs::SelectFolderDialog "选择安装目录" $0
+  Pop $0
+  ${If} $0 == error
+    Return
+  ${EndIf}
+  StrCpy $SelectedInstallDir $0
+  Call NormalizeSelectedInstallDir
+  StrCpy $INSTDIR $SelectedInstallDir
+  ${NSD_SetText} $DirectoryInput $SelectedInstallDir
+FunctionEnd
+
+Function NormalizeSelectedInstallDir
+  ${If} $ExistingInstallDir != ""
+    Return
+  ${EndIf}
+
+  StrCpy $0 $SelectedInstallDir
+
+trim_trailing_separator:
+  StrLen $1 $0
+  ${If} $1 <= 3
+    Goto check_suffix
+  ${EndIf}
+
+  IntOp $2 $1 - 1
+  StrCpy $3 $0 1 $2
+  ${If} $3 == "\"
+  ${OrIf} $3 == "/"
+    StrCpy $0 $0 $2
+    Goto trim_trailing_separator
+  ${EndIf}
+
+check_suffix:
+  ${If} $0 == ""
+    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
+    Return
+  ${EndIf}
+
+  StrLen $1 "${APP_NAME}"
+  StrLen $2 $0
+  ${If} $2 >= $1
+    IntOp $3 $2 - $1
+    StrCpy $4 $0 "" $3
+    ${If} $4 == "${APP_NAME}"
+      ${If} $3 == 0
+        StrCpy $SelectedInstallDir $0
+        Return
+      ${EndIf}
+
+      IntOp $5 $3 - 1
+      StrCpy $6 $0 1 $5
+      ${If} $6 == "\"
+      ${OrIf} $6 == "/"
+        StrCpy $SelectedInstallDir $0
+        Return
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
+
+  StrCpy $SelectedInstallDir "$0\${APP_NAME}"
 FunctionEnd
 
 Function DirectoryPageLeave

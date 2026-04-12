@@ -382,9 +382,18 @@ Approach each task methodically and deliver high-quality results."""
         return subagent
 
     def _inherit_tools(self, subagent: "JiuClawReActAgent") -> None:
-        """Inherit all tools from parent agent's ability_manager, excluding subagent tools."""
-        # Tools that should NOT be inherited (prevent recursive subagent spawning)
-        EXCLUDED_TOOLS = {"spawn_subagent"}
+        """Inherit all tools from parent agent's ability_manager, excluding subagent and todo tools."""
+        # Tools that should NOT be inherited
+        # - spawn_subagent: prevent recursive subagent spawning
+        # - todo_*: todo list is parent agent's task tracking, not for subagents
+        EXCLUDED_TOOLS = {
+            "spawn_subagent",
+            "todo_create",
+            "todo_complete",
+            "todo_insert",
+            "todo_remove",
+            "todo_list",
+        }
 
         try:
             # Get parent's tools
