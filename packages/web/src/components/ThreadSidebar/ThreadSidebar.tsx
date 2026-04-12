@@ -8,7 +8,6 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getMentionToCat } from '@/lib/mention-highlight';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
@@ -18,7 +17,7 @@ import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
-import { sanitizeThreadTitleOrNull } from './thread-title';
+import { normalizeStoredThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
 import { applyRealtimeThreadActivity, getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
@@ -161,10 +160,9 @@ export function ThreadSidebar({
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
-      const knownAliases = new Set(Object.keys(getMentionToCat()).map((alias) => alias.toLowerCase()));
       const threads = (data.threads ?? []).map((thread: Thread) => ({
         ...thread,
-        title: sanitizeThreadTitleOrNull(thread.title, knownAliases),
+        title: normalizeStoredThreadTitleOrNull(thread.title),
       }));
       setThreads(threads);
       // F069: Sync unread state from API (both non-zero and zero).
