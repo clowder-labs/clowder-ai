@@ -19,6 +19,7 @@ import logging
 import mimetypes
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -289,8 +290,9 @@ def generate_html(
 def _kill_port(port: int) -> None:
     """Kill any process listening on the given port."""
     try:
+        lsof_path = shutil.which("lsof") or "lsof"
         result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
+            [lsof_path, "-ti", f":{port}"],
             capture_output=True, text=True, timeout=5,
         )
         for pid_str in result.stdout.strip().split("\n"):
@@ -304,7 +306,7 @@ def _kill_port(port: int) -> None:
     except subprocess.TimeoutExpired:
         pass
     except FileNotFoundError:
-        logging.info("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
+        logging.error("Note: lsof not found, cannot check if port is in use")
 
 
 class ReviewHandler(BaseHTTPRequestHandler):
@@ -407,12 +409,12 @@ def main() -> None:
 
     workspace = args.workspace.resolve()
     if not workspace.is_dir():
-        logging.info(f"Error: {workspace} is not a directory", file=sys.stderr)
+        logging.error(f"Error: {workspace} is not a directory")
         sys.exit(1)
 
     runs = find_runs(workspace)
     if not runs:
-        logging.info(f"No runs found in {workspace}", file=sys.stderr)
+        logging.error(f"No runs found in {workspace}")
         sys.exit(1)
 
     skill_name = args.skill_name or workspace.name.replace("-workspace", "")

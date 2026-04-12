@@ -83,7 +83,7 @@ def _run_validation(
             try:
                 author = infer_author_func(unpacked_dir, original_file)
             except ValueError as e:
-                logging.info(f"Warning: {e} Using default author 'Claude'.", file=sys.stderr)
+                logging.error(f"Warning: {e} Using default author 'Claude'.")
 
         validators = [
             DOCXSchemaValidator(unpacked_dir, original_file),
@@ -130,7 +130,7 @@ def _condense_xml(xml_file: Path) -> None:
 
         xml_file.write_bytes(dom.toxml(encoding="UTF-8"))
     except Exception as e:
-        logging.info(f"ERROR: Failed to parse {xml_file.name}: {e}", file=sys.stderr)
+        logging.error(f"ERROR: Failed to parse {xml_file.name}: {e}")
         raise
 
 

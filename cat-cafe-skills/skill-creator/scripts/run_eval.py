@@ -9,6 +9,8 @@ import argparse
 import json
 import logging
 import os
+from dataclasses import dataclass
+
 import select
 import subprocess
 import sys
@@ -19,6 +21,17 @@ from pathlib import Path
 
 from scripts.utils import parse_skill_md
 
+@dataclass
+class RunEval:
+    eval_set: list[dict]
+    skill_name: str
+    description: str
+    num_workers: int
+    timeout: int
+    project_root: Path
+    runs_per_query: int
+    trigger_threshold: float
+    model: str | None
 
 def find_project_root() -> Path:
     """Find the project root by walking up from cwd looking for .claude/.
@@ -182,32 +195,22 @@ def run_single_query(
             command_file.unlink()
 
 
-def run_eval(
-    eval_set: list[dict],
-    skill_name: str,
-    description: str,
-    num_workers: int,
-    timeout: int,
-    project_root: Path,
-    runs_per_query: int = 1,
-    trigger_threshold: float = 0.5,
-    model: str | None = None,
-) -> dict:
+def run_eval(eval_params: RunEval) -> dict:
     """Run the full eval set and return results."""
     results = []
 
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+    with ProcessPoolExecutor(max_workers=eval_params.num_workers) as executor:
         future_to_info = {}
-        for item in eval_set:
-            for run_idx in range(runs_per_query):
+        for item in eval_params.eval_set:
+            for run_idx in range(eval_params.runs_per_query):
                 future = executor.submit(
                     run_single_query,
                     item["query"],
-                    skill_name,
-                    description,
-                    timeout,
-                    str(project_root),
-                    model,
+                    eval_params.skill_name,
+                    eval_params.description,
+                    eval_params.timeout,
+                    str(eval_params.project_root),
+                    eval_params.model,
                 )
                 future_to_info[future] = (item, run_idx)
 
@@ -222,7 +225,7 @@ def run_eval(
             try:
                 query_triggers[query].append(future.result())
             except Exception as e:
-                logging.info(f"Warning: query failed: {e}", file=sys.stderr)
+                logging.error(f"Warning: query failed: {e}")
                 query_triggers[query].append(False)
 
     for query, triggers in query_triggers.items():
@@ -230,9 +233,9 @@ def run_eval(
         trigger_rate = sum(triggers) / len(triggers)
         should_trigger = item["should_trigger"]
         if should_trigger:
-            did_pass = trigger_rate >= trigger_threshold
+            did_pass = trigger_rate >= eval_params.trigger_threshold
         else:
-            did_pass = trigger_rate < trigger_threshold
+            did_pass = trigger_rate < eval_params.trigger_threshold
         results.append({
             "query": query,
             "should_trigger": should_trigger,
@@ -246,8 +249,8 @@ def run_eval(
     total = len(results)
 
     return {
-        "skill_name": skill_name,
-        "description": description,
+        "skill_name": eval_params.skill_name,
+        "description": eval_params.description,
         "results": results,
         "summary": {
             "total": total,
@@ -274,7 +277,7 @@ def main():
     skill_path = Path(args.skill_path)
 
     if not (skill_path / "SKILL.md").exists():
-        logging.info(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
+        logging.error(f"Error: No SKILL.md found at {skill_path}")
         sys.exit(1)
 
     name, original_description, content = parse_skill_md(skill_path)
@@ -282,9 +285,9 @@ def main():
     project_root = find_project_root()
 
     if args.verbose:
-        logging.info(f"Evaluating: {description}", file=sys.stderr)
+        logging.error(f"Evaluating: {description}")
 
-    output = run_eval(
+    eval_params = RunEval(
         eval_set=eval_set,
         skill_name=name,
         description=description,
@@ -293,17 +296,17 @@ def main():
         project_root=project_root,
         runs_per_query=args.runs_per_query,
         trigger_threshold=args.trigger_threshold,
-        model=args.model,
-    )
+        model=args.model,)
+    output = run_eval(eval_params)
 
     if args.verbose:
         summary = output["summary"]
-        logging.info(f"Results: {summary['passed']}/{summary['total']} passed", file=sys.stderr)
+        logging.error(f"Results: {summary['passed']}/{summary['total']} passed")
         for r in output["results"]:
             status = "PASS" if r["pass"] else "FAIL"
             rate_str = f"{r['triggers']}/{r['runs']}"
-            logging.info(f"  [{status}] rate={rate_str} "
-                         f"expected={r['should_trigger']}: {r['query'][:70]}", file=sys.stderr)
+            logging.error(f"  [{status}] rate={rate_str} "
+                         f"expected={r['should_trigger']}: {r['query'][:70]}")
 
     logging.info(json.dumps(output, indent=2))
 

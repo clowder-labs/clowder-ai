@@ -62,17 +62,17 @@ def require_secure_env(exit_on_fail: bool = True) -> bool:
             failed.append(error_msg)
     
     if failed:
-        logging.info("\n🔒 SECURITY REQUIREMENT NOT MET\n", file=sys.stderr)
-        logging.info("OpenClaw requires centralized credential management.", file=sys.stderr)
-        logging.info("\nIssues found:", file=sys.stderr)
+        logging.error("\n🔒 SECURITY REQUIREMENT NOT MET\n")
+        logging.error("OpenClaw requires centralized credential management.")
+        logging.error("\nIssues found:")
         for msg in failed:
-            logging.info(f"  {msg}", file=sys.stderr)
+            logging.error(f"  {msg}")
         
-        logging.info("\n💡 Fix this by running:", file=sys.stderr)
-        logging.info("   cd ~/.openclaw/skills/credential-manager", file=sys.stderr)
-        logging.info("   ./scripts/consolidate.py", file=sys.stderr)
-        logging.info("   ./scripts/validate.py --fix", file=sys.stderr)
-        logging.info("\nSee CORE-PRINCIPLE.md for why this is mandatory.\n", file=sys.stderr)
+        logging.error("\n💡 Fix this by running:")
+        logging.error("   cd ~/.openclaw/skills/credential-manager")
+        logging.error("   ./scripts/consolidate.py")
+        logging.info("   ./scripts/validate.py --fix")
+        logging.info("\nSee CORE-PRINCIPLE.md for why this is mandatory.\n")
         
         if exit_on_fail:
             raise ValueError("Secure .env requirement not met")
@@ -105,9 +105,9 @@ def get_credential(key: str) -> str:
                 if k.strip() == key:
                     return v.strip()
     
-    logging.info(f"\n❌ Credential '{key}' not found in .env\n", file=sys.stderr)
-    logging.info("Add it to ~/.openclaw/.env:", file=sys.stderr)
-    logging.info(f"   {key}=your_value_here\n", file=sys.stderr)
+    logging.error(f"\n❌ Credential '{key}' not found in .env\n")
+    logging.error("Add it to ~/.openclaw/.env:")
+    logging.error(f"   {key}=your_value_here\n")
     raise ValueError(f"Credential '{key}' not found in .env")
 
 if __name__ == '__main__':

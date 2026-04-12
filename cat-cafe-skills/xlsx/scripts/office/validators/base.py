@@ -818,12 +818,12 @@ class BaseSchemaValidator:
             return errors if errors else set()
 
     def _remove_template_tags_from_text_nodes(self, xml_doc):
+        logging.info(f"begin exec _remove_template_tags_from_text_nodes {self.schemas_dir}")
         warnings = []
         template_pattern = re.compile(r"\{\{[^}]*\}\}")
 
         xml_string = lxml.etree.tostring(xml_doc, encoding="unicode")
         xml_copy = lxml.etree.fromstring(xml_string)
-
         def process_text_content(text, content_type):
             if not text:
                 return text

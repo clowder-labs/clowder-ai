@@ -18,6 +18,7 @@ import argparse
 import random
 import shutil
 import sys
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -217,15 +218,25 @@ def _ensure_comment_content_types(unpacked_dir: Path) -> None:
     ct_path.write_bytes(dom.toxml(encoding="UTF-8"))
 
 
+@dataclass
+class CommentConfig:
+    unpacked_dir: str
+    comment_id: int
+    text: str
+    author: str
+    initials: str
+    parent_id: int | None
+
 def add_comment(
-    unpacked_dir: str,
-    comment_id: int,
-    text: str,
-    author: str = "Claude",
-    initials: str = "C",
-    parent_id: int | None = None,
+    # unpacked_dir: str,
+    # comment_id: int,
+    # text: str,
+    # author: str = "Claude",
+    # initials: str = "C",
+    # parent_id: int | None = None,
+    common_config: CommentConfig
 ) -> tuple[str, str]:
-    word = Path(unpacked_dir) / "word"
+    word = Path(common_config.unpacked_dir) / "word"
     if not word.exists():
         return "", f"Error: {word} not found"
 
@@ -236,28 +247,28 @@ def add_comment(
     first_comment = not comments.exists()
     if first_comment:
         shutil.copy(TEMPLATE_DIR / "comments.xml", comments)
-        _ensure_comment_relationships(Path(unpacked_dir))
-        _ensure_comment_content_types(Path(unpacked_dir))
+        _ensure_comment_relationships(Path(common_config.unpacked_dir))
+        _ensure_comment_content_types(Path(common_config.unpacked_dir))
     _append_xml(
         comments,
         "w:comments",
         COMMENT_XML.format(
-            id=comment_id,
-            author=author,
+            id=common_config.comment_id,
+            author=common_config.author,
             date=ts,
-            initials=initials,
+            initials=common_config.initials,
             para_id=para_id,
-            text=text,  
+            text=common_config.text,
         ),
     )
 
     ext = word / "commentsExtended.xml"
     if not ext.exists():
         shutil.copy(TEMPLATE_DIR / "commentsExtended.xml", ext)
-    if parent_id is not None:
-        parent_para = _find_para_id(comments, parent_id)
+    if common_config.parent_id is not None:
+        parent_para = _find_para_id(comments, common_config.parent_id)
         if not parent_para:
-            return "", f"Error: Parent comment {parent_id} not found"
+            return "", f"Error: Parent comment {common_config.parent_id} not found"
         _append_xml(
             ext,
             "w15:commentsEx",
@@ -288,8 +299,8 @@ def add_comment(
         f'<w16cex:commentExtensible w16cex:durableId="{durable_id}" w16cex:dateUtc="{ts}"/>',
     )
 
-    action = "reply" if parent_id is not None else "comment"
-    return para_id, f"Added {action} {comment_id} (para_id={para_id})"
+    action = "reply" if common_config.parent_id is not None else "comment"
+    return para_id, f"Added {action} {common_config.comment_id} (para_id={para_id})"
 
 
 if __name__ == "__main__":
@@ -301,15 +312,14 @@ if __name__ == "__main__":
     p.add_argument("--initials", default="C", help="Author initials")
     p.add_argument("--parent", type=int, help="Parent comment ID (for replies)")
     args = p.parse_args()
-
-    para_id, msg = add_comment(
+    common_config = CommentConfig(
         args.unpacked_dir,
         args.comment_id,
         args.text,
         args.author,
         args.initials,
-        args.parent,
-    )
+        args.parent)
+    para_id, msg = add_comment(common_config)
     logging.info(msg)
     if "Error" in msg:
         sys.exit(1)

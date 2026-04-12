@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import webbrowser
+from dataclasses import dataclass
 from pathlib import Path
 
 from scripts.generate_report import generate_html
@@ -21,6 +22,26 @@ from scripts.improve_description import improve_description
 from scripts.run_eval import find_project_root, run_eval
 from scripts.utils import parse_skill_md
 
+
+@dataclass
+class LoopConfig:
+    """评估与迭代优化循环的统一配置（遵循 G.FNM.03）"""
+    # 数据集
+    eval_set: list[dict]
+
+    # 技能文件
+    skill_path: Path
+    description_override: str | None
+    num_workers: int
+    timeout: int
+    max_iterations: int
+    runs_per_query: int
+    trigger_threshold: float
+    holdout: float
+    model: str
+    verbose: bool
+    live_report_path: Path | None = None
+    log_dir: Path | None = None
 
 def split_eval_set(eval_set: list[dict], holdout: float, seed: int = 42) -> tuple[list[dict], list[dict]]:
     """Split eval set into train and test sets, stratified by should_trigger."""
@@ -46,43 +67,31 @@ def split_eval_set(eval_set: list[dict], holdout: float, seed: int = 42) -> tupl
 
 
 def run_loop(
-    eval_set: list[dict],
-    skill_path: Path,
-    description_override: str | None,
-    num_workers: int,
-    timeout: int,
-    max_iterations: int,
-    runs_per_query: int,
-    trigger_threshold: float,
-    holdout: float,
-    model: str,
-    verbose: bool,
-    live_report_path: Path | None = None,
-    log_dir: Path | None = None,
+    config: LoopConfig
 ) -> dict:
     """Run the eval + improvement loop."""
     project_root = find_project_root()
-    name, original_description, content = parse_skill_md(skill_path)
-    current_description = description_override or original_description
+    name, original_description, content = parse_skill_md(config.skill_path)
+    current_description = config.description_override or original_description
 
     # Split into train/test if holdout > 0
-    if holdout > 0:
-        train_set, test_set = split_eval_set(eval_set, holdout)
-        if verbose:
-            logging.info(f"Split: {len(train_set)} train, {len(test_set)} test (holdout={holdout})", file=sys.stderr)
+    if config.holdout > 0:
+        train_set, test_set = split_eval_set(config.eval_set, config.holdout)
+        if config.verbose:
+            logging.error(f"Split: {len(train_set)} train, {len(test_set)} test (holdout={config.holdout})")
     else:
-        train_set = eval_set
+        train_set = config.eval_set
         test_set = []
 
     history = []
     exit_reason = "unknown"
 
-    for iteration in range(1, max_iterations + 1):
-        if verbose:
-            logging.info(f"\n{'='*60}", file=sys.stderr)
-            logging.info(f"Iteration {iteration}/{max_iterations}", file=sys.stderr)
-            logging.info(f"Description: {current_description}", file=sys.stderr)
-            logging.info(f"{'='*60}", file=sys.stderr)
+    for iteration in range(1, config.max_iterations + 1):
+        if config.verbose:
+            logging.error(f"\n{'='*60}")
+            logging.error(f"Iteration {iteration}/{config.max_iterations}")
+            logging.error(f"Description: {current_description}")
+            logging.error(f"{'='*60}")
 
         # Evaluate train + test together in one batch for parallelism
         all_queries = train_set + test_set
@@ -91,12 +100,12 @@ def run_loop(
             eval_set=all_queries,
             skill_name=name,
             description=current_description,
-            num_workers=num_workers,
-            timeout=timeout,
+            num_workers=config.num_workers,
+            timeout=config.timeout,
             project_root=project_root,
-            runs_per_query=runs_per_query,
-            trigger_threshold=trigger_threshold,
-            model=model,
+            runs_per_query=config.runs_per_query,
+            trigger_threshold=config.trigger_threshold,
+            model=config.model,
         )
         eval_elapsed = time.time() - t0
 
@@ -138,20 +147,20 @@ def run_loop(
         })
 
         # Write live report if path provided
-        if live_report_path:
+        if config.live_report_path:
             partial_output = {
                 "original_description": original_description,
                 "best_description": current_description,
                 "best_score": "in progress",
                 "iterations_run": len(history),
-                "holdout": holdout,
+                "holdout": config.holdout,
                 "train_size": len(train_set),
                 "test_size": len(test_set),
                 "history": history,
             }
-            live_report_path.write_text(generate_html(partial_output, auto_refresh=True, skill_name=name))
+            config.live_report_path.write_text(generate_html(partial_output, auto_refresh=True, skill_name=name))
 
-        if verbose:
+        if config.verbose:
             def print_eval_stats(label, results, elapsed):
                 pos = [r for r in results if r["should_trigger"]]
                 neg = [r for r in results if not r["should_trigger"]]
@@ -165,14 +174,14 @@ def run_loop(
                 precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
                 recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
                 accuracy = (tp + tn) / total if total > 0 else 0.0
-                logging.info(f"{label}: {tp+tn}/{total} correct, "
+                logging.error(f"{label}: {tp+tn}/{total} correct, "
                              f"precision={precision:.0%} recall={recall:.0%} "
-                             f"accuracy={accuracy:.0%} ({elapsed:.1f}s)", file=sys.stderr)
+                             f"accuracy={accuracy:.0%} ({elapsed:.1f}s)")
                 for r in results:
                     status = "PASS" if r["pass"] else "FAIL"
                     rate_str = f"{r['triggers']}/{r['runs']}"
-                    logging.info(f"  [{status}] rate={rate_str} "
-                                 f"expected={r['should_trigger']}: {r['query'][:60]}", file=sys.stderr)
+                    logging.error(f"  [{status}] rate={rate_str} "
+                                 f"expected={r['should_trigger']}: {r['query'][:60]}")
 
             print_eval_stats("Train", train_results["results"], eval_elapsed)
             if test_summary:
@@ -180,19 +189,19 @@ def run_loop(
 
         if train_summary["failed"] == 0:
             exit_reason = f"all_passed (iteration {iteration})"
-            if verbose:
-                logging.info(f"\nAll train queries passed on iteration {iteration}!", file=sys.stderr)
+            if config.verbose:
+                logging.error(f"\nAll train queries passed on iteration {iteration}!")
             break
 
-        if iteration == max_iterations:
-            exit_reason = f"max_iterations ({max_iterations})"
-            if verbose:
-                logging.info(f"\nMax iterations reached ({max_iterations}).", file=sys.stderr)
+        if iteration == config.max_iterations:
+            exit_reason = f"max_iterations ({config.max_iterations})"
+            if config.verbose:
+                logging.error(f"Max iterations reached ({config.max_iterations}).")
             break
 
         # Improve the description based on train results
-        if verbose:
-            logging.info(f"\nImproving description...", file=sys.stderr)
+        if config.verbose:
+            logging.error(f"Improving description...")
 
         t0 = time.time()
         # Strip test scores from history so improvement model can't see them
@@ -206,14 +215,14 @@ def run_loop(
             current_description=current_description,
             eval_results=train_results,
             history=blinded_history,
-            model=model,
-            log_dir=log_dir,
+            model=config.model,
+            log_dir=config.log_dir,
             iteration=iteration,
         )
         improve_elapsed = time.time() - t0
 
-        if verbose:
-            logging.info(f"Proposed ({improve_elapsed:.1f}s): {new_description}", file=sys.stderr)
+        if config.verbose:
+            logging.error(f"Proposed ({improve_elapsed:.1f}s): {new_description}")
 
         current_description = new_description
 
@@ -225,9 +234,9 @@ def run_loop(
         best = max(history, key=lambda h: h["train_passed"])
         best_score = f"{best['train_passed']}/{best['train_total']}"
 
-    if verbose:
-        logging.info(f"\nExit reason: {exit_reason}", file=sys.stderr)
-        logging.info(f"Best score: {best_score} (iteration {best['iteration']})", file=sys.stderr)
+    if config.verbose:
+        logging.error(f"\nExit reason: {exit_reason}")
+        logging.error(f"Best score: {best_score} (iteration {best['iteration']})")
 
     return {
         "exit_reason": exit_reason,
@@ -238,7 +247,7 @@ def run_loop(
         "best_test_score": f"{best['test_passed']}/{best['test_total']}" if test_set else None,
         "final_description": current_description,
         "iterations_run": len(history),
-        "holdout": holdout,
+        "holdout": config.holdout,
         "train_size": len(train_set),
         "test_size": len(test_set),
         "history": history,
@@ -271,7 +280,7 @@ def main():
     skill_path = Path(args.skill_path)
 
     if not (skill_path / "SKILL.md").exists():
-        logging.info(f"Error: No SKILL.md found at {skill_path}", file=sys.stderr)
+        logging.error(f"Error: No SKILL.md found at {skill_path}")
         sys.exit(1)
 
     name, _, _ = parse_skill_md(skill_path)
@@ -301,7 +310,7 @@ def main():
 
     log_dir = results_dir / "logs" if results_dir else None
 
-    output = run_loop(
+    config = LoopConfig(
         eval_set=eval_set,
         skill_path=skill_path,
         description_override=args.description,
@@ -316,6 +325,7 @@ def main():
         live_report_path=live_report_path,
         log_dir=log_dir,
     )
+    output = run_loop(config)
 
     # Save JSON output
     json_output = json.dumps(output, indent=2)
@@ -326,13 +336,13 @@ def main():
     # Write final HTML report (without auto-refresh)
     if live_report_path:
         live_report_path.write_text(generate_html(output, auto_refresh=False, skill_name=name))
-        logging.info(f"\nReport: {live_report_path}", file=sys.stderr)
+        logging.error(f"\nReport: {live_report_path}")
 
     if results_dir and live_report_path:
         (results_dir / "report.html").write_text(generate_html(output, auto_refresh=False, skill_name=name))
 
     if results_dir:
-        logging.info(f"Results saved to: {results_dir}", file=sys.stderr)
+        logging.error(f"Results saved to: {results_dir}")
 
 
 if __name__ == "__main__":

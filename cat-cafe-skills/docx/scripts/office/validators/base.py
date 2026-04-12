@@ -821,6 +821,7 @@ class BaseSchemaValidator:
             return errors if errors else set()
 
     def _remove_template_tags_from_text_nodes(self, xml_doc):
+        logging.info(f"begin to remove template tags from text nodes{self.schemas_dir}")
         warnings = []
         template_pattern = re.compile(r"\{\{[^}]*\}\}")
 
