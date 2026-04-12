@@ -75,6 +75,7 @@ export interface ConnectorRouterOptions {
     ): void | Promise<void>;
     get?(threadId: string):
       | {
+          createdBy?: string;
           connectorHubState?: {
             v: 1;
             connectorId: string;
@@ -85,6 +86,7 @@ export interface ConnectorRouterOptions {
         }
       | null
       | Promise<{
+          createdBy?: string;
           connectorHubState?: {
             v: 1;
             connectorId: string;
@@ -112,6 +114,7 @@ export interface ConnectorRouterOptions {
         emitToUser?(userId: string, event: string, data: unknown): void;
       }
     | undefined;
+  readonly defaultUserIdResolver?: (() => string) | undefined;
   readonly defaultUserId: string;
   readonly defaultCatId: CatId;
   readonly log: FastifyBaseLogger;
@@ -152,6 +155,8 @@ export class ConnectorRouter {
   private resolveOwnerUserId(preferredUserId?: string): string {
     const boundUserId = preferredUserId?.trim();
     if (boundUserId) return boundUserId;
+    const resolvedOwnerUserId = this.opts.defaultUserIdResolver?.().trim();
+    if (resolvedOwnerUserId) return resolvedOwnerUserId;
     const dynamicOwnerUserId = process.env.DEFAULT_OWNER_USER_ID?.trim();
     return dynamicOwnerUserId || this.opts.defaultUserId;
   }
@@ -481,7 +486,9 @@ export class ConnectorRouter {
 
     const binding = await this.opts.bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) return undefined;
-    if (binding.hubThreadId) return binding.hubThreadId;
+    const ownerUserId = this.resolveOwnerUserId(binding.userId);
+    const reusableHubThreadId = await this.resolveReusableHubThreadId(binding, ownerUserId, connectorId, externalChatId);
+    if (reusableHubThreadId) return reusableHubThreadId;
 
     const inFlightAfterRead = this.hubThreadResolvers.get(key);
     if (inFlightAfterRead) return inFlightAfterRead;
@@ -500,15 +507,17 @@ export class ConnectorRouter {
     externalChatId: string,
     chatLabel?: string,
   ): Promise<string | undefined> {
-    const { bindingStore, threadStore, log } = this.opts;
+    const { bindingStore, threadStore, log, socketManager } = this.opts;
     const binding = await bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) return undefined;
-    if (binding.hubThreadId) return binding.hubThreadId;
+    const ownerUserId = this.resolveOwnerUserId(binding.userId);
+    const reusableHubThreadId = await this.resolveReusableHubThreadId(binding, ownerUserId, connectorId, externalChatId);
+    if (reusableHubThreadId) return reusableHubThreadId;
 
     const def = getConnectorDefinition(connectorId);
     const label = def?.displayName ?? connectorId;
     const hubTitle = chatLabel ? `${chatLabel} IM Hub` : `${label} IM Hub`;
-    const hubThread = await threadStore.create(this.resolveOwnerUserId(), hubTitle);
+    const hubThread = await threadStore.create(ownerUserId, hubTitle);
     await threadStore.updateConnectorHubState(hubThread.id, {
       v: 1,
       connectorId,
@@ -516,8 +525,31 @@ export class ConnectorRouter {
       createdAt: Date.now(),
     });
     await bindingStore.setHubThread(connectorId, externalChatId, hubThread.id);
+    socketManager?.emitToUser?.(ownerUserId, 'thread_created', {
+      threadId: hubThread.id,
+      source: 'connector_hub',
+    });
     log.info({ connectorId, externalChatId, hubThreadId: hubThread.id }, '[ConnectorRouter] Hub thread created');
     return hubThread.id;
+  }
+
+  private async resolveReusableHubThreadId(
+    binding: { hubThreadId?: string },
+    ownerUserId: string,
+    connectorId: string,
+    externalChatId: string,
+  ): Promise<string | undefined> {
+    const hubThreadId = binding.hubThreadId?.trim();
+    if (!hubThreadId) return undefined;
+    if (!this.opts.threadStore.get) return hubThreadId;
+
+    const hubThread = await this.opts.threadStore.get(hubThreadId);
+    if (!hubThread) return undefined;
+    if (hubThread.createdBy && hubThread.createdBy !== ownerUserId) return undefined;
+    if (!hubThread.connectorHubState) return undefined;
+    if (hubThread.connectorHubState.connectorId !== connectorId) return undefined;
+    if (hubThread.connectorHubState.externalChatId !== externalChatId) return undefined;
+    return hubThreadId;
   }
 
   private async storeCommandExchange(

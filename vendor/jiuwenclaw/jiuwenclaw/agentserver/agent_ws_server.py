@@ -8,7 +8,6 @@ import asyncio
 from http import HTTPStatus
 import json
 import math
-import re
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -19,17 +18,15 @@ from jiuwenclaw.utils import get_agent_sessions_dir, logger
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
 
 _ALLOWED_WS_ORIGIN_HOSTS = {"127.0.0.1", "localhost"}
-_WEBSOCKETS_SERVE_ALLOWED_ORIGINS = [
-    None,
-    re.compile(r"^https?://localhost(?::\d+)?$"),
-    re.compile(r"^https?://127\.0\.0\.1(?::\d+)?$"),
-]
+_FORBIDDEN_BODY = b"Forbidden: Origin not allowed\n"
 
 
-def _is_allowed_ws_origin(origin: str | None) -> bool:
-    """允许本机来源访问；非浏览器客户端可不带 Origin。"""
+def _is_allowed_browser_origin(
+    origin: str | None,
+) -> bool:
+    """校验浏览器 Origin 是否来自允许的本机地址。"""
     if origin is None:
-        return True
+        return False
 
     try:
         parsed = urlsplit(origin)
@@ -82,8 +79,9 @@ class AgentWebSocketServer:
 
     监听来自 Gateway (WebSocketAgentServerClient) 的连接，按协议约定处理请求：
     - 收到 JSON 载荷，字段为 AgentRequest（含 is_stream）
-    - is_stream=False：调用 IAgentServer.process_message()，返回一条完整 AgentResponse JSON
-    - is_stream=True：调用 IAgentServer.process_message_stream()，逐条返回 AgentResponseChunk JSON
+    - config.set 和 config.get调用配置设置和获取
+    - 其余 is_stream=False：调用 IAgentServer.process_message()，返回一条完整 AgentResponse JSON
+    - 其余 is_stream=True：调用 IAgentServer.process_message_stream()，逐条返回 AgentResponseChunk JSON
 
     支持 send_push：AgentServer 主动向 Gateway 推送消息（需 Gateway 预注册 agent-push 队列）。
     """
@@ -194,7 +192,7 @@ class AgentWebSocketServer:
                 self._connection_handler,
                 self._host,
                 self._port,
-                origins=_WEBSOCKETS_SERVE_ALLOWED_ORIGINS,
+                process_request=self._process_request,
                 ping_interval=self._ping_interval,
                 ping_timeout=self._ping_timeout,
             )
@@ -204,10 +202,11 @@ class AgentWebSocketServer:
             self._port,
         )
 
-    async def _process_request(self, path: str, request_headers: Any) -> Any:
-        """在握手阶段记录 Origin 校验结果，便于排查被拦截连接。"""
-        origin = request_headers.get("Origin")
-        allowed = _is_allowed_ws_origin(origin)
+    async def _process_request(self, *args: Any) -> Any:
+        """在握手阶段执行 Origin 校验，兼容 legacy/new websockets APIs。"""
+        path, request_headers = self._extract_handshake_request(args)
+        origin = self._get_header_value(request_headers, "Origin")
+        allowed = _is_allowed_browser_origin(origin)
         logger.info(
             "[AgentWebSocketServer] 握手检查 path=%s origin=%s allowed=%s",
             path,
@@ -222,11 +221,50 @@ class AgentWebSocketServer:
             path,
             origin,
         )
-        return (
-            HTTPStatus.FORBIDDEN,
-            [("Content-Type", "text/plain; charset=utf-8")],
-            b"Forbidden: Origin not allowed\n",
-        )
+        return self._http_response(HTTPStatus.FORBIDDEN, _FORBIDDEN_BODY, args)
+
+    @staticmethod
+    def _extract_handshake_request(args: tuple[Any, ...]) -> tuple[str, Any]:
+        path = ""
+        headers = None
+
+        if len(args) >= 2:
+            first, second = args[0], args[1]
+            if isinstance(first, str):
+                path = first
+                headers = second
+            else:
+                path = getattr(second, "path", "") or ""
+                headers = getattr(second, "headers", second)
+
+        return path, headers
+
+    @staticmethod
+    def _get_header_value(headers: Any, key: str) -> str | None:
+        if headers is None:
+            return None
+        get = getattr(headers, "get", None)
+        if callable(get):
+            value = get(key)
+            if value is None:
+                value = get(key.lower())
+            return str(value) if value is not None else None
+        return None
+
+    @staticmethod
+    def _http_response(status: HTTPStatus, body: bytes, process_request_args: tuple[Any, ...]) -> Any:
+        headers = [
+            ("Content-Type", "text/plain; charset=utf-8"),
+            ("Content-Length", str(len(body))),
+        ]
+
+        if process_request_args and not isinstance(process_request_args[0], str):
+            from websockets.datastructures import Headers
+            from websockets.http11 import Response
+
+            return Response(status.value, status.phrase, Headers(headers), body)
+
+        return status, headers, body
 
     async def stop(self) -> None:
         """停止 WebSocket 服务端."""
@@ -317,6 +355,16 @@ class AgentWebSocketServer:
                 else:
                     await self._handle_history_get(ws, request, send_lock)
                 return
+            if request.req_method == ReqMethod.CONFIG_SET:
+                params = request.params if isinstance(request.params, dict) else {}
+                if "config_yaml" in params:
+                    await self._handle_config_yaml_set(ws, request, send_lock)
+                    return
+            if request.req_method == ReqMethod.CONFIG_GET:
+                params = request.params if isinstance(request.params, dict) else {}
+                if "config_paths" in params:
+                    await self._handle_config_yaml_get(ws, request, send_lock)
+                    return
             if request.is_stream:
                 await self._handle_stream(ws, request, send_lock)
             else:
@@ -337,6 +385,36 @@ class AgentWebSocketServer:
                 await ws.send(
                     json.dumps(_response_to_payload(error_resp), ensure_ascii=False)
                 )
+
+    async def _handle_config_yaml_set(self, ws: Any, request: AgentRequest, send_lock: asyncio.Lock) -> None:
+        """config.set + params.config_yaml：设置配置。"""
+        t0 = time.monotonic()
+        resp = await self._agent.apply_runtime_config_yaml(request)
+        payload = _response_to_payload(resp)
+        async with send_lock:
+            await ws.send(json.dumps(payload, ensure_ascii=False))
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "[AgentWebSocketServer] config_yaml.set 响应已发送 request_id=%s ok=%s elapsed_ms=%s",
+            request.request_id,
+            getattr(resp, "ok", True),
+            elapsed_ms,
+        )
+
+    async def _handle_config_yaml_get(self, ws: Any, request: AgentRequest, send_lock: asyncio.Lock) -> None:
+        """config.get + params.config_paths：获取配置。"""
+        t0 = time.monotonic()
+        resp = await self._agent.get_runtime_config_subtrees(request)
+        payload = _response_to_payload(resp)
+        async with send_lock:
+            await ws.send(json.dumps(payload, ensure_ascii=False))
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "[AgentWebSocketServer] config_yaml.get 响应已发送 request_id=%s ok=%s elapsed_ms=%s",
+            request.request_id,
+            getattr(resp, "ok", True),
+            elapsed_ms,
+        )
 
     async def _handle_unary(self, ws: Any, request: AgentRequest, send_lock: asyncio.Lock) -> None:
         """非流式处理：调用 process_message，返回一条完整 AgentResponse."""

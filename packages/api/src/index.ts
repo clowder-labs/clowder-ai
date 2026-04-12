@@ -239,6 +239,16 @@ async function main(): Promise<void> {
     done();
   });
 
+  // Global error handler — catches unhandled route errors
+  app.setErrorHandler((error, request, reply) => {
+    const statusCode = error.statusCode ?? 500;
+    app.log.error({ err: error, method: request.method, url: request.url, statusCode }, 'unhandled route error');
+    reply.status(statusCode).send({
+      error: statusCode >= 500 ? 'Internal Server Error' : error.message,
+      statusCode,
+    });
+  });
+
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
@@ -315,17 +325,17 @@ async function main(): Promise<void> {
         const catConfig = catRegistry.tryGet(catId)?.config;
         if (catConfig?.provider === 'anthropic' || catConfig?.provider === 'opencode') {
           const boundAccountRef = resolveBoundAccountRefForCat(
-              projectRoot,
-              catId,
-              catConfig as CatConfig & { providerProfileId?: string },
+            projectRoot,
+            catId,
+            catConfig as CatConfig & { providerProfileId?: string },
           );
           const runtime = await resolveRuntimeProviderProfileForClient(
-              projectRoot,
-              catConfig.provider,
-              boundAccountRef,
+            projectRoot,
+            catConfig.provider,
+            boundAccountRef,
           );
           if (!runtime?.apiKey) return null;
-          return {apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || process.env.ANTHROPIC_API_BASE_URL!};
+          return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || process.env.ANTHROPIC_API_BASE_URL! };
         }
 
         const runtime = await resolveAnthropicRuntimeProfile(projectRoot);

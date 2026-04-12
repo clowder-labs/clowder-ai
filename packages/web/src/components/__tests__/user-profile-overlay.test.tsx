@@ -325,6 +325,42 @@ describe('UserProfile overlay classes', () => {
     );
   });
 
+  it('shows security management before version update and keeps the panel open on click', async () => {
+    act(() => {
+      root.render(React.createElement(UserProfile));
+    });
+    await flush();
+
+    const toggle = container.querySelector('[data-testid="user-profile-toggle"]') as HTMLButtonElement | null;
+    expect(toggle).toBeTruthy();
+
+    act(() => {
+      toggle?.click();
+    });
+    await flush();
+
+    const actions = container.querySelector('[data-testid="user-profile-content-actions"]');
+    expect(actions).toBeTruthy();
+
+    const actionButtons = actions ? Array.from(actions.querySelectorAll('button')) : [];
+    const securityButton = actionButtons.find((button) => button.textContent?.includes('安全管理'));
+    const versionButton = actionButtons.find((button) => button.textContent?.includes('版本更新'));
+
+    expect(securityButton).toBeTruthy();
+    expect(versionButton).toBeTruthy();
+    expect(actionButtons.indexOf(securityButton as HTMLButtonElement)).toBeLessThan(
+      actionButtons.indexOf(versionButton as HTMLButtonElement),
+    );
+
+    act(() => {
+      securityButton?.click();
+    });
+    await flush();
+
+    expect(container.querySelector('[data-testid="user-profile-panel"]')).toBeTruthy();
+    expect(mockWindowOpen).not.toHaveBeenCalled();
+  });
+
    it('shows usage stats above version update and opens the usage modal', async () => {
  	     act(() => {
  	       root.render(React.createElement(UserProfile));

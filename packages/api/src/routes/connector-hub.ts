@@ -16,11 +16,13 @@ import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/Co
 import type { WeixinAdapter } from '../infrastructure/connectors/adapters/WeixinAdapter.js';
 import type { IConnectorPermissionStore } from '../infrastructure/connectors/ConnectorPermissionStore.js';
 import { DefaultFeishuQrBindClient, type FeishuQrBindClient } from '../infrastructure/connectors/FeishuQrBindClient.js';
+import { resolveFeishuOpenApiBaseUrl, resolveFeishuOpenBaseUrl } from '../infrastructure/connectors/feishu-open-platform.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 
 const DINGTALK_API_BASE_URL = process.env.DINGTALK_API_BASE_URL!;
 const DINGTALK_OPEN_URL = process.env.DINGTALK_OPEN_URL!;
-const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
+const FEISHU_OPEN_BASE_URL = resolveFeishuOpenBaseUrl();
+const FEISHU_OPEN_API_BASE_URL = resolveFeishuOpenApiBaseUrl();
 const WEIXIN_CHATBOT_URL = process.env.WEIXIN_CHATBOT_URL!;
 const HUAWEI_DEVELOPER_URL = process.env.HUAWEI_DEVELOPER_URL!;
 
@@ -94,9 +96,7 @@ export const CONNECTOR_PLATFORMS: PlatformDef[] = [
     name: '飞书',
     nameEn: 'Feishu / Lark',
     fields: [],
-    docsUrl:
-      FEISHU_OPEN_API_BASE_URL +
-      '/document/home/introduction-to-custom-app-development/self-built-application-development-process',
+    docsUrl: FEISHU_OPEN_BASE_URL + '/document/home/introduction-to-custom-app-development/self-built-application-development-process',
     steps: [
       { text: '点击「生成二维码」按钮' },
       { text: '使用飞书扫描二维码并确认授权' },
@@ -299,6 +299,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         envFilePath: opts.envFilePath,
         reconciler: opts.connectorRuntimeManager,
       });
+      await opts.connectorRuntimeManager?.setOwnerUserId?.(userId);
       return { status: 'confirmed', ...(result.runtime ? { runtime: result.runtime } : {}) };
     } catch (err) {
       app.log.error({ err }, '[Feishu QR] Failed to poll QR status');
@@ -524,6 +525,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
           opts.weixinAdapter?.setBotToken(status.botToken);
           opts.startWeixinPolling?.();
         }
+        await opts.connectorRuntimeManager?.setOwnerUserId?.(userId);
         app.log.info('[WeChat QR] Auto-activated — bot_token set server-side, polling started');
         return { status: 'confirmed' };
       }
@@ -552,6 +554,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
     }
 
     opts.startWeixinPolling?.();
+    await opts.connectorRuntimeManager?.setOwnerUserId?.(userId);
     app.log.info('[WeChat QR] Manual activate — polling started');
 
     return { ok: true, polling: adapter.isPolling() };
