@@ -20,14 +20,25 @@ interface VersionRoutesOptions {
   projectRoot?: string;
 }
 
-function getPackageVersion(projectRoot: string): string {
-  const pkgPath = resolve(projectRoot, 'package.json');
+const DEFAULT_VERSION = '0.1.0';
+
+function readVersionFromJsonFile(filePath: string): string | null {
   try {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
-    return pkg.version ?? 'unknown';
+    const parsed = JSON.parse(readFileSync(filePath, 'utf-8'));
+    return typeof parsed?.version === 'string' && parsed.version.trim().length > 0 ? parsed.version.trim() : null;
   } catch {
-    return 'unknown';
+    return null;
   }
+}
+
+function getCurrentVersion(projectRoot: string): string {
+  const packageVersion = readVersionFromJsonFile(resolve(projectRoot, 'package.json'));
+  if (packageVersion) return packageVersion;
+
+  const releaseVersion = readVersionFromJsonFile(resolve(projectRoot, '.clowder-release.json'));
+  if (releaseVersion) return releaseVersion;
+
+  return DEFAULT_VERSION;
 }
 
 const HUAWEI_CLAW_VERSION_URL = process.env.HUAWEI_CLAW_URL! + "/v1/claw/client-latest-version";
@@ -36,7 +47,7 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
   const projectRoot = opts.projectRoot ?? resolveActiveProjectRoot();
 
   app.get('/api/curversion', async () => {
-    const version = getPackageVersion(projectRoot);
+    const version = getCurrentVersion(projectRoot);
     return {
       version,
       name: '@cat-cafe/api',
@@ -46,7 +57,7 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
 
   app.get('/api/lastversion', async (request) => {
     console.log('projectRoot:', projectRoot);
-    const curversion = getPackageVersion(projectRoot) ?? '0.1.0';
+    const curversion = getCurrentVersion(projectRoot);
     try {
       const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
       if (!userId) {

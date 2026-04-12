@@ -443,7 +443,7 @@ export function SkillDetailView({
                 <div className="min-w-0 flex-1 flex flex-col gap-1">
                   <OverflowTooltip content={resolvedTitle} className="w-full">
                     <h2
-                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]"
+                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[20px] font-semibold leading-[30px] text-[var(--text-primary)]"
                       data-testid="skill-detail-title"
                     >
                       {resolvedTitle}
