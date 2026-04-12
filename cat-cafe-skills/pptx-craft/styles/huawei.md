@@ -5,7 +5,7 @@
 ### 写在前面：
 
 - 观点在标题上，简短语句表达
-- 每页传递观点三点以内
+- 每页核心观点 3-6 个，每个观点需有具体数据或案例支撑
 - 中文字体：微软雅黑，英文字体：Arial
 - 字号三种以内
 - 决不允许出现动画
@@ -26,6 +26,7 @@
 
 - **标题**：一句话概括核心观点（推荐类型：总结型/方案型/求助型/规划型）
 - **正文**：3-5 个支撑要点，每个要点有具体说明和数据支撑
+- **卡片充实**：每个卡片组件必须包含标题 + 关键数据/指标 + 简要说明，禁止只有标题没有内容的"空壳卡片"
 - **数据支撑**：关键观点需有数据、案例或图表佐证，避免纯文字堆砌
 - **视觉辅助**：使用架构图、流程图、数据图表增强信息传达效率
 
@@ -40,7 +41,7 @@
 
 #### 单页内容量建议
 
-- **最少内容**：至少包含 1 个核心观点 + 3 个支撑要点 + 1 个数据/图表
+- **最少内容**：至少包含 1 个核心观点 + 4 个支撑要点 + 1 个数据/图表，每个要点需有具体说明（非纯标题）
 - **适中内容**：1 个核心观点 + 4-5 个支撑要点 + 2-3 个数据/图表
 - **最大内容**：不超过 6 个支撑要点，避免信息过载，复杂内容拆分为多页
 
@@ -87,11 +88,15 @@
 
 ### 文本与段落样式
 
-- **页面标题**：**32px**（CSS 类名：`.page-title`）
-  - 一级标题/卡片标题：**20px**（CSS 类名：`.text-primary`）
-  - 二级标题/内容文本：**18px**（CSS 类名：`.text-secondary`）
-  - 正文文本：**16px**（CSS 类名：`.text-body`）
-  - 辅助文本（图注、角标等）：**13px**（CSS 类名：`.text-auxiliary`）
+**字体大小定义（Tailwind CSS 类）**：
+
+直接使用 Tailwind 任意值类名，无需扩展配置：
+
+- **页面标题**：`class="text-[35px]"`（35px）
+- **一级标题/卡片标题**：`class="text-[23px]"`（23px）
+- **二级标题/内容文本**：`class="text-[21px]"`（21px）
+- **正文文本**：`class="text-[19px]"`（19px）
+- **辅助文本（图注、角标等）**：`class="text-[16px]"`（16px）
 
 - **行距规范**：
 
@@ -116,7 +121,7 @@
   - 结合卡片使用时，需调整边距，不使用项目符号和编号时，左右边距保持一致常用 12、18、24 像素
   - 使用项目符号和编号时，通常左边距少于右边距 6 像素
   - 灵活调整上边距从而调整内容在卡片中的位置
-  - 结合文本规范，内容较多时，大段文字不建议使用 20px 或更大的字号
+  - 结合文本规范，内容较多时，大段文字不建议使用 19px 或更大的字号
 
 ---
 
@@ -130,8 +135,8 @@
 ├─────────────────────────────────────────────────────────┤
 │ [标题栏] 高度 90px                                       │
 │  ├─ 红色指示条 (4px × 30px)                             │
-│  ├─ 主标题 (32px 加粗)                                  │
-│  ├─ 英文副标题 (16px 灰色)                              │
+│  ├─ 主标题 (35px 加粗)                                  │
+│  ├─ 英文副标题 (19px 灰色)                              │
 │  └─ 页码 (右对齐)                                        │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
@@ -194,9 +199,9 @@
 - **样式**：高度 90px，白色背景，底部灰色边框
 - **元素**：
   - 红色指示条：4px × 30px
-  - 主标题：32px，黑色，加粗
-  - 英文副标题：16px，灰色
-  - 页码：16px，灰色，右对齐
+  - 主标题：35px，黑色，加粗
+  - 英文副标题：19px，灰色
+  - 页码：19px，灰色，右对齐
 - **技术实现**：
 
 ```html
@@ -204,9 +209,9 @@
   class="w-full h-[90px] bg-white border-b border-huaweiGray4 flex items-center px-8 gap-3"
 >
   <div class="w-[4px] h-[30px] bg-huaweiRed"></div>
-  <span class="page-title font-bold text-black">页面标题</span>
-  <span class="text-body text-huaweiGray1 ml-1">Page Title</span>
-  <span class="ml-auto text-body text-huaweiGray3">01</span>
+  <span class="text-[35px] font-bold text-black">页面标题</span>
+  <span class="text-[19px] text-huaweiGray1 ml-1">Page Title</span>
+  <span class="ml-auto text-[19px] text-huaweiGray3">01</span>
 </div>
 ```
 
@@ -215,16 +220,16 @@
 - **样式**：红色背景 (`#c7020e`)，白色文字，固定宽度 130px
 - **用途**：页面左侧或顶部导航，标识层级名称
 - **元素**：
-  - 中文标题：20px，白色，加粗
-  - 英文副标题：16px，白色/70%透明度
+  - 中文标题：19px，白色，加粗
+  - 英文副标题：15px，白色/70%透明度
 - **技术实现**：
 
 ```html
 <div
   class="w-[130px] bg-huaweiRed flex flex-col justify-center pl-3 flex-shrink-0"
 >
-  <span class="text-primary text-white font-bold">触点</span>
-  <span class="text-body text-white/70 mt-0.5">Touchpoints</span>
+  <span class="text-[23px] text-white font-bold">触点</span>
+  <span class="text-[19px] text-white/70 mt-0.5">Touchpoints</span>
 </div>
 ```
 
@@ -233,17 +238,25 @@
 - **样式**：白色背景，灰色边框 (`#d9d9d9`)，左侧 4px 红色边框
 - **用途**：展示关键数据、功能模块、应用系统
 - **元素**：
-  - 主标题：18px，黑色
-  - 英文副标题：16px，灰色
+  - 主标题：17px，黑色，加粗
+  - 英文副标题：12px，灰色
+  - 关键指标：19px，红色，加粗（展示核心数据）
+  - 增长/对比：12px，灰色（辅助数据说明）
+  - 简要说明：12px，黑色/80%透明度（一行概括功能或成果）
 - **技术实现**：
 
 ```html
 <div
   class="bg-white border border-huaweiGray4 border-l-[4px] border-l-huaweiRed
-            flex flex-col justify-center pl-2.5"
+            flex flex-col justify-start pl-3 py-2.5"
 >
-  <span class="text-secondary">营销管理系统</span>
-  <span class="text-body text-huaweiGray1 mt-0.5">Marketing Mgmt</span>
+  <span class="text-[21px] font-bold">营销管理系统</span>
+  <span class="text-[16px] text-huaweiGray1 mt-0.5">Marketing Mgmt</span>
+  <div class="mt-2 flex items-baseline gap-2">
+    <span class="text-[23px] font-bold text-huaweiRed">DAU 12.8万</span>
+    <span class="text-[16px] text-huaweiGray1">↑15% 同比增长</span>
+  </div>
+  <p class="text-[16px] mt-1.5 text-black/80">覆盖全渠道营销自动化，支持 200+ 营销场景</p>
 </div>
 ```
 
@@ -251,21 +264,21 @@
 
 - **样式**：灰色边框 (`#bfbfbf`)，浅灰背景 (`#f2f2f2`)，黑色文字
 - **用途**：分类标签、状态标识
-- **技术实现**：`<span class="border border-huaweiGray3 bg-huaweiGray5 px-2 py-1 text-body">标签</span>`
+- **技术实现**：`<span class="border border-huaweiGray3 bg-huaweiGray5 px-2 py-1 text-[19px]">标签</span>`
 
 ### 6. 红色标签
 
 - **样式**：红色边框 (`#c7020e`)，浅红背景 (`#fff1ef`)，红色文字
 - **用途**：强调标签、关键指标、重要状态
-- **技术实现**：`<span class="border border-huaweiRed bg-huaweiRedBg text-huaweiRed px-2 py-1 text-body">标签</span>`
+- **技术实现**：`<span class="border border-huaweiRed bg-huaweiRedBg text-huaweiRed px-2 py-1 text-[19px]">标签</span>`
 
 ### 7. 数据表格
 
 - **样式**：白色背景，灰色边框，表头红色背景
 - **用途**：数据对比、指标展示
 - **元素**：
-  - 表头：红色背景，白色文字，16px（`.text-body`）
-  - 数据行：白色背景，黑色/红色文字，18px（`.text-secondary`）
+  - 表头：红色背景，白色文字，15px（`.text-[19px]`）
+  - 数据行：白色背景，黑色/红色文字，17px（`.text-[21px]`）
   - 强调数据：红色加粗
 - **技术实现**：使用 flex 或 table 布局，边框统一使用 `#d9d9d9`
 
@@ -274,12 +287,36 @@
 - **样式**：白色背景，灰色边框，标题居中或左对齐
 - **用途**：数据可视化展示
 - **集成**：使用 ECharts 实现柱状图、折线图、饼图等
+- **图表颜色规范（强制）**：
+  - 坐标轴标签 (`axisLabel.color`)：使用 `#2B2D42` (深色) 或 `#000000` (黑色)
+  - 图例文字 (`textStyle.color`)：使用 `#2B2D42` 或 `#000000`
+  - 数据标签 (`label.color`)：使用 `#2B2D42`、`#000000` 或 `#c7020e` (华为红)
+  - 分割线 (`splitLine.lineStyle.color`)：使用 `#d9d9d9` (华为灰 4)
+  - **禁止**在图表中使用 `#a6a6a6` (华为灰 2) 或更淡的灰色作为文字颜色
 - **技术实现**：
 
 ```html
-<div class="border border-huaweiGray4 bg-white p-3">
-  <div id="chart-id" style="width: 100%; height: 240px;"></div>
+<div class="border border-huaweiGray4 bg-white p-3 flex flex-col overflow-hidden">
+  <div id="chart-id" class="flex-1 min-h-0 w-full"></div>
 </div>
+```
+
+**ECharts 颜色配置示例**：
+
+```javascript
+chart.setOption({
+  xAxis: {
+    axisLabel: { fontSize: 12, color: '#2B2D42' },  // ✅ 深色文字
+    // axisLabel: { color: '#a6a6a6' },  // ❌ 禁止浅灰色
+  },
+  yAxis: {
+    axisLabel: { fontSize: 12, color: '#2B2D42' },
+    splitLine: { lineStyle: { color: '#d9d9d9' } },  // ✅ 分割线可用灰色
+  },
+  series: [{
+    label: { color: '#c7020e' },  // ✅ 数据标签用华为红
+  }]
+});
 ```
 
 ### 9. 时间线节点
@@ -320,7 +357,7 @@
 - **禁止使用太淡的灰色文字**：正文和主要注释必须使用黑色或深色文字，确保可读性。`#a6a6a6` (华为灰 2) 及以上淡色只能用于非必要的装饰性元素；如需使用灰色文字，建议使用 `#8c8c8c` (华为灰 1) 且仅用于页码、英文副标题等辅助信息
 - 强调类文字、标题、强调类线框可酌情使用红色；部分架构图，为区分内容可使用红色系，配色强调主要部分。不建议大量使用红色，易造成页面混乱
 - **禁止使用渐变和阴影**：所有页面（除封面页、目录页、过渡页、尾页外）都禁止使用渐变和阴影效果
-- **禁止使用黑色背景**：所有页面必须使用浅色背景（白色或浅灰色），严禁使用纯黑或深色背景
+- **图表文字禁止浅灰色**：ECharts 图表中的坐标轴标签、图例文字、数据标签等所有文字元素必须使用黑色 (`#2B2D42` 或 `#000000`) 或华为红 (`#c7020e`)，禁止使用浅灰色（`#a6a6a6` 及更淡）作为图表文字颜色。图表网格线/分割线可使用 `#d9d9d9` (华为灰 4)
 
 ### 配色参考与 Tailwind 映射
 
@@ -350,7 +387,6 @@
 
 - **优先使用 Flexbox/Grid 布局**，避免绝对定位导致的重叠问题
 - 使用 12 列或 24 列网格系统，元素对齐到网格线，保持整齐
-- 绝对定位需配合 `position: relative` 的父容器
 
 ---
 
@@ -361,7 +397,7 @@
 - 内容区有效区域尺寸为 **1200×640px**（1280×720 页面减去左右各 40px 边距）
 - 上下灰色区域，为拓展内容区域，以适应因内容过多的特殊情况，内容上下高度不应超出这个区域。
 - 当内容量极多，灰色区域不足以排列完整内容时，可将内容区横向拓宽。灰色内容区域左右边距依然应保持一致，标题位置应相应调整位置，左对齐内容区域。
-- 当内容量极少时，合理排列元素，保持整体视觉居中，标题位置保持不变。
+- 当内容量不足以填满内容区域时，应优先补充支撑数据、案例说明或图表，使内容充实；仅在特殊强调页面（如金句页、总结页）才使用居中留白。
 
 ---
 
@@ -378,7 +414,7 @@
 
 ### 视觉规范
 
-- [ ] 字号符合规范（页面标题 32px，一级标题 20px，二级标题 18px，正文 16px，辅助 13px）
+- [ ] 字号符合规范（页面标题 35px，一级标题 23px，二级标题 21px，正文 19px，辅助 16px）
 - [ ] 行距设置为 1.5 倍
 - [ ] 颜色使用正确（黑色正文，红色强调，灰色辅助）
 - [ ] 所有元素使用直角，无圆角
