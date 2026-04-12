@@ -312,6 +312,36 @@ test('falls back to defaults for invalid sandbox/approval env values', async () 
   }
 });
 
+test('forces workspace-write sandbox when workingDirectory is provided', async () => {
+  const oldSandbox = process.env.CAT_CODEX_SANDBOX_MODE;
+  process.env.CAT_CODEX_SANDBOX_MODE = 'danger-full-access';
+
+  try {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new CodexAgentService({ spawnFn });
+
+    const promise = collect(
+      service.invoke('workspace constrained', {
+        workingDirectory: process.cwd(),
+      }),
+    );
+    emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'thread-workspace-sandbox' }]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const sandboxFlagIndex = args.indexOf('--sandbox');
+    assert.ok(sandboxFlagIndex >= 0, 'sandbox flag should be present');
+    assert.equal(args[sandboxFlagIndex + 1], 'workspace-write');
+  } finally {
+    if (oldSandbox === undefined) {
+      delete process.env.CAT_CODEX_SANDBOX_MODE;
+    } else {
+      process.env.CAT_CODEX_SANDBOX_MODE = oldSandbox;
+    }
+  }
+});
+
 test('new session includes --add-dir .git for git write access', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

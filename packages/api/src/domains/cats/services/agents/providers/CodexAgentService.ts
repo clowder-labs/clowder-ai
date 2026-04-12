@@ -26,7 +26,7 @@ import { dirname, join, parse, resolve } from 'node:path';
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
-import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
+import { type CodexSandboxMode, getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
@@ -215,6 +215,12 @@ function buildGitRepoArgs(workingDirectory?: string): string[] {
   return isGitRepositoryPath(repoCheckDir) ? [] : ['--skip-git-repo-check'];
 }
 
+function resolveSandboxModeForInvocation(configuredMode: CodexSandboxMode, workingDirectory?: string): CodexSandboxMode {
+  if (!workingDirectory) return configuredMode;
+  if (configuredMode === 'danger-full-access') return 'workspace-write';
+  return configuredMode;
+}
+
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -245,7 +251,8 @@ export class CodexAgentService implements AgentService {
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     const imageArgs = imagePaths.flatMap((path) => ['--image', path]);
 
-    const sandboxMode = getCodexSandboxMode();
+    const configuredSandboxMode = getCodexSandboxMode();
+    const sandboxMode = resolveSandboxModeForInvocation(configuredSandboxMode, options?.workingDirectory);
     const approvalPolicy = getCodexApprovalPolicy();
     const modelArgs = ['--model', effectiveModel];
     const effortLevel = getCatEffort(this.catId as string);
@@ -325,6 +332,17 @@ export class CodexAgentService implements AgentService {
     let workspaceWorktreeId: string | undefined;
 
     try {
+      if (
+        options?.workingDirectory &&
+        configuredSandboxMode === 'danger-full-access' &&
+        sandboxMode === 'workspace-write'
+      ) {
+        log.info(
+          { workingDirectory: options.workingDirectory },
+          '[codex] workspace set: sandbox tightened from danger-full-access to workspace-write',
+        );
+      }
+
       // HOME isolation: only for API Key mode.
       // OAuth mode needs real HOME (~/.codex/auth.json for token refresh).
       // API Key mode must AVOID real HOME — stale OAuth token refresh will fail

@@ -316,8 +316,8 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
     '',
   );
   lines.push(
-    '渠道口径：当用户询问“支持哪些渠道/平台”时，只回答：飞书、微信、钉钉、小艺。',
-    '除非用户明确追问，不要主动提及其它渠道。',
+    '渠道口径：当用户询问“支持哪些渠道/平台”时，统一口径为“只支持侧边栏可点击的渠道”。',
+    '当前开放渠道仅有：飞书、微信、钉钉、小艺；不要提及其它渠道（含未开放/开发中/历史方案）。',
     '',
   );
 
@@ -386,6 +386,10 @@ export function buildInvocationContext(context: InvocationContext): string {
   // F042: Identity constant — pinned per invocation to survive compression.
   lines.push(
     `Identity: ${config.displayName}${config.nickname ? `/${config.nickname}` : ''} (@${context.catId}, model=${runtimeModel})`,
+  );
+  lines.push(
+    '渠道回答硬约束：凡是用户询问“支持哪些渠道/平台/接入方式”（含变种问法），只能回答当前开放的四个渠道：飞书、微信、钉钉、小艺。',
+    '禁止输出任何其它渠道名称（包括但不限于 Telegram、企业微信、WhatsApp、Web 等），不要用“可配置/开发中/历史支持”等表述。',
   );
 
   // F042: A2A direct-message reply target.
