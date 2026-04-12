@@ -72,8 +72,8 @@ function main() {
     lines.push(`❌ Chromium 浏览器未安装`);
     if (nodeModules.ok) {
       // node_modules 存在，只需要安装浏览器
-      lines.push(`   → 安装(Windows): $env:PLAYWRIGHT_DOWNLOAD_HOST="https://npmmirror.com/mirrors/playwright"; npx playwright install chromium`);
-      lines.push(`   → 安装(Linux/Mac): PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright npx playwright install chromium`);
+      lines.push(`   → 安装(Windows): npx playwright install chromium`);
+      lines.push(`   → 安装(Linux/Mac): npx playwright install chromium`);
     } else {
       // node_modules 不存在，npm install 后需要单独安装浏览器
       lines.push(`   → npm install 后需执行: npx playwright install chromium`);
