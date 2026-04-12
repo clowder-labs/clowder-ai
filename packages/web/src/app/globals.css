@@ -1480,22 +1480,11 @@ select:-webkit-autofill:focus {
     color: #595959;
   }
 
-  .ui-content-header-feedback-score-active-warning {
-    border-color: #e9cf8f;
-    background: #ffeebf;
-    color: #7d6305;
-  }
-
-  .ui-content-header-feedback-score-active-negative {
-    border-color: #f09a8f;
-    background: #f7a195;
-    color: #7b1f12;
-  }
-
-  .ui-content-header-feedback-score-active-positive {
-    border-color: #60d36f;
-    background: #60d36f;
-    color: #0f3f16;
+  .ui-content-header-feedback-score-selected,
+  .ui-content-header-feedback-score-selected:hover {
+    border-color: transparent;
+    background: transparent;
+    color: inherit;
   }
 
   .ui-content-header-feedback-popover-arrow {
