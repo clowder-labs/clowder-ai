@@ -82,8 +82,9 @@ class AgentWebSocketServer:
 
     监听来自 Gateway (WebSocketAgentServerClient) 的连接，按协议约定处理请求：
     - 收到 JSON 载荷，字段为 AgentRequest（含 is_stream）
-    - is_stream=False：调用 IAgentServer.process_message()，返回一条完整 AgentResponse JSON
-    - is_stream=True：调用 IAgentServer.process_message_stream()，逐条返回 AgentResponseChunk JSON
+    - config.set 和 config.get调用配置设置和获取
+    - 其余 is_stream=False：调用 IAgentServer.process_message()，返回一条完整 AgentResponse JSON
+    - 其余 is_stream=True：调用 IAgentServer.process_message_stream()，逐条返回 AgentResponseChunk JSON
 
     支持 send_push：AgentServer 主动向 Gateway 推送消息（需 Gateway 预注册 agent-push 队列）。
     """
@@ -317,6 +318,16 @@ class AgentWebSocketServer:
                 else:
                     await self._handle_history_get(ws, request, send_lock)
                 return
+            if request.req_method == ReqMethod.CONFIG_SET:
+                params = request.params if isinstance(request.params, dict) else {}
+                if "config_yaml" in params:
+                    await self._handle_config_yaml_set(ws, request, send_lock)
+                    return
+            if request.req_method == ReqMethod.CONFIG_GET:
+                params = request.params if isinstance(request.params, dict) else {}
+                if "config_paths" in params:
+                    await self._handle_config_yaml_get(ws, request, send_lock)
+                    return
             if request.is_stream:
                 await self._handle_stream(ws, request, send_lock)
             else:
@@ -337,6 +348,36 @@ class AgentWebSocketServer:
                 await ws.send(
                     json.dumps(_response_to_payload(error_resp), ensure_ascii=False)
                 )
+
+    async def _handle_config_yaml_set(self, ws: Any, request: AgentRequest, send_lock: asyncio.Lock) -> None:
+        """config.set + params.config_yaml：设置配置。"""
+        t0 = time.monotonic()
+        resp = await self._agent.apply_runtime_config_yaml(request)
+        payload = _response_to_payload(resp)
+        async with send_lock:
+            await ws.send(json.dumps(payload, ensure_ascii=False))
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "[AgentWebSocketServer] config_yaml.set 响应已发送 request_id=%s ok=%s elapsed_ms=%s",
+            request.request_id,
+            getattr(resp, "ok", True),
+            elapsed_ms,
+        )
+
+    async def _handle_config_yaml_get(self, ws: Any, request: AgentRequest, send_lock: asyncio.Lock) -> None:
+        """config.get + params.config_paths：获取配置。"""
+        t0 = time.monotonic()
+        resp = await self._agent.get_runtime_config_subtrees(request)
+        payload = _response_to_payload(resp)
+        async with send_lock:
+            await ws.send(json.dumps(payload, ensure_ascii=False))
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        logger.info(
+            "[AgentWebSocketServer] config_yaml.get 响应已发送 request_id=%s ok=%s elapsed_ms=%s",
+            request.request_id,
+            getattr(resp, "ok", True),
+            elapsed_ms,
+        )
 
     async def _handle_unary(self, ws: Any, request: AgentRequest, send_lock: asyncio.Lock) -> None:
         """非流式处理：调用 process_message，返回一条完整 AgentResponse."""

@@ -518,7 +518,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                 if (sealOk) {
                   // Must finalize to write transcript + digest to disk,
                   // otherwise session recall tools get 404 (no data on disk).
-                  deps.sessionSealer.finalize({ sessionId: activeRec.id }).catch(() => {});
+                  deps.sessionSealer.finalize({ sessionId: activeRec.id }).catch((err: unknown) => {
+                    log.error({ err, sessionId: activeRec.id }, 'session finalize failed — recall will 404');
+                  });
                 }
               } catch {
                 /* best-effort seal */
@@ -1143,7 +1145,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                     });
                     sealAccepted = result.accepted;
                     if (sealAccepted) {
-                      deps.sessionSealer.finalize({ sessionId: existing.id }).catch(() => {});
+                      deps.sessionSealer.finalize({ sessionId: existing.id }).catch((err: unknown) => {
+                        log.error({ err, sessionId: existing.id }, 'session finalize failed — recall will 404');
+                      });
                     }
                   } catch {
                     /* best-effort seal */
@@ -1419,7 +1423,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                               }),
                               timestamp: Date.now(),
                             });
-                            deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
+                            deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch((err: unknown) => {
+                              log.error({ err, sessionId: activeRecord.id }, 'session finalize failed — recall will 404');
+                            });
                           }
                         }
                         break;

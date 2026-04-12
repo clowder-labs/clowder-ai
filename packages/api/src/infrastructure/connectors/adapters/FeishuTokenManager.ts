@@ -4,13 +4,15 @@
  *
  */
 
+import { resolveFeishuOpenApiBaseUrl } from '../feishu-open-platform.js';
+
 export interface FeishuTokenManagerOptions {
   readonly appId: string;
   readonly appSecret: string;
   readonly fetchFn?: typeof fetch;
 }
 
-const FEISHU_OPEN_API_BASE_URL = process.env.FEISHU_OPEN_API_BASE_URL!;
+const FEISHU_OPEN_API_BASE_URL = resolveFeishuOpenApiBaseUrl();
 
 export class FeishuTokenManager {
   private cachedToken: string | undefined;

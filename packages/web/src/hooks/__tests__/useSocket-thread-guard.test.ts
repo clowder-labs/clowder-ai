@@ -124,8 +124,16 @@ import { type SocketCallbacks, useSocket } from '../useSocket';
 /**
  * Minimal wrapper component to mount the useSocket hook with controlled threadId.
  */
-function HookWrapper({ callbacks, threadId }: { callbacks: SocketCallbacks; threadId: string }) {
-  useSocket(callbacks, threadId);
+function HookWrapper({
+  callbacks,
+  threadId,
+  watchedThreadIds,
+}: {
+  callbacks: SocketCallbacks;
+  threadId: string;
+  watchedThreadIds?: string[];
+}) {
+  useSocket(callbacks, threadId, watchedThreadIds);
   return null;
 }
 
@@ -619,6 +627,31 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     const joinedRooms = emitMock.mock.calls.filter(([event]) => event === 'join_room').map(([, room]) => room);
 
     expect(new Set(joinedRooms)).toEqual(new Set(['thread:thread-A', 'thread:thread-B']));
+  });
+
+  it('rejoins watched background thread rooms on connect', () => {
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(
+        React.createElement(HookWrapper, {
+          callbacks,
+          threadId: 'thread-B',
+          watchedThreadIds: ['thread-A', 'thread-C', 'thread-B'],
+        }),
+      );
+    });
+
+    const emitMock = mockSocket.emit as unknown as ReturnType<typeof vi.fn>;
+    emitMock.mockClear();
+
+    act(() => {
+      simulateServerEvent('connect', undefined);
+    });
+
+    const joinedRooms = emitMock.mock.calls.filter(([event]) => event === 'join_room').map(([, room]) => room);
+
+    expect(new Set(joinedRooms)).toEqual(new Set(['thread:thread-A', 'thread:thread-B', 'thread:thread-C']));
   });
 
   it('thread_summary from OTHER thread is silently dropped (cross-thread leakage guard)', () => {

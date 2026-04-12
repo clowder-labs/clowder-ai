@@ -162,6 +162,25 @@ describe('ConnectorRouter', () => {
     }
   });
 
+  it('uses defaultUserIdResolver for new bindings when no binding exists', async () => {
+    const routerWithResolver = new ConnectorRouter({
+      bindingStore,
+      dedup,
+      messageStore,
+      threadStore,
+      invokeTrigger: trigger,
+      socketManager,
+      defaultUserIdResolver: () => 'resolved-owner',
+      defaultUserId: 'owner-1',
+      defaultCatId: 'opus',
+      log: noopLog(),
+    });
+
+    await routerWithResolver.route('weixin', 'chat-resolver', 'hello', 'ext-resolver-1');
+    assert.equal(messageStore.messages[0].userId, 'resolved-owner');
+    assert.equal(trigger.calls[0].userId, 'resolved-owner');
+  });
+
   it('posts message to message store with ConnectorSource', async () => {
     await router.route('feishu', 'chat-123', 'Hello', 'ext-1');
     assert.equal(messageStore.messages.length, 1);
@@ -577,6 +596,84 @@ describe('ConnectorRouter', () => {
 
       const binding = bindingStore.getByExternal('feishu', 'chat-reuse');
       assert.equal(binding.hubThreadId, hubThreadId);
+    });
+
+    it('emits thread_created when Hub thread is first created', async () => {
+      bindingStore.bind('feishu', 'chat-hub-refresh', 'thread-conv-refresh', 'owner-1');
+      const hubSocket = mockSocketManager();
+      const hubRouter = new ConnectorRouter({
+        bindingStore,
+        dedup: new InboundMessageDedup(),
+        messageStore,
+        threadStore,
+        invokeTrigger: cmdTrigger,
+        socketManager: hubSocket,
+        defaultUserId: 'owner-1',
+        defaultCatId: 'opus',
+        log: noopLog(),
+        commandLayer: mockCommandLayer({
+          '/where': { kind: 'where', response: 'Info' },
+        }),
+        adapters: new Map([['feishu', mockAdapter()]]),
+      });
+
+      const result = await hubRouter.route('feishu', 'chat-hub-refresh', '/where', 'ext-hub-refresh-1');
+      const threadCreated = hubSocket.emitted.find((event) => event.event === 'thread_created');
+
+      assert.ok(result.threadId);
+      assert.deepEqual(threadCreated, {
+        userId: 'owner-1',
+        event: 'thread_created',
+        data: { threadId: result.threadId, source: 'connector_hub' },
+      });
+    });
+
+    it('recreates Hub thread when stored hub belongs to a different owner', async () => {
+      const staleHubThread = threadStore.create('owner-old', '飞书 IM Hub');
+      threadStore.updateConnectorHubState(staleHubThread.id, {
+        v: 1,
+        connectorId: 'feishu',
+        externalChatId: 'chat-owner-switch',
+        createdAt: Date.now() - 1000,
+      });
+
+      bindingStore.bind('feishu', 'chat-owner-switch', 'thread-conv-old', 'owner-old');
+      bindingStore.setHubThread('feishu', 'chat-owner-switch', staleHubThread.id);
+      bindingStore.bind('feishu', 'chat-owner-switch', 'thread-conv-new', 'owner-1');
+
+      const hubSocket = mockSocketManager();
+      const hubRouter = new ConnectorRouter({
+        bindingStore,
+        dedup: new InboundMessageDedup(),
+        messageStore,
+        threadStore,
+        invokeTrigger: cmdTrigger,
+        socketManager: hubSocket,
+        defaultUserId: 'owner-1',
+        defaultCatId: 'opus',
+        log: noopLog(),
+        commandLayer: mockCommandLayer({
+          '/where': { kind: 'where', response: 'Info' },
+        }),
+        adapters: new Map([['feishu', mockAdapter()]]),
+      });
+
+      const result = await hubRouter.route('feishu', 'chat-owner-switch', '/where', 'ext-owner-switch-1');
+      const updatedBinding = bindingStore.getByExternal('feishu', 'chat-owner-switch');
+      const recreatedHubThread = threadStore.threads.get(result.threadId);
+
+      assert.ok(result.threadId);
+      assert.notEqual(result.threadId, staleHubThread.id);
+      assert.equal(updatedBinding?.hubThreadId, result.threadId);
+      assert.equal(recreatedHubThread?.createdBy, 'owner-1');
+      assert.deepEqual(
+        hubSocket.emitted.find((event) => event.event === 'thread_created'),
+        {
+          userId: 'owner-1',
+          event: 'thread_created',
+          data: { threadId: result.threadId, source: 'connector_hub' },
+        },
+      );
     });
 
     it('Hub thread title includes connector display name (ISSUE-8 8A)', async () => {

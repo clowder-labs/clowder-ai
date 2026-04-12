@@ -188,6 +188,7 @@ function ThreadModeChatContainer({
     setPendingChatInsert,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
+  const threads = useChatStore((s) => s.threads);
 
   // F101: Game state from Zustand store
   const gameView = useGameStore((s) => s.gameView);
@@ -558,8 +559,6 @@ function ThreadModeChatContainer({
     [threadId, getCatById],
   );
 
-  const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
-
   useVoiceAutoPlay();
   useVoiceStream();
   useVadInterrupt();
@@ -569,20 +568,22 @@ function ThreadModeChatContainer({
   const setSplitPaneThreadIds = useChatStore((s) => s.setSplitPaneThreadIds);
   const setSplitPaneTarget = useChatStore((s) => s.setSplitPaneTarget);
 
+  const watchedThreadIds = useMemo(() => {
+    const ids = new Set<string>(threads.map((thread) => thread.id));
+    for (const splitThreadId of splitPaneThreadIds) {
+      ids.add(splitThreadId);
+    }
+    return [...ids];
+  }, [threads, splitPaneThreadIds]);
+
+  const { cancelInvocation } = useSocket(socketCallbacks, threadId, watchedThreadIds);
+
   useEffect(() => {
     if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
       setSplitPaneThreadIds([threadId]);
       setSplitPaneTarget(threadId);
     }
   }, [viewMode, splitPaneThreadIds.length, threadId, setSplitPaneThreadIds, setSplitPaneTarget]);
-
-  useEffect(() => {
-    if (viewMode === 'split' && splitPaneThreadIds.length > 0) {
-      // Join rooms for all threads in panes + the current active thread
-      const allIds = new Set([...splitPaneThreadIds, threadId]);
-      syncRooms([...allIds]);
-    }
-  }, [viewMode, splitPaneThreadIds, threadId, syncRooms]);
 
   useEffect(() => {
     clearUnread(threadId);

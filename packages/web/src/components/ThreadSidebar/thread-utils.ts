@@ -4,7 +4,7 @@
  *
  */
 
-import type { Thread } from '@/stores/chat-types';
+import type { ChatMessage, Thread, ThreadState } from '@/stores/chat-types';
 import { getRecentThreads, splitIntoActiveAndArchived } from './active-workspace';
 
 export function formatRelativeTime(ts: number, compact = false): string {
@@ -48,6 +48,30 @@ export function getProjectPaths(threads: Thread[]): string[] {
   }
 
   return pathList.sort((a, b) => (activityMap.get(b) ?? 0) - (activityMap.get(a) ?? 0));
+}
+
+function getLatestMessageTimestamp(messages: ChatMessage[] | undefined): number {
+  if (!messages || messages.length === 0) return 0;
+  let latest = 0;
+  for (const message of messages) {
+    if (Number.isFinite(message.timestamp) && message.timestamp > latest) {
+      latest = message.timestamp;
+    }
+  }
+  return latest;
+}
+
+export function applyRealtimeThreadActivity(
+  threads: Thread[],
+  threadStates: Record<string, Pick<ThreadState, 'messages'> | undefined>,
+): Thread[] {
+  return threads.map((thread) => {
+    const localLastActivity = getLatestMessageTimestamp(threadStates[thread.id]?.messages);
+    if (localLastActivity <= thread.lastActiveAt) {
+      return thread;
+    }
+    return { ...thread, lastActiveAt: localLastActivity };
+  });
 }
 
 export interface ThreadGroup {

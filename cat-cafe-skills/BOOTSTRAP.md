@@ -37,7 +37,7 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `multi-search-engine` | 17 搜索引擎聚合搜索 |
 | `summarize` | URL/播客/文件内容摘要提取 |
 
-### Agent 能力
+### AI 智能
 
 | Skill | 触发场景 |
 |-------|----------|

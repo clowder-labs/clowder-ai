@@ -19,7 +19,6 @@ import {
   WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
-import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 
 interface PlatformFieldStatus {
@@ -390,7 +389,7 @@ export function HubConnectorConfigTab() {
               }}
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center">{v.icon}</span>
-                <span className="min-w-0 flex-1 text-left">
+              <span className="min-w-0 flex-1 text-left">
                 <span className="block text-[14px] font-semibold text-[var(--text-primary)]">{platform.name}</span>
                 <span
                   className={`ui-status-badge ${platform.configured ? 'ui-status-badge-configured' : 'ui-status-badge-unconfigured'}`}
@@ -477,24 +476,6 @@ export function HubConnectorConfigTab() {
                       </div>
                     ))}
 
-                    {/* 断开连接按钮 - 当平台已配置时显示 */}
-                    {platform.configured && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <StepBadge num={guideSteps.length + 1} />
-                          <span className="text-[14px]">断开连接</span>
-                        </div>
-                        <div className="ml-[26px]">
-                          <ConnectorConnectedState
-                            label={`${platform.name} 已连接`}
-                            disconnecting={disconnecting === platform.id}
-                            onDisconnect={() => handleDisconnect(platform.id)}
-                            disconnectTestId={`disconnect-${platform.id}`}
-                          />
-                        </div>
-                      </div>
-                    )}
-
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5">
                         <StepBadge num={guideSteps.length + 1} />
@@ -576,6 +557,17 @@ export function HubConnectorConfigTab() {
                         >
                           {saving ? '保存中...' : '保存配置'}
                         </button>
+                        {platform.configured && (
+                          <button
+                            type="button"
+                            onClick={() => handleDisconnect(platform.id)}
+                            disabled={disconnecting === platform.id}
+                            className="ui-button-default text-red-500 hover:text-red-700 disabled:opacity-50"
+                            data-testid={`disconnect-${platform.id}`}
+                          >
+                            {disconnecting === platform.id ? '断开中...' : '断开连接'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

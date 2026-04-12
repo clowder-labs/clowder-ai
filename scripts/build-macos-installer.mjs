@@ -483,8 +483,41 @@ function stageVendorPythonSources(bundleDir) {
   copySourceTree(join(repoRoot, 'vendor', 'jiuwenclaw'), join(vendorDir, 'jiuwenclaw'));
 }
 
+function resolveInstalledPackageVersion(nodeModulesDir, packageName) {
+  const packageJsonPath = join(nodeModulesDir, packageName, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return null;
+  }
+  const installed = readJson(packageJsonPath);
+  return typeof installed.version === 'string' && installed.version.trim().length > 0 ? installed.version.trim() : null;
+}
+
+function resolveInstalledPackageVersionFrom(nodeModulesDirs, packageName) {
+  for (const nodeModulesDir of nodeModulesDirs) {
+    const installedVersion = resolveInstalledPackageVersion(nodeModulesDir, packageName);
+    if (installedVersion) {
+      return installedVersion;
+    }
+  }
+  return null;
+}
+
+function pinRuntimeDependencyVersions(sourceDir, dependencies, overrides = {}) {
+  const nodeModulesDirs = [join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
+  return Object.fromEntries(
+    Object.entries(dependencies).map(([dependency, specifier]) => {
+      if (overrides[dependency]) {
+        return [dependency, overrides[dependency]];
+      }
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      return [dependency, installedVersion ?? specifier];
+    }),
+  );
+}
+
 function createRuntimePackageJson(sourcePath, options = {}) {
   const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
   const runtimePackage = {
     name: source.name,
     version: source.version,
@@ -498,14 +531,40 @@ function createRuntimePackageJson(sourcePath, options = {}) {
   } else if (source.scripts?.start) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
-  const dependencies = { ...(source.dependencies ?? {}) };
-  if (dependencies['@cat-cafe/shared']) {
-    dependencies['@cat-cafe/shared'] = 'file:../shared';
-  }
+  const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
+    '@cat-cafe/shared': 'file:../shared',
+  });
   if (Object.keys(dependencies).length > 0) runtimePackage.dependencies = dependencies;
-  if (source.optionalDependencies && Object.keys(source.optionalDependencies).length > 0) {
-    runtimePackage.optionalDependencies = source.optionalDependencies;
+  const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
+  if (Object.keys(optionalDependencies).length > 0) {
+    runtimePackage.optionalDependencies = optionalDependencies;
   }
+  return runtimePackage;
+}
+
+function createBundledApiRuntimePackageJson(sourcePath) {
+  const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
+  const runtimePackage = createRuntimePackageJson(sourcePath, {
+    scripts: { start: 'node dist/index.js' },
+  });
+  const nodeModulesDirs = [join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
+  const runtimeDependencies = Object.fromEntries(
+    API_RUNTIME_EXTERNAL_DEPENDENCIES.flatMap((dependency) => {
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      if (installedVersion) {
+        return [[dependency, installedVersion]];
+      }
+      const sourceVersion = source.dependencies?.[dependency];
+      return sourceVersion ? [[dependency, sourceVersion]] : [];
+    }),
+  );
+  if (Object.keys(runtimeDependencies).length > 0) {
+    runtimePackage.dependencies = runtimeDependencies;
+  } else {
+    delete runtimePackage.dependencies;
+  }
+  delete runtimePackage.optionalDependencies;
   return runtimePackage;
 }
 
@@ -562,8 +621,33 @@ async function stageBundledApiRuntime(targetRootDir) {
     '--external:@cat-cafe/shared',
   ]);
 
-  const runtimePkg = createRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json'));
-  writeJson(join(targetDir, 'package.json'), runtimePkg);
+  writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json')));
+}
+
+function createStandaloneWebRuntimePackageJson(sourcePath) {
+  const source = readJson(sourcePath);
+  const sourceDir = dirname(sourcePath);
+  const runtimePackage = createRuntimePackageJson(sourcePath, {
+    scripts: { start: 'node server.js' },
+  });
+  const nodeModulesDirs = [WEB_STANDALONE_NODE_MODULES_DIR, join(sourceDir, 'node_modules'), ROOT_NODE_MODULES_DIR];
+  const runtimeDependencies = Object.fromEntries(
+    WEB_RUNTIME_DEPENDENCIES.flatMap((dependency) => {
+      const installedVersion = resolveInstalledPackageVersionFrom(nodeModulesDirs, dependency);
+      if (installedVersion) {
+        return [[dependency, installedVersion]];
+      }
+      const sourceVersion = source.dependencies?.[dependency];
+      return sourceVersion ? [[dependency, sourceVersion]] : [];
+    }),
+  );
+  if (Object.keys(runtimeDependencies).length > 0) {
+    runtimePackage.dependencies = runtimeDependencies;
+  } else {
+    delete runtimePackage.dependencies;
+  }
+  delete runtimePackage.optionalDependencies;
+  return runtimePackage;
 }
 
 function stageStandaloneWebRuntime(targetRootDir) {
@@ -590,34 +674,11 @@ function stageStandaloneWebRuntime(targetRootDir) {
     cpSync(WEB_PUBLIC_DIR, join(targetDir, 'public'), { recursive: true, force: true });
   }
 
-  // Remove pnpm-symlinked node_modules — npm install will recreate with real files
+  // Remove pnpm-symlinked node_modules — npm install will recreate with real files.
   rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
 
   writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
-
-  const webPkg = readJson(join(repoRoot, 'packages', 'web', 'package.json'));
-  const runtimeDeps = {};
-  for (const dep of WEB_RUNTIME_DEPENDENCIES) {
-    const ver = webPkg.dependencies?.[dep];
-    if (ver) {
-      runtimeDeps[dep] = ver;
-      continue;
-    }
-    // Fall back to installed version in standalone node_modules
-    try {
-      const installed = readJson(join(WEB_STANDALONE_NODE_MODULES_DIR, dep, 'package.json'));
-      runtimeDeps[dep] = installed.version;
-    } catch {
-      /* skip */
-    }
-  }
-  writeJson(join(targetDir, 'package.json'), {
-    name: webPkg.name,
-    version: webPkg.version,
-    private: true,
-    scripts: { start: 'node server.js' },
-    ...(Object.keys(runtimeDeps).length > 0 ? { dependencies: runtimeDeps } : {}),
-  });
+  writeJson(join(targetDir, 'package.json'), createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')));
 }
 
 async function stageWorkspacePackages(targetRootDir) {
@@ -861,6 +922,21 @@ function installSharedPythonDeps(bundleDir) {
 
 // ─── Runtime Dependencies ───────────────────────────────────────────
 
+function materializeSharedDependency(stagePackagesDir, packageName) {
+  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
+  try {
+    const stat = spawnSync('test', ['-L', sharedLinkPath]);
+    if (stat.status !== 0) {
+      return;
+    }
+  } catch {
+    return;
+  }
+  rmSync(sharedLinkPath, { recursive: true, force: true });
+  cpSync(join(stagePackagesDir, 'shared'), sharedLinkPath, { recursive: true, force: true });
+  pruneRuntimePackage(sharedLinkPath);
+}
+
 function installMacosRuntimeDependencies(bundleDir) {
   const bundlePackagesDir = join(bundleDir, 'packages');
   const npmArgs = ['install', '--omit=dev', '--no-audit', '--no-fund', '--package-lock=false', '--loglevel=error'];
@@ -870,20 +946,7 @@ function installMacosRuntimeDependencies(bundleDir) {
     if (!existsSync(join(pkgDir, 'package.json'))) continue;
 
     run('npm', npmArgs, { cwd: pkgDir });
-
-    // Materialize @cat-cafe/shared symlink
-    const sharedLink = join(pkgDir, 'node_modules', '@cat-cafe', 'shared');
-    try {
-      const stat = spawnSync('test', ['-L', sharedLink]);
-      if (stat.status === 0) {
-        rmSync(sharedLink, { recursive: true, force: true });
-        cpSync(join(bundlePackagesDir, 'shared'), sharedLink, { recursive: true, force: true });
-        pruneRuntimePackage(sharedLink);
-      }
-    } catch {
-      /* not a symlink */
-    }
-
+    materializeSharedDependency(bundlePackagesDir, packageName);
     pruneRuntimePackage(join(pkgDir));
     pruneNativePrebuilds(join(pkgDir, 'node_modules'));
   }

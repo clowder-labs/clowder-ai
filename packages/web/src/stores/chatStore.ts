@@ -245,8 +245,7 @@ function getLatestMessageTimestamp(messages: ChatMessage[]): number {
 }
 
 function isUnreadBodyMessage(msg: ChatMessage): boolean {
-  if (msg.type !== 'assistant') return false;
-  return typeof msg.content === 'string' && msg.content.trim().length > 0;
+  return msg.type === 'assistant' || !!msg.source;
 }
 
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the co-creator */
