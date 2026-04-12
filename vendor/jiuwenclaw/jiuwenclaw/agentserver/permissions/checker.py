@@ -16,8 +16,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 import re
 from pathlib import Path
 from typing import Any, Awaitable, Callable, List
@@ -35,6 +38,100 @@ from jiuwenclaw.agentserver.permissions.patterns import (
 )
 
 logger = logging.getLogger(__name__)
+_PERMISSIONS_AUDIT_LOGGER_NAME = f"{__name__}.audit"
+_PERMISSIONS_LOG_MAX_BYTES = 20 * 1024 * 1024
+_PERMISSIONS_LOG_BACKUP_COUNT = 20
+
+
+class _JsonOnlyFormatter(logging.Formatter):
+    """只输出消息本身，避免在独立权限日志里追加额外前缀。"""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return record.getMessage()
+
+
+@dataclass
+class ToolPermissionLog:
+    """工具权限审批日志."""
+
+    tool: str
+    decision: str  # ALLOW / DENY / ASK / SKIP
+    source: str  # system / user
+    rule: str
+    tag: str = "TOOL_PERMISSION"
+    user_decision: str | None = None  # allow_always / allow_once / deny / approval_unavailable
+    timestamp: str | None = None
+    channel: str | None = None
+    session_id: str | None = None
+
+    def to_json(self) -> str:
+        _ts = self.timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        data = {
+            "timestamp": _ts,
+            "tag": self.tag,
+            "tool": self.tool,
+            "decision": self.decision,
+            "source": self.source,
+            "rule": self.rule,
+            "channel": self.channel or "empty",
+            "session_id": self.session_id or "empty",
+        }
+        if self.user_decision:
+            data["user_decision"] = self.user_decision
+        return json.dumps(data, ensure_ascii=False)
+
+
+def _get_permissions_audit_logger() -> logging.Logger:
+    """返回独立写入 permissions.log 的日志器。"""
+
+    audit_logger = logging.getLogger(_PERMISSIONS_AUDIT_LOGGER_NAME)
+    if getattr(audit_logger, "_jiuwenclaw_permissions_configured", False):
+        return audit_logger
+
+    try:
+        from jiuwenclaw.utils import get_logs_dir
+
+        logs_root = get_logs_dir()
+        logs_root.mkdir(parents=True, exist_ok=True)
+
+        handler = RotatingFileHandler(
+            filename=logs_root / "permissions.log",
+            maxBytes=_PERMISSIONS_LOG_MAX_BYTES,
+            backupCount=_PERMISSIONS_LOG_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(_JsonOnlyFormatter())
+
+        audit_logger.setLevel(logging.INFO)
+        audit_logger.propagate = False
+        audit_logger.addHandler(handler)
+    except Exception:
+        audit_logger.addHandler(logging.NullHandler())
+
+    setattr(audit_logger, "_jiuwenclaw_permissions_configured", True)
+    return audit_logger
+
+
+def _get_primary_app_logger() -> logging.Logger | None:
+    """返回当前工程里等价于上游 agent_server.log 的主日志器。"""
+
+    try:
+        from jiuwenclaw.utils import logger as app_logger
+
+        return app_logger
+    except Exception:
+        return None
+
+
+def _emit_tool_permission_log(entry: ToolPermissionLog, *, level: int) -> None:
+    payload = entry.to_json()
+    app_logger = _get_primary_app_logger()
+    if app_logger is not None:
+        app_logger.log(level, payload)
+    else:
+        logger.log(level, payload)
+    _get_permissions_audit_logger().log(level, payload)
 
 
 # ---------- 工具调用守卫 ----------
@@ -87,43 +184,104 @@ async def check_tool_permissions(
 
         if result.is_allowed:
             allowed.append(tc)
-            logger.warning(
-                "Permission ALLOWED: tool=%s, rule=%s",
-                tool_name, result.matched_rule,
+            _emit_tool_permission_log(
+                ToolPermissionLog(
+                    tool=tool_name,
+                    decision="ALLOW",
+                    source="system",
+                    rule=result.matched_rule or "N/A",
+                    channel=channel_id,
+                    session_id=session_id,
+                ),
+                level=logging.WARNING,
             )
         elif result.is_denied:
             deny_msg = f"[PERMISSION_DENIED] {result.reason or 'Operation not allowed'}"
             denied.append((tc, deny_msg))
-            logger.warning(
-                "Permission DENIED: tool=%s, rule=%s",
-                tool_name, result.matched_rule,
+            _emit_tool_permission_log(
+                ToolPermissionLog(
+                    tool=tool_name,
+                    decision="DENY",
+                    source="system",
+                    rule=result.matched_rule or "N/A",
+                    channel=channel_id,
+                    session_id=session_id,
+                ),
+                level=logging.WARNING,
             )
         elif result.needs_approval:
-            logger.warning(
-                "Permission needs_approval: tool=%s, rule=%s",
-                tool_name, result.matched_rule,
+            _emit_tool_permission_log(
+                ToolPermissionLog(
+                    tool=tool_name,
+                    decision="ASK",
+                    source="system",
+                    rule=result.matched_rule or "N/A",
+                    channel=channel_id,
+                    session_id=session_id,
+                ),
+                level=logging.WARNING,
             )
             if session is not None and request_approval_callback is not None:
                 decision = await request_approval_callback(session, tc, result)
                 if decision == "allow_always":
                     allowed.append(tc)
-                    logger.info(
-                        "Permission ALWAYS-ALLOW persisted: tool=%s (rule written to config)",
-                        tool_name,
+                    _emit_tool_permission_log(
+                        ToolPermissionLog(
+                            tool=tool_name,
+                            decision="ALLOW",
+                            source="user",
+                            rule=result.matched_rule or "N/A",
+                            user_decision=decision,
+                            channel=channel_id,
+                            session_id=session_id,
+                        ),
+                        level=logging.INFO,
                     )
                 elif decision == "allow_once":
                     allowed.append(tc)
-                    logger.info(
-                        "Permission ALLOW-ONCE: tool=%s (no rule persisted)",
-                        tool_name,
+                    _emit_tool_permission_log(
+                        ToolPermissionLog(
+                            tool=tool_name,
+                            decision="ALLOW",
+                            source="user",
+                            rule=result.matched_rule or "N/A",
+                            user_decision=decision,
+                            channel=channel_id,
+                            session_id=session_id,
+                        ),
+                        level=logging.INFO,
                     )
                 else:
                     denied.append(
                         (tc, "[PERMISSION_REJECTED] User rejected the request.")
                     )
+                    _emit_tool_permission_log(
+                        ToolPermissionLog(
+                            tool=tool_name,
+                            decision="DENY",
+                            source="user",
+                            rule=result.matched_rule or "N/A",
+                            user_decision=decision,
+                            channel=channel_id,
+                            session_id=session_id,
+                        ),
+                        level=logging.INFO,
+                    )
             else:
                 denied.append(
                     (tc, f"[APPROVAL_REQUIRED] {result.reason}")
+                )
+                _emit_tool_permission_log(
+                    ToolPermissionLog(
+                        tool=tool_name,
+                        decision="DENY",
+                        source="user",
+                        rule=result.matched_rule or "N/A",
+                        user_decision="approval_unavailable",
+                        channel=channel_id,
+                        session_id=session_id,
+                    ),
+                    level=logging.INFO,
                 )
 
     return allowed, denied

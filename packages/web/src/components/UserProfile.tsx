@@ -257,7 +257,7 @@ export function UserProfile({ className }: UserProfileProps) {
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
-                 className={`hidden ${profileActionClass}`}
+                 className={profileActionClass}
                 onClick={handleOpenUsageStats}
               >
                 <img src="/icons/userprofile/usage.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />

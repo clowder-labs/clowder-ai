@@ -17,7 +17,8 @@ type AgentManagementIconName =
   | 'more'
   | 'delete'
   | 'refresh'
-  | 'random';
+  | 'random'
+  | 'add';
 
 const ICON_PATHS: Record<AgentManagementIconName, string> = {
   persona: '/images/agent-management-icons/agent-persona.svg',
@@ -31,6 +32,7 @@ const ICON_PATHS: Record<AgentManagementIconName, string> = {
   delete: '/images/agent-management-icons/agent-delete.svg',
   refresh: '/images/agent-management-icons/agent-refresh.svg',
   random: '/images/agent-management-icons/agent-random-avatar.svg',
+  add: '/images/add.svg',
 };
 
 export function AgentManagementIcon({

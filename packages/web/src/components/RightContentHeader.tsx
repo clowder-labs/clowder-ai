@@ -5,6 +5,7 @@ import type { ButtonHTMLAttributes, ReactNode, RefObject } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
+import { useDesktopWindowControls } from '@/hooks/useDesktopWindowControls';
 
 function WindowSmileIcon() {
   return (
@@ -34,6 +35,15 @@ function WindowMaximizeIcon() {
   return (
     <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
       <rect x="4.25" y="4.25" width="7.5" height="7.5" rx="0.9" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+function WindowRestoreIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
+      <path d="M5.75 4.25H10.1C10.984 4.25 11.7 4.966 11.7 5.85V10.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10.25 5.75H5.9C5.016 5.75 4.3 6.466 4.3 7.35V11.1C4.3 11.984 5.016 12.7 5.9 12.7H10.25C11.134 12.7 11.85 11.984 11.85 11.1V7.35C11.85 6.466 11.134 5.75 10.25 5.75Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -147,6 +157,7 @@ const OTHER_ISSUE_LENGTH_ERROR_MESSAGE = '\u8bf7\u5c06\u5185\u5bb9\u63a7\u5236\u
 const DETAIL_MAX_LENGTH = 1000;
 const DETAIL_LENGTH_ERROR_MESSAGE = '\u8bf7\u5c06\u5185\u5bb9\u63a7\u5236\u57281000\u5b57\u7b26\u4ee5\u5185';
 const DETAIL_PREFILL_TEMPLATE = '\u3010\u4f7f\u7528\u573a\u666f\u3011\uff1a\n\u3010\u4f18\u5316\u610f\u89c1\u3011\uff1a';
+const REQUIRED_SELECT_ERROR_MESSAGE = '\u9009\u62e9\u4e0d\u80fd\u4e3a\u7a7a';
 const REQUIRED_INPUT_ERROR_MESSAGE = '\u8f93\u5165\u4e0d\u80fd\u4e3a\u7a7a';
 
 function getSelectedScoreIconSrc(score: number): string | null {
@@ -185,6 +196,7 @@ type FeedbackSubmitResponse = {
 };
 
 export function RightContentHeader() {
+  const { isMaximized, canMaximize, minimize, toggleMaximize, close } = useDesktopWindowControls();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
@@ -192,6 +204,7 @@ export function RightContentHeader() {
   const [highScoreSelectedIssues, setHighScoreSelectedIssues] = useState<string[]>([]);
   const [lowScoreDetail, setLowScoreDetail] = useState('');
   const [isDetailTooLong, setIsDetailTooLong] = useState(false);
+  const [isIssueRequiredError, setIsIssueRequiredError] = useState(false);
   const [isOtherIssueRequiredError, setIsOtherIssueRequiredError] = useState(false);
   const [otherIssueDetail, setOtherIssueDetail] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
@@ -226,6 +239,7 @@ export function RightContentHeader() {
     setHighScoreSelectedIssues([]);
     setLowScoreDetail('');
     setIsDetailTooLong(false);
+    setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
     setOtherIssueDetail('');
     setIsSubmittingFeedback(false);
@@ -284,6 +298,7 @@ export function RightContentHeader() {
 
   useEffect(() => {
     if (isLowScoreDetailVisible) return;
+    setIsIssueRequiredError(false);
     setIsOtherIssueRequiredError(false);
   }, [isLowScoreDetailVisible]);
 
@@ -341,6 +356,9 @@ export function RightContentHeader() {
       if (!nextIssues.includes('other_issue')) {
         setIsOtherIssueRequiredError(false);
       }
+      if (nextIssues.length > 0) {
+        setIsIssueRequiredError(false);
+      }
 
       return nextIssues;
     });
@@ -373,6 +391,7 @@ export function RightContentHeader() {
 
   const handleSubmitFeedback = useCallback(async () => {
     if (!isLowScoreDetailVisible) {
+      setIsIssueRequiredError(false);
       setIsOtherIssueRequiredError(false);
     }
 
@@ -387,12 +406,17 @@ export function RightContentHeader() {
       });
       return;
     }
-    if (isLowScoreDetailVisible) {
+    if (isLowScoreDetailVisible || isHighScoreDetailVisible) {
+      const hasIssueSelection = currentSelectedIssues.length > 0;
       const needOtherIssueInput = currentSelectedIssues.includes('other_issue');
       const hasOtherIssueInput = otherIssueDetail.trim().length > 0;
 
+      setIsIssueRequiredError(!hasIssueSelection);
       setIsOtherIssueRequiredError(needOtherIssueInput && !hasOtherIssueInput);
 
+      if (!hasIssueSelection) {
+        return;
+      }
       if (needOtherIssueInput && !hasOtherIssueInput) {
         return;
       }
@@ -544,6 +568,7 @@ export function RightContentHeader() {
     currentIssueOptions,
     currentSelectedIssues,
     closeFeedbackPopover,
+    isHighScoreDetailVisible,
     isLowScoreDetailVisible,
     isSubmittingFeedback,
     lowScoreDetail,
@@ -687,6 +712,11 @@ export function RightContentHeader() {
                             ) : null}
                           </>
                         ) : null}
+                        {isIssueRequiredError ? (
+                          <p className="ui-content-header-feedback-other-error">
+                            {REQUIRED_SELECT_ERROR_MESSAGE}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="ui-content-header-feedback-low-score-section">
                         <p className="ui-content-header-feedback-low-score-title">
@@ -741,13 +771,13 @@ export function RightContentHeader() {
           ) : null}
         </div>
         <div className="ui-content-header-divider" data-testid="right-content-header-divider" aria-hidden="true" />
-        <HeaderAction title={'\u6700\u5c0f\u5316'}>
+        <HeaderAction title={'\u6700\u5c0f\u5316'} onClick={minimize}>
           <WindowMinimizeIcon />
         </HeaderAction>
-        <HeaderAction title={'\u6700\u5927\u5316'}>
-          <WindowMaximizeIcon />
+        <HeaderAction title={isMaximized ? '\u8fd8\u539f' : '\u6700\u5927\u5316'} onClick={toggleMaximize} disabled={!canMaximize}>
+          {isMaximized ? <WindowRestoreIcon /> : <WindowMaximizeIcon />}
         </HeaderAction>
-        <HeaderAction title={'\u5173\u95ed'}>
+        <HeaderAction title={'\u5173\u95ed'} onClick={close}>
           <WindowCloseIcon />
         </HeaderAction>
       </div>
