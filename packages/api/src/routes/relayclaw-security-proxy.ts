@@ -6,10 +6,8 @@
 
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { catRegistry, createCatId } from '@cat-cafe/shared';
+import { createCatId } from '@cat-cafe/shared';
 import type { RelayClawAgentConfig } from '@cat-cafe/shared';
-import { resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';
-import { resolveRuntimeProviderProfileForClient } from '../config/provider-profiles.js';
 import {
   FrameQueue,
   RelayClawConnectionManager,
@@ -68,17 +66,7 @@ export class DefaultRelayClawSecurityClient implements RelayClawSecurityClient {
   }
 
   private async ensureConnected(): Promise<void> {
-    const runtime = await this.resolveRuntimeProfile();
-    if (!runtime?.apiKey || !runtime.baseUrl) {
-      throw new Error('relayclaw security proxy requires a bound OpenAI-compatible provider profile');
-    }
-
-    const url = await this.sidecar.ensureStarted({
-      callbackEnv: {
-        API_KEY: runtime.apiKey,
-        API_BASE: runtime.baseUrl,
-      },
-    });
+    const url = await this.sidecar.ensureStarted();
     await this.connection.ensureConnected(url);
   }
 
@@ -117,7 +105,6 @@ export class DefaultRelayClawSecurityClient implements RelayClawSecurityClient {
   }
 
   private buildConfig(): RelayClawAgentConfig {
-    const catConfig = catRegistry.tryGet(RELAYCLAW_CAT_ID)?.config;
     const appDir = resolveJiuwenClawAppDir();
     const executablePath = resolveJiuwenClawExecutable();
     const pythonBin = resolveJiuwenClawPythonBin(undefined, appDir);
@@ -127,18 +114,7 @@ export class DefaultRelayClawSecurityClient implements RelayClawSecurityClient {
       appDir,
       pythonBin,
       homeDir: join(this.projectRoot, '.cat-cafe', 'relayclaw', RELAYCLAW_CAT_ID),
-      modelName: typeof catConfig?.defaultModel === 'string' ? catConfig.defaultModel : undefined,
     };
-  }
-
-  private async resolveRuntimeProfile() {
-    const catConfig = catRegistry.tryGet(RELAYCLAW_CAT_ID)?.config;
-    const boundAccountRef = resolveBoundAccountRefForCat(
-      this.projectRoot,
-      RELAYCLAW_CAT_ID,
-      (catConfig ?? null) as (typeof catConfig & { providerProfileId?: string }) | null,
-    );
-    return resolveRuntimeProviderProfileForClient(this.projectRoot, 'openai', boundAccountRef);
   }
 }
 
