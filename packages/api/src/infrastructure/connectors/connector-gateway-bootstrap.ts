@@ -151,6 +151,7 @@ export interface ConnectorGatewayHandle {
   readonly startWeixinPolling: () => void;
   readonly activateWeixinBotToken: (token: string) => Promise<void>;
   readonly disconnectWeixinBotToken: () => Promise<void>;
+  readonly setOwnerUserId: (userId: string) => Promise<void> | void;
   reconcile(changedKeys: string[]): Promise<ConnectorRuntimeApplySummary>;
   stop(): Promise<void>;
 }
