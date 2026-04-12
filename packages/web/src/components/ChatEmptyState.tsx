@@ -12,6 +12,7 @@ interface ChatEmptyStateProps {
   onOpenBootcampList: () => void;
   onAgentsClick?: () => void;
   onChannelsClick?: () => void;
+  fillAvailableHeight?: boolean;
 }
 
 interface EmptyStateCard {
@@ -47,8 +48,13 @@ export function ChatEmptyState({
   onOpenBootcampList,
   onAgentsClick,
   onChannelsClick,
+  fillAvailableHeight = false,
 }: ChatEmptyStateProps) {
   const shouldShowBootcampEntry = SHOW_BOOTCAMP_ENTRY && !isCurrentBootcampThread;
+  const sectionClassName = fillAvailableHeight ? 'w-full px-4 sm:px-6' : 'min-h-full px-4 py-10 sm:px-6';
+  const contentClassName = fillAvailableHeight
+    ? 'mx-auto flex w-full max-w-4xl items-center justify-center'
+    : 'mx-auto flex min-h-[calc(100vh-21rem)] max-w-4xl items-center justify-center';
 
   const handleCardClick = (cardId: EmptyStateCard['id']) => {
     if (cardId === 'agents') {
@@ -60,8 +66,8 @@ export function ChatEmptyState({
   };
 
   return (
-    <section className="min-h-full px-4 py-10 sm:px-6" data-testid="chat-empty-state">
-      <div className="mx-auto flex min-h-[calc(100vh-21rem)] max-w-4xl items-center justify-center">
+    <section className={sectionClassName} data-testid="chat-empty-state">
+      <div className={contentClassName}>
         <div className="w-full text-center">
           <div className="mx-auto max-w-2xl">
             <h2 className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 text-[34px] font-semibold leading-tight tracking-[-0.03em] text-[#1F1F24] sm:text-[36px]">

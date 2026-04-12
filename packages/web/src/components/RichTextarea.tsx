@@ -11,10 +11,12 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type UIEvent,
+  useEffect,
   useLayoutEffect,
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { getMentionToCat } from '@/lib/mention-highlight';
 
@@ -310,6 +312,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
   const isComposingRef = useRef(false);
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
   const shouldScrollToBottomRef = useRef(false);
+  const [showPlaceholder, setShowPlaceholder] = useState(() => !value);
   const segments = useMemo(() => buildSegments(value, skillOptions, quickActionOptions), [value, skillOptions, quickActionOptions]);
   const segmentSignature = useMemo(
     () =>
@@ -470,6 +473,11 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
     }
   }, [segments, segmentSignature, value]);
 
+  useEffect(() => {
+    if (isComposingRef.current) return;
+    setShowPlaceholder(!value);
+  }, [value]);
+
   const resolveEventElement = (target: EventTarget | null): HTMLElement | null => {
     if (!target) return null;
     if (target instanceof HTMLElement) return target;
@@ -479,7 +487,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
 
   return (
     <div className="relative">
-      {!value && placeholder && (
+      {showPlaceholder && placeholder && (
         <div className="pointer-events-none absolute left-4 top-4 text-[16px] text-gray-400">{placeholder}</div>
       )}
       <div
@@ -559,6 +567,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         }}
         onCompositionStart={() => {
           isComposingRef.current = true;
+          setShowPlaceholder(false);
         }}
         onCompositionEnd={() => {
           isComposingRef.current = false;
@@ -572,6 +581,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           if (nextState.value !== rawNext) {
             forceSyncPlainText(root, nextState.value, nextState.start, nextState.end);
           }
+          setShowPlaceholder(nextState.value.length === 0);
           onValueChange(nextState.value, nextState.start, nextState.end);
           onInput?.();
         }}
