@@ -10,6 +10,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 
 const mockAddMessage = vi.fn();
+const mockAddToast = vi.fn();
 const mockAppendToMessage = vi.fn();
 const mockAppendToolEvent = vi.fn();
 const mockSetStreaming = vi.fn();
@@ -102,6 +103,14 @@ vi.mock('@/stores/chatStore', () => {
   };
 });
 
+vi.mock('@/stores/toastStore', () => ({
+  useToastStore: {
+    getState: () => ({
+      addToast: mockAddToast,
+    }),
+  },
+}));
+
 function Harness() {
   captured = useAgentMessages();
   return null;
@@ -128,6 +137,7 @@ describe('useAgentMessages loading lifecycle', () => {
     captured = undefined;
     storeState.messages = [];
     mockAddMessage.mockClear();
+    mockAddToast.mockClear();
     mockAppendToMessage.mockClear();
     mockAppendToolEvent.mockClear();
     mockSetStreaming.mockClear();
@@ -195,13 +205,14 @@ describe('useAgentMessages loading lifecycle', () => {
     expect(mockSetLoading).toHaveBeenCalledWith(false);
     expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(false);
     expect(mockSetIntentMode).toHaveBeenCalledWith(null);
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'opus',
-        content: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。',
-      }),
-    );
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      title: 'opus 出错',
+      message: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。',
+      threadId: 'thread-1',
+      duration: 8000,
+    });
   });
 
   it('closes existing streaming bubble on done even when activeRefs are empty', () => {
@@ -471,6 +482,7 @@ describe('useAgentMessages loading lifecycle', () => {
     expect(cancelInvocation).toHaveBeenCalledWith('thread-1');
     expect(mockSetCatInvocation).toHaveBeenCalledWith('codex', { invocationId: undefined });
     expect(mockSetCatInvocation).toHaveBeenCalledWith('opus', { invocationId: undefined });
+    storeState.activeInvocations = {};
 
     mockSetCatStatus.mockClear();
     mockAddMessage.mockClear();
@@ -580,7 +592,7 @@ describe('useAgentMessages loading lifecycle', () => {
     expect(mockSetStreaming).toHaveBeenCalledWith('bg-msg-err', false);
   });
 
-  it('rewrites dare cli timeout to a normal assistant fallback', () => {
+  it('rewrites dare cli timeout to a toast fallback', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
@@ -607,16 +619,17 @@ describe('useAgentMessages loading lifecycle', () => {
       });
     });
 
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'dare',
-        content: expect.stringContaining('这次响应超时了'),
-      }),
-    );
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      title: 'dare 出错',
+      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+      threadId: 'thread-1',
+      duration: 8000,
+    });
   });
 
-  it('rewrites dare cli exit to a user-friendly fallback', () => {
+  it('rewrites dare cli exit to a user-friendly toast fallback', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
@@ -630,16 +643,17 @@ describe('useAgentMessages loading lifecycle', () => {
       });
     });
 
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'dare',
-        content: expect.stringContaining('这次响应中断了'),
-      }),
-    );
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      title: 'dare 出错',
+      message: '这次响应中断了，我没能稳定完成处理。请重试一次；如果连续出现，请稍后再试。',
+      threadId: 'thread-1',
+      duration: 8000,
+    });
   });
 
-  it('rewrites jiuwen timeout to a user-friendly fallback', () => {
+  it('rewrites jiuwen timeout to a user-friendly toast fallback', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
@@ -653,16 +667,17 @@ describe('useAgentMessages loading lifecycle', () => {
       });
     });
 
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'jiuwenclaw',
-        content: expect.stringContaining('这次响应超时了'),
-      }),
-    );
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      title: 'jiuwenclaw 出错',
+      message: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+      threadId: 'thread-1',
+      duration: 8000,
+    });
   });
 
-  it('rewrites jiuwen connection failure to a user-friendly fallback', () => {
+  it('rewrites jiuwen connection failure to a user-friendly toast fallback', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
@@ -676,16 +691,17 @@ describe('useAgentMessages loading lifecycle', () => {
       });
     });
 
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'jiuwenclaw',
-        content: expect.stringContaining('配置存在问题'),
-      }),
-    );
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      title: 'jiuwenclaw 出错',
+      message: '当前智能体配置存在问题，暂时无法处理这次请求。请检查配置后重试。原始错误：jiuwen connection failed: sidecar exited during startup',
+      threadId: 'thread-1',
+      duration: 8000,
+    });
   });
 
-  it('rewrites unknown errors to a generic assistant fallback instead of raw error text', () => {
+  it('rewrites unknown errors to a generic toast fallback instead of raw error text', () => {
     act(() => {
       root.render(React.createElement(Harness));
     });
@@ -699,13 +715,14 @@ describe('useAgentMessages loading lifecycle', () => {
       });
     });
 
-    expect(mockAddMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'assistant',
-        catId: 'opus',
-        content: expect.not.stringContaining('unrecognized low-level failure details'),
-      }),
-    );
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockAddToast).toHaveBeenCalledWith({
+      type: 'error',
+      title: 'opus 出错',
+      message: '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。',
+      threadId: 'thread-1',
+      duration: 8000,
+    });
   });
 
   it('system_info context_health without parsed catId falls back to msg.catId', () => {
