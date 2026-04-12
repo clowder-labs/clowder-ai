@@ -500,7 +500,7 @@ export function HubConnectorConfigTab() {
                         <StepBadge num={guideSteps.length + 1} />
                         <span className="text-[14px]">填写应用凭证</span>
                       </div>
-                      <div className="ml-[26px] space-y-2.5">
+                      <div className="ml-[26px] space-y-4">
                         {platform.fields.map((field) => (
                           <div key={field.envName} className="w-1/2">
                             <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
