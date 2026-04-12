@@ -2,12 +2,15 @@
 Base validator with common validation logic for document files.
 """
 
+# 标准库
 import re
+import logging
 from pathlib import Path
 
+# 第三方库
 import defusedxml.minidom
 import lxml.etree
-import logging
+
 
 class BaseSchemaValidator:
 

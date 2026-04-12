@@ -302,7 +302,8 @@ def main():
         for r in output["results"]:
             status = "PASS" if r["pass"] else "FAIL"
             rate_str = f"{r['triggers']}/{r['runs']}"
-            logging.info(f"  [{status}] rate={rate_str} expected={r['should_trigger']}: {r['query'][:70]}", file=sys.stderr)
+            logging.info(f"  [{status}] rate={rate_str} "
+                         f"expected={r['should_trigger']}: {r['query'][:70]}", file=sys.stderr)
 
     logging.info(json.dumps(output, indent=2))
 

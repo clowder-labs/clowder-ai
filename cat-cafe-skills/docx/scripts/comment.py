@@ -102,7 +102,7 @@ def _find_para_id(comments_path: Path, comment_id: int) -> str | None:
         if c.getAttribute("w:id") == str(comment_id):
             for p in c.getElementsByTagName("w:p"):
                 pid = p.getAttribute("w14:paraId")
-                if pid :
+                if pid:
                     return pid
     return None
 
