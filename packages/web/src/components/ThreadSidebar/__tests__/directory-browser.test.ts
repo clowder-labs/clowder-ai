@@ -292,7 +292,7 @@ describe('DirectoryBrowser', () => {
 
   // ── Windows path support ──────────────────────────────
 
-  it('handles Windows-style paths with backslashes in breadcrumbs', async () => {
+  it('handles Windows-style paths with my-computer breadcrumbs', async () => {
     const winHome = 'C:\\Users\\test';
     mockApiFetch.mockReturnValueOnce(
       jsonOk({
@@ -300,17 +300,94 @@ describe('DirectoryBrowser', () => {
         name: 'cat-cafe',
         parent: `${winHome}\\projects`,
         homePath: winHome,
+        drives: [{ name: 'C:', path: 'C:\\', isDirectory: true }],
         entries: [{ name: 'src', path: `${winHome}\\projects\\cat-cafe\\src`, isDirectory: true }],
       }),
     );
     render({ initialPath: `${winHome}\\projects\\cat-cafe` });
     await flush();
 
-    // Breadcrumb should parse correctly: Home > projects > cat-cafe
-    expect(container.textContent).toContain('Home');
+    expect(container.textContent).toContain('\u6211\u7684\u7535\u8111');
+    expect(container.textContent).toContain('C:');
+    expect(container.textContent).toContain('Users');
     expect(container.textContent).toContain('projects');
     expect(container.textContent).toContain('cat-cafe');
     expect(container.textContent).toContain('src');
+  });
+
+  it('shows drive roots only after clicking the my-computer breadcrumb', async () => {
+    const winHome = 'C:\\Users\\test';
+    mockApiFetch.mockReturnValueOnce(
+      jsonOk({
+        current: 'C:\\Users\\test',
+        name: 'test',
+        parent: 'C:\\Users',
+        homePath: winHome,
+        drives: [
+          { name: 'C:', path: 'C:\\', isDirectory: true },
+          { name: 'D:', path: 'D:\\', isDirectory: true },
+        ],
+        entries: [{ name: 'projects', path: 'C:\\Users\\test\\projects', isDirectory: true }],
+      }),
+    );
+    render({ initialPath: 'C:\\Users\\test' });
+    await flush();
+
+    expect(container.textContent).toContain('projects');
+    expect(findButtonByText('D:')).toBeFalsy();
+
+    const computerButton = findButtonByText('\u6211\u7684\u7535\u8111');
+    expect(computerButton).toBeTruthy();
+    await act(async () => {
+      computerButton!.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(container.textContent).toContain('C:');
+    expect(container.textContent).toContain('D:');
+    expect(container.textContent).not.toContain('projects');
+    expect(getPrimaryActionButton()?.disabled).toBe(true);
+  });
+
+  it('clicks any Windows breadcrumb segment, including the current segment', async () => {
+    const winHome = 'C:\\Users\\test';
+    mockApiFetch.mockReturnValueOnce(
+      jsonOk({
+        current: 'D:\\workspace\\demo',
+        name: 'demo',
+        parent: 'D:\\workspace',
+        homePath: winHome,
+        drives: [
+          { name: 'C:', path: 'C:\\', isDirectory: true },
+          { name: 'D:', path: 'D:\\', isDirectory: true },
+        ],
+        entries: [{ name: 'src', path: 'D:\\workspace\\demo\\src', isDirectory: true }],
+      }),
+    );
+    render({ initialPath: 'D:\\workspace\\demo' });
+    await flush();
+
+    mockApiFetch.mockReturnValueOnce(
+      jsonOk({
+        current: 'D:\\workspace\\demo',
+        name: 'demo',
+        parent: 'D:\\workspace',
+        homePath: winHome,
+        drives: [
+          { name: 'C:', path: 'C:\\', isDirectory: true },
+          { name: 'D:', path: 'D:\\', isDirectory: true },
+        ],
+        entries: [{ name: 'src', path: 'D:\\workspace\\demo\\src', isDirectory: true }],
+      }),
+    );
+    const currentButton = findButtonByText('demo');
+    expect(currentButton).toBeTruthy();
+    await act(async () => {
+      currentButton!.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiFetch).toHaveBeenLastCalledWith(`/api/projects/browse?path=${encodeURIComponent('D:\\workspace\\demo')}`);
   });
 
   it('shows a clickable drive-root breadcrumb for Windows paths', async () => {
@@ -331,6 +408,7 @@ describe('DirectoryBrowser', () => {
     render({ initialPath: 'D:\\workspace\\demo' });
     await flush();
 
+    expect(container.textContent).toContain('\u6211\u7684\u7535\u8111');
     expect(container.textContent).toContain('D:');
 
     mockApiFetch.mockReturnValueOnce(
@@ -355,30 +433,6 @@ describe('DirectoryBrowser', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith(`/api/projects/browse?path=${encodeURIComponent('D:\\')}`);
     expect(container.textContent).toContain('workspace');
-  });
-
-  it('renders Windows drive roots in the directory list without changing folder row styling', async () => {
-    const winHome = 'C:\\Users\\test';
-    mockApiFetch.mockReturnValueOnce(
-      jsonOk({
-        current: 'C:\\Users\\test',
-        name: 'test',
-        parent: 'C:\\Users',
-        homePath: winHome,
-        drives: [
-          { name: 'C:', path: 'C:\\', isDirectory: true },
-          { name: 'D:', path: 'D:\\', isDirectory: true },
-        ],
-        entries: [{ name: 'projects', path: 'C:\\Users\\test\\projects', isDirectory: true }],
-      }),
-    );
-    render({ initialPath: 'C:\\Users\\test' });
-    await flush();
-
-    const driveButton = findButtonByText('D:');
-    expect(driveButton).toBeTruthy();
-    expect(driveButton?.className).toContain('rounded-lg');
-    expect(container.textContent).toContain('projects');
   });
 
   it('does not render other drive roots while browsing inside a drive', async () => {
