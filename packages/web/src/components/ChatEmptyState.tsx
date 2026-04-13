@@ -40,7 +40,7 @@ export function ChatEmptyState({
   onChannelsClick,
   fillAvailableHeight = false,
 }: ChatEmptyStateProps) {
-  const sectionClassName = fillAvailableHeight ? 'w-full px-4 sm:px-6' : 'min-h-full px-4 py-10 sm:px-6';
+  const sectionClassName = fillAvailableHeight ? 'w-[80%]' : 'min-h-full px-4 py-10 sm:px-6';
   const contentClassName = fillAvailableHeight
     ? 'mx-auto flex w-full max-w-4xl items-center justify-center'
     : 'mx-auto flex min-h-[calc(100vh-21rem)] max-w-4xl items-center justify-center';

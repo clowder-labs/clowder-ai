@@ -20,6 +20,13 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
+vi.mock('@/hooks/useCatData', () => ({
+  useCatData: () => ({
+    cats: [],
+    getCatById: () => undefined,
+  }),
+}));
+
 const mockStore: Record<string, unknown> = {
   threads: [],
   currentThreadId: 'default',
@@ -68,6 +75,7 @@ describe('ThreadSidebar mobile auto-close', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    window.sessionStorage.removeItem('cat-cafe:sidebar-scroll:v1');
     mockApiFetch.mockReset();
     mockPush.mockReset();
     mockStore.threads = [];
@@ -252,5 +260,170 @@ describe('ThreadSidebar mobile auto-close', () => {
 
     expect(mockStore.setCurrentProject).toHaveBeenCalledWith('project-a');
     expect(mockPush).toHaveBeenCalledWith('/thread/thread-2', { scroll: false });
+  });
+
+  it('keeps sidebar scroll position after clicking a thread away from the top', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
+    mockStore.currentThreadId = 'thread-1';
+    mockStore.threads = [
+      {
+        id: 'thread-1',
+        title: 'Thread 1',
+        projectPath: 'default',
+        createdBy: 'user-1',
+        participants: [],
+        lastActiveAt: 100,
+        createdAt: 100,
+      },
+      {
+        id: 'thread-2',
+        title: 'Thread 2',
+        projectPath: 'project-a',
+        createdBy: 'user-1',
+        participants: [],
+        lastActiveAt: 200,
+        createdAt: 200,
+      },
+      {
+        id: 'thread-3',
+        title: 'Thread 3',
+        projectPath: 'project-b',
+        createdBy: 'user-1',
+        participants: [],
+        lastActiveAt: 300,
+        createdAt: 300,
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+
+    const firstScrollRegion = container.querySelector(
+      '[data-testid="thread-sidebar-scroll-region"]',
+    ) as HTMLDivElement | null;
+    expect(firstScrollRegion).toBeTruthy();
+    mockScrollable(firstScrollRegion!, 1200, 300);
+
+    firstScrollRegion!.scrollTop = 180;
+    act(() => {
+      firstScrollRegion!.dispatchEvent(new Event('scroll'));
+    });
+
+    const threadItems = container.querySelectorAll('.ui-thread-item');
+    expect(threadItems.length).toBeGreaterThan(1);
+
+    act(() => {
+      (threadItems[1] as HTMLDivElement).click();
+    });
+    await flush();
+
+    firstScrollRegion!.scrollTop = 0;
+
+    act(() => {
+      root.unmount();
+    });
+
+    root = createRoot(container);
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+
+    const secondScrollRegion = container.querySelector(
+      '[data-testid="thread-sidebar-scroll-region"]',
+    ) as HTMLDivElement | null;
+    expect(secondScrollRegion).toBeTruthy();
+    mockScrollable(secondScrollRegion!, 1200, 300);
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+
+    expect(secondScrollRegion!.scrollTop).toBe(180);
+  });
+
+  it('restores sidebar scroll position synchronously when layout metrics are ready', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
+    mockStore.currentThreadId = 'thread-1';
+    mockStore.threads = [
+      {
+        id: 'thread-1',
+        title: 'Thread 1',
+        projectPath: 'default',
+        createdBy: 'user-1',
+        participants: [],
+        lastActiveAt: 100,
+        createdAt: 100,
+      },
+      {
+        id: 'thread-2',
+        title: 'Thread 2',
+        projectPath: 'project-a',
+        createdBy: 'user-1',
+        participants: [],
+        lastActiveAt: 200,
+        createdAt: 200,
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(ThreadSidebar));
+    });
+    await flush();
+
+    const firstScrollRegion = container.querySelector(
+      '[data-testid="thread-sidebar-scroll-region"]',
+    ) as HTMLDivElement | null;
+    expect(firstScrollRegion).toBeTruthy();
+    mockScrollable(firstScrollRegion!, 1000, 300);
+
+    firstScrollRegion!.scrollTop = 180;
+    act(() => {
+      firstScrollRegion!.dispatchEvent(new Event('scroll'));
+    });
+
+    act(() => {
+      root.unmount();
+    });
+
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(HTMLDivElement.prototype, 'scrollHeight');
+    const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLDivElement.prototype, 'clientHeight');
+
+    Object.defineProperty(HTMLDivElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return this.getAttribute('data-testid') === 'thread-sidebar-scroll-region' ? 1000 : 0;
+      },
+    });
+    Object.defineProperty(HTMLDivElement.prototype, 'clientHeight', {
+      configurable: true,
+      get() {
+        return this.getAttribute('data-testid') === 'thread-sidebar-scroll-region' ? 300 : 0;
+      },
+    });
+
+    try {
+      root = createRoot(container);
+      act(() => {
+        root.render(React.createElement(ThreadSidebar));
+      });
+
+      const secondScrollRegion = container.querySelector(
+        '[data-testid="thread-sidebar-scroll-region"]',
+      ) as HTMLDivElement | null;
+      expect(secondScrollRegion).toBeTruthy();
+      expect(secondScrollRegion!.scrollTop).toBe(180);
+    } finally {
+      if (originalScrollHeight) {
+        Object.defineProperty(HTMLDivElement.prototype, 'scrollHeight', originalScrollHeight);
+      }
+      if (originalClientHeight) {
+        Object.defineProperty(HTMLDivElement.prototype, 'clientHeight', originalClientHeight);
+      }
+    }
   });
 });
