@@ -105,6 +105,7 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
 const MAX_INPUT_LENGTH = 5000;
+const MAX_ATTACHMENT_FILES = 10;
 const SKILL_TOKEN_PREFIX = '[[skill:';
 const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
@@ -172,8 +173,13 @@ function getSkillInitial(name: string): string {
   return /[a-z]/i.test(initial) ? initial.toUpperCase() : initial;
 }
 
-function mergeFilesByName(prev: File[], incoming: File[], maxCount = 5): File[] {
+function mergeFilesByName(
+  prev: File[],
+  incoming: File[],
+  maxCount = MAX_ATTACHMENT_FILES,
+): { files: File[]; dropped: number } {
   const next = [...prev];
+  let dropped = 0;
   for (const file of incoming) {
     const normalizedName = file.name.toLowerCase();
     const existingIndex = next.findIndex((item) => item.name.toLowerCase() === normalizedName);
@@ -181,10 +187,13 @@ function mergeFilesByName(prev: File[], incoming: File[], maxCount = 5): File[] 
       next[existingIndex] = file;
       continue;
     }
-    if (next.length >= maxCount) continue;
+    if (next.length >= maxCount) {
+      dropped += 1;
+      continue;
+    }
     next.push(file);
   }
-  return next.slice(0, maxCount);
+  return { files: next.slice(0, maxCount), dropped };
 }
 
 function SkillOptionIcon({ name, iconUrl }: { name: string; iconUrl?: string | null }) {
@@ -286,15 +295,36 @@ export function ChatInput({
   useEffect(() => {
     if (!pendingChatInsert) return;
     if (pendingChatInsert.threadId !== threadId) return;
+    let nextCaret = -1;
+    const isQuickActionInsert = pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX);
+
     setInput((prev) => {
-      const separator = prev && !prev.endsWith('\n') ? '\n' : '';
-      return prev + separator + pendingChatInsert.text;
+      // Scheduled-task quick action should behave like clicking the quick-action chip:
+      // clear current input, insert only the capsule token, and then show prompt chips.
+      if (isQuickActionInsert) {
+        const next = pendingChatInsert.text;
+        nextCaret = next.length;
+        return next;
+      }
+
+      const base = prev;
+      const separator = base && !base.endsWith('\n') ? '\n' : '';
+      const next = base + separator + pendingChatInsert.text;
+      nextCaret = next.length;
+      return next;
     });
-    if (pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX)) {
-      setPendingQuickPromptExpand(true);
+    if (isQuickActionInsert) {
+      setPendingQuickPromptExpand(false);
+      setShowQuickPrompts(true);
     }
     setPendingChatInsert(null);
-    textareaRef.current?.focus();
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const caret = nextCaret >= 0 ? nextCaret : el.getSelectionEnd();
+      el.setSelectionRange(caret, caret);
+    }, 0);
   }, [pendingChatInsert, setPendingChatInsert, threadId]);
 
   const handleTranscript = useCallback((text: string) => {
@@ -368,17 +398,17 @@ export function ChatInput({
 
   useEffect(() => {
     if (selectedQuickAction) {
-      if (pendingQuickPromptExpand) {
-        setShowQuickPrompts(true);
-        setPendingQuickPromptExpand(false);
-      }
+      const hasMatchedPrompt = selectedQuickAction.prompts.some((prompt) => input.includes(prompt));
+      // Rule:
+      // 1) scene + matched prompt => show quick actions row (hide prompts row)
+      // 2) scene only (no matched prompt) => show quick prompts row
+      setShowQuickPrompts(!hasMatchedPrompt);
+      if (pendingQuickPromptExpand) setPendingQuickPromptExpand(false);
       return;
     }
 
-    if (!pendingQuickPromptExpand) {
-      setShowQuickPrompts(false);
-    }
-  }, [pendingQuickPromptExpand, selectedQuickAction]);
+    if (!pendingQuickPromptExpand) setShowQuickPrompts(false);
+  }, [input, pendingQuickPromptExpand, selectedQuickAction]);
 
   const filteredCatOptions = useMemo(() => {
     if (!mentionFilter) return catOptions;
@@ -785,7 +815,20 @@ export function ChatInput({
         });
       }
       if (supportedFiles.length > 0) {
-        setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
+        let dropped = 0;
+        setImages((prev) => {
+          const result = mergeFilesByName(prev, supportedFiles, MAX_ATTACHMENT_FILES);
+          dropped = result.dropped;
+          return result.files;
+        });
+        if (dropped > 0) {
+          addToast({
+            type: 'warning',
+            title: '附件数量已达上限',
+            message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
+            duration: 2600,
+          });
+        }
       }
       e.target.value = '';
     },
@@ -819,7 +862,20 @@ export function ChatInput({
       }
       if (supportedFiles.length === 0) return;
       e.preventDefault();
-      setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
+      let dropped = 0;
+      setImages((prev) => {
+        const result = mergeFilesByName(prev, supportedFiles, MAX_ATTACHMENT_FILES);
+        dropped = result.dropped;
+        return result.files;
+      });
+      if (dropped > 0) {
+        addToast({
+          type: 'warning',
+          title: '附件数量已达上限',
+          message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
+          duration: 2600,
+        });
+      }
     },
     [addToast],
   );
@@ -1087,7 +1143,7 @@ export function ChatInput({
           onClose={() => setMobileToolbar(false)}
           disabled={disabled}
           sendDisabled={sendTemporarilyDisabled}
-          maxImages={images.length >= 5}
+          maxImages={images.length >= MAX_ATTACHMENT_FILES}
           whisperMode={whisperMode}
         />
       )}
@@ -1123,7 +1179,7 @@ export function ChatInput({
                       type="button"
                       onClick={() => handleQuickAction(action)}
                       disabled={disabled}
-                      className="inline-flex items-center gap-1 rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-[rgba(0,0,0,0.04)] disabled:cursor-not-allowed disabled:opacity-50"
                       style={{ borderColor: 'rgba(219,219,219,0.8)' }}
                     >
                       <img src={action.icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
@@ -1142,7 +1198,7 @@ export function ChatInput({
                       key={prompt}
                       type="button"
                       onClick={() => handleQuickPrompt(prompt)}
-                      className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-gray-50"
+                      className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
                       style={{ borderColor: 'rgba(219,219,219,0.8)' }}
                     >
                       {prompt}
@@ -1157,7 +1213,7 @@ export function ChatInput({
                     whisperMode
                       ? 'border-amber-300 bg-amber-50/50 focus-within:border-amber-400'
                       : 'border-[#dbdbdb] focus-within:border-[#dbdbdb]'
-                  }`}
+                  } w-full min-w-0`}
                 >
                   <ImagePreview files={images} onRemove={handleRemoveImage} />
                   <div className="relative overflow-hidden rounded-t-[24px]">
@@ -1174,7 +1230,7 @@ export function ChatInput({
                       placeholder={
                         hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'
                       }
-                      className="chat-input-textarea block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
+                      className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
                       quickActionOptions={visibleQuickActions.map((action) => ({
@@ -1208,7 +1264,7 @@ export function ChatInput({
                             skillInsertAnchorRef.current = { start, end };
                           }}
                           onClick={handleSkillClick}
-                          className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,0.8)] px-3 py-[5px] text-xs text-[#191919] transition-colors hover:bg-gray-50"
+                          className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,1)] px-3 py-[7px] text-xs text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
                         >
                           <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
                           技能
@@ -1216,7 +1272,7 @@ export function ChatInput({
                         {showSkillMenu && (
                           <div
                             ref={menuRef}
-                            className="absolute bottom-full left-0 mb-2 z-[200] flex w-[200px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+                            className="absolute bottom-full left-0 mb-2 z-[200] flex w-[240px] flex-col overflow-hidden rounded-xl  bg-white p-2 shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
                           >
                             <div className="px-1 pt-0 pb-2">
                               <div className="relative">
@@ -1272,7 +1328,7 @@ export function ChatInput({
                                 />
                               </div>
                             </div>
-                            <div className="max-h-[260px] overflow-y-auto">
+                            <div className="-mr-1 max-h-[260px] overflow-y-auto pr-1 [scrollbar-gutter:auto]">
                               {skillOptionsLoading &&
                                 Array.from({ length: 5 }).map((_, i) => (
                                   <div
@@ -1292,7 +1348,7 @@ export function ChatInput({
                                     ref={(node) => {
                                       skillOptionRefs.current[i] = node;
                                     }}
-                                    className={`flex h-[34px] w-full items-center gap-2 rounded-[6px] p-2 text-left text-[12px] font-normal text-[#191919] transition-colors ${
+                                    className={`flex h-[32px] w-full items-center gap-2 rounded-[6px] px-2 py-[7px] text-left text-[12px] font-normal text-[#191919] transition-colors ${
                                       i === selectedIdx ? 'bg-[rgba(245,245,245,1)]' : 'hover:bg-[rgba(245,245,245,1)]'
                                     }`}
                                     onMouseDown={(e) => {
@@ -1308,12 +1364,12 @@ export function ChatInput({
                                 <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
                               )}
                             </div>
-                            <div className="px-4 py-2">
+                            <div className="p-2">
                               <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
                             </div>
                             <button
                               type="button"
-                              className="inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
+                              className="inline-flex h-[24px] mx-2 items-center justify-center rounded-full border border-[rgba(219,219,219,1)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 closeMenus();
@@ -1339,7 +1395,7 @@ export function ChatInput({
                             data-testid="folder-select-button"
                             onClick={onOpenFolderPicker}
                             disabled={isFolderButtonDisabled}
-                            className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                            className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs border-[rgba(219,219,219,1)] shadow-none !hover:bg-[rgba(0,0,0,0.04)] disabled:cursor-not-allowed disabled:border-[#c2c2c2] disabled:bg-[#f0f0f0] disabled:text-[#c2c2c2]"
                           >
                             <FolderBadgeIcon className="h-6 w-6 shrink-0" />
                             <span className="truncate">{folderButtonLabel}</span>
@@ -1350,9 +1406,9 @@ export function ChatInput({
                             type="button"
                             data-testid="attach-file-button"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                            aria-label="选择附件"
+                            disabled={disabled || sendTemporarilyDisabled || images.length >= MAX_ATTACHMENT_FILES}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-gray-400 transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                            aria-label="上传附件"
                           >
                             <AttachIcon className="h-5 w-5" />
                           </button>
