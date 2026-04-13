@@ -99,7 +99,11 @@ export const registerScheduledTaskInputSchema = {
   trigger: z
     .string()
     .describe(
-      'Trigger config as JSON string. Examples: {"type":"cron","expression":"0 9 * * *"} or {"type":"interval","ms":3600000} or {"type":"once","delayMs":120000} (fire once after 2min) or {"type":"once","fireAt":1712345678000} (fire once at epoch ms)',
+      'Trigger config as JSON string. Choose type by intent: ' +
+        'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}; ' +
+        'cron — specific wall-clock times/days, e.g. {"type":"cron","expression":"0 9 * * *","timezone":"Asia/Shanghai"}; ' +
+        'once — fire once after delay or at exact time, e.g. {"type":"once","delayMs":120000} or {"type":"once","fireAt":1712345678000}. ' +
+        'PREFER interval over cron when user says "every N hours/minutes".',
     ),
   params: z
     .string()
@@ -173,7 +177,15 @@ export async function handleRegisterScheduledTask(input: {
 
 export const previewScheduledTaskInputSchema = {
   templateId: z.string().min(1).describe('Template ID from list_schedule_templates'),
-  trigger: z.string().describe('Trigger config as JSON string'),
+  trigger: z
+    .string()
+    .describe(
+      'Trigger config as JSON string. Choose type by intent: ' +
+        'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}; ' +
+        'cron — specific wall-clock times/days, e.g. {"type":"cron","expression":"0 9 * * *","timezone":"Asia/Shanghai"}; ' +
+        'once — fire once after delay or at exact time, e.g. {"type":"once","delayMs":120000} or {"type":"once","fireAt":1712345678000}. ' +
+        'PREFER interval over cron when user says "every N hours/minutes".',
+    ),
   params: z.string().optional().describe('Template-specific parameters as JSON string'),
   deliveryThreadId: z.string().optional().describe('Thread ID to deliver results to'),
 };
