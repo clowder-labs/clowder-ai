@@ -25,8 +25,9 @@ const request: AuthPendingRequest = {
   requestId: 'auth-1',
   catId: 'codex',
   threadId: 'thread-1',
-  action: '申请获取文件夹写入权限',
-  reason: '获取本地文件夹的编辑权限。',
+  action: 'cron_create_job',
+  reason:
+    '工具 cron_create_job 需要授权才能执行\n安全风险评估：🔴 高风险\n> 该指令会创建每天上午 10 点运行的定时任务。\n参数： json { "name": "睡前故事生成", "cron_expr": "0 10 * * *" }\n匹配规则：tools.cron_create_job\n> 选择「总是允许」将自动放行所有 cron_create_job 调用',
   context: '您可以随时在安全管理中配置或修改安全策略',
   createdAt: Date.now(),
 };
@@ -56,14 +57,13 @@ describe('AuthorizationCard', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('renders the approval card with the requested dimensions and type scale', () => {
+  it('renders the first reason line as the title and removes it from the description body', () => {
     act(() => {
       root.render(React.createElement(AuthorizationCard, { request, onRespond: vi.fn() }));
     });
 
     const card = container.querySelector('[data-testid="authorization-card"]') as HTMLDivElement | null;
     const title = container.querySelector('[data-testid="authorization-card-title"]') as HTMLDivElement | null;
-    const riskBadge = container.querySelector('[data-testid="authorization-card-risk-badge"]') as HTMLSpanElement | null;
     const description = container.querySelector(
       '[data-testid="authorization-card-description"]',
     ) as HTMLParagraphElement | null;
@@ -74,17 +74,15 @@ describe('AuthorizationCard', () => {
     expect(card?.className).toContain('min-h-[140px]');
     expect(card?.className).toContain('rounded-[16px]');
 
-    expect(title?.textContent).toContain('申请获取文件夹写入权限');
+    expect(title?.textContent).toBe('工具 cron_create_job 需要授权才能执行');
     expect(title?.className).toContain('text-[14px]');
     expect(title?.className).toContain('font-semibold');
 
-    expect(riskBadge?.textContent).toBe('中风险');
-    expect(riskBadge?.className).toContain('text-[12px]');
-
-    expect(description?.textContent).toContain('获取本地文件夹的编辑权限。');
+    expect(description?.textContent).toContain('安全风险评估：🔴 高风险');
+    expect(description?.textContent).not.toContain('工具 cron_create_job 需要授权才能执行');
     expect(description?.className).toContain('text-[12px]');
+
     expect(helper?.textContent).toContain('安全管理');
-    expect(helper?.textContent).not.toContain('权限管理');
     expect(helper?.className).toContain('text-[12px]');
     expect(
       container.querySelector('[data-testid="authorization-card-security-management"]')?.textContent,
@@ -93,6 +91,42 @@ describe('AuthorizationCard', () => {
     expect(container.querySelector('[data-testid="authorization-card-allow-once"]')?.textContent).toBe('本次允许');
     expect(container.querySelector('[data-testid="authorization-card-allow-always"]')?.textContent).toBe('总是允许');
     expect(container.querySelector('[data-testid="authorization-card-deny"]')?.textContent).toBe('拒绝');
+  });
+
+  it('uses the first plain-text reason line as the title when markdown is absent', async () => {
+    const plainReasonRequest: AuthPendingRequest = {
+      ...request,
+      reason: '工具 file_delete 需要授权才能执行\n将删除临时文件。',
+    };
+
+    await act(async () => {
+      root.render(React.createElement(AuthorizationCard, { request: plainReasonRequest, onRespond: vi.fn() }));
+    });
+
+    expect(container.querySelector('[data-testid="authorization-card-title"]')?.textContent).toBe(
+      '工具 file_delete 需要授权才能执行',
+    );
+    expect(container.querySelector('[data-testid="authorization-card-description"]')?.textContent).toContain(
+      '将删除临时文件。',
+    );
+  });
+
+  it('falls back to the full reason when it is a single line', async () => {
+    const singleLineRequest: AuthPendingRequest = {
+      ...request,
+      reason: '仅本次需要写入工作区文件。',
+    };
+
+    await act(async () => {
+      root.render(React.createElement(AuthorizationCard, { request: singleLineRequest, onRespond: vi.fn() }));
+    });
+
+    expect(container.querySelector('[data-testid="authorization-card-title"]')?.textContent).toBe(
+      '仅本次需要写入工作区文件。',
+    );
+    expect(container.querySelector('[data-testid="authorization-card-description"]')?.textContent).toBe(
+      '仅本次需要写入工作区文件。',
+    );
   });
 
   it('calls the matching action payload for each button', async () => {
@@ -143,9 +177,7 @@ describe('AuthorizationCard', () => {
 
     expect(submittingButton?.textContent).toBe('本次允许');
     expect(submittingButton?.disabled).toBe(true);
-    expect(submittingButton?.className).toContain('border-[#DBDBDB]');
-    expect(submittingButton?.className).toContain('bg-[#F0F0F0]');
-    expect(submittingButton?.className).toContain('text-[#C2C2C2]');
+    expect(submittingButton?.className).toContain('ui-button-default');
     expect(container.querySelector('[data-testid="authorization-card-allow-always"]')).toBeNull();
     expect(container.querySelector('[data-testid="authorization-card-deny"]')).toBeNull();
 

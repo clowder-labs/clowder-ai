@@ -49,12 +49,33 @@ const CARD_ACTIONS: ActionConfig[] = [
     granted: false,
     scope: 'once',
     testId: 'authorization-card-deny',
-    className: 'border-[#FF4D4F] text-[#FF4D4F] hover:border-[#FF7875] hover:bg-[#FFF2F0]',
+    className: 'border-[#FF4D4F] text-[#FF4D4F] hover:border-[#FF7875] hover:bg-[#FFF2F0] hover:text-[#FF4D4F]',
   },
 ];
 
+function parseAuthorizationCopy(reason: string): { title: string | null; body: string } {
+  const normalized = reason.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return { title: null, body: reason };
+
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return { title: null, body: reason };
+
+  const [title, ...rest] = lines;
+  return {
+    title: title || null,
+    body: rest.join('\n'),
+  };
+}
+
 export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement }: AuthorizationCardProps) {
   const [submittingAction, setSubmittingAction] = useState<ActionKey | null>(null);
+  const parsedCopy = useMemo(() => parseAuthorizationCopy(request.reason), [request.reason]);
+  const title = parsedCopy.title ?? request.action;
+  const description = parsedCopy.title && parsedCopy.body ? parsedCopy.body : request.reason;
 
   const activeSubmittingAction = useMemo(
     () => CARD_ACTIONS.find((action) => action.key === submittingAction) ?? null,
@@ -78,45 +99,43 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
       data-testid="authorization-card"
       className="w-full max-w-[482px] min-h-[140px] rounded-[16px] border border-[#F0F0F0] bg-white px-6 py-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
     >
-      <div className="flex items-start gap-2">
-        <img
-          src="/icons/userprofile/security.svg"
-          alt=""
-          aria-hidden="true"
-          className="mt-[1px] h-[20px] w-[20px] shrink-0"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <div
-              data-testid="authorization-card-title"
-              className="text-[14px] font-semibold leading-6 text-[#202020]"
-            >
-              {request.action}
-            </div>
-          </div>
-
-          <p
-            data-testid="authorization-card-description"
-            className="mt-3 text-[12px] leading-6 text-[#595959]"
+      <div className="min-w-0">
+        <div data-testid="authorization-card-header" className="flex items-center gap-2">
+          <img
+            src="/icons/userprofile/security.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-[20px] w-[20px] shrink-0"
+          />
+          <div
+            data-testid="authorization-card-title"
+            className="min-w-0 flex-1 text-[14px] font-semibold leading-6 text-[#202020]"
           >
-            {request.reason}
-          </p>
-          <p data-testid="authorization-card-helper" className="text-[12px] leading-6 text-[#595959]">
-            您可以随时在
-            <button
-              type="button"
-              data-testid="authorization-card-security-management"
-              onClick={onOpenSecurityManagement}
-              className="mx-[1px] inline bg-transparent p-0 text-[12px] leading-6 text-[#1476FF]"
-            >
-              安全管理
-            </button>
-            中配置或修改安全策略
-          </p>
+            {title}
+          </div>
         </div>
+
+        <p
+          data-testid="authorization-card-description"
+          className="mt-2 text-[12px] leading-6 text-[#595959]"
+        >
+          {description}
+        </p>
+        <p data-testid="authorization-card-helper" className="text-[12px] leading-6 text-[#595959]">
+          您可随时在
+          <button
+            type="button"
+            data-testid="authorization-card-security-management"
+            onClick={onOpenSecurityManagement}
+            className="mx-[1px] inline bg-transparent p-0 text-[12px] leading-6 text-[#1476FF]"
+          >
+            安全管理
+          </button>
+          中配置或修改安全策略
+        </p>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         {activeSubmittingAction ? (
           <button
             type="button"
