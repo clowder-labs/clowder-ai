@@ -80,10 +80,23 @@ export abstract class ElementConverter {
     const fillResult = ColorParser.parseFill(fillAttr)
 
     if (fillResult && fillResult.type === 'solid') {
+      // 合并 rgba 中的 alpha 通道与 fill-opacity/opacity 属性
+      let finalTransparency = transparency
+      if (fillResult.color.a !== undefined && fillResult.color.a !== 1) {
+        const rgbaTransparency = (1 - fillResult.color.a) * 100
+        // 如果有 fill-opacity/opacity，则叠加透明度；否则直接使用 rgba 的透明度
+        if (finalTransparency !== undefined) {
+          // 叠加透明度：例如 rgba 50% 透明 + fill-opacity 50% = 75% 透明
+          finalTransparency = 100 - (100 - rgbaTransparency) * (100 - finalTransparency) / 100
+        } else {
+          finalTransparency = rgbaTransparency
+        }
+      }
+
       options.fill = {
         type: 'solid',
         color: ColorParser.colorToPptxHex(fillResult.color),
-        ...(transparency !== undefined ? { transparency } : {})
+        ...(finalTransparency !== undefined ? { transparency: finalTransparency } : {})
       }
     }
 
@@ -118,6 +131,20 @@ export abstract class ElementConverter {
         color: ColorParser.colorToPptxHex(colorResult),
         width: lineWidth
       }
+    }
+
+    // 处理 marker-end 箭头标记
+    const markerEnd = element.attributes['marker-end']
+    if (markerEnd && markerEnd.includes('url(')) {
+      // SVG marker-end 对应 PptxGenJS 的 lineTail（线条终点箭头）
+      options.lineTail = 'arrow'
+    }
+
+    // 处理 marker-start 箭头标记
+    const markerStart = element.attributes['marker-start']
+    if (markerStart && markerStart.includes('url(')) {
+      // SVG marker-start 对应 PptxGenJS 的 lineHead（线条起点箭头）
+      options.lineHead = 'arrow'
     }
 
     return options

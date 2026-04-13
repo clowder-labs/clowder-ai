@@ -54,7 +54,12 @@ export class PPTXBuilder {
   private addObject(slide: PptxGenJS.Slide, obj: Record<string, any>): void {
     switch (obj.type) {
       case 'rect':
-        slide.addShape('rect', obj)
+        // 有圆角时使用 roundRect，否则使用普通 rect
+        if (obj.rectRadius) {
+          slide.addShape('roundRect', obj)
+        } else {
+          slide.addShape('rect', obj)
+        }
         break
       case 'ellipse':
         slide.addShape('ellipse', obj)

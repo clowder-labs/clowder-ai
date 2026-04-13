@@ -25,6 +25,7 @@ import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
 import type { InstalledSkillRecord } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
+import { ensureSkillStorageMigrated } from '../domains/cats/services/skillhub/SkillStorageMigration.js';
 import { resolveOfficialSkillsRoot, resolveUserSkillsRoot } from '../domains/cats/services/skillhub/SkillPaths.js';
 import {
   fetchSkillContent,
@@ -481,6 +482,7 @@ async function buildSkillFileTree(skillDir: string, maxDepth: number = 3): Promi
 }
 
 export const skillsRoutes: FastifyPluginAsync = async (app) => {
+  await ensureSkillStorageMigrated(CAT_CAFE_ROOT);
   // ────────────────────────────────────────────────────────
   // GET /api/skills
   // ────────────────────────────────────────────────────────
