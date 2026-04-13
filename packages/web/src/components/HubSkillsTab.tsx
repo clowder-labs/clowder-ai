@@ -121,6 +121,7 @@ function SkillList({
       <div className={styles.skillGrid}>
         {results.skills.map((skill) => {
           const resolvedDescription = skill.description.trim() || FALLBACK_DESCRIPTION;
+          const resolvedCategory = getSkillCategory(skill);
 
           return (
             <article key={skill.id} className={`ui-card ui-card-hover ${styles.card}`}>
@@ -136,7 +137,12 @@ function SkillList({
                         textClassName={`${styles.title} block truncate`}
                       />
                       <div className="mt-1 flex flex-wrap items-center gap-2 leading-[18px] text-[var(--text-secondary)] text-xs">
-                        <span className="ui-badge-muted">{getSkillCategory(skill)}</span>
+                        <OverflowTooltip
+                          content={resolvedCategory}
+                          className="inline-flex max-w-full min-w-0"
+                          as="span"
+                          textClassName="ui-badge-muted inline-block max-w-full truncate align-middle leading-[18px]"
+                        />
                         {skill.stars !== undefined ? (
                           <span className="inline-flex items-center gap-1 text-[var(--text-muted)]">
                             <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 12 12" fill="currentColor">
