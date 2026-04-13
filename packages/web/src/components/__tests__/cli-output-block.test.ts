@@ -11,6 +11,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CliEvent } from '@/stores/chat-types';
+import type { AuthPendingRequest } from '@/hooks/useAuthorization';
 import { apiFetch } from '@/utils/api-client';
 
 // Stub MarkdownContent (heavy dep)
@@ -67,6 +68,15 @@ const doneEvents: CliEvent[] = [
   { id: 't3', kind: 'text', timestamp: 1002, content: 'Looks good.' },
 ];
 
+const authRequest: AuthPendingRequest = {
+  requestId: 'auth-1',
+  catId: 'codex',
+  threadId: 'thread-1',
+  action: 'shell_command',
+  reason: 'Need approval\nRun outside sandbox',
+  createdAt: 1003,
+};
+
 describe('CliOutputBlock', () => {
   it('renders completed tool-call summary when collapsed (default)', () => {
     act(() => {
@@ -101,6 +111,28 @@ describe('CliOutputBlock', () => {
       toolsToggle?.click();
     });
     expect(container.textContent).toContain('Read index.ts');
+  });
+
+  it('renders authorization cards inline beneath the tools section', () => {
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: doneEvents,
+          status: 'done',
+          defaultExpanded: true,
+          authorizationRequests: [authRequest],
+          onAuthorizationRespond: vi.fn(),
+        }),
+      );
+    });
+
+    const authCard = container.querySelector('[data-testid="authorization-card"]');
+    expect(authCard).toBeTruthy();
+    expect(authCard?.textContent).toContain('Need approval');
+    expect(authCard?.textContent).toContain('Run outside sandbox');
+
+    const cliBody = container.querySelector('[data-testid="cli-output-body"]');
+    expect(cliBody?.contains(authCard as Node)).toBe(true);
   });
 
   it('keeps markdown output in a block wrapper with bottom padding', () => {

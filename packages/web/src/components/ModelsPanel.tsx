@@ -590,7 +590,7 @@ export function ModelsPanel() {
           ...(icon ? { icon } : {}),
           ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
           ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
-          ...(headers ? { headers } : {}),
+          headers: headers ?? {},
           models: mergedModels,
           ...(projectPath ? { projectPath } : {}),
         };

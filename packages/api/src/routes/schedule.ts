@@ -37,22 +37,60 @@ import type { DeliverOpts, TriggerSpec } from '../infrastructure/scheduler/types
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
 
+const MIN_INTERVAL_MS = 10_000;
+const MIN_ONCE_DELAY_MS = 1_000;
+
 /** #415: Normalize once-trigger input — accepts delayMs (relative) or fireAt (absolute) */
 function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | { error: string } {
   if (trigger.type !== 'once') return trigger as TriggerSpec;
   const delayMs = typeof trigger.delayMs === 'number' ? trigger.delayMs : undefined;
   const fireAt = typeof trigger.fireAt === 'number' ? trigger.fireAt : undefined;
   if (delayMs != null) {
-    if (!Number.isFinite(delayMs) || delayMs < 0) return { error: 'once trigger delayMs must be a finite number >= 0' };
+    if (!Number.isFinite(delayMs) || delayMs < MIN_ONCE_DELAY_MS) {
+      return { error: `once trigger delayMs must be a finite number >= ${MIN_ONCE_DELAY_MS}` };
+    }
     return { type: 'once', fireAt: Date.now() + delayMs };
   }
   if (fireAt != null) {
-    if (!Number.isFinite(fireAt) || fireAt < 0) {
-      return { error: 'once trigger fireAt must be a finite positive epoch ms' };
+    if (!Number.isFinite(fireAt) || fireAt < Date.now()) {
+      return { error: 'once trigger fireAt must be a finite epoch ms in the future' };
     }
     return { type: 'once', fireAt };
   }
   return { error: 'once trigger requires either delayMs or fireAt' };
+}
+
+function normalizeTriggerSpec(trigger: unknown): TriggerSpec | { error: string } {
+  if (!trigger || typeof trigger !== 'object' || Array.isArray(trigger)) {
+    return { error: 'trigger must be a plain object' };
+  }
+
+  const record = trigger as Record<string, unknown>;
+  const type = typeof record.type === 'string' ? record.type : undefined;
+  if (!type) return { error: 'trigger.type is required' };
+
+  if (type === 'interval') {
+    const ms = typeof record.ms === 'number' ? record.ms : Number.NaN;
+    if (!Number.isFinite(ms) || ms < MIN_INTERVAL_MS) {
+      return { error: `interval trigger ms must be a finite number >= ${MIN_INTERVAL_MS}` };
+    }
+    return { type: 'interval', ms };
+  }
+
+  if (type === 'cron') {
+    const expression = typeof record.expression === 'string' ? record.expression.trim() : '';
+    if (!expression) return { error: 'cron trigger expression must be a non-empty string' };
+    const timezone = typeof record.timezone === 'string' && record.timezone.trim().length > 0 ? record.timezone.trim() : undefined;
+    return timezone ? { type: 'cron', expression, timezone } : { type: 'cron', expression };
+  }
+
+  if (type === 'once') return normalizeOnceTrigger(record);
+
+  return { error: `Unsupported trigger type: ${type}` };
+}
+
+function resolveTriggerSpec(trigger: unknown, fallback: TriggerSpec): TriggerSpec | { error: string } {
+  return normalizeTriggerSpec(trigger ?? fallback);
 }
 
 export interface ScheduleRoutesOptions {
@@ -259,17 +297,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    // #415: normalize once trigger (delayMs → fireAt)
-    let trigger: TriggerSpec;
-    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
-      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
-      if ('error' in result) {
-        reply.status(400);
-        return { error: result.error };
-      }
-      trigger = result;
-    } else {
-      trigger = body.trigger ?? template.defaultTrigger;
+    const trigger = resolveTriggerSpec(body.trigger, template.defaultTrigger);
+    if ('error' in trigger) {
+      reply.status(400);
+      return { error: trigger.error };
     }
     const params = body.params ?? {};
     const display = body.display
@@ -325,17 +356,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    // #415: normalize once trigger (delayMs → fireAt)
-    let trigger: TriggerSpec;
-    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
-      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
-      if ('error' in result) {
-        reply.status(400);
-        return { error: result.error };
-      }
-      trigger = result;
-    } else {
-      trigger = body.trigger ?? template.defaultTrigger;
+    const trigger = resolveTriggerSpec(body.trigger, template.defaultTrigger);
+    if ('error' in trigger) {
+      reply.status(400);
+      return { error: trigger.error };
     }
     const params = body.params ?? {};
     const requestedBy = resolveHeaderUserId(request) ?? 'default-user';

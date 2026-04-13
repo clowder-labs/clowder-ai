@@ -45,6 +45,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/download-source-overrides.sh"
 cd "$PROJECT_DIR"
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$PROJECT_DIR/office-claw-skills/.playwright-browsers}"
 
 echo "🐱 Cat Café 启动"
 echo "================"
@@ -967,6 +968,16 @@ main() {
         echo -e "${YELLOW}检测到依赖不完整，自动安装...${NC}"
         run_logged_step "pnpm install" 5 pnpm install --frozen-lockfile
         echo -e "${GREEN}  ✓ 依赖安装完成${NC}"
+    fi
+
+    if [ -d "$PROJECT_DIR/office-claw-skills" ]; then
+        echo ""
+        echo -e "${CYAN}检查 Office Skills 组件...${NC}"
+        if node "$PROJECT_DIR/scripts/ensure-office-skill-node-deps.mjs" --quiet; then
+            echo -e "${GREEN}  ✓ Office Skills 组件就绪${NC}"
+        else
+            echo -e "${YELLOW}  ⚠ Office Skills 组件补装失败，继续启动主服务${NC}"
+        fi
     fi
 
     # 3. 构建 shared + API (除非 --quick)
