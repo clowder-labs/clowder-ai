@@ -33,7 +33,7 @@ const CARD_ACTIONS: ActionConfig[] = [
     granted: true,
     scope: 'once',
     testId: 'authorization-card-allow-once',
-    className: 'border-[#595959] bg-white text-[#202020] hover:border-[#434343] hover:bg-[#FAFAFA]',
+    className: '',
   },
   {
     key: 'allow-always',
@@ -41,7 +41,7 @@ const CARD_ACTIONS: ActionConfig[] = [
     granted: true,
     scope: 'global',
     testId: 'authorization-card-allow-always',
-    className: 'border-[#595959] bg-white text-[#202020] hover:border-[#434343] hover:bg-[#FAFAFA]',
+    className: '',
   },
   {
     key: 'deny',
@@ -49,7 +49,7 @@ const CARD_ACTIONS: ActionConfig[] = [
     granted: false,
     scope: 'once',
     testId: 'authorization-card-deny',
-    className: 'border-[#FF4D4F] bg-white text-[#FF4D4F] hover:border-[#FF7875] hover:bg-[#FFF2F0]',
+    className: 'border-[#FF4D4F] text-[#FF4D4F] hover:border-[#FF7875] hover:bg-[#FFF2F0]',
   },
 ];
 
@@ -76,7 +76,7 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
   return (
     <div
       data-testid="authorization-card"
-      className="mx-2 mb-2 w-full max-w-[482px] min-h-[140px] rounded-[16px] border border-[#F0F0F0] bg-white px-6 py-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
+      className="w-full max-w-[482px] min-h-[140px] rounded-[16px] border border-[#F0F0F0] bg-white px-6 py-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
     >
       <div className="flex items-start gap-2">
         <img
@@ -93,12 +93,6 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
             >
               {request.action}
             </div>
-            {/* <span
-              data-testid="authorization-card-risk-badge"
-              className="inline-flex h-6 items-center rounded-[4px] bg-[#FFF4E5] px-1.5 text-[12px] leading-5 text-[#D46B08]"
-            >
-              中风险
-            </span> */}
           </div>
 
           <p
