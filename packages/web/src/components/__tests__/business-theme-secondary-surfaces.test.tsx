@@ -290,7 +290,7 @@ describe('business theme secondary surfaces', () => {
     expect(container.textContent).not.toContain('加载中...');
   });
 
-  it('keeps plaza search controls outside the scrolling results region', async () => {
+  it('keeps plaza search controls outside the results region', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
     });
@@ -304,7 +304,7 @@ describe('business theme secondary surfaces', () => {
 
     expect(fixedHeader).not.toBeNull();
     expect(scrollRegion).not.toBeNull();
-    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.className).not.toContain('overflow-y-auto');
     expect(fixedHeader?.contains(searchInput)).toBe(true);
     expect(scrollRegion?.contains(searchInput)).toBe(false);
     expect(scrollRegion?.querySelector('article')).not.toBeNull();

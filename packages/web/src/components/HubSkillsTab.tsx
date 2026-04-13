@@ -452,8 +452,8 @@ export function HubSkillsTab() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <section className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex flex-col">
+      <section className="flex flex-col">
         <div className="shrink-0" data-testid="hub-skills-fixed-header">
           {categories.length > 0 && (
             <div className="flex flex-wrap items-center gap-4 pb-6">
@@ -494,7 +494,7 @@ export function HubSkillsTab() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-skills-scroll-region">
+        <div data-testid="hub-skills-scroll-region">
           {results ? (
             <>
               {results.skills.length === 0 ? (

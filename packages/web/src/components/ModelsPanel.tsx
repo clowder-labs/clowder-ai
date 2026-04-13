@@ -691,8 +691,8 @@ export function ModelsPanel() {
         </div>
       </section>
 
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="models-scroll-region">
-        <div className="flex min-h-full flex-col gap-4 pb-2">
+      <div className="pb-2" data-testid="models-scroll-region">
+        <div className="flex flex-col gap-4">
           {loading && (
             <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-loading-state">
               <CenteredLoadingState />

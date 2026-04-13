@@ -206,7 +206,7 @@ describe('ModelsPanel search', () => {
     expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
   });
 
-  it('keeps the search toolbar outside the scroll region', async () => {
+  it('keeps the search toolbar outside the card content region', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -217,7 +217,7 @@ describe('ModelsPanel search', () => {
 
     expect(searchInput).not.toBeNull();
     expect(scrollRegion).not.toBeNull();
-    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.className).not.toContain('overflow-y-auto');
     expect(scrollRegion?.contains(searchInput!)).toBe(false);
     expect(scrollRegion?.textContent).toContain('gpt-5');
   });
