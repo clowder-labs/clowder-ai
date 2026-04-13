@@ -99,6 +99,23 @@ describe('SecurityManagementModal', () => {
     expect(container.textContent).toContain('write_memory');
   });
 
+  it('shows only the shared loading state in the modal body before data resolves', async () => {
+    const pending = createDeferred<Response>();
+    mockApiFetch.mockImplementationOnce(() => pending.promise);
+
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose: vi.fn() }));
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="security-management-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="skills-loading-state"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="security-management-approval-header"]')).toBeNull();
+    expect(container.querySelector('[data-testid="security-management-policy-section"]')).toBeNull();
+    expect(container.querySelector('[data-testid="security-management-load-error"]')).toBeNull();
+    expect(container.querySelector('[data-testid="security-management-save-error"]')).toBeNull();
+  });
+
   it('treats missing permissions.enabled as enabled when loading config', async () => {
     mockApiFetch.mockImplementationOnce(() =>
       Promise.resolve(

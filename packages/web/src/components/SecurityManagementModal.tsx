@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
+import { CenteredLoadingState } from './shared/CenteredLoadingState';
 
 export interface SecurityManagementModalProps {
   open: boolean;
@@ -87,6 +88,7 @@ function updateToolValue(
   if (!current || typeof current === 'string') {
     return nextDecision;
   }
+
   return {
     ...current,
     '*': nextDecision,
@@ -119,7 +121,9 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
         const response = await apiFetch('/api/config/relayclaw/security');
         const payload = (await response.json()) as { permissions?: PermissionsConfig; error?: string };
         const permissions = payload.permissions;
-        if (!response.ok || !permissions) throw new Error(payload.error || 'Failed to load permissions config');
+        if (!response.ok || !permissions) {
+          throw new Error(payload.error || 'Failed to load permissions config');
+        }
 
         if (cancelled) return;
 
@@ -128,6 +132,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
         setPolicies(normalizePolicies(permissions));
       } catch (error) {
         if (cancelled) return;
+
         setPermissionsConfig(null);
         setApprovalBarEnabled(false);
         setPolicies([]);
@@ -167,6 +172,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Failed to save permissions config');
+
       setPermissionsConfig((current) => ({
         ...(current ?? {}),
         enabled: nextEnabled,
@@ -243,6 +249,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
         } else {
           nextTools[id] = currentValue;
         }
+
         return {
           ...(current ?? {}),
           tools: nextTools,
@@ -258,20 +265,16 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
     }
   };
 
-  return (
-    <AppModal
-      open={open}
-      onClose={onClose}
-      disableBackdropClose
-      title="安全管理"
-      closeButtonAriaLabel="关闭安全管理弹窗"
-      backdropTestId="security-management-modal-backdrop"
-      panelTestId="security-management-modal"
-      bodyTestId="security-management-modal-body"
-      panelClassName="w-[700px] max-w-[calc(100vw-32px)]"
-      headerClassName="p-0 pb-4"
-      bodyClassName="flex flex-col"
-    >
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex min-h-[220px] flex-1 items-center justify-center" data-testid="security-management-loading">
+          <CenteredLoadingState />
+        </div>
+      );
+    }
+
+    return (
       <div className="space-y-6">
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-4" data-testid="security-management-approval-header">
@@ -280,7 +283,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
               checked={approvalBarEnabled}
               onToggle={() => void handleToggleApprovalBar()}
               ariaLabel="是否开启审批护栏"
-              disabled={loading || savingApprovalBar}
+              disabled={savingApprovalBar}
               testId="security-management-approval-bar-toggle"
             />
           </div>
@@ -290,11 +293,6 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
           >
             开启后，若对话中触发相关权限时按安全策略展示确认卡片；若关闭，则所有敏感操作无需用户执行风险审批。
           </p>
-          {loading ? (
-            <p className="text-[12px] leading-5 text-[#6B7280]" data-testid="security-management-loading">
-              正在同步 jiuwen 安全配置...
-            </p>
-          ) : null}
           {loadError ? (
             <p className="text-[12px] leading-5 text-[#DC2626]" data-testid="security-management-load-error">
               {loadError}
@@ -329,7 +327,7 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
                       <ToggleSwitch
                         checked={policy.approvalRequired}
                         onToggle={() => void handleTogglePolicy(policy.id)}
-                        ariaLabel={`${policy.action}执行前审批开关`}
+                        ariaLabel={`${policy.action} 执行前审批开关`}
                         disabled={Boolean(savingPolicyIds[policy.id])}
                         testId={`security-policy-toggle-${policy.id}`}
                       />
@@ -342,6 +340,24 @@ export default function SecurityManagementModal({ open, onClose }: SecurityManag
           </section>
         ) : null}
       </div>
+    );
+  };
+
+  return (
+    <AppModal
+      open={open}
+      onClose={onClose}
+      disableBackdropClose
+      title="安全管理"
+      closeButtonAriaLabel="关闭安全管理弹窗"
+      backdropTestId="security-management-modal-backdrop"
+      panelTestId="security-management-modal"
+      bodyTestId="security-management-modal-body"
+      panelClassName="w-[700px] max-w-[calc(100vw-32px)]"
+      headerClassName="p-0 pb-4"
+      bodyClassName="flex flex-col"
+    >
+      {renderContent()}
     </AppModal>
   );
 }
