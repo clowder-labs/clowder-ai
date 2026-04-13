@@ -154,6 +154,7 @@ const MAAS_MAP: Record<string, Partial<MassModelInfo>> = {
 
 export const MAAS_MODEL_WHITELIST = [
   'GLM-5',
+  'GLM-5.1',
   'DeepSeek-V3.2',
   'DeepSeek-V3',
   'Kimi-K2',
