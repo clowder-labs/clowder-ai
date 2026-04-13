@@ -97,7 +97,7 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   office_claw_check_permission_status: 'Check status of a permission request by requestId.',
   office_claw_register_pr_tracking: 'Register a PR for review notification routing.',
   office_claw_update_workflow: 'Update SOP workflow stage for a Feature.',
-  office_claw_multi_mention: 'Invoke up to 3 cats in parallel. Requires searchEvidenceRefs or overrideReason.',
+  office_claw_multi_mention: 'Invoke up to 3 agents in parallel. Requires searchEvidenceRefs or overrideReason.',
   office_claw_get_rich_block_rules: 'Get full rich block schema rules. Call once per session before creating blocks.',
   office_claw_list_scheduled_tasks: 'List all registered scheduled tasks (builtin + dynamic) with status.',
   office_claw_list_schedule_templates: 'List available schedule task templates (reminder, web-digest, repo-activity).',
