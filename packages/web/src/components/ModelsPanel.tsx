@@ -19,6 +19,7 @@ import { EmptyDataState } from './shared/EmptyDataState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { PasswordField } from './shared/PasswordField';
+import { SearchInput } from './shared/SearchInput';
 import { useConfirm } from './useConfirm';
 import { getIsSkipAuth } from '@/utils/userId';
 import { useToastStore } from '@/stores/toastStore';
@@ -667,16 +668,15 @@ export function ModelsPanel() {
 
       <section className="shrink-0 pb-6" data-testid="models-toolbar">
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="search"
-              aria-label="搜索模型"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={SEARCH_PLACEHOLDER}
-              className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
-            />
-          </div>
+          <SearchInput
+            wrapperClassName="flex-1"
+            aria-label="搜索模型"
+            value={searchQuery}
+            onChange={(value) => setSearchQuery(value)}
+            onClear={() => setSearchQuery('')}
+            placeholder={SEARCH_PLACEHOLDER}
+            clearAriaLabel="清除搜索"
+          />
           <button
             type="button"
             aria-label="刷新"

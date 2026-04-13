@@ -68,13 +68,13 @@ export function SearchInput({
         {...rest}
         value={value}
         onChange={(event) => onChange(event.target.value, event)}
-        className={['ui-input w-full pl-8', showClear ? 'pr-10' : '', inputClassName].filter(Boolean).join(' ')}
+        className={['search-input-control ui-input w-full px-8', inputClassName].filter(Boolean).join(' ')}
       />
       {showClear && (
         <button
           type="button"
           onClick={onClear}
-          className="absolute right-3 top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+          className="absolute right-3 top-1/2 inline-flex h-4 w-4 -translate-y-1/2 items-center justify-center text-[#c2c2c2] transition-colors hover:text-[#191919]"
           aria-label={clearAriaLabel}
           data-testid="search-input-clear-button"
         >

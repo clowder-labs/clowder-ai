@@ -15,6 +15,7 @@ import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
+import { SearchInput } from './shared/SearchInput';
 import { NameInitialIcon } from './NameInitialIcon';
 
 interface SearchSkill {
@@ -476,13 +477,14 @@ export function HubSkillsTab() {
               {results ? ` (${results.total})` : ''}
             </p>
             <div className="flex flex-col gap-[var(--space-5)] py-6 sm:flex-row sm:items-center">
-              <input
-                type="text"
+              <SearchInput
+                wrapperClassName="flex-1"
                 aria-label={SEARCH_ARIA_LABEL}
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(value) => setSearchQuery(value)}
+                onClear={() => setSearchQuery('')}
                 placeholder={SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px] min-h-[28px] flex-1 px-3 py-0 text-xs"
+                clearAriaLabel="清除搜索"
               />
             </div>
           </div>
