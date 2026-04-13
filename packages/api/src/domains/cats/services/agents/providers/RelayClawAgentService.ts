@@ -24,6 +24,12 @@ const log = createModuleLogger('relayclaw-agent');
 import { appendLocalUploadPathHints } from './image-cli-bridge.js';
 import { extractUploadRefs } from './image-paths.js';
 import {
+  getJiuwenPermissionBridge,
+  type JiuwenAskUserQuestionPayload,
+  type JiuwenBridgeAnswerSubmission,
+  type JiuwenPermissionBridge,
+} from '../../auth/JiuwenPermissionBridge.js';
+import {
   FrameQueue,
   RelayClawConnectionManager,
   type RelayClawConnection,
@@ -49,6 +55,7 @@ export interface RelayClawAgentServiceDeps {
   createConnection?: RelayClawConnectionFactory;
   createSidecarController?: (catId: CatId, config: RelayClawAgentConfig) => RelayClawSidecarController;
   sidecarDeps?: RelayClawSidecarControllerDeps;
+  permissionBridge?: JiuwenPermissionBridge;
 }
 
 interface RelayClawScopeDescriptor {
@@ -103,6 +110,7 @@ export class RelayClawAgentService implements AgentService {
   private readonly config: RelayClawAgentConfig;
   private readonly createConnection: RelayClawConnectionFactory;
   private readonly createSidecarController: (catId: CatId, config: RelayClawAgentConfig) => RelayClawSidecarController;
+  private readonly permissionBridge: JiuwenPermissionBridge;
   private readonly scopes = new Map<string, RelayClawScopeRuntime>();
 
   constructor(options: RelayClawAgentServiceOptions, deps?: RelayClawAgentServiceDeps) {
@@ -113,6 +121,7 @@ export class RelayClawAgentService implements AgentService {
     this.createSidecarController =
       deps?.createSidecarController ??
       ((catId, config) => new DefaultRelayClawSidecarController(catId, config, deps?.sidecarDeps));
+    this.permissionBridge = deps?.permissionBridge ?? getJiuwenPermissionBridge();
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
@@ -146,7 +155,7 @@ export class RelayClawAgentService implements AgentService {
       const request = buildRequest(requestId, channelId, sessionId, prompt, options);
       log.info({ requestId, catId: this.catId, sessionId, promptLen: prompt.length }, 'jiuwen request sent');
       runtime.connection.send(request);
-      yield* this.consumeFrames(requestId, queue, signal, options?.signal, sendTs);
+      yield* this.consumeFrames(runtime, requestId, queue, signal, options, sendTs);
     } catch (err) {
       if (options?.signal?.aborted) {
         yield agentMsg('done', this.catId);
@@ -225,10 +234,11 @@ export class RelayClawAgentService implements AgentService {
   }
 
   private async *consumeFrames(
+    runtime: RelayClawScopeRuntime,
     requestId: string,
     queue: FrameQueue,
     signal: AbortSignal,
-    callerSignal?: AbortSignal,
+    options?: AgentServiceOptions,
     sendTs?: number,
   ): AsyncIterable<AgentMessage> {
     let sawError = false;
@@ -259,6 +269,27 @@ export class RelayClawAgentService implements AgentService {
       }
 
       const payload = frame.payload;
+      if (
+        payload?.event_type === 'chat.ask_user_question' &&
+        options?.auditContext &&
+        typeof payload.request_id === 'string' &&
+        Array.isArray(payload.questions)
+      ) {
+        const bridged = await this.permissionBridge.ingestAskUserQuestion({
+          catId: this.catId,
+          threadId: options.auditContext.threadId,
+          invocationId: options.auditContext.invocationId,
+          sessionId:
+            typeof payload.session_id === 'string' && payload.session_id.trim().length > 0
+              ? payload.session_id
+              : resolveRelayClawSessionId(this.config.channelId ?? 'officeclaw', options),
+          payload: payload as unknown as JiuwenAskUserQuestionPayload,
+          submitAnswer: async (submission) => {
+            await this.submitJiuwenUserAnswer(runtime, submission);
+          },
+        });
+        if (bridged) continue;
+      }
       const message = transformRelayClawChunk(frame, this.catId);
       if (message) {
         yield message;
@@ -289,7 +320,7 @@ export class RelayClawAgentService implements AgentService {
       usage,
     };
 
-    if (!sawError && signal.aborted && !callerSignal?.aborted) {
+      if (!sawError && signal.aborted && !options?.signal?.aborted) {
       sawError = true;
       yield {
         type: 'error',
@@ -302,6 +333,49 @@ export class RelayClawAgentService implements AgentService {
     const durationMs = sendTs ? Date.now() - sendTs : undefined;
     log.info({ requestId, catId: this.catId, frameCount, durationMs, sawError, usage }, 'jiuwen request complete');
     yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+  }
+
+  private async submitJiuwenUserAnswer(
+    runtime: RelayClawScopeRuntime,
+    submission: JiuwenBridgeAnswerSubmission,
+  ): Promise<void> {
+    const requestId = randomUUID();
+    const queue = new FrameQueue();
+    runtime.requestQueues.set(requestId, queue);
+
+    try {
+      const url = runtime.resolvedUrl ?? this.config.url;
+      if (!url) throw new Error('jiuwen WebSocket URL is not configured');
+      await runtime.connection.ensureConnected(url);
+      runtime.connection.send({
+        request_id: requestId,
+        channel_id: this.config.channelId ?? 'officeclaw',
+        session_id: submission.sessionId,
+        req_method: 'chat.user_answer',
+        params: {
+          request_id: submission.jiuwenRequestId,
+          answers: submission.answers,
+        },
+        is_stream: false,
+        timestamp: Date.now() / 1000,
+      });
+      await this.drainControlFrames(queue, 5000);
+    } finally {
+      runtime.requestQueues.delete(requestId);
+    }
+  }
+
+  private async drainControlFrames(queue: FrameQueue, timeoutMs: number): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const remaining = Math.max(deadline - Date.now(), 1);
+      const frame = await Promise.race([
+        queue.take(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), remaining)),
+      ]);
+      if (frame === null) return;
+      if (frame.is_complete === true || frame.payload?.is_complete === true) return;
+    }
   }
 }
 

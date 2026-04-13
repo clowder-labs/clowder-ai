@@ -91,7 +91,7 @@ describe('AuthorizationCard', () => {
     ).toBe('安全管理');
 
     expect(container.querySelector('[data-testid="authorization-card-allow-once"]')?.textContent).toBe('本次允许');
-    expect(container.querySelector('[data-testid="authorization-card-allow-always"]')?.textContent).toBe('始终允许');
+    expect(container.querySelector('[data-testid="authorization-card-allow-always"]')?.textContent).toBe('总是允许');
     expect(container.querySelector('[data-testid="authorization-card-deny"]')?.textContent).toBe('拒绝');
   });
 

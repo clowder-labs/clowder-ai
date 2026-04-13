@@ -13,6 +13,10 @@ import type { CatId } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AuthorizationManager } from '../domains/cats/services/auth/AuthorizationManager.js';
+import {
+  getJiuwenPermissionBridge,
+  type JiuwenPermissionBridge,
+} from '../domains/cats/services/auth/JiuwenPermissionBridge.js';
 import type { IAuthorizationAuditStore } from '../domains/cats/services/stores/ports/AuthorizationAuditStore.js';
 import type { IAuthorizationRuleStore } from '../domains/cats/services/stores/ports/AuthorizationRuleStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -22,6 +26,7 @@ export interface AuthorizationRoutesOptions {
   ruleStore: IAuthorizationRuleStore;
   auditStore: IAuthorizationAuditStore;
   socketManager: SocketManager;
+  jiuwenPermissionBridge?: JiuwenPermissionBridge;
 }
 
 function resolveAuthorizationUserId(request: {
@@ -61,6 +66,7 @@ const addRuleSchema = z.object({
 
 export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions> = async (app, opts) => {
   const { authManager, ruleStore, auditStore, socketManager } = opts;
+  const jiuwenPermissionBridge = opts.jiuwenPermissionBridge ?? getJiuwenPermissionBridge();
 
   // POST /api/authorization/respond — 铲屎官审批
   app.post('/api/authorization/respond', async (request, reply) => {
@@ -81,6 +87,15 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
     if (!updated) {
       reply.status(404);
       return { error: 'Request not found or already resolved' };
+    }
+
+    try {
+      await jiuwenPermissionBridge.submitAuthorizationDecision({ localRequestId: requestId, granted, scope, reason });
+    } catch (error) {
+      request.log.warn(
+        { err: error, requestId, threadId: updated.threadId },
+        'failed to bridge authorization response back to Jiuwen',
+      );
     }
 
     // Broadcast resolution to frontend

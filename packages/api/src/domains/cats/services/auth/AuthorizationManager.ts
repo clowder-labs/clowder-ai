@@ -144,6 +144,36 @@ export class AuthorizationManager {
     });
   }
 
+  async createPendingFromExternalSource(
+    input: Pick<PermissionRequest, 'invocationId' | 'action' | 'reason' | 'context'> & {
+      catId: CatId;
+      threadId: string;
+    },
+  ): Promise<PendingRequestRecord> {
+    const record = await this.pendingStore.create({
+      invocationId: input.invocationId,
+      catId: input.catId,
+      threadId: input.threadId,
+      action: input.action,
+      reason: input.reason,
+      ...(input.context ? { context: input.context } : {}),
+    });
+
+    if (this.io) {
+      this.io.to(`thread:${input.threadId}`).emit('authorization:request', {
+        requestId: record.requestId,
+        catId: input.catId,
+        threadId: input.threadId,
+        action: input.action,
+        reason: input.reason,
+        createdAt: record.createdAt,
+        ...(input.context ? { context: input.context } : {}),
+      });
+    }
+
+    return record;
+  }
+
   /**
    * 铲屎官审批 — 更新 record + 可选创建规则 + resolve waiter
    */

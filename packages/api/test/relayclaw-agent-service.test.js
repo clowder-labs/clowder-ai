@@ -17,6 +17,13 @@ const { RelayClawAgentService, __relayClawInternals } = await import(
 const { RelayClawConnectionManager, resolveRelayClawWebSocketCtor } = await import(
   '../dist/domains/cats/services/agents/providers/relayclaw-connection.js'
 );
+const {
+  JiuwenPermissionBridge,
+} = await import('../dist/domains/cats/services/auth/JiuwenPermissionBridge.js');
+const { AuthorizationManager } = await import('../dist/domains/cats/services/auth/AuthorizationManager.js');
+const { AuthorizationRuleStore } = await import('../dist/domains/cats/services/stores/ports/AuthorizationRuleStore.js');
+const { PendingRequestStore } = await import('../dist/domains/cats/services/stores/ports/PendingRequestStore.js');
+const { AuthorizationAuditStore } = await import('../dist/domains/cats/services/stores/ports/AuthorizationAuditStore.js');
 const { buildRelayClawLaunchCommand, DefaultRelayClawSidecarController, isRelayClawRuntimeReady } = await import(
   '../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js'
 );
@@ -1043,6 +1050,82 @@ describe('RelayClawAgentService', () => {
     assert.match(firstMessages[0].sessionId, /^officeclaw_[0-9a-f]{24}$/);
     assert.equal(sentSessionIds[0], firstMessages[0].sessionId);
     assert.equal(sentSessionIds[1], secondMessages[0].sessionId);
+  });
+
+  it('bridges Jiuwen permission approvals into local authorization pending requests', async () => {
+    const pendingStore = new PendingRequestStore();
+    const permissionBridge = new JiuwenPermissionBridge();
+    permissionBridge.bindAuthorizationManager(
+      new AuthorizationManager({
+        ruleStore: new AuthorizationRuleStore(),
+        pendingStore,
+        auditStore: new AuthorizationAuditStore(),
+        timeoutMs: 5000,
+      }),
+    );
+
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        permissionBridge,
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue);
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: {
+              event_type: 'chat.ask_user_question',
+              request_id: 'perm_approve_relay_test',
+              questions: [
+                {
+                  header: '权限审批',
+                  question: '**工具 `shell_command` 需要授权才能执行**',
+                  options: [
+                    { label: '本次允许', description: '仅本次授权执行' },
+                    { label: '总是允许', description: '记住规则' },
+                    { label: '拒绝', description: '拒绝执行' },
+                  ],
+                  multi_select: false,
+                },
+              ],
+            },
+            is_complete: false,
+          });
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const messages = await collect(
+      service.invoke('Run a privileged tool', {
+        auditContext: {
+          invocationId: 'inv-permission-bridge',
+          threadId: 'thread-permission-bridge',
+          userId: 'user-permission-bridge',
+          catId: 'relayclaw-debug',
+        },
+      }),
+    );
+
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'done'],
+    );
+    const pending = pendingStore.listWaiting('thread-permission-bridge');
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].action, 'shell_command');
   });
 
   it('extracts token usage from frame.metadata and attaches to done message', async () => {

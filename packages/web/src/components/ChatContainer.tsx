@@ -796,7 +796,7 @@ function ThreadModeChatContainer({
         </div>
 
         {sidebarMenu === 'chat' && authPending.length > 0 && (
-          <div className="border-t border-amber-200 bg-amber-50/40 py-2">
+          <div className="flex justify-center">
             {authPending.map((req) => (
               <AuthorizationCard
                 key={req.requestId}

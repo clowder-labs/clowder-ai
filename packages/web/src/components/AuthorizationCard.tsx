@@ -37,7 +37,7 @@ const CARD_ACTIONS: ActionConfig[] = [
   },
   {
     key: 'allow-always',
-    label: '始终允许',
+    label: '总是允许',
     granted: true,
     scope: 'global',
     testId: 'authorization-card-allow-always',
@@ -128,7 +128,7 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
             type="button"
             disabled
             data-testid="authorization-card-submitting-action"
-            className="inline-flex h-8 min-w-[82px] items-center justify-center rounded-full border border-[#DBDBDB] bg-[#F0F0F0] px-5 text-[12px] font-normal leading-5 text-[#C2C2C2]"
+            className="ui-button-default"
           >
             {activeSubmittingAction.label}
           </button>
@@ -139,7 +139,7 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
               type="button"
               data-testid={action.testId}
               onClick={() => void handleAction(action)}
-              className={`inline-flex h-8 min-w-[82px] items-center justify-center rounded-full border px-5 text-[12px] font-normal leading-5 transition-colors ${action.className}`}
+              className={`ui-button-default ${action.className}`}
             >
               {action.label}
             </button>
