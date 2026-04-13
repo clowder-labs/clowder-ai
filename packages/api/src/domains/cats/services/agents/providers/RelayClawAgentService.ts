@@ -142,10 +142,6 @@ export class RelayClawAgentService implements AgentService {
     const onAbort = () => {
       void (async () => {
         await this.sendInterrupt(runtime, channelId, sessionId, requestId);
-        runtime.connection.close();
-        if (this.config.autoStart) {
-          runtime.sidecar.stop('user_abort_after_interrupt');
-        }
       })();
       queue.abort();
     };
