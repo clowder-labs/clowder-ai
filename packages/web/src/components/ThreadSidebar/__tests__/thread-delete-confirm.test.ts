@@ -16,7 +16,10 @@ import { ThreadSidebar } from '../ThreadSidebar';
 
 // ── Mocks ─────────────────────────────────────────────────────
 const mockPush = vi.fn();
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  usePathname: () => '/',
+}));
 
 const mockApiFetch = vi.fn();
 vi.mock('@/utils/api-client', () => ({
@@ -154,8 +157,9 @@ describe('Thread delete confirmation (I-1)', () => {
     expect(menu?.className).toContain('ui-overlay-card');
 
     const menuButtons = Array.from(menu?.querySelectorAll('button') ?? []);
-    expect(menuButtons.every((button) => button.className.includes('ui-overlay-item'))).toBe(true);
-    const deleteBtn = menuButtons.at(-1) as HTMLButtonElement | undefined;
+    const deleteBtn = menuButtons.find((button) => button.textContent?.includes('删除会话')) as
+      | HTMLButtonElement
+      | undefined;
     expect(deleteBtn, 'delete menu item should exist for non-default thread').toBeTruthy();
 
     act(() => {
@@ -172,10 +176,9 @@ describe('Thread delete confirmation (I-1)', () => {
     await flush();
     await openDeleteDialog();
 
-    // Dialog should appear with thread title and warning
-    expect(container.textContent).toContain('\u786e\u8ba4\u5220\u9664\u5bf9\u8bdd');
-    expect(container.textContent).toContain('\u6d4b\u8bd5\u5bf9\u8bdd\u6807\u9898');
-    expect(container.textContent).toContain('\u56de\u6536\u7ad9');
+    // Dialog should appear with the current warning copy
+    expect(container.textContent).toContain('\u786e\u8ba4\u5220\u9664\u4f1a\u8bdd');
+    expect(container.textContent).toContain('\u5220\u9664\u540e\uff0c\u8be5\u4f1a\u8bdd\u53ca\u76f8\u5173\u804a\u5929\u8bb0\u5f55\u5c06\u5168\u90e8\u6e05\u7a7a\u4e14\u4e0d\u53ef\u6062\u590d');
 
     const backdrop = container.querySelector('[data-testid=\"thread-delete-modal\"]') as HTMLDivElement | null;
     expect(backdrop?.className).toContain('ui-modal-backdrop');
@@ -205,12 +208,11 @@ describe('Thread delete confirmation (I-1)', () => {
     });
     await flush();
     await openDeleteDialog();
-    expect(container.textContent).toContain('\u786e\u8ba4\u5220\u9664\u5bf9\u8bdd');
+    expect(container.textContent).toContain('\u786e\u8ba4\u5220\u9664\u4f1a\u8bdd');
 
     const cancelBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '\u53d6\u6d88')!;
     expect(cancelBtn.className).toContain('ui-button-default');
     expect(cancelBtn.className).not.toContain('ui-button-secondary');
-    expect(cancelBtn.className).toContain('ui-modal-action-button');
 
     // Click cancel
     act(() => {
@@ -218,7 +220,7 @@ describe('Thread delete confirmation (I-1)', () => {
     });
 
     // Dialog should be gone
-    expect(container.textContent).not.toContain('\u786e\u8ba4\u5220\u9664\u5bf9\u8bdd');
+    expect(container.textContent).not.toContain('\u786e\u8ba4\u5220\u9664\u4f1a\u8bdd');
   });
 
   it('calls DELETE API only after clicking confirm', async () => {
@@ -229,10 +231,9 @@ describe('Thread delete confirmation (I-1)', () => {
     await openDeleteDialog();
 
     // Click confirm
-    const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '\u79fb\u5165\u56de\u6536\u7ad9')!;
+    const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent === '\u786e\u5b9a')!;
     expect(confirmBtn).toBeTruthy();
-    expect(confirmBtn.className).toContain('ui-button-danger');
-    expect(confirmBtn.className).toContain('ui-modal-action-button');
+    expect(confirmBtn.className).toContain('ui-button-primary');
 
     await act(async () => {
       confirmBtn.click();

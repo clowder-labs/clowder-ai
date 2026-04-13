@@ -775,7 +775,7 @@ export function CreateAgentModal({
             type="button"
             onClick={onClose}
             aria-label="close"
-            className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
             style={{ transform: 'translate(4px, -4px)' }}
           >
             <CloseIcon />
@@ -984,7 +984,7 @@ export function CreateAgentModal({
             type="button"
             aria-label="Cancel"
             onClick={onClose}
-            className="ui-button-default ui-modal-action-button font-normal"
+            className="ui-button-default"
           >
             取消
           </button>
@@ -993,7 +993,7 @@ export function CreateAgentModal({
             aria-label="Create"
             onClick={handleSave}
             disabled={isConfirmDisabled}
-            className="ui-button-primary ui-modal-action-button font-normal disabled:opacity-50"
+            className="ui-button-primary disabled:opacity-50"
           >
             {primaryButtonText}
           </button>

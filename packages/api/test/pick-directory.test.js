@@ -10,16 +10,21 @@ import { afterEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
 
 let setPickDirectoryImpl;
+let setListWindowsDriveRootsImpl;
 let projectsRoutes;
 
 // Load module once
 const mod = await import('../dist/routes/projects.js');
 setPickDirectoryImpl = mod.setPickDirectoryImpl;
+setListWindowsDriveRootsImpl = mod.setListWindowsDriveRootsImpl;
 projectsRoutes = mod.projectsRoutes;
 
 // Restore real impl after each test
 const realImpl = mod.execPickDirectory;
-afterEach(() => setPickDirectoryImpl(realImpl));
+afterEach(() => {
+  setPickDirectoryImpl(realImpl);
+  setListWindowsDriveRootsImpl(() => mod.listWindowsDriveRoots());
+});
 
 const AUTH_HEADERS = { 'x-office-claw-user': 'test-user' };
 
@@ -201,5 +206,26 @@ describe('GET /api/projects/browse (F113 cross-platform)', () => {
       assert.ok(!entry.name.startsWith('.'), `should hide: ${entry.name}`);
       assert.notEqual(entry.name, 'node_modules');
     }
+  });
+
+  it('includes Windows drive roots when the drive provider returns them', async () => {
+    setListWindowsDriveRootsImpl(async () => [
+      { name: 'C:', path: 'C:\\', isDirectory: true },
+      { name: 'D:', path: 'D:\\', isDirectory: true },
+    ]);
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/projects/browse?path=${encodeURIComponent(homedir())}`,
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.deepEqual(body.drives, [
+      { name: 'C:', path: 'C:\\', isDirectory: true },
+      { name: 'D:', path: 'D:\\', isDirectory: true },
+    ]);
   });
 });

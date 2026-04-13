@@ -59,25 +59,8 @@ try {
   process.exit(1);
 }
 
-// 拷贝 assets 目录到输出目录的 pages/ 子目录
-const assetsSrc = path.resolve(__dirname, '../../assets');
+// 创建 pages 子目录（静态资源已迁移到 CDN，不再需要拷贝 assets）
 const pagesDir = path.join(timestampDir, 'pages');
 fs.mkdirSync(pagesDir, { recursive: true });
-const assetsDest = path.join(pagesDir, 'assets');
-
-let assetsCopyFailed = false;
-if (fs.existsSync(assetsSrc)) {
-  try {
-    fs.cpSync(assetsSrc, assetsDest, { recursive: true });
-    console.error(`[assets] 已拷贝到 ${path.relative(process.cwd(), assetsDest)}`);
-  } catch (err) {
-    console.error(`[assets] 拷贝失败: ${err.message}`);
-    assetsCopyFailed = true;
-  }
-}
-
-if (assetsCopyFailed) {
-  process.exit(1);
-}
 
 console.log(timestampDir);

@@ -134,12 +134,28 @@ export class ShapeConverter extends ElementConverter {
         mapped.x += mapper.pxToInch(transform.e)
         mapped.y += mapper.pxToInch(transform.f)
       }
+
+      // 处理圆角 rx 属性
+      // PptxGenJS 的 rectRadius 是 0.0-1.0 的相对值
+      // 表示圆角半径相对于矩形宽度/高度的比例
+      const rx = element.attributes.rx
+      let rectRadius: number | undefined
+      if (rx) {
+        const rxPx = parseFloat(rx)
+        // 使用宽度作为参考计算相对值
+        // rectRadius = rx / w，确保在 0-1 范围内
+        if (w > 0) {
+          rectRadius = Math.min(1, Math.max(0, rxPx / w))
+        }
+      }
+
       return {
         type: 'rect',
         x: mapped.x,
         y: mapped.y,
         w: mapped.w,
         h: mapped.h,
+        ...(rectRadius ? { rectRadius } : {}),
         ...fillOpts,
         ...lineOpts
       }
