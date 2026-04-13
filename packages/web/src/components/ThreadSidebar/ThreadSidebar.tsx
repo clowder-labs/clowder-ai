@@ -801,7 +801,7 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    className={`block w-full whitespace-nowrap px-3 py-2 text-left text-xs font-[400] leading-[18px] transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
                     style={{ marginBottom: item.key === '6m' ? '0' : '14px' }}
                     onClick={() => {
                       setFilterOption(item.key as 'all' | '1m' | '3m' | '6m');
