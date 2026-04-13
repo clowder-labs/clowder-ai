@@ -18,6 +18,7 @@ import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { PasswordField } from './shared/PasswordField';
 import { useConfirm } from './useConfirm';
 import { getIsSkipAuth } from '@/utils/userId';
 import { useToastStore } from '@/stores/toastStore';
@@ -977,10 +978,9 @@ export function ModelsPanel() {
               </div>
               <div className="space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
-                <input
+                <PasswordField
                   data-testid="models-create-model-api-key-input"
                   name="cc_model_api_key"
-                  type="password"
                   value={modelApiKeyInput}
                   onChange={(event) => setModelApiKeyInput(event.target.value)}
                   placeholder={'请输入API Key'}
@@ -991,6 +991,7 @@ export function ModelsPanel() {
                   className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
+                  toggleTestId="models-create-model-api-key-toggle"
                 />
               </div>
               <div className="space-y-1">
@@ -1239,13 +1240,13 @@ function ModelsCreateModelConfigSource({
         autoComplete="off"
         className="ui-input w-full"
       />
-      <input
-        type="password"
+      <PasswordField
         autoComplete="off"
         value={apiKey}
         onChange={(event) => setApiKey(event.target.value)}
         placeholder="API Key"
         className="ui-input w-full rounded px-3 py-2 text-sm"
+        toggleTestId="models-create-source-api-key-toggle"
       />
       <textarea
         value={headersText}

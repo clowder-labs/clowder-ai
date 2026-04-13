@@ -20,6 +20,7 @@ import {
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { PasswordField } from './shared/PasswordField';
 
 interface PlatformFieldStatus {
   envName: string;
@@ -520,29 +521,43 @@ export function HubConnectorConfigTab() {
                                 </span>
                               )}
                             </label>
-                            <input
-                              id={`config-${field.envName}`}
-                              type={field.sensitive ? 'password' : 'text'}
-                              name={`connector-${field.envName}`}
-                              placeholder={
-                                field.sensitive
-                                  ? field.currentValue
-                                    ? '已设置（输入新值覆盖）'
-                                    : '未设置'
-                                  : (field.currentValue ?? '未设置')
-                              }
-                              value={fieldValues[field.envName] ?? ''}
-                              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                              autoComplete={field.sensitive ? 'new-password' : 'off'}
-                              autoCapitalize="off"
-                              autoCorrect="off"
-                              spellCheck={false}
-                              data-form-type="other"
-                              data-1p-ignore="true"
-                              data-lpignore="true"
-                              className="ui-input"
-                              data-testid={`field-${field.envName}`}
-                            />
+                            {field.sensitive ? (
+                              <PasswordField
+                                id={`config-${field.envName}`}
+                                name={`connector-${field.envName}`}
+                                placeholder={field.currentValue ? '已设置（输入新值覆盖）' : '未设置'}
+                                value={fieldValues[field.envName] ?? ''}
+                                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                                autoComplete="new-password"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                data-form-type="other"
+                                data-1p-ignore="true"
+                                data-lpignore="true"
+                                className="ui-input"
+                                data-testid={`field-${field.envName}`}
+                                toggleTestId={`connector-password-toggle-${field.envName}`}
+                              />
+                            ) : (
+                              <input
+                                id={`config-${field.envName}`}
+                                type="text"
+                                name={`connector-${field.envName}`}
+                                placeholder={field.currentValue ?? '未设置'}
+                                value={fieldValues[field.envName] ?? ''}
+                                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                                autoComplete="off"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                data-form-type="other"
+                                data-1p-ignore="true"
+                                data-lpignore="true"
+                                className="ui-input"
+                                data-testid={`field-${field.envName}`}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
