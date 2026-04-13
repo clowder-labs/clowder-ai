@@ -11,7 +11,7 @@
  * using presets for role distribution and the standard phase sequence.
  */
 
-import type { ActionDefinition, GameDefinition, PhaseDefinition, RoleDefinition, WinCondition } from '@cat-cafe/shared';
+import type { ActionDefinition, GameDefinition, PhaseDefinition, RoleDefinition, WinCondition } from '@office-claw/shared';
 import { WEREWOLF_ROLES } from './WerewolfRoles.js';
 
 /** Role distribution for a specific player count */

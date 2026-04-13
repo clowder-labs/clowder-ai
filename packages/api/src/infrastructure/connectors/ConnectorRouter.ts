@@ -20,8 +20,8 @@
  * F088 Multi-Platform Chat Gateway
  */
 
-import type { CatId, ConnectorSource, MessageContent } from '@cat-cafe/shared';
-import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent } from '@office-claw/shared';
+import { catRegistry, getConnectorDefinition } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorMessageFormatter } from './ConnectorMessageFormatter.js';

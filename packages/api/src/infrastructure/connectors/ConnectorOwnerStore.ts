@@ -23,18 +23,15 @@ const OWNER_FILENAME = 'connector-owner.local.json';
 
 export class ConnectorOwnerStore implements IConnectorOwnerStore {
   private readonly filePath: string;
-  private readonly legacyFilePath: string;
 
   constructor(hostRoot: string) {
     this.filePath = join(hostRoot, '.office-claw', OWNER_FILENAME);
-    this.legacyFilePath = join(hostRoot, '.cat-cafe', OWNER_FILENAME);
   }
 
   load(): PersistedConnectorOwner | null {
-    const filePath = existsSync(this.filePath) ? this.filePath : this.legacyFilePath;
-    if (!existsSync(filePath)) return null;
+    if (!existsSync(this.filePath)) return null;
     try {
-      const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as Partial<PersistedConnectorOwner> | null;
+      const parsed = JSON.parse(readFileSync(this.filePath, 'utf-8')) as Partial<PersistedConnectorOwner> | null;
       const ownerUserId = typeof parsed?.ownerUserId === 'string' ? parsed.ownerUserId.trim() : '';
       const updatedAt = typeof parsed?.updatedAt === 'string' ? parsed.updatedAt : '';
       if (parsed?.version !== 1 || !ownerUserId || !updatedAt) return null;
@@ -59,12 +56,10 @@ export class ConnectorOwnerStore implements IConnectorOwnerStore {
   }
 
   clear(): void {
-    for (const filePath of [this.filePath, this.legacyFilePath]) {
-      try {
-        unlinkSync(filePath);
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-      }
+    try {
+      unlinkSync(this.filePath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
   }
 

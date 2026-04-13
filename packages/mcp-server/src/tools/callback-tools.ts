@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { normalizeRichBlock } from '@cat-cafe/shared';
+import { normalizeRichBlock } from '@office-claw/shared';
 import { z } from 'zod';
 import { sendCallbackRequest } from './callback-outbox.js';
 import type { ToolResult } from './file-tools.js';
@@ -136,7 +136,7 @@ function normalizePostMessageInput(input: {
   clientMessageId?: unknown;
   targetCats?: unknown;
 } {
-  const rawContent = typeof input.content === 'string' ? input.content : input.message ?? input.text ?? input.content;
+  const rawContent = typeof input.content === 'string' ? input.content : (input.message ?? input.text ?? input.content);
   const normalizedContent = typeof rawContent === 'string' ? rawContent.trim() : rawContent;
   return {
     content: normalizedContent,
@@ -327,9 +327,9 @@ function finalizePostMessageResult(result: ToolResult, content: string): ToolRes
       ? '这次 callback 凭证校验失败（可能是 token 过期，也可能 invocation/token 不匹配）。'
       : '这次 post-message 调用失败。';
     const hint =
-      `\n\n💡 Tip: ${reasonHint}如果你想 @其他猫猫，` +
-      '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @猫名 即可' +
-      '（例如另起一行写 @缅因猫），系统会自动检测并触发。';
+      `\n\n💡 Tip: ${reasonHint}如果你想 @其他智能体，` +
+      '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @智能体名 即可' +
+      '（例如另起一行写 @通用智能体），系统会自动检测并触发。';
     return errorResult(original + hint);
   }
 
@@ -510,37 +510,6 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
   );
 }
 
-/** F088 Phase J2: Generate a document (PDF/DOCX/MD) from Markdown content */
-export const generateDocumentInputSchema = {
-  markdown: z
-    .string()
-    .min(1)
-    .describe('Full Markdown content for the document. Supports headings, tables, lists, code blocks, etc.'),
-  format: z
-    .enum(['pdf', 'docx', 'md'])
-    .describe('Output format. Recommend "docx" (most compatible). "pdf" needs LaTeX, "md" always works.'),
-  baseName: z
-    .string()
-    .min(1)
-    .max(200)
-    .describe(
-      'Display name without extension (e.g. "调研报告", "GTC2026-具身智能调研"). Will appear as filename in IM.',
-    ),
-};
-
-export async function handleGenerateDocument(input: {
-  markdown: string;
-  format: string;
-  baseName: string;
-}): Promise<ToolResult> {
-  const result = await callbackPost('/api/callbacks/generate-document', {
-    markdown: input.markdown,
-    format: input.format,
-    baseName: input.baseName,
-  });
-  return result;
-}
-
 export const requestPermissionInputSchema = {
   action: z.string().min(1).describe('The action requiring permission (e.g. "git_commit", "file_delete")'),
   reason: z.string().min(1).describe('Why you need this permission'),
@@ -669,7 +638,9 @@ export const multiMentionInputSchema = {
     .array(z.string().min(1))
     .min(1)
     .max(3)
-    .describe('Cat IDs to invoke in parallel (max 3). Built-in IDs: "assistant" (通用智能体), "office" (办公智能体), "agentteams" (编码智能体). Example: ["assistant","office"]'),
+    .describe(
+      'Cat IDs to invoke in parallel (max 3). Built-in IDs: "assistant" (通用智能体), "office" (办公智能体), "agentteams" (编码智能体). Example: ["assistant","office"]',
+    ),
   question: z.string().min(1).max(5000).describe('The question or request for the target cats'),
   callbackTo: z.string().min(1).describe('Cat ID to route all responses back to (required, usually yourself)'),
   context: z.string().max(5000).optional().describe('Additional context to include for the targets'),
@@ -731,103 +702,13 @@ export async function handleMultiMention(input: {
   });
 }
 
-// F079 Gap 4: Cat-initiated voting
-export const startVoteInputSchema = {
-  question: z.string().min(1).max(500).describe('The voting question'),
-  options: z.array(z.string().min(1).max(100)).min(2).max(20).describe('Voting options (at least 2)'),
-  voters: z
-    .array(z.string().min(1).max(50))
-    .min(1)
-    .max(20)
-    .describe('CatIds of voters (e.g. ["opus", "codex", "gemini"])'),
-  anonymous: z.boolean().optional().describe('Anonymous voting (default: false)'),
-  timeoutSec: z.number().int().min(10).max(600).optional().describe('Timeout in seconds (default: 120)'),
-};
-
-export async function handleStartVote(input: {
-  question: string;
-  options: string[];
-  voters: string[];
-  anonymous?: boolean | undefined;
-  timeoutSec?: number | undefined;
-}): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/start-vote', {
-    question: input.question,
-    options: input.options,
-    voters: input.voters,
-    ...(input.anonymous !== undefined ? { anonymous: input.anonymous } : {}),
-    ...(input.timeoutSec !== undefined ? { timeoutSec: input.timeoutSec } : {}),
-  });
-}
-
-// ============ Bootcamp (F087) ============
-
-export const updateBootcampStateInputSchema = {
-  threadId: z.string().min(1).describe('Thread ID of the bootcamp thread'),
-  phase: z
-    .enum([
-      'phase-0-select-cat',
-      'phase-1-intro',
-      'phase-2-env-check',
-      'phase-3-config-help',
-      'phase-3.5-advanced',
-      'phase-4-task-select',
-      'phase-5-kickoff',
-      'phase-6-design',
-      'phase-7-dev',
-      'phase-8-review',
-      'phase-9-complete',
-      'phase-10-retro',
-      'phase-11-farewell',
-    ])
-    .optional()
-    .describe('New bootcamp phase to advance to'),
-  leadCat: z.string().optional().describe('Selected lead cat ID (e.g. "opus", "codex", "gemini")'),
-  selectedTaskId: z.string().max(50).optional().describe('Selected task ID (e.g. "Q1", "Q7")'),
-  envCheck: z
-    .record(z.object({ ok: z.boolean(), version: z.string().optional(), note: z.string().optional() }))
-    .optional()
-    .describe('Environment check results (usually auto-set by bootcamp-env-check)'),
-  advancedFeatures: z
-    .record(z.enum(['available', 'unavailable', 'skipped']))
-    .optional()
-    .describe('Advanced feature status: TTS, ASR, Pencil'),
-  completedAt: z.number().optional().describe('Timestamp when bootcamp was completed (Phase 11)'),
-};
-
-export async function handleUpdateBootcampState(input: {
-  threadId: string;
-  phase?: string | undefined;
-  leadCat?: string | undefined;
-  selectedTaskId?: string | undefined;
-  envCheck?: Record<string, { ok: boolean; version?: string; note?: string }> | undefined;
-  advancedFeatures?: Record<string, string> | undefined;
-  completedAt?: number | undefined;
-}): Promise<ToolResult> {
-  const body: Record<string, unknown> = { threadId: input.threadId };
-  if (input.phase !== undefined) body['phase'] = input.phase;
-  if (input.leadCat !== undefined) body['leadCat'] = input.leadCat;
-  if (input.selectedTaskId !== undefined) body['selectedTaskId'] = input.selectedTaskId;
-  if (input.envCheck !== undefined) body['envCheck'] = input.envCheck;
-  if (input.advancedFeatures !== undefined) body['advancedFeatures'] = input.advancedFeatures;
-  if (input.completedAt !== undefined) body['completedAt'] = input.completedAt;
-  return callbackPost('/api/callbacks/update-bootcamp-state', body);
-}
-
-export const bootcampEnvCheckInputSchema = {
-  threadId: z.string().min(1).describe('Thread ID — results are auto-stored in bootcampState.envCheck'),
-};
-
-export async function handleBootcampEnvCheck(input: { threadId: string }): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/bootcamp-env-check', { threadId: input.threadId });
-}
 
 export const callbackTools = [
   {
     name: 'office_claw_post_message',
     description:
       'Post a proactive async message to the Clowder AI chat mid-task in the CURRENT thread (e.g. progress updates, sharing results). ' +
-      'To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires. ' +
+      'To simply @mention another agent at the end of your response, use @agent-name in your reply text instead — it is free and never expires. ' +
       'GOTCHA: This tool uses callback credentials that expire — if it fails with 401, fall back to inline @mention in your response text. ' +
       'GOTCHA: Do NOT use this for routine replies — only for mid-task proactive messages when you need to share something before your response completes.',
     inputSchema: postMessageInputSchema,
@@ -900,7 +781,7 @@ export const callbackTools = [
   {
     name: 'office_claw_list_skills',
     description:
-      'List Cat Cafe shared skills that are currently installed for runtime use. ' +
+      'List OfficeClaw shared skills that are currently installed for runtime use. ' +
       'Use when you need to discover which skills exist, search by intent, or answer "what skills are available?". ' +
       'For planning/TDD/compare-options/worktree tasks, use this before search_evidence/grep/read and load a close match immediately. ' +
       'Shared ACP/open-agent skills are discovered here at runtime — do not assume a local skill directory exists. ' +
@@ -911,7 +792,7 @@ export const callbackTools = [
   {
     name: 'office_claw_load_skill',
     description:
-      'Load one Cat Cafe shared skill by exact name. ' +
+      'Load one OfficeClaw shared skill by exact name. ' +
       'Returns the full SKILL.md plus the skill directory and related file paths. ' +
       'Call this before using a skill; ACP/open agents should not assume the skill is preinstalled locally.',
     inputSchema: loadSkillInputSchema,
@@ -936,18 +817,6 @@ export const callbackTools = [
       'If callback auth fails, falls back to cc_rich text encoding automatically.',
     inputSchema: createRichBlockInputSchema,
     handler: handleCreateRichBlock,
-  },
-  {
-    name: 'office_claw_generate_document',
-    description:
-      'Generate a document (PDF/DOCX/MD) from Markdown and deliver to IM platforms (Feishu/Telegram). ' +
-      'Use when: user asks to "生成报告", "导出文档", "发PDF", "写份文档给我", "export to DOCX", or any document generation request. ' +
-      'NOT for: sending an existing file you already have (use create_rich_block with kind:"file" + url pointing to /uploads/). ' +
-      'Output: file saved to /uploads/, attached as file RichBlock, automatically delivered to bound IM chats. Web UI shows download link. ' +
-      'GOTCHA: Do NOT manually run pandoc + create_rich_block — that skips IM delivery and the file will NOT reach Feishu/Telegram. Always use this tool. ' +
-      'Degradation: PDF needs LaTeX engine → falls back to DOCX → falls back to MD. No pandoc → .md only.',
-    inputSchema: generateDocumentInputSchema,
-    handler: handleGenerateDocument,
   },
   {
     name: 'office_claw_request_permission',
@@ -991,43 +860,13 @@ export const callbackTools = [
     name: 'office_claw_multi_mention',
     description:
       'Invoke up to 3 agents in parallel to gather perspectives on a question. ' +
-      'targets must use catId (e.g. "assistant", "office", "agentteams"), NOT display names. ' +
+      'targets must use agent IDs (e.g. "assistant", "office", "agentteams"), NOT display names. ' +
       'All responses are automatically routed back to callbackTo (usually yourself). ' +
       "REQUIRES: searchEvidenceRefs (list what you searched first) OR overrideReason (why you're skipping search). " +
       'This enforces the "先搜后问" principle — always search before asking other agents. ' +
       'Use this instead of multiple @mentions when you need structured multi-agent collaboration with guaranteed response aggregation. ' +
-      'GOTCHA: callbackTo is usually your own catId so responses come back to you.',
+      'GOTCHA: callbackTo is usually your own agent ID so responses come back to you.',
     inputSchema: multiMentionInputSchema,
     handler: handleMultiMention,
-  },
-  {
-    name: 'office_claw_start_vote',
-    description:
-      'Start a voting session in the current thread for collective decision-making ' +
-      '(e.g. "REST vs GraphQL?"). Voters receive notification and reply with [VOTE:option]. ' +
-      'Auto-closes when all voters have voted or timeout expires (default 120s). ' +
-      'GOTCHA: voters must be valid catIds (e.g. ["opus", "codex", "gemini"]). Options need at least 2 choices.',
-    inputSchema: startVoteInputSchema,
-    handler: handleStartVote,
-  },
-  // ============ Bootcamp (F087) ============
-  {
-    name: 'office_claw_update_bootcamp_state',
-    description:
-      'Update the bootcamp training state for a thread. Use to advance phase, set lead cat, ' +
-      'record task selection, store env check results, or mark completion. ' +
-      'Fields are merged into existing state — only send what changed. ' +
-      'GOTCHA: Only use this during bootcamp threads. Phase values must follow the sequence.',
-    inputSchema: updateBootcampStateInputSchema,
-    handler: handleUpdateBootcampState,
-  },
-  {
-    name: 'office_claw_bootcamp_env_check',
-    description:
-      'Run environment check for bootcamp (Node.js, pnpm, Git, Claude CLI, MCP, TTS, ASR, Pencil). ' +
-      "Results are automatically stored in the thread's bootcampState.envCheck. " +
-      'Returns the full check results for display to the user. Only use during bootcamp phase-2-env-check.',
-    inputSchema: bootcampEnvCheckInputSchema,
-    handler: handleBootcampEnvCheck,
   },
 ] as const;

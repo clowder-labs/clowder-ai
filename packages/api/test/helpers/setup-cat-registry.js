@@ -14,7 +14,7 @@
  * Usage: import './helpers/setup-cat-registry.js';
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 
 async function registerAllCats() {
   try {

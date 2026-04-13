@@ -15,8 +15,8 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 
@@ -38,7 +38,8 @@ import {
 } from './relayclaw-sidecar.js';
 import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
-const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_RELAYCLAW_TIMEOUT_MS = 60 * 60 * 1000;
+const RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS = 1_500;
 
 export interface RelayClawAgentServiceOptions {
   catId?: CatId;
@@ -138,7 +139,12 @@ export class RelayClawAgentService implements AgentService {
     const requestId = randomUUID();
     const queue = new FrameQueue();
     runtime.requestQueues.set(requestId, queue);
-    const onAbort = () => queue.abort();
+    const onAbort = () => {
+      void (async () => {
+        await this.sendInterrupt(runtime, channelId, sessionId, requestId);
+      })();
+      queue.abort();
+    };
     signal.addEventListener('abort', onAbort, { once: true });
 
     const sendTs = Date.now();
@@ -302,6 +308,63 @@ export class RelayClawAgentService implements AgentService {
     const durationMs = sendTs ? Date.now() - sendTs : undefined;
     log.info({ requestId, catId: this.catId, frameCount, durationMs, sawError, usage }, 'jiuwen request complete');
     yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+  }
+
+  private async sendInterrupt(
+    runtime: RelayClawScopeRuntime,
+    channelId: string,
+    sessionId: string,
+    sourceRequestId: string,
+  ): Promise<void> {
+    if (!runtime.connection.isOpen()) return;
+
+    const interruptRequestId = `interrupt_${randomUUID()}`;
+    const interruptQueue = new FrameQueue();
+    runtime.requestQueues.set(interruptRequestId, interruptQueue);
+
+    try {
+      runtime.connection.send({
+        request_id: interruptRequestId,
+        channel_id: channelId,
+        session_id: sessionId,
+        req_method: 'chat.interrupt',
+        params: {
+          intent: 'cancel',
+          request_id: sourceRequestId,
+        },
+        is_stream: false,
+        timestamp: Date.now() / 1000,
+      });
+
+      const interruptFrame = await Promise.race([
+        interruptQueue.take(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS)),
+      ]);
+
+      if (interruptFrame && interruptFrame.ok === false) {
+        log.warn(
+          { catId: this.catId, sessionId, sourceRequestId, interruptRequestId, payload: interruptFrame.payload },
+          'jiuwen interrupt request was rejected',
+        );
+      } else if (interruptFrame) {
+        log.info(
+          { catId: this.catId, sessionId, sourceRequestId, interruptRequestId, payload: interruptFrame.payload },
+          'jiuwen interrupt request acknowledged',
+        );
+      }
+    } catch (err) {
+      log.warn(
+        {
+          catId: this.catId,
+          sessionId,
+          sourceRequestId,
+          err,
+        },
+        'jiuwen interrupt request failed',
+      );
+    } finally {
+      runtime.requestQueues.delete(interruptRequestId);
+    }
   }
 }
 

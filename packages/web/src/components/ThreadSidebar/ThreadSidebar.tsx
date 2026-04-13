@@ -13,6 +13,7 @@ import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
+import { SearchInput } from '../shared/SearchInput';
 import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
@@ -623,37 +624,6 @@ export function ThreadSidebar({
           </div>
         </div>
 
-        <div className="ui-sidebar-section hidden px-3 py-2">
-          <button
-            type="button"
-            onClick={() => {
-              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-              router.push(`/mission-hub${fromParam}`);
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                onClose?.();
-              }
-            }}
-            className={getMenuItemClassName(false, 'h-auto py-1.5 text-left text-xs font-medium')}
-            data-testid="sidebar-mission-control"
-          >
-            <svg
-              className="h-4 w-4 shrink-0 text-[#9CA3AF]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            Mission Hub
-          </button>
-        </div>
-
         <div className="ui-sidebar-section px-3 py-2.5">
           <div className="flex flex-col gap-1.5 items-start">
             <button
@@ -707,7 +677,7 @@ export function ThreadSidebar({
               className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
               data-testid="sidebar-menu-scheduled-tasks"
             >
-              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
+              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               定时任务
             </button>
           </div>
@@ -760,32 +730,22 @@ export function ThreadSidebar({
             </div>
           </div>
           {(isSearchOpen || normalizedQuery.length > 0) && (
-            <div className="relative mt-2">
-              <input
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setFilterOption('all');
-                }}
-                placeholder="搜索会话"
-                autoComplete="off"
-                className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowFilter(false);
-                    setIsSearchOpen(false);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full text-[20px] leading-5 text-[#808080] hover:text-[#191919]"
-                  aria-label="清除搜索"
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <SearchInput
+              wrapperClassName="mt-2"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setFilterOption('all');
+              }}
+              onClear={() => {
+                setSearchQuery('');
+                setShowFilter(false);
+                setIsSearchOpen(false);
+              }}
+              placeholder="搜索会话"
+              autoComplete="off"
+              aria-label="搜索会话"
+            />
           )}
 
           {showFilter && (

@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem, ThreadPhase } from '@cat-cafe/shared';
+import type { BacklogItem, ThreadPhase } from '@office-claw/shared';
 
 interface SuggestionDecisionPanelProps {
   item: BacklogItem;

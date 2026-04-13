@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle, SignalSource } from '@cat-cafe/shared';
+import type { SignalArticle, SignalSource } from '@office-claw/shared';
 import { describe, expect, it } from 'vitest';
 import { filterSignalArticles, groupSignalSourcesByTierAndCategory, type SignalArticleFilters } from '../signals-view';
 

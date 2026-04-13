@@ -135,6 +135,7 @@ const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
   'puppeteer',
   'sharp',
   'sqlite-vec',
+  'snappy',
 ];
 const WEB_RUNTIME_DEPENDENCIES = ['next', 'react', 'react-dom', 'sharp'];
 const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require('node:fs');
@@ -909,7 +910,7 @@ export function createRuntimePackageJson(sourcePath, options = {}) {
   }
 
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@cat-cafe/shared': 'file:../shared',
+    '@office-claw/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
@@ -1151,7 +1152,7 @@ function installBundledOfficeSkillDependencies(bundleDir, windowsNode) {
 }
 
 function materializeSharedDependency(stagePackagesDir, packageName) {
-  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
+  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@office-claw', 'shared');
   try {
     if (!lstatSync(sharedLinkPath).isSymbolicLink()) {
       return;
@@ -1423,10 +1424,10 @@ function ensureBuildArtifacts(options) {
     return;
   }
   logStep('Building shared, mcp-server, api, and web');
-  run('pnpm', ['--filter', '@cat-cafe/shared', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/mcp-server', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/api', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/web', 'run', 'build'], {
+  run('pnpm', ['--filter', '@office-claw/shared', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/mcp-server', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/api', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/web', 'run', 'build'], {
     env: { NEXT_TELEMETRY_DISABLED: '1' },
   });
 }

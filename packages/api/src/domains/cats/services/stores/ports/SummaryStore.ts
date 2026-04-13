@@ -9,7 +9,7 @@
  * 内存实现，Map-based，有界 (MAX=200)。
  */
 
-import type { CreateSummaryInput, ThreadSummary } from '@cat-cafe/shared';
+import type { CreateSummaryInput, ThreadSummary } from '@office-claw/shared';
 import { generateSortableId } from './MessageStore.js';
 
 const MAX_SUMMARIES = 200;

@@ -17,7 +17,7 @@ import { accessSync, existsSync, constants as fsConstants, lstatSync, readFileSy
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, extname, isAbsolute, join, resolve } from 'node:path';
-import { type CatId, createCatId } from '@cat-cafe/shared';
+import { type CatId, createCatId } from '@office-claw/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';

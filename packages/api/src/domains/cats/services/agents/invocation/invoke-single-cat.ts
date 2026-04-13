@@ -23,7 +23,7 @@ import {
   catRegistry,
   type MessageContent,
   resolveEmbeddedRuntimeKind,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { resolveRuntimeAcpModelProfileById } from '../../../../../config/acp-model-profiles.js';
 import { resolveBoundAccountRefForCat } from '../../../../../config/cat-account-binding.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
@@ -591,6 +591,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // fork playgrounds may be routed by this runtime, but they must not inherit
     // shared-state warnings from the repo that launched the API process.
     if (
+      process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
       process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
       (!workingProjectRoot || isSameProject(workingProjectRoot, hostProjectRoot))
     ) {
@@ -678,7 +679,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F070 Phase 2: Inject dispatch mission context for external projects
     let missionPrefix = '';
-    let capturedMissionPack: import('@cat-cafe/shared').DispatchMissionPack | undefined;
+    let capturedMissionPack: import('@office-claw/shared').DispatchMissionPack | undefined;
     if (workingDirectory && !isSameProject(workingDirectory, hostProjectRoot) && threadStore) {
       try {
         const thread = await preflightRace(

@@ -10,9 +10,9 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
-import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
+import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
+import { createRedisClient, SessionStore } from '@office-claw/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
@@ -107,14 +107,12 @@ import {
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
-import { gameRoutes } from './routes/games.js';
 import {
   auditRoutes,
   authorizationRoutes,
   authRoutes,
   availableClientsRoutes,
   backlogRoutes,
-  bootcampRoutes,
   callbackAuthRoutes,
   callbacksRoutes,
   capabilitiesRoutes,
@@ -131,8 +129,6 @@ import {
   featureDocDetailRoutes,
   intentCardRoutes,
   invocationsRoutes,
-  leaderboardEventsRoutes,
-  leaderboardRoutes,
   maasModelsRoutes,
   memoryPublishRoutes,
   memoryRoutes,
@@ -152,10 +148,6 @@ import {
   sessionHooksRoutes,
   sessionStrategyConfigRoutes,
   sessionTranscriptRoutes,
-  signalCollectionRoutes,
-  signalPodcastRoutes,
-  signalStudyRoutes,
-  signalsRoutes,
   skillsRoutes,
   sliceRoutes,
   soulTemplatesRoutes,
@@ -177,6 +169,11 @@ import { previewRoutes } from './routes/preview.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { ApiInstanceLease, type ApiInstanceLeaseInvalidation } from './services/ApiInstanceLease.js';
+import {
+  createAomMetricsReporterFromEnv,
+  createTokenUsageReporter,
+  initMetricsService,
+} from './services/metrics/index.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
 import {
@@ -212,10 +209,54 @@ const PROCESS_START_AT = Date.now();
 import { migrateDeprecatedEnvVars } from './config/env-registry.js';
 migrateDeprecatedEnvVars();
 
+/**
+ * Sensitive query params to redact from request URL logs.
+ */
+const SENSITIVE_QUERY_PARAMS = [
+  'callbackToken',
+  'token',
+  'apiKey',
+  'api_key',
+  'secret',
+  'password',
+  'accessToken',
+  'hookToken',
+];
+
+/**
+ * Redact sensitive query params from URL string.
+ * E.g., "?callbackToken=xxx&foo=bar" → "?callbackToken=[REDACTED]&foo=bar"
+ */
+function redactUrlQuery(url: string): string {
+  const idx = url.indexOf('?');
+  if (idx === -1) return url;
+  const path = url.slice(0, idx);
+  const query = url.slice(idx + 1);
+  const redacted = query.replace(
+    /([?&])(callbackToken|token|apiKey|api_key|secret|password|accessToken|hookToken)=([^&]*)/gi,
+    '$1$2=[REDACTED]',
+  );
+  return `${path}?${redacted}`;
+}
+
 async function main(): Promise<void> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
+  
+  // Create child logger with custom request serializer that redacts URL query params
+  const redactingLogger = customLogger.child({}, {
+    serializers: {
+      req: (req: { method?: string; url?: string; hostname?: string; remoteAddress?: string; remotePort?: number }) => ({
+        method: req.method,
+        url: req.url ? redactUrlQuery(req.url) : undefined,
+        hostname: req.hostname,
+        remoteAddress: req.remoteAddress,
+        remotePort: req.remotePort,
+      }),
+    },
+  });
+  
   const app = Fastify({
-    logger: customLogger as unknown as import('fastify').FastifyBaseLogger,
+    logger: redactingLogger as unknown as import('fastify').FastifyBaseLogger,
     bodyLimit: API_BODY_LIMIT_BYTES,
   });
 
@@ -597,6 +638,7 @@ async function main(): Promise<void> {
       taskRunner: taskRunnerV2,
       registry,
       dynamicTaskStore,
+      threadStore,
       templateRegistry,
       globalControlStore,
       packTemplateStore,
@@ -623,7 +665,7 @@ async function main(): Promise<void> {
   } catch (err) {
     app.log.warn(`[api] Failed to load cat template/catalog, falling back to built-in CAT_CONFIGS: ${String(err)}`);
     // Fallback: register from static CAT_CONFIGS
-    const { CAT_CONFIGS } = await import('@cat-cafe/shared');
+    const { CAT_CONFIGS } = await import('@office-claw/shared');
     for (const [id, config] of Object.entries(CAT_CONFIGS)) {
       if (!catRegistry.has(id)) catRegistry.register(id, config);
     }
@@ -897,44 +939,8 @@ async function main(): Promise<void> {
   await app.register(quotaRoutes);
   // F128: Daily token usage aggregation
   await app.register(usageRoutes, { invocationRecordStore });
-  // F075 Phase B+C: Game + Achievement stores
-  const { GameStore } = await import('./domains/leaderboard/game-store.js');
-  const { AchievementStore } = await import('./domains/leaderboard/achievement-store.js');
-  const gameStore = new GameStore();
-  const achievementStore = new AchievementStore();
-  await app.register(leaderboardRoutes, { messageStore, gameStore, achievementStore });
-  await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
-  await app.register(bootcampRoutes, { threadStore });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);
-  // F101: Game routes (store created earlier for /game command interception)
-  if (f101GameStore) {
-    await app.register(gameRoutes, {
-      gameStore: f101GameStore,
-      socketManager,
-      threadStore,
-      messageStore,
-      ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
-    });
-
-    const { gameActionRoutes, clearGameNonces } = await import('./routes/game-actions.js');
-    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
-    const actionOrchestrator = new GameOrchestrator({
-      gameStore: f101GameStore,
-      socketManager,
-      messageStore,
-      onGameEnd: (gameId) => clearGameNonces(gameId),
-    });
-    await app.register(gameActionRoutes, {
-      gameStore: f101GameStore,
-      orchestrator: actionOrchestrator,
-      threadStore,
-      actionNotifier: sharedActionNotifier,
-    });
-
-    app.log.info('[api] F101 game routes registered');
-  }
-
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = redis ? new RedisPrTrackingStore(redis) : new MemoryPrTrackingStore();
   app.log.info(`[api] PrTrackingStore: ${redis ? 'Redis' : 'Memory'}`);
@@ -1112,10 +1118,6 @@ async function main(): Promise<void> {
   }
   await app.register(sessionStrategyConfigRoutes);
 
-  // Voting system (F079)
-  const { voteRoutes } = await import('./routes/votes.js');
-  await app.register(voteRoutes, { threadStore, socketManager, messageStore });
-
   // Evidence search (SQLite) + reindex endpoint (D-11)
   await app.register(evidenceRoutes, {
     evidenceStore: memoryServices.evidenceStore,
@@ -1140,16 +1142,6 @@ async function main(): Promise<void> {
     opusService,
     threadStore,
   });
-  await app.register(signalsRoutes);
-  await app.register(signalStudyRoutes, { threadStore });
-  await app.register(signalCollectionRoutes);
-  await app.register(signalPodcastRoutes, {
-    messageStore,
-    threadStore,
-    router,
-    invocationRecordStore,
-    invocationTracker,
-  });
 
   // Serve uploaded files (images)
   const uploadDir = process.env.UPLOAD_DIR ?? './uploads';
@@ -1168,6 +1160,20 @@ async function main(): Promise<void> {
   initVoiceBlockSynthesizer(ttsRegistry, ttsCacheDir);
   initStreamingTtsRegistry(ttsRegistry);
   startTtsCacheCleaner(ttsCacheDir);
+
+  // Token Usage Reporter (AOM metrics, 1-minute interval)
+  const aomReporter = createAomMetricsReporterFromEnv();
+  if (aomReporter) {
+    initMetricsService();
+    const tokenUsageReporter = createTokenUsageReporter({
+      reporter: aomReporter,
+      intervalMs: 60_000,
+    });
+    tokenUsageReporter.start();
+    app.log.info('[api] Token usage reporter started');
+  } else {
+    app.log.info('[api] Token usage reporter disabled (AOM not configured)');
+  }
 
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? '';

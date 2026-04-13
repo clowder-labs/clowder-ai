@@ -6,7 +6,6 @@
 
 'use client';
 
-import { useRouter } from 'next/navigation';
 import {
   type CSSProperties,
   KeyboardEvent,
@@ -18,7 +17,6 @@ import {
   useState,
 } from 'react';
 import { useCatData } from '@/hooks/useCatData';
-import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
@@ -26,7 +24,6 @@ import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { useToastStore } from '@/stores/toastStore';
 import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
-import { apiFetch } from '@/utils/api-client';
 import {
   fetchSkillOptionsWithCache,
   seedSkillOptionsCache,
@@ -40,11 +37,8 @@ import {
   buildWhisperOptions,
   type CatOption,
   detectMenuTrigger,
-  GAME_LIST,
-  WEREWOLF_MODES,
 } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
-import { GameLobby, type GameStartPayload } from './game/GameLobby';
 import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
@@ -111,6 +105,7 @@ const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
 const MAX_INPUT_LENGTH = 5000;
+const MAX_ATTACHMENT_FILES = 10;
 const SKILL_TOKEN_PREFIX = '[[skill:';
 const SKILL_TOKEN_SUFFIX = ']]';
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
@@ -178,8 +173,13 @@ function getSkillInitial(name: string): string {
   return /[a-z]/i.test(initial) ? initial.toUpperCase() : initial;
 }
 
-function mergeFilesByName(prev: File[], incoming: File[], maxCount = 5): File[] {
+function mergeFilesByName(
+  prev: File[],
+  incoming: File[],
+  maxCount = MAX_ATTACHMENT_FILES,
+): { files: File[]; dropped: number } {
   const next = [...prev];
+  let dropped = 0;
   for (const file of incoming) {
     const normalizedName = file.name.toLowerCase();
     const existingIndex = next.findIndex((item) => item.name.toLowerCase() === normalizedName);
@@ -187,10 +187,13 @@ function mergeFilesByName(prev: File[], incoming: File[], maxCount = 5): File[] 
       next[existingIndex] = file;
       continue;
     }
-    if (next.length >= maxCount) continue;
+    if (next.length >= maxCount) {
+      dropped += 1;
+      continue;
+    }
     next.push(file);
   }
-  return next.slice(0, maxCount);
+  return { files: next.slice(0, maxCount), dropped };
 }
 
 function SkillOptionIcon({ name, iconUrl }: { name: string; iconUrl?: string | null }) {
@@ -250,9 +253,7 @@ export function ChatInput({
     setInputState(clampInputLength(next));
   }, []);
   const [showMentions, setShowMentions] = useState(false);
-  const [showGameMenu, setShowGameMenu] = useState(false);
   const [showSkillMenu, setShowSkillMenu] = useState(false);
-  const [gameStep, setGameStep] = useState<'list' | 'modes'>('list');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const [mentionEnd, setMentionEnd] = useState(-1);
@@ -272,13 +273,11 @@ export function ChatInput({
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
-  const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionConfig | null>(null);
   const [showQuickPrompts, setShowQuickPrompts] = useState(false);
   const [pendingQuickPromptExpand, setPendingQuickPromptExpand] = useState(false);
   const textareaRef = useRef<RichTextareaHandle>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const gameBtnRef = useRef<HTMLButtonElement>(null);
   const skillBtnRef = useRef<HTMLButtonElement>(null);
   const skillOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const skillInsertAnchorRef = useRef<{ start: number; end: number } | null>(null);
@@ -296,15 +295,36 @@ export function ChatInput({
   useEffect(() => {
     if (!pendingChatInsert) return;
     if (pendingChatInsert.threadId !== threadId) return;
+    let nextCaret = -1;
+    const isQuickActionInsert = pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX);
+
     setInput((prev) => {
-      const separator = prev && !prev.endsWith('\n') ? '\n' : '';
-      return prev + separator + pendingChatInsert.text;
+      // Scheduled-task quick action should behave like clicking the quick-action chip:
+      // clear current input, insert only the capsule token, and then show prompt chips.
+      if (isQuickActionInsert) {
+        const next = pendingChatInsert.text;
+        nextCaret = next.length;
+        return next;
+      }
+
+      const base = prev;
+      const separator = base && !base.endsWith('\n') ? '\n' : '';
+      const next = base + separator + pendingChatInsert.text;
+      nextCaret = next.length;
+      return next;
     });
-    if (pendingChatInsert.text.includes(QUICK_ACTION_TOKEN_PREFIX)) {
-      setPendingQuickPromptExpand(true);
+    if (isQuickActionInsert) {
+      setPendingQuickPromptExpand(false);
+      setShowQuickPrompts(true);
     }
     setPendingChatInsert(null);
-    textareaRef.current?.focus();
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const caret = nextCaret >= 0 ? nextCaret : el.getSelectionEnd();
+      el.setSelectionRange(caret, caret);
+    }, 0);
   }, [pendingChatInsert, setPendingChatInsert, threadId]);
 
   const handleTranscript = useCallback((text: string) => {
@@ -378,17 +398,17 @@ export function ChatInput({
 
   useEffect(() => {
     if (selectedQuickAction) {
-      if (pendingQuickPromptExpand) {
-        setShowQuickPrompts(true);
-        setPendingQuickPromptExpand(false);
-      }
+      const hasMatchedPrompt = selectedQuickAction.prompts.some((prompt) => input.includes(prompt));
+      // Rule:
+      // 1) scene + matched prompt => show quick actions row (hide prompts row)
+      // 2) scene only (no matched prompt) => show quick prompts row
+      setShowQuickPrompts(!hasMatchedPrompt);
+      if (pendingQuickPromptExpand) setPendingQuickPromptExpand(false);
       return;
     }
 
-    if (!pendingQuickPromptExpand) {
-      setShowQuickPrompts(false);
-    }
-  }, [pendingQuickPromptExpand, selectedQuickAction]);
+    if (!pendingQuickPromptExpand) setShowQuickPrompts(false);
+  }, [input, pendingQuickPromptExpand, selectedQuickAction]);
 
   const filteredCatOptions = useMemo(() => {
     if (!mentionFilter) return catOptions;
@@ -442,14 +462,11 @@ export function ChatInput({
     };
   }, [loadSkillOptions]);
 
-  const activeMenu = showMentions ? 'mention' : showGameMenu ? 'game' : showSkillMenu ? 'skill' : null;
-  const gameMenuItems = gameStep === 'list' ? GAME_LIST : WEREWOLF_MODES;
+  const activeMenu = showMentions ? 'mention' : showSkillMenu ? 'skill' : null;
   const activeOptionsCount =
     activeMenu === 'mention'
       ? filteredCatOptions.length
-      : activeMenu === 'skill'
-        ? filteredSkillOptions.length
-        : gameMenuItems.length;
+      : filteredSkillOptions.length;
 
   const addHistoryEntry = useInputHistoryStore((s) => s.addEntry);
   const findHistoryMatch = useInputHistoryStore((s) => s.findMatch);
@@ -478,7 +495,6 @@ export function ChatInput({
         setGhostSuggestion(null);
         setImages([]);
         setShowMentions(false);
-        setShowGameMenu(false);
         setShowSkillMenu(false);
         setSelectedQuickAction(null);
         setPendingQuickPromptExpand(false);
@@ -505,7 +521,6 @@ export function ChatInput({
 
   const closeMenus = useCallback(() => {
     setShowMentions(false);
-    setShowGameMenu(false);
     setShowSkillMenu(false);
     setSkillFilter('');
   }, []);
@@ -528,55 +543,6 @@ export function ChatInput({
     const top = Math.min(Math.max(desiredTop, viewportPadding), Math.max(viewportPadding, maxTop));
     setMentionMenuStyle({ left, top });
   }, [showMentions, mentionStart]);
-
-  const router = useRouter();
-  const [gameStarting, setGameStarting] = useState(false);
-
-  const startGame = useCallback(
-    async (payload: GameStartPayload) => {
-      closeMenus();
-      if (disabled || sendTemporarilyDisabled || gameStarting) return;
-      setGameStarting(true);
-      try {
-        const res = await apiFetch('/api/game/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          useChatStore.getState().addMessage({
-            id: `game-err-${Date.now()}`,
-            type: 'system',
-            variant: 'error',
-            content: `开局失败: ${data.error ?? `HTTP ${res.status}`}`,
-            timestamp: Date.now(),
-          });
-          // Restore lobby so user can retry without re-selecting
-          setLobbyMode(payload.humanRole);
-          return;
-        }
-        // Success — dismiss lobby and navigate
-        setLobbyMode(null);
-        router.push(`/thread/${data.gameThreadId}`);
-        // Hydrate game state immediately (socket reconnect won't fire for same connection)
-        reconnectGame(data.gameThreadId).catch(() => {});
-      } catch (err) {
-        useChatStore.getState().addMessage({
-          id: `game-err-${Date.now()}`,
-          type: 'system',
-          variant: 'error',
-          content: `开局失败: ${err instanceof Error ? err.message : '网络异常'}`,
-          timestamp: Date.now(),
-        });
-        // Restore lobby so user can retry
-        setLobbyMode(payload.humanRole);
-      } finally {
-        setGameStarting(false);
-      }
-    },
-    [closeMenus, disabled, sendTemporarilyDisabled, gameStarting, router],
-  );
 
   const insertMention = useCallback(
     (option: CatOption) => {
@@ -643,15 +609,8 @@ export function ChatInput({
       const normalizedSelectionEnd = Math.min(selectionEnd, next.length);
       skillInsertAnchorRef.current = { start: normalizedSelectionStart, end: normalizedSelectionEnd };
       const trigger = detectMenuTrigger(next, normalizedSelectionStart);
-      if (trigger?.type === 'game') {
-        setShowGameMenu(true);
-        setGameStep('list');
-        setShowMentions(false);
-        setShowSkillMenu(false);
-        setSelectedIdx(0);
-      } else if (trigger?.type === 'mention') {
+      if (trigger?.type === 'mention') {
         setShowMentions(true);
-        setShowGameMenu(false);
         setShowSkillMenu(false);
         setMentionStart(trigger.start);
         setMentionEnd(normalizedSelectionStart);
@@ -768,16 +727,6 @@ export function ChatInput({
             return;
           }
           insertSkill(skill.name);
-        } else if (gameStep === 'list') {
-          // Layer 1: drill into mode selection
-          setGameStep('modes');
-          setSelectedIdx(0);
-        } else {
-          // Layer 2: open lobby for mode configuration
-          const mode = WEREWOLF_MODES[selectedIdx];
-          const role = mode.id === 'detective' ? 'detective' : mode.id.startsWith('god') ? 'god-view' : 'player';
-          closeMenus();
-          setLobbyMode(role as 'player' | 'god-view' | 'detective');
         }
         return;
       }
@@ -866,7 +815,20 @@ export function ChatInput({
         });
       }
       if (supportedFiles.length > 0) {
-        setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
+        let dropped = 0;
+        setImages((prev) => {
+          const result = mergeFilesByName(prev, supportedFiles, MAX_ATTACHMENT_FILES);
+          dropped = result.dropped;
+          return result.files;
+        });
+        if (dropped > 0) {
+          addToast({
+            type: 'warning',
+            title: '附件数量已达上限',
+            message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
+            duration: 2600,
+          });
+        }
       }
       e.target.value = '';
     },
@@ -900,7 +862,20 @@ export function ChatInput({
       }
       if (supportedFiles.length === 0) return;
       e.preventDefault();
-      setImages((prev) => mergeFilesByName(prev, supportedFiles, 5));
+      let dropped = 0;
+      setImages((prev) => {
+        const result = mergeFilesByName(prev, supportedFiles, MAX_ATTACHMENT_FILES);
+        dropped = result.dropped;
+        return result.files;
+      });
+      if (dropped > 0) {
+        addToast({
+          type: 'warning',
+          title: '附件数量已达上限',
+          message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
+          duration: 2600,
+        });
+      }
     },
     [addToast],
   );
@@ -991,22 +966,12 @@ export function ChatInput({
     });
   }, [whisperOptions, whisperMode, activeCatIds]);
 
-  const handleGameClick = useCallback(() => {
-    setShowMentions(false);
-    setShowSkillMenu(false);
-    setMentionStart(-1);
-    setShowGameMenu((prev) => !prev);
-    setGameStep('list');
-    setSelectedIdx(0);
-  }, []);
-
   const handleSkillClick = useCallback(() => {
     const ta = textareaRef.current;
     const start = ta?.getSelectionStart() ?? input.length;
     const end = ta?.getSelectionEnd() ?? input.length;
     skillInsertAnchorRef.current = { start, end };
     setShowMentions(false);
-    setShowGameMenu(false);
     setShowSkillMenu((prev) => !prev);
     setSelectedIdx(0);
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -1050,7 +1015,6 @@ export function ChatInput({
       if (
         menuRef.current &&
         !menuRef.current.contains(target) &&
-        !gameBtnRef.current?.contains(target) &&
         !skillBtnRef.current?.contains(target)
       ) {
         closeMenus();
@@ -1108,22 +1072,9 @@ export function ChatInput({
           setMentionEnd(-1);
           setMentionFilter('');
         }}
-        showGameMenu={showGameMenu}
-        gameStep={gameStep}
-        onGameStepChange={setGameStep}
         selectedIdx={selectedIdx}
         onSelectIdx={setSelectedIdx}
         onInsertMention={insertMention}
-        onSendCommand={(command) => {
-          // Open lobby instead of sending directly
-          const role = command.includes('detective')
-            ? 'detective'
-            : command.includes('god-view')
-              ? 'god-view'
-              : 'player';
-          closeMenus();
-          setLobbyMode(role as 'player' | 'god-view' | 'detective');
-        }}
         menuRef={menuRef}
         mentionMenuStyle={mentionMenuStyle}
       />
@@ -1188,11 +1139,11 @@ export function ChatInput({
         <MobileInputToolbar
           onAttach={() => fileInputRef.current?.click()}
           onWhisperToggle={handleWhisperToggle}
-          onGameClick={handleGameClick}
+          onGameClick={() => {}}
           onClose={() => setMobileToolbar(false)}
           disabled={disabled}
           sendDisabled={sendTemporarilyDisabled}
-          maxImages={images.length >= 5}
+          maxImages={images.length >= MAX_ATTACHMENT_FILES}
           whisperMode={whisperMode}
         />
       )}
@@ -1228,7 +1179,7 @@ export function ChatInput({
                       type="button"
                       onClick={() => handleQuickAction(action)}
                       disabled={disabled}
-                      className="inline-flex items-center gap-1 rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-[20px] border bg-white px-3 py-1.5 text-sm text-black transition-colors hover:bg-[rgba(0,0,0,0.04)] disabled:cursor-not-allowed disabled:opacity-50"
                       style={{ borderColor: 'rgba(219,219,219,0.8)' }}
                     >
                       <img src={action.icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
@@ -1247,7 +1198,7 @@ export function ChatInput({
                       key={prompt}
                       type="button"
                       onClick={() => handleQuickPrompt(prompt)}
-                      className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-gray-50"
+                      className="min-w-0 rounded-[16px] border bg-white px-4 py-2 text-left text-[14px] font-normal leading-[22px] text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
                       style={{ borderColor: 'rgba(219,219,219,0.8)' }}
                     >
                       {prompt}
@@ -1262,7 +1213,7 @@ export function ChatInput({
                     whisperMode
                       ? 'border-amber-300 bg-amber-50/50 focus-within:border-amber-400'
                       : 'border-[#dbdbdb] focus-within:border-[#dbdbdb]'
-                  }`}
+                  } w-full min-w-0`}
                 >
                   <ImagePreview files={images} onRemove={handleRemoveImage} />
                   <div className="relative overflow-hidden rounded-t-[24px]">
@@ -1279,7 +1230,7 @@ export function ChatInput({
                       placeholder={
                         hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'
                       }
-                      className="chat-input-textarea block min-h-[70px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
+                      className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
                       quickActionOptions={visibleQuickActions.map((action) => ({
@@ -1313,7 +1264,7 @@ export function ChatInput({
                             skillInsertAnchorRef.current = { start, end };
                           }}
                           onClick={handleSkillClick}
-                          className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,0.8)] px-3 py-[5px] text-xs text-[#191919] transition-colors hover:bg-gray-50"
+                          className="inline-flex items-center gap-2 rounded-full border border-[rgba(219,219,219,1)] px-3 py-[7px] text-xs text-[#191919] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
                         >
                           <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
                           技能
@@ -1321,7 +1272,7 @@ export function ChatInput({
                         {showSkillMenu && (
                           <div
                             ref={menuRef}
-                            className="absolute bottom-full left-0 mb-2 z-[200] flex w-[200px] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-lg"
+                            className="absolute bottom-full left-0 mb-2 z-[200] flex w-[240px] flex-col overflow-hidden rounded-xl  bg-white p-2 shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
                           >
                             <div className="px-1 pt-0 pb-2">
                               <div className="relative">
@@ -1377,7 +1328,7 @@ export function ChatInput({
                                 />
                               </div>
                             </div>
-                            <div className="max-h-[260px] overflow-y-auto">
+                            <div className="-mr-1 max-h-[260px] overflow-y-auto pr-1 [scrollbar-gutter:auto]">
                               {skillOptionsLoading &&
                                 Array.from({ length: 5 }).map((_, i) => (
                                   <div
@@ -1397,7 +1348,7 @@ export function ChatInput({
                                     ref={(node) => {
                                       skillOptionRefs.current[i] = node;
                                     }}
-                                    className={`flex h-[34px] w-full items-center gap-2 rounded-[6px] p-2 text-left text-[12px] font-normal text-[#191919] transition-colors ${
+                                    className={`flex h-[32px] w-full items-center gap-2 rounded-[6px] px-2 py-[7px] text-left text-[12px] font-normal text-[#191919] transition-colors ${
                                       i === selectedIdx ? 'bg-[rgba(245,245,245,1)]' : 'hover:bg-[rgba(245,245,245,1)]'
                                     }`}
                                     onMouseDown={(e) => {
@@ -1413,12 +1364,12 @@ export function ChatInput({
                                 <div className="px-2 py-2 text-xs text-gray-400">无匹配技能</div>
                               )}
                             </div>
-                            <div className="px-4 py-2">
+                            <div className="p-2">
                               <div className="h-px w-full" style={{ backgroundColor: 'rgba(240,240,240,1)' }} />
                             </div>
                             <button
                               type="button"
-                              className="inline-flex h-[24px] items-center justify-center rounded-full border border-[rgba(219,219,219,0.8)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
+                              className="inline-flex h-[24px] mx-2 items-center justify-center rounded-full border border-[rgba(219,219,219,1)] px-3 text-[12px] text-[#191919] transition-colors hover:bg-gray-50"
                               onMouseDown={(e) => {
                                 e.preventDefault();
                                 closeMenus();
@@ -1444,7 +1395,7 @@ export function ChatInput({
                             data-testid="folder-select-button"
                             onClick={onOpenFolderPicker}
                             disabled={isFolderButtonDisabled}
-                            className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs shadow-none disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+                            className="ui-button-default inline-flex h-8 max-w-[160px] items-center gap-1 rounded-[16px] px-3 text-xs border-[rgba(219,219,219,1)] shadow-none !hover:bg-[rgba(0,0,0,0.04)] disabled:cursor-not-allowed disabled:border-[#c2c2c2] disabled:bg-[#f0f0f0] disabled:text-[#c2c2c2]"
                           >
                             <FolderBadgeIcon className="h-6 w-6 shrink-0" />
                             <span className="truncate">{folderButtonLabel}</span>
@@ -1455,9 +1406,9 @@ export function ChatInput({
                             type="button"
                             data-testid="attach-file-button"
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-white hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
-                            aria-label="选择附件"
+                            disabled={disabled || sendTemporarilyDisabled || images.length >= MAX_ATTACHMENT_FILES}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-gray-400 transition-colors hover:bg-[rgba(0,0,0,0.04)] hover:text-cocreator-primary disabled:cursor-not-allowed disabled:opacity-30"
+                            aria-label="上传附件"
                           >
                             <AttachIcon className="h-5 w-5" />
                           </button>
@@ -1490,16 +1441,6 @@ export function ChatInput({
         <HistorySearchModal onSelect={handleHistorySelect} onClose={() => setShowHistorySearch(false)} />
       )}
 
-      {lobbyMode && (
-        <GameLobby
-          mode={lobbyMode}
-          cats={cats}
-          onConfirm={(payload) => {
-            startGame(payload);
-          }}
-          onCancel={() => setLobbyMode(null)}
-        />
-      )}
     </div>
   );
 }

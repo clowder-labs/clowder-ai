@@ -50,7 +50,7 @@ export async function versionRoutes(app: FastifyInstance, opts: VersionRoutesOpt
     const version = getCurrentVersion(projectRoot);
     return {
       version,
-      name: '@cat-cafe/api',
+      name: '@office-claw/api',
       current: true,
     };
   });
