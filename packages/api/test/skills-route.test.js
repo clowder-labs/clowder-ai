@@ -593,6 +593,11 @@ describe('Skills Route', () => {
   });
 
   it('POST /api/skills/upload rejects duplicate skill names', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-duplicate-'));
+    mkdirSync(join(tempRoot, 'office-claw-skills', 'agent-browser'), { recursive: true });
+    const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
+
     const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
     await app.register(skillsRoutes);
     await app.ready();
@@ -612,6 +617,9 @@ describe('Skills Route', () => {
     assert.match(body.error, /已存在/);
 
     await app.close();
+    if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousRoot;
+    rmSync(tempRoot, { recursive: true, force: true });
   });
 
   it('POST /api/skills/upload rejects Chinese skill names', async () => {
@@ -637,6 +645,35 @@ describe('Skills Route', () => {
     assert.equal(res.statusCode, 422);
     const body = JSON.parse(res.body);
     assert.match(body.error, /不能包含中文字符/);
+
+    await app.close();
+    if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_CONFIG_ROOT = previousRoot;
+    rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  it('POST /api/skills/upload rejects skill names with underscores', async () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'skill-upload-invalid-name-'));
+    mkdirSync(join(tempRoot, 'office-claw-skills'), { recursive: true });
+    const previousRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = tempRoot;
+
+    const app = Fastify({ bodyLimit: TEST_BODY_LIMIT });
+    await app.register(skillsRoutes);
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/skills/upload',
+      headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        name: 'demo_skill',
+        files: [{ path: 'SKILL.md', content: Buffer.from('# skill').toString('base64') }],
+      }),
+    });
+
+    assert.equal(res.statusCode, 422);
+    assert.equal(existsSync(join(tempRoot, '.office-claw', 'skills', 'demo_skill')), false);
 
     await app.close();
     if (previousRoot === undefined) delete process.env.OFFICE_CLAW_CONFIG_ROOT;
