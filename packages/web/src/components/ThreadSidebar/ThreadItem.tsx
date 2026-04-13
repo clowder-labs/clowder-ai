@@ -513,10 +513,10 @@ export function ThreadItem({
           />
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default ui-modal-action-button">
+            <button type="button" onClick={() => setShowRenameDialog(false)} className="ui-button-default">
               取消
             </button>
-            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary ui-modal-action-button">
+            <button type="button" onClick={() => void submitRename()} disabled={isSaving} className="ui-button-primary">
               确定
             </button>
           </div>

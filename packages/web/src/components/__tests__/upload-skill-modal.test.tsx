@@ -223,7 +223,6 @@ Fallback description`),
 
     const cancelButton = container.querySelector('button.ui-button-default') as HTMLButtonElement | null;
     expect(cancelButton).toBeTruthy();
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
 
     act(() => {
       cancelButton?.click();
@@ -241,9 +240,7 @@ Fallback description`),
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
-    expect(confirmButton?.className).toContain('ui-modal-action-button');
   });
 
   it('shows a disabled hint before any files are selected', () => {

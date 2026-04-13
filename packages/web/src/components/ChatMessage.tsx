@@ -241,7 +241,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             }
           >
             {hasBlocks ? (
-              <ContentBlocks blocks={message.contentBlocks!} enableSkillAndQuickActionTokens />
+              <ContentBlocks blocks={message.contentBlocks!} enableSkillAndQuickActionTokens showFileAction={false} />
             ) : (
               <MarkdownContent content={message.content} enableSkillAndQuickActionTokens />
             )}

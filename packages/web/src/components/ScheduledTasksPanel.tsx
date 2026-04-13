@@ -378,7 +378,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
               <button
                 type="button"
                 onClick={() => setSelectedTask(null)}
-                className="ui-button-primary ui-modal-action-button"
+                className="ui-button-primary"
               >
                 确定
               </button>
@@ -414,7 +414,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
               type="button"
               onClick={() => setDeleteTargetTask(null)}
               disabled={isDeletingTask}
-              className="ui-button-default ui-modal-action-button"
+              className="ui-button-default"
             >
               取消
             </button>
@@ -424,7 +424,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                 await handleDeleteConfirm();
               }}
               disabled={isDeletingTask}
-              className="ui-button-primary ui-modal-action-button"
+              className="ui-button-primary"
             >
               {isDeletingTask ? '删除中...' : '删除'}
             </button>
