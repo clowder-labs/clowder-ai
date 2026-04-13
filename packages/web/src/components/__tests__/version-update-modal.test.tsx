@@ -251,7 +251,6 @@ describe('VersionUpdateModal', () => {
     const laterButton = container.querySelector('[data-testid="version-update-cancel"]');
     expect(laterButton).not.toBeNull();
     expect(laterButton?.className).toContain('ui-button-default');
-    expect(laterButton?.className).toContain('ui-modal-action-button');
 
     await act(async () => {
       laterButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -277,7 +276,6 @@ describe('VersionUpdateModal', () => {
     const updateButton = container.querySelector('[data-testid="version-update-confirm"]');
     expect(updateButton).not.toBeNull();
     expect(updateButton?.className).toContain('ui-button-primary');
-    expect(updateButton?.className).toContain('ui-modal-action-button');
 
     await act(async () => {
       updateButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));

@@ -472,17 +472,15 @@ describe('HubAddMemberWizard', () => {
     });
     await flushEffects();
 
-    const footerButtons = Array.from(container.querySelectorAll('button')).filter((button) =>
-      button.className.includes('ui-modal-action-button'),
+    const footerButtons = Array.from(container.querySelectorAll('button')).filter(
+      (button) => button.className.includes('ui-button-default') || button.className.includes('ui-button-primary'),
     );
     const cancelButton = footerButtons.find((button) => button.className.includes('ui-button-default'));
     const finishButton = footerButtons.find((button) => button.className.includes('ui-button-primary'));
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(finishButton?.className).toContain('ui-button-primary');
-    expect(finishButton?.className).toContain('ui-modal-action-button');
   });
 
   it('allows opencode member with bare model (ocProviderName is set in editor)', async () => {

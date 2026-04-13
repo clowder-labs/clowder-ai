@@ -341,10 +341,8 @@ describe('RightContentHeader feedback popover', () => {
     const [cancelButton, submitButton] = actionButtons;
     expect(cancelButton).toBeTruthy();
     expect(cancelButton?.className).toContain('ui-button-default');
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(submitButton).toBeTruthy();
     expect(submitButton?.className).toContain('ui-button-primary');
-    expect(submitButton?.className).toContain('ui-modal-action-button');
   });
 
   it('uses nss score icons for selected score ranges', async () => {

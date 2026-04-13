@@ -54,7 +54,7 @@ function RefreshIcon() {
 
 function CloseIcon() {
   return (
-    <svg className="h-[18px] w-[18px] text-[#97A0AE]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M6 6L18 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <path d="M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
@@ -168,7 +168,7 @@ export function PromptSelectionModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 transition hover:bg-[#F5F7FB]"
+            className="rounded-md p-1 text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
             aria-label="关闭提示词选择"
           >
             <CloseIcon />
