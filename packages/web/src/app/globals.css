@@ -499,13 +499,12 @@ select:-webkit-autofill:focus {
   transition: background-color 99999s ease-in-out 0s;
 }
 
-/* Global scrollbar style: reserve gutter to avoid layout shift; keep the thumb
-   invisible by default, then reveal it on hover with a 4px thumb and 2px
-   right/bottom padding. */
+/* Global scrollbar style: only use space when an element is actually scrollable;
+   keep the thumb invisible by default, then reveal it on hover with a 4px thumb
+   and 2px right/bottom padding. */
 * {
   scrollbar-color: transparent transparent;
   scrollbar-width: thin;
-  scrollbar-gutter: stable;
 }
 
 *:hover {
@@ -1962,7 +1961,6 @@ select:-webkit-autofill:focus {
 .chat-input-textarea {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  scrollbar-gutter: stable;
 }
 
 .chat-input-textarea:hover {
