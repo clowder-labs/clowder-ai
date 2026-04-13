@@ -147,7 +147,7 @@ export const registerScheduledTaskInputSchema = {
       'Trigger config as JSON string. Choose type by intent: ' +
         'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}. interval.ms must be >= 10000 (10s); ' +
         'cron — specific wall-clock times/days, e.g. {"type":"cron","expression":"0 9 * * *","timezone":"Asia/Shanghai"}; ' +
-        'once — fire once after delay or at exact time, e.g. {"type":"once","delayMs":120000} or {"type":"once","fireAt":1712345678000}. ' +
+        'once — fire once after delay or at exact time. PREFER delayMs (relative) over fireAt (absolute) because model clocks may drift, e.g. {"type":"once","delayMs":120000}. delayMs must be >= 1000 (1s); fireAt must be a future epoch ms. ' +
         'PREFER interval over cron when user says "every N hours/minutes".',
     ),
   params: z
@@ -232,7 +232,7 @@ export const previewScheduledTaskInputSchema = {
       'Trigger config as JSON string. Choose type by intent: ' +
         'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}. interval.ms must be >= 10000 (10s); ' +
         'cron — specific wall-clock times/days, e.g. {"type":"cron","expression":"0 9 * * *","timezone":"Asia/Shanghai"}; ' +
-        'once — fire once after delay or at exact time, e.g. {"type":"once","delayMs":120000} or {"type":"once","fireAt":1712345678000}. ' +
+        'once — fire once after delay or at exact time. PREFER delayMs (relative) over fireAt (absolute) because model clocks may drift, e.g. {"type":"once","delayMs":120000}. delayMs must be >= 1000 (1s); fireAt must be a future epoch ms. ' +
         'PREFER interval over cron when user says "every N hours/minutes".',
     ),
   params: z.string().optional().describe('Template-specific parameters as JSON string'),
