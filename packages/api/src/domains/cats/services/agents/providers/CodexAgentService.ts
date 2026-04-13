@@ -23,7 +23,7 @@
 
 import { existsSync } from 'node:fs';
 import { dirname, join, parse, resolve } from 'node:path';
-import { type CatId, createCatId } from '@cat-cafe/shared';
+import { type CatId, createCatId } from '@office-claw/shared';
 import { getCatEffort } from '../../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { type CodexSandboxMode, getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';

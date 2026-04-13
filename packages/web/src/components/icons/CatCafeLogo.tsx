@@ -10,7 +10,7 @@ export function CatCafeLogo({ className = 'w-6 h-6' }: { className?: string }) {
     <svg viewBox="0 0 640 640" className={className}>
       <defs>
         {/* (45°) */}
-        <linearGradient id="cat-cafe-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id="brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#2563EB" />
           <stop offset="50%" stopColor="#D97706" />
           <stop offset="100%" stopColor="#7C3AED" />

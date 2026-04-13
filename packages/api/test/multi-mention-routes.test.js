@@ -12,7 +12,7 @@
 
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 import Fastify from 'fastify';
 import { resetMultiMentionOrchestrator } from '../dist/routes/callback-multi-mention-routes.js';
 
@@ -489,7 +489,7 @@ describe('Multi-Mention Routes', () => {
     // Manually set up orchestrator state: opus created a multi-mention targeting codex
     const { getMultiMentionOrchestrator } = await import('../dist/routes/callback-multi-mention-routes.js');
     const orch = getMultiMentionOrchestrator();
-    const { createCatId } = await import('@cat-cafe/shared');
+    const { createCatId } = await import('@office-claw/shared');
     const req = orch.create({
       threadId: 'thread-1',
       initiator: createCatId('opus'),

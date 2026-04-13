@@ -13,8 +13,8 @@
  * DELETE /api/summaries/:id     → 删除 (204)
  */
 
-import type { CatId, CreateSummaryInput } from '@cat-cafe/shared';
-import { catIdSchema } from '@cat-cafe/shared';
+import type { CatId, CreateSummaryInput } from '@office-claw/shared';
+import { catIdSchema } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';

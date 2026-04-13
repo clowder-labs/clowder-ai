@@ -79,6 +79,7 @@ export interface SkillHubSkill {
   slug: string;
   name: string;
   description: string;
+  category: string;
   tags: string[];
   createdAt: string;
   repo: {
@@ -126,12 +127,14 @@ function normalizeSkill(t: TencentSkill): SkillHubSkill {
   const name = normalizeString(t.name) || slug;
   const ownerName = normalizeString(t.ownerName);
   const description = normalizeString(t.description_zh) || normalizeString(t.description);
+  const category = normalizeString(t.category) || '通用';
 
   return {
     id: slug,
     slug,
     name,
     description,
+    category,
     tags: normalizeStringArray(t.tags),
     createdAt: '',
     repo: {

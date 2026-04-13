@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { GameResultStats } from '@cat-cafe/shared';
+import type { GameResultStats } from '@office-claw/shared';
 
 interface GameResultScreenProps {
   stats: GameResultStats;

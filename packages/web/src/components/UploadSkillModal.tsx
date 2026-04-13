@@ -49,12 +49,15 @@ export const SKILL_UPLOAD_LIMITS = {
   maxTotalBytes: 4 * 1024 * 1024,
 } as const;
 
-const SKILL_NAME_ALLOWED_RE = /^[A-Za-z-]+$/;
+const SKILL_NAME_ALLOWED_RE = /^[A-Za-z0-9-]+$/;
 const ZIP_SINGLE_UPLOAD_ERROR = 'ZIP 文件只能单个上传';
 const ROOT_SKILL_REQUIRED_ERROR = '上传内容根目录必须包含名为 SKILL.md 的文件';
 const ZIP_ROOT_SKILL_ERROR = 'ZIP 压缩包根目录必须包含名为 SKILL.md 的文件';
+const SKILL_NAME_REQUIRED_ERROR = '技能文件不合法：SKILL.md 头部缺少 name 字段';
 const COLLAPSED_FILE_COUNT = 3;
 const PARSED_NAME_MAX_WIDTH_CLASS = 'max-w-[280px]';
+const SKILL_NAME_ERROR_BORDER_COLOR = 'rgb(242,48,48)';
+const SKILL_NAME_ERROR_BG_COLOR = 'rgb(252,227,225)';
 const DEFAULT_FILE_ICON_SRC = '/icons/file-html.svg';
 const FILE_ICON_BY_EXTENSION: Record<string, string> = {
   zip: '/icons/file-zip.svg',
@@ -211,52 +214,20 @@ function parseFrontmatterValue(frontmatter: string, key: string): string {
   return '';
 }
 
-function extractFirstMarkdownParagraph(markdown: string): string {
-  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
-  const paragraph: string[] = [];
-  let inCodeBlock = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('```')) {
-      inCodeBlock = !inCodeBlock;
-      continue;
-    }
-    if (inCodeBlock) continue;
-    if (!trimmed) {
-      if (paragraph.length > 0) break;
-      continue;
-    }
-    if (trimmed.startsWith('#')) continue;
-    if (/^[-*]\s/.test(trimmed) && paragraph.length === 0) continue;
-    if (trimmed.startsWith('|') && paragraph.length === 0) continue;
-    paragraph.push(trimmed);
-  }
-
-  return paragraph.join(' ').trim();
-}
-
 export function parseSkillMetadata(markdown: string): ParsedSkillMetadata {
   const normalized = markdown.replace(/\r\n?/g, '\n');
-  let body = normalized;
   let frontmatter = '';
 
   if (normalized.startsWith('---\n')) {
     const endIndex = normalized.indexOf('\n---', 4);
     if (endIndex !== -1) {
       frontmatter = normalized.slice(4, endIndex);
-      body = normalized.slice(endIndex + 4).replace(/^\n+/, '');
     }
   }
 
-  const frontmatterName = frontmatter ? parseFrontmatterValue(frontmatter, 'name') : '';
-  const frontmatterDescription = frontmatter ? parseFrontmatterValue(frontmatter, 'description') : '';
-  const headingName = body.match(/^#\s*(.+)$/m)?.[1]?.trim() ?? '';
-  const fallbackDescription = extractFirstMarkdownParagraph(body);
-
   return {
-    name: frontmatterName || headingName,
-    description: frontmatterDescription || fallbackDescription,
+    name: frontmatter ? parseFrontmatterValue(frontmatter, 'name') : '',
+    description: frontmatter ? parseFrontmatterValue(frontmatter, 'description') : '',
   };
 }
 
@@ -308,6 +279,10 @@ function extractSkillMetadata(files: UploadFile[]): ParsedSkillMetadata {
   return extractSkillMetadataFromManifest(files, findRootSkillMarkdownPath(files.map((file) => file.path)));
 }
 
+function getSkillMetadataValidationError(parsedSkill: ParsedSkillMetadata): string | null {
+  return parsedSkill.name.trim() ? null : SKILL_NAME_REQUIRED_ERROR;
+}
+
 function getUploadValidationIssue(files: UploadFile[]): UploadValidationIssue | null {
   if (files.length === 0) {
     return { kind: 'empty', message: '请选择文件' };
@@ -356,7 +331,7 @@ export function validateSkillName(name: string): string | null {
 
   if (!trimmedName) return '请输入技能名称';
   if (!SKILL_NAME_ALLOWED_RE.test(trimmedName)) {
-    return '技能名称仅支持英文和中划线';
+    return '技能名称仅支持英文、数字和中划线';
   }
 
   return null;
@@ -385,6 +360,22 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   const folderInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const canEditName = parsedName.trim().length > 0;
+  const fileValidationIssue = getUploadValidationIssue(files);
+  const metadataValidationError = !fileValidationIssue && files.length > 0
+    ? getSkillMetadataValidationError({ name: parsedName, description })
+    : null;
+  const nameValidationError = validateSkillName(name);
+  const editingNameValidationError = isEditingName ? nameValidationError : null;
+  const uploadDisabledReason = (() => {
+    if (uploading) return '正在导入技能，请稍候';
+    if (files.length === 0) return '请选择文件或文件夹后再导入';
+    if (error) return error;
+    if (fileValidationIssue) return fileValidationIssue.message;
+    if (metadataValidationError) return metadataValidationError;
+    if (nameValidationError) return nameValidationError;
+    return null;
+  })();
+  const isSubmitDisabled = uploadDisabledReason != null;
   const visibleFileEntries = (isFileListExpanded ? fileNames : fileNames.slice(0, COLLAPSED_FILE_COUNT)).map((fileName, index) => ({
     fileName,
     index,
@@ -441,6 +432,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     (nextFiles: UploadFile[], options: UploadStateOptions = {}) => {
       const nextParsedSkill = options.parsedSkill ?? extractSkillMetadata(nextFiles);
       const nextValidationIssue = getUploadValidationIssue(nextFiles);
+      const nextMetadataValidationError = nextValidationIssue ? null : getSkillMetadataValidationError(nextParsedSkill);
 
       setFiles(nextFiles);
       setFileNames(nextFiles.map((file) => file.path));
@@ -458,6 +450,9 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
       if (nextValidationIssue && nextValidationIssue.kind !== 'empty' && nextValidationIssue.kind !== 'missingSkill') {
         showToast('error', '上传失败', nextValidationIssue.message);
+      }
+      if (nextMetadataValidationError) {
+        showToast('error', '上传失败', nextMetadataValidationError);
       }
     },
     [parsedName, showToast],
@@ -530,9 +525,19 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     setName(nextName);
   }, []);
 
-  const handleNameEditComplete = useCallback(() => {
+  const handleNameEditComplete = useCallback((action: 'submit' | 'blur' | 'cancel' = 'blur') => {
+    if (action === 'cancel') {
+      setName(parsedName);
+      setIsEditingName(false);
+      return;
+    }
+
+    if (validateSkillName(name)) {
+      return;
+    }
+
     setIsEditingName(false);
-  }, []);
+  }, [name, parsedName]);
 
   const handleSubmit = useCallback(async () => {
     const fileValidationIssue = getUploadValidationIssue(files);
@@ -541,6 +546,11 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
       if (fileValidationIssue.kind !== 'missingSkill') {
         showToast('error', '上传失败', fileValidationIssue.message);
       }
+      return;
+    }
+
+    if (metadataValidationError) {
+      showToast('error', '上传失败', metadataValidationError);
       return;
     }
 
@@ -574,7 +584,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     } finally {
       setUploading(false);
     }
-  }, [files, handleClose, name, onSuccess, showToast]);
+  }, [files, handleClose, metadataValidationError, name, onSuccess, showToast]);
 
   if (!open) return null;
 
@@ -693,21 +703,39 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                 <div className="w-[72px] shrink-0 pt-2 text-[#5F6775]">SKILL名称</div>
                 <div className="min-w-0 flex-1">
                   {isEditingName ? (
-                    <input
-                      ref={nameInputRef}
-                      type="text"
-                      value={name}
-                      onChange={(e) => handleNameChange(e.target.value)}
-                      onBlur={handleNameEditComplete}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === 'Escape') {
-                          event.preventDefault();
-                          handleNameEditComplete();
-                        }
-                      }}
-                      placeholder="请输入技能名称"
-                      className="ui-input w-full rounded px-3 py-2 text-xs"
-                    />
+                    <div className="space-y-1">
+                      <input
+                        ref={nameInputRef}
+                        type="text"
+                        value={name}
+                        aria-invalid={editingNameValidationError ? 'true' : 'false'}
+                        onChange={(e) => handleNameChange(e.target.value)}
+                        onBlur={() => handleNameEditComplete('blur')}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleNameEditComplete('submit');
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            handleNameEditComplete('cancel');
+                          }
+                        }}
+                        placeholder="请输入技能名称"
+                        className="ui-input w-full rounded px-3 py-2 text-xs"
+                        style={editingNameValidationError
+                          ? {
+                              borderColor: SKILL_NAME_ERROR_BORDER_COLOR,
+                              backgroundColor: SKILL_NAME_ERROR_BG_COLOR,
+                            }
+                          : undefined}
+                      />
+                      {editingNameValidationError ? (
+                        <p data-testid="upload-skill-name-error" className="text-xs text-[var(--state-error-text)]">
+                          {editingNameValidationError}
+                        </p>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className="inline-flex min-h-8 max-w-full items-center gap-1">
                       {name ? (
@@ -749,19 +777,35 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
           </div>
 
         </div>
-
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={handleClose} className="ui-button-default">
             取消
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={uploading || !name.trim() || files.length === 0}
-            className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {uploading ? '导入中...' : '导入'}
-          </button>
+          {uploadDisabledReason ? (
+            <OverflowTooltip content={uploadDisabledReason} forceShow className="inline-flex shrink-0">
+              <span data-testid="upload-skill-submit-trigger" className="inline-flex shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitDisabled}
+                  className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {uploading ? '导入中...' : '导入'}
+                </button>
+              </span>
+            </OverflowTooltip>
+          ) : (
+            <span data-testid="upload-skill-submit-trigger" className="inline-flex shrink-0">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitDisabled}
+                className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {uploading ? '导入中...' : '导入'}
+              </button>
+            </span>
+          )}
         </div>
       </div>
     </div>

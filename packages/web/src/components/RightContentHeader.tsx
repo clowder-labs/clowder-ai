@@ -136,9 +136,12 @@ const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
     hint: '\uff08\u8bf7\u5177\u4f53\u586b\u5199\uff09',
   },
 ];
-const FEEDBACK_DATE_ENDPOINT = '/v1/external/survey/feedback-date';
+const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';
 const FEEDBACK_SAVE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/save';
-const FEEDBACK_DATE_CHECKED_KEY = 'cat-cafe:survey-feedback-date-checked';
+const FEEDBACK_CLOSE_TIME_KEY = 'feedbackCloseTime';
+const FEEDBACK_CLOSE_SUPPRESS_DAYS = 30;
+const FEEDBACK_RESURFACE_DAYS = 120;
+const FEEDBACK_AUTO_CLOSE_DELAY_MS = 60_000;
 const DEFAULT_SURVEY_ID = 'agentarts_satisfaction';
 const DEFAULT_SERVICE_ID = 'officeclaw';
 const DEFAULT_CONTACT_ID = 'web_home';
@@ -167,11 +170,20 @@ function getSelectedScoreIconSrc(score: number): string | null {
   return null;
 }
 
+function parseFeedbackDate(value: string): number | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  const timestamp = new Date(normalized.replace(' ', 'T')).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function isWithinDays(timestamp: number, days: number): boolean {
+  return Date.now() - timestamp <= days * 24 * 60 * 60 * 1000;
+}
+
 type FeedbackDateResponse = {
-  latest_feedback_date?: string;
-  data?: {
-    latest_feedback_date?: string;
-  };
+  data?: string;
 };
 
 type FeedbackSubmitAnswer = {
@@ -198,6 +210,7 @@ type FeedbackSubmitResponse = {
 export function RightContentHeader() {
   const { isMaximized, canMaximize, minimize, toggleMaximize, close, startDrag } = useDesktopWindowControls();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isAutoOpenedFeedback, setIsAutoOpenedFeedback] = useState(false);
   const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const [lowScoreSelectedIssues, setLowScoreSelectedIssues] = useState<string[]>([]);
@@ -212,6 +225,7 @@ export function RightContentHeader() {
   const headerRef = useRef<HTMLDivElement>(null);
   const smileActionRef = useRef<HTMLButtonElement>(null);
   const feedbackPopoverRef = useRef<HTMLDivElement | null>(null);
+  const autoCloseFeedbackTimerRef = useRef<number | null>(null);
   const feedbackPopoverId = useId();
   const isScoreUnselected = selectedScore == null;
   const isVeryLowScoreDetailVisible = selectedScore != null && selectedScore <= 6;
@@ -245,49 +259,72 @@ export function RightContentHeader() {
     setIsSubmittingFeedback(false);
   }, []);
   const closeFeedbackPopover = useCallback(() => {
+    if (autoCloseFeedbackTimerRef.current != null) {
+      window.clearTimeout(autoCloseFeedbackTimerRef.current);
+      autoCloseFeedbackTimerRef.current = null;
+    }
     setIsFeedbackOpen(false);
+    setIsAutoOpenedFeedback(false);
     setFeedbackPopoverMaxHeight(null);
     resetFeedbackState();
   }, [resetFeedbackState]);
+  const dismissFeedbackPopover = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(FEEDBACK_CLOSE_TIME_KEY, String(Date.now()));
+    }
+    closeFeedbackPopover();
+  }, [closeFeedbackPopover]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (window.sessionStorage.getItem(FEEDBACK_DATE_CHECKED_KEY) === '1') return;
-    window.sessionStorage.setItem(FEEDBACK_DATE_CHECKED_KEY, '1');
 
-    const surveyId = process.env.NEXT_PUBLIC_SURVEY_ID?.trim() || DEFAULT_SURVEY_ID;
-    const serviceId = process.env.NEXT_PUBLIC_SURVEY_SERVICE_ID?.trim() || DEFAULT_SERVICE_ID;
-    const contactId = process.env.NEXT_PUBLIC_SURVEY_CONTACT_ID?.trim() || DEFAULT_CONTACT_ID;
-    const userId = getUserId();
+    const dismissedAtRaw = window.localStorage.getItem(FEEDBACK_CLOSE_TIME_KEY);
+    const dismissedAt = dismissedAtRaw ? Number(dismissedAtRaw) : Number.NaN;
+    if (Number.isFinite(dismissedAt) && isWithinDays(dismissedAt, FEEDBACK_CLOSE_SUPPRESS_DAYS)) {
+      return;
+    }
+
+    const surveyId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SURVEY_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SURVEY_ID;
+    const serviceId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_SERVICE_ID?.trim() || DEFAULT_FEEDBACK_SAVE_SERVICE_ID;
+    const contactId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_CONTACT_ID?.trim() || DEFAULT_FEEDBACK_SAVE_CONTACT_ID;
+    const userId = process.env.NEXT_PUBLIC_FEEDBACK_SAVE_W3ACCOUNT?.trim() || DEFAULT_FEEDBACK_SAVE_W3ACCOUNT;
     const query = new URLSearchParams({
-      user_id: userId,
-      survey_id: surveyId,
-      service_id: serviceId,
-      contact_id: contactId,
+      userId,
+      surveyId,
+      serviceId,
+      contactId,
     });
     const controller = new AbortController();
 
     const fetchLatestFeedbackDate = async () => {
       try {
-        const response = await apiFetch(`${FEEDBACK_DATE_ENDPOINT}?${query.toString()}`, {
+        const response = await fetch(`${FEEDBACK_DATE_ENDPOINT}?${query.toString()}`, {
           method: 'GET',
           signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          resetFeedbackState();
+          setIsAutoOpenedFeedback(true);
+          setIsFeedbackOpen(true);
+          return;
+        }
 
         const payload = (await response.json()) as FeedbackDateResponse;
-        const latestFeedbackDate =
-          typeof payload?.latest_feedback_date === 'string'
-            ? payload.latest_feedback_date
-            : typeof payload?.data?.latest_feedback_date === 'string'
-              ? payload.data.latest_feedback_date
-              : '';
+        const latestFeedbackDate = typeof payload?.data === 'string' ? payload.data : '';
+        const latestFeedbackTimestamp = latestFeedbackDate ? parseFeedbackDate(latestFeedbackDate) : null;
 
-        if (!latestFeedbackDate) return;
+        if (!latestFeedbackTimestamp || !isWithinDays(latestFeedbackTimestamp, FEEDBACK_RESURFACE_DAYS)) {
+          resetFeedbackState();
+          setIsAutoOpenedFeedback(true);
+          setIsFeedbackOpen(true);
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
         resetFeedbackState();
+        setIsAutoOpenedFeedback(true);
         setIsFeedbackOpen(true);
-      } catch {
-        // Ignore survey check errors to avoid blocking page render.
       }
     };
 
@@ -342,6 +379,25 @@ export function RightContentHeader() {
       document.removeEventListener('mousedown', handlePointerDownOutside, true);
     };
   }, [closeFeedbackPopover, isFeedbackOpen]);
+
+  useEffect(() => {
+    if (!isFeedbackOpen || !isAutoOpenedFeedback) return;
+
+    autoCloseFeedbackTimerRef.current = window.setTimeout(() => {
+      autoCloseFeedbackTimerRef.current = null;
+      const isHoveringPopover = feedbackPopoverRef.current?.matches(':hover') ?? false;
+      if (!isHoveringPopover) {
+        closeFeedbackPopover();
+      }
+    }, FEEDBACK_AUTO_CLOSE_DELAY_MS);
+
+    return () => {
+      if (autoCloseFeedbackTimerRef.current != null) {
+        window.clearTimeout(autoCloseFeedbackTimerRef.current);
+        autoCloseFeedbackTimerRef.current = null;
+      }
+    };
+  }, [closeFeedbackPopover, isAutoOpenedFeedback, isFeedbackOpen]);
 
   const handleToggleIssue = (issue: string) => {
     const setCurrentIssues = isHighScoreDetailVisible ? setHighScoreSelectedIssues : setLowScoreSelectedIssues;
@@ -690,7 +746,14 @@ export function RightContentHeader() {
             aria-expanded={isFeedbackOpen}
             aria-controls={feedbackPopoverId}
             aria-haspopup="dialog"
-            onClick={() => setIsFeedbackOpen(true)}
+            onClick={() => {
+              setIsAutoOpenedFeedback(false);
+              setIsFeedbackOpen(true);
+            }}
+            onMouseEnter={() => {
+              setIsAutoOpenedFeedback(false);
+              setIsFeedbackOpen(true);
+            }}
           >
             <WindowSmileIcon />
           </HeaderAction>
@@ -720,7 +783,7 @@ export function RightContentHeader() {
                     type="button"
                     aria-label={'\u5173\u95ed\u6ee1\u610f\u5ea6\u8bc4\u4ef7\u5f39\u7a97'}
                     className="ui-content-header-feedback-popover-close"
-                    onClick={closeFeedbackPopover}
+                    onClick={dismissFeedbackPopover}
                   >
                     <PopoverCloseIcon />
                   </button>

@@ -387,6 +387,26 @@ def _load_llm_default_headers() -> dict[str, str]:
     return {str(k): str(v) for k, v in parsed.items() if v is not None}
 
 
+def petal_search_credentials_configured() -> bool:
+    """True when Petal web-search can run: same API base + default_headers as the LLM client."""
+    api_base = (
+        os.environ.get("API_BASE")
+        or os.environ.get("OPENAI_BASE_URL")
+        or os.environ.get("OPENAI_API_BASE")
+        or ""
+    ).strip()
+    if not api_base:
+        return False
+    raw = os.environ.get("default_headers", "").strip()
+    if not raw:
+        return False
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(parsed, dict)
+
+
 # Align with common search-record assembly (title / url / content); avoid huge tool payloads.
 _PETAL_MAX_TITLE_LEN = 2000
 _PETAL_MAX_URL_LEN = 2048

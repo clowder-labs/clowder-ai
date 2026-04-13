@@ -20,8 +20,8 @@ import type {
   PendingAction,
   SeatId,
   SeatView,
-} from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+} from '@office-claw/shared';
+import { catRegistry } from '@office-claw/shared';
 import { GameStatsRecorder } from './GameStatsRecorder.js';
 
 export class GameViewBuilder {

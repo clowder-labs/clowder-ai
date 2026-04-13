@@ -10,9 +10,9 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
-import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
+import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
+import { createRedisClient, SessionStore } from '@office-claw/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
@@ -209,10 +209,54 @@ const PROCESS_START_AT = Date.now();
 import { migrateDeprecatedEnvVars } from './config/env-registry.js';
 migrateDeprecatedEnvVars();
 
+/**
+ * Sensitive query params to redact from request URL logs.
+ */
+const SENSITIVE_QUERY_PARAMS = [
+  'callbackToken',
+  'token',
+  'apiKey',
+  'api_key',
+  'secret',
+  'password',
+  'accessToken',
+  'hookToken',
+];
+
+/**
+ * Redact sensitive query params from URL string.
+ * E.g., "?callbackToken=xxx&foo=bar" → "?callbackToken=[REDACTED]&foo=bar"
+ */
+function redactUrlQuery(url: string): string {
+  const idx = url.indexOf('?');
+  if (idx === -1) return url;
+  const path = url.slice(0, idx);
+  const query = url.slice(idx + 1);
+  const redacted = query.replace(
+    /([?&])(callbackToken|token|apiKey|api_key|secret|password|accessToken|hookToken)=([^&]*)/gi,
+    '$1$2=[REDACTED]',
+  );
+  return `${path}?${redacted}`;
+}
+
 async function main(): Promise<void> {
   const { logger: customLogger, isDebugMode, LOG_DIR_PATH } = await import('./infrastructure/logger.js');
+  
+  // Create child logger with custom request serializer that redacts URL query params
+  const redactingLogger = customLogger.child({}, {
+    serializers: {
+      req: (req: { method?: string; url?: string; hostname?: string; remoteAddress?: string; remotePort?: number }) => ({
+        method: req.method,
+        url: req.url ? redactUrlQuery(req.url) : undefined,
+        hostname: req.hostname,
+        remoteAddress: req.remoteAddress,
+        remotePort: req.remotePort,
+      }),
+    },
+  });
+  
   const app = Fastify({
-    logger: customLogger as unknown as import('fastify').FastifyBaseLogger,
+    logger: redactingLogger as unknown as import('fastify').FastifyBaseLogger,
     bodyLimit: API_BODY_LIMIT_BYTES,
   });
 
@@ -594,6 +638,7 @@ async function main(): Promise<void> {
       taskRunner: taskRunnerV2,
       registry,
       dynamicTaskStore,
+      threadStore,
       templateRegistry,
       globalControlStore,
       packTemplateStore,
@@ -620,7 +665,7 @@ async function main(): Promise<void> {
   } catch (err) {
     app.log.warn(`[api] Failed to load cat template/catalog, falling back to built-in CAT_CONFIGS: ${String(err)}`);
     // Fallback: register from static CAT_CONFIGS
-    const { CAT_CONFIGS } = await import('@cat-cafe/shared');
+    const { CAT_CONFIGS } = await import('@office-claw/shared');
     for (const [id, config] of Object.entries(CAT_CONFIGS)) {
       if (!catRegistry.has(id)) catRegistry.register(id, config);
     }

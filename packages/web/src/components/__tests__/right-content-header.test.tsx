@@ -8,17 +8,12 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RightContentHeader } from '../RightContentHeader';
-import { apiFetch } from '@/utils/api-client';
 
 const addToast = vi.fn();
 
 vi.mock('@/stores/toastStore', () => ({
   useToastStore: (selector: (state: { addToast: typeof addToast }) => unknown) =>
     selector({ addToast }),
-}));
-
-vi.mock('@/utils/api-client', () => ({
-  apiFetch: vi.fn(),
 }));
 
 vi.mock('@/utils/userId', () => ({
@@ -28,8 +23,9 @@ vi.mock('@/utils/userId', () => ({
 describe('RightContentHeader feedback popover', () => {
   let container: HTMLDivElement;
   let root: Root;
-  const mockedApiFetch = vi.mocked(apiFetch);
   const mockSubmitFetch = vi.fn();
+  const formatFeedbackDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
 
   beforeAll(() => {
     (globalThis as { React?: typeof React }).React = React;
@@ -40,22 +36,18 @@ describe('RightContentHeader feedback popover', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    mockedApiFetch.mockReset();
-    mockedApiFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ latest_feedback_date: '' }),
-    } as Response);
     mockSubmitFetch.mockReset();
     mockSubmitFetch.mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({}),
+      json: () => Promise.resolve({ data: formatFeedbackDate(new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)) }),
     } as Response);
     vi.stubGlobal('fetch', mockSubmitFetch);
     addToast.mockReset();
-    window.sessionStorage.clear();
+    window.localStorage.clear();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     act(() => root.unmount());
     container.remove();
   });
@@ -82,18 +74,149 @@ describe('RightContentHeader feedback popover', () => {
     ) as HTMLButtonElement | undefined;
   }
 
-  it('closes the feedback popover when clicking outside the dialog', async () => {
+  function getPopoverCloseButton() {
+    return container.querySelector('.ui-content-header-feedback-popover-close') as HTMLButtonElement | null;
+  }
+
+  function getFetchCallsByMethod(method: string) {
+    return mockSubmitFetch.mock.calls.filter(([, init]) => {
+      const requestInit = init as RequestInit | undefined;
+      return (requestInit?.method ?? 'GET') === method;
+    });
+  }
+
+  function mockPopoverHoverState(isHovering: boolean) {
+    const popover = container.querySelector('[role="dialog"]') as HTMLDivElement | null;
+    expect(popover).toBeTruthy();
+    Object.defineProperty(popover!, 'matches', {
+      configurable: true,
+      value: (selector: string) => (selector === ':hover' ? isHovering : false),
+    });
+  }
+
+  it('auto opens the feedback popover when the API reports no previous submission', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
     await flush();
 
-    const smileButton = getSmileButton();
-    expect(smileButton).toBeTruthy();
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+
+  it('does not query or auto open when the user dismissed feedback within 30 days', async () => {
+    window.localStorage.setItem('feedbackCloseTime', String(Date.now() - 15 * 24 * 60 * 60 * 1000));
 
     act(() => {
-      smileButton?.click();
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
+    await flush();
+
+    expect(mockSubmitFetch).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('auto opens the feedback popover when the previous submission is older than 120 days', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: formatFeedbackDate(new Date(Date.now() - 121 * 24 * 60 * 60 * 1000)) }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+
+  it('stores the close time in localStorage when the user dismisses the feedback popover with the close button', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    const closeButton = getPopoverCloseButton();
+    expect(closeButton).toBeTruthy();
+
+    act(() => {
+      closeButton?.click();
+    });
+    await flush();
+
+    const storedValue = window.localStorage.getItem('feedbackCloseTime');
+    expect(storedValue).toBeTruthy();
+    expect(Number(storedValue)).toBeGreaterThan(0);
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('auto closes an auto-opened feedback popover after 60s when the mouse is outside', async () => {
+    vi.useFakeTimers();
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    mockPopoverHoverState(false);
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('keeps an auto-opened feedback popover open after 60s when the mouse is still inside', async () => {
+    vi.useFakeTimers();
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    mockPopoverHoverState(true);
+
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+
+  it('closes the feedback popover when clicking outside the dialog', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
     await flush();
 
     expect(container.querySelector('[role="dialog"]')).toBeTruthy();
@@ -107,6 +230,11 @@ describe('RightContentHeader feedback popover', () => {
   });
 
   it('uses auto height and computes the popover max height from the content frame', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
     act(() => {
       root.render(
         React.createElement(
@@ -154,10 +282,12 @@ describe('RightContentHeader feedback popover', () => {
       }),
     });
 
-    act(() => {
-      smileButton?.click();
-    });
     await flush();
+    await flush();
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
     await flush();
 
     const popover = container.querySelector('[role="dialog"]') as HTMLDivElement | null;
@@ -169,17 +299,15 @@ describe('RightContentHeader feedback popover', () => {
   });
 
   it('uses shared input styles for the detail textarea and other issue input', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
     await flush();
-
-    const smileButton = getSmileButton();
-    expect(smileButton).toBeTruthy();
-
-    act(() => {
-      smileButton?.click();
-    });
     await flush();
 
     const lowScoreButton = Array.from(container.querySelectorAll('button')).find((button) => button.getAttribute('aria-label') === '评分 6');
@@ -218,17 +346,15 @@ describe('RightContentHeader feedback popover', () => {
   });
 
   it('uses nss score icons for selected score ranges', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
     await flush();
-
-    const smileButton = getSmileButton();
-    expect(smileButton).toBeTruthy();
-
-    act(() => {
-      smileButton?.click();
-    });
     await flush();
 
     const lowScoreButton = getScoreButton(6);
@@ -274,17 +400,15 @@ describe('RightContentHeader feedback popover', () => {
   });
 
   it('allows submitting with an empty textarea and does not show footer errors', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
     await flush();
-
-    const smileButton = getSmileButton();
-    expect(smileButton).toBeTruthy();
-
-    act(() => {
-      smileButton?.click();
-    });
     await flush();
 
     const lowScoreButton = getScoreButton(6);
@@ -314,7 +438,7 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
     await flush();
 
-    expect(mockSubmitFetch).toHaveBeenCalledTimes(1);
+    expect(getFetchCallsByMethod('POST')).toHaveLength(1);
     expect(addToast).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'success',
@@ -326,17 +450,15 @@ describe('RightContentHeader feedback popover', () => {
   });
 
   it('shows an inline error only when other issue is selected without input', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
     await flush();
-
-    const smileButton = getSmileButton();
-    expect(smileButton).toBeTruthy();
-
-    act(() => {
-      smileButton?.click();
-    });
     await flush();
 
     const lowScoreButton = getScoreButton(6);
@@ -363,23 +485,21 @@ describe('RightContentHeader feedback popover', () => {
     });
     await flush();
 
-    expect(mockSubmitFetch).not.toHaveBeenCalled();
+    expect(getFetchCallsByMethod('POST')).toHaveLength(0);
     expect(container.textContent).toContain('输入不能为空');
     expect(container.textContent).not.toContain('请先完成必填项');
   });
 
   it('shows a selection required error when no checkbox is selected on submit', async () => {
+    mockSubmitFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: '' }),
+    } as Response);
+
     act(() => {
       root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
     });
     await flush();
-
-    const smileButton = getSmileButton();
-    expect(smileButton).toBeTruthy();
-
-    act(() => {
-      smileButton?.click();
-    });
     await flush();
 
     const lowScoreButton = getScoreButton(6);
@@ -397,7 +517,7 @@ describe('RightContentHeader feedback popover', () => {
     });
     await flush();
 
-    expect(mockSubmitFetch).not.toHaveBeenCalled();
+    expect(getFetchCallsByMethod('POST')).toHaveLength(0);
     expect(container.textContent).toContain('选择不能为空');
     expect(container.textContent).not.toContain('请先完成必填项');
     expect(container.textContent).not.toContain('输入不能为空');

@@ -15,8 +15,8 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 
@@ -38,7 +38,7 @@ import {
 } from './relayclaw-sidecar.js';
 import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
-const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_RELAYCLAW_TIMEOUT_MS = 60 * 60 * 1000;
 const RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS = 1_500;
 
 export interface RelayClawAgentServiceOptions {

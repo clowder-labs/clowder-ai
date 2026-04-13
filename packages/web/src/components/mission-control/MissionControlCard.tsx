@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem } from '@cat-cafe/shared';
+import type { BacklogItem } from '@office-claw/shared';
 
 interface MissionControlCardProps {
   item: BacklogItem;

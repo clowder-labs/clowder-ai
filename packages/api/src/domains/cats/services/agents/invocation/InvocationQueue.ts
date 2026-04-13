@@ -17,7 +17,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
 export interface QueueEntry {

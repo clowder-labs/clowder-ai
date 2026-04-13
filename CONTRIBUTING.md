@@ -30,7 +30,7 @@ pnpm check
 # 4. Make your changes, then run checks
 pnpm check          # Biome lint
 pnpm lint           # TypeScript type check
-pnpm --filter @cat-cafe/api run test:public  # Public test suite
+pnpm --filter @office-claw/api run test:public  # Public test suite
 
 # 5. Commit and push to YOUR fork
 git add -A

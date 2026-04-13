@@ -4,7 +4,7 @@
  *
  */
 
-import type { ConnectorSource } from '@cat-cafe/shared';
+import type { ConnectorSource } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorDeliveryDeps } from './deliver-connector-message.js';
 import { deliverConnectorMessage } from './deliver-connector-message.js';

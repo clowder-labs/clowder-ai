@@ -82,7 +82,7 @@ interface ModelMenuPosition {
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_GROUP_LABEL = '华为云MaaS';
+const HUAWEI_GROUP_LABEL = '华为云 MaaS';
 const HUAWEI_PROVIDER_LABEL = 'Huawei MaaS';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';

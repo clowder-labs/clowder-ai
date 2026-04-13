@@ -532,7 +532,7 @@ function createRuntimePackageJson(sourcePath, options = {}) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@cat-cafe/shared': 'file:../shared',
+    '@office-claw/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) runtimePackage.dependencies = dependencies;
   const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
@@ -618,10 +618,13 @@ async function stageBundledApiRuntime(targetRootDir) {
     '--sourcemap=external',
     '--log-level=error',
     ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dep) => `--external:${dep}`),
-    '--external:@cat-cafe/shared',
+    '--external:@office-claw/shared',
   ]);
 
-  writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createBundledApiRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json')),
+  );
 }
 
 function createStandaloneWebRuntimePackageJson(sourcePath) {
@@ -678,7 +681,10 @@ function stageStandaloneWebRuntime(targetRootDir) {
   rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
 
   writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
-  writeJson(join(targetDir, 'package.json'), createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')),
+  );
 }
 
 async function stageWorkspacePackages(targetRootDir) {
@@ -923,7 +929,7 @@ function installSharedPythonDeps(bundleDir) {
 // ─── Runtime Dependencies ───────────────────────────────────────────
 
 function materializeSharedDependency(stagePackagesDir, packageName) {
-  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
+  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@office-claw', 'shared');
   try {
     const stat = spawnSync('test', ['-L', sharedLinkPath]);
     if (stat.status !== 0) {

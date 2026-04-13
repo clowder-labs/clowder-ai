@@ -7,7 +7,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
@@ -229,7 +229,6 @@ export function ThreadSidebar({
 
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      handleScroll();
       el.removeEventListener('scroll', handleScroll);
     };
   }, []);
@@ -263,12 +262,12 @@ export function ThreadSidebar({
         restoreFrameRef.current = requestAnimationFrame(apply);
       };
 
-      restoreFrameRef.current = requestAnimationFrame(apply);
+      apply();
     },
     [cancelPendingScrollRestore],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     scheduleScrollRestore(readSidebarScrollTop());
     return cancelPendingScrollRestore;
   }, [threads.length, isLoadingThreads, pathname, scheduleScrollRestore, cancelPendingScrollRestore]);
@@ -678,7 +677,7 @@ export function ThreadSidebar({
               className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
               data-testid="sidebar-menu-scheduled-tasks"
             >
-              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
+              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               定时任务
             </button>
           </div>

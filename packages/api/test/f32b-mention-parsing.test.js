@@ -12,7 +12,7 @@
 import './helpers/setup-cat-registry.js';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { catRegistry, createCatId } from '@cat-cafe/shared';
+import { catRegistry, createCatId } from '@office-claw/shared';
 
 const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 const { AgentRegistry } = await import('../dist/domains/cats/services/agents/registry/AgentRegistry.js');

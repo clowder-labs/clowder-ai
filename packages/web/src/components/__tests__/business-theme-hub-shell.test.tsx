@@ -332,7 +332,7 @@ describe('business theme hub shell', () => {
     expect(container.textContent).not.toContain('ops-skill');
   });
 
-  it('keeps search controls outside the scrolling card region', async () => {
+  it('keeps search controls outside the card region', async () => {
     await act(async () => {
       root.render(React.createElement(HubCapabilityTab));
     });
@@ -344,7 +344,7 @@ describe('business theme hub shell', () => {
 
     expect(fixedHeader).not.toBeNull();
     expect(scrollRegion).not.toBeNull();
-    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.className).not.toContain('overflow-y-auto');
     expect(scrollRegion?.contains(searchInput)).toBe(false);
     expect(scrollRegion?.querySelector('[data-testid="capability-card-skill-ops-skill"]')).not.toBeNull();
   });

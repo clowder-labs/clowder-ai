@@ -7,14 +7,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
-  vi.doUnmock('@cat-cafe/shared');
+  vi.doUnmock('@office-claw/shared');
   vi.resetModules();
 });
 
 describe('transcription-corrector alias source', () => {
   it('follows CAT_CONFIGS mentionPatterns dynamically', async () => {
-    vi.doMock('@cat-cafe/shared', async () => {
-      const actual = await vi.importActual<typeof import('@cat-cafe/shared')>('@cat-cafe/shared');
+    vi.doMock('@office-claw/shared', async () => {
+      const actual = await vi.importActual<typeof import('@office-claw/shared')>('@office-claw/shared');
       const codexPatterns = [...actual.CAT_CONFIGS.codex.mentionPatterns, '@测试缅因别名'];
       return {
         ...actual,
