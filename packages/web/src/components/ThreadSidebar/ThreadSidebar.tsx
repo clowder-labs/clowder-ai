@@ -80,6 +80,13 @@ function getThreadLastActiveAtMs(thread: Thread): number {
   return Number.isFinite(lastActiveAt) ? lastActiveAt : 0;
 }
 
+const FILTER_OPTION_LABELS: Record<'all' | '1m' | '3m' | '6m', string> = {
+  all: '全部',
+  '1m': '近1个月',
+  '3m': '近3个月',
+  '6m': '近6个月',
+};
+
 export function ThreadSidebar({
   onClose,
   className,
@@ -576,9 +583,9 @@ export function ThreadSidebar({
     if (sortedPinned.length > 0) {
       groups.push({ type: 'pinned' as const, label: '置顶', threads: sortedPinned });
     }
-    groups.push({ type: 'recent' as const, label: '全部', threads: sortedUnpinned });
+    groups.push({ type: 'recent' as const, label: FILTER_OPTION_LABELS[filterOption], threads: sortedUnpinned });
     return groups;
-  }, [filteredThreads]);
+  }, [filteredThreads, filterOption]);
   const displayThreadGroups = useMemo(() => threadGroups, [threadGroups]);
   const existingProjects = useMemo(() => getProjectPaths(threadsWithRealtimeActivity), [threadsWithRealtimeActivity]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
