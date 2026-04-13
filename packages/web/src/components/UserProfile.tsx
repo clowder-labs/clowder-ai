@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
-import { getIsSkipAuth, getUserId } from '@/utils/userId';
+import { clearAuthIdentity, getIsSkipAuth, getUserId, getUserName } from '@/utils/userId';
 import SecurityManagementModal from './SecurityManagementModal';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
@@ -36,6 +36,9 @@ const THEME_OPTIONS: Array<{
 ];
 
 const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html';
+const DEFAULT_LOGOUT_URL =
+  process.env.NEXT_PUBLIC_CAS_LOGOUT_URL ||
+  'https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?';
 
 export function UserProfile({ className }: UserProfileProps) {
   const [showPanel, setShowPanel] = useState(false);
@@ -54,15 +57,10 @@ export function UserProfile({ className }: UserProfileProps) {
   const themePopoverRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const userId = getUserId();
+  const storedUserName = getUserName();
   const { theme, setTheme } = useTheme();
 
-  const getUserName = () => {
-    if (userId === 'default-user') return '未登录';
-    const parts = userId.split(':');
-    return parts.length > 1 ? parts[1] || parts[0] : parts[0];
-  };
-
-  const userName = getUserName();
+  const userName = storedUserName || (userId === 'default-user' ? '未登录' : userId);
   const avatarLetter = userName.charAt(0).toUpperCase();
   const profileActionClass =
     'ui-overlay-item flex w-full items-center gap-2 px-3 py-2 text-[14px] font-normal leading-[20px]';
@@ -140,6 +138,19 @@ export function UserProfile({ className }: UserProfileProps) {
     setShowPanel(false);
   };
 
+  const finishLogout = (logoutUrl?: string) => {
+    clearAuthIdentity();
+    setShowThemePanel(false);
+    setShowPanel(false);
+
+    if (typeof window !== 'undefined') {
+      window.location.assign(logoutUrl || DEFAULT_LOGOUT_URL);
+      return;
+    }
+
+    router.replace('/login');
+  };
+
   const handleLogout = async () => {
     setIsLoading(true);
     try {
@@ -152,16 +163,21 @@ export function UserProfile({ className }: UserProfileProps) {
       });
 
       if (response.ok) {
-        localStorage.removeItem('cat-cafe-userId');
-        router.replace('/login');
-      } else {
-        console.error('退出登录失败');
+        const data = await response.json();
+        finishLogout(typeof data?.logoutUrl === 'string' ? data.logoutUrl : undefined);
+        return;
       }
+
+      console.error('退出登录失败');
     } catch (err) {
       console.error('退出登录错误:', err);
+      finishLogout();
+      return;
     } finally {
       setIsLoading(false);
     }
+
+    finishLogout();
   };
 
   useEffect(() => {

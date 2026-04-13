@@ -8,6 +8,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RightContentHeader } from '../RightContentHeader';
+import { getIsSkipAuth } from '@/utils/userId';
 
 const addToast = vi.fn();
 
@@ -18,11 +19,13 @@ vi.mock('@/stores/toastStore', () => ({
 
 vi.mock('@/utils/userId', () => ({
   getUserId: () => 'user-1',
+  getIsSkipAuth: vi.fn(() => false),
 }));
 
 describe('RightContentHeader feedback popover', () => {
   let container: HTMLDivElement;
   let root: Root;
+  const mockedGetIsSkipAuth = vi.mocked(getIsSkipAuth);
   const mockSubmitFetch = vi.fn();
   const formatFeedbackDate = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
@@ -36,6 +39,8 @@ describe('RightContentHeader feedback popover', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockedGetIsSkipAuth.mockReset();
+    mockedGetIsSkipAuth.mockReturnValue(false);
     mockSubmitFetch.mockReset();
     mockSubmitFetch.mockResolvedValue({
       ok: true,
@@ -227,6 +232,17 @@ describe('RightContentHeader feedback popover', () => {
     await flush();
 
     expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('skips the feedback date check when skip auth is enabled', async () => {
+    mockedGetIsSkipAuth.mockReturnValue(true);
+
+    act(() => {
+      root.render(React.createElement('div', null, React.createElement(RightContentHeader)));
+    });
+    await flush();
+
+    expect(mockSubmitFetch).not.toHaveBeenCalled();
   });
 
   it('uses auto height and computes the popover max height from the content frame', async () => {

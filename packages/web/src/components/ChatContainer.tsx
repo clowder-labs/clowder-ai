@@ -5,7 +5,6 @@
  */
 
 'use client';
-
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
@@ -28,7 +27,7 @@ import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chat
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { getUserId, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, getUserId, setIsSkipAuth } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsPanel } from './AgentsPanel';
 import { BootcampListModal } from './BootcampListModal';
@@ -54,6 +53,8 @@ import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
+import { LoadingPointStyle } from './LoadingPointStyle';
+import { AuthHeroShowcase } from './auth/AuthShell';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
@@ -81,6 +82,7 @@ type ChatContainerProps =
   | {
       mode: 'new';
       requireLoginCheck?: boolean;
+      skipInitialAuthGate?: boolean;
       threadId?: never;
       initialSidebarMenu?: never;
     }
@@ -88,16 +90,30 @@ type ChatContainerProps =
       mode?: 'thread';
       threadId: string;
       requireLoginCheck?: boolean;
+      skipInitialAuthGate?: boolean;
       initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
     };
 
+function hasAuthSuccessFlagInLocation(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URL(window.location.href).searchParams.get('authSuccess') === '1';
+}
+
 function AuthLoadingPanel({ message = '加载中...' }: { message?: string }) {
   return (
-    <div className="flex h-full items-center justify-center" data-testid="chat-container-loading-panel">
-      <div className="text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/chart/loading.svg" alt="加载中" className="mx-auto h-8 w-8 animate-spin" />
-        <p className="mt-3 text-gray-600">{message}</p>
+    <div
+      data-testid="chat-container-loading-panel"
+      className="min-h-screen w-full bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16"
+    >
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1280px] items-center justify-center lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+          <AuthHeroShowcase layout="standalone" />
+
+          <div className="mt-12 flex items-center gap-3 text-[16px] font-normal text-[#595959] sm:text-base">
+            <LoadingPointStyle className="h-5 w-5 flex-shrink-0" />
+            <span>{message}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -150,16 +166,41 @@ function mapPendingAuthorizationToMessages(
 }
 
 export function ChatContainer(props: ChatContainerProps) {
-  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
-  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck);
+  const [skipInitialAuthGate] = useState(() => Boolean(props.skipInitialAuthGate) || hasAuthSuccessFlagInLocation());
+  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck || skipInitialAuthGate);
+  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck || skipInitialAuthGate);
+  const hasAuthRedirectedRef = useRef(false);
   const router = useRouter();
   const authPending = Boolean(props.requireLoginCheck) && !authChecked;
   const authRedirecting = Boolean(props.requireLoginCheck) && authChecked && !isLoggedIn;
 
   useEffect(() => {
-    if (!props.requireLoginCheck) return;
+    if (!skipInitialAuthGate || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('authSuccess')) return;
+    url.searchParams.delete('authSuccess');
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, '', nextUrl || '/');
+  }, [skipInitialAuthGate]);
+
+  useEffect(() => {
+    if (!props.requireLoginCheck || skipInitialAuthGate) return;
 
     let cancelled = false;
+
+    const redirectTo = (target: string, external = false) => {
+      if (hasAuthRedirectedRef.current) return;
+      hasAuthRedirectedRef.current = true;
+      if (!external && target === '/login') {
+        clearAuthIdentity();
+      }
+      if (external) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
+
     (async () => {
       try {
         const response = await apiFetch('/api/islogin');
@@ -168,13 +209,20 @@ export function ChatContainer(props: ChatContainerProps) {
         setIsSkipAuth(Boolean(data?.isskip));
         if (data?.islogin) {
           setIsLoggedIn(true);
+        } else if (data?.pendingInvitation) {
+          redirectTo('/login/invitation');
         } else {
-          router.replace('/login');
+          const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
+          if (loginUrl) {
+            redirectTo(loginUrl, true);
+          } else {
+            redirectTo('/login');
+          }
         }
       } catch (err) {
         if (!cancelled) {
           console.error('检查登录状态失败:', err);
-          router.replace('/login');
+          redirectTo('/login');
         }
       } finally {
         if (!cancelled) setAuthChecked(true);
@@ -184,13 +232,13 @@ export function ChatContainer(props: ChatContainerProps) {
     return () => {
       cancelled = true;
     };
-  }, [props.requireLoginCheck, router]);
+  }, [props.requireLoginCheck, router, skipInitialAuthGate]);
 
   // Keep a full-screen transition state while auth is unresolved or redirecting
   // to login so the desktop shell never falls through to a blank page.
   if (authPending || authRedirecting) {
     return (
-      <div className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+      <div className="ui-shell-surface flex h-screen h-dvh w-full overflow-hidden">
         <AuthLoadingPanel message={authRedirecting ? '正在跳转登录页...' : '加载中...'} />
       </div>
     );
