@@ -319,11 +319,23 @@ internal sealed class LauncherForm : Form
             await InitializeSplashWebViewAsync().ConfigureAwait(true);
 
             AppendLog("Launcher boot started.");
-            TryRefreshFrontendUrlFromRuntimeState();
 
             if (!await IsFrontendReadyAsync().ConfigureAwait(true))
             {
                 AppendLog("Starting local services...");
+                // 删除旧的 runtime state 文件，避免读取到上次运行的错误端口
+                try
+                {
+                    if (File.Exists(_runtimeStatePath))
+                    {
+                        File.Delete(_runtimeStatePath);
+                        AppendLog("Cleared stale runtime state.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("Warning: Could not delete stale runtime state: " + ex.Message);
+                }
                 StartManagedServices();
                 _serviceStartedByLauncher = true;
             }
@@ -358,11 +370,8 @@ internal sealed class LauncherForm : Form
 
     private string BuildFrontendUrl()
     {
-        if (TryRefreshFrontendUrlFromRuntimeState())
-        {
-            return _frontendUrl;
-        }
-
+        // 不在构造函数读取 runtime state，因为可能是上次运行遗留的旧数据
+        // 正确的 URL 会在 WaitForFrontendAsync() 轮询时从新写入的 runtime state 刷新
         var port = ReadPortFromEnv("FRONTEND_PORT", 3003);
         return "http://127.0.0.1:" + port + "/";
     }
