@@ -145,13 +145,3 @@ __pycache__/
 *.pyc
 *.egg-info/
 
-
-.claude/
-.github/prompts/
-.github/skills/
-openspec/
-docs/ai/
-CLAUDE.md
-vendor/jiuwenclaw/output/
-vendor/jiuwenclaw/jiuwenclaw/agentserver/tools/browser-move/.browser-profiles/
-vendor/jiuwenclaw/jiuwenclaw/agentserver/tools/browser-move/.browser/
