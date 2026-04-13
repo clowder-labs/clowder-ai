@@ -84,6 +84,23 @@ async function detectOverflow(page, htmlPath, percentThreshold, pxThreshold) {
   // 等待 Tailwind CDN 等样式生效
   await page.waitForTimeout(1500);
 
+  // 隐藏脱离文档流的元素（absolute/fixed），避免干扰溢出检测
+  await page.evaluate(() => {
+    const slides = document.querySelectorAll('.ppt-slide');
+    const excluded = [];
+    for (const slide of slides) {
+      const all = slide.querySelectorAll('*');
+      for (const el of all) {
+        const pos = getComputedStyle(el).position;
+        if (pos === 'absolute' || pos === 'fixed') {
+          excluded.push({ el, originalDisplay: el.style.display });
+          el.style.display = 'none';
+        }
+      }
+    }
+    window.__overflowExcluded = excluded;
+  });
+
   // 先清除之前可能存在的标签
   await page.evaluate(() => {
     document.querySelectorAll('.y_axis_overflow_detected').forEach(el => {
@@ -152,6 +169,16 @@ async function detectOverflow(page, htmlPath, percentThreshold, pxThreshold) {
 
     return results;
   }, { percentThreshold, pxThreshold });
+
+  // 恢复被隐藏的脱离文档流元素
+  await page.evaluate(() => {
+    if (window.__overflowExcluded) {
+      for (const { el, originalDisplay } of window.__overflowExcluded) {
+        el.style.display = originalDisplay;
+      }
+      delete window.__overflowExcluded;
+    }
+  });
 
   return results;
 }
