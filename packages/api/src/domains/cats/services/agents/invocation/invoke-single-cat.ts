@@ -348,10 +348,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
   }
 
-  // === CAT_INVOKED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+  // === AGENT_INVOKED 审计 (fire-and-forget, review P2-3) ===
   auditLog
     .append({
-      type: AuditEventTypes.CAT_INVOKED,
+      type: AuditEventTypes.AGENT_INVOKED,
       threadId,
       data: {
         catId,
@@ -1215,10 +1215,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       if (msg.type === 'done') {
-        // === CAT_RESPONDED / CAT_ERROR 审计 (fire-and-forget) ===
+        // === AGENT_RESPONDED / CAT_ERROR 审计 (fire-and-forget) ===
         // P1 fix: when error was yielded during stream, emit CAT_ERROR instead of CAT_RESPONDED
         const durationMs = Date.now() - startTime;
-        const auditType = hadStreamError ? AuditEventTypes.CAT_ERROR : AuditEventTypes.CAT_RESPONDED;
+        const auditType = hadStreamError ? AuditEventTypes.CAT_ERROR : AuditEventTypes.AGENT_RESPONDED;
         auditLog
           .append({
             type: auditType,
