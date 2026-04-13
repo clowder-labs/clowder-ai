@@ -327,9 +327,9 @@ function finalizePostMessageResult(result: ToolResult, content: string): ToolRes
       ? '这次 callback 凭证校验失败（可能是 token 过期，也可能 invocation/token 不匹配）。'
       : '这次 post-message 调用失败。';
     const hint =
-      `\n\n💡 Tip: ${reasonHint}如果你想 @其他猫猫，` +
-      '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @猫名 即可' +
-      '（例如另起一行写 @缅因猫），系统会自动检测并触发。';
+      `\n\n💡 Tip: ${reasonHint}如果你想 @其他智能体，` +
+      '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @智能体名 即可' +
+      '（例如另起一行写 @co-creator），系统会自动检测并触发。';
     return errorResult(original + hint);
   }
 
@@ -708,7 +708,7 @@ export const callbackTools = [
     name: 'office_claw_post_message',
     description:
       'Post a proactive async message to the Clowder AI chat mid-task in the CURRENT thread (e.g. progress updates, sharing results). ' +
-      'To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires. ' +
+      'To simply @mention another agent at the end of your response, use @agent-name in your reply text instead — it is free and never expires. ' +
       'GOTCHA: This tool uses callback credentials that expire — if it fails with 401, fall back to inline @mention in your response text. ' +
       'GOTCHA: Do NOT use this for routine replies — only for mid-task proactive messages when you need to share something before your response completes.',
     inputSchema: postMessageInputSchema,
@@ -860,12 +860,12 @@ export const callbackTools = [
     name: 'office_claw_multi_mention',
     description:
       'Invoke up to 3 agents in parallel to gather perspectives on a question. ' +
-      'targets must use catId (e.g. "assistant", "office", "agentteams"), NOT display names. ' +
+      'targets must use agent IDs (e.g. "assistant", "office", "agentteams"), NOT display names. ' +
       'All responses are automatically routed back to callbackTo (usually yourself). ' +
       "REQUIRES: searchEvidenceRefs (list what you searched first) OR overrideReason (why you're skipping search). " +
       'This enforces the "先搜后问" principle — always search before asking other agents. ' +
       'Use this instead of multiple @mentions when you need structured multi-agent collaboration with guaranteed response aggregation. ' +
-      'GOTCHA: callbackTo is usually your own catId so responses come back to you.',
+      'GOTCHA: callbackTo is usually your own agent ID so responses come back to you.',
     inputSchema: multiMentionInputSchema,
     handler: handleMultiMention,
   },

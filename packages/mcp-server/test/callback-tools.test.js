@@ -464,7 +464,7 @@ describe('MCP Callback Tools', () => {
     assert.equal(result.isError, true);
     assert.ok(text.includes('这次 post-message 调用失败'));
     assert.ok(!text.includes('token 已过期'));
-    assert.ok(text.includes('直接在你的回复文本里另起一行写 @猫名'));
+    assert.ok(text.includes('直接在你的回复文本里另起一行写 @智能体名'));
   });
 
   test('adds credential hint on callback credential failure with @mention', async () => {
