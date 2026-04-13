@@ -361,8 +361,8 @@ function createRuntimePackageJson(sourcePath, options = {}) {
   }
 
   const dependencies = { ...(source.dependencies ?? {}) };
-  if (dependencies['@cat-cafe/shared']) {
-    dependencies['@cat-cafe/shared'] = 'file:../shared';
+  if (dependencies['@office-claw/shared']) {
+    dependencies['@office-claw/shared'] = 'file:../shared';
   }
   if (Object.keys(dependencies).length > 0) {
     runtimePackage.dependencies = dependencies;
@@ -513,10 +513,10 @@ function ensureBuildArtifacts(options) {
   }
 
   logStep('Building shared, mcp-server, api, and web');
-  run('pnpm', ['--filter', '@cat-cafe/shared', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/mcp-server', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/api', 'run', 'build']);
-  run('pnpm', ['--filter', '@cat-cafe/web', 'run', 'build'], {
+  run('pnpm', ['--filter', '@office-claw/shared', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/mcp-server', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/api', 'run', 'build']);
+  run('pnpm', ['--filter', '@office-claw/web', 'run', 'build'], {
     env: { NEXT_TELEMETRY_DISABLED: '1' },
   });
 }
@@ -548,7 +548,7 @@ function runNpmInstall(packageDir) {
 }
 
 function materializeSharedDependency(stagePackagesDir, packageName) {
-  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
+  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@office-claw', 'shared');
   try {
     if (!lstatSync(sharedLinkPath).isSymbolicLink()) {
       return;

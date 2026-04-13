@@ -10,9 +10,9 @@
  */
 
 import { join } from 'node:path';
-import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
-import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
+import { type CatConfig, type CatId, catRegistry, resolveEmbeddedRuntimeKind } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
+import { createRedisClient, SessionStore } from '@office-claw/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import Fastify from 'fastify';
@@ -664,7 +664,7 @@ async function main(): Promise<void> {
   } catch (err) {
     app.log.warn(`[api] Failed to load cat template/catalog, falling back to built-in CAT_CONFIGS: ${String(err)}`);
     // Fallback: register from static CAT_CONFIGS
-    const { CAT_CONFIGS } = await import('@cat-cafe/shared');
+    const { CAT_CONFIGS } = await import('@office-claw/shared');
     for (const [id, config] of Object.entries(CAT_CONFIGS)) {
       if (!catRegistry.has(id)) catRegistry.register(id, config);
     }

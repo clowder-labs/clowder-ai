@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { catRegistry, createCatId } from '@cat-cafe/shared';
+import { catRegistry, createCatId } from '@office-claw/shared';
 
 const {
   loadCatConfig,
@@ -170,7 +170,7 @@ describe('cat-config-loader', () => {
       writeFileSync(templatePath, JSON.stringify(base));
       writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
 
-      const runtimeDir = join(projectDir, '.cat-cafe');
+      const runtimeDir = join(projectDir, '.office-claw');
       mkdirSync(runtimeDir, { recursive: true });
       const catalog = validConfig();
       catalog.breeds[0].variants[0].provider = 'openai';
@@ -218,7 +218,7 @@ describe('cat-config-loader', () => {
       writeFileSync(templatePath, JSON.stringify(base));
       writeFileSync(join(projectDir, 'cat-config.json'), JSON.stringify(base));
 
-      const runtimeDir = join(projectDir, '.cat-cafe');
+      const runtimeDir = join(projectDir, '.office-claw');
       mkdirSync(runtimeDir, { recursive: true });
       const catalog = validConfig();
       catalog.breeds[0].variants[0].provider = 'anthropic';

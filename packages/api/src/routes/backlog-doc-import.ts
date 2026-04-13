@@ -14,7 +14,7 @@ import type {
   FeatureDocAC,
   FeatureDocPhase,
   FeatureDocRisk,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { gitListFeatureDocs, readBacklogContent, readFeatureDocContent } from './git-doc-reader.js';
 
 export interface BacklogFeatureRow {

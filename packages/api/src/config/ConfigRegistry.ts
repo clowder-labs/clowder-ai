@@ -12,7 +12,7 @@
  * 安全：Redis URL 不暴露，只显示连接状态。
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 import { DEFAULT_CLI_TIMEOUT_MS, readCliTimeoutMsFromEnv } from '../utils/cli-timeout.js';
 import { getAllCatBudgets } from './cat-budgets.js';
 import { getCoCreatorConfig } from './cat-config-loader.js';

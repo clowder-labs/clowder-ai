@@ -1,5 +1,5 @@
 {
-  "name": "@cat-cafe/api",
+  "name": "@office-claw/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@cat-cafe/shared": "workspace:*",
+    "@office-claw/shared": "workspace:*",
     "@fastify/cors": "^9.0.0",
     "@fastify/multipart": "8",
     "@fastify/static": "7",
