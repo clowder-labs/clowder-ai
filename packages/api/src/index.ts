@@ -638,6 +638,7 @@ async function main(): Promise<void> {
       taskRunner: taskRunnerV2,
       registry,
       dynamicTaskStore,
+      threadStore,
       templateRegistry,
       globalControlStore,
       packTemplateStore,
