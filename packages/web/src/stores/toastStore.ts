@@ -14,6 +14,7 @@ export interface ToastItem {
   title: string;
   message: string;
   threadId?: string;
+  threadTitle?: string;
   /** Auto-dismiss after ms (0 = no auto-dismiss) */
   duration: number;
   createdAt: number;
