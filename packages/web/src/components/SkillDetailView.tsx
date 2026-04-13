@@ -534,8 +534,8 @@ export function SkillDetailView({
                   </aside>
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--surface-card)]">
                     <div className="border-b border-[var(--border-default)] px-5 py-3 text-xs">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_fit-content(200px)] items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
                           <img
                             src={
                               selectedFileNode
@@ -547,12 +547,19 @@ export function SkillDetailView({
                             data-testid="skill-detail-preview-header-icon"
                             className="h-4 w-4 shrink-0 object-contain"
                           />
-                          <span className="truncate">{selectedFileLabel}</span>
+                          <OverflowTooltip content={selectedFileLabel} className="min-w-0 overflow-hidden">
+                            <div className="w-full min-w-0 truncate">{selectedFileLabel}</div>
+                          </OverflowTooltip>
                         </div>
                         {filePreview ? (
-                          <span className="text-xs text-[var(--text-muted)]">
-                            {filePreview.mime} · {filePreview.size} B
-                          </span>
+                          <OverflowTooltip
+                            content={`${filePreview.mime} · ${filePreview.size} B`}
+                            className="min-w-0 overflow-hidden"
+                          >
+                            <div className="w-full min-w-0 truncate text-right text-xs text-[var(--text-muted)]">
+                              {`${filePreview.mime} · ${filePreview.size} B`}
+                            </div>
+                          </OverflowTooltip>
                         ) : null}
                       </div>
                     </div>
@@ -582,7 +589,10 @@ export function SkillDetailView({
                               文件内容过长，当前仅展示前 1MB。
                             </p>
                           ) : null}
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6">
+                          <pre
+                            className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6"
+                            style={{ overflowWrap: "anywhere" }}
+                          >
                             {filePreview.content}
                           </pre>
                         </div>
