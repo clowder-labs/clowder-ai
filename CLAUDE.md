@@ -1,154 +1,161 @@
-# Clowder AI — Claude Agent Guide
+# CLAUDE.md
 
-## Identity
-You are the Ragdoll cat (Claude), the lead architect and core developer of this Clowder AI instance.
+本文件为 Claude Code (claude.ai/code) 在本仓库中工作时提供指导。
 
-## Safety Rules (Iron Laws)
-1. **Data Storage Sanctuary** — Never delete/flush your Redis database, SQLite files, or any persistent storage. Use temporary instances for testing.
-2. **Process Self-Preservation** — Never kill your parent process or modify your startup config in ways that prevent restart.
-3. **Config Immutability** — Never modify `office-claw-config.json`, `.env`, or MCP config at runtime. Config changes require human action.
-4. **Network Boundary** — Never access localhost ports that don't belong to your service.
+## 语言设置
 
-## Development Flow
-See `office-claw-skills/` for the full skill-based workflow:
-- `feat-lifecycle` — Feature lifecycle management
-- `tdd` — Test-driven development
-- `quality-gate` — Pre-review self-check
-- `request-review` — Cross-cat review requests
-- `merge-gate` — Merge approval process
+所有回复请使用**简体中文**。
 
-## Code Standards
-- File size: 200 lines warning / 350 hard limit
-- No `any` types
-- Biome: `pnpm check` / `pnpm check:fix`
-- Types: `pnpm lint`
+## 代码规范
 
-## Windows 快速出包验证（不出 exe）
+- 代码注释使用中文
+- 变量名保持英文
+- 技术文档使用中文撰写
 
-用于改完代码后快速验证安装包完整性，不需要跑完整 NSIS/exe 流程。
+## 项目概述
 
-### 前置：杀掉旧进程
+Clowder AI 是一个多智能体协作平台 —— "猫猫咖啡馆" —— 多个 AI 智能体（Claude、GPT、Gemini、opencode）在共享工作空间中协同工作，具备持久身份、跨模型审查和共享记忆。智能体被称为"猫猫"，人类是"CVO"（首席愿景官）。
+
+## 开发命令
 
 ```bash
-taskkill //F //IM redis-server.exe 2>/dev/null
-taskkill //F //IM OfficeClaw.exe 2>/dev/null
-# 杀 OfficeClaw 相关 node 进程（注意不要杀当前 claude session）
-for pid in $(tasklist | grep node.exe | awk '{print $2}'); do
-  wmic process where "ProcessId=$pid" get CommandLine 2>/dev/null | grep -qi "OfficeClaw" && taskkill //F //PID $pid
-done
-```
-
-### 1. 清理环境（全新安装验证时）
-
-```bash
-# 全局 profiles
-rm -f ~/.office-claw/provider-profiles* ~/.office-claw/acp-model-profiles* ~/.office-claw/known-project-roots.json ~/.office-claw/migrated-project-roots.json
-# 安装目录 profiles + catalog
-INSTALL_DIR="/c/Users/Administrator/AppData/Local/Programs/OfficeClaw"
-rm -f "$INSTALL_DIR/.office-claw/provider-profiles"* "$INSTALL_DIR/.office-claw/acp-model-profiles"* "$INSTALL_DIR/.office-claw/office-claw-catalog.json"
-```
-
-### 2. Build + Bundle
-
-```bash
-cd D:/02.code/clowder-ai
+# 构建所有包（首次启动前必须执行）
 pnpm build
-node scripts/build-windows-installer.mjs --bundle-only
-# 产物在 dist/windows/bundle/
+
+# 启动所有服务（Redis + API + 前端）
+pnpm start
+
+# 开发模式，热重载（所有包并行）
+pnpm dev
+
+# 单独的开发服务器
+pnpm --filter @cat-cafe/api run dev     # 仅 API（tsx watch）
+pnpm --filter @cat-cafe/web run dev     # 仅 Web（next dev）
 ```
 
-#### 分阶段构建（加速迭代）
-
-首次需完整构建，之后可按需只跑某个阶段：
+### 代码质量
 
 ```bash
-# 完整构建（首次）
-node scripts/build-windows-installer.mjs --bundle-only
-
-# 只改了 JS/TS 代码，Python 没变 → 跳过 pip install（省 5-10 分钟）
-node scripts/build-windows-installer.mjs --bundle-only --skip-build --skip-python
-
-# 只改了 C# launcher → 只重编 launcher 到已有 bundle
-node scripts/build-windows-installer.mjs --launcher-only
-
-# bundle 已就绪 → 只打 NSIS exe
-node scripts/build-windows-installer.mjs --nsis-only
-
-# 完整出 exe（bundle + nsis）
-node scripts/build-windows-installer.mjs
+pnpm check           # Biome 检查 + feature/port/profile 校验
+pnpm check:fix       # 自动修复 Biome 问题
+pnpm lint            # TypeScript 类型检查所有包（tsc --noEmit）
 ```
 
-| 参数 | 作用 | 耗时 |
-|------|------|------|
-| `--bundle-only` | 构建 bundle 但不打 NSIS exe | ~10 min |
-| `--skip-build` | 跳过 `pnpm build`，复用已有 dist/.next | 省 ~2 min |
-| `--skip-python` | 跳过 Python embed 下载 + pip install，复用已有 tools/python | 省 ~5 min |
-| `--launcher-only` | 只重编 C# 桌面启动器到已有 bundle | ~30 sec |
-| `--nsis-only` | 只将已有 bundle 打包成 exe | ~1 min |
+### 测试
 
-### 3. 部署到安装目录（替代 exe 安装）
+API 使用 **Node.js 内置测试运行器**（`node --test`），Web 使用 **Vitest**。测试运行在编译后的 `dist/` 输出上 —— 需先构建。
 
 ```bash
-INSTALL_DIR="/c/Users/Administrator/AppData/Local/Programs/OfficeClaw"
-BUNDLE_DIR="D:/02.code/clowder-ai/dist/windows/bundle"
+# 所有包的测试
+pnpm test
 
-# 同步 managed paths
-for item in packages scripts office-claw-skills tools installer-seed vendor \
-  .clowder-release.json .env.example LICENSE office-claw-template.json modelarts-preset.json pnpm-workspace.yaml; do
-  [ -e "$BUNDLE_DIR/$item" ] && rm -rf "$INSTALL_DIR/$item" && cp -a "$BUNDLE_DIR/$item" "$INSTALL_DIR/$item"
-done
+# API 测试（会先构建）
+pnpm --filter @cat-cafe/api run test
 
-# 同步 launcher + DLLs
-for f in OfficeClaw.exe OfficeClaw.exe.config Microsoft.Web.WebView2.Core.dll \
-  Microsoft.Web.WebView2.WinForms.dll WebView2Loader.dll; do
-  [ -e "$BUNDLE_DIR/$f" ] && cp -f "$BUNDLE_DIR/$f" "$INSTALL_DIR/$f"
-done
-[ -d "$BUNDLE_DIR/assets" ] && rm -rf "$INSTALL_DIR/assets" && cp -a "$BUNDLE_DIR/assets" "$INSTALL_DIR/assets"
+# 仅 API 公开测试（排除较慢的 Redis/集成测试）
+pnpm --filter @cat-cafe/api run test:public
+
+# 单个测试文件
+node --test packages/api/test/some-test.test.js
+
+# Redis 专用隔离测试
+pnpm test:api:redis
+
+# Web 测试（Vitest）
+pnpm --filter @cat-cafe/web run test
 ```
 
-### 4. 跑 installer 生成配置
+## Monorepo 结构
+
+pnpm workspace，`packages/` 下有 5 个包：
+
+| 包 | 用途 | 框架 | 构建 |
+|---|------|------|------|
+| `api` | 后端 API 服务器 | Fastify + Socket.IO | `tsc` |
+| `web` | 前端 Web 应用 | Next.js 14 (App Router) + Tailwind + Zustand | `next build` |
+| `shared` | 共享类型、Schema、工具函数 | 纯 TypeScript | `tsc` |
+| `mcp-server` | MCP 工具（记忆、线程、信号） | MCP SDK (stdio) | `tsc` |
+| `xinsheng-mcp` | 网页抓取 MCP 服务器 | Puppeteer | `tsc` |
+
+### Shared 包导出
+
+`@cat-cafe/shared` 有多个入口：
+- `@cat-cafe/shared` — 类型（前端安全，无 Node.js 依赖）
+- `@cat-cafe/shared/types` — 类型定义
+- `@cat-cafe/shared/schemas` — Zod 校验 Schema
+- `@cat-cafe/shared/utils` — 工具函数（包含 Redis 依赖）
+- `@cat-cafe/shared/registry` — 猫猫/智能体注册表
+
+**构建顺序重要**：`shared` 必须在 `api` 和 `web` 之前构建（由 workspace 协议处理）。
+
+## 架构
+
+### API 领域结构（`packages/api/src/domains/`）
+
+API 按业务领域组织：
+- `cats/services/` — 智能体生命周期、会话管理、编排、数据存储
+- `signals/` — 新闻/文章聚合与处理
+- `memory/` — 证据存储与搜索
+- `workspace/` — 项目上下文管理
+
+### 存储
+
+- **Redis**（端口 6399）：临时状态 —— 会话、队列、投递游标、任务进度
+- **SQLite**：持久存储 —— 线程、消息、记忆/证据、待办、工作流 SOP、信号文章
+
+### 智能体通信
+
+- **A2A 消息**：异步智能体间通信，通过线程 @mention 路由
+- **MCP**：跨智能体工具共享（Claude 原生支持，其他通过回调桥接）
+- **WebSocket/Socket.IO**：向前端推送实时更新
+
+### 前端
+
+Next.js 14 App Router：
+- 多线程聊天，支持 @mention 路由
+- 富文本块（卡片、diff、检查清单、交互式组件）
+- Socket.IO 实时更新
+- CodeMirror 代码编辑，xterm.js 终端
+
+## 代码规范
+
+- **格式化**：Biome —— 120 字符行宽、2 空格缩进、单引号、尾逗号
+- **文件大小**：200 行警告 / 350 行硬限制
+- **禁止 `any` 类型**（Biome 对 `noExplicitAny` 报警告）
+- **TypeScript 严格模式**，启用 `noImplicitOverride`
+- **编译目标**：ES2022，模块 NodeNext
+
+## Skills 框架
+
+`office-claw-skills/` 包含按需加载的 Prompt 模块。核心 Skills：
+- `feat-lifecycle`、`tdd`、`quality-gate`、`request-review`、`merge-gate`
+- `manifest.yaml` 是路由的唯一事实来源
+- `refs/shared-rules.md` — 核心协作原则
+
+## 安全规则（铁律）
+
+1. 不得删除/清空 Redis、SQLite 或任何持久存储
+2. 不得终止父进程或修改启动配置
+3. 运行时不得修改 `office-claw-config.json`、`.env` 或 MCP 配置
+4. 不得访问本服务以外的 localhost 端口
+
+## 环境配置
+
+- 端口：前端 3003、API 3004、Redis 6399
+- `.env` 覆盖 `.inner.env`（加载顺序有影响）
+- `CAT_CAFE_SKIP_AUTH=1` 可跳过认证，用于本地调试
+
+## Vendor 目录
+
+- `vendor/dare-cli/` — Python DARE 智能体框架
+- `vendor/jiuwenclaw/` — Python ACP 中继（Oh My OpenCode 集成）
+
+## Windows 打包
 
 ```bash
-INSTALL_DIR="C:/Users/Administrator/AppData/Local/Programs/OfficeClaw"
-node "$INSTALL_DIR/scripts/install-auth-config.mjs" modelarts-preset apply \
-  --project-dir "$INSTALL_DIR" \
-  --api-key "<your-api-key>"
+pnpm package:windows:bundle           # 构建 bundle（不生成 exe）
+pnpm package:windows                  # 完整 bundle + NSIS exe
+# 增量构建参数：--skip-build、--skip-python、--launcher-only、--nsis-only
 ```
 
-### 5. 验证配置
-
-```bash
-node -e "
-const fs = require('fs');
-const dir = '$INSTALL_DIR/.office-claw';
-const pp = JSON.parse(fs.readFileSync(dir+'/provider-profiles.json','utf8'));
-pp.providers.filter(p=>!p.builtin).forEach(p => console.log(p.id, p.kind, p.command||''));
-const cat = JSON.parse(fs.readFileSync(dir+'/office-claw-catalog.json','utf8'));
-cat.breeds.forEach(b => { const v=b.variants[0]; console.log(b.catId, v.provider, v.accountRef); });
-"
-```
-
-期望输出：
-- `modelarts-shared api_key`
-- `relay-teams acp <INSTALL_DIR>\tools\python\Scripts\relay-teams.exe`
-- catalog 里 office/dare、assistant/relayclaw、agentteams/acp 三条
-
-### 6. 启动服务 & 端到端验证
-
-调试时跳过华为云登录：在 `.env` 中加 `CAT_CAFE_SKIP_AUTH=1`，`/api/islogin` 会直接返回已登录。
-
-```bash
-# 启动（或通过 OfficeClaw.exe）
-cd "$INSTALL_DIR" && node scripts/start-entry.mjs start
-```
-
-浏览器打开后分别发送：
-- `@office 请只回复 OK` — 验证 dare agent
-- `@assistant 请只回复 OK` — 验证 relayclaw agent
-- `@agentteams 请只回复 ACP OK` — 验证 ACP relay-teams
-
-### 关键文件打包清单
-
-`build-windows-installer.mjs` 的 `copyTopLevelProject()` 和 `WINDOWS_MANAGED_TOP_LEVEL_PATHS` 控制哪些文件进包。如果新增了运行时需要的顶层文件，必须同时加到这两处：
-- `WINDOWS_MANAGED_TOP_LEVEL_PATHS` — 升级时覆盖
-- `copyTopLevelProject()` 的 entries 数组或 cpSync 调用 — 打包时复制
+新增顶层运行时文件时，需同时更新 `scripts/build-windows-installer.mjs` 中的 `WINDOWS_MANAGED_TOP_LEVEL_PATHS` 和 `copyTopLevelProject()`。

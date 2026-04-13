@@ -144,3 +144,11 @@ forzadata-*.txt
 __pycache__/
 *.pyc
 *.egg-info/
+
+
+.claude/
+.github/prompts/
+.github/skills/
+openspec/
+docs/ai/
+CLAUDE.md
