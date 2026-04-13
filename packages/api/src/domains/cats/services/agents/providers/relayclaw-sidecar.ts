@@ -222,10 +222,6 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
   }
 
   private async start(runtime: RelayClawSidecarRuntime, signal?: AbortSignal): Promise<void> {
-    if (!runtime.env.API_KEY || !runtime.env.API_BASE) {
-      throw new Error('jiuwen requires a bound openai-compatible API key profile');
-    }
-
     mkdirSync(runtime.homeDir, { recursive: true });
     const agentPort = runtime.agentPort || (await this.allocatePort());
     const webPort = runtime.webPort || (await this.allocatePort());

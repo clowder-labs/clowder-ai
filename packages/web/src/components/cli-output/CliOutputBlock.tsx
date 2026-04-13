@@ -7,7 +7,9 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AuthorizationCard } from '@/components/AuthorizationCard';
 import { MarkdownContent } from '@/components/MarkdownContent';
+import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
 import type { ChatMessage, CliEvent, CliStatus } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 import { LoadingSmall } from '../LoadingSmall';
@@ -573,6 +575,9 @@ interface CliOutputBlockProps {
   defaultExpanded?: boolean;
   breedColor?: string;
   projectPath?: string | null;
+  authorizationRequests?: AuthPendingRequest[];
+  onAuthorizationRespond?: (requestId: string, granted: boolean, scope: RespondScope, reason?: string) => void | Promise<void>;
+  onOpenSecurityManagement?: () => void;
 }
 
 export function CliOutputBlock({
@@ -583,6 +588,9 @@ export function CliOutputBlock({
   defaultExpanded = false,
   breedColor,
   projectPath,
+  authorizationRequests,
+  onAuthorizationRespond,
+  onOpenSecurityManagement,
 }: CliOutputBlockProps) {
   const isExport =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
@@ -773,6 +781,18 @@ export function CliOutputBlock({
               }}
               accent={accent}
             />
+          )}
+          {authorizationRequests && authorizationRequests.length > 0 && onAuthorizationRespond && (
+            <div data-testid="cli-output-authorization" className="space-y-3 pt-3">
+              {authorizationRequests.map((request) => (
+                <AuthorizationCard
+                  key={request.requestId}
+                  request={request}
+                  onRespond={onAuthorizationRespond}
+                  onOpenSecurityManagement={onOpenSecurityManagement}
+                />
+              ))}
+            </div>
           )}
           {textEvents.length > 0 && (
             <>

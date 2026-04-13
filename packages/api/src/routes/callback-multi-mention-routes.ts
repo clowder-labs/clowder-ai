@@ -120,7 +120,7 @@ function dispatchViaQueue(
 
   const orch = getMultiMentionOrchestrator();
 
-  const messageContent = [`[Multi-Mention from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
+  const messageContent = [`[共识总结 from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
     '\n\n',
   );
 
@@ -187,7 +187,7 @@ async function dispatchToTarget(
   // Build the message for this target
   // Include multi-mention context as structured prefix so the target cat
   // understands the request is from another cat, not the user directly.
-  const messageContent = [`[Multi-Mention from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
+  const messageContent = [`[共识总结 from ${initiator}]`, question, ...(context ? ['---', context] : [])].join(
     '\n\n',
   );
 
@@ -362,7 +362,7 @@ async function flushResult(
   const { messageStore, socketManager } = deps;
 
   // Build aggregated result message
-  const lines: string[] = [`## Multi-Mention 结果汇总`, '', `**问题**: ${result.request.question}`, ''];
+  const lines: string[] = [`## 共识总结结果汇总`, '', `**问题**: ${result.request.question}`, ''];
 
   for (const resp of result.responses) {
     const entry = catRegistry.tryGet(resp.catId);
@@ -382,7 +382,7 @@ async function flushResult(
   // F098-C2: Include initiator + targets metadata for frontend direction rendering
   const connectorSource = {
     connector: 'multi-mention-result' as const,
-    label: 'Multi-Mention 结果',
+    label: '共识总结结果',
     icon: 'users',
     meta: {
       initiator: result.request.callbackTo,
