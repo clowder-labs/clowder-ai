@@ -25,10 +25,34 @@ import type { InvocationRecord, InvocationRegistry } from '../domains/cats/servi
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalControlStore.js';
 import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
+import {
+  notifyTaskDeleted,
+  notifyTaskPaused,
+  notifyTaskRegistered,
+  notifyTaskResumed,
+} from '../infrastructure/scheduler/schedule-notify.js';
 import type { TaskRunnerV2 } from '../infrastructure/scheduler/TaskRunnerV2.js';
-import type { TriggerSpec } from '../infrastructure/scheduler/types.js';
+import type { DeliverOpts, TriggerSpec } from '../infrastructure/scheduler/types.js';
 import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
+
+/** #415: Normalize once-trigger input — accepts delayMs (relative) or fireAt (absolute) */
+function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | { error: string } {
+  if (trigger.type !== 'once') return trigger as TriggerSpec;
+  const delayMs = typeof trigger.delayMs === 'number' ? trigger.delayMs : undefined;
+  const fireAt = typeof trigger.fireAt === 'number' ? trigger.fireAt : undefined;
+  if (delayMs != null) {
+    if (!Number.isFinite(delayMs) || delayMs < 0) return { error: 'once trigger delayMs must be a finite number >= 0' };
+    return { type: 'once', fireAt: Date.now() + delayMs };
+  }
+  if (fireAt != null) {
+    if (!Number.isFinite(fireAt) || fireAt < 0) {
+      return { error: 'once trigger fireAt must be a finite positive epoch ms' };
+    }
+    return { type: 'once', fireAt };
+  }
+  return { error: 'once trigger requires either delayMs or fireAt' };
+}
 
 export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
@@ -44,6 +68,8 @@ export interface ScheduleRoutesOptions {
   globalControlStore?: GlobalControlStore;
   /** Phase 3B (AC-D3): pack template store */
   packTemplateStore?: PackTemplateStore;
+  /** #415: deliver function for lifecycle notifications */
+  deliver?: (opts: DeliverOpts) => Promise<string>;
 }
 
 /** Extract threadId from subjectKey — handles both thread-xxx (real tasks) and thread:xxx formats */
@@ -93,7 +119,8 @@ function resolveInvocationRecord(
 }
 
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, registry, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore } = opts;
+  const { taskRunner, registry, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore, deliver } =
+    opts;
 
   // GET /api/schedule/tasks
   app.get('/api/schedule/tasks', async () => {
@@ -196,7 +223,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    // #415: normalize once trigger (delayMs → fireAt)
+    let trigger: TriggerSpec;
+    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
+      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
+      if ('error' in result) {
+        reply.status(400);
+        return { error: result.error };
+      }
+      trigger = result;
+    } else {
+      trigger = body.trigger ?? template.defaultTrigger;
+    }
     const params = body.params ?? {};
     const display = body.display
       ? {
@@ -251,7 +289,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Unknown template: ${body.templateId}` };
     }
 
-    const trigger = body.trigger ?? template.defaultTrigger;
+    // #415: normalize once trigger (delayMs → fireAt)
+    let trigger: TriggerSpec;
+    if (body.trigger && (body.trigger as Record<string, unknown>).type === 'once') {
+      const result = normalizeOnceTrigger(body.trigger as Record<string, unknown>);
+      if ('error' in result) {
+        reply.status(400);
+        return { error: result.error };
+      }
+      trigger = result;
+    } else {
+      trigger = body.trigger ?? template.defaultTrigger;
+    }
     const params = body.params ?? {};
 
     if (typeof params !== 'object' || params === null || Array.isArray(params)) {
@@ -319,6 +368,8 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Task registered but DB insert failed (rolled back): ${err instanceof Error ? err.message : String(err)}` };
     }
 
+    notifyTaskRegistered(deliver, def);
+
     return { success: true, task: { id, ...display, trigger } };
   });
 
@@ -330,6 +381,8 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     const { id } = request.params as { id: string };
+    // Read def before deletion for notification
+    const defForNotify = dynamicTaskStore.getById(id);
     const removed = dynamicTaskStore.remove(id);
     if (!removed) {
       reply.status(404);
@@ -337,6 +390,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     taskRunner.unregister(id);
+
+    // #415: lifecycle notification — task deleted
+    if (defForNotify) notifyTaskDeleted(deliver, defForNotify);
+
     return { success: true };
   });
 
@@ -361,27 +418,34 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: 'Dynamic task not found' };
     }
 
+    const def = dynamicTaskStore.getById(id);
     // Keep dynamic task in runtime summaries; toggle execution state only.
     // If runtime entry is missing (e.g. legacy state), re-register from store.
     const toggled = taskRunner.setDynamicEnabled(id, body.enabled);
-    if (!toggled) {
-      const def = dynamicTaskStore.getById(id);
-      if (def) {
-        const template = templateRegistry.get(def.templateId);
-        if (template) {
-          const spec = template.createSpec(def.id, {
-            trigger: def.trigger,
-            params: def.params,
-            deliveryThreadId: def.deliveryThreadId,
-          });
-          spec.display = def.display;
-          try {
-            taskRunner.registerDynamic(spec, def.id, def.enabled);
-          } catch {
-            // Already registered — ignore
-          }
+    if (!toggled && def) {
+      const template = templateRegistry.get(def.templateId);
+      if (template) {
+        const spec = template.createSpec(def.id, {
+          trigger: def.trigger,
+          params: def.params,
+          deliveryThreadId: def.deliveryThreadId,
+        });
+        spec.display = def.display;
+        try {
+          taskRunner.registerDynamic(spec, def.id, def.enabled);
+        } catch {
+          // Already registered — ignore
         }
+      } else if (body.enabled) {
+        dynamicTaskStore.setEnabled(id, false); // roll back — resume failed
+        reply.status(500);
+        return { error: `Template ${def.templateId} not found — task cannot resume` };
       }
+    }
+
+    if (def) {
+      if (!body.enabled) notifyTaskPaused(deliver, def);
+      else notifyTaskResumed(deliver, def);
     }
 
     return { success: true, enabled: body.enabled };

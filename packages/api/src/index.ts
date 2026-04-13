@@ -605,6 +605,7 @@ async function main(): Promise<void> {
       templateRegistry,
       globalControlStore,
       packTemplateStore,
+      deliver: schedulerDeliver,
     });
 
     // Hydrate persisted dynamic tasks + start
