@@ -5,7 +5,6 @@
  */
 
 'use client';
-
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
@@ -61,7 +60,8 @@ import { ThreadExecutionBar } from './ThreadExecutionBar';
 import { ThreadSidebar } from './ThreadSidebar';
 import { VoteActiveBar } from './VoteActiveBar';
 import { type VoteConfig, VoteConfigModal } from './VoteConfigModal';
-import { AuthLoadingAnimation, AuthShell } from './auth/AuthShell';
+import { LoadingPointStyle } from './LoadingPointStyle';
+import { AuthHeroShowcase } from './auth/AuthShell';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
@@ -100,23 +100,20 @@ type ChatContainerProps =
 
 function AuthLoadingPanel() {
   return (
-    <div data-testid="chat-container-loading-panel">
-      <AuthShell
-        eyebrow="Workspace"
-        title="正在准备登录环境"
-        description="系统正在校验统一认证状态并初始化你的 OfficeClaw 会话，请稍候。"
-      >
-        <div className="space-y-6">
-          <AuthLoadingAnimation
-            label="正在检查登录状态并准备跳转"
-            detail="如果当前尚未登录，系统会自动打开华为云统一认证；已登录则会直接进入工作台。"
-          />
+    <div
+      data-testid="chat-container-loading-panel"
+      className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16"
+    >
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1280px] items-center justify-center lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+          <AuthHeroShowcase />
 
-          <div className="rounded-2xl border border-[#F8DFC9] bg-[#FFF7F0] px-4 py-4 text-sm leading-6 text-[#7A4E2B]">
-            首次进入时会顺带完成认证状态同步与缓存检查，耗时可能会略长一些。
+          <div className="mt-12 flex items-center gap-3 text-[16px] font-normal text-[#595959] sm:text-base">
+            <LoadingPointStyle className="h-5 w-5 flex-shrink-0" />
+            <span>加载中...</span>
           </div>
         </div>
-      </AuthShell>
+      </div>
     </div>
   );
 }
@@ -124,12 +121,24 @@ function AuthLoadingPanel() {
 export function ChatContainer(props: ChatContainerProps) {
   const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
   const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck);
+  const hasAuthRedirectedRef = useRef(false);
   const router = useRouter();
 
   useEffect(() => {
     if (!props.requireLoginCheck) return;
 
     let cancelled = false;
+
+    const redirectTo = (target: string, external = false) => {
+      if (hasAuthRedirectedRef.current) return;
+      hasAuthRedirectedRef.current = true;
+      if (external) {
+        window.location.replace(target);
+        return;
+      }
+      router.replace(target);
+    };
+
     (async () => {
       try {
         const response = await apiFetch('/api/islogin');
@@ -139,14 +148,19 @@ export function ChatContainer(props: ChatContainerProps) {
         if (data?.islogin) {
           setIsLoggedIn(true);
         } else if (data?.pendingInvitation) {
-          router.replace('/login/invitation');
+          redirectTo('/login/invitation');
         } else {
-          router.replace('/login');
+          const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
+          if (loginUrl) {
+            redirectTo(loginUrl, true);
+          } else {
+            redirectTo('/login');
+          }
         }
       } catch (err) {
         if (!cancelled) {
           console.error('检查登录状态失败:', err);
-          router.replace('/login');
+          redirectTo('/login');
         }
       } finally {
         if (!cancelled) setAuthChecked(true);
@@ -163,7 +177,7 @@ export function ChatContainer(props: ChatContainerProps) {
   }
 
   if (authChecked && !isLoggedIn) {
-    return null;
+    return <AuthLoadingPanel />;
   }
 
   if (props.mode === 'new') {

@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '../page';
 import { apiFetch } from '@/utils/api-client';
-import { setIsSkipAuth } from '@/utils/userId';
+import { setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 const mockRouterReplace = vi.fn();
 const mockLocationReplace = vi.fn();
@@ -27,10 +27,12 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  setAuthIdentity: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockSetAuthIdentity = vi.mocked(setAuthIdentity);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 const originalLocation = window.location;
 
@@ -64,6 +66,7 @@ describe('LoginPage', () => {
     mockRouterReplace.mockReset();
     mockLocationReplace.mockReset();
     mockApiFetch.mockReset();
+    mockSetAuthIdentity.mockReset();
     mockSetIsSkipAuth.mockReset();
 
     Object.defineProperty(window, 'location', {
@@ -99,18 +102,28 @@ describe('LoginPage', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('redirects to external unified auth when not logged in', async () => {
+  it('renders fallback login button and redirects to unified auth on click', async () => {
     await act(async () => {
       root.render(React.createElement(LoginPage));
     });
     await flush();
 
+    const loginButton = container.querySelector('button');
+
     expect(mockApiFetch).toHaveBeenCalledWith('/api/islogin');
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
-    expect(mockLocationReplace).toHaveBeenCalledWith('https://auth.example.com/login');
+    expect(mockLocationReplace).not.toHaveBeenCalled();
     expect(mockRouterReplace).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('即将进入统一认证');
+    expect(container.textContent).toContain('立即登录');
     expect(container.textContent).not.toContain('�');
+    expect(loginButton).not.toBeNull();
+
+    await act(async () => {
+      loginButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    expect(mockLocationReplace).toHaveBeenCalledWith('https://auth.example.com/login');
   });
 
   it('redirects to home when already logged in', async () => {
@@ -118,6 +131,8 @@ describe('LoginPage', () => {
       jsonResponse({
         islogin: true,
         isskip: false,
+        userId: 'debug-user',
+        userName: 'debug-user',
       }),
     );
 
@@ -126,6 +141,7 @@ describe('LoginPage', () => {
     });
     await flush();
 
+    expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'debug-user', userName: 'debug-user' });
     expect(mockRouterReplace).toHaveBeenCalledWith('/');
     expect(mockLocationReplace).not.toHaveBeenCalled();
   });

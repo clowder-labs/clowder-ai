@@ -8,6 +8,7 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
+import { LoadingSmall } from '../LoadingSmall';
 
 const FEATURE_CARDS = [
   {
@@ -41,14 +42,47 @@ export function AuthLoadingAnimation({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-4">
-      <div className="relative h-16 w-16" aria-hidden="true">
-        <span className="absolute inset-0 rounded-full border border-[#F1C3A2]/50" />
-        <span className="absolute inset-[6px] rounded-full border-4 border-[#F6E4D3] border-t-[#D9864B] animate-spin" />
-        <span className="absolute inset-[18px] rounded-full bg-gradient-to-br from-[#FFE5CF] via-[#FFF6EE] to-white shadow-[0_10px_24px_-18px_rgba(217,134,75,0.8)]" />
-      </div>
+      <LoadingSmall className="h-10 w-10 sm:h-12 sm:w-12" />
       <div className="text-center">
         <p className="text-base font-semibold text-[#2B2F36]">{label}</p>
         {detail ? <p className="mt-2 text-sm leading-6 text-[#6B7280]">{detail}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+export function AuthHeroShowcase() {
+  return (
+    <div className="flex w-full max-w-[760px] flex-col items-center">
+      <div>
+        <Image
+          data-testid="login-hero-officeclaw-logo"
+          src="/images/OfficeClaw.svg"
+          alt="OfficeClaw"
+          width={248}
+          height={56}
+          className="h-14 w-auto"
+          priority
+        />
+      </div>
+
+      <p className="mt-2 mb-10 max-w-xl text-center text-[20px] font-normal leading-[30px] text-[#191919]">
+        AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
+      </p>
+
+      <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        {FEATURE_CARDS.map((feature) => (
+          <div
+            key={feature.title}
+            className="w-full min-w-0 rounded-2xl border border-white/70 bg-white/70 p-5 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.3)] backdrop-blur-sm"
+          >
+            <div className="mb-3">
+              <Image src={feature.icon} alt={feature.title} width={32} height={32} />
+            </div>
+            <h3 className="mb-1 text-sm font-semibold text-gray-900">{feature.title}</h3>
+            <p className="text-sm leading-relaxed text-gray-600">{feature.description}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -69,35 +103,7 @@ export function AuthShell({
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1280px] flex-col gap-10 lg:min-h-[calc(100vh-5rem)] lg:flex-row lg:items-center lg:gap-14">
         <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
-          <div className="flex w-full max-w-[760px] flex-col items-center">
-            <div>
-              <Image
-                data-testid="login-hero-officeclaw-logo"
-                src="/images/OfficeClaw.svg"
-                alt="OfficeClaw"
-                width={248}
-                height={56}
-                className="h-14 w-auto"
-                priority
-              />
-            </div>
-
-            <p className="mb-10 max-w-xl text-center text-xl font-semibold leading-10 text-gray-600 sm:text-2xl sm:leading-[48px]">
-              AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
-            </p>
-
-            <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-              {FEATURE_CARDS.map((feature) => (
-                <div key={feature.title} className="w-full min-w-0 rounded-2xl border border-white/70 bg-white/70 p-5 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.3)] backdrop-blur-sm">
-                  <div className="mb-3">
-                    <Image src={feature.icon} alt={feature.title} width={32} height={32} />
-                  </div>
-                  <h3 className="mb-1 text-sm font-semibold text-gray-900">{feature.title}</h3>
-                  <p className="text-sm leading-relaxed text-gray-600">{feature.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <AuthHeroShowcase />
         </div>
 
         <div className="w-full max-w-[450px] flex-shrink-0 lg:w-[clamp(320px,36vw,450px)]">

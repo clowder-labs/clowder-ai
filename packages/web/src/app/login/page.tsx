@@ -7,27 +7,43 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-import { AuthLoadingAnimation, AuthShell } from '@/components/auth/AuthShell';
+import { useCallback, useEffect, useState } from 'react';
+import { AuthHeroShowcase } from '@/components/auth/AuthShell';
 import { apiFetch } from '@/utils/api-client';
-import { setIsSkipAuth } from '@/utils/userId';
+import { setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
-const FALLBACK_LOGIN_MESSAGE = '正在打开华为云统一认证';
+type LoginStatusResponse = {
+  islogin?: boolean;
+  isskip?: boolean;
+  pendingInvitation?: boolean;
+  loginUrl?: string;
+  userId?: string;
+  userName?: string;
+};
 
 export default function LoginPage() {
   const router = useRouter();
-  const hasRedirectedRef = useRef(false);
+  const [loginUrl, setLoginUrl] = useState('');
   const [error, setError] = useState('');
+  const [isPreparing, setIsPreparing] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  const bootstrapLogin = useCallback(
+    async (options?: { redirectWhenReady?: boolean; cancelled?: () => boolean }) => {
+      setIsPreparing(true);
+      setError('');
 
-    const bootstrapLogin = async () => {
       try {
         const response = await apiFetch('/api/islogin');
-        const data = await response.json();
-        if (cancelled) return;
+        const data = (await response.json()) as LoginStatusResponse;
+        if (options?.cancelled?.()) return;
 
+        if (typeof data?.userId === 'string' && data.userId.trim()) {
+          setAuthIdentity({
+            userId: data.userId,
+            userName: typeof data?.userName === 'string' ? data.userName : undefined,
+          });
+        }
         setIsSkipAuth(Boolean(data?.isskip));
 
         if (data?.islogin) {
@@ -40,45 +56,69 @@ export default function LoginPage() {
           return;
         }
 
-        const loginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
-        if (loginUrl && !hasRedirectedRef.current) {
-          hasRedirectedRef.current = true;
-          window.location.replace(loginUrl);
+        const nextLoginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
+        setLoginUrl(nextLoginUrl);
+
+        if (!nextLoginUrl) {
+          setError('未获取到认证地址，请联系管理员检查登录配置');
           return;
         }
 
-        setError('未获取到认证地址，请联系管理员检查登录配置');
+        if (options?.redirectWhenReady) {
+          setIsRedirecting(true);
+          window.location.replace(nextLoginUrl);
+        }
       } catch (err) {
         console.error('初始化登录流程失败:', err);
-        if (!cancelled) {
+        if (!options?.cancelled?.()) {
+          setLoginUrl('');
           setError('打开统一认证页失败，请稍后重试');
         }
+      } finally {
+        if (!options?.cancelled?.()) {
+          setIsPreparing(false);
+        }
       }
-    };
+    },
+    [router],
+  );
 
-    void bootstrapLogin();
-
+  useEffect(() => {
+    let cancelled = false;
+    void bootstrapLogin({ cancelled: () => cancelled });
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [bootstrapLogin]);
 
   return (
-    <AuthShell
-      eyebrow="Single Sign-On"
-      title="即将进入统一认证"
-      description="OfficeClaw 将把你带到华为云统一登录页，完成认证后会自动返回当前系统。"
-    >
-      <div className="space-y-6">
-        <AuthLoadingAnimation
-          label={error ? '正在重新准备登录环境' : FALLBACK_LOGIN_MESSAGE}
-          detail={error || '如果浏览器没有自动跳转，请稍候片刻，系统会继续尝试。'}
-        />
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1280px] items-center justify-center lg:min-h-[calc(100vh-5rem)]">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+          <AuthHeroShowcase />
 
-        <div className="rounded-2xl border border-[#F8DFC9] bg-[#FFF7F0] px-4 py-4 text-sm leading-6 text-[#7A4E2B]">
-          当前登录页不再提供账号密码输入框，认证完成后会直接回到 OfficeClaw。
+          <div className="mt-12 flex w-full max-w-[360px] flex-col items-center gap-4 text-center">
+            {error ? <p className="text-sm leading-6 text-[#D92D20]">{error}</p> : null}
+
+            <button
+              type="button"
+              disabled={isPreparing || isRedirecting}
+              onClick={() => {
+                if (loginUrl) {
+                  setIsRedirecting(true);
+                  window.location.replace(loginUrl);
+                  return;
+                }
+
+                void bootstrapLogin({ redirectWhenReady: true });
+              }}
+              className="mx-auto flex h-8 w-[250px] items-center justify-center rounded-full bg-[#191919] px-6 text-[12px] font-normal text-white shadow-[0_18px_38px_-22px_rgba(17,24,39,0.95)] transition hover:-translate-y-0.5 hover:bg-[#242424] disabled:cursor-not-allowed disabled:bg-[#D1D5DB] disabled:shadow-none"
+            >
+              立即登录
+            </button>
+          </div>
         </div>
       </div>
-    </AuthShell>
+    </div>
   );
 }

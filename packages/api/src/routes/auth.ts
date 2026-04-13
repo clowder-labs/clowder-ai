@@ -82,7 +82,7 @@ interface PromotionCodeBody {
   inviteCode?: string;
 }
 
-const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile-internal.cn-north-7.myhuaweicloud.com';
+const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile.cn-north-4.myhuaweicloud.com';
 const DEFAULT_CAS_CALLBACK_SERVICE_URL = `${DEFAULT_HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/callback`;
 const DEFAULT_CAS_LOGOUT_URL =
   'https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?';
@@ -156,11 +156,11 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     }
 
     const isFirstIsLoginCall = !sessions.has(storedUserInfo.userId);
+    sessions.set(storedUserInfo.userId, { ...storedUserInfo });
     if (isFirstIsLoginCall) {
       await refreshMaaSModelsAfterLogin(request, storedUserInfo.userId);
     }
 
-    sessions.set(storedUserInfo.userId, { ...storedUserInfo });
     return {
       islogin: true,
       hascode: true,

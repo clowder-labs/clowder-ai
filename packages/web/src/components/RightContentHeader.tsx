@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode, RefObject } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
-import { getUserId } from '@/utils/userId';
+import { getIsSkipAuth, getUserId } from '@/utils/userId';
 
 function WindowSmileIcon() {
   return (
@@ -238,6 +238,7 @@ export function RightContentHeader() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (getIsSkipAuth()) return;
     if (window.sessionStorage.getItem(FEEDBACK_DATE_CHECKED_KEY) === '1') return;
     window.sessionStorage.setItem(FEEDBACK_DATE_CHECKED_KEY, '1');
 
@@ -251,17 +252,18 @@ export function RightContentHeader() {
       service_id: serviceId,
       contact_id: contactId,
     });
-    const controller = new AbortController();
+    let cancelled = false;
 
     const fetchLatestFeedbackDate = async () => {
       try {
         const response = await apiFetch(`${FEEDBACK_DATE_ENDPOINT}?${query.toString()}`, {
           method: 'GET',
-          signal: controller.signal,
         });
+        if (cancelled) return;
         if (!response.ok) return;
 
         const payload = (await response.json()) as FeedbackDateResponse;
+        if (cancelled) return;
         const latestFeedbackDate =
           typeof payload?.latest_feedback_date === 'string'
             ? payload.latest_feedback_date
@@ -279,7 +281,9 @@ export function RightContentHeader() {
 
     void fetchLatestFeedbackDate();
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [resetFeedbackState]);
 
   useEffect(() => {

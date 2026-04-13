@@ -37,6 +37,7 @@ describe('auth routes', () => {
       refreshCount += 1;
       assert.equal(request.headers['x-cat-cafe-user'], userId);
       assert.equal(request.headers['x-refresh'], 'true');
+      assert.ok(sessions.has(userId));
       return { models: [] };
     });
     await app.register(authModule.authRoutes);

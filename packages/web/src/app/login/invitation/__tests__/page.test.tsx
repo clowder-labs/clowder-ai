@@ -70,6 +70,7 @@ describe('InvitationPage', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    window.history.replaceState({}, '', 'http://localhost:3003/login/invitation');
 
     mockRouterReplace.mockReset();
     mockApiFetch.mockReset();
@@ -84,6 +85,8 @@ describe('InvitationPage', () => {
             islogin: false,
             pendingInvitation: true,
             isskip: false,
+            userId: 'domain-1:alice',
+            userName: 'alice',
           }),
         );
       }
@@ -117,6 +120,7 @@ describe('InvitationPage', () => {
     });
     await flush();
 
+    expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'domain-1:alice', userName: 'alice' });
     const input = container.querySelector('#promotionCode') as HTMLInputElement | null;
     const form = container.querySelector('form');
     expect(input).not.toBeNull();
@@ -135,5 +139,18 @@ describe('InvitationPage', () => {
     );
     expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'domain-1:alice', userName: 'alice' });
     expect(mockRouterReplace).toHaveBeenCalledWith('/');
+  });
+
+  it('stays on page in preview mode without checking login state', async () => {
+    window.history.replaceState({}, '', 'http://localhost:3003/login/invitation?preview=1');
+
+    await act(async () => {
+      root.render(React.createElement(InvitationPage));
+    });
+    await flush();
+
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+    expect((container.querySelector('#promotionCode') as HTMLInputElement | null)?.disabled).toBe(false);
   });
 });
