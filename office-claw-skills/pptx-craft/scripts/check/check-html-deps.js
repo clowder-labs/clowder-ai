@@ -36,18 +36,23 @@ if (!fs.existsSync(targetDir)) {
 }
 
 /**
+ * CDN 基础路径
+ */
+const CDN_BASE = 'https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets';
+
+/**
  * CDN 依赖注册表
- * 每个条目定义：使用检测模式、CDN URL 匹配（用于替换）、本地路径检测、注入片段
+ * 每个条目定义：使用检测模式、第三方 CDN URL 匹配（用于替换）、自建 CDN 路径检测、注入片段
  */
 const DEPENDENCY_REGISTRY = [
   {
     id: 'tailwindcss',
     name: 'Tailwind CSS',
     usagePatterns: [/class="[^"]*(?:flex|grid|bg-|text-\[|p-\[|m-\[|w-\[|h-\[)/],
-    // 匹配 CDN <script> 标签，用于替换
+    // 匹配第三方 CDN <script> 标签，用于替换
     cdnUrlPattern: /<script[^>]*src=["']?https?:\/\/cdn\.tailwindcss\.com[^"']*["']?[^>]*>\s*<\/script>/gi,
-    localPattern: /assets\/vendors\/tailwind\.js/,
-    cdnSnippet: '    <script src="./assets/vendors/tailwind.js"></script>',
+    localPattern: new RegExp(escapeRegex(CDN_BASE + '/vendors/tailwind.js')),
+    cdnSnippet: `    <script src="${CDN_BASE}/vendors/tailwind.js"></script>`,
     category: 'css',
   },
   {
@@ -55,8 +60,8 @@ const DEPENDENCY_REGISTRY = [
     name: 'FontAwesome 图标',
     usagePatterns: [/fa-solid\b/, /fa-regular\b/, /fa-brands\b/, /\bfa fa-/],
     cdnUrlPattern: /<link[^>]*href=["']?https?:\/\/[^"']*(?:fontawesome-free|font-awesome)[^"']*["']?[^>]*\/?>/gi,
-    localPattern: /assets\/vendors\/fontawesome/,
-    cdnSnippet: '    <link href="./assets/vendors/fontawesome/css/all.min.css" rel="stylesheet" />',
+    localPattern: new RegExp(escapeRegex(CDN_BASE + '/vendors/fontawesome')),
+    cdnSnippet: `    <link href="${CDN_BASE}/vendors/fontawesome/css/all.min.css" rel="stylesheet" />`,
     category: 'css',
   },
   {
@@ -64,8 +69,8 @@ const DEPENDENCY_REGISTRY = [
     name: 'ECharts 图表库',
     usagePatterns: [/echarts\.init\(/, /echarts\.setOption\(/],
     cdnUrlPattern: /<script[^>]*src=["']?https?:\/\/[^"']*echarts[^"']*\.js["']?[^>]*>\s*<\/script>/gi,
-    localPattern: /assets\/vendors\/echarts/,
-    cdnSnippet: '    <script src="./assets/vendors/echarts.min.js"></script>',
+    localPattern: new RegExp(escapeRegex(CDN_BASE + '/vendors/echarts')),
+    cdnSnippet: `    <script src="${CDN_BASE}/vendors/echarts.min.js"></script>`,
     category: 'js',
   },
   {
@@ -73,11 +78,18 @@ const DEPENDENCY_REGISTRY = [
     name: 'MathJax 数学公式',
     usagePatterns: [/MathJax\./, /\\\\frac/, /\\\\sqrt/, /\\\\sum/],
     cdnUrlPattern: /<script[^>]*src=["']?https?:\/\/[^"']*mathjax[^"']*["']?[^>]*>\s*<\/script>/gi,
-    localPattern: /assets\/vendors\/mathjax/,
-    cdnSnippet: '    <script src="./assets/vendors/mathjax/tex-svg.min.js"></script>',
+    localPattern: new RegExp(escapeRegex(CDN_BASE + '/vendors/mathjax')),
+    cdnSnippet: `    <script src="${CDN_BASE}/vendors/mathjax/tex-svg.min.js"></script>`,
     category: 'js',
   },
 ];
+
+/**
+ * 转义正则表达式特殊字符
+ */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 /**
  * 检测内容中是否使用了某个依赖
@@ -176,7 +188,7 @@ function processFile(filePath) {
 
   // Step 4: 注入缺失的依赖
   if (missingDeps.length > 0) {
-    const lines = ['\n    <!-- 本地依赖自动补充 (check-html-deps.js) -->'];
+    const lines = ['\n    <!-- CDN 依赖自动补充 (check-html-deps.js) -->'];
     for (const dep of missingDeps) {
       lines.push(`    <!-- ${dep.name} -->`);
       lines.push(dep.cdnSnippet);
@@ -256,7 +268,7 @@ function scanAndFix(directory) {
 }
 
 // 执行扫描和修复
-console.log(`🔍 开始 CDN 依赖检测：${targetDir}`);
+console.log(`🔍 开始依赖检测与 CDN 补充：${targetDir}`);
 console.log('='.repeat(60));
 
 const report = scanAndFix(targetDir);

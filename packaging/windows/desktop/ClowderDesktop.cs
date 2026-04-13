@@ -1015,8 +1015,8 @@ internal sealed class LauncherForm : Form
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
         settings.AreDevToolsEnabled = false;
-        // Keep native context menu so selection copy works in desktop WebView2.
-        settings.AreDefaultContextMenusEnabled = true;
+        // 屏蔽右键菜单，但保留键盘快捷键（Ctrl+C 复制、Ctrl+V 粘贴、Ctrl+A 全选等）
+        settings.AreDefaultContextMenusEnabled = false;
         settings.IsZoomControlEnabled = false;
         settings.AreBrowserAcceleratorKeysEnabled = false;
         settings.IsPinchZoomEnabled = false;
