@@ -82,6 +82,7 @@ function formatThreadPreview(id: string): string {
 type AnyTaskSpec = TaskSpec_P1<any>;
 
 export class TaskRunnerV2 {
+  private static readonly MIN_INTERVAL_MS = 10_000;
   private tasks: AnyTaskSpec[] = [];
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private running = new Map<string, boolean>();
@@ -245,7 +246,8 @@ export class TaskRunnerV2 {
       this.scheduleCronTick(task);
     } else if (task.trigger.type === 'once') {
       this.scheduleOnceTick(task);
-    } else {
+    } else if (task.trigger.type === 'interval') {
+      const intervalMs = this.getValidatedIntervalMs(task);
       const runTick = () => {
         // Guard: skip if task was unregistered before tick fires (防幽灵执行)
         if (!this.timers.has(task.id)) return;
@@ -257,11 +259,24 @@ export class TaskRunnerV2 {
         // Boot: fire first tick immediately for pollers that need to check pending work
         setTimeout(runTick, 0);
       }
-      const timer = setInterval(runTick, task.trigger.ms);
+      const timer = setInterval(runTick, intervalMs);
       if (typeof timer === 'object' && 'unref' in timer) timer.unref();
       this.timers.set(task.id, timer);
-      this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${task.trigger.ms}ms)`);
+      this.logger.info(`[scheduler] ${task.id}: registered (profile=${task.profile}, interval=${intervalMs}ms)`);
+    } else {
+      throw new Error(`[scheduler] ${task.id}: unsupported trigger type ${(task.trigger as { type?: unknown }).type ?? 'unknown'}`);
     }
+  }
+
+  private getValidatedIntervalMs(task: AnyTaskSpec): number {
+    if (task.trigger.type !== 'interval') {
+      throw new Error(`[scheduler] ${task.id}: expected interval trigger`);
+    }
+    const { ms } = task.trigger;
+    if (!Number.isFinite(ms) || ms < TaskRunnerV2.MIN_INTERVAL_MS) {
+      throw new Error(`interval trigger ms must be a finite number >= ${TaskRunnerV2.MIN_INTERVAL_MS}`);
+    }
+    return ms;
   }
 
   /** Schedule next cron tick via setTimeout chain */
