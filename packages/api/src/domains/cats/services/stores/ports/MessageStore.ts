@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, ConnectorSource, MessageContent, RichMessageExtra } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent, RichMessageExtra, ErrorFallbackMetadata } from '@cat-cafe/shared';
 import type { MessageMetadata } from '../../types.js';
 // Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
@@ -61,6 +61,7 @@ export interface StoredMessage {
     stream?: { invocationId: string };
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
     targetCats?: string[];
+    errorFallback?: ErrorFallbackMetadata;
   };
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];

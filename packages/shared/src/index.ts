@@ -22,3 +22,12 @@ export * from './schemas/index.js';
 export * from './text-utils.js';
 // Export all types
 export * from './types/index.js';
+// Export agent error transform utilities
+export {
+  getFriendlyAgentErrorMessage,
+  classifyError,
+  MODEL_ARTS_SENSITIVE_INPUT_ERROR_CODE,
+  type ErrorFallbackKind,
+  type ErrorFallbackMetadata,
+  type ErrorLike,
+} from './agent-error-transform.js';

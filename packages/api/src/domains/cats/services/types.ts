@@ -9,7 +9,7 @@
  * Agent 服务的共享类型定义
  */
 
-import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { CatId, MessageContent, ErrorFallbackMetadata } from '@cat-cafe/shared';
 import type { RuntimeAcpModelProfile } from '../../../config/acp-model-profiles.js';
 import type { RuntimeProviderProfile } from '../../../config/provider-profiles.js';
 import type { CliSpawnOptions } from '../../../utils/cli-types.js';
@@ -138,7 +138,11 @@ export interface AgentMessage {
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
   /** F52: Cross-thread origin metadata (set for cross-thread callback messages) */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string }; targetCats?: string[] };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    targetCats?: string[];
+    errorFallback?: ErrorFallbackMetadata;
+  };
   /** F121: ID of the message this message is replying to */
   replyTo?: string;
   /** F121: Hydrated preview of the replied-to message */
