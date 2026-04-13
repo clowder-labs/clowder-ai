@@ -126,6 +126,7 @@ vi.mock('@/hooks/useChatHistory', () => ({
     scrollContainerRef: { current: null },
     messagesEndRef: { current: null },
     scrollToBottom: vi.fn(),
+    followLayoutChangeIfPinned: vi.fn(),
     isLoadingHistory: false,
     hasMore: false,
   }),
