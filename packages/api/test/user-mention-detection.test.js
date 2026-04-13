@@ -99,4 +99,21 @@ describe('detectUserMention', () => {
   it('accepts @co-creator followed by CJK text', () => {
     assert.equal(detectUserMention('@co-creator请看'), true);
   });
+
+  // F140 Tier 1: 新默认 fallback @用户 覆盖
+  it('detects @用户 at line start (new default fallback)', () => {
+    assert.equal(detectUserMention('@用户 请看'), true);
+  });
+
+  it('detects @用户 followed by CJK text (no space)', () => {
+    assert.equal(detectUserMention('@用户请看'), true);
+  });
+
+  it('ignores @用户 in middle of line', () => {
+    assert.equal(detectUserMention('告诉@用户这件事'), false);
+  });
+
+  it('detects @用户 case-insensitively', () => {
+    assert.equal(detectUserMention('@用户 帮忙确认'), true);
+  });
 });

@@ -30,9 +30,9 @@ curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/post-message \
 
 ### Cross Post Message
 ```bash
-curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/post-message \
+curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/post-message \
   -H 'Content-Type: application/json' \
-  -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg thread "目标threadId" --arg c "消息内容" '{invocationId:$i,callbackToken:$t,threadId:$thread,allowCrossThread:true,content:$c}')"
+  -d "$(jq -nc --arg i "$OFFICE_CLAW_INVOCATION_ID" --arg t "$OFFICE_CLAW_CALLBACK_TOKEN" --arg thread "目标threadId" --arg c "消息内容" '{invocationId:$i,callbackToken:$t,threadId:$thread,allowCrossThread:true,content:$c}')"
 ```
 
 ### Get Thread Context
