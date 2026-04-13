@@ -151,14 +151,14 @@ const VersionUpdateModal: React.FC<VersionUpdateModalProps> = ({ open, onCancel 
             <div data-testid="version-update-actions" className="flex justify-start gap-3">
               <button
                 data-testid="version-update-cancel"
-                className="ui-button-default ui-modal-action-button"
+                className="ui-button-default"
                 onClick={handleCancel}
               >
                 下次再说
               </button>
               <button
                 data-testid="version-update-confirm"
-                className="ui-button-primary ui-modal-action-button"
+                className="ui-button-primary"
                 onClick={handleDownload}
               >
                 立即更新

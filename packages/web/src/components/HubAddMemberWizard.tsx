@@ -404,7 +404,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
         <button
           type="button"
           onClick={onClose}
-          className="ui-button-default ui-modal-action-button"
+          className="ui-button-default"
         >
           取消
         </button>
@@ -413,7 +413,7 @@ export function HubAddMemberWizard({ open, onClose, onComplete }: HubAddMemberWi
           type="button"
           onClick={handleComplete}
           disabled={!canFinish}
-          className="ui-button-primary ui-modal-action-button disabled:opacity-50"
+          className="ui-button-primary disabled:opacity-50"
         >
           创建后继续编辑
         </button>

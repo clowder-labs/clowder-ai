@@ -1344,7 +1344,7 @@ export function AgentsPanel() {
                     setCatToDelete(null);
                   }}
                   aria-label="close"
-                  className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+                  className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
                  style={{ transform: 'translate(4px, -4px)' }}
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

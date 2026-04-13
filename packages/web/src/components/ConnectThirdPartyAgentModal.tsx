@@ -93,7 +93,7 @@ export function ConnectThirdPartyAgentModal({ open, onClose }: ConnectThirdParty
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-[#F3F6FA]"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
             aria-label="关闭连接三方智能体弹窗"
           >
             <CloseIcon />

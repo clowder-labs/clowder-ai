@@ -975,10 +975,10 @@ export function ThreadSidebar({
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default ui-modal-action-button">
+            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default">
               取消
             </button>
-            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary ui-modal-action-button">
+            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary">
               确定
             </button>
           </div>

@@ -853,14 +853,14 @@ export function RightContentHeader() {
                   <div className="ui-content-header-feedback-low-score-actions">
                     <button
                       type="button"
-                      className="ui-button-default ui-modal-action-button"
+                      className="ui-button-default"
                       onClick={closeFeedbackPopover}
                     >
                       {'\u53d6\u6d88'}
                     </button>
                     <button
                       type="button"
-                      className="ui-button-primary ui-modal-action-button"
+                      className="ui-button-primary"
                       onClick={() => void handleSubmitFeedback()}
                       disabled={isSubmittingFeedback}
                     >
