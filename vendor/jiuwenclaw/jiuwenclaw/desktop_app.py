@@ -15,8 +15,7 @@ from logging.handlers import RotatingFileHandler
 
 import webview
 
-from jiuwenclaw.logging.app_logger import get_logs_dir
-from jiuwenclaw.utils import USER_WORKSPACE_DIR
+from jiuwenclaw.utils import USER_WORKSPACE_DIR, get_logs_dir
 
 
 BACKEND_HOST = "127.0.0.1"

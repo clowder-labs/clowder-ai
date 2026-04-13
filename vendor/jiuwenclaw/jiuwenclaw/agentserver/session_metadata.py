@@ -6,8 +6,7 @@ import json
 import os
 from pathlib import Path
 
-from jiuwenclaw.utils import get_agent_sessions_dir
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import get_agent_sessions_dir, logger
 
 _METADATA_FILENAME = "metadata.json"
 

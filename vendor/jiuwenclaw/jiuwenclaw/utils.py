@@ -24,9 +24,9 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Any, Literal, Optional
+from logging.handlers import RotatingFileHandler
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
-from jiuwenclaw.logging.app_logger import logger
 
 
 
@@ -585,6 +585,10 @@ def get_checkpoint_dir() -> Path:
     return USER_WORKSPACE_DIR / ".checkpoint"
 
 
+def get_logs_dir() -> Path:
+    return USER_WORKSPACE_DIR / ".logs"
+
+
 def get_xy_tmp_dir() -> Path:
     xy_tmp_dir = USER_WORKSPACE_DIR / "tmp" / "xiaoyi"
     xy_tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -604,6 +608,40 @@ def is_package_installation() -> bool:
     """Check if running from package installation."""
     return _detect_installation_mode()
 
+
+def setup_logger(log_level: str = "INFO") -> logging.Logger:
+    """Setup logger with console and file handlers."""
+    logs_root = get_logs_dir()
+    logs_root.mkdir(parents=True, exist_ok=True)
+
+    logger_app = logging.getLogger("jiuwenclaw.app")
+    logger_app.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+    logger_app.propagate = False
+    for handler in logger_app.handlers[:]:
+        handler.close()
+        logger_app.removeHandler(handler)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s.%(msecs)03d [%(process)d] %(levelname)s %(name)s %(filename)s:%(lineno)d: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    file_handler = RotatingFileHandler(
+        filename=logs_root / "app.log",
+        maxBytes=20 * 1024 * 1024,
+        backupCount=20,
+        encoding="utf-8"
+    )
+    file_handler.setFormatter(formatter)
+
+    logger_app.addHandler(stream_handler)
+    logger_app.addHandler(file_handler)
+    return logger_app
+
+logger = setup_logger(os.getenv("LOG_LEVEL", "INFO"))
 
 _TOOL_ARGS_LOG_MAX_DEFAULT = 480
 

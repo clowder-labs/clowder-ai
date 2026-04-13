@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 from jiuwenclaw.schema.message import EventType, Message
 
 

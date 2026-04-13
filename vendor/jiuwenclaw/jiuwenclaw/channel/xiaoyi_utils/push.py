@@ -12,7 +12,7 @@ from typing import Any
 
 import aiohttp
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 
 PUSH_URL = "https://hag.cloud.huawei.com/open-ability-agent/v1/agent-webhook"
 

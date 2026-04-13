@@ -12,8 +12,7 @@ from typing import Any
 
 import aiohttp
 
-from jiuwenclaw.utils import get_xy_tmp_dir
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger, get_xy_tmp_dir
 
 _TMP_MEDIA_PATH = get_xy_tmp_dir()
 

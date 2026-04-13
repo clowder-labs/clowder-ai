@@ -20,8 +20,7 @@ from jiuwenclaw.agentserver.tools.subagent_models import (
     SubagentRoleDefinition,
     SubagentTaskSpec,
 )
-from jiuwenclaw.utils import get_agent_root_dir
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import get_agent_root_dir, logger
 
 if TYPE_CHECKING:
     from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent

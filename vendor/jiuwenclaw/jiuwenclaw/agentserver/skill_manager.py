@@ -21,8 +21,8 @@ from jiuwenclaw.utils import (
     get_agent_skill_source_dirs,
     get_agent_skills_dir,
     get_disabled_agent_skill_names,
+    logger,
 )
-from jiuwenclaw.logging.app_logger import logger
 
 _SKILLNET_DOWNLOAD_TIMEOUT: int = int(os.environ.get("SKILLNET_DOWNLOAD_TIMEOUT", "60"))
 _SKILLNET_MAX_RETRIES: int = int(os.environ.get("SKILLNET_MAX_RETRIES", "3"))

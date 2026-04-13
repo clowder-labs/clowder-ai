@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Awaitable
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 from jiuwenclaw.schema.message import Message
 
 if TYPE_CHECKING:

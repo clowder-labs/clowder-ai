@@ -12,7 +12,7 @@ from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 from jiuwenclaw.channel.base import RobotMessageRouter, BaseChannel
 from jiuwenclaw.schema.message import Message, ReqMethod, EventType
 

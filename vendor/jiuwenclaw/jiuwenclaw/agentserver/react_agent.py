@@ -45,8 +45,8 @@ from jiuwenclaw.utils import (
     get_agent_memory_dir,
     get_env_file,
     get_workspace_dir,
+    logger,
 )
-from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import get_config
 from jiuwenclaw.agentserver.llm_io_trace import (
     log_invoke_input,

@@ -57,8 +57,8 @@ from jiuwenclaw.utils import (
     get_env_file,
     get_root_dir,
     is_package_installation,
+    logger,
 )
-from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import (
     get_config,
     get_config_raw,

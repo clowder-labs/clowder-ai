@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from jiuwenclaw.channel.base import BaseChannel, ChannelMetadata, RobotMessageRouter
 from jiuwenclaw.schema.message import EventType, Message, ReqMethod
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 
 try:
     import discord

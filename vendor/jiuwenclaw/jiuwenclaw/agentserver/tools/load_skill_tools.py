@@ -14,8 +14,7 @@ from pathlib import Path
 
 from openjiuwen.core.foundation.tool import LocalFunction, Tool, ToolCard
 
-from jiuwenclaw.utils import get_agent_skill_source_dirs
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import get_agent_skill_source_dirs, logger
 
 # ---------------------------------------------------------------------------
 # 常量

@@ -46,7 +46,7 @@ def _convert_event_timestamps(event: Dict[str, Any]) -> Dict[str, Any]:
         result["dtEnd"] = _format_timestamp_to_datetime(result["dtEnd"])
     return result
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 from .base import (
     execute_device_command,
     validate_required_params,
