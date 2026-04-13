@@ -18,6 +18,8 @@ import { callbackGet, callbackPost } from './callback-tools.js';
 import type { ToolResult } from './file-tools.js';
 import { errorResult } from './file-tools.js';
 
+const MIN_INTERVAL_MS = 10_000;
+
 // ─── callbackDelete (schedule-specific) ──────────────────────
 
 async function callbackDelete(path: string): Promise<ToolResult> {
@@ -89,6 +91,48 @@ export async function handleListScheduleTemplates(_input: Record<string, never>)
   return callbackGet('/api/schedule/templates');
 }
 
+function validateTriggerConfig(trigger: unknown): string | null {
+  if (!trigger || typeof trigger !== 'object' || Array.isArray(trigger)) {
+    return 'Invalid trigger JSON — must be a JSON object';
+  }
+
+  const record = trigger as Record<string, unknown>;
+  const type = typeof record.type === 'string' ? record.type : undefined;
+  if (!type) return 'Invalid trigger JSON — trigger.type is required';
+
+  if (type === 'interval') {
+    const ms = typeof record.ms === 'number' ? record.ms : Number.NaN;
+    if (!Number.isFinite(ms) || ms < MIN_INTERVAL_MS) {
+      return `Invalid trigger JSON — interval trigger ms must be a finite number >= ${MIN_INTERVAL_MS}`;
+    }
+    return null;
+  }
+
+  if (type === 'cron') {
+    return typeof record.expression === 'string' && record.expression.trim().length > 0
+      ? null
+      : 'Invalid trigger JSON — cron trigger expression must be a non-empty string';
+  }
+
+  if (type === 'once') {
+    const delayMs = typeof record.delayMs === 'number' ? record.delayMs : undefined;
+    const fireAt = typeof record.fireAt === 'number' ? record.fireAt : undefined;
+    if (delayMs != null) {
+      return Number.isFinite(delayMs) && delayMs >= 0
+        ? null
+        : 'Invalid trigger JSON — once trigger delayMs must be a finite number >= 0';
+    }
+    if (fireAt != null) {
+      return Number.isFinite(fireAt) && fireAt >= 0
+        ? null
+        : 'Invalid trigger JSON — once trigger fireAt must be a finite positive epoch ms';
+    }
+    return 'Invalid trigger JSON — once trigger requires either delayMs or fireAt';
+  }
+
+  return `Invalid trigger JSON — unsupported trigger type: ${type}`;
+}
+
 // ─── Register scheduled task ────────────────────────────────
 
 export const registerScheduledTaskInputSchema = {
@@ -100,7 +144,7 @@ export const registerScheduledTaskInputSchema = {
     .string()
     .describe(
       'Trigger config as JSON string. Choose type by intent: ' +
-        'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}; ' +
+        'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}. interval.ms must be >= 10000 (10s); ' +
         'cron — specific wall-clock times/days, e.g. {"type":"cron","expression":"0 9 * * *","timezone":"Asia/Shanghai"}; ' +
         'once — fire once after delay or at exact time, e.g. {"type":"once","delayMs":120000} or {"type":"once","fireAt":1712345678000}. ' +
         'PREFER interval over cron when user says "every N hours/minutes".',
@@ -132,6 +176,10 @@ export async function handleRegisterScheduledTask(input: {
     trigger = JSON.parse(input.trigger);
   } catch {
     return errorResult('Invalid trigger JSON — must be a valid JSON object');
+  }
+  {
+    const validationError = validateTriggerConfig(trigger);
+    if (validationError) return errorResult(validationError);
   }
 
   let params: Record<string, unknown> = {};
@@ -181,7 +229,7 @@ export const previewScheduledTaskInputSchema = {
     .string()
     .describe(
       'Trigger config as JSON string. Choose type by intent: ' +
-        'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}; ' +
+        'interval — "every N hours/minutes" repeating from now, e.g. {"type":"interval","ms":7200000}. interval.ms must be >= 10000 (10s); ' +
         'cron — specific wall-clock times/days, e.g. {"type":"cron","expression":"0 9 * * *","timezone":"Asia/Shanghai"}; ' +
         'once — fire once after delay or at exact time, e.g. {"type":"once","delayMs":120000} or {"type":"once","fireAt":1712345678000}. ' +
         'PREFER interval over cron when user says "every N hours/minutes".',
@@ -201,6 +249,10 @@ export async function handlePreviewScheduledTask(input: {
     trigger = JSON.parse(input.trigger);
   } catch {
     return errorResult('Invalid trigger JSON');
+  }
+  {
+    const validationError = validateTriggerConfig(trigger);
+    if (validationError) return errorResult(validationError);
   }
 
   let params: Record<string, unknown> = {};
