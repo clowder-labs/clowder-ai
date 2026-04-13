@@ -57,6 +57,15 @@ function buildTicketValidatePayload(overrides = {}) {
   };
 }
 
+function buildTicketValidatePayloadWithSubscription(overrides = {}) {
+  return {
+    ...buildCasProfile(),
+    model_info: undefined,
+    subscription: {},
+    ...overrides,
+  };
+}
+
 describe('authRoutes CAS callback flow', () => {
   afterEach(() => {
     for (const [key, value] of Object.entries(savedEnv)) {
@@ -87,8 +96,11 @@ describe('authRoutes CAS callback flow', () => {
 
     await app.register(authRoutes);
 
-    mock.method(globalThis, 'fetch', async (url) => {
+    mock.method(globalThis, 'fetch', async (url, init) => {
       if (String(url).includes('/v1/claw/cas/login/ticket-validate')) {
+        assert.equal(init?.method, 'GET');
+        assert.match(String(url), /ticket=ticket-123/);
+        assert.match(String(url), /service=/);
         return new Response(JSON.stringify(buildTicketValidatePayload()), {
           status: 200,
           headers: { 'content-type': 'application/json' },
@@ -129,8 +141,93 @@ describe('authRoutes CAS callback flow', () => {
     rmSync(configRoot, { recursive: true, force: true });
   });
 
-  it('accepts a validated CAS profile from next api without re-calling ticket-validate', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-profile-'));
+  it('requires a ticket for the CAS callback', async () => {
+    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-missing-ticket-'));
+    const originalHome = process.env.HOME;
+    setEnv('XDG_CONFIG_HOME', configRoot);
+    setEnv('APPDATA', configRoot);
+    setEnv('HOME', configRoot);
+
+    const { authRoutes, sessions } = await importAuthRoutesFresh();
+    const app = Fastify();
+    await app.register(authRoutes);
+
+    mock.method(globalThis, 'fetch', async (url) => {
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const callbackResponse = await app.inject({
+      method: 'POST',
+      url: '/api/login/callback',
+      payload: {},
+    });
+
+    assert.equal(callbackResponse.statusCode, 400);
+    assert.equal(callbackResponse.json().success, false);
+    assert.match(callbackResponse.json().message, /缺少 ticket 参数/);
+
+    sessions.clear();
+    await app.close();
+    process.env.HOME = originalHome;
+    rmSync(configRoot, { recursive: true, force: true });
+  });
+
+  it('always resolves callback identity from ticket validation', async () => {
+    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-ticket-priority-'));
+    const originalHome = process.env.HOME;
+    setEnv('XDG_CONFIG_HOME', configRoot);
+    setEnv('APPDATA', configRoot);
+    setEnv('HOME', configRoot);
+
+    const { authRoutes, sessions } = await importAuthRoutesFresh();
+    const app = Fastify();
+    let refreshCount = 0;
+    let ticketValidateCount = 0;
+
+    app.get('/api/maas-models', async () => {
+      refreshCount += 1;
+      return { success: true, list: [] };
+    });
+
+    await app.register(authRoutes);
+
+    mock.method(globalThis, 'fetch', async (url) => {
+      if (String(url).includes('/v1/claw/cas/login/ticket-validate')) {
+        ticketValidateCount += 1;
+        return new Response(JSON.stringify(buildTicketValidatePayload({ model_info: undefined })), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const callbackResponse = await app.inject({
+      method: 'POST',
+      url: '/api/login/callback',
+      payload: {
+        ticket: 'ticket-priority-123',
+      },
+    });
+
+    assert.equal(callbackResponse.statusCode, 200);
+    assert.equal(callbackResponse.json().success, true);
+    assert.equal(callbackResponse.json().needCode, true);
+    assert.equal(callbackResponse.json().userId, 'domain-001:alice');
+    assert.equal(ticketValidateCount, 1);
+    assert.equal(refreshCount, 0);
+    assert.equal(callbackResponse.headers['x-cat-cafe-user'], 'domain-001:alice');
+    assert.equal(sessions.has('wrong-domain:wrong-user'), false);
+
+    sessions.clear();
+    await app.close();
+    process.env.HOME = originalHome;
+    rmSync(configRoot, { recursive: true, force: true });
+  });
+
+  it('treats a non-null subscription in ticket-validate as already subscribed', async () => {
+    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-subscription-opened-'));
     const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
@@ -149,7 +246,10 @@ describe('authRoutes CAS callback flow', () => {
 
     mock.method(globalThis, 'fetch', async (url) => {
       if (String(url).includes('/v1/claw/cas/login/ticket-validate')) {
-        throw new Error('ticket-validate should not be called when profile is already resolved');
+        return new Response(JSON.stringify(buildTicketValidatePayloadWithSubscription()), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
       }
 
       throw new Error(`Unexpected fetch: ${url}`);
@@ -158,15 +258,13 @@ describe('authRoutes CAS callback flow', () => {
     const callbackResponse = await app.inject({
       method: 'POST',
       url: '/api/login/callback',
-      payload: {
-        profile: buildCasProfile(),
-        modelInfo: buildModelInfo(),
-      },
+      payload: { ticket: 'ticket-subscription-opened' },
     });
 
     assert.equal(callbackResponse.statusCode, 200);
     assert.equal(callbackResponse.json().success, true);
-    assert.equal(callbackResponse.json().userId, 'domain-001:alice');
+    assert.equal(callbackResponse.json().needCode, undefined);
+    assert.equal(callbackResponse.json().redirectTo, '/');
     assert.equal(refreshCount, 1);
     assert.ok(sessions.has('domain-001:alice'));
 
@@ -205,15 +303,11 @@ describe('authRoutes CAS callback flow', () => {
 
       if (String(url).includes('/v1/claw/client-subscription')) {
         subscriptionAttempt += 1;
-        assert.equal(init?.headers?.['X-Access-Key'], 'ak-test');
-        assert.equal(init?.headers?.['X-Secret-Key'], 'sk-test');
         assert.equal(init?.headers?.['X-Security-Token'], 'sts-token-test');
+        assert.match(String(init?.headers?.['Authorization']), /^SDK-HMAC-SHA256 Access=ak-test,/);
+        assert.match(String(init?.headers?.['X-Sdk-Date']), /^\d{8}T\d{6}Z$/);
         const requestBody = JSON.parse(String(init?.body));
-        assert.equal(requestBody.access, 'ak-test');
-        assert.equal(requestBody.secret, 'sk-test');
-        assert.equal(requestBody.sts_token, 'sts-token-test');
-        assert.equal('token' in requestBody, false);
-        assert.match(String(init?.body), /promo-123/);
+        assert.deepEqual(requestBody, { promotion_code: 'promo-123' });
         return new Response(JSON.stringify({ model_info: buildModelInfo() }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
@@ -260,6 +354,82 @@ describe('authRoutes CAS callback flow', () => {
     assert.equal(refreshCount, 1);
     assert.ok(sessions.has('domain-001:alice'));
     assert.equal(subscriptionAttempt, 1);
+
+    sessions.clear();
+    await app.close();
+    process.env.HOME = originalHome;
+    rmSync(configRoot, { recursive: true, force: true });
+  });
+
+  it('submits invitation directly as long as the stored CAS credential and promotion code exist', async () => {
+    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-cas-direct-subscription-'));
+    const originalHome = process.env.HOME;
+    setEnv('XDG_CONFIG_HOME', configRoot);
+    setEnv('APPDATA', configRoot);
+    setEnv('HOME', configRoot);
+
+    const { authRoutes, sessions } = await importAuthRoutesFresh();
+    const app = Fastify();
+    let subscriptionAttempt = 0;
+    let refreshCount = 0;
+
+    app.get('/api/maas-models', async () => {
+      refreshCount += 1;
+      return { success: true, list: [] };
+    });
+
+    await app.register(authRoutes);
+
+    mock.method(globalThis, 'fetch', async (url, init) => {
+      if (String(url).includes('/v1/claw/cas/login/ticket-validate')) {
+        return new Response(JSON.stringify(buildTicketValidatePayload()), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      if (String(url).includes('/v1/claw/client-subscription')) {
+        subscriptionAttempt += 1;
+        assert.equal(init?.headers?.['X-Security-Token'], 'sts-token-test');
+        assert.match(String(init?.headers?.['Authorization']), /^SDK-HMAC-SHA256 Access=ak-test,/);
+        assert.match(String(init?.headers?.['X-Sdk-Date']), /^\d{8}T\d{6}Z$/);
+        const requestBody = JSON.parse(String(init?.body));
+        assert.deepEqual(requestBody, { promotion_code: 'promo-direct' });
+        return new Response(JSON.stringify({ model_info: buildModelInfo() }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const callbackResponse = await app.inject({
+      method: 'POST',
+      url: '/api/login/callback',
+      payload: { ticket: 'ticket-direct-subscription' },
+    });
+
+    assert.equal(callbackResponse.statusCode, 200);
+    assert.equal(callbackResponse.json().success, true);
+    assert.equal(callbackResponse.json().userId, 'domain-001:alice');
+    assert.equal(refreshCount, 1);
+
+    sessions.clear();
+    refreshCount = 0;
+
+    const invitationResponse = await app.inject({
+      method: 'POST',
+      url: '/api/login/invitation',
+      headers: { 'x-cat-cafe-user': 'domain-001:alice' },
+      payload: { promotionCode: 'promo-direct' },
+    });
+
+    assert.equal(invitationResponse.statusCode, 200);
+    assert.equal(invitationResponse.json().success, true);
+    assert.equal(subscriptionAttempt, 1);
+    assert.equal(refreshCount, 1);
+    assert.ok(sessions.has('domain-001:alice'));
 
     sessions.clear();
     await app.close();

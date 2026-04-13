@@ -9,7 +9,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -26,6 +26,11 @@ export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     setAuthReady(false);
 
+    const redirectToLogin = () => {
+      clearAuthIdentity();
+      router.replace('/login');
+    };
+
     (async () => {
       try {
         const response = await apiFetch('/api/islogin');
@@ -38,11 +43,11 @@ export function AppAuthBootstrap({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        router.replace('/login');
+        redirectToLogin();
       } catch (error) {
         if (cancelled) return;
         console.error('检查登录状态失败:', error);
-        router.replace('/login');
+        redirectToLogin();
       }
     })();
 

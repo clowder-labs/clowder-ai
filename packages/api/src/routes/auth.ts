@@ -8,8 +8,11 @@
  * Authentication Routes — 用户登录认证
  */
 
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import Conf from 'conf';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { fileURLToPath } from 'node:url';
 import { getErrorMessage } from '../utils/index.js';
 import { reportMetric } from '../services/metrics/index.js';
 
@@ -55,8 +58,6 @@ interface TicketValidateResult {
 
 interface LoginCallbackBody {
   ticket?: string;
-  profile?: CasUserProfile;
-  modelInfo?: Record<string, unknown>;
 }
 
 interface PromotionCodeBody {
@@ -65,12 +66,32 @@ interface PromotionCodeBody {
   inviteCode?: string;
 }
 
+interface SignerHttpRequestLike {
+  method: string;
+  headers: Record<string, string>;
+  body: string;
+}
+
+interface SignerLike {
+  Key: string;
+  Secret: string;
+  Sign(request: SignerHttpRequestLike): {
+    method: string;
+    headers: Record<string, string>;
+  };
+}
+
+interface SignerModuleLike {
+  HttpRequest: new (method: string, url: string, headers?: Record<string, string>, body?: string) => SignerHttpRequestLike;
+  Signer: new () => SignerLike;
+}
+
 const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile.cn-north-4.myhuaweicloud.com';
 const DEFAULT_CAS_CALLBACK_SERVICE_URL = `${DEFAULT_HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/callback`;
-const DEFAULT_CAS_BACKGROUND_IMAGE_URL = 'https://obs.myhuaweicloud.com/aaaa';
-const DEFAULT_CAS_PORTAL_IMAGE_URL = 'https://obs.myhuaweicloud.com/aaa';
+const DEFAULT_CAS_BACKGROUND_IMAGE_URL = 'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/loginbg2.png';
+const DEFAULT_CAS_PORTAL_IMAGE_URL = 'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/chatu4.png';
 const DEFAULT_CAS_LOGOUT_URL =
-  'https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?';
+  `https://auth.huaweicloud.com/authui/logout?service=https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?redirect_uri=${DEFAULT_CAS_CALLBACK_SERVICE_URL}`;
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 const DEFAULT_CAS_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -89,6 +110,8 @@ const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-sub
 const CAS_LOGOUT_URL = process.env.CAS_LOGOUT_URL || DEFAULT_CAS_LOGOUT_URL;
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
 const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009']);
+const require = createRequire(import.meta.url);
+const signer = loadSignerModule();
 
 const secureConfig = new Conf({
   projectName: 'secure-config',
@@ -169,21 +192,13 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
       return { success: true, userId: 'debug-user', userName: 'debug-user', redirectTo: '/' };
     }
 
-    const { ticket, profile, modelInfo } = request.body as LoginCallbackBody;
-    const resolvedProfile = normalizeCasUserProfile(profile);
+    const { ticket } = request.body as LoginCallbackBody;
     const trimmedTicket = ticket?.trim();
-    if (!resolvedProfile && !trimmedTicket) {
+    if (!trimmedTicket) {
       return reply.code(400).send({ success: false, message: '缺少 ticket 参数' });
     }
 
-    if (resolvedProfile) {
-      const session = createCasUserSession(resolvedProfile);
-      return completeCasLogin(request, reply, session, {
-        modelInfo: isRecord(modelInfo) ? modelInfo : undefined,
-      });
-    }
-
-    const validateResult = await validateCasTicket(trimmedTicket!);
+    const validateResult = await validateCasTicket(trimmedTicket);
     if (!validateResult.success || !validateResult.profile) {
       return reply.code(401).send({ success: false, message: validateResult.message || '票据校验失败' });
     }
@@ -212,20 +227,15 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
       return reply.code(401).send({ success: false, message: '登录信息已失效，请重新登录' });
     }
 
-    if (!session.pendingInvitation) {
-      attachUserHeaders(reply, session.userId);
-      return {
-        success: true,
-        userId: session.userId,
-        userName: session.userName,
-        redirectTo: '/',
-      };
-    }
-
     const body = request.body as PromotionCodeBody;
     const promotionCode = extractPromotionCode(body);
     if (!promotionCode) {
       return reply.code(400).send({ success: false, message: '请输入邀请码' });
+    }
+
+    if (!hasCasSessionCredential(session)) {
+      clearStoredUserInfo(userId);
+      return reply.code(401).send({ success: false, message: '缺少登录凭证，请重新登录' });
     }
 
     const modelInfoResult = await subscriptionClaw(session, promotionCode);
@@ -310,6 +320,13 @@ function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
+function loadSignerModule(): SignerModuleLike {
+  const distPath = fileURLToPath(new URL('../utils/signer.cjs', import.meta.url));
+  const sourcePath = fileURLToPath(new URL('../../src/utils/signer.cjs', import.meta.url));
+  const signerModulePath = existsSync(distPath) ? distPath : sourcePath;
+  return require(signerModulePath) as SignerModuleLike;
+}
+
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? '', 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -334,6 +351,39 @@ function unwrapPayload(value: unknown): Record<string, unknown> | null {
   if (isRecord(value.data)) return value.data;
   if (isRecord(value.result)) return value.result;
   return value;
+}
+
+function extractModelInfo(payload: Record<string, unknown> | null): Record<string, unknown> | undefined {
+  if (!payload) return undefined;
+
+  const directModelInfo = isRecord(payload.model_info)
+    ? payload.model_info
+    : isRecord(payload.modelInfo)
+      ? payload.modelInfo
+      : undefined;
+  if (directModelInfo) {
+    return directModelInfo;
+  }
+
+  const subscriptionPayload = unwrapPayload(payload.subscription);
+  if (!subscriptionPayload) {
+    return undefined;
+  }
+
+  if (isRecord(subscriptionPayload.model_info)) {
+    return subscriptionPayload.model_info;
+  }
+
+  if (isRecord(subscriptionPayload.modelInfo)) {
+    return subscriptionPayload.modelInfo;
+  }
+
+  return undefined;
+}
+
+function hasActiveSubscription(payload: Record<string, unknown> | null): boolean {
+  if (!payload) return false;
+  return payload.subscription !== null && payload.subscription !== undefined;
 }
 
 function normalizeCasUserProfile(value: unknown): CasUserProfile | null {
@@ -459,61 +509,55 @@ function extractPromotionCode(body: PromotionCodeBody | undefined): string {
   return body?.promotionCode?.trim() || body?.inviteCode?.trim() || body?.code?.trim() || '';
 }
 
-async function validateCasTicket(ticket: string): Promise<TicketValidateResult> {
-  const payload = {
-    ticket,
-    service: CAS_CALLBACK_SERVICE_URL,
+function resolveCasCredential(userInfo: UserInfo) {
+  const principal = userInfo.principal;
+  const credential = userInfo.credential;
+  return {
+    accessKey: principal?.access || credential.access || '',
+    secretKey: principal?.secret || credential.secret || '',
+    securityToken: principal?.sts_token || credential.sts_token || '',
   };
+}
 
-  const requestVariants: Array<() => Promise<Response>> = [
-    () =>
-      fetch(CAS_TICKET_VALIDATE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json;charset=utf8',
-        },
-        body: JSON.stringify(payload),
-      }),
-    () =>
-      fetch(
-        `${CAS_TICKET_VALIDATE_URL}?ticket=${encodeURIComponent(ticket)}&service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}`,
-        {
-          method: 'GET',
-        },
-      ),
-  ];
+function hasCasSessionCredential(userInfo: UserInfo): boolean {
+  const { accessKey, secretKey, securityToken } = resolveCasCredential(userInfo);
+  return Boolean(accessKey && secretKey && securityToken);
+}
 
-  let lastMessage = '票据校验失败';
+async function validateCasTicket(ticket: string): Promise<TicketValidateResult> {
+  try {
+    const response = await fetch(
+      `${CAS_TICKET_VALIDATE_URL}?ticket=${encodeURIComponent(ticket)}&service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}`,
+      {
+        method: 'GET',
+      },
+    );
 
-  for (const requestFactory of requestVariants) {
-    try {
-      const response = await requestFactory();
-      if (!response.ok) {
-        const { error_code, error_message } = await getErrorMessage(response);
-        lastMessage = `票据校验失败，错误码: ${error_code}, 错误信息: ${error_message}`;
-        continue;
-      }
-
-      const data = await response.json();
-      const profile = normalizeCasUserProfile(data);
-      if (!profile) {
-        return { success: false, message: '票据校验成功，但未返回有效用户信息' };
-      }
-
-      const payload = unwrapPayload(data);
-      const modelInfo = isRecord(payload?.model_info) ? payload.model_info : payload?.model_info ?? payload?.modelInfo;
+    if (!response.ok) {
+      const { error_code, error_message } = await getErrorMessage(response);
       return {
-        success: true,
-        profile,
-        modelInfo: isRecord(modelInfo) ? modelInfo : undefined,
+        success: false,
+        message: `票据校验失败，错误码: ${error_code}, 错误信息: ${error_message}`,
       };
-    } catch (error) {
-      console.error('校验 CAS ticket 失败:', error);
-      lastMessage = '票据校验失败';
     }
-  }
 
-  return { success: false, message: lastMessage };
+    const data = await response.json();
+    const profile = normalizeCasUserProfile(data);
+    if (!profile) {
+      return { success: false, message: '票据校验成功，但未返回有效用户信息' };
+    }
+
+    const payload = unwrapPayload(data);
+    const modelInfo = extractModelInfo(payload);
+    return {
+      success: true,
+      profile,
+      modelInfo: modelInfo ?? (hasActiveSubscription(payload) ? {} : undefined),
+    };
+  } catch (error) {
+    console.error('校验 CAS ticket 失败:', error);
+    return { success: false, message: '票据校验失败' };
+  }
 }
 
 function buildSubscriptionRequest(userInfo: UserInfo, promotionCode?: string, options?: { useDefaultPromotionCode?: boolean }) {
@@ -527,22 +571,24 @@ function buildSubscriptionRequest(userInfo: UserInfo, promotionCode?: string, op
     body.promotion_code = effectivePromotionCode;
   }
 
-  const credential = userInfo.credential;
-  const principal = userInfo.principal;
-  const accessKey = principal?.access || credential.access || '';
-  const secretKey = principal?.secret || credential.secret || '';
-  const securityToken = principal?.sts_token || credential.sts_token || '';
-
-  if (accessKey) headers['X-Access-Key'] = accessKey;
-  if (secretKey) headers['X-Secret-Key'] = secretKey;
+  const { accessKey, secretKey, securityToken } = resolveCasCredential(userInfo);
   if (securityToken) headers['X-Security-Token'] = securityToken;
+  return { headers, body, accessKey, secretKey, securityToken };
+}
 
-  const credentialBodyFields = ['access', 'secret', 'sts_token', 'domain_id', 'domain_name', 'project_id', 'project_name', 'user_id', 'user_name'] as const;
-  for (const key of credentialBodyFields) {
-    const value = credential[key];
-    if (value) body[key] = value;
-  }
-  return { headers, body };
+function signHuaweiRequest(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  bodyText: string,
+  accessKey: string,
+  secretKey: string,
+) {
+  const request = new signer.HttpRequest(method, url, headers, bodyText);
+  const sig = new signer.Signer();
+  sig.Key = accessKey;
+  sig.Secret = secretKey;
+  return sig.Sign(request);
 }
 
 // 开通客户端 claw / 检查是否已注册 OPT
@@ -552,11 +598,17 @@ async function subscriptionClaw(
   options?: { useDefaultPromotionCode?: boolean },
 ): Promise<ModelInfoResult> {
   try {
-    const { headers, body } = buildSubscriptionRequest(userInfo, promotionCode, options);
+    const { headers, body, accessKey, secretKey, securityToken } = buildSubscriptionRequest(userInfo, promotionCode, options);
+    if (!accessKey || !secretKey || !securityToken) {
+      return { success: false, message: '缺少登录凭证，请重新登录' };
+    }
+
+    const requestBody = JSON.stringify(body);
+    const signedRequest = signHuaweiRequest('POST', HUAWEI_CLAW_SUBSCRIPTION_URL, headers, requestBody, accessKey, secretKey);
     const subResponse = await fetch(HUAWEI_CLAW_SUBSCRIPTION_URL, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
+      method: signedRequest.method,
+      headers: signedRequest.headers,
+      body: requestBody,
     });
 
     if (!subResponse.ok) {
@@ -568,7 +620,7 @@ async function subscriptionClaw(
 
     const data = await subResponse.json();
     const payload = unwrapPayload(data);
-    const modelInfo = isRecord(payload?.model_info) ? payload.model_info : payload?.model_info ?? payload?.modelInfo;
+    const modelInfo = extractModelInfo(payload);
     if (!isRecord(modelInfo)) {
       return { success: false, message: '开通成功，但未返回模型信息' };
     }

@@ -8,9 +8,9 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
-import { setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 type InvitationResponse = {
   success?: boolean;
@@ -26,6 +26,16 @@ type InvitationResponse = {
 
 const INVITATION_LINK_URL = 'https://placeholder.officeclaw.example/invitation';
 
+function withAuthSuccessRedirect(target: string): string {
+  if (!target.startsWith('/')) return target;
+  const [pathAndSearch, hash = ''] = target.split('#');
+  const [pathname, search = ''] = pathAndSearch.split('?');
+  const params = new URLSearchParams(search);
+  params.set('authSuccess', '1');
+  const nextSearch = params.toString();
+  return `${pathname}${nextSearch ? `?${nextSearch}` : ''}${hash ? `#${hash}` : ''}`;
+}
+
 export default function InvitationPage() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -33,6 +43,11 @@ export default function InvitationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState('');
+
+  const redirectToLogin = useCallback(() => {
+    clearAuthIdentity();
+    router.replace('/login');
+  }, [router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,12 +78,12 @@ export default function InvitationPage() {
         setIsSkipAuth(Boolean(data?.isskip));
 
         if (data?.islogin) {
-          router.replace('/');
+          router.replace(withAuthSuccessRedirect('/'));
           return;
         }
 
         if (!data?.pendingInvitation) {
-          router.replace('/login');
+          redirectToLogin();
           return;
         }
 
@@ -77,7 +92,7 @@ export default function InvitationPage() {
       } catch (err) {
         console.error('检查邀请码状态失败:', err);
         if (!cancelled) {
-          router.replace('/login');
+          redirectToLogin();
         }
       }
     };
@@ -87,7 +102,7 @@ export default function InvitationPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [redirectToLogin, router]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -119,7 +134,7 @@ export default function InvitationPage() {
       }
 
       setAuthIdentity({ userId: data.userId, userName: data.userName });
-      router.replace(data.redirectTo || '/');
+      router.replace(withAuthSuccessRedirect(data.redirectTo || '/'));
     } catch (err) {
       console.error('提交邀请码失败:', err);
       setError('邀请码校验失败，请稍后重试');

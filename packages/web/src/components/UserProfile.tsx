@@ -36,6 +36,9 @@ const THEME_OPTIONS: Array<{
 ];
 
 const HELP_URL = 'https://support.huaweicloud.com/officeclaw-agentarts-pc/officeclaw-agentarts-pc-0001.html';
+const DEFAULT_LOGOUT_URL =
+  process.env.NEXT_PUBLIC_CAS_LOGOUT_URL ||
+  'https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?';
 
 export function UserProfile({ className }: UserProfileProps) {
   const [showPanel, setShowPanel] = useState(false);
@@ -135,6 +138,19 @@ export function UserProfile({ className }: UserProfileProps) {
     setShowPanel(false);
   };
 
+  const finishLogout = (logoutUrl?: string) => {
+    clearAuthIdentity();
+    setShowThemePanel(false);
+    setShowPanel(false);
+
+    if (typeof window !== 'undefined') {
+      window.location.assign(logoutUrl || DEFAULT_LOGOUT_URL);
+      return;
+    }
+
+    router.replace('/login');
+  };
+
   const handleLogout = async () => {
     setIsLoading(true);
     try {
@@ -148,22 +164,20 @@ export function UserProfile({ className }: UserProfileProps) {
 
       if (response.ok) {
         const data = await response.json();
-        clearAuthIdentity();
-
-        if (typeof window !== 'undefined' && typeof data?.logoutUrl === 'string' && data.logoutUrl) {
-          window.location.assign(data.logoutUrl);
-          return;
-        }
-
-        router.replace('/login');
-      } else {
-        console.error('退出登录失败');
+        finishLogout(typeof data?.logoutUrl === 'string' ? data.logoutUrl : undefined);
+        return;
       }
+
+      console.error('退出登录失败');
     } catch (err) {
       console.error('退出登录错误:', err);
+      finishLogout();
+      return;
     } finally {
       setIsLoading(false);
     }
+
+    finishLogout();
   };
 
   useEffect(() => {

@@ -50,33 +50,41 @@ describe('auth routes', () => {
     sessions.clear();
     refreshCount = 0;
 
-    mock.method(globalThis, 'fetch', async () => {
-      throw new Error('unexpected outbound fetch in auth-routes.test');
+    mock.method(globalThis, 'fetch', async (url) => {
+      if (String(url).includes('/v1/claw/cas/login/ticket-validate')) {
+        return new Response(
+          JSON.stringify({
+            access: 'ak-test',
+            domain_id: domainId,
+            domain_name: domainId,
+            project_id: 'project-001',
+            project_name: 'project-001',
+            secret: 'sk-test',
+            sts_token: 'sts-token-test',
+            user_id: userName,
+            user_name: userName,
+            model_info: {
+              model_api_url_base: 'https://maas.example.com',
+              model_auth_info: {
+                model_app_key: 'app-key',
+                model_app_secret: 'app-secret',
+              },
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        );
+      }
+
+      throw new Error(`unexpected outbound fetch in auth-routes.test: ${url}`);
     });
 
     const loginResponse = await app.inject({
       method: 'POST',
       url: '/api/login/callback',
-      payload: {
-        profile: {
-          access: 'ak-test',
-          domain_id: domainId,
-          domain_name: domainId,
-          project_id: 'project-001',
-          project_name: 'project-001',
-          secret: 'sk-test',
-          sts_token: 'sts-token-test',
-          user_id: userName,
-          user_name: userName,
-        },
-        modelInfo: {
-          model_api_url_base: 'https://maas.example.com',
-          model_auth_info: {
-            model_app_key: 'app-key',
-            model_app_secret: 'app-secret',
-          },
-        },
-      },
+      payload: { ticket: 'ticket-auth-routes' },
     });
 
     assert.equal(loginResponse.statusCode, 200);

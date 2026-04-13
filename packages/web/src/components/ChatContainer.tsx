@@ -27,7 +27,7 @@ import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chat
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
-import { getUserId, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, getUserId, setIsSkipAuth } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsPanel } from './AgentsPanel';
 import { AuthorizationCard } from './AuthorizationCard';
@@ -81,6 +81,7 @@ type ChatContainerProps =
   | {
       mode: 'new';
       requireLoginCheck?: boolean;
+      skipInitialAuthGate?: boolean;
       threadId?: never;
       initialSidebarMenu?: never;
     }
@@ -88,8 +89,14 @@ type ChatContainerProps =
       mode?: 'thread';
       threadId: string;
       requireLoginCheck?: boolean;
+      skipInitialAuthGate?: boolean;
       initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
     };
+
+function hasAuthSuccessFlagInLocation(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URL(window.location.href).searchParams.get('authSuccess') === '1';
+}
 
 function AuthLoadingPanel({ message = '加载中...' }: { message?: string }) {
   return (
@@ -112,21 +119,34 @@ function AuthLoadingPanel({ message = '加载中...' }: { message?: string }) {
 }
 
 export function ChatContainer(props: ChatContainerProps) {
-  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
-  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck);
+  const [skipInitialAuthGate] = useState(() => Boolean(props.skipInitialAuthGate) || hasAuthSuccessFlagInLocation());
+  const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck || skipInitialAuthGate);
+  const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck || skipInitialAuthGate);
   const hasAuthRedirectedRef = useRef(false);
   const router = useRouter();
   const authPending = Boolean(props.requireLoginCheck) && !authChecked;
   const authRedirecting = Boolean(props.requireLoginCheck) && authChecked && !isLoggedIn;
 
   useEffect(() => {
-    if (!props.requireLoginCheck) return;
+    if (!skipInitialAuthGate || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('authSuccess')) return;
+    url.searchParams.delete('authSuccess');
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, '', nextUrl || '/');
+  }, [skipInitialAuthGate]);
+
+  useEffect(() => {
+    if (!props.requireLoginCheck || skipInitialAuthGate) return;
 
     let cancelled = false;
 
     const redirectTo = (target: string, external = false) => {
       if (hasAuthRedirectedRef.current) return;
       hasAuthRedirectedRef.current = true;
+      if (!external && target === '/login') {
+        clearAuthIdentity();
+      }
       if (external) {
         window.location.replace(target);
         return;
@@ -165,7 +185,7 @@ export function ChatContainer(props: ChatContainerProps) {
     return () => {
       cancelled = true;
     };
-  }, [props.requireLoginCheck, router]);
+  }, [props.requireLoginCheck, router, skipInitialAuthGate]);
 
   // Keep a full-screen transition state while auth is unresolved or redirecting
   // to login so the desktop shell never falls through to a blank page.

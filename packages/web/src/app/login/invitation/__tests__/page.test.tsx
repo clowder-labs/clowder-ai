@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import InvitationPage from '../page';
 import { apiFetch } from '@/utils/api-client';
-import { setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 const mockRouterReplace = vi.fn();
 
@@ -26,11 +26,13 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  clearAuthIdentity: vi.fn(),
   setAuthIdentity: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
 const mockSetAuthIdentity = vi.mocked(setAuthIdentity);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 
@@ -74,6 +76,7 @@ describe('InvitationPage', () => {
 
     mockRouterReplace.mockReset();
     mockApiFetch.mockReset();
+    mockClearAuthIdentity.mockReset();
     mockSetAuthIdentity.mockReset();
     mockSetIsSkipAuth.mockReset();
 
@@ -138,7 +141,7 @@ describe('InvitationPage', () => {
       expect.objectContaining({ method: 'POST' }),
     );
     expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'domain-1:alice', userName: 'alice' });
-    expect(mockRouterReplace).toHaveBeenCalledWith('/');
+    expect(mockRouterReplace).toHaveBeenCalledWith('/?authSuccess=1');
   });
 
   it('stays on page in preview mode without checking login state', async () => {
@@ -152,5 +155,25 @@ describe('InvitationPage', () => {
     expect(mockApiFetch).not.toHaveBeenCalled();
     expect(mockRouterReplace).not.toHaveBeenCalled();
     expect((container.querySelector('#promotionCode') as HTMLInputElement | null)?.disabled).toBe(false);
+  });
+
+  it('clears stale identity before redirecting to login when invitation state is missing', async () => {
+    mockApiFetch.mockImplementationOnce(() =>
+      Promise.resolve(
+        jsonResponse({
+          islogin: false,
+          pendingInvitation: false,
+          isskip: false,
+        }),
+      ),
+    );
+
+    await act(async () => {
+      root.render(React.createElement(InvitationPage));
+    });
+    await flush();
+
+    expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
+    expect(mockRouterReplace).toHaveBeenCalledWith('/login');
   });
 });

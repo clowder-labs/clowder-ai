@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AuthHeroShowcase } from '@/components/auth/AuthShell';
 import { apiFetch } from '@/utils/api-client';
-import { setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 type LoginStatusResponse = {
   islogin?: boolean;
@@ -20,6 +20,16 @@ type LoginStatusResponse = {
   userId?: string;
   userName?: string;
 };
+
+function withAuthSuccessRedirect(target: string): string {
+  if (!target.startsWith('/')) return target;
+  const [pathAndSearch, hash = ''] = target.split('#');
+  const [pathname, search = ''] = pathAndSearch.split('?');
+  const params = new URLSearchParams(search);
+  params.set('authSuccess', '1');
+  const nextSearch = params.toString();
+  return `${pathname}${nextSearch ? `?${nextSearch}` : ''}${hash ? `#${hash}` : ''}`;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,7 +57,7 @@ export default function LoginPage() {
         setIsSkipAuth(Boolean(data?.isskip));
 
         if (data?.islogin) {
-          router.replace('/');
+          router.replace(withAuthSuccessRedirect('/'));
           return;
         }
 
@@ -56,6 +66,7 @@ export default function LoginPage() {
           return;
         }
 
+        clearAuthIdentity();
         const nextLoginUrl = typeof data?.loginUrl === 'string' ? data.loginUrl : '';
         setLoginUrl(nextLoginUrl);
 
@@ -71,6 +82,7 @@ export default function LoginPage() {
       } catch (err) {
         console.error('初始化登录流程失败:', err);
         if (!options?.cancelled?.()) {
+          clearAuthIdentity();
           setLoginUrl('');
           setError('打开统一认证页失败，请稍后重试');
         }

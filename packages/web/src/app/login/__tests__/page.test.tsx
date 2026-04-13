@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPage from '../page';
 import { apiFetch } from '@/utils/api-client';
-import { setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 const mockRouterReplace = vi.fn();
 const mockLocationReplace = vi.fn();
@@ -27,11 +27,13 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  clearAuthIdentity: vi.fn(),
   setAuthIdentity: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
 const mockSetAuthIdentity = vi.mocked(setAuthIdentity);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 const originalLocation = window.location;
@@ -66,6 +68,7 @@ describe('LoginPage', () => {
     mockRouterReplace.mockReset();
     mockLocationReplace.mockReset();
     mockApiFetch.mockReset();
+    mockClearAuthIdentity.mockReset();
     mockSetAuthIdentity.mockReset();
     mockSetIsSkipAuth.mockReset();
 
@@ -111,6 +114,7 @@ describe('LoginPage', () => {
     const loginButton = container.querySelector('button');
 
     expect(mockApiFetch).toHaveBeenCalledWith('/api/islogin');
+    expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
     expect(mockLocationReplace).not.toHaveBeenCalled();
     expect(mockRouterReplace).not.toHaveBeenCalled();
@@ -142,7 +146,7 @@ describe('LoginPage', () => {
     await flush();
 
     expect(mockSetAuthIdentity).toHaveBeenCalledWith({ userId: 'debug-user', userName: 'debug-user' });
-    expect(mockRouterReplace).toHaveBeenCalledWith('/');
+    expect(mockRouterReplace).toHaveBeenCalledWith('/?authSuccess=1');
     expect(mockLocationReplace).not.toHaveBeenCalled();
   });
 
