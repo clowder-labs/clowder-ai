@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 
 class ChannelMode(str, Enum):

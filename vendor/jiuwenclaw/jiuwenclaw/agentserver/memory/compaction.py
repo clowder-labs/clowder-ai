@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 from .internal import estimate_tokens
 
 CONTEXT_COMPACT_THRESHOLD = 8000

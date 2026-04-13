@@ -10,8 +10,8 @@ from jiuwenclaw.utils import (
     get_disabled_agent_skill_names,
     get_agent_registered_skill_dirs,
     get_project_workspace_dir,
-    logger,
 )
+from jiuwenclaw.logging.app_logger import logger
 
 CONFIG_DIR = USER_WORKSPACE_DIR / "config"
 HOME_DIR = USER_WORKSPACE_DIR / "agent" / "home"

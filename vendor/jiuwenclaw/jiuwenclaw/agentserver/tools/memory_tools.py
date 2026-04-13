@@ -13,7 +13,7 @@ from ..memory import (
     create_memory_settings,
     is_memory_enabled,
 )
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 _global_manager: Optional[MemoryIndexManager] = None
 _global_workspace_dir: str = "."
