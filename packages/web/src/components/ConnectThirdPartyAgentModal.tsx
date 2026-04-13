@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { AgentManagementIcon } from './AgentManagementIcon';
+import { PasswordField } from './shared/PasswordField';
 
 interface ConnectThirdPartyAgentModalProps {
   open: boolean;
@@ -34,13 +35,24 @@ function Field({
   return (
     <label className="block space-y-2.5">
       <span className="text-[14px] font-semibold text-[#2A303C]">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="ui-input h-11 w-full rounded-[12px] px-4 text-[13px] transition"
-      />
+      {type === 'password' ? (
+        <PasswordField
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          autoComplete="off"
+          className="ui-input h-11 w-full rounded-[12px] px-4 text-[13px] transition"
+          toggleTestId="connect-third-party-agent-api-key-toggle"
+        />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          className="ui-input h-11 w-full rounded-[12px] px-4 text-[13px] transition"
+        />
+      )}
     </label>
   );
 }

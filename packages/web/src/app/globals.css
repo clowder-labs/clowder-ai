@@ -8,6 +8,8 @@
 @tailwind components;
 @tailwind utilities;
 
+.password-field-input::-ms-reveal,
+.password-field-input::-ms-clear,
 .login-password-input::-ms-reveal,
 .login-password-input::-ms-clear {
   display: none;
