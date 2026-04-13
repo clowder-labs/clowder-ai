@@ -54,6 +54,7 @@ import { QueuePanel } from './QueuePanel';
 import { RightContentHeader } from './RightContentHeader';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { ScheduledTasksPanel } from './ScheduledTasksPanel';
+import SecurityManagementModal from './SecurityManagementModal';
 import { SkillsPanel } from './SkillsPanel';
 import { SplitPaneView } from './SplitPaneView';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -224,6 +225,7 @@ function ThreadModeChatContainer({
   useWorkspaceNavigate(workspaceWorktreeId, threadId);
   const sidebarOpen = true;
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
+  const [showSecurityManagement, setShowSecurityManagement] = useState(false);
   const [showBootcampList, setShowBootcampList] = useState(false);
   const [showHubList, setShowHubList] = useState(false);
   const [stoppedIntentRecognition, setStoppedIntentRecognition] = useState<{
@@ -796,7 +798,12 @@ function ThreadModeChatContainer({
         {sidebarMenu === 'chat' && authPending.length > 0 && (
           <div className="border-t border-amber-200 bg-amber-50/40 py-2">
             {authPending.map((req) => (
-              <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
+              <AuthorizationCard
+                key={req.requestId}
+                request={req}
+                onRespond={authRespond}
+                onOpenSecurityManagement={() => setShowSecurityManagement(true)}
+              />
             ))}
           </div>
         )}
@@ -902,6 +909,7 @@ function ThreadModeChatContainer({
       <CatCafeHub />
       <BootcampListModal open={showBootcampList} onClose={handleBootcampModalClose} currentThreadId={threadId} />
       <HubListModal open={showHubList} onClose={() => setShowHubList(false)} currentThreadId={threadId} />
+      <SecurityManagementModal open={showSecurityManagement} onClose={() => setShowSecurityManagement(false)} />
       {showVoteModal && <VoteConfigModal onSubmit={handleVoteSubmit} onCancel={() => setShowVoteModal(false)} />}
     </div>
   );
