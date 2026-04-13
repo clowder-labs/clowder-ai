@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { setIsSkipAuth, setUserId } from '@/utils/userId';
+import { LoginHeader } from '@/components/LoginHeader';
 
 function PasswordEyeIcon({ visible }: { visible: boolean }) {
   if (visible) {
@@ -126,9 +127,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-white px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16">
-      <div className="mx-auto flex w-full max-w-[1280px] flex-row items-center gap-4 sm:gap-6 md:gap-8 min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)] lg:gap-12">
-        <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-white flex flex-col">
+      <LoginHeader />
+      <div className="flex-1 px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16">
+        <div className="mx-auto flex w-full max-w-[1280px] flex-row items-center gap-4 sm:gap-6 md:gap-8 min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)] lg:gap-12">
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
           <div className="flex w-full max-w-[760px] flex-col items-center">
             <div>
               <Image
@@ -364,9 +367,8 @@ export default function LoginPage() {
             </form>
           </div>
         </div>
+        </div>
       </div>
     </div>
   );
 }
-
-
