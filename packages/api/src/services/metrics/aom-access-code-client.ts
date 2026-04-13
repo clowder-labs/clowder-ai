@@ -69,10 +69,16 @@ let signerModule: SignerModuleLike | null = null;
 function loadSignerModule(): SignerModuleLike {
   if (signerModule) return signerModule;
 
+  const bundledPath = fileURLToPath(new URL('./utils/signer.cjs', import.meta.url));
   const distPath = fileURLToPath(new URL('../../utils/signer.cjs', import.meta.url));
   const sourcePath = fileURLToPath(new URL('../../../src/utils/signer.cjs', import.meta.url));
-  const signerModulePath = existsSync(distPath) ? distPath : sourcePath;
-  signerModule = require(signerModulePath) as SignerModuleLike;
+  if (existsSync(bundledPath)) {
+    signerModule = require(bundledPath) as SignerModuleLike;
+  } else if (existsSync(distPath)) {
+    signerModule = require(distPath) as SignerModuleLike;
+  } else {
+    signerModule = require(sourcePath) as SignerModuleLike;
+  }
   return signerModule;
 }
 
@@ -123,10 +129,15 @@ export async function fetchAomAccessCode(
   try {
     const signer = loadSignerModule();
 
-    const request = new signer.HttpRequest('GET', url, {
-      'X-Security-Token': sts_token,
-      host: host,
-    }, '');
+    const request = new signer.HttpRequest(
+      'GET',
+      url,
+      {
+        'X-Security-Token': sts_token,
+        host: host,
+      },
+      '',
+    );
 
     const sig = new signer.Signer();
     sig.Key = access;
@@ -148,7 +159,7 @@ export async function fetchAomAccessCode(
       return null;
     }
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       access_codes?: Array<{
         access_code: string;
         access_code_id: string;
@@ -163,10 +174,7 @@ export async function fetchAomAccessCode(
     }
 
     const { access_code, access_code_id } = codes[0];
-    log?.info(
-      { accessCodeId: access_code_id },
-      '[AomAccessCodeClient] Fetched AOM access code successfully',
-    );
+    log?.info({ accessCodeId: access_code_id }, '[AomAccessCodeClient] Fetched AOM access code successfully');
 
     return { accessCode: access_code, accessCodeId: access_code_id };
   } catch (error) {
