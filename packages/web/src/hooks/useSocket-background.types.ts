@@ -53,6 +53,7 @@ export interface BackgroundToastInput {
   title: string;
   message: string;
   threadId: string;
+  threadTitle?: string;
   duration: number;
 }
 
@@ -100,6 +101,7 @@ export interface HandleBackgroundMessageOptions {
   replacedInvocations: Map<string, string>;
   nextBgSeq: () => number;
   addToast: (toast: BackgroundToastInput) => void;
+  getThreadTitle?: (threadId: string) => string | null | undefined;
   /** #80 fix-C: Clear the done-timeout guard when a background thread completes */
   clearDoneTimeout?: (threadId?: string) => void;
   /** #586 follow-up: Just-finalized stream bubble IDs keyed by streamKey */

@@ -5,9 +5,7 @@
  */
 
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
-import {
-  getAgentErrorToastContent,
-} from '@/hooks/agent-error-fallback';
+import { getAgentErrorToastContent } from '@/hooks/agent-error-fallback';
 import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 import type {
@@ -343,7 +341,9 @@ export function handleBackgroundAgentMessage(
             ? {
                 extra: {
                   ...(msg.extra?.crossPost ? { crossPost: msg.extra.crossPost } : {}),
-                  ...(replacementTarget.invocationId ? { stream: { invocationId: replacementTarget.invocationId } } : {}),
+                  ...(replacementTarget.invocationId
+                    ? { stream: { invocationId: replacementTarget.invocationId } }
+                    : {}),
                 },
               }
             : {}),
@@ -467,6 +467,7 @@ export function handleBackgroundAgentMessage(
         title: `${msg.catId} 完成`,
         message: preview.slice(0, 80) + (preview.length > 80 ? '...' : ''),
         threadId: msg.threadId,
+        threadTitle: options.getThreadTitle?.(msg.threadId),
         duration: 5000,
       });
     }
@@ -474,8 +475,10 @@ export function handleBackgroundAgentMessage(
   }
 
   if (msg.type === 'error') {
-    // 理论上后端已转换，但保留降级处理
-    log.warn({ catId: msg.catId, threadId: msg.threadId }, 'Received raw error event in background');
+    console.warn('[useSocket-background] Received raw error event in background:', {
+      catId: msg.catId,
+      threadId: msg.threadId,
+    });
 
     markThreadInvocationActive(msg, options);
     stopTrackedStream(streamKey, msg, options);
@@ -505,6 +508,7 @@ export function handleBackgroundAgentMessage(
       title: toast.title,
       message: toast.message,
       threadId: msg.threadId,
+      threadTitle: options.getThreadTitle?.(msg.threadId),
       duration: 8000,
     });
     return;
@@ -520,6 +524,7 @@ export function handleBackgroundAgentMessage(
         title: `${msg.catId} 完成`,
         message: `${msg.catId} 已完成处理`,
         threadId: msg.threadId,
+        threadTitle: options.getThreadTitle?.(msg.threadId),
         duration: 5000,
       });
     }

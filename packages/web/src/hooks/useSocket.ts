@@ -404,6 +404,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
         replacedInvocations: bgReplacedInvocationsRef.current,
         nextBgSeq: () => bgSeqRef.current++,
         addToast: (toast) => useToastStore.getState().addToast(toast),
+        getThreadTitle: (threadId) => useChatStore.getState().threads.find((t) => t.id === threadId)?.title,
         clearDoneTimeout: callbacksRef.current.clearDoneTimeout,
       });
     });
