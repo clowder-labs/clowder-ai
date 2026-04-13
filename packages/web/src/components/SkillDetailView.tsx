@@ -26,7 +26,7 @@ interface SkillDetailResponse {
   description?: string;
   triggers?: string[];
   category?: string;
-  source: "cat-cafe" | "external";
+  source: "builtin" | "external";
   enabled: boolean;
   installedAt?: string;
   mounts?: Record<string, boolean>;
@@ -71,7 +71,7 @@ const IMAGE_FILE_EXTENSIONS = new Set([
 ]);
 
 function sourceLabel(source: SkillDetailResponse["source"]): string {
-  return source === "cat-cafe" ? "官方" : "三方";
+  return source === "builtin" ? "官方" : "三方";
 }
 
 function statusLabel(value: boolean): string {
@@ -443,7 +443,7 @@ export function SkillDetailView({
                 <div className="min-w-0 flex-1 flex flex-col gap-1">
                   <OverflowTooltip content={resolvedTitle} className="w-full">
                     <h2
-                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]"
+                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[20px] font-semibold leading-[30px] text-[var(--text-primary)]"
                       data-testid="skill-detail-title"
                     >
                       {resolvedTitle}
@@ -534,8 +534,8 @@ export function SkillDetailView({
                   </aside>
                   <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--surface-card)]">
                     <div className="border-b border-[var(--border-default)] px-5 py-3 text-xs">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
+                      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_fit-content(200px)] items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
                           <img
                             src={
                               selectedFileNode
@@ -547,12 +547,19 @@ export function SkillDetailView({
                             data-testid="skill-detail-preview-header-icon"
                             className="h-4 w-4 shrink-0 object-contain"
                           />
-                          <span className="truncate">{selectedFileLabel}</span>
+                          <OverflowTooltip content={selectedFileLabel} className="min-w-0 overflow-hidden">
+                            <div className="w-full min-w-0 truncate">{selectedFileLabel}</div>
+                          </OverflowTooltip>
                         </div>
                         {filePreview ? (
-                          <span className="text-xs text-[var(--text-muted)]">
-                            {filePreview.mime} · {filePreview.size} B
-                          </span>
+                          <OverflowTooltip
+                            content={`${filePreview.mime} · ${filePreview.size} B`}
+                            className="min-w-0 overflow-hidden"
+                          >
+                            <div className="w-full min-w-0 truncate text-right text-xs text-[var(--text-muted)]">
+                              {`${filePreview.mime} · ${filePreview.size} B`}
+                            </div>
+                          </OverflowTooltip>
                         ) : null}
                       </div>
                     </div>
@@ -582,7 +589,10 @@ export function SkillDetailView({
                               文件内容过长，当前仅展示前 1MB。
                             </p>
                           ) : null}
-                          <pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6">
+                          <pre
+                            className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6"
+                            style={{ overflowWrap: "anywhere" }}
+                          >
                             {filePreview.content}
                           </pre>
                         </div>

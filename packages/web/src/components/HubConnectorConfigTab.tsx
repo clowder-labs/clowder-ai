@@ -19,8 +19,8 @@ import {
   WifiIcon,
 } from './HubConfigIcons';
 import { WeixinQrPanel } from './WeixinQrPanel';
-import { ConnectorConnectedState } from './ConnectorConnectedState';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
+import { PasswordField } from './shared/PasswordField';
 
 interface PlatformFieldStatus {
   envName: string;
@@ -52,6 +52,12 @@ interface ConnectorTestResult {
 }
 
 const QR_ONLY_PLATFORM_IDS = new Set(['feishu', 'weixin']);
+const PLATFORM_HELP_LINKS: Record<string, string> = {
+  feishu: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/feishu.html',
+  weixin: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/weixin.html',
+  dingtalk: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/dingtalk.html',
+  xiaoyi: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/xiaoyi.html',
+};
 
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
@@ -198,6 +204,31 @@ export function HubConnectorConfigTab() {
 
     setSaving(true);
     setSaveResult(null);
+
+    if (TESTABLE_PLATFORMS.includes(platform.id)) {
+      const payload = Object.fromEntries(
+        platform.fields
+          .map((field) => [field.envName, fieldValues[field.envName]])
+          .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0),
+      );
+      const testRes = await apiFetch(`/api/connector/test/${platform.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const testData = (await testRes.json().catch(() => ({}))) as ConnectorTestResult;
+      if (!testRes.ok || !testData.ok) {
+        setSaving(false);
+        addToast({
+          type: 'error',
+          title: '保存配置失败',
+          message: '测试连接不成功，请检查配置是否正确',
+          duration: 5000,
+        });
+        return;
+      }
+    }
+
     try {
       const res = await apiFetch('/api/config/env', {
         method: 'PATCH',
@@ -281,11 +312,11 @@ export function HubConnectorConfigTab() {
       });
       const data = (await res.json().catch(() => ({}))) as ConnectorTestResult;
       if (!res.ok || !data.ok) {
-        const pieces = [data.error ?? '测试失败', data.details].filter(Boolean);
+        const pieces = data.error ?? data.details ?? '测试失败';
         addToast({
           type: 'error',
           title: '测试连接失败',
-          message: pieces.join('：'),
+          message: pieces,
           duration: 5000,
         });
         return;
@@ -365,6 +396,9 @@ export function HubConnectorConfigTab() {
   }
 
   const selectedPlatform = platforms.find((platform) => platform.id === selectedPlatformId) ?? platforms[0] ?? null;
+  const selectedPlatformHelpLink = selectedPlatform
+    ? parseDocsLink(PLATFORM_HELP_LINKS[selectedPlatform.id] ?? '')
+    : null;
 
   return (
     <div className="ui-panel flex h-full min-h-0 overflow-hidden">
@@ -390,7 +424,7 @@ export function HubConnectorConfigTab() {
               }}
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center">{v.icon}</span>
-                <span className="min-w-0 flex-1 text-left">
+              <span className="min-w-0 flex-1 text-left">
                 <span className="block text-[14px] font-semibold text-[var(--text-primary)]">{platform.name}</span>
                 <span
                   className={`ui-status-badge ${platform.configured ? 'ui-status-badge-configured' : 'ui-status-badge-unconfigured'}`}
@@ -407,7 +441,23 @@ export function HubConnectorConfigTab() {
         className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6"
         data-testid="connector-right-pane"
       >
-        <p className="text-[var(--text-primary)] font-semibold">配置</p>
+        <div className="flex items-center gap-[4px]">
+          <p className="text-[var(--text-primary)] font-semibold">配置</p>
+          {selectedPlatformHelpLink && (
+            <a
+              href={selectedPlatformHelpLink.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="查看帮助文档"
+              title="查看帮助文档"
+              className="inline-flex h-5 w-5 items-center justify-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+              data-testid={`platform-help-link-${selectedPlatform?.id}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+            </a>
+          )}
+        </div>
         {isLoading && (
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <CenteredLoadingState />
@@ -477,30 +527,12 @@ export function HubConnectorConfigTab() {
                       </div>
                     ))}
 
-                    {/* 断开连接按钮 - 当平台已配置时显示 */}
-                    {platform.configured && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <StepBadge num={guideSteps.length + 1} />
-                          <span className="text-[14px]">断开连接</span>
-                        </div>
-                        <div className="ml-[26px]">
-                          <ConnectorConnectedState
-                            label={`${platform.name} 已连接`}
-                            disconnecting={disconnecting === platform.id}
-                            onDisconnect={() => handleDisconnect(platform.id)}
-                            disconnectTestId={`disconnect-${platform.id}`}
-                          />
-                        </div>
-                      </div>
-                    )}
-
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5">
                         <StepBadge num={guideSteps.length + 1} />
                         <span className="text-[14px]">填写应用凭证</span>
                       </div>
-                      <div className="ml-[26px] space-y-2.5">
+                      <div className="ml-[26px] space-y-4">
                         {platform.fields.map((field) => (
                           <div key={field.envName} className="w-1/2">
                             <label htmlFor={`config-${field.envName}`} className="mb-1 block text-sm">
@@ -514,29 +546,43 @@ export function HubConnectorConfigTab() {
                                 </span>
                               )}
                             </label>
-                            <input
-                              id={`config-${field.envName}`}
-                              type={field.sensitive ? 'password' : 'text'}
-                              name={`connector-${field.envName}`}
-                              placeholder={
-                                field.sensitive
-                                  ? field.currentValue
-                                    ? '已设置（输入新值覆盖）'
-                                    : '未设置'
-                                  : (field.currentValue ?? '未设置')
-                              }
-                              value={fieldValues[field.envName] ?? ''}
-                              onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
-                              autoComplete={field.sensitive ? 'new-password' : 'off'}
-                              autoCapitalize="off"
-                              autoCorrect="off"
-                              spellCheck={false}
-                              data-form-type="other"
-                              data-1p-ignore="true"
-                              data-lpignore="true"
-                              className="ui-input"
-                              data-testid={`field-${field.envName}`}
-                            />
+                            {field.sensitive ? (
+                              <PasswordField
+                                id={`config-${field.envName}`}
+                                name={`connector-${field.envName}`}
+                                placeholder={field.currentValue ? '已设置（输入新值覆盖）' : '未设置'}
+                                value={fieldValues[field.envName] ?? ''}
+                                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                                autoComplete="new-password"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                data-form-type="other"
+                                data-1p-ignore="true"
+                                data-lpignore="true"
+                                className="ui-input"
+                                data-testid={`field-${field.envName}`}
+                                toggleTestId={`connector-password-toggle-${field.envName}`}
+                              />
+                            ) : (
+                              <input
+                                id={`config-${field.envName}`}
+                                type="text"
+                                name={`connector-${field.envName}`}
+                                placeholder={field.currentValue ?? '未设置'}
+                                value={fieldValues[field.envName] ?? ''}
+                                onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.envName]: e.target.value }))}
+                                autoComplete="off"
+                                autoCapitalize="off"
+                                autoCorrect="off"
+                                spellCheck={false}
+                                data-form-type="other"
+                                data-1p-ignore="true"
+                                data-lpignore="true"
+                                className="ui-input"
+                                data-testid={`field-${field.envName}`}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -576,6 +622,17 @@ export function HubConnectorConfigTab() {
                         >
                           {saving ? '保存中...' : '保存配置'}
                         </button>
+                        {platform.configured && (
+                          <button
+                            type="button"
+                            onClick={() => handleDisconnect(platform.id)}
+                            disabled={disconnecting === platform.id}
+                            className="ui-button-default text-red-500 hover:text-red-700 disabled:opacity-50"
+                            data-testid={`disconnect-${platform.id}`}
+                          >
+                            {disconnecting === platform.id ? '断开中...' : '断开连接'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

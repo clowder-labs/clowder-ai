@@ -3,12 +3,14 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import {
-  fetchUsageStatsPage,
+  buildUsageStatsPageFromDataset,
+  fetchUsageStatsDataset,
   type UsageRange,
-  type UsageStatsPageQuery,
+  type UsageStatsDataset,
   type UsageStatsPageResult,
 } from '@/services/usageStats';
 import { AppModal } from './AppModal';
+import { formatTokenCount } from './status-helpers';
 import { EmptyDataState } from './shared/EmptyDataState';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
@@ -16,7 +18,7 @@ import { OverflowTooltip } from './shared/OverflowTooltip';
 interface UsageStatsModalProps {
   open: boolean;
   onClose: () => void;
-  fetchPage?: (query: UsageStatsPageQuery) => Promise<UsageStatsPageResult>;
+  fetchDataset?: () => Promise<UsageStatsDataset>;
 }
 
 const PAGE_SIZE = 6;
@@ -69,21 +71,12 @@ export function formatPaginationPages(currentPage: number, totalPages: number): 
   return result;
 }
 
-function formatTokenValue(value: number): string {
-  if (value >= 1000) {
-    const shortened = value / 1000;
-    const rounded = Number.isInteger(shortened) ? shortened.toFixed(0) : shortened.toFixed(1);
-    return `${rounded}k`;
-  }
-  return value.toLocaleString();
-}
-
 function renderTokenValue(value: number | null): string {
   if (value == null) return '';
-  return formatTokenValue(value);
+  return formatTokenCount(value);
 }
 
-export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage }: UsageStatsModalProps) {
+export function UsageStatsModal({ open, onClose, fetchDataset = fetchUsageStatsDataset }: UsageStatsModalProps) {
   const rangeMenuRef = useRef<HTMLDivElement | null>(null);
   const [range, setRange] = useState<UsageRange>('7d');
   const [page, setPage] = useState(1);
@@ -91,7 +84,7 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
   const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<UsageStatsPageResult>(EMPTY_RESULT);
+  const [dataset, setDataset] = useState<UsageStatsDataset | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -102,25 +95,24 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
       const startedAt = Date.now();
       setIsLoading(true);
       setError(null);
+
       try {
-        const next = await fetchPage({ page, pageSize: PAGE_SIZE, range });
+        const next = await fetchDataset();
         if (cancelled) return;
-        setResult({
-          items: next.items ?? [],
-          page: next.page ?? page,
-          pageSize: next.pageSize ?? PAGE_SIZE,
-          total: next.total ?? 0,
-        });
+        setDataset(next);
       } catch {
         if (cancelled) return;
         setError('用量数据加载失败，请稍后重试');
-        setResult(EMPTY_RESULT);
+        setDataset(null);
       } finally {
         const elapsed = Date.now() - startedAt;
         if (elapsed < MIN_LOADING_MS) {
           await new Promise((resolve) => setTimeout(resolve, MIN_LOADING_MS - elapsed));
         }
-        if (!cancelled) setIsLoading(false);
+
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -129,11 +121,15 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
     return () => {
       cancelled = true;
     };
-  }, [fetchPage, open, page, range, refreshKey]);
+  }, [fetchDataset, open, refreshKey]);
 
   useEffect(() => {
     if (!open) {
       setIsRangeMenuOpen(false);
+      setDataset(null);
+      setError(null);
+      setPage(1);
+      setRange('7d');
     }
   }, [open]);
 
@@ -151,9 +147,17 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
     };
   }, [isRangeMenuOpen]);
 
+  const result =
+    dataset == null ? EMPTY_RESULT : buildUsageStatsPageFromDataset(dataset, { page, pageSize: PAGE_SIZE, range });
   const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
   const showPagination = result.total > PAGE_SIZE;
   const paginationItems = showPagination ? formatPaginationPages(page, totalPages) : [];
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const handleRefresh = () => {
     if (isLoading) return;
@@ -171,20 +175,20 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
     <AppModal
       open={open}
       onClose={onClose}
-      title={'用量统计'}
+      title="用量统计"
       backdropRole="dialog"
       backdropAriaModal
-      backdropAriaLabel={'用量统计弹窗'}
-      panelClassName="w-full max-w-[900px]"
+      backdropAriaLabel="用量统计弹窗"
+      panelClassName="w-full max-w-[900px] overflow-x-auto"
       bodyClassName="pt-6"
       disableBackdropClose
       panelTestId="usage-stats-modal-panel"
       bodyTestId="usage-stats-modal-body"
-      closeButtonAriaLabel={'关闭用量统计弹窗'}
+      closeButtonAriaLabel="关闭用量统计弹窗"
     >
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-[300px]">
         <div className="flex items-center justify-between">
-          <h4 className="text-[14px] font-semibold leading-none text-[#191919]">{'Tokens消耗'}</h4>
+          <h4 className="text-[14px] font-semibold leading-none text-[#191919]">Tokens消耗</h4>
 
           <div className="flex items-center gap-2">
             <div className="relative" ref={rangeMenuRef}>
@@ -213,9 +217,8 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
                     <button
                       key={option.value}
                       type="button"
-                      className={`flex w-full rounded-lg px-3 py-2 text-left text-[12px] ${
-                        option.value === range ? 'text-[#1476FF]' : 'text-[#191919] hover:bg-[#F5F5F5]'
-                      }`}
+                      className={`flex w-full rounded-lg px-3 py-2 text-left text-[12px] ${option.value === range ? 'text-[#1476FF]' : 'text-[#191919] hover:bg-[#F5F5F5]'
+                        }`}
                       onClick={() => handleChangeRange(option.value)}
                     >
                       {option.label}
@@ -231,91 +234,100 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
               type="button"
               onClick={handleRefresh}
               className="inline-flex items-center justify-center text-[#4A4A4A]"
-              aria-label={'刷新'}
+              aria-label="刷新"
               disabled={isLoading}
               data-testid="usage-stats-refresh"
             >
-              <Image src="/images/agent-management-icons/agent-refresh.svg" alt="" aria-hidden="true" width={16} height={16} className="shrink-0" />
+              <Image
+                src="/images/agent-management-icons/agent-refresh.svg"
+                alt=""
+                aria-hidden="true"
+                width={16}
+                height={16}
+                className="shrink-0"
+              />
             </button>
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-[0.5rem] border border-[#F0F0F0] bg-white">
-          <table className="w-full border-collapse table-fixed">
-            <thead className="bg-[#F5F5F5]">
-              <tr className="text-left text-[12px] text-[#595959]">
-                <th className="relative h-12 border-b border-[#F0F0F0] px-4 py-0">
-                  {'会话'}
-                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
-                </th>
-                <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
-                  {'Input Tokens消耗'}
-                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
-                </th>
-                <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
-                  {'Output Tokens消耗'}
-                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
-                </th>
-                <th className="relative h-12 w-[132px] border-b border-[#F0F0F0] px-4 py-0">
-                  {'总Tokens消耗'}
-                  <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
-                </th>
-                <th className="h-12 w-[220px] border-b border-[#F0F0F0] px-4 py-0">{'时间'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {error ? (
-                <tr>
-                  <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`}>
-                    <div className="flex h-full items-center justify-center">
-                      <EmptyDataState />
-                    </div>
-                  </td>
+        <div className="relative overflow-x-auto overflow-y-hidden rounded-[0.5rem] border border-[#F0F0F0] bg-white [scrollbar-gutter:auto]">
+          <div className="w-full rounded-[0.5rem]">
+            <table className="w-full border-collapse table-fixed min-w-[49.5rem]">
+              <thead className="bg-[#F5F5F5]">
+                <tr className="text-left text-[12px] text-[#595959]">
+                  <th className="relative h-12 border-b border-[#F0F0F0] px-4 py-0">
+                    会话
+                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                  </th>
+                  <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
+                    Input Tokens消耗
+                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                  </th>
+                  <th className="relative h-12 w-[150px] border-b border-[#F0F0F0] px-4 py-0">
+                    Output Tokens消耗
+                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                  </th>
+                  <th className="relative h-12 w-[132px] border-b border-[#F0F0F0] px-4 py-0">
+                    总Tokens消耗
+                    <span className="absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 bg-[#DBDBDB]" aria-hidden="true" />
+                  </th>
+                  <th className="h-12 w-[200px] border-b border-[#F0F0F0] px-4 py-0">时间</th>
                 </tr>
-              ) : isLoading && result.items.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`} />
-                </tr>
-              ) : !isLoading && result.items.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`}>
-                    <div className="flex h-full items-center justify-center">
-                      <EmptyDataState />
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                result.items.map((item) => (
-                  <tr key={item.id} className="border-t border-[#F0F0F0]" data-testid={`usage-stats-row-${item.id}`}>
-                    <td className="h-16 px-4 py-0 text-[14px] text-[#191919]">
-                      <OverflowTooltip content={item.sessionName} className="w-full">
-                        <span className="block truncate">{item.sessionName}</span>
-                      </OverflowTooltip>
+              </thead>
+              <tbody>
+                {error ? (
+                  <tr>
+                    <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`}>
+                      <div className="flex h-full items-center justify-center">
+                        <EmptyDataState />
+                      </div>
                     </td>
-                    <td
-                      className="h-16 px-4 py-0 text-[14px] text-[#191919]"
-                      title={item.inputTokensUsed != null ? item.inputTokensUsed.toLocaleString() : undefined}
-                    >
-                      {renderTokenValue(item.inputTokensUsed)}
-                    </td>
-                    <td
-                      className="h-16 px-4 py-0 text-[14px] text-[#191919]"
-                      title={item.outputTokensUsed != null ? item.outputTokensUsed.toLocaleString() : undefined}
-                    >
-                      {renderTokenValue(item.outputTokensUsed)}
-                    </td>
-                    <td
-                      className="h-16 px-4 py-0 text-[14px] text-[#191919]"
-                      title={item.totalTokensUsed != null ? item.totalTokensUsed.toLocaleString() : undefined}
-                    >
-                      {renderTokenValue(item.totalTokensUsed)}
-                    </td>
-                    <td className="h-16 px-4 py-0 text-[12px] text-[#4A4A4A]">{item.occurredAt}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : isLoading && result.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`} />
+                  </tr>
+                ) : !isLoading && result.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className={`${TABLE_STATE_ROW_HEIGHT_CLASS} px-4 py-0`}>
+                      <div className="flex h-full items-center justify-center">
+                        <EmptyDataState />
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  result.items.map((item) => (
+                    <tr key={item.id} className="border-t border-[#F0F0F0]" data-testid={`usage-stats-row-${item.id}`}>
+                      <td className="h-16 px-4 py-0 text-[14px] text-[#191919]">
+                        <OverflowTooltip content={item.sessionName} className="w-full">
+                          <span className="block truncate">{item.sessionName}</span>
+                        </OverflowTooltip>
+                      </td>
+                      <td
+                        className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                        title={item.inputTokensUsed != null ? item.inputTokensUsed.toLocaleString() : undefined}
+                      >
+                        {renderTokenValue(item.inputTokensUsed)}
+                      </td>
+                      <td
+                        className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                        title={item.outputTokensUsed != null ? item.outputTokensUsed.toLocaleString() : undefined}
+                      >
+                        {renderTokenValue(item.outputTokensUsed)}
+                      </td>
+                      <td
+                        className="h-16 px-4 py-0 text-[14px] text-[#191919]"
+                        title={item.totalTokensUsed != null ? item.totalTokensUsed.toLocaleString() : undefined}
+                      >
+                        {renderTokenValue(item.totalTokensUsed)}
+                      </td>
+                      <td className="h-16 px-4 py-0 text-[12px] text-[#191919]">{item.occurredAt}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {isLoading ? (
             <div
@@ -337,7 +349,7 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
                 setPage((current) => Math.max(1, current - 1));
               }}
               disabled={isLoading || page <= 1}
-              aria-label={'上一页'}
+              aria-label="上一页"
             >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="M11.5 5L6.5 10L11.5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -353,9 +365,8 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
                 <button
                   key={item}
                   type="button"
-                  className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${
-                    item === page ? 'bg-[#F5F5F5] text-[#191919]' : 'text-[#595959] hover:bg-[#F5F5F5]'
-                  }`}
+                  className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[12px] ${item === page ? 'bg-[#F5F5F5] text-[#191919]' : 'text-[#595959] hover:bg-[#F5F5F5]'
+                    }`}
                   onClick={() => {
                     if (isLoading) return;
                     setPage(item);
@@ -375,7 +386,7 @@ export function UsageStatsModal({ open, onClose, fetchPage = fetchUsageStatsPage
                 setPage((current) => Math.min(totalPages, current + 1));
               }}
               disabled={isLoading || page >= totalPages}
-              aria-label={'下一页'}
+              aria-label="下一页"
             >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="M8.5 5L13.5 10L8.5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

@@ -87,7 +87,6 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         const isCallback = message.origin === 'callback';
         return {
           label,
-          radius: breed.radius,
           font: breed.font,
           bgColor: isCallback ? tintedLight(catData.color.primary, 0.08) : catData.color.secondary,
           borderColor: isCallback ? hexToRgba(catData.color.primary, 0.12) : hexToRgba(catData.color.primary, 0.3),
@@ -242,9 +241,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
             }
           >
             {hasBlocks ? (
-              <ContentBlocks blocks={message.contentBlocks!} />
+              <ContentBlocks blocks={message.contentBlocks!} enableSkillAndQuickActionTokens />
             ) : (
-              <MarkdownContent content={message.content} />
+              <MarkdownContent content={message.content} enableSkillAndQuickActionTokens />
             )}
           </div>
         </div>
@@ -368,13 +367,13 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         )}
         <div
           className={`answer-body overflow-hidden ${
-            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200 rounded-2xl'
+            catStyle ? `${catStyle.radius} ${catStyle.font ?? ''}` : 'bg-white border-gray-200'
           }`}
         >
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
-            <MarkdownContent content={message.content} className={catStyle?.font} />
+            <MarkdownContent content={message.content} className={catStyle?.font} enableSkillAndQuickActionTokens={false} />
           ) : message.isStreaming ? (
             <span className="text-xs text-gray-500 hidden">Thinking...</span>
           ) : null}

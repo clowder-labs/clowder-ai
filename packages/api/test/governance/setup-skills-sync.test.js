@@ -21,8 +21,8 @@ describe('setup.sh skills sync (#21)', () => {
   it('contains a skills symlink creation step', async () => {
     if (!content) content = await readFile(SETUP_SH, 'utf-8');
     const hasSkillsSync =
-      content.includes('cat-cafe-skills') && (content.includes('ln -s') || content.includes('ln -sf'));
-    assert.ok(hasSkillsSync, 'setup.sh must create skills symlinks (cat-cafe-skills → ~/.claude/skills etc.)');
+      content.includes('office-claw-skills') && (content.includes('ln -s') || content.includes('ln -sf'));
+    assert.ok(hasSkillsSync, 'setup.sh must create skills symlinks (office-claw-skills → ~/.claude/skills etc.)');
   });
 
   it('creates symlinks for all three providers', async () => {

@@ -207,7 +207,26 @@ describe('background thread socket handling', () => {
       expect(toasts[0].message).toBe('当前对话触发了敏感词校验，请重新打开一个新会话后再试。');
 
       const bgMessages = useChatStore.getState().getThreadState('thread-bg').messages;
-      expect(bgMessages.some((m) => m.type === 'assistant' && m.content.includes('重新打开一个新会话'))).toBe(true);
+      expect(bgMessages.some((m) => m.type === 'assistant' && m.content.includes('重新打开一个新会话'))).toBe(false);
+    });
+
+    it('does not append a synthetic assistant message for generic background errors', () => {
+      simulateBackgroundMessage({
+        type: 'error',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        error: 'request timed out before completion',
+        timestamp: Date.now(),
+      });
+
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0].type).toBe('error');
+      expect(toasts[0].title).toBe('codex 出错');
+      expect(toasts[0].message).toBe('这次响应超时了，我先结束本次尝试。请稍后直接重试。');
+
+      const bgMessages = useChatStore.getState().getThreadState('thread-bg').messages;
+      expect(bgMessages.some((m) => m.type === 'assistant')).toBe(false);
     });
   });
 
@@ -626,10 +645,9 @@ describe('background thread socket handling', () => {
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      const errorMsg = ts.messages.find((m) => m.type === 'assistant' && m.catId === 'dare');
-      expect(errorMsg?.content).toContain('这次响应花了太久');
+      expect(ts.messages.some((m) => m.type === 'assistant' && m.catId === 'dare')).toBe(false);
       const toast = useToastStore.getState().toasts.at(-1);
-      expect(toast?.message).toContain('这次响应花了太久');
+      expect(toast?.message).toContain('这次响应超时了');
     });
 
     it('rewrites jiuwen connection failure in background threads to a user-friendly fallback', () => {
@@ -645,10 +663,9 @@ describe('background thread socket handling', () => {
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      const errorMsg = ts.messages.find((m) => m.type === 'assistant' && m.catId === 'jiuwenclaw');
-      expect(errorMsg?.content).toContain('连接不稳定');
+      expect(ts.messages.some((m) => m.type === 'assistant' && m.catId === 'jiuwenclaw')).toBe(false);
       const toast = useToastStore.getState().toasts.at(-1);
-      expect(toast?.message).toContain('连接不稳定');
+      expect(toast?.message).toContain('配置存在问题');
     });
 
     it('rewrites unknown background errors to a generic assistant fallback', () => {
@@ -664,8 +681,7 @@ describe('background thread socket handling', () => {
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      const errorMsg = ts.messages.find((m) => m.type === 'assistant' && m.catId === 'opus');
-      expect(errorMsg?.content).not.toContain('raw upstream failure details');
+      expect(ts.messages.some((m) => m.type === 'assistant' && m.catId === 'opus')).toBe(false);
       const toast = useToastStore.getState().toasts.at(-1);
       expect(toast?.message).not.toContain('raw upstream failure details');
     });

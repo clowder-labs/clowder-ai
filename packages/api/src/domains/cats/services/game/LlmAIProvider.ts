@@ -8,7 +8,7 @@
  * LlmAIProvider (F101 Phase H3)
  *
  * Concrete AIProvider implementation that routes LLM calls to the correct
- * provider (Anthropic/OpenAI/Google) based on cat-config.json.
+ * provider (Anthropic/OpenAI/Google) based on office-claw-config.json.
  *
  * Design decisions (from Phase H plan TD-H1):
  * - Lightweight HTTP API calls (not CLI spawn) — game is single-turn structured
@@ -17,7 +17,7 @@
  * - 10s timeout per call; fallback to null on failure (caller handles fallback).
  */
 
-import { catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@office-claw/shared';
 import { getCatModel } from '../../../../config/cat-models.js';
 import type { AIActionResponse, AIProvider } from '../game/werewolf/WerewolfAIPlayer.js';
 

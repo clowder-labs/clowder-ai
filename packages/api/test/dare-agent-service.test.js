@@ -227,10 +227,10 @@ describe('DareAgentService', () => {
     const spawnFn = mock.fn(() => proc);
     // Clear all model and adapter env vars so fallbacks don't inject flags
     const oldCatModel = process.env.CAT_DARE_MODEL;
-    const oldOverride = process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    const oldOverride = process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     const oldAdapter = process.env.DARE_ADAPTER;
     delete process.env.CAT_DARE_MODEL;
-    delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     delete process.env.DARE_ADAPTER;
     try {
       const service = new DareAgentService({ catId: 'dare', spawnFn, darePath: '/opt/dare' });
@@ -247,8 +247,8 @@ describe('DareAgentService', () => {
     } finally {
       if (oldCatModel !== undefined) process.env.CAT_DARE_MODEL = oldCatModel;
       else delete process.env.CAT_DARE_MODEL;
-      if (oldOverride !== undefined) process.env.CAT_CAFE_DARE_MODEL_OVERRIDE = oldOverride;
-      else delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+      if (oldOverride !== undefined) process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE = oldOverride;
+      else delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
       if (oldAdapter !== undefined) process.env.DARE_ADAPTER = oldAdapter;
       else delete process.env.DARE_ADAPTER;
     }
@@ -353,9 +353,9 @@ describe('DareAgentService', () => {
       'utf8',
     );
     // Isolate from real env to avoid getCatModel() short-circuiting workspace display
-    const oldOverride = process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    const oldOverride = process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     const oldCatModel = process.env.CAT_DARE_MODEL;
-    delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     delete process.env.CAT_DARE_MODEL;
     try {
       const service = new DareAgentService({ catId: 'dare', spawnFn, darePath: '/opt/dare' });
@@ -368,8 +368,8 @@ describe('DareAgentService', () => {
       assert.strictEqual(textMsg.metadata.provider, 'dare');
       assert.strictEqual(textMsg.metadata.model, 'huawei-modelarts/glm-5');
     } finally {
-      if (oldOverride !== undefined) process.env.CAT_CAFE_DARE_MODEL_OVERRIDE = oldOverride;
-      else delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+      if (oldOverride !== undefined) process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE = oldOverride;
+      else delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
       if (oldCatModel !== undefined) process.env.CAT_DARE_MODEL = oldCatModel;
       else delete process.env.CAT_DARE_MODEL;
     }
@@ -552,7 +552,7 @@ describe('DareAgentService', () => {
     const promise = collect(
       service.invoke('Test adapter override', {
         callbackEnv: {
-          CAT_CAFE_DARE_ADAPTER: 'huawei-modelarts',
+          OFFICE_CLAW_DARE_ADAPTER: 'huawei-modelarts',
           DARE_API_KEY: 'sk-modelarts',
         },
       }),
@@ -663,7 +663,7 @@ describe('DareAgentService', () => {
       model: 'test/model',
       mcpServerPath: '/opt/mcp/dist/index.js',
     });
-    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    const promise = collect(service.invoke('Test', { callbackEnv: { OFFICE_CLAW_API_URL: 'http://localhost:3004' } }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     await promise;
 
@@ -783,9 +783,9 @@ describe('DareAgentService', () => {
   test('passes --model from getCatModel() fallback when no explicit override (regression)', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const oldOverride = process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    const oldOverride = process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     const oldCatModel = process.env.CAT_DARE_MODEL;
-    delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     process.env.CAT_DARE_MODEL = 'glm-5';
 
     try {
@@ -805,8 +805,8 @@ describe('DareAgentService', () => {
       assert.ok(modelIdx >= 0, `expected --model in args: ${args}`);
       assert.strictEqual(args[modelIdx + 1], 'glm-5');
     } finally {
-      if (oldOverride !== undefined) process.env.CAT_CAFE_DARE_MODEL_OVERRIDE = oldOverride;
-      else delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+      if (oldOverride !== undefined) process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE = oldOverride;
+      else delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
       if (oldCatModel !== undefined) process.env.CAT_DARE_MODEL = oldCatModel;
       else delete process.env.CAT_DARE_MODEL;
     }
@@ -894,9 +894,9 @@ describe('DareAgentService', () => {
   test('injects DARE_CONTEXT_WINDOW_TOKENS for provider-qualified huawei-modelarts/glm-5', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const oldOverride = process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    const oldOverride = process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     const oldCatModel = process.env.CAT_DARE_MODEL;
-    delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+    delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
     process.env.CAT_DARE_MODEL = 'huawei-modelarts/glm-5';
 
     try {
@@ -914,8 +914,8 @@ describe('DareAgentService', () => {
       const tokenBudget = Number(opts.env.DARE_CONTEXT_WINDOW_TOKENS);
       assert.strictEqual(tokenBudget, Math.floor(196_608 * 0.85));
     } finally {
-      if (oldOverride !== undefined) process.env.CAT_CAFE_DARE_MODEL_OVERRIDE = oldOverride;
-      else delete process.env.CAT_CAFE_DARE_MODEL_OVERRIDE;
+      if (oldOverride !== undefined) process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE = oldOverride;
+      else delete process.env.OFFICE_CLAW_DARE_MODEL_OVERRIDE;
       if (oldCatModel !== undefined) process.env.CAT_DARE_MODEL = oldCatModel;
       else delete process.env.CAT_DARE_MODEL;
     }
@@ -972,7 +972,7 @@ describe('DareAgentService', () => {
       model: 'test/model',
       mcpServerPath: join(tmpMcp, 'index.js'),
     });
-    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    const promise = collect(service.invoke('Test', { callbackEnv: { OFFICE_CLAW_API_URL: 'http://localhost:3004' } }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     await promise;
 
@@ -999,7 +999,7 @@ describe('DareAgentService', () => {
       model: 'test/model',
       mcpServerPath: join(tmpMcp, 'index.js'),
     });
-    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    const promise = collect(service.invoke('Test', { callbackEnv: { OFFICE_CLAW_API_URL: 'http://localhost:3004' } }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     await promise;
 
@@ -1021,7 +1021,7 @@ describe('DareAgentService', () => {
       model: 'test/model',
       mcpServerPath: '/opt/mcp/dist/custom-entry.js',
     });
-    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    const promise = collect(service.invoke('Test', { callbackEnv: { OFFICE_CLAW_API_URL: 'http://localhost:3004' } }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     await promise;
 
@@ -1060,7 +1060,7 @@ describe('DareAgentService', () => {
       model: 'test/model',
       mcpServerPath: mcpFile,
     });
-    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    const promise = collect(service.invoke('Test', { callbackEnv: { OFFICE_CLAW_API_URL: 'http://localhost:3004' } }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     await promise;
 
@@ -1109,7 +1109,7 @@ describe('DareAgentService', () => {
       model: 'test/model',
       mcpServerPath: mcpFile,
     });
-    const promise = collect(service.invoke('Test', { callbackEnv: { CAT_CAFE_API_URL: 'http://localhost:3004' } }));
+    const promise = collect(service.invoke('Test', { callbackEnv: { OFFICE_CLAW_API_URL: 'http://localhost:3004' } }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     await promise;
 
@@ -1161,21 +1161,21 @@ describe('resolveVendorDarePath (F135)', () => {
     assert.ok(isAbsolute(result), `expected absolute path, got: ${result}`);
   });
 
-  test('honors CAT_CAFE_CONFIG_ROOT when process.cwd() changes', () => {
+  test('honors OFFICE_CLAW_CONFIG_ROOT when process.cwd() changes', () => {
     const originalCwd = process.cwd();
-    const originalConfigRoot = process.env.CAT_CAFE_CONFIG_ROOT;
-    process.env.CAT_CAFE_CONFIG_ROOT = originalCwd;
+    const originalConfigRoot = process.env.OFFICE_CLAW_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_CONFIG_ROOT = originalCwd;
     const result1 = resolveVendorDarePath();
     process.chdir(tmpdir());
     try {
       const result2 = resolveVendorDarePath();
-      assert.strictEqual(result1, result2, 'resolveVendorDarePath must honor CAT_CAFE_CONFIG_ROOT');
+      assert.strictEqual(result1, result2, 'resolveVendorDarePath must honor OFFICE_CLAW_CONFIG_ROOT');
     } finally {
       process.chdir(originalCwd);
       if (originalConfigRoot === undefined) {
-        delete process.env.CAT_CAFE_CONFIG_ROOT;
+        delete process.env.OFFICE_CLAW_CONFIG_ROOT;
       } else {
-        process.env.CAT_CAFE_CONFIG_ROOT = originalConfigRoot;
+        process.env.OFFICE_CLAW_CONFIG_ROOT = originalConfigRoot;
       }
     }
   });

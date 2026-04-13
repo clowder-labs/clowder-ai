@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { normalizeRichBlock } from '@cat-cafe/shared';
+import { normalizeRichBlock } from '@office-claw/shared';
 
 describe('F096: normalizeRichBlock — interactive kind', () => {
   it('T1: type→kind alias works for interactive', () => {

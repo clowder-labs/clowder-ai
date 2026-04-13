@@ -24,7 +24,7 @@
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { type CatId, createCatId } from '@cat-cafe/shared';
+import { type CatId, createCatId } from '@office-claw/shared';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
@@ -84,7 +84,7 @@ export class GeminiAgentService implements AgentService {
   }
 
   private async *invokeGeminiCLI(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
-    const effectiveModel = options?.callbackEnv?.CAT_CAFE_GEMINI_MODEL_OVERRIDE ?? this.model;
+    const effectiveModel = options?.callbackEnv?.OFFICE_CLAW_GEMINI_MODEL_OVERRIDE ?? this.model;
     const metadata: MessageMetadata = { provider: 'google', model: effectiveModel };
 
     // Gemini CLI has no system prompt flag; prepend identity to prompt text
@@ -160,7 +160,7 @@ export class GeminiAgentService implements AgentService {
           yield {
             type: 'error',
             catId: this.catId,
-            error: `暹罗猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
+            error: `Gemini CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s${event.firstEventAt == null ? ', 未收到首帧' : ''})`,
             metadata,
             timestamp: Date.now(),
           };
@@ -348,7 +348,7 @@ export class GeminiAgentService implements AgentService {
     yield {
       type: 'text',
       catId: this.catId,
-      content: '暹罗猫已在 Antigravity 中开始工作，结果将通过 MCP 回传到对话中。',
+      content: 'Gemini 已在 Antigravity 中开始工作，结果将通过 MCP 回传到对话中。',
       metadata: agMetadata,
       timestamp: Date.now(),
     };

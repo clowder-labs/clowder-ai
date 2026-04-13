@@ -66,7 +66,7 @@ function makeTemplate() {
 function createProjectRoot() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'config-owner-route-'));
   tempDirs.push(projectRoot);
-  writeFileSync(join(projectRoot, 'cat-template.json'), JSON.stringify(makeTemplate(), null, 2));
+  writeFileSync(join(projectRoot, 'office-claw-template.json'), JSON.stringify(makeTemplate(), null, 2));
   return projectRoot;
 }
 
@@ -91,7 +91,7 @@ describe('PATCH /api/config/co-creator', () => {
   it('persists owner identity fields into the runtime catalog and returns updated snapshot', async () => {
     const projectRoot = createProjectRoot();
     savedTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     app = Fastify();
     await app.register(configRoutes, { projectRoot });
@@ -102,7 +102,7 @@ describe('PATCH /api/config/co-creator', () => {
       url: '/api/config/co-creator',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       payload: {
         name: 'Lang',
@@ -125,7 +125,7 @@ describe('PATCH /api/config/co-creator', () => {
   it('rejects owner mention patterns that overlap cat aliases', async () => {
     const projectRoot = createProjectRoot();
     savedTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     app = Fastify();
     await app.register(configRoutes, { projectRoot });
@@ -136,7 +136,7 @@ describe('PATCH /api/config/co-creator', () => {
       url: '/api/config/co-creator',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       payload: {
         name: 'Co-worker',

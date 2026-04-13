@@ -132,7 +132,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/game/${runtime.gameId}/action`,
-      headers: { 'x-cat-id': 'wrong-cat', 'x-cat-cafe-user': THREAD_OWNER },
+      headers: { 'x-cat-id': 'wrong-cat', 'x-office-claw-user': THREAD_OWNER },
       payload: {
         round: runtime.round,
         phase: runtime.currentPhase,
@@ -162,7 +162,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/game/${runtime.gameId}/action`,
-      headers: { 'x-cat-id': seat.actorId, 'x-cat-cafe-user': THREAD_OWNER },
+      headers: { 'x-cat-id': seat.actorId, 'x-office-claw-user': THREAD_OWNER },
       payload: {
         round: runtime.round,
         phase,
@@ -188,7 +188,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/game/${runtime.gameId}/action`,
-      headers: { 'x-cat-id': seat.actorId, 'x-cat-cafe-user': THREAD_OWNER },
+      headers: { 'x-cat-id': seat.actorId, 'x-office-claw-user': THREAD_OWNER },
       payload: {
         round: runtime.round,
         phase,
@@ -206,7 +206,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/game/non-existent/action',
-      headers: { 'x-cat-id': 'opus', 'x-cat-cafe-user': THREAD_OWNER },
+      headers: { 'x-cat-id': 'opus', 'x-office-claw-user': THREAD_OWNER },
       payload: {
         round: 1,
         phase: 'night_wolf',
@@ -224,7 +224,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/game/${runtime.gameId}/action`,
-      headers: { 'x-cat-id': seat.actorId, 'x-cat-cafe-user': THREAD_OWNER },
+      headers: { 'x-cat-id': seat.actorId, 'x-office-claw-user': THREAD_OWNER },
       payload: {
         round: 99,
         phase: runtime.currentPhase,
@@ -238,7 +238,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     assert.match(res.json().error, /Round mismatch/);
   });
 
-  it('rejects request without x-cat-cafe-user header (401)', async () => {
+  it('rejects request without x-office-claw-user header (401)', async () => {
     const seat = runtime.seats[0];
     const res = await app.inject({
       method: 'POST',
@@ -254,7 +254,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
       },
     });
     assert.equal(res.statusCode, 401);
-    assert.match(res.json().error, /x-cat-cafe-user/);
+    assert.match(res.json().error, /X-Office-Claw-User/);
   });
 
   it('rejects when userId does not own the game thread (403)', async () => {
@@ -262,7 +262,7 @@ describe('POST /api/game/:gameId/action — catId enforcement', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/game/${runtime.gameId}/action`,
-      headers: { 'x-cat-id': seat.actorId, 'x-cat-cafe-user': 'intruder-user' },
+      headers: { 'x-cat-id': seat.actorId, 'x-office-claw-user': 'intruder-user' },
       payload: {
         round: runtime.round,
         phase: runtime.currentPhase,
@@ -331,7 +331,7 @@ describe('POST /api/game/:gameId/action — actionNotifier integration', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/game/${runtime.gameId}/action`,
-      headers: { 'x-cat-id': seat.actorId, 'x-cat-cafe-user': THREAD_OWNER },
+      headers: { 'x-cat-id': seat.actorId, 'x-office-claw-user': THREAD_OWNER },
       payload: {
         round: runtime.round,
         phase,
@@ -353,7 +353,7 @@ describe('POST /api/game/:gameId/action — actionNotifier integration', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/game/${runtime.gameId}/action`,
-      headers: { 'x-cat-id': 'wrong-cat', 'x-cat-cafe-user': THREAD_OWNER },
+      headers: { 'x-cat-id': 'wrong-cat', 'x-office-claw-user': THREAD_OWNER },
       payload: {
         round: runtime.round,
         phase: runtime.currentPhase,

@@ -1,5 +1,5 @@
 {
-  "name": "@cat-cafe/web",
+  "name": "@office-claw/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,7 @@
     "test": "node ../../node_modules/vitest/vitest.mjs run --configLoader runner"
   },
   "dependencies": {
-    "@cat-cafe/shared": "workspace:*",
+    "@office-claw/shared": "workspace:*",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/lang-javascript": "^6.2.5",

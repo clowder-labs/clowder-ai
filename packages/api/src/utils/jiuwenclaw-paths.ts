@@ -23,7 +23,7 @@ export function resolveVendoredJiuwenClawExecutable(): string {
 }
 
 export function resolveJiuwenClawAppDir(explicitAppDir?: string): string {
-  const configured = explicitAppDir?.trim() || process.env.CAT_CAFE_RELAYCLAW_APP_DIR?.trim();
+  const configured = explicitAppDir?.trim() || process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR?.trim();
   if (configured) return configured;
 
   const vendored = resolveVendoredJiuwenClawAppDir();
@@ -33,13 +33,13 @@ export function resolveJiuwenClawAppDir(explicitAppDir?: string): string {
 }
 
 export function resolveJiuwenClawExecutable(explicitExecutable?: string): string {
-  const configured = explicitExecutable?.trim() || process.env.CAT_CAFE_RELAYCLAW_EXE?.trim();
+  const configured = explicitExecutable?.trim() || process.env.OFFICE_CLAW_RELAYCLAW_EXE?.trim();
   if (configured) return configured;
   return resolveVendoredJiuwenClawExecutable();
 }
 
 export function resolveJiuwenClawPythonBin(explicitPython?: string, appDir?: string): string {
-  const configured = explicitPython?.trim() || process.env.CAT_CAFE_RELAYCLAW_PYTHON?.trim();
+  const configured = explicitPython?.trim() || process.env.OFFICE_CLAW_RELAYCLAW_PYTHON?.trim();
   if (configured) return configured;
 
   const resolvedAppDir = resolveJiuwenClawAppDir(appDir);

@@ -4,14 +4,10 @@
  *
  */
 
-import { BootcampIcon } from './icons/BootcampIcon';
-
 interface ChatEmptyStateProps {
-  bootcampCount: number;
-  isCurrentBootcampThread: boolean;
-  onOpenBootcampList: () => void;
   onAgentsClick?: () => void;
   onChannelsClick?: () => void;
+  fillAvailableHeight?: boolean;
 }
 
 interface EmptyStateCard {
@@ -21,8 +17,6 @@ interface EmptyStateCard {
   imageSrc: string;
   imageAlt: string;
 }
-
-const SHOW_BOOTCAMP_ENTRY = false;
 
 const heroCards: EmptyStateCard[] = [
   {
@@ -42,13 +36,14 @@ const heroCards: EmptyStateCard[] = [
 ];
 
 export function ChatEmptyState({
-  bootcampCount,
-  isCurrentBootcampThread,
-  onOpenBootcampList,
   onAgentsClick,
   onChannelsClick,
+  fillAvailableHeight = false,
 }: ChatEmptyStateProps) {
-  const shouldShowBootcampEntry = SHOW_BOOTCAMP_ENTRY && !isCurrentBootcampThread;
+  const sectionClassName = fillAvailableHeight ? 'w-[80%]' : 'min-h-full px-4 py-10 sm:px-6';
+  const contentClassName = fillAvailableHeight
+    ? 'mx-auto flex w-full max-w-4xl items-center justify-center'
+    : 'mx-auto flex min-h-[calc(100vh-21rem)] max-w-4xl items-center justify-center';
 
   const handleCardClick = (cardId: EmptyStateCard['id']) => {
     if (cardId === 'agents') {
@@ -60,8 +55,8 @@ export function ChatEmptyState({
   };
 
   return (
-    <section className="min-h-full px-4 py-10 sm:px-6" data-testid="chat-empty-state">
-      <div className="mx-auto flex min-h-[calc(100vh-21rem)] max-w-4xl items-center justify-center">
+    <section className={sectionClassName} data-testid="chat-empty-state">
+      <div className={contentClassName}>
         <div className="w-full text-center">
           <div className="mx-auto max-w-2xl">
             <h2 className="mx-auto flex w-fit flex-wrap items-center justify-center gap-2 text-[34px] font-semibold leading-tight tracking-[-0.03em] text-[#1F1F24] sm:text-[36px]">
@@ -72,7 +67,7 @@ export function ChatEmptyState({
                 className="h-[60px] w-auto shrink-0"
               />
             </h2>
-            <p className="mx-auto mt-2 max-w-xl text-[20px] font-normal leading-[30px] text-[#191919]">
+            <p className="mx-auto mt-[8px] max-w-xl text-[20px] font-normal leading-[30px] text-[#191919]">
               AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
             </p>
           </div>
@@ -99,28 +94,6 @@ export function ChatEmptyState({
             ))}
           </div>
 
-          {shouldShowBootcampEntry &&
-            (bootcampCount > 0 ? (
-              <button
-                type="button"
-                onClick={onOpenBootcampList}
-                className="mt-8 inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
-                data-testid="empty-state-bootcamp-list"
-              >
-                <BootcampIcon className="h-4 w-4" />
-                我的训练营（{bootcampCount}）
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onOpenBootcampList}
-                className="mt-8 inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
-                data-testid="empty-state-bootcamp"
-              >
-                <BootcampIcon className="h-4 w-4" />
-                第一次来？开始训练营
-              </button>
-            ))}
         </div>
       </div>
     </section>

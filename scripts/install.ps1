@@ -127,8 +127,8 @@ if (-not $gitCommand) {
 $ProjectRoot = Resolve-ProjectRoot
 $authState = New-InstallerAuthState -ProjectRoot $ProjectRoot
 
-if ($env:CAT_CAFE_NPM_REGISTRY) {
-    $env:NPM_CONFIG_REGISTRY = $env:CAT_CAFE_NPM_REGISTRY.Trim()
+if ($env:OFFICE_CLAW_NPM_REGISTRY) {
+    $env:NPM_CONFIG_REGISTRY = $env:OFFICE_CLAW_NPM_REGISTRY.Trim()
     Write-Ok "npm registry override: $($env:NPM_CONFIG_REGISTRY)"
 }
 
@@ -343,7 +343,7 @@ Write-Step "Step 6/9 - Skills mount"
 Mount-InstallerSkills -ProjectRoot $ProjectRoot
 
 Write-Step "Step 7/9 - AI CLI tools"
-Write-Host "  Custom install — no external CLI tools required"
+Write-Host "  Custom install - no external CLI tools required"
 Write-Ok "Skipped (dare/jiuwen use vendored runtimes)"
 
 $dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot

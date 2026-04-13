@@ -6,7 +6,7 @@
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from '@cat-cafe/shared';
+import type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from '@office-claw/shared';
 
 export interface WhisperSttProviderOptions {
   baseUrl?: string;

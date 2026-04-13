@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import {
   bootstrapDebugFromStorage,
@@ -18,7 +18,6 @@ import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
-import { reconnectGame } from './useGameReconnect';
 import {
   type BackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
@@ -229,7 +228,7 @@ function reconcileInvocationStateOnReconnect(activeThreadId: string | null): voi
   }, RECONNECT_RECONCILE_DELAY_MS);
 }
 
-export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
+export function useSocket(callbacks: SocketCallbacks, threadId?: string, watchedThreadIds: string[] = []) {
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
@@ -250,6 +249,19 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const persistJoinedRooms = useCallback(() => {
     saveJoinedRoomsToSession(userIdRef.current, joinedRoomsRef.current);
   }, []);
+
+  const normalizedWatchedThreadIds = useMemo(() => {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const rawId of watchedThreadIds) {
+      if (typeof rawId !== 'string') continue;
+      const id = rawId.trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+    }
+    return ids;
+  }, [watchedThreadIds]);
 
   useEffect(() => {
     userIdRef.current = getUserId();
@@ -278,6 +290,9 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
+      auth: {
+        userId: userIdRef.current,
+      },
     });
 
     const getTransportName = () => {
@@ -341,11 +356,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         threadId: tid ?? undefined,
         queueLength: rejoinedRooms.length,
       });
-
-      // F101: Recover game state on reconnect
-      if (tid) {
-        reconnectGame(tid).catch(() => {});
-      }
 
       // Reconnect reconciliation: verify invocation state against server truth.
       // Socket disconnect can lose done(isFinal) events, leaving stale "replying" UI.
@@ -741,12 +751,17 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     [persistJoinedRooms],
   );
 
-  // Automatically ensure active thread room is joined when threadId changes
+  // Add the active thread plus any background threads whose updates must be
+  // reflected in the UI (e.g. unread badges). This stays additive on purpose:
+  // persisted room memberships still help during refresh/reconnect windows.
   useEffect(() => {
     if (threadId) {
       joinRoom(threadId);
     }
-  }, [threadId, joinRoom]);
+    for (const watchedThreadId of normalizedWatchedThreadIds) {
+      joinRoom(watchedThreadId);
+    }
+  }, [threadId, normalizedWatchedThreadIds, joinRoom]);
 
   const cancelInvocation = useCallback((tid: string) => {
     socketRef.current?.emit('cancel_invocation', { threadId: tid });

@@ -9,8 +9,8 @@
  * All cats respond independently to the same message.
  */
 
-import type { CatConfig, CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import type { CatConfig, CatId } from '@office-claw/shared';
+import { CAT_CONFIGS, catRegistry, getFriendlyAgentErrorMessage, classifyError } from '@office-claw/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
@@ -73,7 +73,7 @@ export async function* routeParallel(
   } = options;
   const thinkingMode = options.thinkingMode ?? 'play';
   // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
-  const mcpServerPath = process.env.CAT_CAFE_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
+  const mcpServerPath = process.env.OFFICE_CLAW_MCP_SERVER_PATH || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
   const degradationMsgs: AgentMessage[] = [];
@@ -318,9 +318,10 @@ export async function* routeParallel(
   const catSawUserFacingSystemInfo = new Map<string, boolean>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
   // F060: Collect inline rich blocks per cat from system_info stream
-  const catStreamRichBlocks = new Map<string, import('@cat-cafe/shared').RichBlock[]>();
+  const catStreamRichBlocks = new Map<string, import('@office-claw/shared').RichBlock[]>();
   const catErrorText = new Map<string, string>();
   const catHadError = new Set<string>();
+  const catErrorTransformed = new Set<string>(); // Track which cats had errors transformed
   // F22 R2 P1-1: Capture own invocationId per cat from stream
   const catInvocationId = new Map<string, string>();
   let completedCount = 0;
@@ -395,10 +396,49 @@ export async function* routeParallel(
     }
     if (msg.type === 'error' && msg.catId) {
       catHadError.add(msg.catId);
-      if (msg.error) {
+      const rawError = msg.error ?? '';
+
+      // 收集原始错误（用于日志/审计）
+      if (rawError) {
         const prev = catErrorText.get(msg.catId) ?? '';
-        catErrorText.set(msg.catId, `${prev}${prev ? '\n' : ''}${msg.error}`);
+        catErrorText.set(msg.catId, `${prev}${prev ? '\n' : ''}${rawError}`);
       }
+
+      // ✨ 转换为友好的 text 消息
+      const errorKind = classifyError(rawError);
+      const friendlyMessage = getFriendlyAgentErrorMessage({
+        catId: msg.catId,
+        error: rawError,
+        errorCode: msg.errorCode,
+        metadata: msg.metadata,
+      });
+
+      // 累积到 catText（和正常 text 一样，用于持久化）
+      const prevText = catText.get(msg.catId) ?? '';
+      catText.set(msg.catId, prevText + friendlyMessage);
+      catErrorTransformed.add(msg.catId); // 标记已转换
+
+      // 构造转换后的消息
+      const transformedMsg = {
+        type: 'text' as const,
+        catId: msg.catId,
+        content: friendlyMessage,
+        timestamp: msg.timestamp,
+        metadata: msg.metadata,
+        origin: 'stream' as const,
+        extra: {
+          errorFallback: {
+            v: 1 as const,
+            kind: errorKind,
+            rawError,
+            timestamp: msg.timestamp,
+          },
+        },
+      };
+
+      // yield 转换后的消息（而不是原始 error）
+      yield transformedMsg;
+      continue; // ✅ 跳过后面的逻辑
     }
     // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
     // state — mark catHadError so we don't fall through to silent_completion.
@@ -792,24 +832,40 @@ export async function* routeParallel(
         }
       }
 
-      // Persist error as system message so it survives F5 reload but does NOT
-      // re-enter the prompt as a cat message (aligned with route-serial.ts).
-      // Previously errors were mixed into catText and persisted with userId=user,
-      // which polluted the conversation history and caused "context poisoning".
+      // 降级逻辑：仅在错误未被流式循环转换时触发
+      // 这种情况理论上不应该发生，但保留作为安全网
       const errorText = catErrorText.get(msg.catId);
-      if (errorText) {
+      if (errorText && !catErrorTransformed.has(msg.catId)) {
+        log.warn(
+          { catId: msg.catId, errorText },
+          'Error not transformed in stream loop — fallback persistence',
+        );
+        const errorKind = classifyError(errorText);
+        const friendlyMessage = getFriendlyAgentErrorMessage({
+          catId: msg.catId,
+          error: errorText,
+        });
+
         try {
           await deps.messageStore.append({
-            userId: 'system',
-            catId: null,
-            content: `Error: ${errorText}`,
+            userId, // ← 改为 userId（而非 'system'）
+            catId: msg.catId, // ← 改为 catId（而非 null）
+            content: friendlyMessage, // ← 友好消息（而非 "Error: ..."）
             mentions: [],
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
+            extra: {
+              errorFallback: {
+                v: 1,
+                kind: errorKind,
+                rawError: errorText,
+                timestamp: Date.now(),
+              },
+            },
           });
         } catch (err) {
-          log.error({ catId: msg.catId, err }, 'messageStore.append (error system msg) failed');
+          log.error({ catId: msg.catId, err }, 'messageStore.append (error fallback) failed');
         }
       }
 

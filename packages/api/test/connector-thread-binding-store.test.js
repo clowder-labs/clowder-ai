@@ -46,6 +46,17 @@ describe('MemoryConnectorThreadBindingStore', () => {
     assert.equal(store.getByExternal('feishu', 'chat-123')?.threadId, 'thread-new');
   });
 
+  it('bind() preserves hubThreadId when rebinding same connector+externalChatId', () => {
+    store.bind('feishu', 'chat-123', 'thread-old', 'user-1');
+    store.setHubThread('feishu', 'chat-123', 'hub-thread-1');
+
+    store.bind('feishu', 'chat-123', 'thread-new', 'user-1');
+
+    const updated = store.getByExternal('feishu', 'chat-123');
+    assert.equal(updated?.threadId, 'thread-new');
+    assert.equal(updated?.hubThreadId, 'hub-thread-1');
+  });
+
   it('remove() deletes a binding', () => {
     store.bind('feishu', 'chat-123', 'thread-abc', 'user-1');
     assert.equal(store.remove('feishu', 'chat-123'), true);

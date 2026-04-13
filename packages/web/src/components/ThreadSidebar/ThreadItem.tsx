@@ -38,10 +38,29 @@ export interface ThreadItemProps {
 type ContextMenuState = {
   x: number;
   y: number;
-  anchorX: number;
-  anchorY: number;
-  arrowY: number;
+  anchorLeft: number;
+  anchorTop: number;
+  anchorBottom: number;
 };
+
+function resolveMoreMenuAnchor(container: HTMLDivElement, fallbackEvent?: MouseEvent) {
+  const moreButton = container.querySelector<HTMLButtonElement>('button[aria-label="更多操作"]');
+  if (moreButton) {
+    const rect = moreButton.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return { left: rect.left, top: rect.top, bottom: rect.bottom };
+    }
+  }
+
+  const rowRect = container.getBoundingClientRect();
+  const fallbackLeft = rowRect.right - 28;
+  const fallbackTop = rowRect.top + rowRect.height * 0.62;
+  const fallbackBottom = fallbackTop + 16;
+  if (fallbackEvent) {
+    return { left: fallbackLeft, top: fallbackTop, bottom: fallbackBottom, x: fallbackEvent.clientX, y: fallbackEvent.clientY };
+  }
+  return { left: fallbackLeft, top: fallbackTop, bottom: fallbackBottom };
+}
 
 function getMentionedCatIdsFromMessages(
   messages: ThreadState['messages'] | undefined,
@@ -74,30 +93,52 @@ function getMentionedCatIdsFromMessages(
   return ids;
 }
 
+function getRecentAssistantCatIdsFromMessages(
+  messages: ThreadState['messages'] | undefined,
+  getCatById: (id: string) => unknown,
+): string[] {
+  if (!messages?.length) return [];
+
+  const ids: string[] = [];
+  const seen = new Set<string>();
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    const catId = message?.type === 'assistant' ? message.catId : undefined;
+    if (!catId) continue;
+    if (seen.has(catId)) continue;
+    if (!getCatById(catId)) continue;
+    seen.add(catId);
+    ids.push(catId);
+  }
+
+  return ids;
+}
+
 function normalizeTitleMentions(
   title: string,
   cats: Array<{ id: string; displayName: string; mentionPatterns: string[] }>,
 ): string {
   const mentionLabel = getMentionLabel();
-  const aliasToLabel: Record<string, string> = { ...mentionLabel };
+  const knownAliases = new Set<string>(Object.keys(mentionLabel).map((alias) => alias.toLowerCase()));
 
   for (const cat of cats) {
     const display = cat.displayName.trim();
     if (!display) continue;
-    const label = display.startsWith('@') ? display : `@${display}`;
-    aliasToLabel[cat.id.toLowerCase()] = label;
-    aliasToLabel[display.replace(/^@/, '').toLowerCase()] = label;
+    knownAliases.add(cat.id.toLowerCase());
+    knownAliases.add(display.replace(/^@/, '').toLowerCase());
     for (const pattern of cat.mentionPatterns) {
       const alias = pattern.replace(/^@/, '').trim().toLowerCase();
-      if (alias) aliasToLabel[alias] = label;
+      if (alias) knownAliases.add(alias);
     }
   }
 
   const tokenRe = /@([^\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]+)/g;
-  return title.replace(tokenRe, (fullMatch: string, alias: string) => {
-    const mapped = aliasToLabel[alias.toLowerCase()];
-    return mapped ?? fullMatch;
-  });
+  return title
+    .replace(tokenRe, (fullMatch: string, alias: string) => (knownAliases.has(alias.toLowerCase()) ? '' : fullMatch))
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.:;!?，。！？、：；])/g, '$1')
+    .trim();
 }
 
 function resolveThreadFallbackAvatar(
@@ -176,43 +217,29 @@ export function ThreadItem({
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return;
     const viewportPadding = 8;
-    const anchorGap = 10;
+    const anchorGap = 6;
     const rect = menuRef.current.getBoundingClientRect();
     const maxX = window.innerWidth - rect.width - viewportPadding;
     const nextX = Math.min(
-      Math.max(contextMenu.anchorX + anchorGap, viewportPadding),
+      Math.max(contextMenu.anchorLeft, viewportPadding),
       Math.max(viewportPadding, maxX),
     );
 
     const topBoundY = viewportPadding;
     const bottomBoundY = Math.max(viewportPadding, window.innerHeight - rect.height - viewportPadding);
-    const oneFifthOffset = rect.height * 0.2;
-    const fourFifthsOffset = rect.height * 0.8;
-    const arrowMargin = 18;
-    const clampedOneFifth = Math.min(
-      Math.max(oneFifthOffset, arrowMargin),
-      Math.max(arrowMargin, rect.height - arrowMargin),
-    );
-    const clampedFourFifths = Math.min(
-      Math.max(fourFifthsOffset, arrowMargin),
-      Math.max(arrowMargin, rect.height - arrowMargin),
-    );
-
-    const oneFifthRawY = contextMenu.anchorY - clampedOneFifth;
-    const fourFifthsRawY = contextMenu.anchorY - clampedFourFifths;
-    const oneFifthWouldOverflowBottom = oneFifthRawY + rect.height > window.innerHeight - viewportPadding;
-    const useOneFifth = !oneFifthWouldOverflowBottom;
-    const targetRawY = useOneFifth ? oneFifthRawY : fourFifthsRawY;
-    const nextArrowY = useOneFifth ? clampedOneFifth : clampedFourFifths;
+    const preferredBelowY = contextMenu.anchorBottom + anchorGap;
+    const preferredAboveY = contextMenu.anchorTop - rect.height - anchorGap;
+    const fitsBelow = preferredBelowY + rect.height <= window.innerHeight - viewportPadding;
+    const targetRawY = fitsBelow ? preferredBelowY : preferredAboveY;
     const nextY = Math.min(Math.max(targetRawY, topBoundY), bottomBoundY);
 
-    if (nextX !== contextMenu.x || nextY !== contextMenu.y || nextArrowY !== contextMenu.arrowY) {
+    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
       setContextMenu({
         x: nextX,
         y: nextY,
-        anchorX: contextMenu.anchorX,
-        anchorY: contextMenu.anchorY,
-        arrowY: nextArrowY,
+        anchorLeft: contextMenu.anchorLeft,
+        anchorTop: contextMenu.anchorTop,
+        anchorBottom: contextMenu.anchorBottom,
       });
     }
   }, [contextMenu]);
@@ -241,26 +268,30 @@ export function ThreadItem({
 
   const rawTitle = title ?? (id === 'default' ? '大厅' : '未命名会话');
   const displayTitle = normalizeTitleMentions(rawTitle, cats);
+  const recentAssistantCatIds = getRecentAssistantCatIdsFromMessages(threadState?.messages, getCatById);
+  const recentAssistantNames = recentAssistantCatIds.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
-  const description = participantNames || (isHubThread ? 'Hub 会话' : '暂无会话描述');
+  const description = recentAssistantNames || participantNames || (isHubThread ? 'Hub 会话' : '暂无智能体');
   const fallbackAvatarSrc = resolveThreadFallbackAvatar(cats);
   const mentionedCatIds = getMentionedCatIdsFromMessages(threadState?.messages, getCatById);
-  const avatarCatIds = Array.from(
+  const fallbackAvatarCatIds = Array.from(
     new Set(
-      [...participants, ...(threadState?.targetCats ?? []), ...(preferredCats ?? []), ...mentionedCatIds].filter(
+      [...(threadState?.targetCats ?? []), ...participants, ...(preferredCats ?? []), ...mentionedCatIds].filter(
         (catId) => !!catId && !!getCatById(catId),
       ),
     ),
-  ).slice(0, 4);
+  );
+  const avatarCatIds = (recentAssistantCatIds.length > 0 ? recentAssistantCatIds : fallbackAvatarCatIds).slice(0, 4);
   const contextMenuItemClass =
-    'block w-full whitespace-nowrap px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none';
-  const openContextMenu = useCallback((clientX: number, clientY: number, anchorY?: number) => {
+    'block w-full whitespace-nowrap rounded-[4px] px-3 py-2 text-left text-xs transition-colors hover:bg-[rgba(245,245,245,1)] hover:text-[#191919] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:text-[#191919] focus-visible:outline-none';
+  const isContextMenuOpen = contextMenu !== null;
+  const openContextMenu = useCallback((anchorLeft: number, anchorTop: number, anchorBottom: number) => {
     setContextMenu({
-      x: clientX + 10,
-      y: clientY + 10,
-      anchorX: clientX,
-      anchorY: anchorY ?? clientY,
-      arrowY: 16,
+      x: anchorLeft,
+      y: anchorBottom + 6,
+      anchorLeft,
+      anchorTop,
+      anchorBottom,
     });
   }, []);
 
@@ -273,8 +304,8 @@ export function ThreadItem({
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        const itemRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-        openContextMenu(e.clientX, e.clientY, itemRect.top + itemRect.height / 2);
+        const anchor = resolveMoreMenuAnchor(e.currentTarget, e.nativeEvent);
+        openContextMenu(anchor.left, anchor.top, anchor.bottom);
       }}
     >
       <div className="flex items-center gap-[10px]">
@@ -332,7 +363,7 @@ export function ThreadItem({
           )}
           {showUnreadBadge && (
             <span
-              className="absolute -right-1 border -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF3B30] px-1 text-[10px] font-medium leading-none text-white"
+              className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#FF3B30] px-1 text-[10px] font-medium leading-none text-white"
               aria-label={`未读消息 ${unreadCount}`}
             >
               {unreadLabel}
@@ -352,22 +383,24 @@ export function ThreadItem({
             )}
           </div>
           <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="block min-w-0 flex-1 truncate text-[12px] text-[#808080]">{description}</span>
+            <OverflowTooltip content={description} className="min-w-0 flex-1">
+              <span className="block min-w-0 truncate text-[12px] text-[#808080]">{description}</span>
+            </OverflowTooltip>
             <div className="flex shrink-0 items-center gap-1.5">
-              <span className="ui-thread-meta shrink-0 text-[#808080] group-hover:hidden">
+              <span className={`ui-thread-meta shrink-0 text-[#808080] ${isContextMenuOpen ? 'hidden' : 'group-hover:hidden'}`}>
                 {formatRelativeTime(lastActiveAt, true)}
               </span>
               <button
                 type="button"
                 aria-label="更多操作"
                 className={`h-4 w-4 items-center justify-center rounded text-[#808080] hover:bg-[rgba(0,0,0,0.05)] ${
-                  contextMenu ? 'inline-flex' : 'hidden group-hover:inline-flex focus-visible:inline-flex'
+                  isContextMenuOpen ? 'inline-flex' : 'hidden group-hover:inline-flex focus-visible:inline-flex'
                 }`}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                  openContextMenu(rect.right, rect.top + rect.height / 2, rect.top + rect.height / 2);
+                  openContextMenu(rect.left, rect.top, rect.bottom);
                 }}
               >
                 <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -384,9 +417,9 @@ export function ThreadItem({
       {contextMenu && (
         <div
           ref={menuRef}
-          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-lg"
+          className="ui-overlay-card fixed z-50 inline-block w-[100px] rounded-[6px] py-2"
           data-testid="thread-context-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 2px 12px 0 rgba(0,0,0,0.16)' }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => {
             e.preventDefault();

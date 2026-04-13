@@ -15,7 +15,7 @@
  * PATCH /api/threads/:threadId/sessions/:catId/bind - Manual bind CLI session ID (#72)
  */
 
-import { type CatId, catRegistry } from '@cat-cafe/shared';
+import { type CatId, catRegistry } from '@office-claw/shared';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
@@ -90,7 +90,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { threadId } = request.params;
@@ -155,7 +155,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { sessionId } = request.params;
@@ -187,7 +187,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { sessionId } = request.params;
@@ -296,7 +296,7 @@ export async function sessionChainRoutes(app: FastifyInstance, opts: SessionChai
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { threadId, catId } = request.params;

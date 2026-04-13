@@ -5,6 +5,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -343,7 +344,10 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
     loadInstalledRegistry(roots.hostRoot),
   ]);
   const officialSkillNameSet = new Set(officialSkillNames);
-  const skillNames = [...officialSkillNames, ...userSkillNames.filter((name) => !officialSkillNameSet.has(name))];
+  const userSkillNameSet = new Set(userSkillNames);
+
+  const mergedOfficialSkillNameSet = new Set(officialSkillNames);
+  const skillNames = [...officialSkillNames, ...userSkillNames.filter((name) => !mergedOfficialSkillNameSet.has(name))];
 
   const installedByName = new Map(installedRegistry.skills.map((record) => [record.name, record]));
   const orderedNames: string[] = [];
@@ -364,7 +368,7 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
 
   const entries = await Promise.all(
     orderedNames.map(async (name): Promise<ResolvedSkillEntry> => {
-      const skillDir = officialSkillNameSet.has(name)
+      const skillDir = mergedOfficialSkillNameSet.has(name)
         ? join(roots.officialSkillsRoot, name)
         : join(roots.userSkillsRoot, name);
       const skillMarkdown = await readFile(join(skillDir, 'SKILL.md'), 'utf-8');

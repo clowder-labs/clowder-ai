@@ -81,8 +81,18 @@ function appendTextWithSkillPhrase(parts: ReactNode[], text: string, keyPrefix: 
   if (lastIdx < text.length) parts.push(text.slice(lastIdx));
 }
 
-function appendTextWithSkills(parts: ReactNode[], text: string, keyPrefix: string, skillNames: string[]): void {
+function appendTextWithSkills(
+  parts: ReactNode[],
+  text: string,
+  keyPrefix: string,
+  skillNames: string[],
+  enableSkillAndQuickActionTokens: boolean,
+): void {
   if (!text) return;
+  if (!enableSkillAndQuickActionTokens) {
+    parts.push(text);
+    return;
+  }
 
   const normalizedSkillNames = new Set(skillNames.map((name) => name.trim().toLowerCase()).filter(Boolean));
   let cursor = 0;
@@ -129,7 +139,11 @@ function appendTextWithSkills(parts: ReactNode[], text: string, keyPrefix: strin
   if (plainStart < text.length) parts.push(text.slice(plainStart));
 }
 
-function highlightMentionsAndSkills(text: string, skillNames: string[]): ReactNode[] {
+function highlightMentionsAndSkills(
+  text: string,
+  skillNames: string[],
+  enableSkillAndQuickActionTokens: boolean,
+): ReactNode[] {
   const parts: ReactNode[] = [];
   let lastIdx = 0;
   let m: RegExpExecArray | null;
@@ -142,7 +156,7 @@ function highlightMentionsAndSkills(text: string, skillNames: string[]): ReactNo
   re.lastIndex = 0;
   while ((m = re.exec(text)) !== null) {
     if (m.index > lastIdx) {
-      appendTextWithSkills(parts, text.slice(lastIdx, m.index), `p${m.index}`, skillNames);
+      appendTextWithSkills(parts, text.slice(lastIdx, m.index), `p${m.index}`, skillNames, enableSkillAndQuickActionTokens);
     }
     const catId = toCat[m[1].toLowerCase()] ?? 'opus';
     void colorMap[catId];
@@ -163,14 +177,18 @@ function highlightMentionsAndSkills(text: string, skillNames: string[]): ReactNo
     lastIdx = re.lastIndex;
   }
   if (lastIdx < text.length) {
-    appendTextWithSkills(parts, text.slice(lastIdx), `tail${lastIdx}`, skillNames);
+    appendTextWithSkills(parts, text.slice(lastIdx), `tail${lastIdx}`, skillNames, enableSkillAndQuickActionTokens);
   }
   return parts;
 }
 
-function withMentions(children: ReactNode, skillNames: string[]): ReactNode {
+function withMentions(
+  children: ReactNode,
+  skillNames: string[],
+  enableSkillAndQuickActionTokens: boolean,
+): ReactNode {
   return Children.map(children, (child) =>
-    typeof child === 'string' ? highlightMentionsAndSkills(child, skillNames) : child,
+    typeof child === 'string' ? highlightMentionsAndSkills(child, skillNames, enableSkillAndQuickActionTokens) : child,
   );
 }
 
@@ -301,41 +319,63 @@ function FilePathLink({
   );
 }
 
-function withMentionsAndLinks(children: ReactNode, skillNames: string[]): ReactNode {
+function withMentionsAndLinks(
+  children: ReactNode,
+  skillNames: string[],
+  enableSkillAndQuickActionTokens: boolean,
+): ReactNode {
   return Children.map(children, (child) => {
     if (typeof child !== 'string') return child;
     const linked = linkifyFilePaths(child);
     return (
       <>
         {linked.map((node, i) =>
-          typeof node === 'string' ? <span key={i}>{highlightMentionsAndSkills(node, skillNames)}</span> : node,
+          typeof node === 'string' ? (
+            <span key={i}>{highlightMentionsAndSkills(node, skillNames, enableSkillAndQuickActionTokens)}</span>
+          ) : (
+            node
+          ),
         )}
       </>
     );
   });
 }
 
-function createMdComponents(skillNames: string[]): Components {
+function createMdComponents(skillNames: string[], enableSkillAndQuickActionTokens: boolean): Components {
   return {
-    p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{withMentionsAndLinks(children, skillNames)}</p>,
-    strong: ({ children }) => <strong className="font-semibold">{withMentions(children, skillNames)}</strong>,
-    em: ({ children }) => <em>{withMentions(children, skillNames)}</em>,
-    del: ({ children }) => <del className="opacity-60">{withMentions(children, skillNames)}</del>,
+    p: ({ children }) => (
+      <p className="mb-2 last:mb-0 leading-relaxed">
+        {withMentionsAndLinks(children, skillNames, enableSkillAndQuickActionTokens)}
+      </p>
+    ),
+    strong: ({ children }) => (
+      <strong className="font-semibold">{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</strong>
+    ),
+    em: ({ children }) => <em>{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</em>,
+    del: ({ children }) => (
+      <del className="opacity-60">{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</del>
+    ),
 
-    h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0">{withMentions(children, skillNames)}</h1>,
-    h2: ({ children }) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0">{withMentions(children, skillNames)}</h2>,
-    h3: ({ children }) => <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0">{withMentions(children, skillNames)}</h3>,
+    h1: ({ children }) => (
+      <h1 className="text-lg font-bold mb-2 mt-3 first:mt-0">{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</h1>
+    ),
+    h2: ({ children }) => (
+      <h2 className="text-base font-bold mb-2 mt-3 first:mt-0">{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</h2>
+    ),
+    h3: ({ children }) => (
+      <h3 className="text-sm font-bold mb-1 mt-2 first:mt-0">{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</h3>
+    ),
 
     ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-0.5">{children}</ul>,
     ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-0.5">{children}</ol>,
-    li: ({ children }) => <li>{withMentions(children, skillNames)}</li>,
+    li: ({ children }) => <li>{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</li>,
 
     blockquote: ({ children }) => (
       <blockquote className="border-l-[3px] border-gray-300 pl-3 my-2 italic opacity-80">{children}</blockquote>
     ),
     a: ({ href, children }) => (
       <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
-        {withMentions(children, skillNames)}
+        {withMentions(children, skillNames, enableSkillAndQuickActionTokens)}
       </a>
     ),
     hr: () => <hr className="my-3 border-gray-200" />,
@@ -352,9 +392,13 @@ function createMdComponents(skillNames: string[]): Components {
     ),
     thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
     th: ({ children }) => (
-      <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-xs">{withMentions(children, skillNames)}</th>
+      <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-xs">
+        {withMentions(children, skillNames, enableSkillAndQuickActionTokens)}
+      </th>
     ),
-    td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{withMentions(children, skillNames)}</td>,
+    td: ({ children }) => (
+      <td className="border border-gray-300 px-2 py-1">{withMentions(children, skillNames, enableSkillAndQuickActionTokens)}</td>
+    ),
   };
 }
 
@@ -363,6 +407,7 @@ interface Props {
   className?: string;
   disableCommandPrefix?: boolean;
   basePath?: string;
+  enableSkillAndQuickActionTokens?: boolean;
 }
 
 export function isRelativeMdLink(href: string | undefined): href is string {
@@ -381,7 +426,13 @@ export function resolveRelativePath(base: string, relative: string): string {
   return parts.join('/');
 }
 
-export function MarkdownContent({ content, className, disableCommandPrefix, basePath }: Props) {
+export function MarkdownContent({
+  content,
+  className,
+  disableCommandPrefix,
+  basePath,
+  enableSkillAndQuickActionTokens = false,
+}: Props) {
   const [skillNames, setSkillNames] = useState<string[]>(() =>
     (getCachedSkillOptions() ?? []).map((item) => item.name),
   );
@@ -402,11 +453,11 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
   const md = cmdMatch ? content.slice(cmdMatch[1].length) : content;
 
   const components = useMemo(() => {
-    const baseComponents = createMdComponents(skillNames);
+    const baseComponents = createMdComponents(skillNames, enableSkillAndQuickActionTokens);
     return basePath != null
-      ? { ...baseComponents, a: createWorkspaceLinkComponent(basePath, skillNames) }
+      ? { ...baseComponents, a: createWorkspaceLinkComponent(basePath, skillNames, enableSkillAndQuickActionTokens) }
       : baseComponents;
-  }, [basePath, skillNames]);
+  }, [basePath, skillNames, enableSkillAndQuickActionTokens]);
 
   return (
     <div
@@ -421,7 +472,11 @@ export function MarkdownContent({ content, className, disableCommandPrefix, base
   );
 }
 
-function createWorkspaceLinkComponent(basePath: string, skillNames: string[]): Components['a'] {
+function createWorkspaceLinkComponent(
+  basePath: string,
+  skillNames: string[],
+  enableSkillAndQuickActionTokens: boolean,
+): Components['a'] {
   return function WorkspaceLink({ href, children }) {
     const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
 
@@ -437,14 +492,14 @@ function createWorkspaceLinkComponent(basePath: string, skillNames: string[]): C
           className="text-blue-500 hover:text-blue-400 hover:underline break-all cursor-pointer"
           title={`在工作区中打开 ${resolved}`}
         >
-          {withMentions(children, skillNames)}
+          {withMentions(children, skillNames, enableSkillAndQuickActionTokens)}
         </a>
       );
     }
 
     return (
       <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
-        {withMentions(children, skillNames)}
+        {withMentions(children, skillNames, enableSkillAndQuickActionTokens)}
       </a>
     );
   };

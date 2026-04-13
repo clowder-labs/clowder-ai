@@ -4,7 +4,7 @@
  *
  */
 
-import type { RelayClawWsFrame } from '@cat-cafe/shared';
+import type { RelayClawWsFrame } from '@office-claw/shared';
 import { WebSocket as NodeWebSocket } from 'ws';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 
@@ -73,7 +73,9 @@ export class RelayClawConnectionManager implements RelayClawConnection {
 
   constructor(options: RelayClawConnectionManagerOptions) {
     this.requestQueues = options.requestQueues;
-    this.wsFactory = options.wsFactory ?? ((url) => new (resolveRelayClawWebSocketCtor())(url));
+    this.wsFactory =
+      options.wsFactory ??
+      ((url) => new NodeWebSocket(url, { headers: { Origin: 'http://127.0.0.1' } }) as unknown as WebSocket);
   }
 
   async ensureConnected(url: string, signal?: AbortSignal): Promise<void> {
@@ -146,6 +148,13 @@ export class RelayClawConnectionManager implements RelayClawConnection {
         if (!requestId) {
           log.debug({ eventType: frame.payload?.event_type }, 'jiuwen frame without request_id — skipped');
           return;
+        }
+        // DEBUG: Log frames with metadata or final/answer events
+        const evt = frame.payload?.event_type;
+        if (frame.metadata || evt === 'chat.final' || evt === 'chat.error') {
+          log.info('[USAGE_DEBUG] WS frame received: event_type=%s metadata=%s is_complete=%s payload_keys=%s',
+            evt, JSON.stringify(frame.metadata), frame.is_complete,
+            frame.payload ? Object.keys(frame.payload).join(',') : 'null');
         }
         const queue = this.requestQueues.get(requestId);
         if (!queue) {

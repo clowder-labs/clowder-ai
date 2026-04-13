@@ -40,7 +40,7 @@ describe('F086 M3: Reflection capsule infrastructure', () => {
   });
 
   it('feat-lifecycle completion has reflection capsule step', () => {
-    const content = readFileSync(resolve(ROOT, 'cat-cafe-skills/feat-lifecycle/SKILL.md'), 'utf-8');
+    const content = readFileSync(resolve(ROOT, 'office-claw-skills/feat-lifecycle/SKILL.md'), 'utf-8');
     assert.ok(content.includes('反思胶囊'), 'Missing reflection capsule step in completion');
     assert.ok(content.includes('docs/reflections'), 'Missing reflections directory reference');
   });

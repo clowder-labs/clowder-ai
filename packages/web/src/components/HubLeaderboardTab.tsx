@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { LeaderboardRange, LeaderboardStatsResponse } from '@cat-cafe/shared';
+import type { LeaderboardRange, LeaderboardStatsResponse } from '@office-claw/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { CatHeroCard, MiniRanked, SectionCard, StreakRanked, WorkMetric } from './leaderboard-cards';
@@ -135,7 +135,7 @@ export function HubLeaderboardTab() {
             <SectionCard title="成就墙">
               <AchievementWall achievements={data.achievements ?? []} />
             </SectionCard>
-            <SectionCard title="CVO 能力等级 🐾">
+            <SectionCard title="能力等级">
               {data.cvoLevel ? (
                 <CvoLevelCard level={data.cvoLevel} />
               ) : (

@@ -6,9 +6,9 @@
 
 import { stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { SignalSourceConfig } from '@cat-cafe/shared';
-import { SignalSourceConfigSchema } from '@cat-cafe/shared';
-import { createRedisClient } from '@cat-cafe/shared/utils';
+import type { SignalSourceConfig } from '@office-claw/shared';
+import { SignalSourceConfigSchema } from '@office-claw/shared';
+import { createRedisClient } from '@office-claw/shared/utils';
 import { resolveSignalPaths } from '../../domains/signals/config/signal-paths.js';
 import { saveSignalSources } from '../../domains/signals/config/sources-loader.js';
 import { ArticleStoreService, type SignalRedisIndexClient } from '../../domains/signals/services/article-store.js';
@@ -17,11 +17,11 @@ import { slugify } from './shared.js';
 import { createFallbackSource, mergeSources, parseLegacySources, readTargetSourceConfig } from './source-migration.js';
 
 const USAGE = [
-  'Usage: pnpm --filter @cat-cafe/api run migrate-signals -- [options]',
+  'Usage: pnpm --filter @office-claw/api run migrate-signals -- [options]',
   '',
   'Options:',
   '  --from <path>       legacy Signal Hunter root (required)',
-  '  --to <path>         target signals root (default: SIGNALS_ROOT_DIR or ~/.cat-cafe/signals)',
+  '  --to <path>         target signals root (default: SIGNALS_ROOT_DIR or ~/.office-claw/signals)',
   '  --dry-run           parse + plan only, do not write files',
   '  --redis-url <url>   optional Redis URL for index write-through',
   '  --help              print this help',

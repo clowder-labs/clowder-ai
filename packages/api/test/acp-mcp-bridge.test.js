@@ -41,11 +41,11 @@ test('buildAcpMcpServers includes project Claude MCP servers for stdio ACP agent
     const servers = buildAcpMcpServers({ agentCapabilities: { mcpCapabilities: { stdio: true } } }, {
       workingDirectory,
       callbackEnv: {
-        CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
-        CAT_CAFE_INVOCATION_ID: 'inv-test-1',
-        CAT_CAFE_CALLBACK_TOKEN: 'tok-test-1',
-        CAT_CAFE_USER_ID: 'user-test-1',
-        CAT_CAFE_SIGNAL_USER: 'acp',
+        OFFICE_CLAW_API_URL: 'http://127.0.0.1:3004',
+        OFFICE_CLAW_INVOCATION_ID: 'inv-test-1',
+        OFFICE_CLAW_CALLBACK_TOKEN: 'tok-test-1',
+        OFFICE_CLAW_USER_ID: 'user-test-1',
+        OFFICE_CLAW_SIGNAL_USER: 'acp',
       },
     });
 

@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto';
 import { unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type CatId, catRegistry, type RichBlock } from '@cat-cafe/shared';
+import { type CatId, catRegistry, type RichBlock } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { ConnectorMessageFormatter, type MessageEnvelope, type MessageOrigin } from './ConnectorMessageFormatter.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';

@@ -11,6 +11,7 @@
 import Conf from 'conf';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { getErrorMessage } from '../utils/index.js';
+import { reportMetric } from '../services/metrics/index.js';
 
 export interface AuthRoutesOptions {
   // 可以在这里添加认证相关的配置
@@ -95,7 +96,11 @@ const secureConfig = new Conf({
 export const sessions = new Map<string, UserInfo>();
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => {
-  const skipAuth = process.env.CAT_CAFE_SKIP_AUTH === '1' || process.env.CAT_CAFE_SKIP_AUTH === 'true';
+  const skipAuth =
+    process.env.OFFICE_CLAW_SKIP_AUTH === '1' ||
+    process.env.OFFICE_CLAW_SKIP_AUTH === 'true' ||
+    process.env.CAT_CAFE_SKIP_AUTH === '1' ||
+    process.env.CAT_CAFE_SKIP_AUTH === 'true';
 
   // 检查登录状态接口
   app.get('/api/islogin', async (request) => {
@@ -274,6 +279,7 @@ async function completeCasLogin(
     sessions.set(session.userId, { ...session });
     attachUserHeaders(reply, session.userId);
     await refreshMaaSModelsAfterLogin(request, session.userId);
+    reportMetric('agentarts_claw_user_login', 1).catch(() => {});
     return {
       success: true,
       userId: session.userId,
@@ -390,7 +396,12 @@ function isUserInfo(value: unknown): value is UserInfo {
 
 function getStoredUserInfo(userId: string): UserInfo | null {
   const raw = secureConfig.get(`${userId}-new`);
-  return isUserInfo(raw) ? raw : null;
+  if (isUserInfo(raw)) {
+    return raw;
+  }
+
+  const legacyRaw = secureConfig.get(userId);
+  return isUserInfo(legacyRaw) ? legacyRaw : null;
 }
 
 function storeUserInfo(userInfo: UserInfo): void {
@@ -412,6 +423,7 @@ function isSessionActive(userInfo: UserInfo | null | undefined): boolean {
 
 function attachUserHeaders(reply: FastifyReply, userId: string): void {
   reply.header('X-Cat-Cafe-User', userId);
+  reply.header('X-Office-Claw-User', userId);
   reply.header('X-Session-Id', `session-${Date.now()}-${Math.random()}`);
 }
 
@@ -426,7 +438,7 @@ function buildLoggedOutPayload() {
 }
 
 function readUserIdFromRequest(request: FastifyRequest): string {
-  const headerUserId = request.headers['x-cat-cafe-user'];
+  const headerUserId = request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user'];
   if (typeof headerUserId === 'string' && headerUserId.trim()) {
     return headerUserId.trim();
   }
@@ -557,6 +569,10 @@ async function subscriptionClaw(
       return { success: false, message: '开通成功，但未返回模型信息' };
     }
 
+    if (promotionCode?.trim()) {
+      secureConfig.set('lastPromotionCode', promotionCode.trim());
+    }
+
     return { success: true, modelInfo };
   } catch (error) {
     console.error('开通客户端 claw 失败:', error);
@@ -571,15 +587,13 @@ async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: stri
       url: '/api/maas-models',
       headers: {
         'x-cat-cafe-user': userId,
+        'x-office-claw-user': userId,
         'x-refresh': 'true',
       },
     });
 
     if (refreshResponse.statusCode >= 400) {
-      request.log.warn(
-        { statusCode: refreshResponse.statusCode, userId },
-        'refresh maas models failed after login',
-      );
+      request.log.warn({ statusCode: refreshResponse.statusCode, userId }, 'refresh maas models failed after login');
     }
   } catch (error) {
     request.log.warn({ error, userId }, 'refresh maas models errored after login');

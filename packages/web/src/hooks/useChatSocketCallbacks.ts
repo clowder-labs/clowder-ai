@@ -4,11 +4,9 @@
  *
  */
 
-import type { GameView } from '@cat-cafe/shared';
 import { useMemo } from 'react';
 import type { SocketCallbacks } from '@/hooks/useSocket';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
-import { useGameStore } from '@/stores/gameStore';
 import { type TaskItem, useTaskStore } from '@/stores/taskStore';
 
 interface ExternalDeps {
@@ -54,9 +52,15 @@ export function useChatSocketCallbacks({
         handleAgentMessage(msg);
         return true;
       },
-      onThreadCreated: () => {
+      onThreadCreated: (data) => {
+        // Refresh thread list for sidebar
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('cat-cafe:threads-refresh'));
+        }
+        // Navigate to new thread when created via connector command (e.g. /new in Feishu/Telegram)
+        // This matches the behavior of onGameThreadCreated
+        if (data.source === 'connector_command' && data.threadId) {
+          onNavigateToThread?.(data.threadId);
         }
       },
       onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
@@ -106,18 +110,6 @@ export function useChatSocketCallbacks({
       },
       onAuthorizationRequest: handleAuthRequest,
       onAuthorizationResponse: handleAuthResponse,
-      onGameStateUpdate: (data) => {
-        const view = data.view as GameView;
-        // P1-3 fix: Only accept updates for the current thread
-        if (view.threadId !== threadId) return;
-        useGameStore.getState().setGameView(view, data.gameId, threadId);
-      },
-      onGameThreadCreated: (data) => {
-        // Only navigate the initiator — other users in the room should not be auto-redirected
-        if (data.initiatorUserId === userId) {
-          onNavigateToThread?.(data.gameThreadId);
-        }
-      },
     }),
     [
       handleAgentMessage,

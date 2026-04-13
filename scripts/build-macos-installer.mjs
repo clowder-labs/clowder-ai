@@ -47,18 +47,18 @@ const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf
 
 // ─── Constants ──────────────────────────────────────────────────────
 
-const MACOS_PRESERVE_PATHS = ['.env', 'cat-config.json', 'data', 'logs', '.cat-cafe'];
+const MACOS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw'];
 const MACOS_MANAGED_TOP_LEVEL_PATHS = [
   'packages',
   'scripts',
-  'cat-cafe-skills',
+  'office-claw-skills',
   'tools',
   'installer-seed',
   'vendor',
   '.clowder-release.json',
   '.env.example',
   'LICENSE',
-  'cat-template.json',
+  'office-claw-template.json',
   'modelarts-preset.json',
   'pnpm-workspace.yaml',
 ];
@@ -125,7 +125,7 @@ const dir = __dirname;
 process.env.NODE_ENV = 'production';
 process.chdir(__dirname);
 const currentPort = parseInt(process.env.PORT, 10) || 3000;
-const hostname = process.env.HOSTNAME || '0.0.0.0';
+const hostname = process.env.HOSTNAME || '127.0.0.1';
 let keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT, 10);
 
 const requiredServerFiles = JSON.parse(
@@ -408,11 +408,11 @@ function parseArgs(argv) {
 
 function copyTopLevelProject(bundleDir) {
   const entries = [
-    'cat-cafe-skills',
+    'office-claw-skills',
     'LICENSE',
     '.env.example',
     '.inner.env',
-    'cat-template.json',
+    'office-claw-template.json',
     'modelarts-preset.json',
     'pnpm-workspace.yaml',
   ];
@@ -439,9 +439,9 @@ function copyTopLevelProject(bundleDir) {
 function stageInstallerSeed(bundleDir) {
   const seedDir = join(bundleDir, 'installer-seed');
   ensureDir(seedDir);
-  const catConfigPath = join(repoRoot, 'cat-config.json');
+  const catConfigPath = join(repoRoot, 'office-claw-config.json');
   if (existsSync(catConfigPath)) {
-    cpSync(catConfigPath, join(seedDir, 'cat-config.json'), { force: true });
+    cpSync(catConfigPath, join(seedDir, 'office-claw-config.json'), { force: true });
   }
 }
 
@@ -532,7 +532,7 @@ function createRuntimePackageJson(sourcePath, options = {}) {
     runtimePackage.scripts = { start: source.scripts.start };
   }
   const dependencies = pinRuntimeDependencyVersions(sourceDir, source.dependencies ?? {}, {
-    '@cat-cafe/shared': 'file:../shared',
+    '@office-claw/shared': 'file:../shared',
   });
   if (Object.keys(dependencies).length > 0) runtimePackage.dependencies = dependencies;
   const optionalDependencies = pinRuntimeDependencyVersions(sourceDir, source.optionalDependencies ?? {});
@@ -618,10 +618,13 @@ async function stageBundledApiRuntime(targetRootDir) {
     '--sourcemap=external',
     '--log-level=error',
     ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dep) => `--external:${dep}`),
-    '--external:@cat-cafe/shared',
+    '--external:@office-claw/shared',
   ]);
 
-  writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createBundledApiRuntimePackageJson(join(repoRoot, 'packages', 'api', 'package.json')),
+  );
 }
 
 function createStandaloneWebRuntimePackageJson(sourcePath) {
@@ -678,7 +681,10 @@ function stageStandaloneWebRuntime(targetRootDir) {
   rmSync(join(targetDir, 'node_modules'), { recursive: true, force: true });
 
   writeFileSync(join(targetDir, 'server.js'), RUNTIME_WEB_STANDALONE_SERVER, 'utf8');
-  writeJson(join(targetDir, 'package.json'), createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')));
+  writeJson(
+    join(targetDir, 'package.json'),
+    createStandaloneWebRuntimePackageJson(join(repoRoot, 'packages', 'web', 'package.json')),
+  );
 }
 
 async function stageWorkspacePackages(targetRootDir) {
@@ -923,7 +929,7 @@ function installSharedPythonDeps(bundleDir) {
 // ─── Runtime Dependencies ───────────────────────────────────────────
 
 function materializeSharedDependency(stagePackagesDir, packageName) {
-  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
+  const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@office-claw', 'shared');
   try {
     const stat = spawnSync('test', ['-L', sharedLinkPath]);
     if (stat.status !== 0) {
@@ -1059,7 +1065,7 @@ function ensureBuildArtifacts(options) {
 }
 
 function ensureRuntimeSkeleton(bundleDir) {
-  for (const dir of ['data', 'logs', '.cat-cafe']) {
+  for (const dir of ['data', 'logs', '.office-claw']) {
     ensureDir(join(bundleDir, dir));
   }
 }

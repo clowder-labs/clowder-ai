@@ -12,7 +12,7 @@
  * ~950 chars in every single invocation prompt.
  *
  * Full rules available via (in priority order):
- *   1. Skill: cat-cafe-skills/using-rich-blocks/SKILL.md (primary SOT)
+ *   1. Skill: office-claw-skills/using-rich-blocks/SKILL.md (primary SOT)
  *   2. MCP tool: office_claw_get_rich_block_rules (fallback for Claude)
  *   3. HTTP endpoint: GET /api/callbacks/rich-block-rules (fallback for Codex/Gemini)
  *

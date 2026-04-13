@@ -20,8 +20,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, MessageContent } from '@cat-cafe/shared';
-import type { SessionStore } from '@cat-cafe/shared/utils';
+import type { CatId, MessageContent } from '@office-claw/shared';
+import type { SessionStore } from '@office-claw/shared/utils';
 import multipart from '@fastify/multipart';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -258,7 +258,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> = async (
     });
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     // Default to 'default' thread for lobby (prevents global broadcast)

@@ -10,7 +10,7 @@
  * POST /api/callbacks/bootcamp-env-check — run env check and store results
  */
 
-import { catIdSchema } from '@cat-cafe/shared';
+import { catIdSchema } from '@office-claw/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
@@ -150,7 +150,7 @@ export function registerCallbackBootcampRoutes(
         const eventRes = await app.inject({
           method: 'POST',
           url: '/api/leaderboard/events',
-          headers: { 'x-cat-cafe-user': record.userId },
+          headers: { 'x-office-claw-user': record.userId },
           payload: {
             eventId,
             source: 'bootcamp',

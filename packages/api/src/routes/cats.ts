@@ -18,7 +18,7 @@ import {
   catRegistry,
   type RosterEntry,
   resolveEmbeddedRuntimeKind,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { isSeedCat, resolveBoundAccountRefForCat } from '../config/cat-account-binding.js';
@@ -465,7 +465,7 @@ async function reconcileCatRegistry(
   managedIdsBefore: ReadonlySet<string>,
   onCatalogChanged?: (cats: Record<string, CatConfig>) => Promise<void> | void,
 ) {
-  const runtimeCats = toAllCatConfigs(loadCatConfig(resolve(projectRoot, '.cat-cafe', 'cat-catalog.json')));
+  const runtimeCats = toAllCatConfigs(loadCatConfig(resolve(projectRoot, '.office-claw', 'office-claw-catalog.json')));
   const extraCats = catRegistry.getAllConfigs();
   catRegistry.reset();
   for (const [id, config] of Object.entries(runtimeCats)) {
@@ -481,7 +481,7 @@ async function reconcileCatRegistry(
 
 function getManagedCatalogIds(projectRoot: string): Set<string> {
   try {
-    return new Set(Object.keys(toAllCatConfigs(loadCatConfig(resolve(projectRoot, '.cat-cafe', 'cat-catalog.json')))));
+    return new Set(Object.keys(toAllCatConfigs(loadCatConfig(resolve(projectRoot, '.office-claw', 'office-claw-catalog.json')))));
   } catch {
     return new Set();
   }
@@ -522,10 +522,10 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.post('/api/cats', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const parsed = createCatSchema.safeParse(request.body);
@@ -649,10 +649,10 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.patch<{ Params: { id: string } }>('/api/cats/:id', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const parsed = updateCatSchema.safeParse(request.body);
@@ -801,10 +801,10 @@ export const catsRoutes: FastifyPluginAsync<CatsRoutesOptions> = async (app, opt
   });
 
   app.delete<{ Params: { id: string } }>('/api/cats/:id', async (request, reply) => {
-    const operator = resolveOperator(request.headers['x-cat-cafe-user']);
+    const operator = resolveOperator((request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']));
     if (!operator) {
       reply.status(400);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const projectRoot = resolveProjectRoot();

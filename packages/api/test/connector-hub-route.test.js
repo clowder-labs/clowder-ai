@@ -13,7 +13,7 @@ import Fastify from 'fastify';
 
 const { connectorHubRoutes } = await import('../dist/routes/connector-hub.js');
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'owner-1' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'owner-1' };
 
 async function buildApp(overrides = {}) {
   const listCalls = [];
@@ -151,6 +151,7 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
     }));
 
     const activated = [];
+    const owners = [];
     const app = Fastify();
     await app.register(connectorHubRoutes, {
       threadStore: {
@@ -160,6 +161,14 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
       },
       activateWeixinBotToken: async (token) => {
         activated.push(token);
+      },
+      connectorRuntimeManager: {
+        async reconcile() {
+          return { applied: true, attemptedConnectors: [], appliedConnectors: [], unchangedConnectors: [], failedConnectors: [] };
+        },
+        async setOwnerUserId(userId) {
+          owners.push(userId);
+        },
       },
     });
     await app.ready();
@@ -174,6 +183,7 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
     assert.equal(res.statusCode, 200);
     assert.equal(body.status, 'confirmed');
     assert.deepEqual(activated, ['tok_secret_789']);
+    assert.deepEqual(owners, ['owner-1']);
 
     WA._injectStaticFetch(originalFetch);
     await app.close();
@@ -181,6 +191,52 @@ describe('GET /api/connector/weixin/qrcode-status — adapter not ready', () => 
 });
 
 describe('POST /api/connector/weixin/disconnect', () => {
+  it('claims the logged-in user as connector owner on manual activate', async () => {
+    const owners = [];
+    let pollingStarted = false;
+    const app = Fastify();
+    await app.register(connectorHubRoutes, {
+      threadStore: {
+        async list() {
+          return [];
+        },
+      },
+      weixinAdapter: {
+        hasBotToken() {
+          return true;
+        },
+        isPolling() {
+          return pollingStarted;
+        },
+      },
+      startWeixinPolling: () => {
+        pollingStarted = true;
+      },
+      connectorRuntimeManager: {
+        async reconcile() {
+          return { applied: true, attemptedConnectors: [], appliedConnectors: [], unchangedConnectors: [], failedConnectors: [] };
+        },
+        async setOwnerUserId(userId) {
+          owners.push(userId);
+        },
+      },
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/connector/weixin/activate',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json(), { ok: true, polling: true });
+    assert.equal(pollingStarted, true);
+    assert.deepEqual(owners, ['owner-1']);
+
+    await app.close();
+  });
+
   it('returns 503 when disconnect handler is unavailable', async () => {
     const app = Fastify();
     await app.register(connectorHubRoutes, {

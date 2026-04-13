@@ -23,7 +23,7 @@ describe('RedisConnectorThreadBindingStore', { skip: !REDIS_URL ? 'REDIS_URL not
 
     const storeModule = await import('../dist/infrastructure/connectors/RedisConnectorThreadBindingStore.js');
     RedisConnectorThreadBindingStore = storeModule.RedisConnectorThreadBindingStore;
-    const redisModule = await import('@cat-cafe/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });
@@ -123,6 +123,17 @@ describe('RedisConnectorThreadBindingStore', { skip: !REDIS_URL ? 'REDIS_URL not
     // Old thread should no longer have this binding
     const oldBindings = await store.getByThread('thread-abc');
     assert.equal(oldBindings.length, 0);
+  });
+
+  it('bind preserves existing hubThreadId when rebinding same connector+chat', async () => {
+    await store.bind('feishu', 'oc_chat_hub', 'thread-abc', 'user-1');
+    await store.setHubThread('feishu', 'oc_chat_hub', 'hub-thread-1');
+
+    await store.bind('feishu', 'oc_chat_hub', 'thread-def', 'user-1');
+
+    const result = await store.getByExternal('feishu', 'oc_chat_hub');
+    assert.equal(result?.threadId, 'thread-def');
+    assert.equal(result?.hubThreadId, 'hub-thread-1');
   });
 
   it('concurrent bind on same chat does not pollute reverse index', async () => {

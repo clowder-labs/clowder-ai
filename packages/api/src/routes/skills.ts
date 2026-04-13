@@ -25,10 +25,7 @@ import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
 import type { InstalledSkillRecord } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
-import {
-  resolveOfficialSkillsRoot,
-  resolveUserSkillsRoot,
-} from '../domains/cats/services/skillhub/SkillPaths.js';
+import { resolveOfficialSkillsRoot, resolveUserSkillsRoot } from '../domains/cats/services/skillhub/SkillPaths.js';
 import {
   fetchSkillContent,
   getSkillCategories,
@@ -76,6 +73,7 @@ const SKILL_UPLOAD_MAX_FILES = 100;
 const SKILL_UPLOAD_MAX_FILE_BYTES = 1024 * 1024;
 const SKILL_UPLOAD_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 const SKILL_NAME_CHINESE_RE = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/u;
+const SKILL_NAME_ALLOWED_RE = /^[A-Za-z0-9-]+$/;
 
 // ─── Skill Detail Types ──────────────────────────────────
 
@@ -93,7 +91,7 @@ interface SkillDetailResponse {
   description?: string;
   triggers?: string[];
   category?: string;
-  source: 'cat-cafe' | 'external';
+  source: 'builtin' | 'external';
   enabled: boolean;
   installedAt?: string;
   skillhubUrl?: string;
@@ -166,7 +164,10 @@ function normalizeInstalledSkillKey(value: string | null | undefined): string | 
   return trimmed.toLowerCase();
 }
 
-export function buildInstalledSkillKeySet(records: InstalledSkillRecord[], localSkillNames: string[] = []): Set<string> {
+export function buildInstalledSkillKeySet(
+  records: InstalledSkillRecord[],
+  localSkillNames: string[] = [],
+): Set<string> {
   const keys = new Set<string>();
   for (const localSkillName of localSkillNames) {
     const localKey = normalizeInstalledSkillKey(localSkillName);
@@ -755,7 +756,11 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           DOWNLOAD: 502,
         };
         reply.status(map[err.code] ?? 500);
-        return { success: false, error: translateSkillErrorMessage(err.message) ?? '安装技能失败，请稍后重试', code: err.code };
+        return {
+          success: false,
+          error: translateSkillErrorMessage(err.message) ?? '安装技能失败，请稍后重试',
+          code: err.code,
+        };
       }
       reply.status(500);
       return { success: false, error: formatErrorMessage('安装技能失败', err) };
@@ -792,7 +797,11 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           DOWNLOAD: 502,
         };
         reply.status(map[err.code] ?? 500);
-        return { success: false, error: translateSkillErrorMessage(err.message) ?? '卸载技能失败，请稍后重试', code: err.code };
+        return {
+          success: false,
+          error: translateSkillErrorMessage(err.message) ?? '卸载技能失败，请稍后重试',
+          code: err.code,
+        };
       }
       reply.status(500);
       return { success: false, error: formatErrorMessage('卸载技能失败', err) };
@@ -859,7 +868,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       const isSkillhubInstalled = installedRecord?.source === 'skillhub';
       const isLocalInstalled = installedRecord?.source === 'local';
       const isRemote = isSkillhubInstalled || isExternalCap || isLocalInstalled;
-      const source: 'cat-cafe' | 'external' = isRemote ? 'external' : 'cat-cafe';
+      const source: 'builtin' | 'external' = isRemote ? 'external' : 'builtin';
 
       // Get category
       const bootstrapEntry = bootstrapEntries.get(skillName);
@@ -884,9 +893,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
         };
       }
       const frontmatterCategory = skillDirExists ? (await parseSkillFrontmatter(skillDir)).category?.trim() : undefined;
-      const resolvedCategory = isLocalInstalled
-        ? (frontmatterCategory || category)
-        : category;
+      const resolvedCategory = isLocalInstalled ? frontmatterCategory || category : category;
 
       // Check mount status (symlinks)
       const home = homedir();
@@ -1043,7 +1050,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       reply.status(422);
       return { success: false, error: '技能名称不合法' };
     }
-    if (SKILL_NAME_CHINESE_RE.test(skillName)) {
+    if (!SKILL_NAME_ALLOWED_RE.test(skillName)) {
       reply.status(422);
       return { success: false, error: '技能名称不能包含中文字符' };
     }
@@ -1132,7 +1139,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       return {
         success: true,
         name: skillName,
-        localPath: `.cat-cafe/skills/${skillName}`,
+        localPath: `.office-claw/skills/${skillName}`,
         files: preparedFiles.map((f) => f.originalPath),
         mounts,
       };

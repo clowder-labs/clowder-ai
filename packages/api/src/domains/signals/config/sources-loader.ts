@@ -6,14 +6,14 @@
 
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import type { SignalSourceConfig } from '@cat-cafe/shared';
-import { SignalSourceConfigSchema } from '@cat-cafe/shared';
+import type { SignalSourceConfig } from '@office-claw/shared';
+import { SignalSourceConfigSchema } from '@office-claw/shared';
 import { parse, stringify } from 'yaml';
 import { DEFAULT_SIGNAL_SOURCES } from './default-sources.js';
 import type { SignalPaths } from './signal-paths.js';
 import { resolveSignalPaths } from './signal-paths.js';
 
-const SOURCE_FILE_BANNER = '# Cat Cafe Signal Hunter sources config\n';
+const SOURCE_FILE_BANNER = '# OfficeClaw Signal Hunter sources config\n';
 
 function toYaml(config: SignalSourceConfig): string {
   return `${SOURCE_FILE_BANNER}${stringify(config)}`;

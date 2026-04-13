@@ -144,7 +144,7 @@ export async function handleRegisterScheduledTask(input: {
   }
 
   // Auto-inject current cat's ID so reminder tasks wake the registering cat, not default opus
-  const currentCatId = process.env['CAT_CAFE_CAT_ID'];
+  const currentCatId = process.env['OFFICE_CLAW_CAT_ID'];
   if (!params.targetCatId && currentCatId) {
     params.targetCatId = currentCatId;
   }

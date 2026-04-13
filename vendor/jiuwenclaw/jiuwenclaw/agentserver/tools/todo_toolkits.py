@@ -9,7 +9,7 @@ registered in the openJiuwen Runner via TodoToolkit.get_tools().
 
 from __future__ import annotations
 
-import os
+import contextvars
 import threading
 from enum import Enum
 from pathlib import Path
@@ -20,6 +20,32 @@ from pydantic import BaseModel
 from openjiuwen.core.foundation.tool import LocalFunction, Tool, ToolCard
 
 from jiuwenclaw.utils import get_agent_sessions_dir
+
+
+def _fs_safe_request_segment(request_id: str) -> str:
+    """Avoid path traversal / separators when using request_id as a directory name."""
+    s = (request_id or "").strip()
+    if not s:
+        return ""
+    for bad in ("/", "\\", ".."):
+        s = s.replace(bad, "_")
+    return s
+
+
+# Per asyncio Task: which chat request owns todo I/O (isolates same session, different user turns).
+_todo_request_id_cv: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "jiuwenclaw_todo_request_id",
+    default="",
+)
+
+
+def todo_request_scope_token(request_id: str | None) -> contextvars.Token[str]:
+    """Set request id for the current task; return token for reset_todo_request_scope."""
+    return _todo_request_id_cv.set(_fs_safe_request_segment(request_id or ""))
+
+
+def reset_todo_request_scope(token: contextvars.Token[str]) -> None:
+    _todo_request_id_cv.reset(token)
 
 
 class TaskStatus(str, Enum):
@@ -46,36 +72,62 @@ class TodoToolkit:
     PARTS_MIN_COUNT_WITH_RESULT = 3  # 至少 3 段才有 result
     PARTS_INDEX_RESULT = 2  # result 在 split("|") 后的索引
 
-    # 按 session_id 分组的文件锁，防止并发任务对同一 todo.md 进行 read-modify-write 时丢失更新
+    # 按 session + scope 分组的文件锁，防止并发任务对同一 todo.md 进行 read-modify-write 时丢失更新
     _session_locks: ClassVar[Dict[str, threading.Lock]] = {}
     _meta_lock: ClassVar[threading.Lock] = threading.Lock()
 
     @classmethod
-    def _get_session_lock(cls, session_id: str) -> threading.Lock:
-        """获取指定 session 的文件操作锁（线程安全）."""
+    def _get_session_lock(cls, lock_key: str) -> threading.Lock:
+        """获取指定 scope 的文件操作锁（线程安全）."""
         with cls._meta_lock:
-            if session_id not in cls._session_locks:
-                cls._session_locks[session_id] = threading.Lock()
-            return cls._session_locks[session_id]
+            if lock_key not in cls._session_locks:
+                cls._session_locks[lock_key] = threading.Lock()
+            return cls._session_locks[lock_key]
 
     def __init__(self, session_id: str, todo_dir: Path | None = None):
         """Initialize TodoToolkit for a session.
 
         Args:
             session_id: Session/conversation identifier for scoping todo files.
-            todo_dir: Optional custom directory. Defaults to agent/sessions/{session_id}/.
+            todo_dir: If set, read/write this directory only (used for interrupt cleanup). Otherwise
+                path is ``sessions/{id}/todos/{request_id}/`` when a request scope is active
+                (see todo_request_scope_token), else legacy ``sessions/{id}/``.
         """
         self.session_id = session_id
-        self.todo_dir = todo_dir or (get_agent_sessions_dir() / session_id)
-        self.todo_dir.mkdir(parents=True, exist_ok=True)
-        self._todo_path = self.todo_dir / self.TODO_FILENAME
+        self._todo_dir_override = todo_dir
+
+    def _lock_key(self) -> str:
+        if self._todo_dir_override is not None:
+            return f"{self.session_id}\x1fpath:{self._todo_dir_override.resolve()}"
+        rid = _fs_safe_request_segment(_todo_request_id_cv.get())
+        return f"{self.session_id}\x1f{rid or 'legacy'}"
+
+    def _resolve_todo_dir(self) -> Path:
+        if self._todo_dir_override is not None:
+            return self._todo_dir_override
+        base = get_agent_sessions_dir() / self.session_id
+        rid = _fs_safe_request_segment(_todo_request_id_cv.get())
+        if rid:
+            return base / "todos" / rid
+        return base
+
+    @property
+    def todo_dir(self) -> Path:
+        d = self._resolve_todo_dir()
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    @property
+    def _todo_path(self) -> Path:
+        return self._resolve_todo_dir() / self.TODO_FILENAME
 
     def _load_tasks(self) -> List[TodoTask]:
         """Load tasks from markdown file."""
-        if not self._todo_path.exists():
+        path = self._todo_path
+        if not path.exists():
             return []
         tasks: List[TodoTask] = []
-        with open(self._todo_path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -137,7 +189,7 @@ class TodoToolkit:
         Returns:
             Status message (success or error) and current todo list.
         """
-        with self._get_session_lock(self.session_id):
+        with self._get_session_lock(self._lock_key()):
             if self._todo_path.exists():
                 return self._append_todo_list(
                     f"Error: A todo list for session {self.session_id} already exists. Use todo_insert to add more tasks."
@@ -159,7 +211,7 @@ class TodoToolkit:
         Returns:
             Status message and current todo list.
         """
-        with self._get_session_lock(self.session_id):
+        with self._get_session_lock(self._lock_key()):
             todo_tasks = self._load_tasks()
             for t in todo_tasks:
                 if t.idx == idx:
@@ -179,7 +231,7 @@ class TodoToolkit:
         Returns:
             Status message and current todo list.
         """
-        with self._get_session_lock(self.session_id):
+        with self._get_session_lock(self._lock_key()):
             todo_tasks = self._load_tasks()
             if not self._todo_path.exists():
                 # 锁内直接创建，避免释放锁后被其他线程抢先
@@ -211,7 +263,7 @@ class TodoToolkit:
         Returns:
             Status message and current todo list.
         """
-        with self._get_session_lock(self.session_id):
+        with self._get_session_lock(self._lock_key()):
             todo_tasks = self._load_tasks()
             found = [t for t in todo_tasks if t.idx == idx]
             if not found:
@@ -238,6 +290,36 @@ class TodoToolkit:
             suffix = f" | {t.result}" if t.result else ""
             lines.append(f"{status_icon} {t.idx}. {t.tasks}{suffix}")
         return "\n".join(lines)
+
+    @classmethod
+    def cancel_all_incomplete_for_session(cls, session_id: str) -> int:
+        """Mark waiting/running tasks as cancelled in legacy todo.md and each todos/{request_id}/ scope."""
+        total = 0
+        base = get_agent_sessions_dir() / session_id
+        legacy = cls(session_id=session_id, todo_dir=base)
+        total += cls._cancel_incomplete_in_toolkit(legacy)
+        todos_root = base / "todos"
+        if todos_root.is_dir():
+            for child in todos_root.iterdir():
+                if child.is_dir():
+                    tk = cls(session_id=session_id, todo_dir=child)
+                    total += cls._cancel_incomplete_in_toolkit(tk)
+        return total
+
+    @staticmethod
+    def _cancel_incomplete_in_toolkit(tk: TodoToolkit) -> int:
+        with TodoToolkit._get_session_lock(tk._lock_key()):
+            if not tk._todo_path.exists():
+                return 0
+            todo_tasks = tk._load_tasks()
+            cancel_count = 0
+            for t in todo_tasks:
+                if t.status.value in ("waiting", "running"):
+                    t.status = TaskStatus.CANCELLED
+                    cancel_count += 1
+            if cancel_count:
+                tk._save_tasks(todo_tasks)
+            return cancel_count
 
     def get_tools(self) -> List[Tool]:
         """Return all todo tools for registration in the openJiuwen Runner.

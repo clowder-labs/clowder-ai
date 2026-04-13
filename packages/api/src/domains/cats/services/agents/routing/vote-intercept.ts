@@ -11,7 +11,7 @@
  * and managing vote completion logic.
  */
 
-import type { ConnectorSource } from '@cat-cafe/shared';
+import type { ConnectorSource } from '@office-claw/shared';
 import type { VotingStateV1 } from '../../stores/ports/ThreadStore.js';
 
 /** Gap 3: vote results render as ConnectorBubble, not plain system message. */

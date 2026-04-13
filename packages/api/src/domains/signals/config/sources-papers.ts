@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalSource } from '@cat-cafe/shared';
+import type { SignalSource } from '@office-claw/shared';
 
 // ── Signal Source Base URLs (信号源域名) ───────────────────────────
 const ARXIV_EXPORT_URL = process.env.ARXIV_EXPORT_URL!;

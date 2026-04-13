@@ -4,7 +4,7 @@
  *
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { CAT_CONFIGS } from '@office-claw/shared';
 import { create } from 'zustand';
 import { recordDebugEvent } from '@/debug/invocationEventDebug';
 import type {
@@ -245,8 +245,43 @@ function getLatestMessageTimestamp(messages: ChatMessage[]): number {
 }
 
 function isUnreadBodyMessage(msg: ChatMessage): boolean {
-  if (msg.type !== 'assistant') return false;
-  return typeof msg.content === 'string' && msg.content.trim().length > 0;
+  return msg.type === 'assistant' || !!msg.source;
+}
+
+function isSeenCallbackTailMessage(existing: ThreadState, msg: ChatMessage): boolean {
+  if (msg.type !== 'assistant' || msg.origin !== 'callback') return false;
+
+  const callbackInvocationId = msg.extra?.stream?.invocationId;
+  if (callbackInvocationId) {
+    return existing.messages.some(
+      (m) =>
+        m.type === 'assistant' &&
+        m.origin === 'stream' &&
+        m.catId === msg.catId &&
+        m.extra?.stream?.invocationId === callbackInvocationId,
+    );
+  }
+
+  // Fallback for providers that emit callback text without invocationId:
+  // if we just had a stream message from the same cat very recently, treat
+  // callback as tail replacement instead of a brand-new unread message.
+  const fallbackWindowMs = 8_000;
+  for (let i = existing.messages.length - 1; i >= 0; i -= 1) {
+    const m = existing.messages[i];
+    if (m?.type !== 'assistant' || m.origin !== 'stream' || m.catId !== msg.catId) continue;
+    if (
+      typeof m.timestamp === 'number' &&
+      Number.isFinite(m.timestamp) &&
+      typeof msg.timestamp === 'number' &&
+      Number.isFinite(msg.timestamp) &&
+      msg.timestamp >= m.timestamp &&
+      msg.timestamp - m.timestamp <= fallbackWindowMs
+    ) {
+      return true;
+    }
+    break;
+  }
+  return false;
 }
 
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the co-creator */
@@ -257,7 +292,7 @@ function fireOwnerMentionNotification(msg: ChatMessage) {
     return;
   }
   const catConfig = CAT_CONFIGS[msg.catId ?? ''];
-  const catName = catConfig?.displayName ?? msg.catId ?? '猫猫';
+  const catName = catConfig?.displayName ?? msg.catId ?? '智能体';
   const preview = typeof msg.content === 'string' ? msg.content.replace(/\n/g, ' ').slice(0, 120) : '';
   new Notification(`${catName} @ 了你`, {
     body: preview,
@@ -1143,8 +1178,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (existing.messages.some((m) => m.id === msg.id)) return state;
       const lastReadAt = state._lastReadAtByThread[threadId] ?? 0;
       const isBodyMessage = isUnreadBodyMessage(msg);
+      const isSeenTail = isSeenCallbackTailMessage(existing, msg);
       const isReplayOrAlreadyViewed =
         !isBodyMessage ||
+        isSeenTail ||
         (typeof msg.timestamp === 'number' && Number.isFinite(msg.timestamp) && msg.timestamp <= lastReadAt);
 
       // F067 Phase 2: Fire macOS notification for @co-creator mention

@@ -68,7 +68,7 @@ describe('F041 Config Round-Trip', () => {
           id: 'cat-cafe',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
-          source: /** @type {'cat-cafe'} */ ('cat-cafe'),
+          source: /** @type {'builtin'} */ ('builtin'),
           mcpServer: { command: 'node', args: ['server.js'] },
         },
         {
@@ -183,31 +183,31 @@ describe('F041 Cloud P1-1: bootstrap generates CLI configs', () => {
     // CLI configs should be generated after bootstrap
     await generateCliConfigs(config, cliPaths);
 
-    // Verify CLI configs contain split cat-cafe servers
+    // Verify CLI configs contain split office-claw servers
     const claudeServers = await readClaudeMcpConfig(cliPaths.anthropic);
-    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe-collab'));
-    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe-memory'));
-    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe-signals'));
+    assert.ok(claudeServers.find((s) => s.name === 'office-claw-collab'));
+    assert.ok(claudeServers.find((s) => s.name === 'office-claw-memory'));
+    assert.ok(claudeServers.find((s) => s.name === 'office-claw-signals'));
 
     const codexServers = await readCodexMcpConfig(cliPaths.openai);
-    assert.ok(codexServers.find((s) => s.name === 'cat-cafe-collab'));
-    assert.ok(codexServers.find((s) => s.name === 'cat-cafe-memory'));
-    assert.ok(codexServers.find((s) => s.name === 'cat-cafe-signals'));
+    assert.ok(codexServers.find((s) => s.name === 'office-claw-collab'));
+    assert.ok(codexServers.find((s) => s.name === 'office-claw-memory'));
+    assert.ok(codexServers.find((s) => s.name === 'office-claw-signals'));
 
     const geminiServers = await readGeminiMcpConfig(cliPaths.google);
-    const collab = geminiServers.find((s) => s.name === 'cat-cafe-collab');
-    const memory = geminiServers.find((s) => s.name === 'cat-cafe-memory');
-    const signals = geminiServers.find((s) => s.name === 'cat-cafe-signals');
+    const collab = geminiServers.find((s) => s.name === 'office-claw-collab');
+    const memory = geminiServers.find((s) => s.name === 'office-claw-memory');
+    const signals = geminiServers.find((s) => s.name === 'office-claw-signals');
     assert.ok(collab);
     assert.ok(memory);
     assert.ok(signals);
     for (const server of [collab, memory, signals]) {
       assert.deepEqual(server.env, {
-        CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
-        CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
-        CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
-        CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
-        CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+        OFFICE_CLAW_API_URL: '${OFFICE_CLAW_API_URL}',
+        OFFICE_CLAW_INVOCATION_ID: '${OFFICE_CLAW_INVOCATION_ID}',
+        OFFICE_CLAW_CALLBACK_TOKEN: '${OFFICE_CLAW_CALLBACK_TOKEN}',
+        OFFICE_CLAW_USER_ID: '${OFFICE_CLAW_USER_ID}',
+        OFFICE_CLAW_SIGNAL_USER: '${OFFICE_CLAW_SIGNAL_USER}',
       });
     }
   });
@@ -236,7 +236,7 @@ describe('F041 Hot-Reload: toggle → CLI config regenerated', () => {
           id: 'cat-cafe',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
-          source: /** @type {'cat-cafe'} */ ('cat-cafe'),
+          source: /** @type {'builtin'} */ ('builtin'),
           mcpServer: { command: 'node', args: ['server.js'] },
         },
         {
@@ -306,7 +306,7 @@ describe('F041 Hot-Reload: toggle → CLI config regenerated', () => {
           id: 'cat-cafe',
           type: /** @type {'mcp'} */ ('mcp'),
           enabled: true,
-          source: /** @type {'cat-cafe'} */ ('cat-cafe'),
+          source: /** @type {'builtin'} */ ('builtin'),
           mcpServer: { command: 'node', args: ['server.js'] },
         },
         {
@@ -373,7 +373,7 @@ describe('F041 Injection互斥', () => {
     assert.ok(instructions.includes('post-message'), 'Should reference post-message');
     assert.ok(instructions.includes('cross-post-message'), 'Should reference cross-post-message');
     assert.ok(instructions.includes('thread-context'), 'Should reference thread-context');
-    assert.ok(instructions.includes('CAT_CAFE_CALLBACK_TOKEN'), 'Should reference callback token');
+    assert.ok(instructions.includes('OFFICE_CLAW_CALLBACK_TOKEN'), 'Should reference callback token');
   });
 
   it('injection decision matches mcpAvailable = mcpSupport && serverPath', () => {
@@ -433,11 +433,11 @@ describe('F041 Discovery Consistency', () => {
     // Should have: cat-cafe split(3) + pencil + jetbrains (discovered)
     assert.equal(config.capabilities.length, 5);
 
-    const catCafeCollab = config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+    const catCafeCollab = config.capabilities.find((c) => c.id === 'office-claw-collab');
     assert.ok(catCafeCollab);
-    assert.equal(catCafeCollab.source, 'cat-cafe');
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-memory'));
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-signals'));
+    assert.equal(catCafeCollab.source, 'builtin');
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-memory'));
+    assert.ok(config.capabilities.find((c) => c.id === 'office-claw-signals'));
 
     const pencil = config.capabilities.find((c) => c.id === 'pencil');
     assert.ok(pencil);

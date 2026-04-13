@@ -82,7 +82,7 @@ interface ModelMenuPosition {
 
 const MODEL_MENU_MAX_HEIGHT = 335;
 const MODEL_MENU_OFFSET = 8;
-const HUAWEI_GROUP_LABEL = '华为云MaaS';
+const HUAWEI_GROUP_LABEL = '华为云 MaaS';
 const HUAWEI_PROVIDER_LABEL = 'Huawei MaaS';
 const THIRD_PARTY_GROUP_LABEL = '第三方模型';
 const RELAYCLAW_CLIENT: ClientValue = 'relayclaw';
@@ -354,7 +354,6 @@ export function buildDefaultCreateForm(
   name: string,
   description: string,
   avatar: string,
-  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const safeName = name.trim();
@@ -374,7 +373,7 @@ export function buildDefaultCreateForm(
     teamStrengths: '',
     caution: '',
     strengths: '',
-    client: selectedClient,
+    client: RELAYCLAW_CLIENT,
     accountRef: selectedModel?.accountRef ?? '',
     defaultModel: selectedModel?.model ?? '',
     commandArgs: '',
@@ -397,7 +396,6 @@ function buildEditForm(
   name: string,
   description: string,
   avatar: string,
-  selectedClient: ClientValue,
   selectedModel: CreateModelOption | null,
 ): HubCatEditorFormState {
   const base = initialState(cat, null);
@@ -411,7 +409,7 @@ function buildEditForm(
     mentionPatterns: `@${mentionSeed}`,
     avatar,
     roleDescription: description.trim() || base.roleDescription,
-    client: selectedClient,
+    client: RELAYCLAW_CLIENT,
     accountRef: selectedModel?.accountRef ?? base.accountRef,
     defaultModel: selectedModel?.model ?? base.defaultModel,
     ocProviderName: '',
@@ -479,7 +477,6 @@ export function CreateAgentModal({
     } else {
       setDraftAvatar(getRandomPresetAvatar());
     }
-    const incomingClient = (draft?.client ?? cat?.provider ?? RELAYCLAW_CLIENT) as ClientValue;
     if (isSkipAuth) {
       setSelectedClient(RELAYCLAW_CLIENT);
       setSelectedOptionId(null);
@@ -492,10 +489,7 @@ export function CreateAgentModal({
       setError(null);
       return;
     }
-    const nextClient = HUB_CLIENT_OPTIONS.some((option) => option.value === incomingClient)
-      ? incomingClient
-      : RELAYCLAW_CLIENT;
-    setSelectedClient(nextClient);
+    setSelectedClient(RELAYCLAW_CLIENT);
     setSelectedOptionId(null);
     setClientMenuOpen(false);
     setClientOpenAbove(false);
@@ -504,7 +498,7 @@ export function CreateAgentModal({
     setOpenAbove(false);
     setModelMenuPosition(null);
     setError(null);
-  }, [cat, description, draft?.client, isSkipAuth, name, open]);
+  }, [cat, description, isSkipAuth, name, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -626,7 +620,8 @@ export function CreateAgentModal({
   const updateClientMenuPosition = useCallback(() => {
     if (!clientMenuOpen || !clientTriggerRef.current) return;
     const rect = clientTriggerRef.current.getBoundingClientRect();
-    const estimatedMenuHeight = clientMenuRef.current?.offsetHeight ?? Math.min(Math.max(clientOptions.length, 1) * 34 + 8, 220);
+    const estimatedMenuHeight =
+      clientMenuRef.current?.offsetHeight ?? Math.min(Math.max(clientOptions.length, 1) * 34 + 8, 220);
     const spaceBelow = window.innerHeight - rect.bottom;
     const nextOpenAbove = spaceBelow < estimatedMenuHeight + MODEL_MENU_OFFSET;
     setClientOpenAbove(nextOpenAbove);
@@ -741,8 +736,8 @@ export function CreateAgentModal({
     setError(null);
     try {
       const formState = cat
-        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel)
-        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedClient, selectedModel);
+        ? buildEditForm(cat, trimmedName, draftDescription, draftAvatar, selectedModel)
+        : buildDefaultCreateForm(trimmedName, draftDescription, draftAvatar, selectedModel);
       const payload = buildCatPayload(formState, cat);
       const response = await apiFetch(cat ? `/api/cats/${cat.id}` : '/api/cats', {
         method: cat ? 'PATCH' : 'POST',
@@ -771,7 +766,7 @@ export function CreateAgentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6 py-8">
       <div
-        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 overflow-hidden rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
+        className="ui-panel relative flex w-[550px] max-h-[calc(100vh-4rem)] flex-col gap-4 rounded-[8px] bg-[var(--surface-panel)] p-6 shadow-[0_18px_42px_rgba(0,0,0,0.14)]"
         data-testid="create-agent-modal"
       >
         <div data-testid="create-agent-modal-header" className="flex items-center justify-between">
@@ -829,7 +824,7 @@ export function CreateAgentModal({
                   type="button"
                   aria-label="Upload avatar"
                   onClick={() => fileInputRef.current?.click()}
-                  className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
+                  className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-transparent transition hover:border-[var(--border-accent)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={displayAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
@@ -869,7 +864,7 @@ export function CreateAgentModal({
               ) : null}
             </div>
 
-            {true ? (
+            {false ? (
               <div className="space-y-2.5">
                 <div className="text-[12px] text-[var(--text-primary)]">Agent 客户端</div>
                 <button

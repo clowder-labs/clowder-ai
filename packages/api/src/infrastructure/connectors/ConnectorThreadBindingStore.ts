@@ -4,7 +4,7 @@
  *
  */
 
-import type { ConnectorThreadBinding } from '@cat-cafe/shared';
+import type { ConnectorThreadBinding } from '@office-claw/shared';
 
 export interface IConnectorThreadBindingStore {
   bind(
@@ -39,12 +39,14 @@ export class MemoryConnectorThreadBindingStore implements IConnectorThreadBindin
   }
 
   bind(connectorId: string, externalChatId: string, threadId: string, userId: string): ConnectorThreadBinding {
+    const existing = this.bindings.get(this.key(connectorId, externalChatId));
     const binding: ConnectorThreadBinding = {
       connectorId,
       externalChatId,
       threadId,
       userId,
       createdAt: Date.now(),
+      ...(existing?.hubThreadId ? { hubThreadId: existing.hubThreadId } : {}),
     };
     this.bindings.set(this.key(connectorId, externalChatId), binding);
     return binding;

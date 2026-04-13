@@ -27,7 +27,7 @@ export class WeixinSessionStore implements IWeixinSessionStore {
   private readonly filePath: string;
 
   constructor(hostRoot: string) {
-    this.filePath = join(hostRoot, '.cat-cafe', SESSION_FILENAME);
+    this.filePath = join(hostRoot, '.office-claw', SESSION_FILENAME);
   }
 
   load(): PersistedWeixinSession | null {

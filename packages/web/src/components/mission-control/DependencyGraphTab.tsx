@@ -6,7 +6,7 @@
 
 'use client';
 
-import { type BacklogItem, type BacklogStatus } from '@cat-cafe/shared';
+import { type BacklogItem, type BacklogStatus } from '@office-claw/shared';
 import { Handle, type Node, type NodeProps, Position, ReactFlow, useEdgesState, useNodesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';

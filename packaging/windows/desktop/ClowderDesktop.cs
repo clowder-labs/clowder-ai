@@ -14,11 +14,8 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
 internal static class Program
-{
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetProcessDPIAware();
-
-    [DllImport("shcore.dll", SetLastError = true)]
+{[DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDPIAware();[DllImport("shcore.dll", SetLastError = true)]
     private static extern int SetProcessDpiAwareness(int awareness);
 
     private const string InstanceMutexName = @"Local\OfficeClaw.WebView2Desktop";
@@ -37,7 +34,6 @@ internal static class Program
             try { SetProcessDPIAware(); } catch { }
         }
     }
-
 
     [STAThread]
     private static void Main()
@@ -75,6 +71,9 @@ internal static class Program
 
 internal sealed class LauncherForm : Form
 {
+    // =========================================================
+    // API Imports & Constants
+    // =========================================================
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
@@ -82,18 +81,63 @@ internal sealed class LauncherForm : Form
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+    private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);[DllImport("user32.dll")]
+    private static extern bool SetWindowPlacement(IntPtr hWnd, [In] ref WINDOWPLACEMENT lpwndpl);
 
     [DllImport("user32.dll")]
-    private static extern bool SetWindowPlacement(IntPtr hWnd, [In] ref WINDOWPLACEMENT lpwndpl);
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll")]
+    private static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
+
+    // DWM API 用于恢复系统边框阴影
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
+
+    // User32 API 用于获取显示器工作区（防最大化遮挡任务栏）
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
     private const int SW_RESTORE = 9;
     private const int SW_SHOWMINIMIZED = 2;
+    private const int WM_NCLBUTTONDOWN = 0xA1;
+    private const int WM_NCCALCSIZE = 0x0083;
+    private const int HTCAPTION = 0x2;
+    private const int SWP_NOMOVE = 0x0002;
+    private const int SWP_NOSIZE = 0x0001;
+    private const int SWP_NOZORDER = 0x0004;
+    private const int SWP_NOACTIVATE = 0x0010;
+    private const int SWP_FRAMECHANGED = 0x0020;
+    private const int SM_CXSIZEFRAME = 32;
+    private const int SM_CYSIZEFRAME = 33;
+    private const int SM_CXPADDEDBORDER = 92;
+    private const int TopResizeHitInset = 2;
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+
     private const string WindowMinimizeMessage = "window.minimize";
     private const string WindowToggleMaximizeMessage = "window.toggleMaximize";
     private const string WindowCloseMessage = "window.close";
     private const string WindowSyncStateMessage = "window.syncState";
+    private const string WindowStartDragMessage = "window.startDrag";
     private const string WindowStateMessageType = "window.state";
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct TRACKMOUSEEVENT
+    {
+        public int cbSize;
+        public uint dwFlags;
+        public IntPtr hwndTrack;
+        public uint dwHoverTime;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
@@ -120,23 +164,40 @@ internal sealed class LauncherForm : Form
         public POINT ptMinPosition;
         public POINT ptMaxPosition;
         public RECT rcNormalPosition;
+    }[StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int cxLeftWidth;
+        public int cxRightWidth;
+        public int cyTopHeight;
+        public int cyBottomHeight;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NCCALCSIZE_PARAMS
+    {
+        public RECT rcNewWindow;
+        public RECT rcOldWindow;
+        public RECT rcClient;
+        public IntPtr lppos;
     }
 
     private readonly object _logLock = new object();
     private readonly NotifyIcon _notifyIcon;
-    private readonly Panel _statusPanel;
-    private readonly PictureBox _splashBox;
-    private readonly System.Windows.Forms.Timer _spinnerTimer;
     private readonly EventWaitHandle _activationEvent;
     private readonly RegisteredWaitHandle _activationWaitHandle;
     private readonly string _projectRoot;
     private readonly string _logFilePath;
     private readonly string _runtimeStatePath;
-    private const float SplashStatusAnchorX = 0.5f;
-    private const float SplashStatusAnchorY = 0.8f;
-    private const float SplashStatusBaseFontSize = 22f;
-    private const float SplashStatusMinScale = 0.75f;
-    private const float SplashStatusMaxScale = 1.35f;
     private Process _serviceHostProcess;
     private bool _serviceStartedByLauncher;
     private bool _exitRequested;
@@ -145,10 +206,8 @@ internal sealed class LauncherForm : Form
     private bool _hasTrayRestorePlacement;
     private WINDOWPLACEMENT _trayRestorePlacement;
     private string _frontendUrl;
-    private string _statusText = "加载中...";
-    private int _spinnerAngle;
+    private WebView2 _splashWebView;
     private WebView2 _webView;
-    private Image _splashImage;
 
     public LauncherForm(EventWaitHandle activationEvent)
     {
@@ -162,12 +221,16 @@ internal sealed class LauncherForm : Form
         );
         _projectRoot = ResolveProjectRoot();
         _logFilePath = Path.Combine(_projectRoot, "logs", "desktop-launcher.log");
-        _runtimeStatePath = Path.Combine(_projectRoot, ".cat-cafe", "run", "windows", "runtime-state.json");
+        _runtimeStatePath = Path.Combine(_projectRoot, ".office-claw", "run", "windows", "runtime-state.json");
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
-        Text = string.Empty;
-        ShowIcon = false;
+        // [功能 2] 保留任务栏预览窗口的标题和图标
+        Text = "OfficeClaw";
+        ShowIcon = true;
+        // 保持 Sizable 边框类型以保留原生 Resize 与缩放动画
+        FormBorderStyle = FormBorderStyle.Sizable;
+
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
@@ -177,64 +240,90 @@ internal sealed class LauncherForm : Form
         _trayRestorePlacement = CreateEmptyWindowPlacement();
         Resize += (_, __) => PublishWindowState();
 
-        _splashBox = new PictureBox
-        {
-            Dock = DockStyle.Fill,
-            SizeMode = PictureBoxSizeMode.Normal,
-            BackColor = Color.Black,
-        };
-        _splashBox.Paint += OnSplashPaint;
-
-        var splashImagePath = Path.Combine(_projectRoot, "assets", "splash.jpg");
-        if (File.Exists(splashImagePath))
-        {
-            try { _splashImage = Image.FromFile(splashImagePath); }
-            catch { /* fall back to plain background */ }
-        }
-
-        _statusPanel = new DoubleBufferedPanel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.Transparent,
-        };
-        _statusPanel.Paint += OnStatusPanelPaint;
-
-        _spinnerTimer = new System.Windows.Forms.Timer { Interval = 40 };
-        _spinnerTimer.Tick += (_, __) =>
-        {
-            _spinnerAngle = (_spinnerAngle + 10) % 360;
-            if (_statusPanel != null && !_statusPanel.IsDisposed)
-            {
-                _statusPanel.Invalidate();
-            }
-        };
-        _spinnerTimer.Start();
-
-        _splashBox.Controls.Add(_statusPanel);
-        _statusPanel.BringToFront();
-        _splashBox.Resize += (_, __) =>
-        {
-            RepositionStatusLabel();
-            _splashBox.Invalidate();
-        };
-        Controls.Add(_splashBox);
-        RepositionStatusLabel();
         Shown += async (_, __) => await InitializeAsync();
         FormClosing += OnFormClosing;
         FormClosed += (_, __) => DisposeNotifyIcon();
+    }
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            return base.CreateParams;
+        }
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WM_NCCALCSIZE && m.WParam != IntPtr.Zero)
+        {
+            var nccsp = (NCCALCSIZE_PARAMS)Marshal.PtrToStructure(m.LParam, typeof(NCCALCSIZE_PARAMS));
+
+            if (WindowState == FormWindowState.Maximized)
+            {
+                // [功能 4] 最大化时不覆盖任务栏：将客户端大小严格限制在显示器工作区
+                IntPtr monitor = MonitorFromWindow(Handle, MONITOR_DEFAULTTONEAREST);
+                if (monitor != IntPtr.Zero)
+                {
+                    var monitorInfo = new MONITORINFO();
+                    monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                    if (GetMonitorInfo(monitor, ref monitorInfo))
+                    {
+                        nccsp.rcNewWindow = monitorInfo.rcWork;
+                        Marshal.StructureToPtr(nccsp, m.LParam, false);
+                        m.Result = IntPtr.Zero;
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                // 保留系统 resize frame，只裁掉 caption 主体，顶部只留约 1px。
+                var frameX = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                var frameY = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                nccsp.rcNewWindow.Left += frameX;
+                nccsp.rcNewWindow.Right -= frameX;
+                nccsp.rcNewWindow.Bottom -= frameY;
+                nccsp.rcNewWindow.Top += TopResizeHitInset;
+                Marshal.StructureToPtr(nccsp, m.LParam, false);
+                m.Result = IntPtr.Zero;
+                return;
+            }
+        }
+
+        base.WndProc(ref m);
+    }
+    // =========================================================
+    // 恢复窗口阴影
+    // =========================================================
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        try
+        {
+            // [功能 3] 保留系统默认边框阴影：向客户区内侵入 1 像素，DWM 将借此渲染原生阴影
+            var margins = new MARGINS { cxLeftWidth = 1, cxRightWidth = 1, cyTopHeight = 1, cyBottomHeight = 1 };
+            DwmExtendFrameIntoClientArea(Handle, ref margins);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed to extend frame for drop shadow: " + ex.Message);
+        }
     }
 
     private async Task InitializeAsync()
     {
         try
         {
-            UpdateStatus("Checking local workspace services...");
+            // 初始化启动页 WebView2
+            await InitializeSplashWebViewAsync().ConfigureAwait(true);
+
             AppendLog("Launcher boot started.");
             TryRefreshFrontendUrlFromRuntimeState();
 
             if (!await IsFrontendReadyAsync().ConfigureAwait(true))
             {
-                UpdateStatus("Starting local services...");
+                AppendLog("Starting local services...");
                 StartManagedServices();
                 _serviceStartedByLauncher = true;
             }
@@ -243,10 +332,8 @@ internal sealed class LauncherForm : Form
                 AppendLog("Frontend already running - reusing existing services.");
             }
 
-            UpdateStatus("Waiting for UI...");
             await WaitForFrontendAsync(TimeSpan.FromMinutes(2)).ConfigureAwait(true);
 
-            UpdateStatus("Opening desktop window...");
             await InitializeWebViewAsync().ConfigureAwait(true);
             AppendLog("Desktop window ready.");
         }
@@ -327,12 +414,37 @@ internal sealed class LauncherForm : Form
         if (!_exitRequested && eventArgs.CloseReason == CloseReason.UserClosing)
         {
             eventArgs.Cancel = true;
-            HideToTray();
+            ShowCloseConfirmationDialog();
             return;
         }
 
         _notifyIcon.Visible = false;
         StopManagedServices();
+    }
+
+    private void ShowCloseConfirmationDialog()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)ShowCloseConfirmationDialog);
+            return;
+        }
+
+        using (var dialog = new CloseConfirmationDialog())
+        {
+            var result = dialog.ShowDialog(this);
+            if (result == DialogResult.OK)
+            {
+                if (dialog.ShouldMinimize)
+                {
+                    HideToTray();
+                }
+                else
+                {
+                    RequestExit();
+                }
+            }
+        }
     }
 
     private void OnWebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs eventArgs)
@@ -368,10 +480,13 @@ internal sealed class LauncherForm : Form
                 ToggleMaximize();
                 return;
             case WindowCloseMessage:
-                HideToTray();
+                ShowCloseConfirmationDialog();
                 return;
             case WindowSyncStateMessage:
                 PublishWindowState();
+                return;
+            case WindowStartDragMessage:
+                StartWindowDrag();
                 return;
             default:
                 AppendLog("Ignoring unknown WebView2 message: " + message);
@@ -379,11 +494,53 @@ internal sealed class LauncherForm : Form
         }
     }
 
+    private void RefreshNativeFrame()
+    {
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+
+        SetWindowPos(
+            Handle,
+            IntPtr.Zero,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+        );
+    }
+
+    private void StartWindowDrag()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)StartWindowDrag);
+            return;
+        }
+
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+
+        if (WindowState == FormWindowState.Maximized)
+        {
+            WindowState = FormWindowState.Normal;
+            RefreshNativeFrame();
+        }
+
+        ReleaseCapture();
+        SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    }
+
     private void ToggleMaximize()
     {
         if (WindowState == FormWindowState.Maximized)
         {
             WindowState = FormWindowState.Normal;
+            RefreshNativeFrame();
         }
         else
         {
@@ -401,11 +558,6 @@ internal sealed class LauncherForm : Form
             return;
         }
 
-        if (_webView == null || _webView.IsDisposed || _webView.CoreWebView2 == null)
-        {
-            return;
-        }
-
         var isMaximized = WindowState == FormWindowState.Maximized ? "true" : "false";
         var isMinimized = WindowState == FormWindowState.Minimized ? "true" : "false";
         var canMaximize = MaximizeBox ? "true" : "false";
@@ -414,7 +566,15 @@ internal sealed class LauncherForm : Form
 
         try
         {
-            _webView.CoreWebView2.PostWebMessageAsJson(payload);
+            if (_splashWebView != null && !_splashWebView.IsDisposed && _splashWebView.CoreWebView2 != null)
+            {
+                _splashWebView.CoreWebView2.PostWebMessageAsJson(payload);
+            }
+
+            if (_webView != null && !_webView.IsDisposed && _webView.CoreWebView2 != null)
+            {
+                _webView.CoreWebView2.PostWebMessageAsJson(payload);
+            }
         }
         catch (Exception ex)
         {
@@ -547,7 +707,6 @@ internal sealed class LauncherForm : Form
         Activate();
         PublishWindowState();
     }
-
 
     private void RequestExit()
     {
@@ -785,9 +944,53 @@ internal sealed class LauncherForm : Form
         });
     }
 
+    private async Task InitializeSplashWebViewAsync()
+    {
+        var userDataFolder = Path.Combine(_projectRoot, ".office-claw", "webview2");
+        Directory.CreateDirectory(userDataFolder);
+
+        _splashWebView = new WebView2
+        {
+            Dock = DockStyle.Fill,
+            CreationProperties = new CoreWebView2CreationProperties
+            {
+                UserDataFolder = userDataFolder,
+            },
+        };
+
+        Controls.Add(_splashWebView);
+
+        await _splashWebView.EnsureCoreWebView2Async().ConfigureAwait(true);
+
+        var settings = _splashWebView.CoreWebView2.Settings;
+        settings.IsStatusBarEnabled = false;
+        settings.AreDevToolsEnabled = false;
+        settings.AreDefaultContextMenusEnabled = false;
+        settings.IsZoomControlEnabled = false;
+        settings.AreBrowserAcceleratorKeysEnabled = false;
+        settings.IsPinchZoomEnabled = false;
+        settings.IsPasswordAutosaveEnabled = false;
+        settings.IsGeneralAutofillEnabled = false;
+        settings.IsSwipeNavigationEnabled = false;
+
+        _splashWebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+
+        var splashHtmlPath = Path.Combine(_projectRoot, "assets", "splash.html");
+        if (File.Exists(splashHtmlPath))
+        {
+            _splashWebView.Source = new Uri("file:///" + splashHtmlPath.Replace("\\", "/"));
+        }
+        else
+        {
+            AppendLog("Warning: splash.html not found at " + splashHtmlPath);
+        }
+
+        PublishWindowState();
+    }
+
     private async Task InitializeWebViewAsync()
     {
-        var userDataFolder = Path.Combine(_projectRoot, ".cat-cafe", "webview2");
+        var userDataFolder = Path.Combine(_projectRoot, ".office-claw", "webview2");
         Directory.CreateDirectory(userDataFolder);
 
         _webView = new WebView2
@@ -799,15 +1002,12 @@ internal sealed class LauncherForm : Form
             },
         };
 
-        _spinnerTimer.Stop();
-        _spinnerTimer.Dispose();
         Controls.Clear();
-        if (_splashImage != null)
+        if (_splashWebView != null && !_splashWebView.IsDisposed)
         {
-            _splashImage.Dispose();
-            _splashImage = null;
+            _splashWebView.Dispose();
+            _splashWebView = null;
         }
-        _splashBox.Dispose();
         Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
@@ -815,8 +1015,8 @@ internal sealed class LauncherForm : Form
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
         settings.AreDevToolsEnabled = false;
-        // Keep native context menu so selection copy works in desktop WebView2.
-        settings.AreDefaultContextMenusEnabled = true;
+        // 屏蔽右键菜单，但保留键盘快捷键（Ctrl+C 复制、Ctrl+V 粘贴、Ctrl+A 全选等）
+        settings.AreDefaultContextMenusEnabled = false;
         settings.IsZoomControlEnabled = false;
         settings.AreBrowserAcceleratorKeysEnabled = false;
         settings.IsPinchZoomEnabled = false;
@@ -893,19 +1093,6 @@ internal sealed class LauncherForm : Form
         }
     }
 
-    private void UpdateStatus(string message)
-    {
-        if (InvokeRequired)
-        {
-            BeginInvoke((Action)(() => UpdateStatus(message)));
-            return;
-        }
-
-        _statusText = "加载中...";
-        _statusPanel.Invalidate();
-        AppendLog(message);
-    }
-
     private void AppendLog(string message)
     {
         lock (_logLock)
@@ -917,129 +1104,76 @@ internal sealed class LauncherForm : Form
             );
         }
     }
-
-    private void RepositionStatusLabel()
-    {
-        if (_statusPanel == null || _statusPanel.IsDisposed)
-        {
-            return;
-        }
-
-        _statusPanel.Invalidate();
-    }
-
-    private RectangleF GetSplashImageBounds(Size canvas)
-    {
-        if (_splashImage == null || canvas.Width <= 0 || canvas.Height <= 0)
-        {
-            return RectangleF.Empty;
-        }
-
-        var img = _splashImage;
-        float scale = Math.Max(
-            (float)canvas.Width / img.Width,
-            (float)canvas.Height / img.Height
-        );
-
-        float scaledW = img.Width * scale;
-        float scaledH = img.Height * scale;
-        float x = (canvas.Width - scaledW) / 2f;
-        float y = (canvas.Height - scaledH) / 2f;
-        return new RectangleF(x, y, scaledW, scaledH);
-    }
-
-    private float GetSplashOverlayScale(RectangleF imageBounds)
-    {
-        if (_splashImage == null || imageBounds.IsEmpty)
-        {
-            return 1f;
-        }
-
-        float scaleX = imageBounds.Width / _splashImage.Width;
-        float scaleY = imageBounds.Height / _splashImage.Height;
-        float scale = Math.Min(scaleX, scaleY);
-        return Math.Max(SplashStatusMinScale, Math.Min(SplashStatusMaxScale, scale));
-    }
-
-    private void OnSplashPaint(object sender, PaintEventArgs eventArgs)
-    {
-        if (_splashImage == null)
-        {
-            return;
-        }
-
-        var imageBounds = GetSplashImageBounds(((Control)sender).ClientSize);
-        if (imageBounds.IsEmpty)
-        {
-            return;
-        }
-
-        eventArgs.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        eventArgs.Graphics.DrawImage(_splashImage, imageBounds);
-    }
-
-    private void OnStatusPanelPaint(object sender, PaintEventArgs eventArgs)
-    {
-        if (_splashImage == null)
-        {
-            return;
-        }
-
-        var panel = (Panel)sender;
-        var g = eventArgs.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-
-        var imageBounds = GetSplashImageBounds(panel.ClientSize);
-        if (imageBounds.IsEmpty)
-        {
-            return;
-        }
-
-        float overlayScale = GetSplashOverlayScale(imageBounds);
-        float fontSize = SplashStatusBaseFontSize * overlayScale;
-        float spinnerSize = 24f * overlayScale;
-        float gap = 10f * overlayScale;
-        float strokeWidth = Math.Max(2f, 2.5f * overlayScale);
-
-        using (var font = new Font("Segoe UI", fontSize, FontStyle.Regular, GraphicsUnit.Pixel))
-        {
-            var textSize = g.MeasureString(_statusText, font);
-            float totalWidth = spinnerSize + gap + textSize.Width;
-            float anchorX = imageBounds.Left + imageBounds.Width * SplashStatusAnchorX;
-            float anchorY = imageBounds.Top + imageBounds.Height * SplashStatusAnchorY;
-            float startX = anchorX - totalWidth / 2f;
-            float spinnerY = anchorY - spinnerSize / 2f;
-            float textX = startX + spinnerSize + gap;
-            float textY = anchorY - textSize.Height / 2f;
-
-            var spinnerColor = Color.FromArgb(255, 128, 0);
-            var textColor = Color.FromArgb(51, 51, 51);
-
-            using (var pen = new Pen(spinnerColor, strokeWidth))
-            {
-                pen.StartCap = LineCap.Round;
-                pen.EndCap = LineCap.Round;
-                g.DrawArc(pen, startX, spinnerY, spinnerSize, spinnerSize, _spinnerAngle, 270);
-            }
-
-            using (var brush = new SolidBrush(textColor))
-            {
-                g.DrawString(_statusText, font, brush, textX, textY);
-            }
-        }
-    }
 }
 
-internal sealed class DoubleBufferedPanel : Panel
+internal sealed class CloseConfirmationDialog : Form
 {
-    public DoubleBufferedPanel()
+    private readonly RadioButton _minimizeRadio;
+    private readonly RadioButton _exitRadio;
+    private readonly Button _okButton;
+    private readonly Button _cancelButton;
+
+    public bool ShouldMinimize
     {
-        SetStyle(
-            ControlStyles.UserPaint |
-            ControlStyles.AllPaintingInWmPaint |
-            ControlStyles.OptimizedDoubleBuffer,
-            true
-        );
+        get { return _minimizeRadio.Checked; }
+    }
+
+    public CloseConfirmationDialog()
+    {
+        Text = "OfficeClaw";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        StartPosition = FormStartPosition.CenterParent;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ShowInTaskbar = false;
+        ClientSize = new Size(320, 140);
+        AutoScaleMode = AutoScaleMode.Font;
+
+        var promptLabel = new Label
+        {
+            Text = "关闭窗口时，您希望如何处理？",
+            Location = new Point(12, 12),
+            Size = new Size(296, 20),
+        };
+
+        _minimizeRadio = new RadioButton
+        {
+            Text = "最小化到托盘（继续运行）",
+            Location = new Point(24, 40),
+            Size = new Size(280, 24),
+            Checked = true,
+        };
+
+        _exitRadio = new RadioButton
+        {
+            Text = "直接退出（关闭应用）",
+            Location = new Point(24, 68),
+            Size = new Size(280, 24),
+        };
+
+        _okButton = new Button
+        {
+            Text = "确定",
+            DialogResult = DialogResult.OK,
+            Location = new Point(140, 100),
+            Size = new Size(80, 28),
+        };
+
+        _cancelButton = new Button
+        {
+            Text = "取消",
+            DialogResult = DialogResult.Cancel,
+            Location = new Point(228, 100),
+            Size = new Size(80, 28),
+        };
+
+        Controls.Add(promptLabel);
+        Controls.Add(_minimizeRadio);
+        Controls.Add(_exitRadio);
+        Controls.Add(_okButton);
+        Controls.Add(_cancelButton);
+
+        AcceptButton = _okButton;
+        CancelButton = _cancelButton;
     }
 }

@@ -4,7 +4,7 @@ Whisper ASR server for Cat Cafe voice input (MLX backend, Apple Silicon native).
 OpenAI-compatible endpoint: POST /v1/audio/transcriptions
 
 Usage:
-  source ~/.cat-cafe/whisper-venv/bin/activate
+  source ~/.office-claw/whisper-venv/bin/activate
   python scripts/whisper-api.py                                          # default: large-v3-turbo
   python scripts/whisper-api.py --model mlx-community/whisper-small      # smaller model
   python scripts/whisper-api.py --port 9876                              # custom port

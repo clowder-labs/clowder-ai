@@ -14,15 +14,14 @@
 
 import { lstat, mkdir, readFile, readlink, symlink, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
-import type { BootstrapAction, BootstrapReport } from '@cat-cafe/shared';
+import type { BootstrapAction, BootstrapReport } from '@office-claw/shared';
 import { pathsEqual } from '../../utils/project-path.js';
 import type { Provider } from './governance-pack.js';
 import {
   computePackChecksum,
   GOVERNANCE_PACK_VERSION,
   getGovernanceManagedBlock,
-  LEGACY_BLOCK_END,
-  LEGACY_BLOCK_START,
+  LEGACY_MARKERS,
   MANAGED_BLOCK_END,
   MANAGED_BLOCK_START,
 } from './governance-pack.js';
@@ -140,11 +139,16 @@ export class GovernanceBootstrapService {
     let endIdx = existingContent.indexOf(MANAGED_BLOCK_END);
     let endMarkerLen = MANAGED_BLOCK_END.length;
 
-    // Fallback: check for legacy markers (pre-1.3.0 migration)
+    // Fallback: check for legacy markers (three-generation migration)
     if (startIdx < 0 || endIdx < 0) {
-      startIdx = existingContent.indexOf(LEGACY_BLOCK_START);
-      endIdx = existingContent.indexOf(LEGACY_BLOCK_END);
-      endMarkerLen = LEGACY_BLOCK_END.length;
+      for (const legacy of LEGACY_MARKERS) {
+        startIdx = existingContent.indexOf(legacy.start);
+        endIdx = existingContent.indexOf(legacy.end);
+        if (startIdx >= 0 && endIdx >= 0) {
+          endMarkerLen = legacy.end.length;
+          break;
+        }
+      }
     }
 
     if (startIdx >= 0 && endIdx >= 0) {
@@ -185,7 +189,7 @@ export class GovernanceBootstrapService {
     dryRun: boolean,
   ): Promise<BootstrapAction> {
     const targetPath = resolve(targetProject, skillsDir);
-    const sourcePath = resolve(this.catCafeRoot, 'cat-cafe-skills');
+    const sourcePath = resolve(this.catCafeRoot, 'office-claw-skills');
 
     // Check if symlink already exists and points to the right place
     try {
@@ -198,7 +202,7 @@ export class GovernanceBootstrapService {
         }
       }
       // Exists but not a symlink or wrong target — skip to avoid damage
-      return { file: skillsDir, action: 'skipped', reason: 'path exists but is not a symlink to cat-cafe-skills' };
+      return { file: skillsDir, action: 'skipped', reason: 'path exists but is not a symlink to office-claw-skills' };
     } catch {
       // Doesn't exist — create
     }
@@ -295,7 +299,7 @@ export class GovernanceBootstrapService {
   }
 
   private async saveReport(targetProject: string, report: BootstrapReport): Promise<void> {
-    const dir = resolve(targetProject, '.cat-cafe');
+    const dir = resolve(targetProject, '.office-claw');
     await mkdir(dir, { recursive: true });
     const filePath = resolve(dir, 'governance-bootstrap-report.json');
     await writeFile(filePath, `${JSON.stringify(report, null, 2)}\n`, 'utf-8');

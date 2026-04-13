@@ -29,7 +29,8 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 
 const HOME_DRAFT_THREAD_ID = '__new__';
 const SIDEBAR_DEFAULT = 240;
-const MAIN_PANEL_MIN_WIDTH = 900;
+const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度240
+const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
@@ -55,6 +56,7 @@ function getCreateThreadErrorMessage(status: number, detail?: unknown): string {
 export function NewThreadContainer() {
   const router = useRouter();
   const setCurrentThread = useChatStore((s) => s.setCurrentThread);
+  const threads = useChatStore((s) => s.threads);
   const setPendingNewThreadSend = useChatStore((s) => s.setPendingNewThreadSend);
   const attachPendingNewThreadTarget = useChatStore((s) => s.attachPendingNewThreadTarget);
   const clearPendingNewThreadSend = useChatStore((s) => s.clearPendingNewThreadSend);
@@ -93,7 +95,8 @@ export function NewThreadContainer() {
     }),
     [],
   );
-  useSocket(socketCallbacks);
+  const watchedThreadIds = useMemo(() => threads.map((thread) => thread.id), [threads]);
+  useSocket(socketCallbacks, undefined, watchedThreadIds);
 
   const handleFolderSelect = useCallback((path: string) => {
     setSelectedFolderPath(path);
@@ -187,7 +190,7 @@ export function NewThreadContainer() {
   );
 
   return (
-    <div className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+    <div className="ui-shell-surface flex h-screen h-dvh w-screen">
       <div className="z-30 h-full flex-shrink-0" style={{ width: sidebarWidth }}>
         <ThreadSidebar
           className="w-full"
@@ -203,12 +206,16 @@ export function NewThreadContainer() {
         <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
       </div>
 
-      <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex h-full min-w-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+      <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className="flex h-full min-h-0 min-w-0 flex-col" style={{ minWidth: sidebarMenu === 'chat' ? MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}>
           <RightContentHeader />
-          <div className="relative flex-1 overflow-hidden">
+          <div className="relative flex-1 min-h-0">
             {sidebarMenu !== 'chat' && (
-              <div className="ui-shell-surface h-full overflow-hidden px-8 pt-6 pb-5">
+              <div
+                className={`ui-shell-surface h-full px-8 pt-6 pb-5 ${
+                  sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : ''
+                }`}
+              >
                 {sidebarMenu === 'models' && <ModelsPanel />}
                 {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
@@ -217,14 +224,15 @@ export function NewThreadContainer() {
               </div>
             )}
             {sidebarMenu === 'chat' && (
-              <main className="ui-shell-surface flex h-full flex-col overflow-y-auto p-4" data-testid="new-thread-main">
-                <div className="flex-1">
+              <main
+                className="ui-shell-surface flex h-full min-h-0 flex-col overflow-y-auto p-4"
+                data-testid="new-thread-main"
+              >
+                <div className="flex flex-1 items-center justify-center">
                   <ChatEmptyState
-                    bootcampCount={0}
-                    isCurrentBootcampThread={false}
-                    onOpenBootcampList={() => {}}
                     onAgentsClick={() => setSidebarMenu('agents')}
                     onChannelsClick={() => setSidebarMenu('channels')}
+                    fillAvailableHeight
                   />
                 </div>
               </main>

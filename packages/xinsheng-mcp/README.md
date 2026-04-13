@@ -41,7 +41,7 @@
 ## 本地运行
 
 ```bash
-pnpm --filter @cat-cafe/xinsheng-mcp build
+pnpm --filter @office-claw/xinsheng-mcp build
 cd packages/xinsheng-mcp
 node dist/index.js
 ```

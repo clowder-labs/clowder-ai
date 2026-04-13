@@ -11,10 +11,10 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
 async function seedTemplate(projectRoot, mutateTemplate) {
-  const templatePath = join(process.cwd(), '..', '..', 'cat-template.json');
+  const templatePath = join(process.cwd(), '..', '..', 'office-claw-template.json');
   const template = JSON.parse(await readFile(templatePath, 'utf-8'));
   if (mutateTemplate) mutateTemplate(template);
-  await writeFile(join(projectRoot, 'cat-template.json'), `${JSON.stringify(template, null, 2)}\n`, 'utf-8');
+  await writeFile(join(projectRoot, 'office-claw-template.json'), `${JSON.stringify(template, null, 2)}\n`, 'utf-8');
 }
 
 describe('cat account binding', () => {
@@ -23,18 +23,18 @@ describe('cat account binding', () => {
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-inherited-'));
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
     try {
       await seedTemplate(projectRoot);
-      bootstrapCatCatalog(projectRoot, join(projectRoot, 'cat-template.json'));
+      bootstrapCatCatalog(projectRoot, join(projectRoot, 'office-claw-template.json'));
       const catConfig = toAllCatConfigs(loadCatConfig(resolveCatCatalogPath(projectRoot))).codex;
       assert.ok(catConfig, 'codex should be present in bootstrapped runtime catalog');
       assert.equal(resolveBoundAccountRefForCat(projectRoot, 'codex', catConfig), undefined);
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(projectRoot, { recursive: true, force: true });
     }
   });
@@ -44,8 +44,8 @@ describe('cat account binding', () => {
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-explicit-'));
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
     try {
       await seedTemplate(projectRoot, (template) => {
@@ -53,13 +53,13 @@ describe('cat account binding', () => {
         if (!codexBreed) throw new Error('codex breed missing from template');
         codexBreed.variants[0].providerProfileId = 'codex-pinned';
       });
-      bootstrapCatCatalog(projectRoot, join(projectRoot, 'cat-template.json'));
+      bootstrapCatCatalog(projectRoot, join(projectRoot, 'office-claw-template.json'));
       const catConfig = toAllCatConfigs(loadCatConfig(resolveCatCatalogPath(projectRoot))).codex;
       assert.ok(catConfig, 'codex should be present in bootstrapped runtime catalog');
       assert.equal(resolveBoundAccountRefForCat(projectRoot, 'codex', catConfig), 'codex-pinned');
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(projectRoot, { recursive: true, force: true });
     }
   });
@@ -72,12 +72,12 @@ describe('cat account binding', () => {
     const { resolveBoundAccountRefForCat } = await import('../dist/config/cat-account-binding.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-legacy-seed-'));
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
 
     try {
       await seedTemplate(projectRoot);
-      process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
-      process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+      process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
+      process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
       bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
 
       const catalogPath = resolveCatCatalogPath(projectRoot);
@@ -92,7 +92,7 @@ describe('cat account binding', () => {
       delete codexBreed.variants[0].providerProfileId;
       sparkVariant.accountRef = 'codex';
       delete sparkVariant.providerProfileId;
-      await mkdir(join(projectRoot, '.cat-cafe'), { recursive: true });
+      await mkdir(join(projectRoot, '.office-claw'), { recursive: true });
       await writeFile(catalogPath, `${JSON.stringify(runtimeCatalog, null, 2)}\n`, 'utf-8');
 
       const migratedCatalog = readCatCatalog(projectRoot);
@@ -108,8 +108,8 @@ describe('cat account binding', () => {
     } finally {
       if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       await rm(projectRoot, { recursive: true, force: true });
     }
   });
@@ -123,12 +123,12 @@ describe('cat account binding', () => {
     const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const projectRoot = await mkdtemp(join(tmpdir(), 'cat-account-binding-sibling-inherited-'));
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
     try {
       await seedTemplate(projectRoot);
-      process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+      process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
       bootstrapCatCatalog(projectRoot, process.env.CAT_TEMPLATE_PATH);
 
       const catalogPath = resolveCatCatalogPath(projectRoot);
@@ -162,8 +162,8 @@ describe('cat account binding', () => {
       assert.equal(resolveBoundAccountRefForCat(projectRoot, 'codex', allCats.codex), 'codex-sponsor');
       assert.equal(resolveBoundAccountRefForCat(projectRoot, 'spark', allCats.spark), undefined);
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       if (previousTemplatePath === undefined) delete process.env.CAT_TEMPLATE_PATH;
       else process.env.CAT_TEMPLATE_PATH = previousTemplatePath;
       await rm(projectRoot, { recursive: true, force: true });

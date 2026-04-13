@@ -75,16 +75,16 @@ function makeVersion2Config(catId, displayName, options = {}) {
 function createRuntimeCatalogProject(catalog, template = makeCatalog('template-cat', '模板猫')) {
   const projectRoot = mkdtempSync(join(tmpdir(), 'cats-route-runtime-'));
   tempDirs.push(projectRoot);
-  writeFileSync(join(projectRoot, 'cat-template.json'), JSON.stringify(template, null, 2));
-  mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
-  writeFileSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), JSON.stringify(catalog, null, 2));
+  writeFileSync(join(projectRoot, 'office-claw-template.json'), JSON.stringify(template, null, 2));
+  mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
+  writeFileSync(join(projectRoot, '.office-claw', 'office-claw-catalog.json'), JSON.stringify(catalog, null, 2));
   return projectRoot;
 }
 
 function createTemplateOnlyProject(template) {
   const projectRoot = mkdtempSync(join(tmpdir(), 'cats-route-template-'));
   tempDirs.push(projectRoot);
-  writeFileSync(join(projectRoot, 'cat-template.json'), JSON.stringify(template, null, 2));
+  writeFileSync(join(projectRoot, 'office-claw-template.json'), JSON.stringify(template, null, 2));
   return projectRoot;
 }
 
@@ -95,13 +95,13 @@ function createMonorepoTemplateOnlyProject(template) {
 }
 
 function loadRepoTemplate() {
-  return JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'cat-template.json'), 'utf-8'));
+  return JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'office-claw-template.json'), 'utf-8'));
 }
 
 describe('cats routes read runtime catalog', { concurrency: false }, () => {
   beforeEach(() => {
     savedTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    savedGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    savedGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
   });
 
   afterEach(() => {
@@ -111,9 +111,9 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
       process.env.CAT_TEMPLATE_PATH = savedTemplatePath;
     }
     if (savedGlobalRoot === undefined) {
-      delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+      delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     } else {
-      process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
+      process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
     }
   });
 
@@ -125,7 +125,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
 
   it('GET /api/cats returns cats from runtime catalog even when not in catRegistry', async () => {
     const projectRoot = createRuntimeCatalogProject(makeCatalog('runtime-cat', '运行时猫'));
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -156,7 +156,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
       breeds: [...templateConfig.breeds, ...makeCatalog('runtime-cat', '运行时猫').breeds],
     };
     const projectRoot = createRuntimeCatalogProject(runtimeCatalog, templateConfig);
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -200,7 +200,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
       ],
     };
     const projectRoot = createTemplateOnlyProject(template);
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -217,7 +217,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
       'first read should match the bootstrapped runtime catalog, not the raw template',
     );
 
-    const runtimeCatalog = JSON.parse(readFileSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), 'utf-8'));
+    const runtimeCatalog = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'office-claw-catalog.json'), 'utf-8'));
     assert.deepEqual(
       runtimeCatalog.breeds.map((breed) => breed.catId),
       ['codex', 'dare', 'antigravity', 'opencode'],
@@ -252,7 +252,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
       );
       assert.equal(localTemplateCat.source, 'seed');
       assert.equal(
-        readFileSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json'), 'utf-8').includes('local-template'),
+        readFileSync(join(projectRoot, '.office-claw', 'office-claw-catalog.json'), 'utf-8').includes('local-template'),
         true,
       );
     } finally {
@@ -263,8 +263,8 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
 
   it('GET /api/cats recomputes seed accountRef from the active bootstrap binding', async () => {
     const projectRoot = createTemplateOnlyProject(loadRepoTemplate());
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
     const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
     const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
@@ -300,7 +300,7 @@ describe('cats routes read runtime catalog', { concurrency: false }, () => {
     const projectRoot = createRuntimeCatalogProject(
       makeCatalog('runtime-antigravity', '运行时桥接猫', 'antigravity', 'gemini-bridge'),
     );
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');

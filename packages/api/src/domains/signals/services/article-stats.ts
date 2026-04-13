@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle } from '@cat-cafe/shared';
+import type { SignalArticle } from '@office-claw/shared';
 
 export interface SignalArticleStats {
   readonly todayCount: number;
