@@ -39,7 +39,7 @@ describe('RedisThreadReadStateStore', { skip: !REDIS_URL ? 'REDIS_URL not set' :
     RedisThreadReadStateStore = storeModule.RedisThreadReadStateStore;
     const msgModule = await import('../dist/domains/cats/services/stores/redis/RedisMessageStore.js');
     RedisMessageStore = msgModule.RedisMessageStore;
-    const redisModule = await import('@cat-cafe/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });

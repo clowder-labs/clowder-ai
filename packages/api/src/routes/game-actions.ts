@@ -4,7 +4,7 @@
  *
  */
 
-import type { GameAction, SeatId } from '@cat-cafe/shared';
+import type { GameAction, SeatId } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { ActionNotifier } from '../domains/cats/services/game/GameNarratorDriver.js';

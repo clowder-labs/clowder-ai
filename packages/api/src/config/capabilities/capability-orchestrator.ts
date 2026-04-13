@@ -18,8 +18,8 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { relative, resolve, sep } from 'node:path';
-import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import type { CapabilitiesConfig, CapabilityEntry, McpServerDescriptor } from '@office-claw/shared';
+import { catRegistry } from '@office-claw/shared';
 import {
   readClaudeMcpConfig,
   readCodexMcpConfig,

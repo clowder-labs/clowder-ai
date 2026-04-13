@@ -262,7 +262,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-4 overflow-y-auto pr-1">
+          <div className="grid grid-cols-3 gap-x-4 gap-y-6 overflow-y-auto px-1 pb-4">
             {tasks.map((task) => (
               <article
                 key={task.taskId}
@@ -275,17 +275,17 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                     setSelectedTask(task);
                   }
                 }}
-                className="group h-[194px] cursor-pointer rounded-[14px] border border-[#E9EDF3] bg-white p-6"
+                className="group h-[194px] cursor-pointer rounded-[16px] border border-[#e6e6e6] bg-white p-6 transition-shadow hover:shadow-[0_4px_16px_0_rgba(0,0,0,0.08)]"
               >
                 <div className="flex h-full flex-col gap-4">
-                  <div className="flex h-[48px] items-start justify-between gap-3">
+                  <div className="flex h-[48px] items-center justify-between gap-3">
                     <div className="flex h-full min-w-0 items-center gap-3">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(250,250,250,1)]">
                         <img src={TASK_TIME_ICON} alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
                       </div>
                       <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[#1F2329]">{task.taskName}</h3>
                     </div>
-                    {task.source === 'dynamic' && false ? (
+                    {task.source === 'dynamic' ? (
                       <button
                         type="button"
                         role="switch"
@@ -309,7 +309,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
 
                   <div className="h-[24px]">
                     <div className="flex items-center gap-1.5 text-[12px] leading-6 text-[#AAB2BE] group-hover:hidden">
-                      <span aria-hidden="true" className="h-[14px] w-[14px] shrink-0" style={taskIconMaskStyle} />
+                      <span aria-hidden="true" className="h-4 w-4 shrink-0" style={taskIconMaskStyle} />
                       <span>{task.frequency}</span>
                     </div>
                     <div className="hidden group-hover:flex">

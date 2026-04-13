@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { isGameEvent, isSeatId, isValidScope } from '@cat-cafe/shared';
+import { isGameEvent, isSeatId, isValidScope } from '@office-claw/shared';
 
 describe('Game type guards', () => {
   describe('isSeatId', () => {

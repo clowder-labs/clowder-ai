@@ -474,9 +474,12 @@ export function handleBackgroundAgentMessage(
   }
 
   if (msg.type === 'error') {
+    // 理论上后端已转换，但保留降级处理
+    log.warn({ catId: msg.catId, threadId: msg.threadId }, 'Received raw error event in background');
+
     markThreadInvocationActive(msg, options);
     stopTrackedStream(streamKey, msg, options);
-    const toast = getAgentErrorToastContent(msg);
+
     recordDebugEvent({
       event: 'agent_message',
       threadId: msg.threadId,
@@ -484,15 +487,19 @@ export function handleBackgroundAgentMessage(
       catId: msg.catId,
       invocationId: msg.invocationId,
       reason: msg.error ?? 'Unknown error',
-      action: 'error_fallback',
+      action: 'error_fallback_background_degradation',
       origin: msg.origin,
     });
+
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
+
     if (msg.isFinal) {
-      // #80 fix-C: Clear timeout guard for error(isFinal) path
       options.clearDoneTimeout?.(msg.threadId);
       markThreadInvocationComplete(msg, options);
     }
+
+    // Toast 通知（降级）
+    const toast = getAgentErrorToastContent(msg);
     options.addToast({
       type: 'error',
       title: toast.title,
