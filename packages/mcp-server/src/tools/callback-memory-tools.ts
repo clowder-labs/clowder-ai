@@ -68,7 +68,7 @@ export const callbackMemoryTools = [
   {
     name: 'office_claw_retain_memory_callback',
     description:
-      'Retain a durable memory item through callback endpoint. ' +
+      'Retain a durable memory item through OfficeClaw callback endpoint. ' +
       'Use when you discover an important insight, decision, or lesson that should persist across sessions. ' +
       'Examples: architectural decisions made during discussion, gotchas discovered while debugging, ' +
       'cross-cat agreements. NOT for transient notes — only for knowledge worth remembering long-term. ' +

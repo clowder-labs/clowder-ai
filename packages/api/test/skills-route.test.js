@@ -607,7 +607,7 @@ describe('Skills Route', () => {
       url: '/api/skills/upload',
       headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
       payload: JSON.stringify({
-        name: 'agent-browser',
+        name: 'pdf',
         files: [{ path: 'SKILL.md', content: Buffer.from('# new skill').toString('base64') }],
       }),
     });

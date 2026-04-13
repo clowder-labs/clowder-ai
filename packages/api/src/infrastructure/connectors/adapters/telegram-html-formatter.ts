@@ -4,7 +4,7 @@
  *
  */
 
-import type { RichBlock } from '@cat-cafe/shared';
+import type { RichBlock } from '@office-claw/shared';
 
 const TELEGRAM_MAX = 4096;
 

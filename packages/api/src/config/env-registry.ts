@@ -935,9 +935,11 @@ function isHubVisibleEnvVar(def: EnvDefinition): boolean {
 export function buildEnvSummary(): Array<EnvDefinition & { currentValue: string | null }> {
   return ENV_VARS.filter(isHubVisibleEnvVar).map((def) => {
     const raw = process.env[def.name];
-    const ref =
-      isConnectorSecretBackedEnvVarName(def.name) ? process.env[buildConnectorEnvRefVarName(def.name)] ?? null : null;
-    const currentValue = raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
+    const ref = isConnectorSecretBackedEnvVarName(def.name)
+      ? (process.env[buildConnectorEnvRefVarName(def.name)] ?? null)
+      : null;
+    const currentValue =
+      raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
     return { ...def, currentValue };
   });
 }
@@ -985,7 +987,6 @@ const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
   ['CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH', 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_FLUSH_BATCH'],
   ['CAT_CAFE_CALLBACK_RETRY_DELAYS_MS', 'OFFICE_CLAW_CALLBACK_RETRY_DELAYS_MS'],
   ['CAT_CAFE_SIGNAL_USER', 'OFFICE_CLAW_SIGNAL_USER'],
-  ['CAT_CAFE_SKIP_AUTH', 'OFFICE_CLAW_SKIP_AUTH'],
   ['CAT_CAFE_CONFIG_ROOT', 'OFFICE_CLAW_CONFIG_ROOT'],
   ['CAT_CAFE_GLOBAL_CONFIG_ROOT', 'OFFICE_CLAW_GLOBAL_CONFIG_ROOT'],
   ['CAT_CAFE_BUILTIN_CLIENTS_ENABLED', 'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED'],
@@ -1009,6 +1010,9 @@ const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
  * Migrate deprecated CAT_CAFE_* env vars to OFFICE_CLAW_* equivalents.
  * Call once at startup before any env var reads.
  * New name takes precedence; old name is only copied when new name is unset.
+ *
+ * Keys removed from OfficeClaw's public configuration surface should not stay
+ * here indefinitely; keep this map limited to transitional runtime aliases.
  */
 export function migrateDeprecatedEnvVars(): void {
   for (const [oldName, newName] of LEGACY_ENV_MAP) {

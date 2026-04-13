@@ -95,7 +95,7 @@ export const workflowSopRoutes: FastifyPluginAsync<WorkflowSopRoutesOptions> = a
         ...(rest.resumeCapsule !== undefined ? { resumeCapsule: rest.resumeCapsule } : {}),
         ...(rest.checks !== undefined ? { checks: rest.checks } : {}),
         ...(rest.expectedVersion !== undefined ? { expectedVersion: rest.expectedVersion } : {}),
-      } as import('@cat-cafe/shared').UpdateWorkflowSopInput;
+      } as import('@office-claw/shared').UpdateWorkflowSopInput;
       const sop = await workflowSopStore.upsert(request.params.itemId, featureId, input, userId);
       return sop;
     } catch (err) {

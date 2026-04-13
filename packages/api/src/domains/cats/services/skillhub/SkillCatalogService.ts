@@ -12,12 +12,7 @@ import { parse as parseYaml } from 'yaml';
 import { resolveCatCafeHostRoot } from '../../../../utils/cat-cafe-root.js';
 import { parseFrontmatterString } from './frontmatter-parser.js';
 import { loadInstalledRegistry } from './InstalledSkillRegistry.js';
-import {
-  resolveLegacyOfficialSkillsRoot,
-  resolveLegacyUserSkillsRoot,
-  resolveOfficialSkillsRoot,
-  resolveUserSkillsRoot,
-} from './SkillPaths.js';
+import { resolveOfficialSkillsRoot, resolveUserSkillsRoot } from './SkillPaths.js';
 
 interface BootstrapEntry {
   name: string;
@@ -60,8 +55,6 @@ interface SkillRoots {
   hostRoot: string;
   officialSkillsRoot: string;
   userSkillsRoot: string;
-  legacyOfficialSkillsRoot: string;
-  legacyUserSkillsRoot: string;
 }
 
 interface ResolvedSkillEntry extends RuntimeSkillCatalogEntry {
@@ -176,8 +169,6 @@ function resolveSkillRoots(options?: SkillCatalogServiceOptions): SkillRoots {
     hostRoot,
     officialSkillsRoot: resolveOfficialSkillsRoot(hostRoot),
     userSkillsRoot: resolveUserSkillsRoot(hostRoot),
-    legacyOfficialSkillsRoot: resolveLegacyOfficialSkillsRoot(hostRoot),
-    legacyUserSkillsRoot: resolveLegacyUserSkillsRoot(hostRoot),
   };
 }
 
@@ -355,18 +346,6 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
   const officialSkillNameSet = new Set(officialSkillNames);
   const userSkillNameSet = new Set(userSkillNames);
 
-  if (existsSync(roots.legacyOfficialSkillsRoot)) {
-    for (const name of await listSkillDirs(roots.legacyOfficialSkillsRoot)) {
-      if (!officialSkillNameSet.has(name)) officialSkillNames.push(name);
-    }
-  }
-
-  if (existsSync(roots.legacyUserSkillsRoot)) {
-    for (const name of await listSkillDirs(roots.legacyUserSkillsRoot)) {
-      if (!userSkillNameSet.has(name)) userSkillNames.push(name);
-    }
-  }
-
   const mergedOfficialSkillNameSet = new Set(officialSkillNames);
   const skillNames = [...officialSkillNames, ...userSkillNames.filter((name) => !mergedOfficialSkillNameSet.has(name))];
 
@@ -390,12 +369,8 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
   const entries = await Promise.all(
     orderedNames.map(async (name): Promise<ResolvedSkillEntry> => {
       const skillDir = mergedOfficialSkillNameSet.has(name)
-        ? existsSync(join(roots.officialSkillsRoot, name))
-          ? join(roots.officialSkillsRoot, name)
-          : join(roots.legacyOfficialSkillsRoot, name)
-        : existsSync(join(roots.userSkillsRoot, name))
-          ? join(roots.userSkillsRoot, name)
-          : join(roots.legacyUserSkillsRoot, name);
+        ? join(roots.officialSkillsRoot, name)
+        : join(roots.userSkillsRoot, name);
       const skillMarkdown = await readFile(join(skillDir, 'SKILL.md'), 'utf-8');
       const frontmatter = parseFrontmatterString(skillMarkdown);
       const bootstrap = bootstrapEntries.get(name);
