@@ -1034,6 +1034,15 @@ class JiuClawReActAgent(ReActAgent):
 
             await task
         finally:
+            if not task.done():
+                logger.info("stream() closing before stream_process completes; cancelling background task")
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    logger.debug("stream_process raised while closing stream()", exc_info=True)
             self._stream_tasks.discard(task)
             self._pause_events.pop(task_key, None)
 
