@@ -31,21 +31,11 @@ export interface CasUserProfile {
 export interface UserInfo {
   userId: string;
   userName?: string;
-  token: string;
   expiresAt: string;
   credential: Record<string, string>;
   modelInfo: Record<string, any>;
   principal?: CasUserProfile;
   pendingInvitation?: boolean;
-  authType?: 'legacy' | 'cas';
-}
-
-interface TokenResult {
-  success: boolean;
-  token?: string;
-  expiresAt?: string;
-  message?: string;
-  domainId?: string;
 }
 
 interface ModelInfoResult {
@@ -60,14 +50,6 @@ interface TicketValidateResult {
   profile?: CasUserProfile;
   modelInfo?: Record<string, unknown>;
   message?: string;
-}
-
-interface LoginBody {
-  domainName: string;
-  userName?: string;
-  password: string;
-  userType: 'huawei' | 'iam';
-  promotionCode?: string;
 }
 
 interface LoginCallbackBody {
@@ -89,7 +71,6 @@ const DEFAULT_CAS_LOGOUT_URL =
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 const DEFAULT_CAS_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
-const IAM_URL = process.env.IAM_URL!;
 const HUAWEI_CLAW_BASE_URL = stripTrailingSlash(
   process.env.HUAWEI_CLAW_URL || process.env.CAS_SERVICE_BASE_URL || DEFAULT_HUAWEI_CLAW_BASE_URL,
 );
@@ -169,55 +150,6 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
       isskip: false,
       loginUrl: CAS_LOGIN_URL,
       logoutUrl: CAS_LOGOUT_URL,
-    };
-  });
-
-  /**
-   * 用户登录接口（保留兼容旧表单登录）
-   * 1. 验证用户名和密码
-   * 2. 获取临时 Token
-   * 3. 开通客户端并创建会话
-   */
-  app.post('/api/login', async (request, reply) => {
-    const { domainName, userName, password, userType, promotionCode } = request.body as LoginBody;
-    const name = userType === 'huawei' ? domainName : userName;
-    if (!domainName || !password || !name) {
-      return { success: false, message: '用户名或密码错误' };
-    }
-
-    const tokenResult = await getTokens(domainName, name, password);
-    if (!tokenResult.success || !tokenResult.token) {
-      return { success: false, message: tokenResult.message || '登录失败' };
-    }
-
-    const session = createLegacyUserSession({
-      domainName,
-      name,
-      token: tokenResult.token,
-      expiresAt: tokenResult.expiresAt,
-    });
-
-    const modelInfoResult = await subscriptionClaw(session, promotionCode, { useDefaultPromotionCode: true });
-    if (!modelInfoResult.success || !modelInfoResult.modelInfo) {
-      return {
-        success: false,
-        needCode: Boolean(modelInfoResult.needCode),
-        message: modelInfoResult.message || '登录失败',
-      };
-    }
-
-    session.modelInfo = modelInfoResult.modelInfo;
-    storeUserInfo(session);
-    sessions.set(session.userId, { ...session });
-    await refreshMaaSModelsAfterLogin(request, session.userId);
-    attachUserHeaders(reply, session.userId);
-
-    return {
-      success: true,
-      userId: session.userId,
-      userName: session.userName,
-      message: '登录成功',
-      redirectTo: '/',
     };
   });
 
@@ -415,28 +347,6 @@ function normalizeCasUserProfile(value: unknown): CasUserProfile | null {
   return hasUserIdentity && hasDomainIdentity ? profile : null;
 }
 
-function createLegacyUserSession({
-  domainName,
-  name,
-  token,
-  expiresAt,
-}: {
-  domainName: string;
-  name: string;
-  token: string;
-  expiresAt?: string;
-}): UserInfo {
-  return {
-    userId: `${domainName}:${name}`,
-    userName: name,
-    token,
-    expiresAt: expiresAt || buildSessionExpiresAt(),
-    credential: {},
-    modelInfo: {},
-    authType: 'legacy',
-  };
-}
-
 function buildSessionUserId(profile: CasUserProfile): string {
   const domainPart = profile.domain_id || profile.domain_name || 'cas';
   const userPart = profile.user_name || profile.user_id || 'user';
@@ -451,7 +361,6 @@ function createCasUserSession(profile: CasUserProfile): UserInfo {
   return {
     userId: buildSessionUserId(profile),
     userName: profile.user_name || profile.user_id,
-    token: profile.sts_token || '',
     expiresAt: buildSessionExpiresAt(),
     credential: {
       access: profile.access,
@@ -466,7 +375,6 @@ function createCasUserSession(profile: CasUserProfile): UserInfo {
     },
     modelInfo: {},
     principal: profile,
-    authType: 'cas',
   };
 }
 
@@ -474,7 +382,6 @@ function isUserInfo(value: unknown): value is UserInfo {
   if (!isRecord(value)) return false;
   return (
     typeof value.userId === 'string' &&
-    typeof value.token === 'string' &&
     typeof value.expiresAt === 'string' &&
     isRecord(value.credential) &&
     isRecord(value.modelInfo)
@@ -536,53 +443,6 @@ function extractPromotionCode(body: PromotionCodeBody | undefined): string {
   return body?.promotionCode?.trim() || body?.inviteCode?.trim() || body?.code?.trim() || '';
 }
 
-// 获取 IAM 用户 Token
-async function getTokens(domainName = '', userName = '', password = ''): Promise<TokenResult> {
-  try {
-    const authResponse = await fetch(`${IAM_URL}/v3/auth/tokens`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json;charset=utf8',
-      },
-      body: JSON.stringify({
-        auth: {
-          identity: {
-            methods: ['password'],
-            password: {
-              user: {
-                domain: {
-                  name: domainName,
-                },
-                name: userName,
-                password,
-              },
-            },
-          },
-          scope: {
-            project: {
-              name: 'cn-north-4',
-            },
-          },
-        },
-      }),
-    });
-
-    if (!authResponse.ok) {
-      const { error_code, error_message } = await getErrorMessage(authResponse);
-      throw new Error(`认证失败，错误码: ${error_code}, 错误信息: ${error_message}`);
-    }
-
-    const data: any = await authResponse.json();
-    const domainId = data.token?.user?.domain?.id || domainName;
-    const expiresAt = data.token?.expires_at || buildSessionExpiresAt();
-    const token = authResponse.headers.get('x-subject-token') as string | null;
-    return { success: Boolean(token), token: token || undefined, expiresAt, domainId, message: token ? undefined : '登录失败' };
-  } catch (error) {
-    console.error('获取 IAM Token 失败:', error);
-    return { success: false, message: '登录失败' };
-  }
-}
-
 async function validateCasTicket(ticket: string): Promise<TicketValidateResult> {
   const payload = {
     ticket,
@@ -640,11 +500,7 @@ async function validateCasTicket(ticket: string): Promise<TicketValidateResult> 
   return { success: false, message: lastMessage };
 }
 
-function buildSubscriptionRequest(
-  userInfoOrToken: UserInfo | string,
-  promotionCode?: string,
-  options?: { useDefaultPromotionCode?: boolean },
-) {
+function buildSubscriptionRequest(userInfo: UserInfo, promotionCode?: string, options?: { useDefaultPromotionCode?: boolean }) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json;charset=utf8',
   };
@@ -655,34 +511,32 @@ function buildSubscriptionRequest(
     body.promotion_code = effectivePromotionCode;
   }
 
-  if (typeof userInfoOrToken === 'string') {
-    headers['X-Auth-Token'] = userInfoOrToken;
-    return { headers, body };
+  const credential = userInfo.credential;
+  const principal = userInfo.principal;
+  const accessKey = principal?.access || credential.access || '';
+  const secretKey = principal?.secret || credential.secret || '';
+  const securityToken = principal?.sts_token || credential.sts_token || '';
+
+  if (accessKey) headers['X-Access-Key'] = accessKey;
+  if (secretKey) headers['X-Secret-Key'] = secretKey;
+  if (securityToken) headers['X-Security-Token'] = securityToken;
+
+  for (const [key, value] of Object.entries(credential)) {
+    if (value) {
+      body[key] = value;
+    }
   }
-
-  const session = userInfoOrToken;
-  const principal = session.principal;
-  const token = session.token || principal?.sts_token || '';
-  if (token) {
-    headers['X-Auth-Token'] = token;
-  }
-
-  if (principal?.access) headers['X-Access-Key'] = principal.access;
-  if (principal?.secret) headers['X-Secret-Key'] = principal.secret;
-  if (principal?.sts_token) headers['X-Security-Token'] = principal.sts_token;
-
-  Object.assign(body, session.credential);
   return { headers, body };
 }
 
 // 开通客户端 claw / 检查是否已注册 OPT
 async function subscriptionClaw(
-  userInfoOrToken: UserInfo | string,
+  userInfo: UserInfo,
   promotionCode?: string,
   options?: { useDefaultPromotionCode?: boolean },
 ): Promise<ModelInfoResult> {
   try {
-    const { headers, body } = buildSubscriptionRequest(userInfoOrToken, promotionCode, options);
+    const { headers, body } = buildSubscriptionRequest(userInfo, promotionCode, options);
     const subResponse = await fetch(HUAWEI_CLAW_SUBSCRIPTION_URL, {
       method: 'POST',
       headers,
