@@ -12,11 +12,10 @@
  * 4. 支持多个HTML文件合并转换
  */
 
+import { access, readFile, readdir, stat, writeFile } from 'fs/promises';
+import { basename, dirname, join, resolve } from 'path';
 import { chromium } from 'playwright';
-import { readFile, writeFile, readdir, access} from 'fs/promises';
-import { resolve, dirname, join, basename } from 'path';
 import { fileURLToPath } from 'url';
-import { stat } from 'fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -83,7 +82,7 @@ async function convertSingleFile(htmlPath, outputPath, options = {}) {
 
   try {
     console.log('📝 加载 HTML 页面...');
-    // 使用 file:// 协议加载，确保相对路径（./assets/...）能正确解析
+    // 使用 file:// 协议加载，确保 CDN 资源能正确解析
     const fileUrl = 'file://' + resolve(htmlPath);
     await page.goto(fileUrl, { waitUntil: 'load' });
     console.log('✅ HTML 页面加载成功');
@@ -376,7 +375,7 @@ async function convertDirectory(input, outputPath, options = {}) {
   console.log(`🎨 共收集 ${totalSlides} 个幻灯片，开始合并转换...`);
 
   // 构建合并 HTML：每页 slide 包裹在 scoped wrapper 中，CSS 通过 scope 属性隔离
-  const mergedHtml = buildMergedHtml(pageResults);
+  const mergedHtml = await buildMergedHtml(pageResults);
 
   const page = await browser.newPage();
   page.setDefaultTimeout(timeout);
@@ -442,13 +441,34 @@ async function findPageFiles(dirPath) {
  * 每页的 CSS 通过 [data-page-N] 属性选择器隔离，避免不同页面的
  * Tailwind 配置、自定义样式互相冲突
  */
-function buildMergedHtml(pageResults) {
+async function buildMergedHtml(pageResults) {
   // 收集所有 scoped CSS
   const allCss = pageResults.map(p => `/* === Page ${p.pageIndex} === */\n${p.scopedCss}`).join('\n\n');
 
-  // 收集所有外部样式表链接（去重），如 FontAwesome CDN
+  // 收集所有外部样式表链接（去重）
+  // 区分本地 file:// 和远程 http:// 链接：
+  // - 远程链接用 <link> 标签引入
+  // - 本地 file:// 链接直接读取文件内容内联为 <style>，因为 page.setContent() 无法加载 file:// 的 <link>
   const allExternalLinks = [...new Set(pageResults.flatMap(p => p.externalLinks))];
-  const linkTags = allExternalLinks.map(href => `  <link href="${href}" rel="stylesheet" />`).join('\n');
+  const remoteLinks = allExternalLinks.filter(href => href.startsWith('http://') || href.startsWith('https://'));
+  const localLinks = allExternalLinks.filter(href => href.startsWith('file://'));
+
+  const linkTags = remoteLinks.map(href => `  <link href="${href}" rel="stylesheet" />`).join('\n');
+
+  // 读取本地样式表文件并内联（不加 scope，保留原始规则）
+  let localInlineCss = '';
+  for (const fileHref of localLinks) {
+    try {
+      const filePath = decodeURIComponent(new URL(fileHref).pathname);
+      const cssContent = await readFile(filePath, 'utf-8');
+      if (cssContent) {
+        localInlineCss += `\n/* === Inline: ${basename(filePath)} === */\n${cssContent}\n`;
+        console.log(`  📎 内联本地样式表: ${basename(filePath)} (${(cssContent.length / 1024).toFixed(1)}KB)`);
+      }
+    } catch (e) {
+      console.warn(`  ⚠️ 读取本地样式表失败: ${fileHref} - ${e.message}`);
+    }
+  }
 
   // 每页的 slide 包裹在带 scope 属性的 wrapper 中
   const allSlides = pageResults.map(p => {
@@ -465,6 +485,7 @@ ${linkTags}
     body { background: #1a1a2e; margin: 0; padding: 40px; }
 ${allCss}
   </style>
+${localInlineCss ? `  <style>\n${localInlineCss}\n  </style>` : ''}
 </head>
 <body>
 ${allSlides}
@@ -476,32 +497,22 @@ ${allSlides}
  * 注入依赖库
  */
 async function injectDependencies(page) {
-  // 检查本地 WASM 文件是否存在
-  const localWasmPath = resolve(__dirname, '../../assets/vendors/fonteditor-core/woff2.wasm');
-  const wasmExists = await fileExists(localWasmPath);
-  
-  // WASM URL 选择：优先本地，其次 CDN
-  const wasmUrl = wasmExists 
-    ? 'file://' + resolve(localWasmPath) 
-    : 'https://unpkg.com/fonteditor-core@2.6.3/woff2/woff2.wasm';
+  // WASM URL：使用自建 CDN（assets 已迁移到 CDN）
+  const wasmUrl = 'https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/fonteditor-core@2.6.3/woff2/woff2.wasm';
   const mirrorUrl = 'https://npmmirror.com/mirrors/fonteditor-core@2.6.3/woff2/woff2.wasm';
-  
+
   // 设置字体嵌入配置
   await page.addInitScript(() => {
     window.EMBED_FONTS_CONFIG = {
-      woff2: { 
+      woff2: {
         wasmUrl: arguments[0],
         mirrorUrl: arguments[1],
-        optional: true 
+        optional: true
       }
     };
   }, wasmUrl, mirrorUrl);
-  
-  if (wasmExists) {
-    console.log('✅ 字体嵌入配置设置成功（本地 WASM）');
-  } else {
-    console.log('✅ 字体嵌入配置设置成功（CDN WASM - 可选依赖）');
-  }
+
+  console.log('✅ 字体嵌入配置设置成功（CDN WASM）');
 
   // 使用已打包的 dom-to-pptx bundle
   const bundlePath = resolve(__dirname, '..', 'dist', 'dom-to-pptx.bundle.js');
@@ -677,4 +688,5 @@ main().catch(err => {
   process.exit(1);
 });
 
-export { convertHtmlToPptx, closeBrowser };
+export { closeBrowser, convertHtmlToPptx };
+

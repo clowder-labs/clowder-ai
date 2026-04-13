@@ -69,17 +69,21 @@ export class TextConverter extends ElementConverter {
       case 'alphabetic':
       case 'baseline':
       case 'auto':
-        baselineOffset = -fontSizeInch * 0.2 // 基线到顶部约 0.2em
-        valign = 'top'
+        // SVG 默认基线是 alphabetic，y 坐标是基线位置
+        // 使用 valign='middle' 让文本在文本框内垂直居中
+        // 文本框中心需要与 SVG 的基线位置对齐
+        baselineOffset = -fontSizeInch
+        valign = 'middle'
         break
       case 'hanging':
         baselineOffset = 0
         valign = 'top'
         break
       default:
-        // 默认行为：无 dominant-baseline 时，y 通常是文本顶部
-        baselineOffset = 0
-        valign = 'top'
+        // 默认行为：无 dominant-baseline 时，SVG 文本使用 alphabetic 基线
+        // 使用 valign='middle' 让文本在文本框内垂直居中
+        baselineOffset = -fontSizeInch
+        valign = 'middle'
     }
 
     const fontSizePt = fontSizeInch * 72
@@ -89,7 +93,7 @@ export class TextConverter extends ElementConverter {
     const charCount = text.length
     const charWidthInch = fontSizeInch * 1.5 // 每字符宽度约等于字体大小的 1.5 倍（英寸）
     const textWidthInch = charCount * charWidthInch + 0.2 // 额外留白
-    const textHeightInch = fontSizeInch * 2.0 // 文本高度约为字体大小的 2.0 倍
+    const textHeightInch = fontSizeInch * 1.2 // 文本高度约为字体大小的 1.2 倍（单行文本）
 
     const W = textWidthInch
     const H = textHeightInch
