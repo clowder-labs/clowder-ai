@@ -23,7 +23,7 @@ from openjiuwen.core.foundation.tool import McpServerConfig, tool
 from openjiuwen.core.runner import Runner
 import requests
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.agentserver.tools.multimodal_config import apply_audio_model_config_from_yaml
 
 ACR_ACCESS_KEY = os.environ.get("ACR_ACCESS_KEY", "")
