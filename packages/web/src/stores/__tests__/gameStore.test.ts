@@ -4,7 +4,7 @@
  *
  */
 
-import type { GameView, SeatView } from '@cat-cafe/shared';
+import type { GameView, SeatView } from '@office-claw/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useGameStore } from '../gameStore';
 

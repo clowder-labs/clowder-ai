@@ -4,7 +4,7 @@
  *
  */
 
-import type { ConnectorThreadBinding } from '@cat-cafe/shared';
+import type { ConnectorThreadBinding } from '@office-claw/shared';
 
 export interface IConnectorThreadBindingStore {
   bind(

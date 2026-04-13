@@ -4,7 +4,7 @@
  *
  */
 
-import { type CatId, catRegistry } from '@cat-cafe/shared';
+import { type CatId, catRegistry } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import type { IOutboundAdapter, IStreamableOutboundAdapter } from './OutboundDeliveryHook.js';

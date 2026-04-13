@@ -28,7 +28,7 @@ describe('RedisBacklogStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
 
     const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisBacklogStore.js');
     RedisBacklogStore = storeModule.RedisBacklogStore;
-    const redisModule = await import('@cat-cafe/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });

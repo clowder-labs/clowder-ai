@@ -4,11 +4,9 @@
  *
  */
 
-import type { GameView } from '@cat-cafe/shared';
 import { useMemo } from 'react';
 import type { SocketCallbacks } from '@/hooks/useSocket';
 import { type ChatMessage as ChatMessageData, useChatStore } from '@/stores/chatStore';
-import { useGameStore } from '@/stores/gameStore';
 import { type TaskItem, useTaskStore } from '@/stores/taskStore';
 
 interface ExternalDeps {
@@ -112,18 +110,6 @@ export function useChatSocketCallbacks({
       },
       onAuthorizationRequest: handleAuthRequest,
       onAuthorizationResponse: handleAuthResponse,
-      onGameStateUpdate: (data) => {
-        const view = data.view as GameView;
-        // P1-3 fix: Only accept updates for the current thread
-        if (view.threadId !== threadId) return;
-        useGameStore.getState().setGameView(view, data.gameId, threadId);
-      },
-      onGameThreadCreated: (data) => {
-        // Only navigate the initiator — other users in the room should not be auto-redirected
-        if (data.initiatorUserId === userId) {
-          onNavigateToThread?.(data.gameThreadId);
-        }
-      },
     }),
     [
       handleAgentMessage,

@@ -36,6 +36,7 @@ function makeBrowseResult(current: string, entries: { name: string; path: string
     name: current.split('/').pop() || '',
     parent,
     homePath: HOME,
+    drives: [],
     entries: entries.map((e) => ({ ...e, isDirectory: true })),
   };
 }
@@ -91,6 +92,10 @@ describe('DirectoryBrowser', () => {
 
   function findButtonByText(text: string): HTMLButtonElement | undefined {
     return getAllButtons().find((b) => b.textContent?.includes(text));
+  }
+
+  function getPrimaryActionButton(): HTMLButtonElement | null {
+    return container.querySelector('button.ui-button-primary');
   }
 
   // ── Initial load ─────────────────────────────────────────
@@ -224,7 +229,7 @@ describe('DirectoryBrowser', () => {
     const fns = render({ initialPath: `${HOME}/projects` });
     await flush();
 
-    const selectBtn = findButtonByText('\u9009\u62e9\u6b64\u76ee\u5f55');
+    const selectBtn = getPrimaryActionButton();
     expect(selectBtn).toBeTruthy();
     act(() => {
       selectBtn!.click();
@@ -308,6 +313,74 @@ describe('DirectoryBrowser', () => {
     expect(container.textContent).toContain('src');
   });
 
+  it('shows a clickable drive-root breadcrumb for Windows paths', async () => {
+    const winHome = 'C:\\Users\\test';
+    mockApiFetch.mockReturnValueOnce(
+      jsonOk({
+        current: 'D:\\workspace\\demo',
+        name: 'demo',
+        parent: 'D:\\workspace',
+        homePath: winHome,
+        drives: [
+          { name: 'C:', path: 'C:\\', isDirectory: true },
+          { name: 'D:', path: 'D:\\', isDirectory: true },
+        ],
+        entries: [{ name: 'src', path: 'D:\\workspace\\demo\\src', isDirectory: true }],
+      }),
+    );
+    render({ initialPath: 'D:\\workspace\\demo' });
+    await flush();
+
+    expect(container.textContent).toContain('D:');
+
+    mockApiFetch.mockReturnValueOnce(
+      jsonOk({
+        current: 'D:\\',
+        name: '',
+        parent: null,
+        homePath: winHome,
+        drives: [
+          { name: 'C:', path: 'C:\\', isDirectory: true },
+          { name: 'D:', path: 'D:\\', isDirectory: true },
+        ],
+        entries: [{ name: 'workspace', path: 'D:\\workspace', isDirectory: true }],
+      }),
+    );
+    const driveButton = getAllButtons().find((button) => button.textContent === 'D:');
+    expect(driveButton).toBeTruthy();
+    await act(async () => {
+      driveButton!.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith(`/api/projects/browse?path=${encodeURIComponent('D:\\')}`);
+    expect(container.textContent).toContain('workspace');
+  });
+
+  it('renders Windows drive roots in the directory list without changing folder row styling', async () => {
+    const winHome = 'C:\\Users\\test';
+    mockApiFetch.mockReturnValueOnce(
+      jsonOk({
+        current: 'C:\\Users\\test',
+        name: 'test',
+        parent: 'C:\\Users',
+        homePath: winHome,
+        drives: [
+          { name: 'C:', path: 'C:\\', isDirectory: true },
+          { name: 'D:', path: 'D:\\', isDirectory: true },
+        ],
+        entries: [{ name: 'projects', path: 'C:\\Users\\test\\projects', isDirectory: true }],
+      }),
+    );
+    render({ initialPath: 'C:\\Users\\test' });
+    await flush();
+
+    const driveButton = findButtonByText('D:');
+    expect(driveButton).toBeTruthy();
+    expect(driveButton?.className).toContain('rounded-lg');
+    expect(container.textContent).toContain('projects');
+  });
+
   // ── Path input navigation ─────────────────────────────
 
   it('navigates to typed path on Enter key', async () => {
@@ -348,7 +421,7 @@ describe('DirectoryBrowser', () => {
     const fns = render({ initialPath: `${HOME}/projects` });
     await flush();
 
-    expect(findButtonByText('\u9009\u62e9\u6b64\u76ee\u5f55')).toBeTruthy();
+    expect(getPrimaryActionButton()).toBeTruthy();
     expect(container.textContent).toContain('cat-cafe');
 
     // Navigate to a forbidden path
@@ -369,7 +442,7 @@ describe('DirectoryBrowser', () => {
     expect(container.textContent).toContain('Access denied');
     expect(container.textContent).toContain('cat-cafe');
     // The select button still chooses the previous valid directory
-    const selectBtn = findButtonByText('\u9009\u62e9\u6b64\u76ee\u5f55');
+    const selectBtn = getPrimaryActionButton();
     expect(selectBtn).toBeTruthy();
     expect(selectBtn!.disabled).toBe(false);
     act(() => {

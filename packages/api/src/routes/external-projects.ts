@@ -10,7 +10,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ExternalProject } from '@cat-cafe/shared';
+import type { ExternalProject } from '@office-claw/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';

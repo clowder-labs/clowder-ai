@@ -194,6 +194,7 @@ export function CapabilityCard({
   const isToggling = toggling === `${item.type}:${item.id}`;
   const sourceLabel = getSourceLabel(item.source);
   const resolvedDescription = item.description?.trim() || '暂未提供技能描述。';
+  const resolvedCategory = item.category?.trim() || '其他';
   const showDeleteAction = item.source === 'external' && typeof onUninstall === 'function';
   const isClickable = typeof onClick === 'function';
 
@@ -228,7 +229,12 @@ export function CapabilityCard({
             {item.connectionStatus ? <StatusDot status={item.connectionStatus} /> : null}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-            <span className="ui-badge-muted">{item.category?.trim() || '其他'}</span>
+            <OverflowTooltip
+              content={resolvedCategory}
+              className="inline-flex max-w-full min-w-0"
+              as="span"
+              textClassName="ui-badge-muted inline-block max-w-full truncate align-middle leading-[18px]"
+            />
           </div>
         </div>
       </div>

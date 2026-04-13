@@ -9,7 +9,7 @@
  * 安全: X-Office-Claw-User header（兼容 legacy x-user-id）
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AuthorizationManager } from '../domains/cats/services/auth/AuthorizationManager.js';

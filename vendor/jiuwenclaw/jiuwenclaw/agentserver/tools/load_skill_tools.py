@@ -224,7 +224,7 @@ class LoadSkillToolkit:
         # 4. 组装返回信息
         result_parts = [
             f"## {skill_name} skill 概览\n",
-            f"### 目录结构\n```\n{skill_dir.name}/\n{tree}\n```\n",
+            f"### 目录结构\n绝对路径: {skill_dir}\n```\n{skill_dir.name}/\n{tree}\n```\n",
             f"### 工作说明 (SKILL.md)\n{chunk}",
         ]
 

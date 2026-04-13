@@ -17,8 +17,8 @@
  * 或直接修改项目根目录的 office-claw-config.json
  */
 
-import type { ContextBudget } from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+import type { ContextBudget } from '@office-claw/shared';
+import { catRegistry } from '@office-claw/shared';
 import { resolveBreedId } from './breed-resolver.js';
 import { getAllCatIdsFromConfig, getDefaultVariant, loadCatConfig } from './cat-config-loader.js';
 

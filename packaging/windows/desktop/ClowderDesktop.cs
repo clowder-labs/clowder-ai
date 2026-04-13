@@ -14,11 +14,8 @@ using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
 internal static class Program
-{
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetProcessDPIAware();
-
-    [DllImport("shcore.dll", SetLastError = true)]
+{[DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetProcessDPIAware();[DllImport("shcore.dll", SetLastError = true)]
     private static extern int SetProcessDpiAwareness(int awareness);
 
     private const string InstanceMutexName = @"Local\OfficeClaw.WebView2Desktop";
@@ -37,7 +34,6 @@ internal static class Program
             try { SetProcessDPIAware(); } catch { }
         }
     }
-
 
     [STAThread]
     private static void Main()
@@ -75,6 +71,9 @@ internal static class Program
 
 internal sealed class LauncherForm : Form
 {
+    // =========================================================
+    // API Imports & Constants
+    // =========================================================
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
@@ -82,9 +81,7 @@ internal sealed class LauncherForm : Form
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     [DllImport("user32.dll")]
-    private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
-
-    [DllImport("user32.dll")]
+    private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);[DllImport("user32.dll")]
     private static extern bool SetWindowPlacement(IntPtr hWnd, [In] ref WINDOWPLACEMENT lpwndpl);
 
     [DllImport("user32.dll")]
@@ -93,16 +90,54 @@ internal sealed class LauncherForm : Form
     [DllImport("user32.dll")]
     private static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 
+    // DWM API 用于恢复系统边框阴影
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref MARGINS pMarInset);
+
+    // User32 API 用于获取显示器工作区（防最大化遮挡任务栏）
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
     private const int SW_RESTORE = 9;
     private const int SW_SHOWMINIMIZED = 2;
     private const int WM_NCLBUTTONDOWN = 0xA1;
+    private const int WM_NCCALCSIZE = 0x0083;
     private const int HTCAPTION = 0x2;
+    private const int SWP_NOMOVE = 0x0002;
+    private const int SWP_NOSIZE = 0x0001;
+    private const int SWP_NOZORDER = 0x0004;
+    private const int SWP_NOACTIVATE = 0x0010;
+    private const int SWP_FRAMECHANGED = 0x0020;
+    private const int SM_CXSIZEFRAME = 32;
+    private const int SM_CYSIZEFRAME = 33;
+    private const int SM_CXPADDEDBORDER = 92;
+    private const int TopResizeHitInset = 2;
+    private const uint MONITOR_DEFAULTTONEAREST = 2;
+
     private const string WindowMinimizeMessage = "window.minimize";
     private const string WindowToggleMaximizeMessage = "window.toggleMaximize";
     private const string WindowCloseMessage = "window.close";
     private const string WindowSyncStateMessage = "window.syncState";
     private const string WindowStartDragMessage = "window.startDrag";
     private const string WindowStateMessageType = "window.state";
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct TRACKMOUSEEVENT
+    {
+        public int cbSize;
+        public uint dwFlags;
+        public IntPtr hwndTrack;
+        public uint dwHoverTime;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT
@@ -129,6 +164,31 @@ internal sealed class LauncherForm : Form
         public POINT ptMinPosition;
         public POINT ptMaxPosition;
         public RECT rcNormalPosition;
+    }[StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int cxLeftWidth;
+        public int cxRightWidth;
+        public int cyTopHeight;
+        public int cyBottomHeight;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NCCALCSIZE_PARAMS
+    {
+        public RECT rcNewWindow;
+        public RECT rcOldWindow;
+        public RECT rcClient;
+        public IntPtr lppos;
     }
 
     private readonly object _logLock = new object();
@@ -165,8 +225,12 @@ internal sealed class LauncherForm : Form
         Directory.CreateDirectory(Path.GetDirectoryName(_logFilePath) ?? _projectRoot);
         _frontendUrl = BuildFrontendUrl();
 
-        Text = string.Empty;
-        ShowIcon = false;
+        // [功能 2] 保留任务栏预览窗口的标题和图标
+        Text = "OfficeClaw";
+        ShowIcon = true;
+        // 保持 Sizable 边框类型以保留原生 Resize 与缩放动画
+        FormBorderStyle = FormBorderStyle.Sizable;
+
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
@@ -179,6 +243,72 @@ internal sealed class LauncherForm : Form
         Shown += async (_, __) => await InitializeAsync();
         FormClosing += OnFormClosing;
         FormClosed += (_, __) => DisposeNotifyIcon();
+    }
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            return base.CreateParams;
+        }
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WM_NCCALCSIZE && m.WParam != IntPtr.Zero)
+        {
+            var nccsp = (NCCALCSIZE_PARAMS)Marshal.PtrToStructure(m.LParam, typeof(NCCALCSIZE_PARAMS));
+
+            if (WindowState == FormWindowState.Maximized)
+            {
+                // [功能 4] 最大化时不覆盖任务栏：将客户端大小严格限制在显示器工作区
+                IntPtr monitor = MonitorFromWindow(Handle, MONITOR_DEFAULTTONEAREST);
+                if (monitor != IntPtr.Zero)
+                {
+                    var monitorInfo = new MONITORINFO();
+                    monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                    if (GetMonitorInfo(monitor, ref monitorInfo))
+                    {
+                        nccsp.rcNewWindow = monitorInfo.rcWork;
+                        Marshal.StructureToPtr(nccsp, m.LParam, false);
+                        m.Result = IntPtr.Zero;
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                // 保留系统 resize frame，只裁掉 caption 主体，顶部只留约 1px。
+                var frameX = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                var frameY = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                nccsp.rcNewWindow.Left += frameX;
+                nccsp.rcNewWindow.Right -= frameX;
+                nccsp.rcNewWindow.Bottom -= frameY;
+                nccsp.rcNewWindow.Top += TopResizeHitInset;
+                Marshal.StructureToPtr(nccsp, m.LParam, false);
+                m.Result = IntPtr.Zero;
+                return;
+            }
+        }
+
+        base.WndProc(ref m);
+    }
+    // =========================================================
+    // 恢复窗口阴影
+    // =========================================================
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        try
+        {
+            // [功能 3] 保留系统默认边框阴影：向客户区内侵入 1 像素，DWM 将借此渲染原生阴影
+            var margins = new MARGINS { cxLeftWidth = 1, cxRightWidth = 1, cyTopHeight = 1, cyBottomHeight = 1 };
+            DwmExtendFrameIntoClientArea(Handle, ref margins);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("Failed to extend frame for drop shadow: " + ex.Message);
+        }
     }
 
     private async Task InitializeAsync()
@@ -364,6 +494,24 @@ internal sealed class LauncherForm : Form
         }
     }
 
+    private void RefreshNativeFrame()
+    {
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+
+        SetWindowPos(
+            Handle,
+            IntPtr.Zero,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+        );
+    }
+
     private void StartWindowDrag()
     {
         if (InvokeRequired)
@@ -377,6 +525,12 @@ internal sealed class LauncherForm : Form
             return;
         }
 
+        if (WindowState == FormWindowState.Maximized)
+        {
+            WindowState = FormWindowState.Normal;
+            RefreshNativeFrame();
+        }
+
         ReleaseCapture();
         SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
     }
@@ -386,6 +540,7 @@ internal sealed class LauncherForm : Form
         if (WindowState == FormWindowState.Maximized)
         {
             WindowState = FormWindowState.Normal;
+            RefreshNativeFrame();
         }
         else
         {
@@ -552,7 +707,6 @@ internal sealed class LauncherForm : Form
         Activate();
         PublishWindowState();
     }
-
 
     private void RequestExit()
     {
@@ -861,8 +1015,8 @@ internal sealed class LauncherForm : Form
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
         settings.AreDevToolsEnabled = false;
-        // Keep native context menu so selection copy works in desktop WebView2.
-        settings.AreDefaultContextMenusEnabled = true;
+        // 屏蔽右键菜单，但保留键盘快捷键（Ctrl+C 复制、Ctrl+V 粘贴、Ctrl+A 全选等）
+        settings.AreDefaultContextMenusEnabled = false;
         settings.IsZoomControlEnabled = false;
         settings.AreBrowserAcceleratorKeysEnabled = false;
         settings.IsPinchZoomEnabled = false;

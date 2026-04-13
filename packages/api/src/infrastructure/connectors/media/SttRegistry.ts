@@ -4,7 +4,7 @@
  *
  */
 
-import type { ISttProvider } from '@cat-cafe/shared';
+import type { ISttProvider } from '@office-claw/shared';
 
 export class SttRegistry {
   private readonly providers = new Map<string, ISttProvider>();

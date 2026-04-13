@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { before, describe, it, mock } from 'node:test';
-import { catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@office-claw/shared';
 
 async function collect(iterable) {
   const msgs = [];
@@ -123,10 +123,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       .map((l) => JSON.parse(l));
     const threadEvents = events.filter((e) => e.threadId === 'thread-error');
 
-    const responded = threadEvents.filter((e) => e.type === 'cat_responded');
+    const responded = threadEvents.filter((e) => e.type === 'agent_responded');
     const catError = threadEvents.filter((e) => e.type === 'cat_error');
 
-    assert.equal(responded.length, 0, 'should NOT have cat_responded when errors occurred');
+    assert.equal(responded.length, 0, 'should NOT have agent_responded when errors occurred');
     assert.ok(catError.length > 0, 'should have cat_error event');
     assert.ok(catError[0].data.error.includes('CLI'), 'cat_error should contain error message');
   });
@@ -582,10 +582,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       .map((l) => JSON.parse(l));
     const threadEvents = events.filter((e) => e.threadId === 'thread-normal');
 
-    const responded = threadEvents.filter((e) => e.type === 'cat_responded');
+    const responded = threadEvents.filter((e) => e.type === 'agent_responded');
     const catError = threadEvents.filter((e) => e.type === 'cat_error');
 
-    assert.ok(responded.length > 0, 'should have cat_responded for normal path');
+    assert.ok(responded.length > 0, 'should have agent_responded for normal path');
     assert.equal(catError.length, 0, 'should NOT have cat_error for normal path');
   });
 

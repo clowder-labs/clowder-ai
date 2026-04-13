@@ -1,6 +1,6 @@
 # MCP Tool Description 规范
 
-> 提炼自Maine Coon的《知识工程实践指南》（*(internal reference removed)*）+ MCP 官方规范。
+> 提炼自内部《知识工程实践指南》（*(internal reference removed)*）+ MCP 官方规范。
 > 写新 MCP tool 或优化现有 tool 时**必读**。
 
 ## Description 五要素（缺一个就是不合格）
@@ -90,7 +90,7 @@ return errorResult('Invalid format "xlsx". Expected one of: pdf, docx, md. Examp
 
 ## 参考
 
-- Maine Coon《知识工程实践指南》：*(internal reference removed)*
+- 《知识工程实践指南》：*(internal reference removed)*
 - Anthropic Skills Best Practices：`writing-skills/anthropic-best-practices.md`
 - MCP 官方规范：`https://modelcontextprotocol.io/specification`
 - 金渐层 MCP description 优化审查：thread `thread_mn1u0ygkt76bzxks`

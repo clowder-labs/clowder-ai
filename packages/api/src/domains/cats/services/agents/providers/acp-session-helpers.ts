@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import type { AgentMessage, MessageMetadata } from '../../types.js';
 import { transformACPUpdate } from './acp-event-transform.js';
 import type { ACPStdioClient } from './acp-transport.js';

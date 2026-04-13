@@ -18,7 +18,7 @@
  * invocation as before.
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';

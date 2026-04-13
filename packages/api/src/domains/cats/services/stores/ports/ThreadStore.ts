@@ -14,8 +14,8 @@
 
 import { existsSync, mkdirSync, realpathSync, statSync } from 'node:fs';
 import { relative, resolve, win32 } from 'node:path';
-import type { CatId, ThreadPhase } from '@cat-cafe/shared';
-import { generateThreadId } from '@cat-cafe/shared';
+import type { CatId, ThreadPhase } from '@office-claw/shared';
+import { generateThreadId } from '@office-claw/shared';
 import { GovernanceBootstrapService } from '../../../../../config/governance/governance-bootstrap.js';
 import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';

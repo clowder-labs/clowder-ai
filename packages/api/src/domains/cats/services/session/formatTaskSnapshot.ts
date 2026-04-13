@@ -16,7 +16,7 @@
  * - Content treated as data block (injection defense)
  */
 
-import type { TaskItem, TaskStatus } from '@cat-cafe/shared';
+import type { TaskItem, TaskStatus } from '@office-claw/shared';
 
 const STATUS_PRIORITY: Record<TaskStatus, number> = {
   doing: 0,

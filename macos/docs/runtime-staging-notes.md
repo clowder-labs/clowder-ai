@@ -18,7 +18,7 @@ The current macOS packaging flow performs these steps:
 1. build production artifacts for `shared`, `mcp-server`, `api`, and `web` unless `--skip-build` is used
 2. stage runtime-pruned package trees into the app bundle under `Contents/Resources/runtime/packages`
 3. run `npm install --omit=dev` inside staged runtime packages for `api`, `mcp-server`, and `web`
-4. materialize the staged `@cat-cafe/shared` package into dependent package `node_modules`
+4. materialize the staged `@office-claw/shared` package into dependent package `node_modules`
 5. copy the current macOS Node runtime into `Contents/Resources/runtime/node`
 
 ## Why Many Libraries Are Installed
@@ -68,11 +68,11 @@ The staged MCP server runtime keeps `dist` output and installs its runtime depen
 
 - `@modelcontextprotocol/sdk`
 - `zod`
-- staged `@cat-cafe/shared`
+- staged `@office-claw/shared`
 
 ### `packages/shared`
 
-The staged shared package is copied as runtime output and then materialized into dependent `node_modules/@cat-cafe/shared` paths when the package manager creates a symlink.
+The staged shared package is copied as runtime output and then materialized into dependent `node_modules/@office-claw/shared` paths when the package manager creates a symlink.
 
 ## Download Behavior
 
