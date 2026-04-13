@@ -9,7 +9,7 @@
  * Enforces isolated test Redis and provides keyPrefix-safe cleanup.
  */
 
-const ISOLATION_FLAG = 'CAT_CAFE_REDIS_TEST_ISOLATED';
+const ISOLATION_FLAG = 'OFFICE_CLAW_REDIS_TEST_ISOLATED';
 
 function parseRedisUrl(redisUrl) {
   try {
@@ -28,7 +28,7 @@ export function assertRedisIsolationOrThrow(redisUrl, suiteName) {
   if (process.env[ISOLATION_FLAG] !== '1') {
     throw new Error(
       `[${suiteName}] REDIS_URL is set without ${ISOLATION_FLAG}=1. ` +
-        'Run via: pnpm --filter @cat-cafe/api test:redis',
+        'Run via: pnpm --filter @office-claw/api test:redis',
     );
   }
 

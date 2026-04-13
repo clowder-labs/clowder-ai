@@ -26,7 +26,7 @@ interface SkillDetailResponse {
   description?: string;
   triggers?: string[];
   category?: string;
-  source: "cat-cafe" | "external";
+  source: "builtin" | "external";
   enabled: boolean;
   installedAt?: string;
   mounts?: Record<string, boolean>;
@@ -71,7 +71,7 @@ const IMAGE_FILE_EXTENSIONS = new Set([
 ]);
 
 function sourceLabel(source: SkillDetailResponse["source"]): string {
-  return source === "cat-cafe" ? "官方" : "三方";
+  return source === "builtin" ? "官方" : "三方";
 }
 
 function statusLabel(value: boolean): string {
@@ -443,7 +443,7 @@ export function SkillDetailView({
                 <div className="min-w-0 flex-1 flex flex-col gap-1">
                   <OverflowTooltip content={resolvedTitle} className="w-full">
                     <h2
-                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[28px] font-semibold leading-[1.2] text-[var(--text-primary)]"
+                      className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[20px] font-semibold leading-[30px] text-[var(--text-primary)]"
                       data-testid="skill-detail-title"
                     >
                       {resolvedTitle}

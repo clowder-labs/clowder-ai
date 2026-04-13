@@ -8,7 +8,7 @@
  * F075 Phase C — In-memory achievement store
  * Tracks unlocked achievements per user and computes CVO level.
  */
-import type { Achievement, CvoLevel } from '@cat-cafe/shared';
+import type { Achievement, CvoLevel } from '@office-claw/shared';
 import { ALL_ACHIEVEMENTS, computeCvoLevel } from './achievement-defs.js';
 
 export class AchievementStore {

@@ -286,8 +286,8 @@ describe('formatMessage — head+tail truncation (#91 regression)', () => {
 
 describe('cross-post sender variant: distinguish same-family cats', () => {
   before(async () => {
-    const { catRegistry } = await import('../node_modules/@cat-cafe/shared/dist/index.js');
-    // Register variant cats that exist in cat-config.json but not in static CAT_CONFIGS
+    const { catRegistry } = await import('../node_modules/@office-claw/shared/dist/index.js');
+    // Register variant cats that exist in office-claw-config.json but not in static CAT_CONFIGS
     if (!catRegistry.has('sonnet')) {
       catRegistry.register('sonnet', {
         id: 'sonnet',
@@ -348,7 +348,7 @@ describe('cross-post sender variant: distinguish same-family cats', () => {
   });
 
   after(async () => {
-    const { catRegistry } = await import('../node_modules/@cat-cafe/shared/dist/index.js');
+    const { catRegistry } = await import('../node_modules/@office-claw/shared/dist/index.js');
     catRegistry.reset();
   });
 

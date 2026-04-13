@@ -6,7 +6,7 @@ Takes raw ASR text and returns corrected text using a local LLM.
 Pipeline position:  Whisper ASR → **LLM post-edit** → term dictionary → filler removal
 
 Usage:
-  source ~/.cat-cafe/llm-venv/bin/activate
+  source ~/.office-claw/llm-venv/bin/activate
   python scripts/llm-postprocess-api.py                                          # default: Qwen3.5-35B-A3B MoE
   python scripts/llm-postprocess-api.py --model mlx-community/Qwen3.5-35B-A3B-4bit
   python scripts/llm-postprocess-api.py --port 9878                              # custom port

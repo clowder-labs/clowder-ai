@@ -235,6 +235,50 @@ describe('Callback Routes', () => {
     assert.equal(response.statusCode, 400);
   });
 
+  test('POST post-message auto-appends file location when generated file block exists but text omits it', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const { getRichBlockBuffer } = await import('../dist/domains/cats/services/agents/invocation/RichBlockBuffer.js');
+    const record = registry.verify(invocationId, callbackToken);
+    assert.ok(record, 'invocation record should exist');
+
+    getRichBlockBuffer().add(
+      record.threadId,
+      'opus',
+      {
+        id: 'f1',
+        kind: 'file',
+        v: 1,
+        url: '/uploads/doc-1234-上海一日游指南.docx',
+        fileName: '上海一日游指南.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        fileSize: 12345,
+      },
+      invocationId,
+    );
+
+    try {
+      const reply = await app.inject({
+        method: 'POST',
+        url: '/api/callbacks/post-message',
+        payload: {
+          invocationId,
+          callbackToken,
+          content: '搞定啦',
+        },
+      });
+      assert.equal(reply.statusCode, 200);
+
+      const recent = messageStore.getRecent(1);
+      assert.equal(recent.length, 1);
+      assert.match(recent[0].content, /文件位置：/);
+      assert.match(recent[0].content, /上海一日游指南\.docx/);
+      assert.ok(recent[0].content.includes('/uploads/doc-1234-上海一日游指南.docx'));
+    } finally {
+      await app.close();
+    }
+  });
+
   test('POST post-message deduplicates by clientMessageId (at-least-once safe)', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');

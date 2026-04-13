@@ -6,7 +6,7 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { resolveEmbeddedRuntimeKind, type CatConfig } from '@cat-cafe/shared';
+import { resolveEmbeddedRuntimeKind, type CatConfig } from '@office-claw/shared';
 import { loadCatConfig, toAllCatConfigs } from './cat-config-loader.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 import { resolveBuiltinClientForProvider } from './provider-binding-compat.js';
@@ -48,7 +48,7 @@ export function resolveBoundAccountRefForCat(
   if (!explicitAccountRef) return undefined;
 
   const builtinClient = resolveBuiltinClientForProvider(catConfig.provider);
-  const runtimeCatalogExists = existsSync(resolve(projectRoot, '.cat-cafe', 'cat-catalog.json'));
+  const runtimeCatalogExists = existsSync(resolve(projectRoot, '.office-claw', 'office-claw-catalog.json'));
   const builtinDefaultAccountRef = builtinClient ? builtinAccountIdForClient(builtinClient) : null;
   const inheritedTemplateDefaultBinding =
     !runtimeCatalogExists && !!builtinDefaultAccountRef && explicitAccountRef === builtinDefaultAccountRef;

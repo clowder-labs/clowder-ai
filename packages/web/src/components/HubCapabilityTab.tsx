@@ -13,6 +13,7 @@ import { CapabilityCard } from './capability-board-ui';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { SearchInput } from './shared/SearchInput';
 import { useConfirm } from './useConfirm';
 
 const ALL_CATEGORY = '全部';
@@ -28,9 +29,9 @@ export interface SelectedSkillSummary {
 }
 
 function sourceToLabel(source: string): string {
-  if (source === 'cat-cafe') return '官方';
-  if (source === 'external') return '三方';
-  return '未知';
+  if (source === 'builtin') return '内置技能';
+  if (source === 'external') return '用户添加技能';
+  return '其他';
 }
 
 export function HubCapabilityTab({
@@ -183,7 +184,7 @@ export function HubCapabilityTab({
   const filteredDisplayedSkillItems = useMemo(() => {
     if (!normalizedSearchQuery) return sourceFilteredItems;
     return sourceFilteredItems.filter((item) => {
-      const sourceLabel = item.source === 'cat-cafe' ? '官方' : item.source === 'external' ? '三方' : '未知';
+      const sourceLabel = item.source === 'builtin' ? '内置技能' : item.source === 'external' ? '用户添加技能' : '其他';
       const haystack = [item.id, item.description ?? '', item.category ?? '', sourceLabel].join(' ').toLowerCase();
       return haystack.includes(normalizedSearchQuery);
     });
@@ -206,7 +207,7 @@ export function HubCapabilityTab({
   if (loading) return <CenteredLoadingState />;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex flex-col">
       {error && <p className="ui-status-error rounded-[var(--radius-md)] px-3 py-2 text-sm">{error}</p>}
 
       <div data-testid="hub-capability-fixed-header">
@@ -255,13 +256,14 @@ export function HubCapabilityTab({
                   </option>
                 ))}
               </select>
-              <input
-                type="search"
+              <SearchInput
+                wrapperClassName="w-full"
                 aria-label={SKILL_SEARCH_ARIA_LABEL}
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(value) => setSearchQuery(value)}
+                onClear={() => setSearchQuery('')}
                 placeholder={SKILL_SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+                clearAriaLabel="清除搜索"
               />
             </div>
           </div>
@@ -273,7 +275,7 @@ export function HubCapabilityTab({
           <EmptyDataState />
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto" data-testid="hub-capability-scroll-region">
+        <div data-testid="hub-capability-scroll-region">
           {filteredDisplayedSkillItems.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredDisplayedSkillItems.map((item) => (

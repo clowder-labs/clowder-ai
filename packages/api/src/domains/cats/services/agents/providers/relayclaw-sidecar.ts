@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { delimiter, dirname, join } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
+import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
@@ -146,7 +146,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const executablePath = resolveJiuwenClawExecutable(this.config.executablePath);
     const pythonBin = resolveJiuwenClawPythonBin(this.config.pythonBin, appDir);
     const useExecutable = existsSync(executablePath);
-    const homeDir = this.config.homeDir?.trim() || join(process.cwd(), '.cat-cafe', 'relayclaw', this.catId as string);
+    const homeDir = this.config.homeDir?.trim() || join(process.cwd(), '.office-claw', 'relayclaw', this.catId as string);
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
     const apiBase = callbackEnv.API_BASE || callbackEnv.OPENAI_BASE_URL || callbackEnv.OPENAI_API_BASE || '';
     const defaultHeaders = callbackEnv.default_headers || callbackEnv.OPENAI_DEFAULT_HEADERS || '';
@@ -188,16 +188,16 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         MODEL_PROVIDER: provider,
         ...(modelContextWindow !== undefined ? { MODEL_CONTEXT_WINDOW: String(modelContextWindow) } : {}),
         JIUWENCLAW_AGENT_ROOT: join(homeDir, 'agent'),
-        JIUWENCLAW_RUNTIME_SKILLS_DIR: join(projectRoot, '.cat-cafe', 'relayclaw-skill-cache', this.catId as string),
+        JIUWENCLAW_RUNTIME_SKILLS_DIR: join(projectRoot, '.office-claw', 'relayclaw-skill-cache', this.catId as string),
         ...(projectDir ? { JIUWENCLAW_PROJECT_DIR: projectDir } : {}),
         ...(sharedSkillDirs.length > 0 ? { JIUWENCLAW_SHARED_SKILLS_DIRS: sharedSkillDirs.join(delimiter) } : {}),
         ...(disabledSkills.length > 0 ? { JIUWENCLAW_DISABLED_SKILLS: disabledSkills.join(',') } : {}),
         ...(catCafeMcp
           ? {
-              CAT_CAFE_MCP_SERVER_PATH: catCafeMcp.serverPath,
-              CAT_CAFE_MCP_COMMAND: catCafeMcp.command,
-              CAT_CAFE_MCP_ARGS_JSON: JSON.stringify(catCafeMcp.args),
-              CAT_CAFE_MCP_CWD: catCafeMcp.repoRoot,
+              OFFICE_CLAW_MCP_SERVER_PATH: catCafeMcp.serverPath,
+              OFFICE_CLAW_MCP_COMMAND: catCafeMcp.command,
+              OFFICE_CLAW_MCP_ARGS_JSON: JSON.stringify(catCafeMcp.args),
+              OFFICE_CLAW_MCP_CWD: catCafeMcp.repoRoot,
             }
           : {}),
         ...buildCatCafeMcpEnv(callbackEnv),

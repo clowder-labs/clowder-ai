@@ -250,7 +250,7 @@ async def mcp_exec_command(
     except Exception:
         return "[ERROR]: workdir is outside project workspace."
 
-    timeout_seconds = max(1, min(timeout_seconds, 60))
+    timeout_seconds = max(1, min(timeout_seconds, 300))
     max_output_chars = max(200, min(max_output_chars, 20000))
     normalized_shell_type = _normalize_shell_type(shell_type)
 

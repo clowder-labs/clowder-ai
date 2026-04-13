@@ -43,8 +43,8 @@ export function CatAvatar({ catId, size = 32, status, showRing = false }: CatAva
         ['--tw-ring-color' as string]: isError ? '#ef4444' : ringColor,
         boxShadow: glowShadow,
       }}
-      >
-        {imgError ? (
+    >
+      {imgError ? (
         <PawIcon className="ui-avatar-fallback-icon text-gray-400" />
       ) : (
         <img
@@ -52,7 +52,7 @@ export function CatAvatar({ catId, size = 32, status, showRing = false }: CatAva
           alt={cat?.displayName ?? catId}
           width={size}
           height={size}
-          className="ui-avatar-image"
+          className="ui-avatar-image object-contain"
           onError={() => setImgError(true)}
         />
       )}

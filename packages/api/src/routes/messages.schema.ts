@@ -10,7 +10,7 @@
  * Extracted from parse-multipart.ts for better organization.
  */
 
-import { catIdSchema } from '@cat-cafe/shared';
+import { catIdSchema } from '@office-claw/shared';
 import { z } from 'zod';
 
 /**
@@ -20,7 +20,7 @@ import { z } from 'zod';
 export const sendMessageSchema = z
   .object({
     content: z.string().min(1).max(10000),
-    /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+    /** Legacy fallback only; preferred identity source is X-Office-Claw-User header. */
     userId: z.string().min(1).max(100).optional(),
     mentions: z.array(catIdSchema()).optional(),
     threadId: z.string().min(1).max(100).optional(),

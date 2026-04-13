@@ -97,7 +97,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -139,7 +139,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/messages?threadId=thread-1&before=${ts + 1000}`,
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -176,7 +176,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -214,7 +214,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1',
-      headers: { 'x-cat-cafe-user': 'user-A' },
+      headers: { 'x-office-claw-user': 'user-A' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -264,7 +264,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1&limit=5',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -322,7 +322,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1&limit=200',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -361,7 +361,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -402,7 +402,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -455,7 +455,7 @@ describe('GET /api/messages — draft merge (#80)', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/messages?threadId=thread-1',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
     });
 
     assert.equal(res.statusCode, 200);

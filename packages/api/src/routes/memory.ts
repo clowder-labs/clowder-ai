@@ -11,7 +11,7 @@
  * DELETE /api/memory - Delete memory entry
  */
 
-import { catIdSchema, createCatId } from '@cat-cafe/shared';
+import { catIdSchema, createCatId } from '@office-claw/shared';
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
@@ -67,7 +67,7 @@ export const memoryRoutes: FastifyPluginAsync<MemoryRoutesOptions> = async (app,
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { threadId, key, value, updatedBy } = parseResult.data;
@@ -95,7 +95,7 @@ export const memoryRoutes: FastifyPluginAsync<MemoryRoutesOptions> = async (app,
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { threadId, key } = parseResult.data;
@@ -131,7 +131,7 @@ export const memoryRoutes: FastifyPluginAsync<MemoryRoutesOptions> = async (app,
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const { threadId, key } = parseResult.data;

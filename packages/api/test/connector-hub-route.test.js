@@ -13,7 +13,7 @@ import Fastify from 'fastify';
 
 const { connectorHubRoutes } = await import('../dist/routes/connector-hub.js');
 
-const AUTH_HEADERS = { 'x-cat-cafe-user': 'owner-1' };
+const AUTH_HEADERS = { 'x-office-claw-user': 'owner-1' };
 
 async function buildApp(overrides = {}) {
   const listCalls = [];

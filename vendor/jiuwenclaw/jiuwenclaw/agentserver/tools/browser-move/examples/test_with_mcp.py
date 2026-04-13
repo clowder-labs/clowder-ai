@@ -486,7 +486,7 @@ if __name__ == "__main__":
     except RuntimeError as e:
         # Swallow the specific MCP/anyio shutdown bug so tests can continue
         if "Attempted to exit cancel scope in a different task than it was entered in" in str(e):
-            logging.info(f"Ignoring MCP shutdown error: {e}", file=sys.stderr)
+            logging.error(f"Ignoring MCP shutdown error: {e}")
         else:
             # Re-raise anything else so real errors still fail
             raise

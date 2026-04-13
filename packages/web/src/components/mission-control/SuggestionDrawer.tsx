@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { BacklogItem, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
+import type { BacklogItem, MissionHubSelfClaimScope, ThreadPhase } from '@office-claw/shared';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { formatCatName, useCatData } from '@/hooks/useCatData';
@@ -105,7 +105,7 @@ export function SuggestionDrawer({
   const statusLabel = useMemo(() => {
     if (!item) return '未选择任务';
     if (item.status === 'open') return '待建议领取';
-    if (item.status === 'suggested') return '等待铲屎官决策';
+    if (item.status === 'suggested') return '等待用户决策';
     if (item.status === 'dispatched') return '已派发';
     return '已批准';
   }, [item]);

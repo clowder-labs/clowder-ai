@@ -11,10 +11,13 @@ import { HubSkillsTab } from '@/components/HubSkillsTab';
 import { ToastContainer } from '@/components/ToastContainer';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
+vi.mock('@/utils/skill-options-cache', () => ({ notifySkillOptionsChanged: vi.fn() }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockNotifySkillOptionsChanged = vi.mocked(notifySkillOptionsChanged);
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -84,6 +87,7 @@ describe('HubSkillsTab global toast feedback', () => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
     mockApiFetch.mockReset();
+    mockNotifySkillOptionsChanged.mockReset();
   });
 
   it('shows a success toast in the global container after skill install succeeds', async () => {
@@ -150,6 +154,7 @@ describe('HubSkillsTab global toast feedback', () => {
     const toastContainer = document.body.querySelector('.fixed');
     expect(toastContainer?.className).toContain('top-6');
     expect(toastContainer?.className).toContain('right-6');
+    expect(mockNotifySkillOptionsChanged).toHaveBeenCalledTimes(1);
   });
 
   it('shows an error toast in the global container after skill install fails', async () => {

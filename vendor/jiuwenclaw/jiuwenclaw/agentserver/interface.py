@@ -51,7 +51,11 @@ from jiuwenclaw.agentserver.tools.audio_tools import (
 )
 from jiuwenclaw.agentserver.tools.image_tools import visual_question_answering
 from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
-from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus, TodoToolkit
+from jiuwenclaw.agentserver.tools.todo_toolkits import (
+    TodoToolkit,
+    reset_todo_request_scope,
+    todo_request_scope_token,
+)
 from jiuwenclaw.agentserver.tools.file_tools import FileToolkit
 from jiuwenclaw.agentserver.tools.load_skill_tools import LoadSkillToolkit
 from jiuwenclaw.agentserver.tools.memory_tools import (
@@ -191,6 +195,8 @@ class JiuWenClaw:
         self._session_priorities: dict[str, int] = {}  # session_id -> 优先级计数器（用于先进后出）
         self._session_queues: dict[str, asyncio.PriorityQueue] = {}  # session_id -> 优先队列
         self._session_processors: dict[str, asyncio.Task] = {}  # session_id -> processor_task
+        self._request_session_toolkits: dict[str, MultiSessionToolkit] = {}  # request_id -> toolkit
+        self._session_toolkit_requests: dict[str, set[str]] = {}  # session_id -> request_ids
         # Session-bound project_dir (resolved str), isolated from self._workspace_dir (agent root for memory).
         self._session_project_dir: dict[str, str] = {}
         # Memory system expects workspace_dir/layout:
@@ -887,7 +893,7 @@ class JiuWenClaw:
                 logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
-        # Todo 工具：两种模式都注册，用于 skill 步骤追踪
+        # Todo 工具：实际目录由当前 asyncio Task 的 todo_request_scope_token(request_id) 决定
         todo_toolkit = TodoToolkit(session_id=effective_session_id)
         for tool in todo_toolkit.get_tools():
             Runner.resource_mgr.add_tool(tool)
@@ -906,6 +912,8 @@ class JiuWenClaw:
             for tool in session_toolkits.get_tools():
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
+            if request_id:
+                self._track_session_toolkit(request_id, effective_session_id, session_toolkits)
 
         # Register send file toolkit
         if not self._send_file_tool_registered:
@@ -983,7 +991,7 @@ class JiuWenClaw:
             try:
                 await self._tool_manager.register_request_scoped_cat_cafe_mcp(cat_cafe_mcp)
             except Exception as exc:
-                logger.warning("[JiuWenClaw] ensure request-scoped Cat Cafe MCP failed: %s", exc)
+                logger.warning("[JiuWenClaw] ensure request-scoped Cat Cafe MCP failed.")
 
         config_base = get_config()
         self._instance._config.prompt_template = [{
@@ -1045,8 +1053,9 @@ class JiuWenClaw:
             if self._instance is not None and hasattr(self._instance, 'resume'):
                 self._instance.resume()
 
-            # 取消当前 session 的非流式任务
+            # 先取消当前 session 的子协程工具包，避免父任务 cancel 后 finally 提前 untrack
             session_id = self._get_session_id(request)
+            await self._cancel_session_toolkits(session_id, "interrupt(supplement): ")
             await self._cancel_session_task(session_id, "interrupt(supplement): ")
 
             # 取消流式任务
@@ -1069,7 +1078,8 @@ class JiuWenClaw:
             # 先恢复暂停（防止 cancel 时 task 阻塞在 pause_event.wait 上）
             if self._instance is not None and hasattr(self._instance, 'resume'):
                 self._instance.resume()
-
+            # 取消所有 session 的子协程工具包
+            await self._cancel_all_session_toolkits(f"interrupt(intent={intent}): ")
             # 取消所有 session 的非流式任务
             await self._cancel_all_session_tasks(f"interrupt(intent={intent}): ")
 
@@ -1085,21 +1095,15 @@ class JiuWenClaw:
                     for t in active:
                         t.cancel()
 
-            # 将未完成的 todo 项标记为 cancelled（保留在列表中，agent 不会执行）
+            # 将未完成的 todo 项标记为 cancelled（legacy 与各 request 分目录下的列表）
             if request.session_id:
                 try:
-                    todo_toolkit = TodoToolkit(session_id=request.session_id)
-                    tasks = todo_toolkit._load_tasks()
-                    cancel_count = 0
-                    for t in tasks:
-                        if t.status.value in ("waiting", "running"):
-                            t.status = TaskStatus.CANCELLED
-                            cancel_count += 1
+                    cancel_count = TodoToolkit.cancel_all_incomplete_for_session(request.session_id)
                     if cancel_count:
-                        todo_toolkit._save_tasks(tasks)
                         logger.info(
                             "[JiuWenClaw] interrupt: 已将 %d 个未完成 todo 项标记为 cancelled session_id=%s",
-                            cancel_count, request.session_id,
+                            cancel_count,
+                            request.session_id,
                         )
                 except Exception as exc:
                     logger.warning("[JiuWenClaw] 标记 todo cancelled 失败: %s", exc)
@@ -1163,6 +1167,25 @@ class JiuWenClaw:
     def _get_session_id(self, request: AgentRequest) -> str:
         """获取 session_id，默认为 'default'."""
         return request.session_id or "default"
+
+    def _track_session_toolkit(self, request_id: str, session_id: str, toolkit: MultiSessionToolkit) -> None:
+        """Track request-scoped MultiSessionToolkit so interrupt can cancel spawned sub-sessions."""
+        self._request_session_toolkits[request_id] = toolkit
+        request_ids = self._session_toolkit_requests.setdefault(session_id, set())
+        request_ids.add(request_id)
+
+    def _untrack_session_toolkit(self, request_id: str) -> None:
+        """Remove request-scoped toolkit tracking after the parent request finishes."""
+        toolkit = self._request_session_toolkits.pop(request_id, None)
+        if toolkit is None:
+            return
+        session_id = toolkit.session_id
+        request_ids = self._session_toolkit_requests.get(session_id)
+        if request_ids is None:
+            return
+        request_ids.discard(request_id)
+        if not request_ids:
+            self._session_toolkit_requests.pop(session_id, None)
 
     def _effective_project_dir_for_session(
         self, session_id: str, param_project_dir: str | None
@@ -1245,10 +1268,44 @@ class JiuWenClaw:
                 pass
             self._session_tasks[session_id] = None
 
+    async def _cancel_session_toolkits(self, session_id: str, log_msg_prefix: str = "") -> None:
+        """取消指定 session 关联的 MultiSessionToolkit 子协程."""
+        request_ids = list(self._session_toolkit_requests.get(session_id, set()))
+        if not request_ids:
+            return
+        logger.info(
+            "[JiuWenClaw] %s取消 session 子协程工具包: session_id=%s request_count=%d",
+            log_msg_prefix,
+            session_id,
+            len(request_ids),
+        )
+        for request_id in request_ids:
+            toolkit = self._request_session_toolkits.get(request_id)
+            if toolkit is None:
+                self._untrack_session_toolkit(request_id)
+                continue
+            try:
+                await toolkit.cancel_all_sessions()
+            except Exception as exc:
+                logger.warning(
+                    "[JiuWenClaw] %s取消 MultiSessionToolkit 失败: session_id=%s request_id=%s error=%s",
+                    log_msg_prefix,
+                    session_id,
+                    request_id,
+                    exc,
+                )
+            finally:
+                self._untrack_session_toolkit(request_id)
+
     async def _cancel_all_session_tasks(self, log_msg_prefix: str = "") -> None:
         """取消所有 session 的非流式任务."""
         for session_id in list(self._session_tasks.keys()):
             await self._cancel_session_task(session_id, log_msg_prefix)
+
+    async def _cancel_all_session_toolkits(self, log_msg_prefix: str = "") -> None:
+        """取消所有 request 关联的 MultiSessionToolkit 子协程."""
+        for session_id in list(self._session_toolkit_requests.keys()):
+            await self._cancel_session_toolkits(session_id, log_msg_prefix)
 
     async def _ensure_session_processor(self, session_id: str) -> None:
         """确保 session 的任务处理器在运行."""
@@ -1499,6 +1556,7 @@ class JiuWenClaw:
         inputs = {
             "conversation_id": request.session_id,
             "query": built_user_prompt,
+            "request_id": request.request_id,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1517,6 +1575,7 @@ class JiuWenClaw:
         result_future = asyncio.get_event_loop().create_future()
 
         async def run_agent_task():
+            token = todo_request_scope_token(request.request_id)
             try:
                 await self._register_runtime_tools(
                     session_id,
@@ -1533,6 +1592,9 @@ class JiuWenClaw:
             except Exception as e:
                 logger.error("[JiuWenClaw] Agent 任务执行异常: %s", e)
                 raise
+            finally:
+                self._untrack_session_toolkit(request.request_id)
+                reset_todo_request_scope(token)
 
         # 包装任务，完成后将结果放入 future
         async def task_wrapper():
@@ -1688,6 +1750,7 @@ class JiuWenClaw:
         inputs = {
             "conversation_id": request.session_id,
             "query": built_user_prompt,
+            "request_id": request.request_id,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1713,6 +1776,7 @@ class JiuWenClaw:
         async def run_stream_task():
             """执行流式任务，将产生的 chunk 放入队列."""
             nonlocal session_tool
+            token = todo_request_scope_token(request.request_id)
             try:
                 session_tool = await self._register_runtime_tools(
                     session_id,
@@ -1734,6 +1798,8 @@ class JiuWenClaw:
                 logger.exception("[JiuWenClaw] 流式任务异常: %s", exc)
                 await stream_queue.put(("error", exc))
             finally:
+                self._untrack_session_toolkit(request.request_id)
+                reset_todo_request_scope(token)
                 stream_done.set()
 
         # 包装任务

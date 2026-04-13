@@ -18,7 +18,7 @@
  * BACKLOG #81
  */
 
-import { catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IPrTrackingStore } from '../infrastructure/email/PrTrackingStore.js';
@@ -47,7 +47,7 @@ export const prTrackingRoutes: FastifyPluginAsync<PrTrackingRoutesOptions> = asy
   app.post('/api/pr-tracking', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
-      return reply.status(401).send({ error: 'Identity required (X-Cat-Cafe-User header or userId query)' });
+      return reply.status(401).send({ error: 'Identity required (X-Office-Claw-User header or userId query)' });
     }
 
     const parsed = RegisterBodySchema.safeParse(request.body);
@@ -91,7 +91,7 @@ export const prTrackingRoutes: FastifyPluginAsync<PrTrackingRoutesOptions> = asy
   app.get('/api/pr-tracking', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
-      return reply.status(401).send({ error: 'Identity required (X-Cat-Cafe-User header or userId query)' });
+      return reply.status(401).send({ error: 'Identity required (X-Office-Claw-User header or userId query)' });
     }
 
     const all = await prTrackingStore.listAll();
@@ -103,7 +103,7 @@ export const prTrackingRoutes: FastifyPluginAsync<PrTrackingRoutesOptions> = asy
   app.delete<{ Params: { repo: string; pr: string } }>('/api/pr-tracking/:repo/:pr', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
-      return reply.status(401).send({ error: 'Identity required (X-Cat-Cafe-User header or userId query)' });
+      return reply.status(401).send({ error: 'Identity required (X-Office-Claw-User header or userId query)' });
     }
 
     const repoFullName = decodeURIComponent(request.params.repo);

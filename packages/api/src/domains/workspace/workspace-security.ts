@@ -227,7 +227,7 @@ function toLinkedEntry(name: string, rootPath: string): WorktreeEntry {
 
 /** Config file path for persistent linked roots */
 function linkedRootsConfigPath(): string {
-  return resolve(process.cwd(), '.cat-cafe', 'linked-roots.json');
+  return resolve(process.cwd(), '.office-claw', 'linked-roots.json');
 }
 
 /** Read persisted linked roots from config file */
@@ -250,7 +250,7 @@ async function writeLinkedRootsConfig(entries: Array<{ name: string; path: strin
 
 /**
  * Get all linked roots: env var + config file (merged, deduped by id).
- * Format: env var "name:path,name:path" + .cat-cafe/linked-roots.json
+ * Format: env var "name:path,name:path" + .office-claw/linked-roots.json
  */
 export function getLinkedRoots(): WorktreeEntry[] {
   // From env var

@@ -23,9 +23,6 @@ importers:
 
   packages/api:
     dependencies:
-      '@cat-cafe/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@fastify/cors':
         specifier: ^9.0.0
         version: 9.0.1
@@ -47,6 +44,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.26.0(zod@3.25.76)
+      '@office-claw/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@wecom/aibot-node-sdk':
         specifier: 1.0.4
         version: 1.0.4
@@ -165,6 +165,9 @@ importers:
       jsdom:
         specifier: ^28.0.0
         version: 28.0.0
+      snappy:
+        specifier: ^7.3.3
+        version: 7.3.3(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)
       tsx:
         specifier: ^4.7.0
         version: 4.21.0
@@ -174,12 +177,12 @@ importers:
 
   packages/mcp-server:
     dependencies:
-      '@cat-cafe/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.26.0(zod@3.25.76)
+      '@office-claw/shared':
+        specifier: workspace:*
+        version: link:../shared
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -209,9 +212,6 @@ importers:
 
   packages/web:
     dependencies:
-      '@cat-cafe/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@codemirror/lang-css':
         specifier: ^6.3.1
         version: 6.3.1
@@ -239,6 +239,9 @@ importers:
       '@dagrejs/dagre':
         specifier: ^2.0.4
         version: 2.0.4
+      '@office-claw/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@xterm/addon-attach':
         specifier: ^0.12.0
         version: 0.12.0
@@ -1474,8 +1477,121 @@ packages:
       '@cfworker/json-schema':
         optional: true
 
+  '@napi-rs/snappy-android-arm-eabi@7.3.3':
+    resolution: {integrity: sha512-d4vUFFzNBvazGfB/KU8MnEax6itTIgRWXodPdZDnWKHy9HwVBndpCiedQDcSNHcZNYV36rx034rpn7SAuTL2NA==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [android]
+
+  '@napi-rs/snappy-android-arm64@7.3.3':
+    resolution: {integrity: sha512-Uh+w18dhzjVl85MGhRnojb7OLlX2ErvMsYIunO/7l3Frvc2zQvfqsWsFJanu2dwqlE2YDooeNP84S+ywgN9sxg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [android]
+
+  '@napi-rs/snappy-darwin-arm64@7.3.3':
+    resolution: {integrity: sha512-AmJn+6yOu/0V0YNHLKmRUNYkn93iv/1wtPayC7O1OHtfY6YqHQ31/MVeeRBiEYtQW9TwVZxXrDirxSB1PxRdtw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@napi-rs/snappy-darwin-x64@7.3.3':
+    resolution: {integrity: sha512-biLTXBmPjPmO7HIpv+5BaV9Gy/4+QJSUNJW8Pjx1UlWAVnocPy7um+zbvAWStZssTI5sfn/jOClrAegD4w09UA==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@napi-rs/snappy-freebsd-x64@7.3.3':
+    resolution: {integrity: sha512-E3R3ewm8Mrjm0yL2TC3VgnphDsQaCPixNJqBbGiz3NTshVDhlPlOgPKF0NGYqKiKaDGdD9PKtUgOR4vagUtn7g==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@napi-rs/snappy-linux-arm-gnueabihf@7.3.3':
+    resolution: {integrity: sha512-ZuNgtmk9j0KyT7TfLyEnvZJxOhbkyNR761nk04F0Q4NTHMICP28wQj0xgEsnCHUsEeA9OXrRL4R7waiLn+rOQA==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@napi-rs/snappy-linux-arm64-gnu@7.3.3':
+    resolution: {integrity: sha512-KIzwtq0dAzshzpqZWjg0Q9lUx93iZN7wCCUzCdLYIQ+mvJZKM10VCdn0RcuQze1R3UJTPwpPLXQIVskNMBYyPA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@napi-rs/snappy-linux-arm64-musl@7.3.3':
+    resolution: {integrity: sha512-AAED4cQS74xPvktsyVmz5sy8vSxG/+3d7Rq2FDBZzj3Fv6v5vux6uZnECPCAqpALCdTtJ61unqpOyqO7hZCt1Q==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@napi-rs/snappy-linux-ppc64-gnu@7.3.3':
+    resolution: {integrity: sha512-pofO5eSLg8ZTBwVae4WHHwJxJGZI8NEb4r5Mppvq12J/1/Hq1HecClXmfY3A7bdT2fsS2Td+Q7CI9VdBOj2sbA==}
+    engines: {node: '>= 10'}
+    cpu: [ppc64]
+    os: [linux]
+
+  '@napi-rs/snappy-linux-riscv64-gnu@7.3.3':
+    resolution: {integrity: sha512-OiHYdeuwj0TVBXADUmmQDQ4lL1TB+8EwmXnFgOutoDVXHaUl0CJFyXLa6tYUXe+gRY8hs1v7eb0vyE97LKY06Q==}
+    engines: {node: '>= 10'}
+    cpu: [riscv64]
+    os: [linux]
+
+  '@napi-rs/snappy-linux-s390x-gnu@7.3.3':
+    resolution: {integrity: sha512-66QdmuV9CTq/S/xifZXlMy3PsZTviAgkqqpZ+7vPCmLtuP+nqhaeupShOFf/sIDsS0gZePazPosPTeTBbhkLHg==}
+    engines: {node: '>= 10'}
+    cpu: [s390x]
+    os: [linux]
+
+  '@napi-rs/snappy-linux-x64-gnu@7.3.3':
+    resolution: {integrity: sha512-g6KURjOxrgb8yXDEZMuIcHkUr/7TKlDwSiydEQtMtP3n4iI4sNjkcE/WNKlR3+t9bZh1pFGAq7NFRBtouQGHpQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@napi-rs/snappy-linux-x64-musl@7.3.3':
+    resolution: {integrity: sha512-6UvOyczHknpaKjrlKKSlX3rwpOrfJwiMG6qA0NRKJFgbcCAEUxmN9A8JvW4inP46DKdQ0bekdOxwRtAhFiTDfg==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@napi-rs/snappy-openharmony-arm64@7.3.3':
+    resolution: {integrity: sha512-I5mak/5rTprobf7wMCk0vFhClmWOL/QiIJM4XontysnadmP/R9hAcmuFmoMV2GaxC9MblqLA7Z++gy8ou5hJVw==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [openharmony]
+
+  '@napi-rs/snappy-wasm32-wasi@7.3.3':
+    resolution: {integrity: sha512-+EroeygVYo9RksOchjF206frhMkfD2PaIun3yH4Zp5j/Y0oIEgs/+VhAYx/f+zHRylQYUIdLzDRclcoepvlR8Q==}
+    engines: {node: '>=14.0.0'}
+    cpu: [wasm32]
+
+  '@napi-rs/snappy-win32-arm64-msvc@7.3.3':
+    resolution: {integrity: sha512-rxqfntBsCfzgOha/OlG8ld2hs6YSMGhpMUbFjeQLyVDbooY041fRXv3S7yk52DfO6H4QQhLT5+p7cW0mYdhyiQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@napi-rs/snappy-win32-ia32-msvc@7.3.3':
+    resolution: {integrity: sha512-joRV16DsRtqjGt0CdSpxGCkO0UlHGeTZ/GqvdscoALpRKbikR2Top4C61dxEchmOd3lSYsXutuwWWGg3Nr++WA==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@napi-rs/snappy-win32-x64-msvc@7.3.3':
+    resolution: {integrity: sha512-cEnQwcsdJyOU7HSZODWsHpKuQoSYM4jaqw/hn9pOXYbRN1+02WxYppD3fdMuKN6TOA6YG5KA5PHRNeVilNX86Q==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
+
+  '@napi-rs/wasm-runtime@1.1.3':
+    resolution: {integrity: sha512-xK9sGVbJWYb08+mTJt3/YV24WxvxpXcXtP6B172paPZ+Ts69Re9dAr7lKwJoeIx8OoeuimEiRZ7umkiUVClmmQ==}
+    peerDependencies:
+      '@emnapi/core': ^1.7.1
+      '@emnapi/runtime': ^1.7.1
 
   '@next/env@14.2.35':
     resolution: {integrity: sha512-DuhvCtj4t9Gwrx80dmz2F4t/zKQ4ktN8WrMwOuVzkJfBilwAwGr6v16M5eI8yCuZ63H9TTuEU09Iu2HqkzFPVQ==}
@@ -2457,6 +2573,7 @@ packages:
   basic-ftp@5.2.0:
     resolution: {integrity: sha512-VoMINM2rqJwJgfdHq6RiUudKt2BV+FY5ZFezP/ypmwayk68+NzzAQy4XXLlqsGD4MCzq3DrmNFD/uUmBJuGoXw==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.1, please upgrade
 
   better-sqlite3@12.6.2:
     resolution: {integrity: sha512-8VYKM3MjCa9WcaSAI3hzwhmyHVlH8tiGFwf0RlTsZPWJ1I5MkzjiudCo4KC4DxOaL/53A5B1sI/IbldNFDbsKA==}
@@ -5103,6 +5220,10 @@ packages:
     resolution: {integrity: sha512-4zemZi0HvTnYwLfrpk/CF9LOd9Lt87kAt50GnqhMpyF9U3poDAP2+iukq2bZsO/ufegbYehBkqINbsWxj4l4cw==}
     engines: {node: '>= 18'}
 
+  snappy@7.3.3:
+    resolution: {integrity: sha512-UDJVCunvgblRpfTOjo/uT7pQzfrTsSICJ4yVS4aq7SsGBaUSpJwaVP15nF//jqinSLpN7boe/BqbUmtWMTQ5MQ==}
+    engines: {node: '>= 10'}
+
   socket.io-adapter@2.5.6:
     resolution: {integrity: sha512-DkkO/dz7MGln0dHn5bmN3pPy+JmywNICWrJqVWiVOyvXjWQFIv9c2h24JrQLLFJ2aQVQf/Cvl1vblnd4r2apLQ==}
 
@@ -7305,7 +7426,73 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@napi-rs/snappy-android-arm-eabi@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-android-arm64@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-darwin-arm64@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-darwin-x64@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-freebsd-x64@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-arm-gnueabihf@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-arm64-gnu@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-arm64-musl@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-ppc64-gnu@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-riscv64-gnu@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-s390x-gnu@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-x64-gnu@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-linux-x64-musl@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-openharmony-arm64@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-wasm32-wasi@7.3.3(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)':
+    dependencies:
+      '@napi-rs/wasm-runtime': 1.1.3(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
+    optional: true
+
+  '@napi-rs/snappy-win32-arm64-msvc@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-win32-ia32-msvc@7.3.3':
+    optional: true
+
+  '@napi-rs/snappy-win32-x64-msvc@7.3.3':
+    optional: true
+
   '@napi-rs/wasm-runtime@0.2.12':
+    dependencies:
+      '@emnapi/core': 1.8.1
+      '@emnapi/runtime': 1.8.1
+      '@tybys/wasm-util': 0.10.1
+    optional: true
+
+  '@napi-rs/wasm-runtime@1.1.3(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)':
     dependencies:
       '@emnapi/core': 1.8.1
       '@emnapi/runtime': 1.8.1
@@ -11644,6 +11831,30 @@ snapshots:
   smob@1.6.1: {}
 
   smol-toml@1.6.0: {}
+
+  snappy@7.3.3(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1):
+    optionalDependencies:
+      '@napi-rs/snappy-android-arm-eabi': 7.3.3
+      '@napi-rs/snappy-android-arm64': 7.3.3
+      '@napi-rs/snappy-darwin-arm64': 7.3.3
+      '@napi-rs/snappy-darwin-x64': 7.3.3
+      '@napi-rs/snappy-freebsd-x64': 7.3.3
+      '@napi-rs/snappy-linux-arm-gnueabihf': 7.3.3
+      '@napi-rs/snappy-linux-arm64-gnu': 7.3.3
+      '@napi-rs/snappy-linux-arm64-musl': 7.3.3
+      '@napi-rs/snappy-linux-ppc64-gnu': 7.3.3
+      '@napi-rs/snappy-linux-riscv64-gnu': 7.3.3
+      '@napi-rs/snappy-linux-s390x-gnu': 7.3.3
+      '@napi-rs/snappy-linux-x64-gnu': 7.3.3
+      '@napi-rs/snappy-linux-x64-musl': 7.3.3
+      '@napi-rs/snappy-openharmony-arm64': 7.3.3
+      '@napi-rs/snappy-wasm32-wasi': 7.3.3(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)
+      '@napi-rs/snappy-win32-arm64-msvc': 7.3.3
+      '@napi-rs/snappy-win32-ia32-msvc': 7.3.3
+      '@napi-rs/snappy-win32-x64-msvc': 7.3.3
+    transitivePeerDependencies:
+      - '@emnapi/core'
+      - '@emnapi/runtime'
 
   socket.io-adapter@2.5.6:
     dependencies:

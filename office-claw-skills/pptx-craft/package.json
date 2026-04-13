@@ -1,0 +1,24 @@
+{
+  "name": "pptx-craft",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "node html-to-pptx/scripts/build.js"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.5.0",
+    "@fortawesome/free-brands-svg-icons": "^6.5.0",
+    "@fortawesome/free-regular-svg-icons": "^6.5.0",
+    "@fortawesome/free-solid-svg-icons": "^6.5.0",
+    "esbuild": "^0.20.0",
+    "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1",
+    "opentype.js": "^1.3.4",
+    "pako": "^2.1.0",
+    "playwright": "1.57.0",
+    "pptxgenjs": "^3.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

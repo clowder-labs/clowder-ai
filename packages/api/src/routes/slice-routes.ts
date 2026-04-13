@@ -8,7 +8,7 @@
  * F076: Slice routes — Stage 4 slice planning CRUD + reorder
  */
 
-import type { CreateSliceInput, SliceType, UpdateSliceInput } from '@cat-cafe/shared';
+import type { CreateSliceInput, SliceType, UpdateSliceInput } from '@office-claw/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { SliceStore } from '../domains/projects/slice-store.js';
@@ -22,7 +22,7 @@ export const sliceRoutes: FastifyPluginAsync<SliceRoutesOptions> = async (app, o
   const { externalProjectStore, sliceStore } = opts;
 
   function requireUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-    const userId = request.headers['x-cat-cafe-user'] as string | undefined;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string | undefined;
     if (!userId) {
       void reply.status(401).send({ error: 'Identity required' });
       return null;

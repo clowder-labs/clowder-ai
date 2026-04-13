@@ -4,7 +4,7 @@
  *
  */
 
-import type { GameAction, SeatId } from '@cat-cafe/shared';
+import type { GameAction, SeatId } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { ActionNotifier } from '../domains/cats/services/game/GameNarratorDriver.js';
@@ -72,11 +72,11 @@ export const gameActionRoutes: FastifyPluginAsync<GameActionRoutesOptions> = asy
       return { error: 'x-cat-id header is required' };
     }
 
-    // P0: Verify caller identity via x-cat-cafe-user header (system-authenticated)
+    // P0: Verify caller identity via user header (system-authenticated)
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'x-cat-cafe-user header is required' };
+      return { error: 'X-Office-Claw-User header is required' };
     }
 
     const runtime = await gameStore.getGame(gameId);

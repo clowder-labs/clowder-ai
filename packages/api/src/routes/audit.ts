@@ -34,7 +34,7 @@ export const auditRoutes: FastifyPluginAsync<AuditRoutesOptions> = async (app, o
 
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const thread = await threadStore.get(threadId);

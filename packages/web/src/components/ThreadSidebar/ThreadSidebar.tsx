@@ -8,17 +8,17 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getMentionToCat } from '@/lib/mention-highlight';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
+import { SearchInput } from '../shared/SearchInput';
 import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
-import { sanitizeThreadTitleOrNull } from './thread-title';
+import { normalizeStoredThreadTitleOrNull } from './thread-title';
 import { ThreadItem } from './ThreadItem';
 import { applyRealtimeThreadActivity, getProjectPaths, type ThreadGroup } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
@@ -76,6 +76,18 @@ function getThreadSourceLabel(thread: Thread): string | undefined {
   return CONNECTOR_SOURCE_LABELS[connectorId] ?? connectorId;
 }
 
+function getThreadLastActiveAtMs(thread: Thread): number {
+  const lastActiveAt = Number(thread.lastActiveAt);
+  return Number.isFinite(lastActiveAt) ? lastActiveAt : 0;
+}
+
+const FILTER_OPTION_LABELS: Record<'all' | '1m' | '3m' | '6m', string> = {
+  all: '全部',
+  '1m': '近1个月',
+  '3m': '近3个月',
+  '6m': '近6个月',
+};
+
 export function ThreadSidebar({
   onClose,
   className,
@@ -106,7 +118,6 @@ export function ThreadSidebar({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filterOption, setFilterOption] = useState<'all' | '1m' | '3m' | '6m'>('all');
-  const [pendingFilterOption, setPendingFilterOption] = useState<'all' | '1m' | '3m' | '6m'>('all');
   const [bindWarning, setBindWarning] = useState<string | null>(null);
   // I-1: Thread to confirm deletion (null = no dialog)
   const [deleteTarget, setDeleteTarget] = useState<Thread | null>(null);
@@ -157,10 +168,9 @@ export function ThreadSidebar({
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
-      const knownAliases = new Set(Object.keys(getMentionToCat()).map((alias) => alias.toLowerCase()));
       const threads = (data.threads ?? []).map((thread: Thread) => ({
         ...thread,
-        title: sanitizeThreadTitleOrNull(thread.title, knownAliases),
+        title: normalizeStoredThreadTitleOrNull(thread.title),
       }));
       setThreads(threads);
       // F069: Sync unread state from API (both non-zero and zero).
@@ -289,6 +299,10 @@ export function ThreadSidebar({
   );
 
   const handleNewChat = useCallback(() => {
+    setSearchQuery('');
+    setIsSearchOpen(false);
+    setShowFilter(false);
+    setFilterOption('all');
     if (onNewChatClick) {
       onNewChatClick();
       return;
@@ -530,7 +544,7 @@ export function ThreadSidebar({
       const now = Date.now();
       const days = filterOption === '1m' ? 30 : filterOption === '3m' ? 90 : 180;
       const threshold = now - days * 24 * 60 * 60 * 1000;
-      result = result.filter((thread) => thread.lastActiveAt >= threshold);
+      result = result.filter((thread) => getThreadLastActiveAtMs(thread) >= threshold);
     }
 
     return result;
@@ -574,9 +588,9 @@ export function ThreadSidebar({
     if (sortedPinned.length > 0) {
       groups.push({ type: 'pinned' as const, label: '置顶', threads: sortedPinned });
     }
-    groups.push({ type: 'recent' as const, label: '全部', threads: sortedUnpinned });
+    groups.push({ type: 'recent' as const, label: FILTER_OPTION_LABELS[filterOption], threads: sortedUnpinned });
     return groups;
-  }, [filteredThreads]);
+  }, [filteredThreads, filterOption]);
   const displayThreadGroups = useMemo(() => threadGroups, [threadGroups]);
   const existingProjects = useMemo(() => getProjectPaths(threadsWithRealtimeActivity), [threadsWithRealtimeActivity]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
@@ -609,37 +623,6 @@ export function ThreadSidebar({
             <img src="/images/lobster.svg" alt="OfficeClaw" className="w-9 h-9 rounded-lg" />
             <span className="text-[var(--font-size-hero)] font-semibold leading-none tracking-tight text-[var(--text-primary)]">OfficeClaw</span>
           </div>
-        </div>
-
-        <div className="ui-sidebar-section hidden px-3 py-2">
-          <button
-            type="button"
-            onClick={() => {
-              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-              router.push(`/mission-hub${fromParam}`);
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                onClose?.();
-              }
-            }}
-            className={getMenuItemClassName(false, 'h-auto py-1.5 text-left text-xs font-medium')}
-            data-testid="sidebar-mission-control"
-          >
-            <svg
-              className="h-4 w-4 shrink-0 text-[#9CA3AF]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            Mission Hub
-          </button>
         </div>
 
         <div className="ui-sidebar-section px-3 py-2.5">
@@ -689,15 +672,15 @@ export function ThreadSidebar({
               <img src="/icons/menu/skills.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               技能
             </button>
-            {/* <button
+            <button
               type="button"
               onClick={() => onMenuClick?.('scheduledTasks')}
               className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
               data-testid="sidebar-menu-scheduled-tasks"
             >
-              <img src="/icons/scheduled-task.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
+              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               定时任务
-            </button> */}
+            </button>
           </div>
         </div>
 
@@ -733,7 +716,6 @@ export function ThreadSidebar({
                   setIsSearchOpen((prev) => !prev);
                   setShowFilter(false);
                   setFilterOption('all');
-                  setPendingFilterOption('all');
                 }}
                 className={`rounded p-1 transition-colors ${isSearchOpen || normalizedQuery.length > 0 ? 'text-[var(--text-accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-accent)]'}`}
                 title="搜索会话"
@@ -749,33 +731,22 @@ export function ThreadSidebar({
             </div>
           </div>
           {(isSearchOpen || normalizedQuery.length > 0) && (
-            <div className="relative mt-2">
-              <input
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setFilterOption('all');
-                  setPendingFilterOption('all');
-                }}
-                placeholder="搜索会话"
-                autoComplete="off"
-                className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowFilter(false);
-                    setIsSearchOpen(false);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full text-[20px] leading-5 text-[#808080] hover:text-[#191919]"
-                  aria-label="清除搜索"
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <SearchInput
+              wrapperClassName="mt-2"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setFilterOption('all');
+              }}
+              onClear={() => {
+                setSearchQuery('');
+                setShowFilter(false);
+                setIsSearchOpen(false);
+              }}
+              placeholder="搜索会话"
+              autoComplete="off"
+              aria-label="搜索会话"
+            />
           )}
 
           {showFilter && (
@@ -794,38 +765,16 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${pendingFilterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
-                    style={{ marginBottom: '14px' }}
-                    onClick={() => setPendingFilterOption(item.key as 'all' | '1m' | '3m' | '6m')}
+                    className={`block w-full whitespace-nowrap px-3 py-2 text-left text-xs font-[400] leading-[18px] transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    style={{ marginBottom: item.key === '6m' ? '0' : '14px' }}
+                    onClick={() => {
+                      setFilterOption(item.key as 'all' | '1m' | '3m' | '6m');
+                      setShowFilter(false);
+                    }}
                   >
                     {item.label}
                   </button>
                 ))}
-              </div>
-              <div className="pt-4 flex justify-end gap-2 border-t border-[#E5E7EB]">
-                <button
-                  type="button"
-                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
-                  onClick={() => {
-                    setPendingFilterOption('all');
-                    setFilterOption('all');
-                    setShowFilter(false);
-                  }}
-                >
-                  重置
-                </button>
-                <button
-                  type="button"
-                  className="ui-button-default h-6 px-4 text-[12px] font-[400]"
-                  onClick={() => {
-                    setFilterOption(pendingFilterOption);
-                    setShowFilter(false);
-                    setSearchQuery('');
-                    setIsSearchOpen(false);
-                  }}
-                >
-                  确定
-                </button>
               </div>
             </div>
           )}

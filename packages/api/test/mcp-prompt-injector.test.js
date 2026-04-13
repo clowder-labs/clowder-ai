@@ -33,8 +33,8 @@ describe('McpPromptInjector', () => {
     );
     const instructions = buildMcpCallbackInstructions({});
 
-    assert.ok(instructions.includes('$CAT_CAFE_INVOCATION_ID'), 'should reference INVOCATION_ID env var');
-    assert.ok(instructions.includes('$CAT_CAFE_CALLBACK_TOKEN'), 'should reference CALLBACK_TOKEN env var');
+    assert.ok(instructions.includes('$OFFICE_CLAW_INVOCATION_ID'), 'should reference INVOCATION_ID env var');
+    assert.ok(instructions.includes('$OFFICE_CLAW_CALLBACK_TOKEN'), 'should reference CALLBACK_TOKEN env var');
   });
 
   it('buildMcpCallbackInstructions lists all tool names', async () => {
@@ -80,7 +80,7 @@ describe('McpPromptInjector', () => {
 
     // Should reference fallback endpoint via env var (not hardcoded URL)
     assert.ok(instructions.includes('/api/callbacks/instructions'), 'should reference fallback endpoint path');
-    assert.ok(instructions.includes('$CAT_CAFE_API_URL'), 'fallback should use env var, not hardcoded host');
+    assert.ok(instructions.includes('$OFFICE_CLAW_API_URL'), 'fallback should use env var, not hardcoded host');
   });
 
   it('buildMcpCallbackInstructions is compact (<700 chars)', async () => {

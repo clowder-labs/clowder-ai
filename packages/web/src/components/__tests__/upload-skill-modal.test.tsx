@@ -8,14 +8,36 @@ import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SKILL_UPLOAD_LIMITS, UploadSkillModal, validateSkillUpload } from '@/components/UploadSkillModal';
+import { useToastStore } from '@/stores/toastStore';
+import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
+import {
+  SKILL_UPLOAD_LIMITS,
+  UploadSkillModal,
+  parseSkillMetadata,
+  validateSkillName,
+  validateSkillUpload,
+  validateSkillUploadFiles,
+} from '@/components/UploadSkillModal';
+
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: vi.fn(),
+}));
+vi.mock('@/utils/skill-options-cache', () => ({
+  notifySkillOptionsChanged: vi.fn(),
+}));
+
+const mockApiFetch = vi.mocked(apiFetch);
+const mockNotifySkillOptionsChanged = vi.mocked(notifySkillOptionsChanged);
 
 beforeAll(() => {
   (globalThis as { React?: typeof React }).React = React;
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 afterAll(() => {
   delete (globalThis as { React?: typeof React }).React;
+  delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
 });
 
 let container: HTMLDivElement;
@@ -25,11 +47,15 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+  useToastStore.setState({ toasts: [] });
 });
 
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  mockApiFetch.mockReset();
+  mockNotifySkillOptionsChanged.mockReset();
+  useToastStore.setState({ toasts: [] });
 });
 
 function renderModal(props: Partial<React.ComponentProps<typeof UploadSkillModal>> = {}) {
@@ -45,21 +71,51 @@ function renderModal(props: Partial<React.ComponentProps<typeof UploadSkillModal
   return merged;
 }
 
+async function flushEffects() {
+  for (let index = 0; index < 4; index += 1) {
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  descriptor?.set?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+async function createZipFile(
+  entries: Record<string, string | Uint8Array>,
+  fileName = 'skill.zip',
+): Promise<File> {
+  const { default: JSZip } = await import('jszip');
+  const zip = new JSZip();
+
+  for (const [path, content] of Object.entries(entries)) {
+    zip.file(path, content);
+  }
+
+  const bytes = await zip.generateAsync({ type: 'uint8array' });
+  return new File([bytes], fileName, { type: 'application/zip' });
+}
+
 describe('UploadSkillModal', () => {
   it('validates upload file count before submit', () => {
     const files = Array.from({ length: SKILL_UPLOAD_LIMITS.maxFiles + 1 }, (_, index) => ({
-      path: `${index}/SKILL.md`,
+      path: `${index}.txt`,
       content: 'Zg==',
       size: 1,
     }));
 
-    expect(validateSkillUpload('demo', files)).toContain(String(SKILL_UPLOAD_LIMITS.maxFiles));
+    expect(validateSkillUploadFiles(files)).toContain(String(SKILL_UPLOAD_LIMITS.maxFiles));
   });
 
   it('validates upload total size before submit', () => {
     const chunk = 900 * 1024;
     const files = [
-      { path: 'SKILL.md', content: 'Zg==', size: 1 },
       { path: 'a.txt', content: 'Zg==', size: chunk },
       { path: 'b.txt', content: 'Zg==', size: chunk },
       { path: 'c.txt', content: 'Zg==', size: chunk },
@@ -67,7 +123,76 @@ describe('UploadSkillModal', () => {
       { path: 'e.txt', content: 'Zg==', size: chunk },
     ];
 
-    expect(validateSkillUpload('demo', files)).toContain('总大小');
+    expect(validateSkillUploadFiles(files)).toContain('总大小');
+  });
+
+  it('prioritizes single file size before file count', () => {
+    const files = Array.from({ length: SKILL_UPLOAD_LIMITS.maxFiles + 1 }, (_, index) => ({
+      path: index === 0 ? 'too-large.txt' : `file-${index}.txt`,
+      content: 'Zg==',
+      size: index === 0 ? SKILL_UPLOAD_LIMITS.maxFileBytes + 1 : 1,
+    }));
+
+    expect(validateSkillUploadFiles(files)).toBe('文件 too-large.txt 单个文件大小不能超过1mb');
+  });
+
+  it('prioritizes total size before missing skill manifest', () => {
+    const files = [
+      { path: 'a.txt', content: 'Zg==', size: 1024 * 1024 },
+      { path: 'b.txt', content: 'Zg==', size: 1024 * 1024 },
+      { path: 'c.txt', content: 'Zg==', size: 1024 * 1024 },
+      { path: 'd.txt', content: 'Zg==', size: 1024 * 1024 },
+      { path: 'e.txt', content: 'Zg==', size: 1 },
+    ];
+
+    expect(validateSkillUploadFiles(files)).toContain('总大小');
+  });
+
+  it('requires SKILL.md after other upload rules pass', () => {
+    const files = [{ path: 'README.md', content: 'Zg==', size: 1 }];
+
+    expect(validateSkillUploadFiles(files)).toBe('上传内容根目录必须包含名为 SKILL.md 的文件');
+  });
+
+  it('requires SKILL.md to be placed at the upload root', () => {
+    const files = [{ path: 'demo/docs/SKILL.md', content: 'Zg==', size: 1 }];
+
+    expect(validateSkillUploadFiles(files)).toBe('上传内容根目录必须包含名为 SKILL.md 的文件');
+  });
+
+  it('keeps submit validation for missing name', () => {
+    const files = [{ path: 'SKILL.md', content: 'Zg==', size: 1 }];
+
+    expect(validateSkillUpload('', files)).toBe('请输入技能名称');
+  });
+
+  it('allows English names with hyphen and rejects unsupported characters', () => {
+    expect(validateSkillName('Alpha-Beta')).toBeNull();
+    expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文和中划线');
+    expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文和中划线');
+  });
+
+  it('parses skill metadata only from frontmatter fields', () => {
+    expect(
+      parseSkillMetadata(`---
+name: demo-skill
+description: >
+  first line
+  second line
+---
+
+# Demo Skill
+
+Fallback description`),
+    ).toEqual({
+      name: 'demo-skill',
+      description: 'first line second line',
+    });
+
+    expect(parseSkillMetadata('# Demo Skill\n\nThis is the description.')).toEqual({
+      name: '',
+      description: '',
+    });
   });
 
   it('renders as a modal dialog', () => {
@@ -111,13 +236,124 @@ describe('UploadSkillModal', () => {
 
     const buttons = Array.from(container.querySelectorAll('button'));
     const cancelButton = buttons.find((button) => button.textContent?.includes('取消')) as HTMLButtonElement | undefined;
-    const confirmButton = buttons.find((button) => button.textContent?.includes('上传')) as HTMLButtonElement | undefined;
+    const confirmButton = buttons.find((button) => button.textContent?.includes('导入')) as HTMLButtonElement | undefined;
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
     expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
     expect(confirmButton?.className).toContain('ui-modal-action-button');
+  });
+
+  it('shows a disabled hint before any files are selected', () => {
+    renderModal();
+
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+
+    expect(confirmButton?.disabled).toBe(true);
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('请选择文件或文件夹后再导入');
+  });
+
+  it('routes upload API errors through the global toast store', async () => {
+    mockApiFetch.mockResolvedValue({
+      status: 409,
+      json: async () => ({ success: false, error: '技能已存在' }),
+    } as Response);
+
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+name: demo-skill
+---
+
+# Demo Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [skillFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const confirmButton = buttons.find((button) => button.textContent?.includes('导入')) as HTMLButtonElement | undefined;
+    expect(confirmButton?.disabled).toBe(false);
+
+    await act(async () => {
+      confirmButton?.click();
+    });
+    await flushEffects();
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    expect(latestToast?.type).toBe('error');
+    expect(latestToast?.title).toBe('上传失败');
+    expect(latestToast?.message).toBe('技能已存在');
+    expect(container.textContent).not.toContain('技能已存在');
+  });
+
+  it('notifies skill option listeners after upload succeeds', async () => {
+    mockApiFetch.mockResolvedValue({
+      status: 200,
+      json: async () => ({ success: true }),
+    } as Response);
+
+    const onClose = vi.fn();
+    const onSuccess = vi.fn();
+    renderModal({ onClose, onSuccess });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+name: uploaded-skill
+---
+
+# Uploaded Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [skillFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const confirmButton = container.querySelector('button.ui-button-primary') as HTMLButtonElement | null;
+    expect(confirmButton?.disabled).toBe(false);
+
+    await act(async () => {
+      confirmButton?.click();
+    });
+    await flushEffects();
+
+    expect(mockNotifySkillOptionsChanged).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('closes from header close icon', () => {
@@ -134,12 +370,418 @@ describe('UploadSkillModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('marks skill name and file selection as required fields', () => {
+  it('shows parsed skill fields and allows entering name edit mode', async () => {
     renderModal();
 
-    const requiredMarkers = Array.from(container.querySelectorAll('[data-testid="required-indicator"]'));
-    expect(requiredMarkers).toHaveLength(2);
-    expect(requiredMarkers.every((marker) => marker.textContent === '*')).toBe(true);
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+name: uploaded-skill
+description: A parsed skill description.
+---
+
+# Uploaded Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [skillFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('解析结果');
+    expect(container.textContent).not.toContain('文件列表');
+    expect(container.textContent).toContain('uploaded-skill');
+    expect(container.textContent).toContain('A parsed skill description.');
+
+    const parsedName = container.querySelector('[data-testid="parsed-skill-name-text"]') as HTMLSpanElement | null;
+    expect(parsedName?.className).toContain('truncate');
+    expect(parsedName?.className).toContain('whitespace-nowrap');
+    expect(parsedName?.className).toContain('max-w-[280px]');
+
+    const parsedDescription = container.querySelector('[data-testid="parsed-skill-description-text"]') as HTMLSpanElement | null;
+    expect(parsedDescription?.className).toContain('break-words');
+
+    const editButton = container.querySelector('button[aria-label="edit-skill-name"]') as HTMLButtonElement | null;
+    expect(editButton).toBeTruthy();
+
+    await act(async () => {
+      editButton?.click();
+    });
+    await flushEffects();
+
+    const nameInput = container.querySelector('input[placeholder="请输入技能名称"]') as HTMLInputElement | null;
+    expect(nameInput?.value).toBe('uploaded-skill');
+  });
+
+  it('shows missing SKILL.md at the bottom and hides the edit action', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const readmeFile = new File(['# README'], 'README.md', { type: 'text/markdown' });
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [readmeFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('上传内容根目录必须包含名为 SKILL.md 的文件');
+    expect(container.textContent).toContain('--');
+    expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+    expect(confirmButton?.disabled).toBe(true);
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('上传内容根目录必须包含名为 SKILL.md 的文件');
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
+  it('shows a global toast when SKILL.md frontmatter misses the name field', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+description: Missing skill name.
+---
+
+# Uploaded Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [skillFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+
+    expect(latestToast?.type).toBe('error');
+    expect(latestToast?.title).toBe('上传失败');
+    expect(latestToast?.message).toBe('技能文件不合法：SKILL.md 头部缺少 name 字段');
+    expect(confirmButton?.disabled).toBe(true);
+    expect(container.textContent).toContain('Missing skill name.');
+    expect(container.textContent).toContain('--');
+    expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
+
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能文件不合法：SKILL.md 头部缺少 name 字段');
+  });
+
+  it('collapses and expands the file list without using a fixed height scroller', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const files = [
+      new File(['one'], 'one.txt'),
+      new File(['two'], 'two.txt'),
+      new File(['three'], 'three.txt'),
+      new File(['four'], 'four.txt'),
+    ];
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: files,
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('one.txt');
+    expect(container.textContent).toContain('two.txt');
+    expect(container.textContent).toContain('three.txt');
+    expect(container.textContent).not.toContain('four.txt');
+
+    const toggle = container.querySelector('[data-testid="file-list-toggle"]') as HTMLButtonElement | null;
+    expect(toggle?.textContent).toContain('展开全部');
+
+    await act(async () => {
+      toggle?.click();
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('four.txt');
+
+    const expandedToggle = container.querySelector('[data-testid="file-list-toggle"]') as HTMLButtonElement | null;
+    expect(expandedToggle?.textContent).toBe('收起');
+  });
+
+  it('shows a toast when zip files are not uploaded alone', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const zipFile = await createZipFile({ 'demo-skill/SKILL.md': '# Demo Skill' });
+    const textFile = new File(['demo'], 'README.md', { type: 'text/markdown' });
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [zipFile, textFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    expect(latestToast?.type).toBe('error');
+    expect(latestToast?.message).toBe('ZIP 文件只能单个上传');
+  });
+
+  it('extracts a single zip upload and parses the root SKILL.md', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const zipFile = await createZipFile({
+      'demo-skill/SKILL.md': `---
+name: zipped-skill
+description: From zip package.
+---
+
+# Zipped Skill`,
+      'demo-skill/docs/guide.md': '# Guide',
+    });
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [zipFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('zipped-skill');
+    expect(container.textContent).toContain('From zip package.');
+    expect(container.textContent).toContain('demo-skill/SKILL.md');
+
+    const fileName = Array.from(container.querySelectorAll('span')).find((element) =>
+      element.textContent?.includes('demo-skill/SKILL.md'),
+    ) as HTMLSpanElement | undefined;
+    expect(fileName?.parentElement?.className).toContain('gap-1');
+  });
+
+  it('renders file icons with zip-specific and fallback document variants', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const zipFile = await createZipFile({
+      'demo-skill/SKILL.md': '# Demo Skill',
+      'demo-skill/docs/bundle.zip': 'zip payload',
+      'demo-skill/src/index.ts': 'export {}',
+    });
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [zipFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const icons = Array.from(container.querySelectorAll('[data-testid="upload-skill-file-icon"]')) as HTMLImageElement[];
+    expect(icons).toHaveLength(3);
+    const iconSources = icons.map((icon) => icon.getAttribute('src'));
+    expect(iconSources).toContain('/icons/file-zip.svg');
+    expect(iconSources).toContain('/icons/file-html.svg');
+
+    const firstFileRow = icons[0]?.parentElement as HTMLDivElement | null;
+    expect(firstFileRow?.className).toContain('gap-1');
+    expect(icons[0]?.className).toContain('h-4');
+    expect(icons[0]?.className).toContain('w-4');
+  });
+
+  it('shows file row hover background and common delete icon styles', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const zipFile = await createZipFile({
+      'demo-skill/SKILL.md': '# Demo Skill',
+      'demo-skill/docs/readme.md': '# Readme',
+    });
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [zipFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const fileRows = Array.from(container.querySelectorAll('[data-testid="upload-skill-file-row"]')) as HTMLDivElement[];
+    expect(fileRows.length).toBeGreaterThan(0);
+    expect(fileRows[0]?.className).toContain('hover:bg-[#F7F8FA]');
+
+    const deleteButtons = Array.from(
+      container.querySelectorAll('[data-testid="upload-skill-file-delete-button"]'),
+    ) as HTMLButtonElement[];
+    expect(deleteButtons.length).toBeGreaterThan(0);
+    expect(deleteButtons[0]?.className).toContain('hover:text-[#1476FF]');
+
+    const deleteIcons = Array.from(
+      container.querySelectorAll('[data-testid="upload-skill-file-delete-icon"]'),
+    ) as HTMLSpanElement[];
+    expect(deleteIcons).toHaveLength(deleteButtons.length);
+  });
+
+  it('shows inline error when zip root directory misses SKILL.md', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const zipFile = await createZipFile({
+      'demo-skill/docs/SKILL.md': '# Nested Skill',
+      'demo-skill/docs/guide.md': '# Guide',
+    });
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [zipFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('ZIP 压缩包根目录必须包含名为 SKILL.md 的文件');
+    expect(container.textContent).toContain('--');
+    expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
+  });
+
+  it('routes file size validation through the global toast store', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const oversizedFile = new File([new Uint8Array(SKILL_UPLOAD_LIMITS.maxFileBytes + 1)], 'oversized.txt');
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [oversizedFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+    expect(latestToast?.type).toBe('error');
+    expect(latestToast?.title).toBe('上传失败');
+    expect(latestToast?.message).toBe('文件 oversized.txt 单个文件大小不能超过1mb');
+    expect(confirmButton?.disabled).toBe(true);
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('文件 oversized.txt 单个文件大小不能超过1mb');
+  });
+
+  it('disables submit and shows a hint for invalid edited skill names', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+name: uploaded-skill
+description: editable skill.
+---
+
+# Uploaded Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [skillFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const editButton = container.querySelector('button[aria-label="edit-skill-name"]') as HTMLButtonElement | null;
+    expect(editButton).toBeTruthy();
+
+    await act(async () => {
+      editButton?.click();
+    });
+    await flushEffects();
+
+    const nameInput = container.querySelector('input[placeholder="请输入技能名称"]') as HTMLInputElement | null;
+    expect(nameInput).toBeTruthy();
+
+    await act(async () => {
+      if (nameInput) {
+        setInputValue(nameInput, 'Uploaded Skill');
+      }
+    });
+    await flushEffects();
+
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+    expect(confirmButton).toBeDefined();
+    expect(confirmButton?.disabled).toBe(true);
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能名称仅支持英文和中划线');
+    expect(mockApiFetch).not.toHaveBeenCalled();
   });
 });
-

@@ -6,7 +6,7 @@
 
 /**
  * Cat Config Loader
- * 从 cat-template.json / .cat-cafe/cat-catalog.json 加载 Breed+Variant 配置。
+ * 从 office-claw-template.json / .office-claw/office-claw-catalog.json 加载 Breed+Variant 配置。
  * Node-only — 前端继续用 shared 包的 CAT_CONFIGS 常量。
  */
 
@@ -16,7 +16,7 @@ import {
   CAT_CONFIGS,
   catRegistry,
   createCatId,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import type {
   CatBreed,
   CatCafeConfig,
@@ -29,7 +29,7 @@ import type {
   MissionHubSelfClaimScope,
   ReviewPolicy,
   Roster,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
@@ -39,13 +39,13 @@ import { bootstrapCatCatalog, readCatCatalogRaw, resolveCatCatalogPath } from '.
 const log = createModuleLogger('cat-config');
 
 /**
- * Default cat-template.json location (repo root).
+ * Default office-claw-template.json location (repo root).
  *
  * IMPORTANT: API dev scripts run with cwd=`packages/api`, so `process.cwd()` is
  * not the repo root. Resolve relative to this file instead to keep behavior
  * stable across different launch directories.
  */
-const DEFAULT_CAT_TEMPLATE_PATH = resolve(resolveCatCafeHostRoot(process.cwd()), 'cat-template.json');
+const DEFAULT_CAT_TEMPLATE_PATH = resolve(resolveCatCafeHostRoot(process.cwd()), 'office-claw-template.json');
 
 const cliConfigSchema = z.object({
   command: z.string().min(1),
@@ -209,7 +209,7 @@ const reviewPolicySchema = z.object({
   excludeUnavailable: z.boolean(),
 });
 
-// Note: Roster, RosterEntry, ReviewPolicy types imported from @cat-cafe/shared above
+// Note: Roster, RosterEntry, ReviewPolicy types imported from @office-claw/shared above
 
 /** F067: Owner config schema */
 const coCreatorConfigSchema = z.object({
@@ -250,11 +250,11 @@ const catCafeConfigSchemaV2 = z
 const catCafeConfigSchema = z.union([catCafeConfigSchemaV1, catCafeConfigSchemaV2]);
 
 /**
- * Try cat-config.json (real runtime config with coCreator data) first,
- * then fall back to cat-template.json (generic template for new projects).
+ * Try office-claw-config.json (real runtime config with coCreator data) first,
+ * then fall back to office-claw-template.json (generic template for new projects).
  */
 function readConfigWithFallback(projectRoot: string, templatePath: string): string {
-  const legacyPath = resolve(projectRoot, 'cat-config.json');
+  const legacyPath = resolve(projectRoot, 'office-claw-config.json');
   try {
     return readFileSync(legacyPath, 'utf-8');
   } catch {
@@ -318,7 +318,7 @@ function mergeById(base: HasId[], overlay: HasId[]): HasId[] {
     const bItem = baseMap.get(oItem.id);
     result.push(bItem ? (deepMergeConfig(bItem, oItem) as HasId) : oItem);
   }
-  // Preserve base-only items (new items added to cat-config.json but not yet in catalog)
+  // Preserve base-only items (new items added to office-claw-config.json but not yet in catalog)
   for (const bItem of base) {
     if (!seen.has(bItem.id)) result.push(bItem);
   }
@@ -328,7 +328,7 @@ function mergeById(base: HasId[], overlay: HasId[]): HasId[] {
 /**
  * Load and validate the resolved cat config source.
  * Explicit filePath reads that file directly.
- * Default resolution: cat-config.json is the base, .cat-cafe/cat-catalog.json is a delta overlay.
+ * Default resolution: office-claw-config.json is the base, .office-claw/office-claw-catalog.json is a delta overlay.
  * Catalog fields override config fields (deep merge); config fields absent from catalog are preserved.
  */
 export function loadCatConfig(filePath?: string): CatCafeConfig {
@@ -346,7 +346,7 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
     const projectRoot = dirname(templatePath);
     const catalogRaw = readCatCatalogRaw(projectRoot);
     if (catalogRaw !== null) {
-      // Catalog exists — use cat-config.json as base, catalog as overlay
+      // Catalog exists — use office-claw-config.json as base, catalog as overlay
       const baseRaw = readConfigWithFallback(projectRoot, templatePath);
       const baseJson = JSON.parse(baseRaw) as Record<string, unknown>;
       const catalogJson = JSON.parse(catalogRaw) as Record<string, unknown>;
@@ -620,7 +620,7 @@ let _catIdToBreedSource: CatCafeConfig | null = null;
 
 /**
  * Check if F24 session chain is enabled for a cat.
- * Returns true by default — only false when explicitly disabled in cat-config.json.
+ * Returns true by default — only false when explicitly disabled in office-claw-config.json.
  * Gracefully returns true if config file is unreadable (availability over strictness).
  *
  * F32-b: Now resolves variant catIds to their parent breed via index.
@@ -647,7 +647,7 @@ export function isSessionChainEnabled(catId: CatId | string, config?: CatCafeCon
 // ── F33 Phase 2: Session Strategy from config ─────────────────────────
 
 /**
- * Get session strategy config from cat-config.json for a cat.
+ * Get session strategy config from office-claw-config.json for a cat.
  * Returns undefined if not configured (caller falls back to code defaults).
  *
  * F33 Phase 2: Same lookup pattern as isSessionChainEnabled — catId → breed → features.
@@ -672,7 +672,7 @@ export function getConfigSessionStrategy(
 }
 
 /**
- * Get Mission Hub self-claim scope from cat-config.json for a cat.
+ * Get Mission Hub self-claim scope from office-claw-config.json for a cat.
  * Defaults to 'disabled' when not configured.
  */
 export function getMissionHubSelfClaimScope(catId: string, config?: CatCafeConfig): MissionHubSelfClaimScope {
@@ -772,7 +772,7 @@ function buildCatIdToVariantIndex(config: CatCafeConfig): Map<string, CatVariant
 export type CliEffortLevel = 'low' | 'medium' | 'high' | 'max' | 'xhigh';
 
 /**
- * Get CLI effort level for a cat from cat-config.json.
+ * Get CLI effort level for a cat from office-claw-config.json.
  * Default when not configured:
  *   claude (anthropic): 'max'
  *   codex (openai):     'xhigh'
@@ -926,13 +926,13 @@ export function isCatLead(catId: string, config?: CatCafeConfig): boolean {
 // ── F067: Co-Creator config accessor ────────────────────────────────
 
 /** Default co-creator mention patterns (backward compat when not configured) */
-const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@铲屎官'];
+const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@用户'];
 
 let _cachedCoCreator: CoCreatorConfig | null = null;
 
 /**
- * Get coCreator config from cat-config.json.
- * Returns a default config with @co-creator/@铲屎官 patterns when not configured.
+ * Get coCreator config from office-claw-config.json.
+ * Returns a default config with @co-creator/@用户 patterns when not configured.
  */
 export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
   if (_cachedCoCreator && !config) return _cachedCoCreator;
@@ -941,7 +941,7 @@ export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
 
   // v1 config or no coCreator → return defaults
   if (!cfg || cfg.version === 1 || !cfg.coCreator) {
-    return { name: '铲屎官', aliases: [], mentionPatterns: DEFAULT_CO_CREATOR_MENTION_PATTERNS };
+    return { name: '用户', aliases: [], mentionPatterns: DEFAULT_CO_CREATOR_MENTION_PATTERNS };
   }
 
   _cachedCoCreator = cfg.coCreator;
@@ -950,7 +950,7 @@ export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
 
 /**
  * Get all co-creator mention patterns (lowercased, with @ prefix).
- * Always includes @co-creator and @铲屎官 as fallback patterns in addition to configured ones.
+ * Always includes @co-creator and @用户 as fallback patterns in addition to configured ones.
  */
 export function getCoCreatorMentionPatterns(config?: CatCafeConfig): readonly string[] {
   const coCreator = getCoCreatorConfig(config);

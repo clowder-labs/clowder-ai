@@ -30,7 +30,7 @@ pnpm check
 # 4. Make your changes, then run checks
 pnpm check          # Biome lint
 pnpm lint           # TypeScript type check
-pnpm --filter @cat-cafe/api run test:public  # Public test suite
+pnpm --filter @office-claw/api run test:public  # Public test suite
 
 # 5. Commit and push to YOUR fork
 git add -A
@@ -153,7 +153,7 @@ When in doubt about what's authoritative:
 | What | Where |
 |------|-------|
 | Feature behavior and direction | `docs/features/` |
-| Collaboration rules and workflows | `cat-cafe-skills/refs/` |
+| Collaboration rules and workflows | `office-claw-skills/refs/` |
 | Architecture decisions | `docs/decisions/` |
 | Active work | `docs/ROADMAP.md` |
 
@@ -315,7 +315,7 @@ Feature Doc 是**唯一真相源**。代码是它的产物。
 | 什么 | 在哪 |
 |------|------|
 | 功能行为和方向 | `docs/features/` |
-| 协作规则和工作流 | `cat-cafe-skills/refs/` |
+| 协作规则和工作流 | `office-claw-skills/refs/` |
 | 架构决策 | `docs/decisions/` |
 | 活跃工作 | `docs/ROADMAP.md` |
 

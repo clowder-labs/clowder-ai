@@ -104,7 +104,7 @@ describe('POST /api/signals/articles/:id/discuss (real Fastify inject)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/signals/articles/nonexistent/discuss',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
     assert.equal(res.statusCode, 404);
   });
@@ -127,7 +127,7 @@ describe('POST /api/signals/articles/:id/discuss (real Fastify inject)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/signals/articles/art-1/discuss',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -148,7 +148,7 @@ describe('POST /api/signals/articles/:id/discuss (real Fastify inject)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/signals/articles/art-1/discuss',
-      headers: { 'x-cat-cafe-user': 'test-user' },
+      headers: { 'x-office-claw-user': 'test-user' },
     });
 
     assert.equal(res.statusCode, 200);

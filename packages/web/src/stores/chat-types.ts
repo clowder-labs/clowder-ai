@@ -4,6 +4,8 @@
  *
  */
 
+import type { ErrorFallbackMetadata } from '@repo/shared';
+
 /** Content block types matching backend MessageContent */
 export interface TextContent {
   type: 'text';
@@ -273,6 +275,8 @@ export interface ChatMessage {
       reasonKind: 'needs_bootstrap' | 'needs_confirmation' | 'files_missing';
       invocationId?: string;
     };
+    /** Error fallback metadata for backend-transformed error messages */
+    errorFallback?: ErrorFallbackMetadata;
   };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;
@@ -286,7 +290,7 @@ export interface ChatMessage {
   whisperTo?: string[];
   /** F35: Timestamp when whisper was revealed (made public) */
   revealedAt?: number;
-  /** F057-C2: Whether this message mentions the user (@user / @铲屎官) */
+  /** F057-C2: Whether this message mentions the user (@user / @用户) */
   mentionsUser?: boolean;
   /** F121: ID of the message this is replying to */
   replyTo?: string;

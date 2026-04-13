@@ -8,6 +8,7 @@ import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateAgentModal } from '@/components/CreateAgentModal';
+import type { CatData } from '@/hooks/useCatData';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
@@ -54,6 +55,15 @@ function setInputValue(input: HTMLInputElement, value: string) {
   descriptor?.set?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
+
+const DEFAULT_MODEL_ITEM = {
+  id: 'model_config:huawei-maas:glm-5',
+  name: 'GLM-5',
+  provider: 'Huawei MaaS',
+  accountRef: 'huawei-maas',
+  protocol: 'huawei_maas',
+  enabled: true,
+};
 
 describe('CreateAgentModal', () => {
   let container: HTMLDivElement;
@@ -144,6 +154,128 @@ describe('CreateAgentModal', () => {
     expect(payload.accountRef).toBe('huawei-maas');
     expect(payload.defaultModel).toBe('glm-5');
     expect(onSaved).toHaveBeenCalledWith('huawei-bot');
+  });
+
+  it('hides the client selector and saves relayclaw for new agents', async () => {
+    const onSaved = vi.fn();
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats' && init?.method === 'POST') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'new-agent' } }, 201));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          name: 'New Agent',
+          description: 'Create flow',
+          onClose: vi.fn(),
+          onSaved,
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('button[aria-label="Client"]')).toBeNull();
+    expect(container.textContent).not.toContain('Agent 客户端');
+
+    const createButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(createButton).toBeTruthy();
+
+    await act(async () => {
+      createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    expect(postCall).toBeTruthy();
+    const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.client).toBe('relayclaw');
+    expect(onSaved).toHaveBeenCalledWith('new-agent');
+  });
+
+  it('hides the client selector and saves relayclaw for edited agents', async () => {
+    const onSaved = vi.fn();
+    const cat: CatData = {
+      id: 'cat-1',
+      name: 'Edited Agent',
+      displayName: 'Edited Agent',
+      color: { primary: '#111111', secondary: '#222222' },
+      mentionPatterns: ['@edited-agent'],
+      provider: 'openai',
+      accountRef: 'legacy-account',
+      defaultModel: 'legacy-model',
+      avatar: '/avatars/agent-avatar-1.png',
+      roleDescription: 'Existing description',
+      personality: '',
+      source: 'runtime',
+    };
+
+    mockApiFetch.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/available-clients') {
+        return Promise.resolve(
+          jsonResponse({
+            clients: [{ id: 'relayclaw', label: 'jiuwen', command: 'jiuwenclaw-app', available: true }],
+          }),
+        );
+      }
+      if (url === '/api/maas-models?projectPath=%2Ftmp%2Fproject') {
+        return Promise.resolve(jsonResponse({ list: [DEFAULT_MODEL_ITEM] }));
+      }
+      if (url === '/api/cats/cat-1' && init?.method === 'PATCH') {
+        return Promise.resolve(jsonResponse({ cat: { id: 'cat-1' } }));
+      }
+      throw new Error(`Unexpected apiFetch path: ${url}`);
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(CreateAgentModal, {
+          open: true,
+          cat,
+          name: 'Edited Agent',
+          description: 'Edit flow',
+          onClose: vi.fn(),
+          onSaved,
+        }),
+      );
+    });
+    await flushEffects();
+    await flushEffects();
+
+    expect(container.querySelector('button[aria-label="Client"]')).toBeNull();
+    expect(container.textContent).not.toContain('Agent 客户端');
+
+    const saveButton = container.querySelector('button[aria-label="Create"]') as HTMLButtonElement | null;
+    expect(saveButton).toBeTruthy();
+
+    await act(async () => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const patchCall = mockApiFetch.mock.calls.find(
+      ([path, requestInit]) => path === '/api/cats/cat-1' && requestInit?.method === 'PATCH',
+    );
+    expect(patchCall).toBeTruthy();
+    const payload = JSON.parse(String(patchCall?.[1]?.body));
+    expect(payload.client).toBe('relayclaw');
+    expect(onSaved).toHaveBeenCalledWith('cat-1');
   });
 
   it('uses shared footer button classes', async () => {
@@ -305,7 +437,7 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    expect(container.textContent).toContain('仅支持上传 png、jpeg、gif、jpg 格式图片');
+    expect(container.textContent).toContain('仅支持上传 png、jpeg、jpg 格式图片');
     expect(mockApiFetch.mock.calls.some(([path]) => String(path) === '/api/preview/screenshot')).toBe(false);
   });
 

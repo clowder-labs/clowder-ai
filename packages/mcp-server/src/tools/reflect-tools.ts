@@ -8,14 +8,14 @@
  * Reflect Tool
  * MCP 工具: 项目知识反思 (SQLite-backed)
  *
- * F102: 猫猫可通过 MCP 调用 /reflect 获取项目知识反思。
+ * F102: 智能体可通过 MCP 调用 /reflect 获取项目知识反思。
  */
 
 import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL']!;
+const API_URL = process.env['OFFICE_CLAW_API_URL']!;
 
 export const reflectInputSchema = {
   query: z.string().trim().min(1).describe('Question to reflect on using project knowledge'),

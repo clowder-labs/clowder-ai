@@ -12,12 +12,12 @@ import { findMonorepoRoot } from './monorepo-root.js';
  * Resolve the runtime project root used by Hub routes and provider/profile lookups.
  *
  * Resolution order:
- * 1. CAT_CAFE_CONFIG_ROOT — explicit platform config root (decoupled from cwd).
+ * 1. OFFICE_CLAW_CONFIG_ROOT — explicit platform config root (decoupled from cwd).
  * 2. CAT_TEMPLATE_PATH   — worktree-aware template directory.
  * 3. findMonorepoRoot()  — walk up from `start` looking for pnpm-workspace.yaml.
  */
 export function resolveActiveProjectRoot(start = process.cwd()): string {
-  const configRoot = process.env.CAT_CAFE_CONFIG_ROOT?.trim();
+  const configRoot = process.env.OFFICE_CLAW_CONFIG_ROOT?.trim();
   if (configRoot) {
     const resolved = resolve(configRoot);
     try {

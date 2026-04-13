@@ -34,10 +34,18 @@ const RETENTION_FILES = 14;
  * Uses fast-redact: compiled once at creation, zero per-log overhead.
  */
 const REDACT_PATHS = [
+  // === HTTP Headers ===
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["set-cookie"]',
   'req.headers["x-api-key"]',
+  'req.headers["x-callback-token"]',
+  'req.headers["x-cat-cafe-hook-token"]',
+  'req.headers["x-access-key"]',
+  'req.headers["x-acs-dingtalk-access-token"]',
+  'req.headers["x-goog-api-key"]',
+  'req.headers["x-sign"]',
+  // === Top-level fields ===
   'authorization',
   'cookie',
   'token',
@@ -48,8 +56,26 @@ const REDACT_PATHS = [
   'credential',
   'credentials',
   'callbackToken',
-  'CAT_CAFE_CALLBACK_TOKEN',
-  'CAT_CAFE_ANTHROPIC_API_KEY',
+  'hookToken',
+  'accessToken',
+  'sk',
+  'appSecret',
+  'privateKey',
+  'userId',
+  // === Environment variables ===
+  'OFFICE_CLAW_CALLBACK_TOKEN',
+  'OFFICE_CLAW_ANTHROPIC_API_KEY',
+  'OFFICE_CLAW_HOOK_TOKEN',
+  'AOM_TOKEN',
+  'GITHUB_TOKEN',
+  'DINGTALK_APP_SECRET',
+  'WEIXIN_BOT_TOKEN',
+  'WECOM_BOT_SECRET',
+  'WECOM_AGENT_SECRET',
+  'WECOM_TOKEN',
+  'WECOM_ENCODING_AES_KEY',
+  'VAPID_PRIVATE_KEY',
+  'F102_API_KEY',
 ];
 
 if (!existsSync(LOG_DIR)) {

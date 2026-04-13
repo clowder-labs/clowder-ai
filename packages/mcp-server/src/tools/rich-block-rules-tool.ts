@@ -9,13 +9,13 @@
  * MCP 工具: 按需获取富消息块完整使用规范
  *
  * F-BLOAT: 渐进式披露——系统提示词只含短引用，
- * 猫猫首次使用富块前调用此工具获取完整规则。
+ * 智能体首次使用富块前调用此工具获取完整规则。
  */
 
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 
-const API_URL = process.env['CAT_CAFE_API_URL']!;
+const API_URL = process.env['OFFICE_CLAW_API_URL']!;
 
 export async function handleGetRichBlockRules(): Promise<ToolResult> {
   const url = `${API_URL}/api/callbacks/rich-block-rules`;

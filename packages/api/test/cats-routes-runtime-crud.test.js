@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach, beforeEach, describe, it } from 'node:test';
-import { CAT_CONFIGS, catRegistry, createCatId } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry, createCatId } from '@office-claw/shared';
 
 const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
 const { _clearRuntimeOverrides, getRuntimeOverride, setRuntimeOverride } = await import(
@@ -77,8 +77,8 @@ function makeTemplate() {
 function createProjectRoot() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'cats-route-crud-'));
   tempDirs.push(projectRoot);
-  process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
-  writeFileSync(join(projectRoot, 'cat-template.json'), JSON.stringify(makeTemplate(), null, 2));
+  process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
+  writeFileSync(join(projectRoot, 'office-claw-template.json'), JSON.stringify(makeTemplate(), null, 2));
   return projectRoot;
 }
 
@@ -91,9 +91,9 @@ function createMonorepoProjectRoot() {
 function createProjectRootFromRepoTemplate() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'cats-route-crud-seed-'));
   tempDirs.push(projectRoot);
-  process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
-  const repoTemplate = JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'cat-template.json'), 'utf-8'));
-  writeFileSync(join(projectRoot, 'cat-template.json'), JSON.stringify(repoTemplate, null, 2));
+  process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
+  const repoTemplate = JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'office-claw-template.json'), 'utf-8'));
+  writeFileSync(join(projectRoot, 'office-claw-template.json'), JSON.stringify(repoTemplate, null, 2));
   return projectRoot;
 }
 
@@ -102,14 +102,14 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   beforeEach(() => {
     savedTemplatePath = process.env.CAT_TEMPLATE_PATH;
-    savedGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
+    savedGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     resetRegistryToBuiltins();
     _clearRuntimeOverrides();
   });
 
   afterEach(() => {
-    if (savedGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
+    if (savedGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
     if (savedTemplatePath === undefined) {
       delete process.env.CAT_TEMPLATE_PATH;
     } else {
@@ -127,7 +127,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats creates a normal runtime member and PATCH updates aliases immediately', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -140,7 +140,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-spark',
@@ -179,7 +179,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-spark',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         displayName: '运行时火花猫',
@@ -223,7 +223,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-spark',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         providerProfileId: 'codex',
@@ -236,7 +236,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-spark',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         providerProfileId: null,
@@ -250,7 +250,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-spark',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         contextBudget: null,
@@ -272,7 +272,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats rejects duplicate names that collide with seed members', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -291,7 +291,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-duplicate-name',
@@ -327,7 +327,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id rejects duplicate names that collide with seed members', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -340,7 +340,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-rename-target',
@@ -382,7 +382,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-rename-target',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         name: seedCat.name,
@@ -414,7 +414,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         url: '/api/cats',
         headers: {
           'content-type': 'application/json',
-          'x-cat-cafe-user': 'codex',
+          'x-office-claw-user': 'codex',
         },
         body: JSON.stringify({
           catId: 'runtime-fallback',
@@ -431,8 +431,8 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       });
 
       assert.equal(createRes.statusCode, 201);
-      assert.equal(existsSync(join(projectRoot, '.cat-cafe', 'cat-catalog.json')), true);
-      assert.equal(existsSync(join(staleRoot, '.cat-cafe', 'cat-catalog.json')), false);
+      assert.equal(existsSync(join(projectRoot, '.office-claw', 'office-claw-catalog.json')), true);
+      assert.equal(existsSync(join(staleRoot, '.office-claw', 'office-claw-catalog.json')), false);
     } finally {
       process.chdir(previousCwd);
       await app.close();
@@ -441,7 +441,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats creates Antigravity members without requiring provider selection', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -454,7 +454,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-antigravity',
@@ -484,7 +484,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id allows clearing antigravity commandArgs with an empty array', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -497,7 +497,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-antigravity-clear',
@@ -520,7 +520,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-antigravity-clear',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         commandArgs: [],
@@ -533,7 +533,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats defaults mcpSupport=true for Codex/Gemini clients when omitted', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -550,7 +550,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         url: '/api/cats',
         headers: {
           'content-type': 'application/json',
-          'x-cat-cafe-user': 'codex',
+          'x-office-claw-user': 'codex',
         },
         body: JSON.stringify({
           catId: spec.catId,
@@ -575,7 +575,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id rejects provider bindings that do not resolve to an existing account', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -588,7 +588,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-codex',
@@ -610,7 +610,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-codex',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         providerProfileId: 'claude-oauth',
@@ -623,7 +623,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats allows api_key bindings with different protocol than client default', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const crossProtocolProfile = await createProviderProfile(projectRoot, {
@@ -646,7 +646,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-opencode-crossproto',
@@ -668,7 +668,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats opencode+api_key always requires ocProviderName', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const openaiProfile = await createProviderProfile(projectRoot, {
@@ -690,7 +690,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const bareReject = await app.inject({
       method: 'POST',
       url: '/api/cats',
-      headers: { 'content-type': 'application/json', 'x-cat-cafe-user': 'codex' },
+      headers: { 'content-type': 'application/json', 'x-office-claw-user': 'codex' },
       body: JSON.stringify({
         catId: 'oc-bare-no-provider',
         name: '金渐层A',
@@ -711,7 +711,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const slashReject = await app.inject({
       method: 'POST',
       url: '/api/cats',
-      headers: { 'content-type': 'application/json', 'x-cat-cafe-user': 'codex' },
+      headers: { 'content-type': 'application/json', 'x-office-claw-user': 'codex' },
       body: JSON.stringify({
         catId: 'oc-slash-no-provider',
         name: '金渐层B',
@@ -732,7 +732,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const bareAccept = await app.inject({
       method: 'POST',
       url: '/api/cats',
-      headers: { 'content-type': 'application/json', 'x-cat-cafe-user': 'codex' },
+      headers: { 'content-type': 'application/json', 'x-office-claw-user': 'codex' },
       body: JSON.stringify({
         catId: 'oc-bare-with-provider',
         name: '金渐层C',
@@ -752,7 +752,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id saves embedded Agent Teams executable override for the seed member', async () => {
     const projectRoot = createProjectRootFromRepoTemplate();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     mkdirSync(join(projectRoot, 'vendor', 'relay-teams'), { recursive: true });
     writeFileSync(join(projectRoot, 'vendor', 'relay-teams', 'relay-teams.exe'), '', 'utf8');
@@ -781,7 +781,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/agentteams',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         accountRef: openAiProfile.id,
@@ -833,13 +833,13 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id accepts model.json bindings for the embedded Agent Teams seed member', async () => {
     const projectRoot = createProjectRootFromRepoTemplate();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     mkdirSync(join(projectRoot, 'tools', 'python'), { recursive: true });
     writeFileSync(join(projectRoot, 'tools', 'python', 'python.exe'), '', 'utf8');
-    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.cat-cafe', 'model.json'),
+      join(projectRoot, '.office-claw', 'model.json'),
       `${JSON.stringify({ 'huawei-maas': [{ id: 'glm-5' }, { id: 'qwen3-32b' }] }, null, 2)}\n`,
       'utf8',
     );
@@ -855,7 +855,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/agentteams',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         client: 'relayclaw',
@@ -881,7 +881,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats rejects catId values that are not lowercase-safe identifiers', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -894,7 +894,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: '__proto__',
@@ -926,7 +926,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats rejects builtin bindings from the wrong client family even when protocol matches', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -955,7 +955,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
         url: '/api/cats',
         headers: {
           'content-type': 'application/json',
-          'x-cat-cafe-user': 'codex',
+          'x-office-claw-user': 'codex',
         },
         body: JSON.stringify({
           catId: spec.catId,
@@ -979,7 +979,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats rejects non-builtin provider bindings for google client', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const apiKeyProfile = await createProviderProfile(projectRoot, {
@@ -1002,7 +1002,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-gemini-non-builtin',
@@ -1025,7 +1025,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats allows jiuwen with openai-compatible api_key profiles and rejects oauth bindings', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const openaiProfile = await createProviderProfile(projectRoot, {
@@ -1048,7 +1048,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-jiuwenclaw',
@@ -1072,7 +1072,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-jiuwenclaw-oauth',
@@ -1092,12 +1092,12 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     assert.match(JSON.parse(rejectRes.body).error, /client "jiuwen" requires an API key provider profile/i);
   });
 
-  it('POST /api/cats allows dare and relayclaw to bind custom sources from ~/.cat-cafe/model.json', async () => {
+  it('POST /api/cats allows dare and relayclaw to bind custom sources from ~/.office-claw/model.json', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
-    mkdirSync(join(projectRoot, '.cat-cafe'), { recursive: true });
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
+    mkdirSync(join(projectRoot, '.office-claw'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.cat-cafe', 'model.json'),
+      join(projectRoot, '.office-claw', 'model.json'),
       `${JSON.stringify(
         {
           'my-openai-proxy': {
@@ -1125,7 +1125,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-dare-proxy',
@@ -1149,7 +1149,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-relayclaw-proxy',
@@ -1171,7 +1171,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id rejects models that are not available on the bound provider profile', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
     const boundProfile = await createProviderProfile(projectRoot, {
@@ -1194,7 +1194,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-codex-scoped-profile',
@@ -1216,7 +1216,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-codex-scoped-profile',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         defaultModel: 'gpt-5.4',
@@ -1230,7 +1230,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id validates seed model edits against the active bootstrap account', async () => {
     const projectRoot = createProjectRootFromRepoTemplate();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const { bootstrapCatCatalog } = await import('../dist/config/cat-catalog-store.js');
     const { activateProviderProfile, createProviderProfile } = await import('../dist/config/provider-profiles.js');
@@ -1256,7 +1256,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/codex',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         defaultModel: 'gpt-5.4-mini',
@@ -1286,7 +1286,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/opencode',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         nickname: '金渐层审计版',
@@ -1297,7 +1297,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id returns 400 when runtime catalog validation rejects the update', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -1310,7 +1310,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-review-bot',
@@ -1332,7 +1332,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/runtime-review-bot',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         mentionPatterns: ['@runtime-review-bot', '@opus'],
@@ -1345,7 +1345,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('POST /api/cats still requires a concrete provider binding for dare and opencode clients', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -1358,7 +1358,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-dare',
@@ -1380,7 +1380,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('PATCH /api/cats/:id persists roster availability toggles for existing members', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -1393,7 +1393,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/opus',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         available: false,
@@ -1409,7 +1409,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats/opus',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         available: true,
@@ -1423,7 +1423,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('DELETE /api/cats/:id removes runtime session-strategy override for deleted cat', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -1436,7 +1436,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-strategy-cat',
@@ -1462,7 +1462,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
     const deleteRes = await app.inject({
       method: 'DELETE',
       url: '/api/cats/runtime-strategy-cat',
-      headers: { 'x-cat-cafe-user': 'codex' },
+      headers: { 'x-office-claw-user': 'codex' },
     });
     assert.equal(deleteRes.statusCode, 200);
     assert.equal(getRuntimeOverride('runtime-strategy-cat'), undefined);
@@ -1470,7 +1470,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('DELETE /api/cats/:id removes runtime members from subsequent reads', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -1483,7 +1483,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       url: '/api/cats',
       headers: {
         'content-type': 'application/json',
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
       body: JSON.stringify({
         catId: 'runtime-temp',
@@ -1507,7 +1507,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       method: 'DELETE',
       url: '/api/cats/runtime-temp',
       headers: {
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
     });
     assert.equal(deleteRes.statusCode, 200);
@@ -1522,7 +1522,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
 
   it('DELETE /api/cats/:id blocks deletion for seed members', async () => {
     const projectRoot = createProjectRoot();
-    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'cat-template.json');
+    process.env.CAT_TEMPLATE_PATH = join(projectRoot, 'office-claw-template.json');
 
     const Fastify = (await import('fastify')).default;
     const { catsRoutes } = await import('../dist/routes/cats.js');
@@ -1534,7 +1534,7 @@ describe('cats routes runtime CRUD', { concurrency: false }, () => {
       method: 'DELETE',
       url: '/api/cats/opus',
       headers: {
-        'x-cat-cafe-user': 'codex',
+        'x-office-claw-user': 'codex',
       },
     });
     assert.equal(deleteRes.statusCode, 409);

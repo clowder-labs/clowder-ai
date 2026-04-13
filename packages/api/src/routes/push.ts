@@ -43,7 +43,7 @@ interface PushDeliverySummary {
 }
 
 function resolveUserId(request: { headers: Record<string, string | string[] | undefined> }): string | null {
-  const v = request.headers['x-cat-cafe-user'];
+  const v = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']);
   if (typeof v === 'string' && v.trim().length > 0) return v.trim();
   if (Array.isArray(v) && typeof v[0] === 'string' && v[0].trim().length > 0) return v[0].trim();
   const legacy = request.headers['x-user-id'];
@@ -147,7 +147,7 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const subscriptions = await pushSubscriptionStore.listByUser(userId);
@@ -179,7 +179,7 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const parsed = subscribeSchema.safeParse(request.body);
@@ -223,7 +223,7 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
 
     const parsed = unsubscribeSchema.safeParse(request.body);
@@ -250,7 +250,7 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
     await appendPushAudit(request, AuditEventTypes.PUSH_TEST_REQUESTED, {
       userId,

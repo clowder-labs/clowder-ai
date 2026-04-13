@@ -8,6 +8,8 @@
 @tailwind components;
 @tailwind utilities;
 
+.password-field-input::-ms-reveal,
+.password-field-input::-ms-clear,
 .login-password-input::-ms-reveal,
 .login-password-input::-ms-clear {
   display: none;
@@ -142,20 +144,18 @@
   --button-danger-text-hover: #ffffff;
   --button-danger-bg-disabled: #ef4444;
   --button-danger-text-disabled: #ffffff;
-  --input-field-font-size: 13px;
   --input-border: #c2c2c2;
   --input-border-hover: #191919;
   --input-border-active: #191919;
   --input-radius: 6px;
   --input-font-size: 12px;
-  --input-line-height: 1.5;
-  --input-padding-y: 5px;
+  --input-line-height: 26px;
   --input-padding-x: 12px;
   --input-transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
   --text-field: #191919;
   --text-field-hover: #111111;
   --text-field-disabled: #c2c2c2;
-  --text-field-placeholder: #8f8075;
+  --text-field-placeholder: #808080;
   --card-bg: #ffffff;
   --card-muted-bg: #f4f5f7;
   --card-border: #e6e6e6;
@@ -197,6 +197,11 @@
   --accent-pill-text: rgba(20, 118, 255, 1);
   --accent-pill-surface: rgba(20, 118, 255, 0.1);
   --warning-glow-soft: rgba(245, 158, 11, 0.3);
+
+  /* Alert semantic backgrounds */
+  --alert-error-bg: #fce3e1;
+  --alert-prompt-bg: #deecff;
+  --alert-warn-bg: #ffebd1;
   --cli-output-head-surface: rgba(255, 255, 255, 0.06);
   --cli-output-border-strong: rgba(255, 255, 255, 0.12);
   --cli-output-border-soft: rgba(255, 255, 255, 0.08);
@@ -263,7 +268,7 @@
   --card-muted-bg: var(--surface-card-muted);
   --card-border: #e6e6e6;
   --card-radius: 16px;
-  --card-padding: 21px;
+  --card-padding: 24px;
   --card-hover-border: var(--border-accent);
   --card-hover-bg: #ffffff;
   --card-shadow: var(--shadow-card-soft);
@@ -333,7 +338,6 @@
   --text-field: var(--text-primary);
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
-  --text-field-placeholder: var(--text-muted);
 
   --tag-bg: #e6e6e6;
 }
@@ -388,7 +392,7 @@
   --card-radius: 16px;
   --card-padding: 24px;
   --card-hover-border: var(--border-accent);
-  --card-hover-bg: var(--card-muted-bg);
+  --card-hover-bg: #ffffff;
   --card-shadow: var(--shadow-card-soft);
   --card-hover-shadow: 0px 4px 16px 0px rgba(0, 0, 0, 0.08);
   --card-disabled-bg: color-mix(in srgb, var(--surface-card-muted) 88%, white);
@@ -456,7 +460,6 @@
   --text-field: var(--text-primary);
   --text-field-hover: var(--text-primary);
   --text-field-disabled: var(--text-disabled);
-  --text-field-placeholder: var(--text-muted);
 
   --tag-bg: #f5f5f5;
 }
@@ -498,13 +501,12 @@ select:-webkit-autofill:focus {
   transition: background-color 99999s ease-in-out 0s;
 }
 
-/* Global scrollbar style: reserve gutter to avoid layout shift; keep the thumb
-   invisible by default, then reveal it on hover with a 4px thumb and 2px
-   right/bottom padding. */
+/* Global scrollbar style: only use space when an element is actually scrollable;
+   keep the thumb invisible by default, then reveal it on hover with a 4px thumb
+   and 2px right/bottom padding. */
 * {
   scrollbar-color: transparent transparent;
   scrollbar-width: thin;
-  scrollbar-gutter: stable;
 }
 
 *:hover {
@@ -772,7 +774,6 @@ select:-webkit-autofill:focus {
     display: flex;
     width: 100%;
     flex-direction: column;
-    overflow: hidden;
     border: 1px solid var(--border-elevated);
     border-radius: 1rem;
     background: var(--surface-neutral-white);
@@ -793,7 +794,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-modal-title {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-heading-strong);
   }
@@ -1059,7 +1060,7 @@ select:-webkit-autofill:focus {
   .ui-textarea,
   .ui-field {
     width: 100%;
-    min-height: var(--control-height-sm);
+    min-height: 28px;
     border: var(--border-width-default) solid var(--border-default);
     border-radius: var(--radius-sm);
     background: var(--surface-panel);
@@ -1074,7 +1075,7 @@ select:-webkit-autofill:focus {
     caret-color: var(--text-field);
     font-size: var(--input-font-size);
     line-height: var(--input-line-height);
-    padding: var(--input-padding-y) var(--input-padding-x);
+    padding: 0 var(--input-padding-x);
   }
 
   .ui-input:hover {
@@ -1480,22 +1481,11 @@ select:-webkit-autofill:focus {
     color: #595959;
   }
 
-  .ui-content-header-feedback-score-active-warning {
-    border-color: #e9cf8f;
-    background: #ffeebf;
-    color: #7d6305;
-  }
-
-  .ui-content-header-feedback-score-active-negative {
-    border-color: #f09a8f;
-    background: #f7a195;
-    color: #7b1f12;
-  }
-
-  .ui-content-header-feedback-score-active-positive {
-    border-color: #60d36f;
-    background: #60d36f;
-    color: #0f3f16;
+  .ui-content-header-feedback-score-selected,
+  .ui-content-header-feedback-score-selected:hover {
+    border-color: transparent;
+    background: transparent;
+    color: inherit;
   }
 
   .ui-content-header-feedback-popover-arrow {
@@ -1973,7 +1963,6 @@ select:-webkit-autofill:focus {
 .chat-input-textarea {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  scrollbar-gutter: stable;
 }
 
 .chat-input-textarea:hover {

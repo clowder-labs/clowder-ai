@@ -8,7 +8,7 @@
  * Cat Model Configuration
  * F32-b: Dynamic env key resolution — CAT_{CATID}_MODEL (uppercased, hyphens → underscores)
  *
- * 优先级: 环境变量 > catRegistry (from cat-config.json) > CAT_CONFIGS 硬编码
+ * 优先级: 环境变量 > catRegistry (from office-claw-config.json) > CAT_CONFIGS 硬编码
  *
  * 环境变量 examples:
  *   CAT_OPUS_MODEL      → 布偶猫模型
@@ -16,10 +16,10 @@
  *   CAT_CODEX_MODEL     → 缅因猫模型
  *   CAT_GEMINI_MODEL    → 暹罗猫模型
  *
- * 或直接修改项目根目录的 cat-config.json
+ * 或直接修改项目根目录的 office-claw-config.json
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 
 /**
  * F32-b: Generate dynamic env key from catId.
@@ -32,7 +32,7 @@ function getCatModelEnvKey(catId: string): string {
 /**
  * 获取猫的实际模型
  * F32-b: Dynamic env key + catRegistry as primary source
- * 优先级: 环境变量 > catRegistry (from cat-config.json) > CAT_CONFIGS 硬编码
+ * 优先级: 环境变量 > catRegistry (from office-claw-config.json) > CAT_CONFIGS 硬编码
  */
 export function getCatModel(catName: string): string {
   // 1. 环境变量最高优先 (dynamic key: CAT_{CATID}_MODEL)
@@ -42,7 +42,7 @@ export function getCatModel(catName: string): string {
     return envValue;
   }
 
-  // 2. catRegistry (populated from cat-config.json at startup)
+  // 2. catRegistry (populated from office-claw-config.json at startup)
   const entry = catRegistry.tryGet(catName);
   if (entry) {
     return entry.config.defaultModel;

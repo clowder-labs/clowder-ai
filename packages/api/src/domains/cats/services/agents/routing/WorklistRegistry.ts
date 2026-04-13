@@ -20,7 +20,7 @@
  * and MAX_A2A_DEPTH limit.
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 
 /** F122: Structured result from pushToWorklist — reason explains empty adds */
 export type PushReason = 'not_found' | 'depth_limit' | 'caller_mismatch' | 'all_duplicate';

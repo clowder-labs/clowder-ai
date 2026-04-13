@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import Fastify from 'fastify';
 
-const H = { 'x-cat-cafe-user': 'user1' };
+const H = { 'x-office-claw-user': 'user1' };
 
 /** @returns {import('../dist/domains/projects/execution-digest-store.js').CreateDigestInput} */
 function makeDigest(overrides = {}) {
@@ -122,7 +122,7 @@ describe('Execution Digest Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/execution-digests',
-      headers: { 'x-cat-cafe-user': 'user1' },
+      headers: { 'x-office-claw-user': 'user1' },
     });
     assert.equal(res.statusCode, 200);
     const body = res.json();
@@ -137,7 +137,7 @@ describe('Execution Digest Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/execution-digests/${digest.id}`,
-      headers: { 'x-cat-cafe-user': 'user1' },
+      headers: { 'x-office-claw-user': 'user1' },
     });
     assert.equal(res.statusCode, 404);
   });

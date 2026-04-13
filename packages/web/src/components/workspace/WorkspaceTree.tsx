@@ -459,7 +459,7 @@ export function WorkspaceTree({
         <TreeSkeleton />
       ) : tree.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-          <span className="text-2xl mb-2">🐾</span>
+          <span className="text-2xl mb-2">📂</span>
           <p className="text-xs text-cocreator-dark/50">还没有文件树</p>
           <p className="text-[10px] text-cocreator-dark/30 mt-1">选择一个 worktree 开始浏览</p>
         </div>

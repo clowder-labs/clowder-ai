@@ -8,7 +8,7 @@
  * F076: Resolution routes — Stage 3 clarification queue CRUD
  */
 
-import type { CreateResolutionInput, ResolutionPath } from '@cat-cafe/shared';
+import type { CreateResolutionInput, ResolutionPath } from '@office-claw/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { ResolutionStore } from '../domains/projects/resolution-store.js';
@@ -22,7 +22,7 @@ export const resolutionRoutes: FastifyPluginAsync<ResolutionRoutesOptions> = asy
   const { externalProjectStore, resolutionStore } = opts;
 
   function requireUserId(request: FastifyRequest, reply: FastifyReply): string | null {
-    const userId = request.headers['x-cat-cafe-user'] as string | undefined;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string | undefined;
     if (!userId) {
       void reply.status(401).send({ error: 'Identity required' });
       return null;

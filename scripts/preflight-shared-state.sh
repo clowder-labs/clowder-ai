@@ -6,7 +6,7 @@
 #
 # 共享状态文件（与 .githooks/pre-commit 保持一致）：
 #   - docs/BACKLOG.md
-#   - cat-template.json
+#   - office-claw-template.json
 #
 # Exit codes:
 #   0 = clean

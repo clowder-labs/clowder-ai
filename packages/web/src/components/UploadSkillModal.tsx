@@ -7,8 +7,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import { AgentManagementIcon } from './AgentManagementIcon';
+import { Alert } from './shared/Alert';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 
 interface UploadFile {
   path: string;
@@ -22,21 +26,104 @@ interface UploadSkillModalProps {
   onSuccess: () => void;
 }
 
+interface ParsedSkillMetadata {
+  name: string;
+  description: string;
+}
+
+interface UploadStateOptions {
+  inlineError?: string | null;
+  parsedSkill?: ParsedSkillMetadata;
+}
+
+type UploadValidationIssueKind = 'empty' | 'fileTooLarge' | 'tooManyFiles' | 'totalTooLarge' | 'missingSkill';
+
+interface UploadValidationIssue {
+  kind: UploadValidationIssueKind;
+  message: string;
+}
+
 export const SKILL_UPLOAD_LIMITS = {
   maxFiles: 100,
   maxFileBytes: 1024 * 1024,
   maxTotalBytes: 4 * 1024 * 1024,
 } as const;
 
+const SKILL_NAME_ALLOWED_RE = /^[A-Za-z-]+$/;
+const ZIP_SINGLE_UPLOAD_ERROR = 'ZIP 文件只能单个上传';
+const ROOT_SKILL_REQUIRED_ERROR = '上传内容根目录必须包含名为 SKILL.md 的文件';
+const ZIP_ROOT_SKILL_ERROR = 'ZIP 压缩包根目录必须包含名为 SKILL.md 的文件';
+const SKILL_NAME_REQUIRED_ERROR = '技能文件不合法：SKILL.md 头部缺少 name 字段';
+const COLLAPSED_FILE_COUNT = 3;
+const PARSED_NAME_MAX_WIDTH_CLASS = 'max-w-[280px]';
+const DEFAULT_FILE_ICON_SRC = '/icons/file-html.svg';
+const FILE_ICON_BY_EXTENSION: Record<string, string> = {
+  zip: '/icons/file-zip.svg',
+  csv: '/icons/file-csv.svg',
+  doc: '/icons/file-docx.svg',
+  docx: '/icons/file-docx.svg',
+  htm: '/icons/file-html.svg',
+  html: '/icons/file-html.svg',
+  ini: '/icons/file-ini.svg',
+  json: '/icons/file-json.svg',
+  md: '/icons/file-md.svg',
+  pdf: '/icons/file-pdf.svg',
+  ppt: '/icons/file-ppt.svg',
+  pptx: '/icons/file-ppt.svg',
+  py: '/icons/file-py.svg',
+  sh: '/icons/file-sh.svg',
+  txt: '/icons/file-txt.svg',
+  xls: '/icons/file-xlsx.svg',
+  xlsx: '/icons/file-xlsx.svg',
+};
+
+function isZipFile(file: File): boolean {
+  return /\.zip$/i.test(file.name);
+}
+
+function resolveUploadFileIcon(filePath: string): string {
+  const normalizedPath = filePath.trim().toLowerCase();
+  const fileName = normalizedPath.split('/').pop() ?? normalizedPath;
+  if (fileName === '.gitignore') {
+    return '/icons/file-gitignore.svg';
+  }
+  const extension = fileName.split('.').pop()?.toLowerCase() ?? '';
+  return FILE_ICON_BY_EXTENSION[extension] ?? DEFAULT_FILE_ICON_SRC;
+}
+
+function normalizeUploadPath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/^\.?\//, '').replace(/\/+/g, '/').replace(/\/$/, '');
+}
+
+function isIgnoredZipEntryPath(path: string): boolean {
+  return path.startsWith('__MACOSX/');
+}
+
 function CloseIcon() {
   return <AgentManagementIcon name="close" className="h-4 w-4" />;
 }
 
-function RequiredIndicator() {
+function EditIcon() {
+  return <AgentManagementIcon name="edit" className="h-4 w-4" />;
+}
+
+function DeleteFileIcon() {
   return (
-    <span className="ml-1 text-red-500" aria-hidden="true" data-testid="required-indicator">
-      *
-    </span>
+    <span
+      aria-hidden="true"
+      className="block h-4 w-4 bg-current"
+      data-testid="upload-skill-file-delete-icon"
+      style={{
+        maskImage: "url('/icons/common-delete.svg')",
+        maskRepeat: 'no-repeat',
+        maskPosition: 'center',
+        maskSize: 'contain',
+        WebkitMaskImage: "url('/icons/common-delete.svg')",
+        WebkitMaskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
+        WebkitMaskSize: 'contain',
+      }}
+    />
   );
 }
 
@@ -61,44 +148,246 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-export function validateSkillUpload(name: string, files: UploadFile[]): string | null {
-  if (!name.trim()) return '请输入技能名称';
-  if (files.length === 0) return '请选择文件';
-  if (files.length > SKILL_UPLOAD_LIMITS.maxFiles) {
-    return `文件数量不能超过 ${SKILL_UPLOAD_LIMITS.maxFiles} 个`;
+function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = '';
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
-  if (!files.some((f) => f.path === 'SKILL.md' || f.path.endsWith('/SKILL.md'))) {
-    return '必须包含 SKILL.md 文件';
+
+  return btoa(binary);
+}
+
+function decodeBase64Utf8(base64: string): string {
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function stripYamlQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function parseFrontmatterValue(frontmatter: string, key: string): string {
+  const lines = frontmatter.split('\n');
+  const keyPattern = new RegExp(`^${key}:\\s*(.*)$`);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index]?.match(keyPattern);
+    if (!match) continue;
+
+    const rawValue = match[1]?.trim() ?? '';
+    if (!rawValue) return '';
+    if (rawValue.startsWith('>') || rawValue.startsWith('|')) {
+      const blockLines: string[] = [];
+      for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+        const line = lines[cursor] ?? '';
+        if (line.trim() && !line.startsWith(' ') && !line.startsWith('\t')) break;
+        blockLines.push(line.trim());
+      }
+      const nonEmptyLines = blockLines.filter(Boolean);
+      return rawValue.startsWith('|') ? nonEmptyLines.join('\n').trim() : nonEmptyLines.join(' ').trim();
+    }
+
+    return stripYamlQuotes(rawValue);
+  }
+
+  return '';
+}
+
+export function parseSkillMetadata(markdown: string): ParsedSkillMetadata {
+  const normalized = markdown.replace(/\r\n?/g, '\n');
+  let frontmatter = '';
+
+  if (normalized.startsWith('---\n')) {
+    const endIndex = normalized.indexOf('\n---', 4);
+    if (endIndex !== -1) {
+      frontmatter = normalized.slice(4, endIndex);
+    }
+  }
+
+  return {
+    name: frontmatter ? parseFrontmatterValue(frontmatter, 'name') : '',
+    description: frontmatter ? parseFrontmatterValue(frontmatter, 'description') : '',
+  };
+}
+
+function extractSkillMetadataFromManifest(files: UploadFile[], manifestPath: string | null): ParsedSkillMetadata {
+  if (!manifestPath) {
+    return { name: '', description: '' };
+  }
+
+  const skillMdFile = files.find((file) => normalizeUploadPath(file.path) === manifestPath);
+  if (!skillMdFile) {
+    return { name: '', description: '' };
+  }
+
+  try {
+    return parseSkillMetadata(decodeBase64Utf8(skillMdFile.content));
+  } catch {
+    return { name: '', description: '' };
+  }
+}
+
+function findRootSkillMarkdownPath(paths: string[]): string | null {
+  const normalizedPaths = paths.map(normalizeUploadPath).filter((path) => path.length > 0 && !isIgnoredZipEntryPath(path));
+
+  if (normalizedPaths.includes('SKILL.md')) {
+    return 'SKILL.md';
+  }
+
+  const rootSkillFiles = normalizedPaths.filter((path) => path.endsWith('/SKILL.md') && path.split('/').length === 2);
+  if (rootSkillFiles.length !== 1) {
+    return null;
+  }
+
+  const rootSkillPath = rootSkillFiles[0] ?? null;
+  if (!rootSkillPath) {
+    return null;
+  }
+
+  const rootDir = rootSkillPath.split('/')[0];
+  const hasLooseRootFiles = normalizedPaths.some((path) => !path.includes('/'));
+  if (hasLooseRootFiles) {
+    return null;
+  }
+
+  const hasDifferentTopLevelDir = normalizedPaths.some((path) => path.split('/')[0] !== rootDir);
+  return hasDifferentTopLevelDir ? null : rootSkillPath;
+}
+
+function extractSkillMetadata(files: UploadFile[]): ParsedSkillMetadata {
+  return extractSkillMetadataFromManifest(files, findRootSkillMarkdownPath(files.map((file) => file.path)));
+}
+
+function getSkillMetadataValidationError(parsedSkill: ParsedSkillMetadata): string | null {
+  return parsedSkill.name.trim() ? null : SKILL_NAME_REQUIRED_ERROR;
+}
+
+function getUploadValidationIssue(files: UploadFile[]): UploadValidationIssue | null {
+  if (files.length === 0) {
+    return { kind: 'empty', message: '请选择文件' };
   }
 
   const oversizedFile = files.find((file) => file.size > SKILL_UPLOAD_LIMITS.maxFileBytes);
   if (oversizedFile) {
-    return `文件 ${oversizedFile.path} 超过单文件限制（${formatBytes(SKILL_UPLOAD_LIMITS.maxFileBytes)}）`;
+    return {
+      kind: 'fileTooLarge',
+      message: `文件 ${oversizedFile.path} 单个文件大小不能超过1mb`,
+    };
+  }
+
+  if (files.length > SKILL_UPLOAD_LIMITS.maxFiles) {
+    return {
+      kind: 'tooManyFiles',
+      message: `文件数量不能超过 ${SKILL_UPLOAD_LIMITS.maxFiles} 个`,
+    };
   }
 
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
   if (totalBytes > SKILL_UPLOAD_LIMITS.maxTotalBytes) {
-    return `文件总大小不能超过 ${formatBytes(SKILL_UPLOAD_LIMITS.maxTotalBytes)}`;
+    return {
+      kind: 'totalTooLarge',
+      message: `文件总大小不能超过 ${formatBytes(SKILL_UPLOAD_LIMITS.maxTotalBytes)}`,
+    };
+  }
+
+  if (!findRootSkillMarkdownPath(files.map((file) => file.path))) {
+    return {
+      kind: 'missingSkill',
+      message: ROOT_SKILL_REQUIRED_ERROR,
+    };
   }
 
   return null;
 }
 
+function getInlineValidationError(files: UploadFile[]): string | null {
+  const issue = getUploadValidationIssue(files);
+  return issue?.kind === 'missingSkill' ? issue.message : null;
+}
+
+export function validateSkillName(name: string): string | null {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) return '请输入技能名称';
+  if (!SKILL_NAME_ALLOWED_RE.test(trimmedName)) {
+    return '技能名称仅支持英文和中划线';
+  }
+
+  return null;
+}
+
+export function validateSkillUpload(name: string, files: UploadFile[]): string | null {
+  return validateSkillUploadFiles(files) ?? validateSkillName(name);
+}
+
+export function validateSkillUploadFiles(files: UploadFile[]): string | null {
+  return getUploadValidationIssue(files)?.message ?? null;
+}
+
 export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalProps) {
+  const addToast = useToastStore((state) => state.addToast);
   const [name, setName] = useState('');
+  const [parsedName, setParsedName] = useState('');
+  const [description, setDescription] = useState('');
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isFileListExpanded, setIsFileListExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const canEditName = parsedName.trim().length > 0;
+  const fileValidationIssue = getUploadValidationIssue(files);
+  const metadataValidationError = !fileValidationIssue && files.length > 0
+    ? getSkillMetadataValidationError({ name: parsedName, description })
+    : null;
+  const nameValidationError = validateSkillName(name);
+  const uploadDisabledReason = (() => {
+    if (uploading) return '正在导入技能，请稍候';
+    if (files.length === 0) return '请选择文件或文件夹后再导入';
+    if (error) return error;
+    if (fileValidationIssue) return fileValidationIssue.message;
+    if (metadataValidationError) return metadataValidationError;
+    if (nameValidationError) return nameValidationError;
+    return null;
+  })();
+  const isSubmitDisabled = uploadDisabledReason != null;
+  const visibleFileEntries = (isFileListExpanded ? fileNames : fileNames.slice(0, COLLAPSED_FILE_COUNT)).map((fileName, index) => ({
+    fileName,
+    index,
+  }));
+  const hasExpandableFileList = fileNames.length > COLLAPSED_FILE_COUNT;
 
   const reset = useCallback(() => {
     setName('');
+    setParsedName('');
+    setDescription('');
     setFiles([]);
     setFileNames([]);
     setError(null);
+    setIsEditingName(false);
+    setIsFileListExpanded(false);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -118,58 +407,143 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, handleClose]);
 
+  useEffect(() => {
+    if (!isEditingName) return;
+    nameInputRef.current?.focus();
+    nameInputRef.current?.select();
+  }, [isEditingName]);
+
+  const showToast = useCallback(
+    (type: 'success' | 'error' | 'info', title: string, message: string) => {
+      addToast({
+        type,
+        title,
+        message,
+        duration: 4000,
+      });
+    },
+    [addToast],
+  );
+
+  const syncUploadState = useCallback(
+    (nextFiles: UploadFile[], options: UploadStateOptions = {}) => {
+      const nextParsedSkill = options.parsedSkill ?? extractSkillMetadata(nextFiles);
+      const nextValidationIssue = getUploadValidationIssue(nextFiles);
+      const nextMetadataValidationError = nextValidationIssue ? null : getSkillMetadataValidationError(nextParsedSkill);
+
+      setFiles(nextFiles);
+      setFileNames(nextFiles.map((file) => file.path));
+      setParsedName(nextParsedSkill.name);
+      setDescription(nextParsedSkill.description);
+      setName((currentName) => {
+        const trimmedCurrentName = currentName.trim();
+        if (!trimmedCurrentName || trimmedCurrentName === parsedName) {
+          return nextParsedSkill.name;
+        }
+        return currentName;
+      });
+      setIsEditingName(false);
+      setError(options.inlineError ?? getInlineValidationError(nextFiles));
+
+      if (nextValidationIssue && nextValidationIssue.kind !== 'empty' && nextValidationIssue.kind !== 'missingSkill') {
+        showToast('error', '上传失败', nextValidationIssue.message);
+      }
+      if (nextMetadataValidationError) {
+        showToast('error', '上传失败', nextMetadataValidationError);
+      }
+    },
+    [parsedName, showToast],
+  );
+
   const readFiles = useCallback(async (fileList: FileList) => {
+    const selectedFiles = Array.from(fileList);
+    const zipFiles = selectedFiles.filter(isZipFile);
+
+    if (zipFiles.length > 0 && selectedFiles.length !== 1) {
+      setError(null);
+      showToast('error', '上传失败', ZIP_SINGLE_UPLOAD_ERROR);
+      return;
+    }
+
+    if (zipFiles.length === 1) {
+      try {
+        const { default: JSZip } = await import('jszip');
+        const zip = await JSZip.loadAsync(await fileToArrayBuffer(zipFiles[0]));
+        const zipEntries: UploadFile[] = [];
+
+        for (const entry of Object.values(zip.files)) {
+          if (entry.dir) continue;
+
+          const normalizedPath = normalizeUploadPath(entry.name);
+          if (!normalizedPath || isIgnoredZipEntryPath(normalizedPath)) continue;
+
+          const bytes = await entry.async('uint8array');
+          zipEntries.push({
+            path: normalizedPath,
+            content: uint8ArrayToBase64(bytes),
+            size: bytes.byteLength,
+          });
+        }
+
+        zipEntries.sort((left, right) => left.path.localeCompare(right.path));
+        setIsFileListExpanded(false);
+
+        const rootSkillMarkdownPath = findRootSkillMarkdownPath(zipEntries.map((entry) => entry.path));
+        syncUploadState(zipEntries, {
+          inlineError: rootSkillMarkdownPath ? null : ZIP_ROOT_SKILL_ERROR,
+          parsedSkill: extractSkillMetadataFromManifest(zipEntries, rootSkillMarkdownPath),
+        });
+      } catch {
+        setError(null);
+        showToast('error', '上传失败', 'ZIP 文件解析失败');
+      }
+
+      return;
+    }
+
     const newEntries: UploadFile[] = [];
 
-    for (const file of Array.from(fileList)) {
+    for (const file of selectedFiles) {
       const relPath = ('webkitRelativePath' in file ? (file.webkitRelativePath as string) : '') || file.name;
       const base64 = await fileToBase64(file);
       newEntries.push({ path: relPath, content: base64, size: file.size });
     }
 
-    setFiles((prev) => {
-      const existing = new Set(prev.map((f) => f.path));
-      return [...prev, ...newEntries.filter((f) => !existing.has(f.path))];
-    });
-    setFileNames((prev) => {
-      const existing = new Set(prev);
-      return [...prev, ...newEntries.map((f) => f.path).filter((n) => !existing.has(n))];
-    });
-  }, []);
+    setIsFileListExpanded(false);
+    syncUploadState(newEntries);
+  }, [showToast, syncUploadState]);
 
   const removeFile = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-    setFileNames((prev) => prev.filter((_, i) => i !== index));
+    const nextFiles = files.filter((_, currentIndex) => currentIndex !== index);
+    syncUploadState(nextFiles);
+  }, [files, syncUploadState]);
+
+  const handleNameChange = useCallback((nextName: string) => {
+    setName(nextName);
   }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
+  const handleNameEditComplete = useCallback(() => {
+    setIsEditingName(false);
   }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
-      if (e.dataTransfer.files.length > 0) {
-        void readFiles(e.dataTransfer.files);
-      }
-    },
-    [readFiles],
-  );
 
   const handleSubmit = useCallback(async () => {
-    const validationError = validateSkillUpload(name, files);
-    if (validationError) {
-      setError(validationError);
+    const fileValidationIssue = getUploadValidationIssue(files);
+    if (fileValidationIssue) {
+      setError(fileValidationIssue.kind === 'missingSkill' ? fileValidationIssue.message : null);
+      if (fileValidationIssue.kind !== 'missingSkill') {
+        showToast('error', '上传失败', fileValidationIssue.message);
+      }
+      return;
+    }
+
+    if (metadataValidationError) {
+      showToast('error', '上传失败', metadataValidationError);
+      return;
+    }
+
+    const nameValidationError = validateSkillName(name);
+    if (nameValidationError) {
+      showToast('error', '上传失败', nameValidationError);
       return;
     }
 
@@ -186,23 +560,28 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
       });
       const data = (await res.json().catch(() => ({}))) as { success?: boolean; error?: string };
       if (data.success) {
+        notifySkillOptionsChanged();
         handleClose();
         onSuccess();
       } else {
-        setError(data.error ?? (res.status === 413 ? '上传内容过大，请减少文件数量或体积' : '上传失败'));
+        showToast('error', '上传失败', data.error ?? (res.status === 413 ? '上传内容过大，请减少文件数量或体积' : '上传失败'));
       }
     } catch {
-      setError('网络错误，请确认本地 API 服务已启动，或减少上传文件数量后重试');
+      showToast('error', '上传失败', '网络错误，请确认本地 API 服务已启动，或减少上传文件数量后重试');
     } finally {
       setUploading(false);
     }
-  }, [files, handleClose, name, onSuccess]);
+  }, [files, handleClose, metadataValidationError, name, onSuccess, showToast]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="upload-skill-overlay">
-      <div role="dialog" aria-modal="true" className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" data-testid="upload-skill-overlay">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="flex h-[380px] w-[550px] max-h-[calc(100vh-32px)] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-xl bg-white p-6 shadow-xl"
+      >
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-sm font-bold">导入技能</h3>
           <button
@@ -215,65 +594,31 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
           </button>
         </div>
 
-        <div className="mb-4">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            技能名称
-            <RequiredIndicator />
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="请输入"
-            className="ui-input w-full rounded px-3 py-2 text-xs"
-          />
-        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <Alert mode="prompt" closable={false} className="mb-4">
+            1. 支持上传文件或者文件夹，单个文件大小不能超过1mb，文件数量不能超过100，总文件大小不能超过4mb。
+            <br />
+            2. 上传的文件中必须包含一个名为 SKILL.md 的文件，且必须位于根目录下。
+          </Alert>
 
-        <div className="mb-4">
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            选择文件
-            <RequiredIndicator />
-          </label>
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            className={`rounded-lg border-2 border-dashed p-12 text-center transition-colors ${
-              isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50/50 hover:border-gray-300'
-            }`}
-          >
-            <svg
-              className="mx-auto mb-2 h-8 w-8 text-gray-300"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path
-                d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <p className="text-xs text-gray-400">拖拽文件到这里</p>
-          </div>
-
-          <div className="mt-2 flex gap-2">
+          <div className="mb-4 flex gap-2">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 rounded border border-gray-200 px-3 py-1.5 text-xs hover:bg-gray-50"
+              className="rounded-[999px] border border-gray-200 px-6 py-1 text-xs leading-[18px] hover:bg-gray-50"
             >
               选择文件
             </button>
             <button
               type="button"
               onClick={() => folderInputRef.current?.click()}
-              className="flex-1 rounded border border-gray-200 px-3 py-1.5 text-xs hover:bg-gray-50"
+              className="rounded-[999px] border border-gray-200 px-6 py-1 text-xs leading-[18px] hover:bg-gray-50"
             >
               选择文件夹
             </button>
           </div>
+
+          {error ? <p className="mb-4 text-xs text-red-500">{error}</p> : null}
 
           <input
             ref={fileInputRef}
@@ -286,47 +631,150 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             ref={folderInputRef}
             type="file"
             {...({ webkitdirectory: '' } as Record<string, string>)}
+            multiple
             onChange={(e) => e.target.files && void readFiles(e.target.files)}
             className="hidden"
           />
 
-          {fileNames.length > 0 && (
-            <div className="mt-2 max-h-32 space-y-0.5 overflow-y-auto rounded bg-gray-50 px-2 py-1.5 text-[10px] text-gray-600">
-              {fileNames.map((n, i) => (
-                <div key={`${n}-${i}`} className="group flex items-center justify-between">
-                  <span className="flex-1 truncate">{n}</span>
+          <div className="mb-4">
+            {fileNames.length > 0 ? (
+              <div className="space-y-1 pr-1 text-xs text-[#5F6775]">
+                {visibleFileEntries.map(({ fileName, index }) => (
+                  <div
+                    key={`${fileName}-${index}`}
+                    className="group flex items-center gap-2 rounded-[6px] px-2 py-1 transition-colors hover:bg-[#F7F8FA]"
+                    data-testid="upload-skill-file-row"
+                  >
+                    <div className="min-w-0 flex flex-1 items-center gap-1">
+                      <img
+                        src={resolveUploadFileIcon(fileName)}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0"
+                        data-testid="upload-skill-file-icon"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{fileName}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      aria-label={`remove-file-${index}`}
+                      className="shrink-0 text-[#808080] opacity-0 transition-[opacity,color] group-hover:opacity-100 hover:text-[#1476FF]"
+                      data-testid="upload-skill-file-delete-button"
+                    >
+                      <DeleteFileIcon />
+                    </button>
+                  </div>
+                ))}
+                {hasExpandableFileList ? (
                   <button
                     type="button"
-                    onClick={() => removeFile(i)}
-                    className="ml-1 shrink-0 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
+                    data-testid="file-list-toggle"
+                    onClick={() => setIsFileListExpanded((currentValue) => !currentValue)}
+                    className="pt-1 text-xs text-[#5F6775] transition-colors hover:text-[#191919]"
                   >
-                    &times;
+                    {isFileListExpanded ? '收起' : `展开全部 (${fileNames.length})`}
                   </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="text-xs text-[#8A93A3]">暂未选择文件</div>
+            )}
+          </div>
+
+          <div>
+            <div className="mb-3 text-xs font-medium text-[#5F6775]">解析结果</div>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 text-xs">
+                <div className="w-[72px] shrink-0 pt-2 text-[#5F6775]">SKILL名称</div>
+                <div className="min-w-0 flex-1">
+                  {isEditingName ? (
+                    <input
+                      ref={nameInputRef}
+                      type="text"
+                      value={name}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      onBlur={handleNameEditComplete}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === 'Escape') {
+                          event.preventDefault();
+                          handleNameEditComplete();
+                        }
+                      }}
+                      placeholder="请输入技能名称"
+                      className="ui-input w-full rounded px-3 py-2 text-xs"
+                    />
+                  ) : (
+                    <div className="inline-flex min-h-8 max-w-full items-center gap-1">
+                      {name ? (
+                        <OverflowTooltip content={name} className={PARSED_NAME_MAX_WIDTH_CLASS}>
+                          <span
+                            data-testid="parsed-skill-name-text"
+                            className={`block truncate whitespace-nowrap text-[#191919] ${PARSED_NAME_MAX_WIDTH_CLASS}`}
+                          >
+                            {name}
+                          </span>
+                        </OverflowTooltip>
+                      ) : (
+                        <span className="text-[#191919]">--</span>
+                      )}
+                      {canEditName ? (
+                        <button
+                          type="button"
+                          aria-label="edit-skill-name"
+                          onClick={() => setIsEditingName(true)}
+                          className="shrink-0 text-[#8A93A3] transition-colors hover:text-[#191919]"
+                        >
+                          <EditIcon />
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
+
+              <div className="flex items-start gap-3 text-xs">
+                <div className="w-[72px] shrink-0 text-[#5F6775]">SKILL描述</div>
+                <div className="min-w-0 flex-1 leading-5 text-[#191919]">
+                  <span data-testid="parsed-skill-description-text" className="whitespace-pre-wrap break-words">
+                    {description || '--'}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
 
-          <p className="mt-2 text-[10px] text-gray-500">
-            最多 {SKILL_UPLOAD_LIMITS.maxFiles} 个文件，单文件不超过 {formatBytes(SKILL_UPLOAD_LIMITS.maxFileBytes)}，
-            总大小不超过 {formatBytes(SKILL_UPLOAD_LIMITS.maxTotalBytes)}。
-          </p>
         </div>
-
-        {error && <p className="mb-3 text-xs text-red-500">{error}</p>}
-
-        <div className="flex justify-end gap-2">
+        <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={handleClose} className="ui-button-default ui-modal-action-button">
             取消
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={uploading || !name.trim() || files.length === 0}
-            className="ui-button-primary ui-modal-action-button disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {uploading ? '上传中...' : '上传'}
-          </button>
+          {uploadDisabledReason ? (
+            <OverflowTooltip content={uploadDisabledReason} forceShow className="inline-flex shrink-0">
+              <span data-testid="upload-skill-submit-trigger" className="inline-flex shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isSubmitDisabled}
+                  className="ui-button-primary ui-modal-action-button disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {uploading ? '导入中...' : '导入'}
+                </button>
+              </span>
+            </OverflowTooltip>
+          ) : (
+            <span data-testid="upload-skill-submit-trigger" className="inline-flex shrink-0">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitDisabled}
+                className="ui-button-primary ui-modal-action-button disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {uploading ? '导入中...' : '导入'}
+              </button>
+            </span>
+          )}
         </div>
       </div>
     </div>

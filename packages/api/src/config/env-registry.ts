@@ -148,14 +148,14 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_USER_ID',
+    name: 'OFFICE_CLAW_USER_ID',
     defaultValue: 'default-user',
     description: '当前用户 ID',
     category: 'server',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_HOOK_TOKEN',
+    name: 'OFFICE_CLAW_HOOK_TOKEN',
     defaultValue: '(空)',
     description: 'Hook 回调鉴权 token',
     category: 'server',
@@ -195,7 +195,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'REDIS_KEY_PREFIX',
-    defaultValue: 'cat-cafe:',
+    defaultValue: 'office-claw:',
     description: 'Redis key 命名空间前缀，用于多实例隔离',
     category: 'storage',
     sensitive: false,
@@ -332,14 +332,14 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'CAT_TEMPLATE_PATH',
-    defaultValue: '(repo 根 cat-template.json)',
+    defaultValue: '(repo 根 office-claw-template.json)',
     description: '智能体模板文件路径',
     category: 'cli',
     sensitive: false,
     runtimeEditable: false,
   },
   {
-    name: 'CAT_CAFE_MCP_SERVER_PATH',
+    name: 'OFFICE_CLAW_MCP_SERVER_PATH',
     defaultValue: '(自动检测)',
     description: 'MCP Server 路径',
     category: 'cli',
@@ -381,63 +381,63 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_TMUX_AGENT',
+    name: 'OFFICE_CLAW_TMUX_AGENT',
     defaultValue: '(未设置)',
     description: '设为 1 启用 tmux agent 模式',
     category: 'cli',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_TMUX_PATH',
+    name: 'OFFICE_CLAW_TMUX_PATH',
     defaultValue: '(未设置)',
     description: 'Tmux 可执行文件路径',
     category: 'cli',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_DATA_DIR',
+    name: 'OFFICE_CLAW_DATA_DIR',
     defaultValue: '(未设置)',
     description: '数据目录根路径',
     category: 'cli',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_CALLBACK_TOKEN',
+    name: 'OFFICE_CLAW_CALLBACK_TOKEN',
     defaultValue: '(未设置)',
     description: 'Callback 鉴权 token',
     category: 'cli',
     sensitive: true,
   },
   {
-    name: 'CAT_CAFE_CALLBACK_OUTBOX_ENABLED',
+    name: 'OFFICE_CLAW_CALLBACK_OUTBOX_ENABLED',
     defaultValue: 'true',
     description: 'Callback outbox 是否启用',
     category: 'cli',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_CALLBACK_OUTBOX_DIR',
+    name: 'OFFICE_CLAW_CALLBACK_OUTBOX_DIR',
     defaultValue: '(自动)',
     description: 'Callback outbox 目录',
     category: 'cli',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS',
+    name: 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_ATTEMPTS',
     defaultValue: '(默认)',
     description: 'Outbox 最大重试次数',
     category: 'cli',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH',
+    name: 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_FLUSH_BATCH',
     defaultValue: '(默认)',
     description: 'Outbox 单次 flush 批量',
     category: 'cli',
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_CALLBACK_RETRY_DELAYS_MS',
+    name: 'OFFICE_CLAW_CALLBACK_RETRY_DELAYS_MS',
     defaultValue: '(默认)',
     description: 'Callback 重试间隔（逗号分隔）',
     category: 'cli',
@@ -458,7 +458,7 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_API_URL',
+    name: 'OFFICE_CLAW_API_URL',
     defaultValue: 'http://localhost:3002',
     description: 'API 服务地址（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
@@ -466,7 +466,7 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_INVOCATION_ID',
+    name: 'OFFICE_CLAW_INVOCATION_ID',
     defaultValue: '(运行时注入)',
     description: '当前 invocation ID（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
@@ -474,15 +474,15 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_CAT_ID',
+    name: 'OFFICE_CLAW_CAT_ID',
     defaultValue: '(运行时注入)',
-    description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',
+    description: '当前智能体 ID（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
     sensitive: false,
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT',
+    name: 'OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT',
     defaultValue: '(未设置)',
     description: '设为 1 跳过 shared state preflight 检查（CI / 调试用）',
     category: 'cli',
@@ -490,7 +490,7 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_PREFLIGHT_TIMEOUT_MS',
+    name: 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS',
     defaultValue: '30000',
     description: 'Pre-flight 操作（Redis/store 读取）的超时毫秒数，超时后降级到无 session 模式',
     category: 'cli',
@@ -522,7 +522,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'ANTHROPIC_PROXY_UPSTREAMS_PATH',
-    defaultValue: '.cat-cafe/proxy-upstreams.json',
+    defaultValue: '.office-claw/proxy-upstreams.json',
     description: 'upstream 配置文件路径（解决 runtime 与源码分离问题）',
     category: 'proxy',
     sensitive: false,
@@ -792,7 +792,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'VAPID_SUBJECT',
-    defaultValue: 'mailto:cat-cafe@localhost',
+    defaultValue: 'mailto:office-claw@localhost',
     description: 'VAPID 联系方式 (mailto: 或 URL)',
     category: 'push',
     sensitive: false,
@@ -807,7 +807,7 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_SIGNAL_USER',
+    name: 'OFFICE_CLAW_SIGNAL_USER',
     defaultValue: 'codex',
     description: 'Signal 默认执行猫',
     category: 'signal',
@@ -935,9 +935,11 @@ function isHubVisibleEnvVar(def: EnvDefinition): boolean {
 export function buildEnvSummary(): Array<EnvDefinition & { currentValue: string | null }> {
   return ENV_VARS.filter(isHubVisibleEnvVar).map((def) => {
     const raw = process.env[def.name];
-    const ref =
-      isConnectorSecretBackedEnvVarName(def.name) ? process.env[buildConnectorEnvRefVarName(def.name)] ?? null : null;
-    const currentValue = raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
+    const ref = isConnectorSecretBackedEnvVarName(def.name)
+      ? (process.env[buildConnectorEnvRefVarName(def.name)] ?? null)
+      : null;
+    const currentValue =
+      raw != null && raw !== '' ? maskValue(def, raw) : ref != null && ref !== '' ? maskValue(def, ref) : null;
     return { ...def, currentValue };
   });
 }
@@ -965,4 +967,59 @@ export function isEditableEnvVarName(name: string): boolean {
 /** Returns true when the env var requires a service restart to take effect. */
 export function requiresRestartEnvVar(name: string): boolean {
   return ENV_VARS.some((def) => def.name === name && isConnectorSensitiveEditable(def));
+}
+
+/**
+ * Legacy CAT_CAFE_* → OFFICE_CLAW_* migration map.
+ * At startup, copies old env name to new name if the new name isn't already set.
+ */
+const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
+  ['CAT_CAFE_USER_ID', 'OFFICE_CLAW_USER_ID'],
+  ['CAT_CAFE_HOOK_TOKEN', 'OFFICE_CLAW_HOOK_TOKEN'],
+  ['CAT_CAFE_MCP_SERVER_PATH', 'OFFICE_CLAW_MCP_SERVER_PATH'],
+  ['CAT_CAFE_TMUX_AGENT', 'OFFICE_CLAW_TMUX_AGENT'],
+  ['CAT_CAFE_TMUX_PATH', 'OFFICE_CLAW_TMUX_PATH'],
+  ['CAT_CAFE_DATA_DIR', 'OFFICE_CLAW_DATA_DIR'],
+  ['CAT_CAFE_CALLBACK_TOKEN', 'OFFICE_CLAW_CALLBACK_TOKEN'],
+  ['CAT_CAFE_CALLBACK_OUTBOX_ENABLED', 'OFFICE_CLAW_CALLBACK_OUTBOX_ENABLED'],
+  ['CAT_CAFE_CALLBACK_OUTBOX_DIR', 'OFFICE_CLAW_CALLBACK_OUTBOX_DIR'],
+  ['CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS', 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_ATTEMPTS'],
+  ['CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH', 'OFFICE_CLAW_CALLBACK_OUTBOX_MAX_FLUSH_BATCH'],
+  ['CAT_CAFE_CALLBACK_RETRY_DELAYS_MS', 'OFFICE_CLAW_CALLBACK_RETRY_DELAYS_MS'],
+  ['CAT_CAFE_SIGNAL_USER', 'OFFICE_CLAW_SIGNAL_USER'],
+  ['CAT_CAFE_CONFIG_ROOT', 'OFFICE_CLAW_CONFIG_ROOT'],
+  ['CAT_CAFE_GLOBAL_CONFIG_ROOT', 'OFFICE_CLAW_GLOBAL_CONFIG_ROOT'],
+  ['CAT_CAFE_BUILTIN_CLIENTS_ENABLED', 'OFFICE_CLAW_BUILTIN_CLIENTS_ENABLED'],
+  ['CAT_CAFE_ALLOWED_CLIENTS', 'OFFICE_CLAW_ALLOWED_CLIENTS'],
+  ['CAT_CAFE_VISIBLE_BUILTIN_AUTH_CLIENTS', 'OFFICE_CLAW_VISIBLE_BUILTIN_AUTH_CLIENTS'],
+  ['CAT_CAFE_CLIENT_LABELS', 'OFFICE_CLAW_CLIENT_LABELS'],
+  ['CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT', 'OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT'],
+  ['CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED', 'OFFICE_CLAW_MODEL_CONFIG_FALLBACK_ENABLED'],
+  ['CAT_CAFE_RELAYCLAW_APP_DIR', 'OFFICE_CLAW_RELAYCLAW_APP_DIR'],
+  ['CAT_CAFE_RELAYCLAW_EXE', 'OFFICE_CLAW_RELAYCLAW_EXE'],
+  ['CAT_CAFE_RELAYCLAW_PYTHON', 'OFFICE_CLAW_RELAYCLAW_PYTHON'],
+  ['CAT_CAFE_DARE_DIAG_LOG', 'OFFICE_CLAW_DARE_DIAG_LOG'],
+  ['CAT_CAFE_DARE_MODEL_OVERRIDE', 'OFFICE_CLAW_DARE_MODEL_OVERRIDE'],
+  ['CAT_CAFE_API_URL', 'OFFICE_CLAW_API_URL'],
+  ['CAT_CAFE_INVOCATION_ID', 'OFFICE_CLAW_INVOCATION_ID'],
+  ['CAT_CAFE_CAT_ID', 'OFFICE_CLAW_CAT_ID'],
+  ['CAT_CAFE_PREFLIGHT_TIMEOUT_MS', 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS'],
+];
+
+/**
+ * Migrate deprecated CAT_CAFE_* env vars to OFFICE_CLAW_* equivalents.
+ * Call once at startup before any env var reads.
+ * New name takes precedence; old name is only copied when new name is unset.
+ *
+ * Keys removed from OfficeClaw's public configuration surface should not stay
+ * here indefinitely; keep this map limited to transitional runtime aliases.
+ */
+export function migrateDeprecatedEnvVars(): void {
+  for (const [oldName, newName] of LEGACY_ENV_MAP) {
+    const oldVal = process.env[oldName];
+    if (oldVal != null && oldVal !== '' && !process.env[newName]) {
+      process.env[newName] = oldVal;
+      console.warn(`[env-registry] deprecated env var: ${oldName} → use ${newName}`);
+    }
+  }
 }

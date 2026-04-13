@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme, type ThemeType } from '@/hooks/useTheme';
 import { apiFetch } from '@/utils/api-client';
 import { getIsSkipAuth, getUserId } from '@/utils/userId';
+import SecurityManagementModal from './SecurityManagementModal';
 import { UsageStatsModal } from './UsageStatsModal';
 import VersionUpdateModal from './VersionUpdateModal';
 
@@ -41,6 +42,7 @@ export function UserProfile({ className }: UserProfileProps) {
   const [showThemePanel, setShowThemePanel] = useState(false);
   const [showUsageStats, setShowUsageStats] = useState(false);
   const [showVersionUpdate, setShowVersionUpdate] = useState(false);
+  const [showSecurityManagement, setShowSecurityManagement] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
   const [themePopoverTop, setThemePopoverTop] = useState(0);
@@ -97,6 +99,16 @@ export function UserProfile({ className }: UserProfileProps) {
     setShowVersionUpdate(true);
     setShowThemePanel(false);
     setShowPanel(false);
+  };
+
+  const handleOpenSecurityManagement = () => {
+    setShowSecurityManagement(true);
+    setShowThemePanel(false);
+    setShowPanel(false);
+  };
+
+  const handleCloseSecurityManagement = () => {
+    setShowSecurityManagement(false);
   };
 
   const handleCloseVersionUpdate = () => {
@@ -245,12 +257,20 @@ export function UserProfile({ className }: UserProfileProps) {
 
             <div className="space-y-3" data-testid="user-profile-content-actions">
               <button
-                 className={`hidden ${profileActionClass}`}
+                 className={profileActionClass}
                 onClick={handleOpenUsageStats}
               >
                 <img src="/icons/userprofile/usage.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
                 用量统计
               </button>
+
+              {/* <button
+                className={profileActionClass}
+                onClick={handleOpenSecurityManagement}
+              >
+                <img src="/icons/userprofile/version.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
+                安全管理
+              </button> */}
 
               <button
                 className={profileActionClass}
@@ -362,6 +382,7 @@ export function UserProfile({ className }: UserProfileProps) {
       )}
 
       {showUsageStats ? <UsageStatsModal open={showUsageStats} onClose={handleCloseUsageStats} /> : null}
+      <SecurityManagementModal open={showSecurityManagement} onClose={handleCloseSecurityManagement} />
       <VersionUpdateModal open={showVersionUpdate} onCancel={handleCloseVersionUpdate} />
     </div>
   );

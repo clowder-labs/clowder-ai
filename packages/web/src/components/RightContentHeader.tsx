@@ -5,6 +5,7 @@ import type { ButtonHTMLAttributes, ReactNode, RefObject } from 'react';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
+import { useDesktopWindowControls } from '@/hooks/useDesktopWindowControls';
 
 function WindowSmileIcon() {
   return (
@@ -34,6 +35,15 @@ function WindowMaximizeIcon() {
   return (
     <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
       <rect x="4.25" y="4.25" width="7.5" height="7.5" rx="0.9" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+function WindowRestoreIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-5 w-5" aria-hidden="true">
+      <path d="M5.75 4.25H10.1C10.984 4.25 11.7 4.966 11.7 5.85V10.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10.25 5.75H5.9C5.016 5.75 4.3 6.466 4.3 7.35V11.1C4.3 11.984 5.016 12.7 5.9 12.7H10.25C11.134 12.7 11.85 11.984 11.85 11.1V7.35C11.85 6.466 11.134 5.75 10.25 5.75Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -150,6 +160,13 @@ const DETAIL_PREFILL_TEMPLATE = '\u3010\u4f7f\u7528\u573a\u666f\u3011\uff1a\n\u3
 const REQUIRED_SELECT_ERROR_MESSAGE = '\u9009\u62e9\u4e0d\u80fd\u4e3a\u7a7a';
 const REQUIRED_INPUT_ERROR_MESSAGE = '\u8f93\u5165\u4e0d\u80fd\u4e3a\u7a7a';
 
+function getSelectedScoreIconSrc(score: number): string | null {
+  if (score <= 6) return '/icons/nss/1.svg';
+  if (score <= 8) return '/icons/nss/2.svg';
+  if (score <= 10) return '/icons/nss/3.svg';
+  return null;
+}
+
 type FeedbackDateResponse = {
   latest_feedback_date?: string;
   data?: {
@@ -179,6 +196,7 @@ type FeedbackSubmitResponse = {
 };
 
 export function RightContentHeader() {
+  const { isMaximized, canMaximize, minimize, toggleMaximize, close, startDrag } = useDesktopWindowControls();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackPopoverMaxHeight, setFeedbackPopoverMaxHeight] = useState<number | null>(null);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
@@ -187,11 +205,9 @@ export function RightContentHeader() {
   const [lowScoreDetail, setLowScoreDetail] = useState('');
   const [isDetailTooLong, setIsDetailTooLong] = useState(false);
   const [isIssueRequiredError, setIsIssueRequiredError] = useState(false);
-  const [isDetailRequiredError, setIsDetailRequiredError] = useState(false);
   const [isOtherIssueRequiredError, setIsOtherIssueRequiredError] = useState(false);
   const [otherIssueDetail, setOtherIssueDetail] = useState('');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [submitErrorMessage, setSubmitErrorMessage] = useState('');
   const addToast = useToastStore((s) => s.addToast);
   const headerRef = useRef<HTMLDivElement>(null);
   const smileActionRef = useRef<HTMLButtonElement>(null);
@@ -224,10 +240,8 @@ export function RightContentHeader() {
     setLowScoreDetail('');
     setIsDetailTooLong(false);
     setIsIssueRequiredError(false);
-    setIsDetailRequiredError(false);
     setIsOtherIssueRequiredError(false);
     setOtherIssueDetail('');
-    setSubmitErrorMessage('');
     setIsSubmittingFeedback(false);
   }, []);
   const closeFeedbackPopover = useCallback(() => {
@@ -285,7 +299,6 @@ export function RightContentHeader() {
   useEffect(() => {
     if (isLowScoreDetailVisible) return;
     setIsIssueRequiredError(false);
-    setIsDetailRequiredError(false);
     setIsOtherIssueRequiredError(false);
   }, [isLowScoreDetailVisible]);
 
@@ -340,11 +353,11 @@ export function RightContentHeader() {
         nextIssues = [...prev, issue];
       }
 
-      if (nextIssues.length > 0) {
-        setIsIssueRequiredError(false);
-      }
       if (!nextIssues.includes('other_issue')) {
         setIsOtherIssueRequiredError(false);
+      }
+      if (nextIssues.length > 0) {
+        setIsIssueRequiredError(false);
       }
 
       return nextIssues;
@@ -359,9 +372,6 @@ export function RightContentHeader() {
       }
       setIsDetailTooLong(false);
       setLowScoreDetail(value);
-      if (value.trim().length > 0) {
-        setIsDetailRequiredError(false);
-      }
     },
     [currentDetailMaxLength],
   );
@@ -370,7 +380,6 @@ export function RightContentHeader() {
     if (lowScoreDetail.trim().length > 0) return;
     setLowScoreDetail(DETAIL_PREFILL_TEMPLATE);
     setIsDetailTooLong(false);
-    setIsDetailRequiredError(false);
   }, [lowScoreDetail]);
 
   const handleOtherIssueDetailChange = useCallback((value: string) => {
@@ -381,18 +390,14 @@ export function RightContentHeader() {
   }, []);
 
   const handleSubmitFeedback = useCallback(async () => {
-    setSubmitErrorMessage('');
-
     if (!isLowScoreDetailVisible) {
       setIsIssueRequiredError(false);
-      setIsDetailRequiredError(false);
       setIsOtherIssueRequiredError(false);
     }
 
     if (isSubmittingFeedback) return;
     if (selectedScore == null) {
       const message = '\u8bf7\u5148\u9009\u62e9\u6ee1\u610f\u5ea6\u8bc4\u5206';
-      setSubmitErrorMessage(message);
       addToast({
         type: 'error',
         title: '\u63d0\u4ea4\u5931\u8d25',
@@ -401,30 +406,22 @@ export function RightContentHeader() {
       });
       return;
     }
-    if (isLowScoreDetailVisible) {
+    if (isLowScoreDetailVisible || isHighScoreDetailVisible) {
       const hasIssueSelection = currentSelectedIssues.length > 0;
-      const hasDetailInput = lowScoreDetail.trim().length > 0;
       const needOtherIssueInput = currentSelectedIssues.includes('other_issue');
       const hasOtherIssueInput = otherIssueDetail.trim().length > 0;
 
       setIsIssueRequiredError(!hasIssueSelection);
-      setIsDetailRequiredError(!hasDetailInput);
       setIsOtherIssueRequiredError(needOtherIssueInput && !hasOtherIssueInput);
 
-      if (!hasIssueSelection || !hasDetailInput || (needOtherIssueInput && !hasOtherIssueInput)) {
-        const message = '\u8bf7\u5148\u5b8c\u6210\u5fc5\u586b\u9879';
-        setSubmitErrorMessage(message);
-        addToast({
-          type: 'error',
-          title: '\u63d0\u4ea4\u5931\u8d25',
-          message,
-          duration: 3200,
-        });
+      if (!hasIssueSelection) {
+        return;
+      }
+      if (needOtherIssueInput && !hasOtherIssueInput) {
         return;
       }
     }
     if (currentSelectedIssues.includes('other_issue') && otherIssueDetail.length > OTHER_ISSUE_MAX_LENGTH) {
-      setSubmitErrorMessage(OTHER_ISSUE_LENGTH_ERROR_MESSAGE);
       addToast({
         type: 'error',
         title: '\u63d0\u4ea4\u5931\u8d25',
@@ -434,7 +431,6 @@ export function RightContentHeader() {
       return;
     }
     if (lowScoreDetail.length > currentDetailMaxLength) {
-      setSubmitErrorMessage(DETAIL_LENGTH_ERROR_MESSAGE);
       addToast({
         type: 'error',
         title: '\u63d0\u4ea4\u5931\u8d25',
@@ -522,7 +518,6 @@ export function RightContentHeader() {
           payload?.msg?.trim() ||
           payload?.error?.trim() ||
           `\u63d0\u4ea4\u5931\u8d25\uff08HTTP ${response.status}\uff09`;
-        setSubmitErrorMessage(message);
         addToast({
           type: 'error',
           title: '\u63d0\u4ea4\u5931\u8d25',
@@ -540,7 +535,6 @@ export function RightContentHeader() {
           payload?.msg?.trim() ||
           payload?.error_code ||
           payload?.errorCode || '';
-        setSubmitErrorMessage(message);
         addToast({
           type: 'error',
           title: '\u63d0\u4ea4\u5931\u8d25',
@@ -550,7 +544,6 @@ export function RightContentHeader() {
         return;
       }
 
-      setSubmitErrorMessage('');
       addToast({
         type: 'success',
         title: '\u63d0\u4ea4\u6210\u529f',
@@ -560,7 +553,6 @@ export function RightContentHeader() {
       closeFeedbackPopover();
     } catch (error) {
       const message = error instanceof Error && error.message ? error.message : '\u7f51\u7edc\u5f02\u5e38';
-      setSubmitErrorMessage(message);
       addToast({
         type: 'error',
         title: '\u63d0\u4ea4\u5931\u8d25',
@@ -576,6 +568,7 @@ export function RightContentHeader() {
     currentIssueOptions,
     currentSelectedIssues,
     closeFeedbackPopover,
+    isHighScoreDetailVisible,
     isLowScoreDetailVisible,
     isSubmittingFeedback,
     lowScoreDetail,
@@ -583,8 +576,111 @@ export function RightContentHeader() {
     selectedScore,
   ]);
 
+  const dragStateRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+  });
+
+  const handleHeaderMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 只响应左键
+      if (e.button !== 0) {
+        return;
+      }
+
+      // 排除按钮点击
+      if ((e.target as HTMLElement).closest('.ui-content-header-action')) {
+        return;
+      }
+
+      // 排除弹窗区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-popover')) {
+        return;
+      }
+
+      // 排除反馈锚点区域（笑脸按钮的容器）
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-anchor')) {
+        return;
+      }
+
+      // 记录鼠标按下的位置，等待 mousemove
+      dragStateRef.current = {
+        isDragging: false,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+    },
+    [],
+  );
+
+  const handleHeaderDoubleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 排除按钮点击
+      if ((e.target as HTMLElement).closest('.ui-content-header-action')) {
+        return;
+      }
+
+      // 排除弹窗区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-popover')) {
+        return;
+      }
+
+      // 排除反馈锚点区域
+      if ((e.target as HTMLElement).closest('.ui-content-header-feedback-anchor')) {
+        return;
+      }
+
+      // 双击时切换最大化
+      toggleMaximize();
+    },
+    [toggleMaximize],
+  );
+
+  // 监听全局 mousemove 和 mouseup
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const state = dragStateRef.current;
+      // 如果鼠标按下了，但还没开始拖动
+      if (state.startX !== 0 && !state.isDragging) {
+        // 计算鼠标移动距离
+        const deltaX = Math.abs(e.clientX - state.startX);
+        const deltaY = Math.abs(e.clientY - state.startY);
+        // 如果移动超过 5px，认为是拖动意图
+        if (deltaX > 5 || deltaY > 5) {
+          state.isDragging = true;
+          // 触发拖动
+          startDrag();
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      // 重置状态
+      dragStateRef.current = {
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+      };
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [startDrag]);
+
   return (
-    <div ref={headerRef} className="ui-content-header" data-testid="right-content-header">
+    <div
+      ref={headerRef}
+      className="ui-content-header"
+      data-testid="right-content-header"
+      onMouseDown={handleHeaderMouseDown}
+      onDoubleClick={handleHeaderDoubleClick}
+    >
       <div aria-hidden="true" />
       <div className="ui-content-header-actions">
         <div className="ui-content-header-feedback-anchor">
@@ -640,23 +736,24 @@ export function RightContentHeader() {
                         aria-pressed={selectedScore === score}
                         className={
                           selectedScore === score
-                            ? isHighScoreDetailVisible
-                              ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-positive'
-                              : isVeryLowScoreDetailVisible
-                                ? 'ui-content-header-feedback-score ui-content-header-feedback-score-active-negative'
-                              : 'ui-content-header-feedback-score ui-content-header-feedback-score-active-warning'
+                            ? 'ui-content-header-feedback-score ui-content-header-feedback-score-selected'
                             : 'ui-content-header-feedback-score'
                         }
                       >
-                        {selectedScore === score
-                          ? isHighScoreDetailVisible
-                            ? '\ud83d\ude42'
-                            : isVeryLowScoreDetailVisible
-                              ? '\u2639\ufe0f'
-                              : isLowScoreDetailVisible
-                              ? '\ud83d\ude10'
-                              : score
-                          : score}
+                        {selectedScore === score ? (
+                          <span className="flex h-full w-full items-center justify-center">
+                            <img
+                              src={getSelectedScoreIconSrc(score) ?? ''}
+                              alt=""
+                              aria-hidden="true"
+                              width={24}
+                              height={24}
+                              className="h-6 w-6 object-contain"
+                            />
+                          </span>
+                        ) : (
+                          score
+                        )}
                       </button>
                     ))}
                   </div>
@@ -698,11 +795,6 @@ export function RightContentHeader() {
                             );
                           })}
                         </div>
-                        {isLowScoreDetailVisible && isIssueRequiredError ? (
-                          <p className="ui-content-header-feedback-other-error">
-                            {REQUIRED_SELECT_ERROR_MESSAGE}
-                          </p>
-                        ) : null}
                         {isOtherIssueSelected ? (
                           <>
                             <input
@@ -712,7 +804,7 @@ export function RightContentHeader() {
                               value={otherIssueDetail}
                               onChange={(event) => handleOtherIssueDetailChange(event.target.value)}
                             />
-                            {isLowScoreDetailVisible && isOtherIssueRequiredError ? (
+                            {isOtherIssueRequiredError ? (
                               <p className="ui-content-header-feedback-other-error">
                                 {REQUIRED_INPUT_ERROR_MESSAGE}
                               </p>
@@ -722,6 +814,11 @@ export function RightContentHeader() {
                               </p>
                             ) : null}
                           </>
+                        ) : null}
+                        {isIssueRequiredError ? (
+                          <p className="ui-content-header-feedback-other-error">
+                            {REQUIRED_SELECT_ERROR_MESSAGE}
+                          </p>
                         ) : null}
                       </div>
                       <div className="ui-content-header-feedback-low-score-section">
@@ -743,11 +840,7 @@ export function RightContentHeader() {
                             {lowScoreDetail.length}/{currentDetailMaxLength}
                           </span>
                         </div>
-                        {isLowScoreDetailVisible && isDetailRequiredError ? (
-                          <p className="ui-content-header-feedback-detail-error">
-                            {REQUIRED_INPUT_ERROR_MESSAGE}
-                          </p>
-                        ) : isDetailTooLong ? (
+                        {isDetailTooLong ? (
                           <p className="ui-content-header-feedback-detail-error">
                             {DETAIL_LENGTH_ERROR_MESSAGE}
                           </p>
@@ -758,9 +851,6 @@ export function RightContentHeader() {
                 </div>
                 {isLowScoreDetailVisible || isHighScoreDetailVisible ? (
                   <div className="ui-content-header-feedback-low-score-actions">
-                    {submitErrorMessage ? (
-                      <p className="mr-3 self-center text-xs text-red-600">{submitErrorMessage}</p>
-                    ) : null}
                     <button
                       type="button"
                       className="ui-button-default ui-modal-action-button"
@@ -784,13 +874,13 @@ export function RightContentHeader() {
           ) : null}
         </div>
         <div className="ui-content-header-divider" data-testid="right-content-header-divider" aria-hidden="true" />
-        <HeaderAction title={'\u6700\u5c0f\u5316'}>
+        <HeaderAction title={'\u6700\u5c0f\u5316'} onClick={minimize}>
           <WindowMinimizeIcon />
         </HeaderAction>
-        <HeaderAction title={'\u6700\u5927\u5316'}>
-          <WindowMaximizeIcon />
+        <HeaderAction title={isMaximized ? '\u8fd8\u539f' : '\u6700\u5927\u5316'} onClick={toggleMaximize} disabled={!canMaximize}>
+          {isMaximized ? <WindowRestoreIcon /> : <WindowMaximizeIcon />}
         </HeaderAction>
-        <HeaderAction title={'\u5173\u95ed'}>
+        <HeaderAction title={'\u5173\u95ed'} onClick={close}>
           <WindowCloseIcon />
         </HeaderAction>
       </div>

@@ -221,7 +221,7 @@ describe('OpenCodeAgentService', () => {
       const promise = collect(
         service.invoke('Test', {
           callbackEnv: {
-            CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'subscription',
+            OFFICE_CLAW_ANTHROPIC_PROFILE_MODE: 'subscription',
           },
         }),
       );
@@ -340,7 +340,7 @@ describe('OpenCodeAgentService', () => {
     assert.strictEqual(doneMessages.length, 1, `expected exactly 1 done, got ${doneMessages.length}`);
   });
 
-  // ── P1-2: CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE via callbackEnv ──
+  // ── P1-2: OFFICE_CLAW_ANTHROPIC_MODEL_OVERRIDE via callbackEnv ──
 
   test('callbackEnv MODEL_OVERRIDE overrides constructor model in -m arg', async () => {
     const proc = createMockProcess();
@@ -348,7 +348,7 @@ describe('OpenCodeAgentService', () => {
     const service = new OpenCodeAgentService({ catId: 'opencode', spawnFn, model: 'claude-sonnet-4-6' });
     const promise = collect(
       service.invoke('Test', {
-        callbackEnv: { CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE: 'claude-haiku-4-5' },
+        callbackEnv: { OFFICE_CLAW_ANTHROPIC_MODEL_OVERRIDE: 'claude-haiku-4-5' },
       }),
     );
     emitOpenCodeEvents(proc, [STEP_START, TEXT_RESPONSE, STEP_FINISH]);
@@ -365,13 +365,13 @@ describe('OpenCodeAgentService', () => {
 
   // ── Base URL passthrough: no /v1 auto-append ──
 
-  test('callbackEnv CAT_CAFE_ANTHROPIC_BASE_URL is passed through as-is', async () => {
+  test('callbackEnv OFFICE_CLAW_ANTHROPIC_BASE_URL is passed through as-is', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new OpenCodeAgentService({ catId: 'opencode', spawnFn, model: 'claude-haiku-4-5' });
     const promise = collect(
       service.invoke('Test', {
-        callbackEnv: { CAT_CAFE_ANTHROPIC_BASE_URL: 'http://127.0.0.1:9877/a247a834' },
+        callbackEnv: { OFFICE_CLAW_ANTHROPIC_BASE_URL: 'http://127.0.0.1:9877/a247a834' },
       }),
     );
     emitOpenCodeEvents(proc, [STEP_START, TEXT_RESPONSE, STEP_FINISH]);
@@ -391,7 +391,7 @@ describe('OpenCodeAgentService', () => {
     const service = new OpenCodeAgentService({ catId: 'opencode', spawnFn, model: 'claude-haiku-4-5' });
     const promise = collect(
       service.invoke('Test', {
-        callbackEnv: { CAT_CAFE_ANTHROPIC_BASE_URL: 'http://127.0.0.1:9877/slug/v1' },
+        callbackEnv: { OFFICE_CLAW_ANTHROPIC_BASE_URL: 'http://127.0.0.1:9877/slug/v1' },
       }),
     );
     emitOpenCodeEvents(proc, [STEP_START, TEXT_RESPONSE, STEP_FINISH]);
@@ -433,11 +433,11 @@ describe('OpenCodeAgentService', () => {
     const promise = collect(
       service.invoke('Test', {
         callbackEnv: {
-          OPENCODE_CONFIG: '/tmp/.cat-cafe/opencode-runtime-test.json',
-          CAT_CAFE_OC_API_KEY: 'sk-custom-key',
-          CAT_CAFE_OC_BASE_URL: 'https://maas.example.com/v1',
-          CAT_CAFE_ANTHROPIC_API_KEY: 'sk-should-be-cleared',
-          CAT_CAFE_ANTHROPIC_BASE_URL: 'https://should-be-cleared.example.com',
+          OPENCODE_CONFIG: '/tmp/.office-claw/opencode-runtime-test.json',
+          OFFICE_CLAW_OC_API_KEY: 'sk-custom-key',
+          OFFICE_CLAW_OC_BASE_URL: 'https://maas.example.com/v1',
+          OFFICE_CLAW_ANTHROPIC_API_KEY: 'sk-should-be-cleared',
+          OFFICE_CLAW_ANTHROPIC_BASE_URL: 'https://should-be-cleared.example.com',
         },
       }),
     );
@@ -446,9 +446,9 @@ describe('OpenCodeAgentService', () => {
 
     const opts = spawnFn.mock.calls[0].arguments[2];
     // OPENCODE_CONFIG and OC credentials must be present
-    assert.strictEqual(opts.env.OPENCODE_CONFIG, '/tmp/.cat-cafe/opencode-runtime-test.json');
-    assert.strictEqual(opts.env.CAT_CAFE_OC_API_KEY, 'sk-custom-key');
-    assert.strictEqual(opts.env.CAT_CAFE_OC_BASE_URL, 'https://maas.example.com/v1');
+    assert.strictEqual(opts.env.OPENCODE_CONFIG, '/tmp/.office-claw/opencode-runtime-test.json');
+    assert.strictEqual(opts.env.OFFICE_CLAW_OC_API_KEY, 'sk-custom-key');
+    assert.strictEqual(opts.env.OFFICE_CLAW_OC_BASE_URL, 'https://maas.example.com/v1');
     // Anthropic env vars must be cleared to prevent builtin provider conflict
     assert.strictEqual(opts.env.ANTHROPIC_API_KEY, undefined);
     assert.strictEqual(opts.env.ANTHROPIC_BASE_URL, undefined);
@@ -463,8 +463,8 @@ describe('OpenCodeAgentService', () => {
     const promise = collect(
       service.invoke('Test', {
         callbackEnv: {
-          CAT_CAFE_ANTHROPIC_API_KEY: 'sk-normal-key',
-          CAT_CAFE_ANTHROPIC_BASE_URL: 'https://proxy.example.com/v1',
+          OFFICE_CLAW_ANTHROPIC_API_KEY: 'sk-normal-key',
+          OFFICE_CLAW_ANTHROPIC_BASE_URL: 'https://proxy.example.com/v1',
         },
       }),
     );

@@ -16,8 +16,8 @@ import type {
   CliConfig,
   CoCreatorConfig,
   ContextBudget,
-} from '@cat-cafe/shared';
-import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
+} from '@office-claw/shared';
+import { CAT_CONFIGS, createCatId } from '@office-claw/shared';
 import { clearBudgetCache } from './cat-budgets.js';
 import { bootstrapCatCatalog, readCatCatalog, resolveCatCatalogPath } from './cat-catalog-store.js';
 import { _resetCachedConfig, loadCatConfig, toAllCatConfigs } from './cat-config-loader.js';
@@ -150,7 +150,7 @@ function invalidateRuntimeCatalogCaches(): void {
 
 function validatePersistedCatalog(projectRoot: string): CatCafeConfig {
   invalidateRuntimeCatalogCaches();
-  return loadCatConfig(join(projectRoot, '.cat-cafe', 'cat-catalog.json'));
+  return loadCatConfig(join(projectRoot, '.office-claw', 'office-claw-catalog.json'));
 }
 
 function assertUniqueMentionAliases(catalog: CatCafeConfig): void {
@@ -527,9 +527,9 @@ export function updateRuntimeCoCreator(projectRoot: string, patch: RuntimeCoCrea
   }
 
   const currentOwner = (catalog.coCreator ?? {
-    name: '铲屎官',
+    name: '用户',
     aliases: [],
-    mentionPatterns: ['@co-creator', '@铲屎官'],
+    mentionPatterns: ['@co-creator', '@用户'],
   }) as CoCreatorConfig;
 
   const nextOwner: Record<string, unknown> = {

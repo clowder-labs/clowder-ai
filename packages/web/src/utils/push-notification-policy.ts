@@ -18,6 +18,8 @@ export interface PushNotificationPayload {
 }
 
 export const PUSH_TEST_NOTIFICATION_TAG = 'push-test';
+export const OFFICE_DECISION_TAG_PREFIX = 'office-decision-';
+export const LEGACY_DECISION_TAG_PREFIX = 'cat-decision-';
 
 export function isPushTestNotificationTag(tag: string | undefined): boolean {
   return tag === PUSH_TEST_NOTIFICATION_TAG;
@@ -39,7 +41,8 @@ export function shouldForceSystemNotification(payload: PushNotificationPayload):
   const tag = payload.tag ?? '';
   if (isPushTestNotificationTag(tag)) return true;
   if (tag.startsWith('auth-')) return true;
-  if (tag.startsWith('cat-decision-')) return true;
+  if (tag.startsWith(OFFICE_DECISION_TAG_PREFIX)) return true;
+  if (tag.startsWith(LEGACY_DECISION_TAG_PREFIX)) return true;
 
   return isDecisionLikeText(payload);
 }

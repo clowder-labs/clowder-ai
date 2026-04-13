@@ -35,6 +35,8 @@
         "python-docx",
         "xlsxwriter",
         "pypdf",
+        "pdfplumber",
+        "pandas",
         "reportlab",
         "markitdown",
         "relay-teams"
