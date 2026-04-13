@@ -21,6 +21,13 @@ export {
   type AomMetricsReporterResult,
 } from './aom-reporter.js';
 export {
+  fetchAomAccessCode,
+  buildAomEndpoint,
+  extractRegion,
+  type CasCredential,
+  type AomAccessCodeResult,
+} from './aom-access-code-client.js';
+export {
   tokenUsageCollector,
   type TokenUsageRecord,
   type TokenUsageAggregated,
@@ -30,4 +37,11 @@ export {
   createTokenUsageReporter,
   type TokenUsageReporterConfig,
 } from './token-usage-reporter.js';
-export { initMetricsService, reportMetric } from './metrics-service.js';
+export {
+  initMetricsService,
+  initMetricsServiceFromCredential,
+  startTokenUsageReporter,
+  getMetricsReporter,
+  resetMetricsReporter,
+  reportMetric,
+} from './metrics-service.js';
