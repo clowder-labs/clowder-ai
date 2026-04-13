@@ -248,4 +248,126 @@ describe('relayclaw security config route', () => {
       });
     }
   });
+
+  it('reuses the live runtime URL without restarting the sidecar', async () => {
+    const agentRegistry = new AgentRegistry();
+    const requestQueues = new Map();
+    const calls = [];
+
+    agentRegistry.register('jiuwenclaw', {
+      invoke() {
+        throw new Error('not used in this test');
+      },
+      listRelayClawRuntimeHandles() {
+        return [
+          {
+            scopeKey: 'scope-live',
+            homeDir: '/tmp/scope-live',
+            resolvedUrl: 'ws://127.0.0.1:19093',
+            requestQueues,
+            sidecar: {
+              async ensureStarted() {
+                throw new Error('sidecar.ensureStarted should not be called for live targets');
+              },
+              stop() {},
+              getRecentLogs() {
+                return '';
+              },
+            },
+            connection: {
+              async ensureConnected(url) {
+                calls.push({ type: 'connect', url });
+              },
+              send(payload) {
+                calls.push({ type: payload.req_method, params: payload.params });
+                const queue = requestQueues.get(payload.request_id);
+                assert.ok(queue, 'request queue should exist before send');
+                if (payload.req_method === 'config.get') {
+                  queue.put({
+                    ok: true,
+                    payload: {
+                      trees: {
+                        permissions: {
+                          enabled: true,
+                          tools: { write_memory: 'ask' },
+                        },
+                      },
+                    },
+                  });
+                  return;
+                }
+                queue.put({
+                  ok: true,
+                  payload: {
+                    updated_top_level_keys: ['permissions'],
+                    reloaded: true,
+                  },
+                });
+              },
+              close() {},
+              isOpen() {
+                return true;
+              },
+            },
+          },
+        ];
+      },
+    });
+
+    app = Fastify();
+    await app.register(configRoutes, {
+      agentRegistry,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/config/relayclaw/security',
+      headers: { 'x-cat-cafe-user': 'security-admin' },
+      payload: {
+        permissions: {
+          enabled: true,
+          tools: {
+            write_memory: 'ask',
+          },
+        },
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.json(), {
+      permissions: {
+        enabled: true,
+        tools: {
+          write_memory: 'ask',
+        },
+      },
+    });
+    assert.deepEqual(calls, [
+      { type: 'connect', url: 'ws://127.0.0.1:19093' },
+      {
+        type: 'config.set',
+        params: {
+          config_yaml: {
+            permissions: {
+              enabled: true,
+              tools: {
+                write_memory: 'ask',
+              },
+            },
+          },
+        },
+      },
+      {
+        type: 'connect',
+        url: 'ws://127.0.0.1:19093',
+      },
+      {
+        type: 'config.get',
+        params: {
+          config_paths: ['permissions'],
+        },
+      },
+    ]);
+  });
 });

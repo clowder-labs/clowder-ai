@@ -330,9 +330,9 @@ FunctionEnd
 Function AcquireInstallerSessionMutex
   ; Keep a process-lifetime mutex so parallel installer/uninstaller instances
   ; cannot race on the same install dir, payload archive, or uninstall registry.
-  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0'
+  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0 ?e'
   StrCpy $InstallerMutexHandle $0
-  System::Call 'kernel32::GetLastError() i.r1'
+  Pop $1
   ${If} $1 == 183
     MessageBox MB_OK|MB_ICONEXCLAMATION "检测到另一个 ${APP_NAME} 安装或卸载正在进行。$\r$\n$\r$\n请先完成当前安装向导后再试。"
     Abort
@@ -342,9 +342,9 @@ FunctionEnd
 Function un.AcquireInstallerSessionMutex
   ; Keep a process-lifetime mutex so parallel installer/uninstaller instances
   ; cannot race on the same install dir, payload archive, or uninstall registry.
-  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0'
+  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0 ?e'
   StrCpy $InstallerMutexHandle $0
-  System::Call 'kernel32::GetLastError() i.r1'
+  Pop $1
   ${If} $1 == 183
     MessageBox MB_OK|MB_ICONEXCLAMATION "检测到另一个 ${APP_NAME} 安装或卸载正在进行。$\r$\n$\r$\n请先完成当前安装向导后再试。"
     Abort
