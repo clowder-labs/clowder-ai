@@ -22,7 +22,7 @@ vi.mock('@/utils/userId', () => ({
 
 const mockApiFetch = vi.mocked(apiFetch);
 const mockGetIsSkipAuth = vi.mocked(getIsSkipAuth);
-const SEARCH_INPUT_SELECTOR = 'input[type="search"]';
+const SEARCH_INPUT_SELECTOR = 'input[aria-label="搜索模型"]';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -177,6 +177,15 @@ describe('ModelsPanel search', () => {
                 baseUrl: 'https://proxy.example.com/v1',
                 apiKey: 'sk-test',
                 models: ['gpt-5'],
+                createdAt: '2026-04-13T08:09:10',
+              },
+              {
+                id: 'huawei-access',
+                displayName: 'Huawei Access',
+                description: 'self connected huawei maas model',
+                baseUrl: 'https://api.modelarts-maas.com/openai/v1',
+                models: ['glm-4.5'],
+                createdAt: '2026-04-14T09:10:11',
               },
             ],
           }),
@@ -493,7 +502,7 @@ describe('ModelsPanel search', () => {
     expect(container.textContent).toContain('自接入华为云 MaaS (1)');
     expect(container.textContent).toContain('text-gen');
     expect(container.textContent).toContain('DeepSeek');
-    expect(container.textContent).toContain('其他');
+    expect(container.textContent).toContain('2026/04/14 09:10:11');
   });
 
   it('keeps Huawei MaaS access edit modal title and URL locked', async () => {
@@ -586,12 +595,15 @@ describe('ModelsPanel search', () => {
 
     const input = container.querySelector(SEARCH_INPUT_SELECTOR) as HTMLInputElement | null;
     expect(input).not.toBeNull();
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/maas-models');
+    expect(mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(mockApiFetch.mock.calls.map((call) => String(call[0]))).toEqual([
+      '/api/maas-models',
+      '/api/model-config-profiles',
+    ]);
 
     await changeInputValue(input!, 'deepseek');
 
-    expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    expect(mockApiFetch).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain('deepseek-r1');
     expect(container.textContent).not.toContain('gpt-5');
   });
@@ -652,7 +664,7 @@ describe('ModelsPanel search', () => {
     await clickButton(refreshButton!);
     await flushEffects();
 
-    expect(mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(mockApiFetch).toHaveBeenCalledTimes(4);
     expect(container.textContent).toContain('deepseek-r1');
     expect(container.textContent).not.toContain('gpt-5');
   });
@@ -688,6 +700,24 @@ describe('ModelsPanel search', () => {
     ) as HTMLImageElement | null;
     expect(icon).not.toBeNull();
     expect(icon?.getAttribute('src')).toBe('http://localhost:3004/uploads/gpt-5.png');
+  });
+
+  it('shows clock metadata with formatted created time for custom models', async () => {
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const createdAt = container.querySelector(
+      '[data-testid="model-card-created-at-model_config:gpt-source:gpt-5"]',
+    ) as HTMLSpanElement | null;
+    const createdAtIcon = container.querySelector(
+      '[data-testid="model-card-created-at-icon-model_config:gpt-source:gpt-5"] svg',
+    ) as SVGElement | null;
+
+    expect(createdAt).not.toBeNull();
+    expect(createdAt?.textContent).toBe('2026/04/13 08:09:10');
+    expect(createdAtIcon).not.toBeNull();
   });
 
   it('prefixes uploaded model icons with API_URL in edit modal preview', async () => {

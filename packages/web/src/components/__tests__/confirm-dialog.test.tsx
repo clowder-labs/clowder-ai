@@ -67,9 +67,7 @@ describe('ConfirmDialog', () => {
 
     expect(cancelButton?.className).toContain('ui-button-default');
     expect(cancelButton?.className).not.toContain('ui-button-secondary');
-    expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
-    expect(confirmButton?.className).toContain('ui-modal-action-button');
   });
 
   it('uses danger button styling for destructive confirm flow', () => {
@@ -89,6 +87,5 @@ describe('ConfirmDialog', () => {
 
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '删除');
     expect(confirmButton?.className).toContain('ui-button-danger');
-    expect(confirmButton?.className).toContain('ui-modal-action-button');
   });
 });

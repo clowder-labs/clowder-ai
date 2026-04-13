@@ -601,7 +601,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
             type="button"
             onClick={handleClose}
             aria-label="close"
-            className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
+            className="flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
           >
             <CloseIcon />
           </button>
@@ -778,7 +778,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={handleClose} className="ui-button-default ui-modal-action-button">
+          <button type="button" onClick={handleClose} className="ui-button-default">
             取消
           </button>
           {uploadDisabledReason ? (
@@ -788,7 +788,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitDisabled}
-                  className="ui-button-primary ui-modal-action-button disabled:cursor-not-allowed disabled:opacity-50"
+                  className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {uploading ? '导入中...' : '导入'}
                 </button>
@@ -800,7 +800,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitDisabled}
-                className="ui-button-primary ui-modal-action-button disabled:cursor-not-allowed disabled:opacity-50"
+                className="ui-button-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {uploading ? '导入中...' : '导入'}
               </button>

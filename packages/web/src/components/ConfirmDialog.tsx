@@ -62,21 +62,21 @@ export function ConfirmDialog({
 
   const canConfirm = requireInput ? inputValue === requireInput : true;
   const confirmButtonClass =
-    variant === 'danger' ? 'ui-button-danger ui-modal-action-button' : 'ui-button-primary ui-modal-action-button';
+    variant === 'danger' ? 'ui-button-danger' : 'ui-button-primary';
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-[8px] shadow-xl p-6 max-w-sm w-full mx-4">
-        <div className="mb-2 flex items-center justify-between">
+      <div className="relative bg-white rounded-[8px] shadow-xl p-6 max-w-[400px] w-full mx-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="close"
+          className="absolute right-5 top-5 flex h-6 w-6 items-center justify-center rounded text-[var(--text-label-secondary)] transition-colors hover:text-[var(--text-primary)]"
+        >
+          <CloseIcon />
+        </button>
+        <div className="mb-2 pr-10">
           <h3 className="text-base font-semibold">{title}</h3>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label="close"
-            className="flex h-6 w-6 items-center justify-center rounded text-[#5F6775] transition-colors hover:bg-[#F7F8FA]"
-          >
-            <CloseIcon />
-          </button>
         </div>
         <p className="text-sm text-gray-600 mb-4 whitespace-pre-wrap">{message}</p>
         {requireInput && (
@@ -92,7 +92,7 @@ export function ConfirmDialog({
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="ui-button-default ui-modal-action-button"
+            className="ui-button-default"
           >
             {cancelLabel}
           </button>
