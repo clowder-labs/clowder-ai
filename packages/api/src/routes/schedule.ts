@@ -79,6 +79,12 @@ export function extractThreadId(subjectKey: string): string | null {
   return null;
 }
 
+function formatTriggerForLog(trigger: TriggerSpec): string {
+  if (trigger.type === 'interval') return `interval:${trigger.ms}ms`;
+  if (trigger.type === 'once') return `once:${new Date(trigger.fireAt).toISOString()}`;
+  return `cron:${trigger.expression}${trigger.timezone ? `@${trigger.timezone}` : ''}`;
+}
+
 function pickString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
@@ -167,13 +173,18 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
   // POST /api/schedule/tasks/:id/trigger
   app.post('/api/schedule/tasks/:id/trigger', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
     const registered = taskRunner.getRegisteredTasks();
     if (!registered.includes(id)) {
       reply.status(404);
       return { error: 'Task not found' };
     }
 
+    const summary = taskRunner.getTaskSummaries().find((task) => task.id === id);
+    const triggerInfo = summary ? formatTriggerForLog(summary.trigger) : 'unknown';
+    app.log.info(`[schedule] manual trigger requested task=${id} trigger=${triggerInfo} requestedBy=${requestedBy}`);
     await taskRunner.triggerNow(id, { manual: true });
+    app.log.info(`[schedule] manual trigger completed task=${id} trigger=${triggerInfo} requestedBy=${requestedBy}`);
     return { success: true, taskId: id };
   });
 
@@ -302,6 +313,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       trigger = body.trigger ?? template.defaultTrigger;
     }
     const params = body.params ?? {};
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
 
     if (typeof params !== 'object' || params === null || Array.isArray(params)) {
       reply.status(400);
@@ -368,8 +380,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       return { error: `Task registered but DB insert failed (rolled back): ${err instanceof Error ? err.message : String(err)}` };
     }
 
+    app.log.info(
+      `[schedule] registered dynamic task task=${id} template=${body.templateId} trigger=${formatTriggerForLog(trigger)} requestedBy=${requestedBy}`,
+    );
     notifyTaskRegistered(deliver, def);
-
     return { success: true, task: { id, ...display, trigger } };
   });
 
@@ -381,8 +395,9 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     const { id } = request.params as { id: string };
-    // Read def before deletion for notification
-    const defForNotify = dynamicTaskStore.getById(id);
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
+    // Read def before deletion for notification + logging
+    const def = dynamicTaskStore.getById(id);
     const removed = dynamicTaskStore.remove(id);
     if (!removed) {
       reply.status(404);
@@ -390,10 +405,10 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
     }
 
     taskRunner.unregister(id);
+    app.log.info(`[schedule] deleted dynamic task task=${id} requestedBy=${requestedBy} taskInfo=${JSON.stringify(def)}`);
 
     // #415: lifecycle notification — task deleted
-    if (defForNotify) notifyTaskDeleted(deliver, defForNotify);
-
+    if (def) notifyTaskDeleted(deliver, def);
     return { success: true };
   });
 
@@ -406,6 +421,7 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
 
     const { id } = request.params as { id: string };
     const body = (request.body ?? {}) as { enabled?: boolean };
+    const requestedBy = resolveHeaderUserId(request) ?? 'default-user';
 
     if (typeof body.enabled !== 'boolean') {
       reply.status(400);
@@ -443,11 +459,11 @@ export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (
       }
     }
 
+    app.log.info(`[schedule] updated dynamic task enabled state task=${id} enabled=${body.enabled} requestedBy=${requestedBy}`);
     if (def) {
       if (!body.enabled) notifyTaskPaused(deliver, def);
       else notifyTaskResumed(deliver, def);
     }
-
     return { success: true, enabled: body.enabled };
   });
 
