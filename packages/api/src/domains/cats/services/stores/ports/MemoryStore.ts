@@ -9,7 +9,7 @@
  * Part of F3-lite feature for Phase 4.0.
  */
 
-import type { MemoryEntry, MemoryInput } from '@cat-cafe/shared';
+import type { MemoryEntry, MemoryInput } from '@office-claw/shared';
 
 /** Maximum keys per thread to prevent memory bloat */
 export const MAX_KEYS_PER_THREAD = 50;

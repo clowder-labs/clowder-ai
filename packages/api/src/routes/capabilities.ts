@@ -30,8 +30,8 @@ import type {
   CatFamily,
   McpToolInfo,
   SkillHealthSummary,
-} from '@cat-cafe/shared';
-import { catRegistry } from '@cat-cafe/shared';
+} from '@office-claw/shared';
+import { catRegistry } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { parse as parseYaml } from 'yaml';
 import {
@@ -513,7 +513,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const providerSkills: Record<string, string[]> = {
-      anthropic: [...new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? []), ...(userInstalledSkills ?? [])])],
+      anthropic: [
+        ...new Set([...(claudeProjectSkills ?? []), ...(catCafeOwnSkills ?? []), ...(userInstalledSkills ?? [])]),
+      ],
       relayclaw: relayclawSkillNames,
     };
 
@@ -656,9 +658,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         cats,
       };
       const meta =
-        cap.source === 'builtin'
-          ? (manifestMetaMap.get(cap.id) ?? skillMetaMap.get(cap.id))
-          : skillMetaMap.get(cap.id);
+        cap.source === 'builtin' ? (manifestMetaMap.get(cap.id) ?? skillMetaMap.get(cap.id)) : skillMetaMap.get(cap.id);
       const installedDescription = installedDescriptionMap.get(cap.id);
       if (installedDescription) skillItem.description = installedDescription;
       else if (meta?.description) skillItem.description = meta.description;
@@ -881,7 +881,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const catCafeRoot = getProjectRoot();
     if (validated === catCafeRoot) {
       reply.status(400);
-      return { error: 'Cannot confirm governance for Cat Cafe itself' };
+      return { error: 'Cannot confirm governance for OfficeClaw itself' };
     }
 
     const { GovernanceBootstrapService } = await import('../config/governance/governance-bootstrap.js');

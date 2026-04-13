@@ -347,6 +347,8 @@ async function buildResolvedSkillEntries(options?: SkillCatalogServiceOptions): 
     parseManifestSkillMeta(roots.officialSkillsRoot),
     loadInstalledRegistry(roots.hostRoot),
   ]);
+  const officialSkillNameSet = new Set(officialSkillNames);
+  const userSkillNameSet = new Set(userSkillNames);
 
   const mergedOfficialSkillNameSet = new Set(officialSkillNames);
   const skillNames = [...officialSkillNames, ...userSkillNames.filter((name) => !mergedOfficialSkillNameSet.has(name))];

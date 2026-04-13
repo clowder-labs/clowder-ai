@@ -18,8 +18,8 @@
  * 7. Degrade to same-family lead if no cross-family reviewer available
  */
 
-import type { CatId, ReviewPolicy, Roster } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { CatId, ReviewPolicy, Roster } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
 import { getDefaultCatId, getReviewPolicy, getRoster } from '../../../../config/cat-config-loader.js';
 import { createModuleLogger } from '../../../../infrastructure/logger.js';
 

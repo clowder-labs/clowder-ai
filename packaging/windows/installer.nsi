@@ -686,7 +686,7 @@ Function un.CheckOfficeClawRunning
   ${EndIf}
 FunctionEnd
 
-; Delete all managed dirs/files in $INSTDIR, preserving user-data (.cat-cafe, data, logs, .env, cat-config.json).
+; Delete all managed dirs/files in $INSTDIR, preserving user-data (.office-claw, data, logs, .env, cat-config.json).
 ; Uses cmd /c rd /s /q for speed — handles tens of thousands of files near-instantly.
 !macro _CleanupManagedPayload
   nsExec::ExecToLog 'cmd /c if exist "$INSTDIR\packages" rd /s /q "$INSTDIR\packages"'
@@ -841,7 +841,7 @@ webview2_done:
 
   ; Run post-install configuration only for fresh installs.
   ; On overwrite installs, preserve an existing runtime catalog so user-created agents survive.
-  IfFileExists "$INSTDIR\.cat-cafe\cat-catalog.json" init_config_skip 0
+  IfFileExists "$INSTDIR\.office-claw\office-claw-catalog.json" init_config_skip 0
   DetailPrint "正在初始化配置..."
   nsExec::ExecToLog '"$INSTDIR\tools\node\node.exe" "$INSTDIR\scripts\install-auth-config.mjs" modelarts-preset apply --project-dir "$INSTDIR"'
   Pop $0

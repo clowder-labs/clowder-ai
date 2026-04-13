@@ -5,12 +5,12 @@
  */
 
 /**
- * @cat-cafe/shared
+ * @office-claw/shared
  * 共享类型和 schemas
  *
  * Note: Redis utils are NOT exported from root to avoid pulling
  * Node-only dependencies into frontend bundles.
- * Import from '@cat-cafe/shared/utils' instead.
+ * Import from '@office-claw/shared/utils' instead.
  */
 
 // Export registry (CatRegistry, catIdSchema, assertKnownCatId)

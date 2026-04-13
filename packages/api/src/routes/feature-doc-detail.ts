@@ -4,7 +4,7 @@
  *
  */
 
-import type { FeatureDocDetail } from '@cat-cafe/shared';
+import type { FeatureDocDetail } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import {
   parseFeatureDocDependencies,

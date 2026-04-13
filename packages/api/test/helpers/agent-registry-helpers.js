@@ -17,7 +17,7 @@
  * Safe to call multiple times (skips if already registered).
  */
 export async function ensureCatRegistryPopulated() {
-  const { catRegistry, CAT_CONFIGS } = await import('@cat-cafe/shared');
+  const { catRegistry, CAT_CONFIGS } = await import('@office-claw/shared');
   for (const [id, config] of Object.entries(CAT_CONFIGS)) {
     if (!catRegistry.has(id)) {
       catRegistry.register(id, config);

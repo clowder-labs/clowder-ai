@@ -15,8 +15,8 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { basename, join } from 'node:path';
-import type { CatId, RelayClawAgentConfig } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
+import { createCatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 

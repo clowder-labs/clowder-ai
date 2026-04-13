@@ -30,7 +30,7 @@ describe('RedisWorkflowSopStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : fal
     RedisWorkflowSopStore = storeModule.RedisWorkflowSopStore;
     const portModule = await import('../dist/domains/cats/services/stores/ports/WorkflowSopStore.js');
     VersionConflictError = portModule.VersionConflictError;
-    const redisModule = await import('@cat-cafe/shared/utils');
+    const redisModule = await import('@office-claw/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });
