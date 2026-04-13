@@ -967,7 +967,7 @@ def build_system_prompt(mode: str, language: str, channel: str, workspace_dir: P
     Args:
         mode: plan or agent
         language: language for system prompt
-        channel: channel
+        channel: channel id or session prefix (e.g. web, feishu, cron, __cron__ from scheduler)
         workspace_dir: per-request workspace override (jiuwenclaw is a long-running sidecar;
                        the env-var-based WORKSPACE_DIR is set once at startup and can be stale)
 
@@ -983,7 +983,9 @@ def build_system_prompt(mode: str, language: str, channel: str, workspace_dir: P
     system_prompt += _skills_prompt(language) + '\n'
     system_prompt += _tool_prompt(mode, language) + '\n'
     system_prompt += _workspace_prompt(language, workspace_dir=ws) + '\n'
-    if channel == "corn":
+    # Cron runs: session_id is "cron_..." (build_user_prompt uses that prefix); scheduler sets channel_id "__cron__".
+    _is_cron_channel = (channel or "").strip() in ("cron", "__cron__")
+    if _is_cron_channel:
         system_prompt += _memory_prompt(language, is_cron=True) + '\n'
     else:
         system_prompt += _memory_prompt(language, is_cron=False) + '\n'
