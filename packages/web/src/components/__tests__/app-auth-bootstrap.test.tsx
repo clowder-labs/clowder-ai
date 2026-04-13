@@ -9,7 +9,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppAuthBootstrap } from '../AppAuthBootstrap';
 import { apiFetch } from '@/utils/api-client';
-import { setIsSkipAuth } from '@/utils/userId';
+import { clearAuthIdentity, setIsSkipAuth } from '@/utils/userId';
 
 const mockReplace = vi.fn();
 const mockRouter = { replace: mockReplace };
@@ -25,10 +25,12 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 vi.mock('@/utils/userId', () => ({
+  clearAuthIdentity: vi.fn(),
   setIsSkipAuth: vi.fn(),
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockClearAuthIdentity = vi.mocked(clearAuthIdentity);
 const mockSetIsSkipAuth = vi.mocked(setIsSkipAuth);
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -60,6 +62,7 @@ describe('AppAuthBootstrap', () => {
     mockPathname = '/';
     mockReplace.mockReset();
     mockApiFetch.mockReset();
+    mockClearAuthIdentity.mockReset();
     mockSetIsSkipAuth.mockReset();
   });
 
@@ -96,6 +99,7 @@ describe('AppAuthBootstrap', () => {
     await flush();
 
     expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
+    expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/login');
     expect(container.textContent).not.toContain('ready');
   });

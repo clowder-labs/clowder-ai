@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, ReactNode, RefObject } from 'react';
+import { useDesktopWindowControls } from '@/hooks/useDesktopWindowControls';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
-import { getUserId } from '@/utils/userId';
-import { useDesktopWindowControls } from '@/hooks/useDesktopWindowControls';
+import { getIsSkipAuth, getUserId } from '@/utils/userId';
 
 function WindowSmileIcon() {
   return (
@@ -138,6 +138,7 @@ const LOW_SCORE_ISSUE_OPTIONS: IssueOption[] = [
 ];
 const FEEDBACK_DATE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/get/commit/date';
 const FEEDBACK_SAVE_ENDPOINT = 'https://voc.huaweicloud.com/survey-api/api/save';
+const FEEDBACK_DATE_CHECKED_KEY = 'cat-cafe:survey-feedback-date-checked';
 const FEEDBACK_CLOSE_TIME_KEY = 'feedbackCloseTime';
 const FEEDBACK_CLOSE_SUPPRESS_DAYS = 30;
 const FEEDBACK_RESURFACE_DAYS = 120;
@@ -183,7 +184,8 @@ function isWithinDays(timestamp: number, days: number): boolean {
 }
 
 type FeedbackDateResponse = {
-  data?: string;
+  data?: string | { latest_feedback_date?: string };
+  latest_feedback_date?: string;
 };
 
 type FeedbackSubmitAnswer = {
@@ -277,6 +279,9 @@ export function RightContentHeader() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (getIsSkipAuth()) return;
+    if (window.sessionStorage.getItem(FEEDBACK_DATE_CHECKED_KEY) === '1') return;
+    window.sessionStorage.setItem(FEEDBACK_DATE_CHECKED_KEY, '1');
 
     const dismissedAtRaw = window.localStorage.getItem(FEEDBACK_CLOSE_TIME_KEY);
     const dismissedAt = dismissedAtRaw ? Number(dismissedAtRaw) : Number.NaN;
@@ -294,14 +299,14 @@ export function RightContentHeader() {
       serviceId,
       contactId,
     });
-    const controller = new AbortController();
+    let cancelled = false;
 
     const fetchLatestFeedbackDate = async () => {
       try {
         const response = await fetch(`${FEEDBACK_DATE_ENDPOINT}?${query.toString()}`, {
           method: 'GET',
-          signal: controller.signal,
         });
+        if (cancelled) return;
         if (!response.ok) {
           resetFeedbackState();
           setIsAutoOpenedFeedback(true);
@@ -310,7 +315,15 @@ export function RightContentHeader() {
         }
 
         const payload = (await response.json()) as FeedbackDateResponse;
-        const latestFeedbackDate = typeof payload?.data === 'string' ? payload.data : '';
+        if (cancelled) return;
+        const latestFeedbackDate =
+          typeof payload?.latest_feedback_date === 'string'
+            ? payload.latest_feedback_date
+            : typeof payload?.data === 'string'
+              ? payload.data
+              : typeof payload?.data?.latest_feedback_date === 'string'
+                ? payload.data.latest_feedback_date
+                : '';
         const latestFeedbackTimestamp = latestFeedbackDate ? parseFeedbackDate(latestFeedbackDate) : null;
 
         if (!latestFeedbackTimestamp || !isWithinDays(latestFeedbackTimestamp, FEEDBACK_RESURFACE_DAYS)) {
@@ -330,7 +343,9 @@ export function RightContentHeader() {
 
     void fetchLatestFeedbackDate();
 
-    return () => controller.abort();
+    return () => {
+      cancelled = true;
+    };
   }, [resetFeedbackState]);
 
   useEffect(() => {

@@ -721,6 +721,24 @@ export function useChatHistory(threadId: string) {
     [threadId],
   );
 
+  const followLayoutChangeIfPinned = useCallback(
+    (behavior: ScrollBehavior = 'auto') => {
+      if (scrollPositionsByThread.get(threadId)?.anchor !== 'bottom') return;
+      if (autoFollowRafRef.current !== null) {
+        cancelAnimationFrame(autoFollowRafRef.current);
+      }
+      autoFollowRafRef.current = requestAnimationFrame(() => {
+        autoFollowRafRef.current = null;
+        messagesEndRef.current?.scrollIntoView({ behavior });
+        const scroller = scrollContainerRef.current;
+        if (scroller) {
+          scrollPositionsByThread.set(threadId, { top: scroller.scrollTop, anchor: 'bottom' });
+        }
+      });
+    },
+    [threadId],
+  );
+
   // Snapshot scroll height before history load
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -834,6 +852,7 @@ export function useChatHistory(threadId: string) {
     scrollContainerRef,
     messagesEndRef,
     scrollToBottom,
+    followLayoutChangeIfPinned,
     isLoadingHistory,
     hasMore,
   };
