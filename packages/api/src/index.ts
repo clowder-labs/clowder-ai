@@ -631,6 +631,7 @@ async function main(): Promise<void> {
     const { DynamicTaskStore } = await import('./infrastructure/scheduler/DynamicTaskStore.js');
     const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
     const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
+    taskRunnerV2.setDynamicTaskStore(dynamicTaskStore);
 
     // Schedule panel API routes
     const { scheduleRoutes } = await import('./routes/schedule.js');
@@ -642,6 +643,7 @@ async function main(): Promise<void> {
       templateRegistry,
       globalControlStore,
       packTemplateStore,
+      deliver: schedulerDeliver,
     });
 
     // Hydrate persisted dynamic tasks + start
