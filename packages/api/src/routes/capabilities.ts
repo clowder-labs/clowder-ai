@@ -46,6 +46,7 @@ import {
   writeCapabilitiesConfig,
 } from '../config/capabilities/capability-orchestrator.js';
 import { loadInstalledRegistry } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
+import { ensureSkillStorageMigrated } from '../domains/cats/services/skillhub/SkillStorageMigration.js';
 import { resolveUserSkillsRoot } from '../domains/cats/services/skillhub/SkillPaths.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
 import { pathsEqual, validateProjectPath } from '../utils/project-path.js';
@@ -485,6 +486,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
 
     // Scan office-claw-skills/ for official skills
     const hostRoot = resolveCatCafeHostRoot(process.cwd());
+    await ensureSkillStorageMigrated(hostRoot);
     const catCafeSkillsDir = CAT_CAFE_SKILLS_SRC;
     const userInstalledSkillsDir = resolveUserSkillsRoot(hostRoot);
     const catCafeOwnSkills = await listSkillSubdirs(catCafeSkillsDir);

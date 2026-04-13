@@ -41,6 +41,7 @@ import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueP
 import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
+import { getJiuwenPermissionBridge } from './domains/cats/services/auth/JiuwenPermissionBridge.js';
 import {
   AgentRouter,
   AuditEventTypes,
@@ -631,6 +632,7 @@ async function main(): Promise<void> {
     const { DynamicTaskStore } = await import('./infrastructure/scheduler/DynamicTaskStore.js');
     const { templateRegistry } = await import('./infrastructure/scheduler/templates/registry.js');
     const dynamicTaskStore = new DynamicTaskStore(schedulerDb);
+    taskRunnerV2.setDynamicTaskStore(dynamicTaskStore);
 
     // Schedule panel API routes
     const { scheduleRoutes } = await import('./routes/schedule.js');
@@ -638,9 +640,11 @@ async function main(): Promise<void> {
       taskRunner: taskRunnerV2,
       registry,
       dynamicTaskStore,
+      threadStore,
       templateRegistry,
       globalControlStore,
       packTemplateStore,
+      deliver: schedulerDeliver,
     });
 
     // Hydrate persisted dynamic tasks + start
@@ -995,6 +999,7 @@ async function main(): Promise<void> {
     auditStore: authAuditStore,
     io: socketManager.getIO(),
   });
+  getJiuwenPermissionBridge().bindAuthorizationManager(authManager);
   const connectorBindingStore = redisClient
     ? new RedisConnectorThreadBindingStore(redisClient)
     : new MemoryConnectorThreadBindingStore();
@@ -1052,7 +1057,9 @@ async function main(): Promise<void> {
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
-  const configRouteOpts: Parameters<typeof configRoutes>[1] = {};
+  const configRouteOpts: Parameters<typeof configRoutes>[1] = {
+    agentRegistry,
+  };
   await app.register(configRoutes, configRouteOpts);
   await app.register(featureDocDetailRoutes);
   await app.register(modelConfigProfilesRoutes);

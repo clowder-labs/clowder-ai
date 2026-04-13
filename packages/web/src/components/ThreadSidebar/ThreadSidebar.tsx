@@ -7,7 +7,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
@@ -229,7 +229,6 @@ export function ThreadSidebar({
 
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      handleScroll();
       el.removeEventListener('scroll', handleScroll);
     };
   }, []);
@@ -263,12 +262,12 @@ export function ThreadSidebar({
         restoreFrameRef.current = requestAnimationFrame(apply);
       };
 
-      restoreFrameRef.current = requestAnimationFrame(apply);
+      apply();
     },
     [cancelPendingScrollRestore],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     scheduleScrollRestore(readSidebarScrollTop());
     return cancelPendingScrollRestore;
   }, [threads.length, isLoadingThreads, pathname, scheduleScrollRestore, cancelPendingScrollRestore]);
@@ -975,10 +974,10 @@ export function ThreadSidebar({
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default ui-modal-action-button">
+            <button type="button" onClick={() => setDeleteTarget(null)} className="ui-button-default">
               取消
             </button>
-            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary ui-modal-action-button">
+            <button type="button" onClick={handleDeleteConfirm} className="ui-button-primary">
               确定
             </button>
           </div>

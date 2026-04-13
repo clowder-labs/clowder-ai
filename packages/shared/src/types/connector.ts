@@ -122,7 +122,7 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
   },
   {
     id: 'multi-mention-result',
-    displayName: 'Multi-Mention 结果',
+    displayName: '共识总结结果',
     icon: 'users',
     color: { primary: '#059669', secondary: '#ECFDF5' },
     description: '多猫 @mention 聚合结果',

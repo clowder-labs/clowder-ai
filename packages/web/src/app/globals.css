@@ -144,6 +144,8 @@
   --button-danger-text-hover: #ffffff;
   --button-danger-bg-disabled: #ef4444;
   --button-danger-text-disabled: #ffffff;
+  --icon-delete-color: #191919;
+  --icon-delete-hover: #1476ff;
   --input-border: #c2c2c2;
   --input-border-hover: #191919;
   --input-border-active: #191919;
@@ -313,6 +315,8 @@
   --connector-tab-border-default: #f0f0f0;
   --connector-tab-bg-selected: var(--surface-panel);
   --connector-tab-border-selected: #cc6d1a;
+  --icon-delete-color: #191919;
+  --icon-delete-hover: var(--connector-tab-border-selected);
 
   --agent-preset-badge-bg: var(--surface-card-muted);
   --agent-preset-badge-text: var(--text-secondary);
@@ -435,6 +439,8 @@
   --connector-tab-border-default: #f0f0f0;
   --connector-tab-bg-selected: #ffffff;
   --connector-tab-border-selected: #1476ff;
+  --icon-delete-color: #191919;
+  --icon-delete-hover: var(--connector-tab-border-selected);
 
   --agent-preset-badge-bg: rgba(230, 230, 230, 1);
   --agent-preset-badge-text: rgba(25, 25, 25, 1);
@@ -678,11 +684,12 @@ select:-webkit-autofill:focus {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: var(--control-height-xs);
+    min-width: 84px;
     border: var(--border-width-default) solid transparent;
     border-radius: var(--radius-pill);
     font-size: 12px;
-    padding: 5px 24px;
+    padding: 4px 24px;
+    line-height: 18px;
     transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
   }
 
@@ -819,13 +826,6 @@ select:-webkit-autofill:focus {
     flex-shrink: 0;
     justify-content: flex-end;
     gap: 0.75rem;
-  }
-
-  .ui-modal-action-button {
-    height: 32px;
-    width: 96px;
-    padding-inline: 0;
-    font-size: 14px;
   }
 
   .ui-bottom-sheet-backdrop {

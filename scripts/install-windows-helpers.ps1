@@ -482,6 +482,49 @@ function Write-InstallerExceptionDetails {
     }
 }
 
+function Resolve-InstallerNodeCommand {
+    param([string]$ProjectRoot)
+
+    $bundledNode = Resolve-BundledNodeCommand -ProjectRoot $ProjectRoot
+    if ($bundledNode) {
+        return $bundledNode
+    }
+
+    return Resolve-ToolCommandWithRetry -Name "node" -Attempts 2
+}
+
+function Ensure-OfficeSkillNodeDependencies {
+    param([string]$ProjectRoot)
+
+    if (-not $ProjectRoot) {
+        throw "ProjectRoot is required"
+    }
+
+    $skillsRoot = Join-Path $ProjectRoot "office-claw-skills"
+    if (-not (Test-Path $skillsRoot)) {
+        Write-Warn "office-claw-skills/ not found - skill dependency install skipped"
+        return $false
+    }
+
+    $nodeCommand = Resolve-InstallerNodeCommand -ProjectRoot $ProjectRoot
+    if (-not $nodeCommand) {
+        throw "Node.js not found for skill dependency installation"
+    }
+
+    $helperScript = Join-Path $ProjectRoot "scripts\ensure-office-skill-node-deps.mjs"
+    if (-not (Test-Path $helperScript)) {
+        throw "Missing helper script: $helperScript"
+    }
+
+    $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $skillsRoot ".playwright-browsers"
+    & $nodeCommand $helperScript --skills-root $skillsRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw "Office skill dependency installation failed"
+    }
+
+    return $true
+}
+
 function Ensure-WindowsRedis {
     param([string]$ProjectRoot, [switch]$Memory)
     if ($Memory) {

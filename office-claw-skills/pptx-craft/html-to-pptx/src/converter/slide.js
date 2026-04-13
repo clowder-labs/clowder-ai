@@ -592,8 +592,12 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
   if (node.nodeType !== 1) return null;
   const style = computedStyle; // Use pre-computed style
 
+  // 提前检测 FA 图标：当 CSS 未加载导致 ::before 失效时，元素尺寸为 0，
+  // 但图标通过 JS API 渲染不依赖 CSS 尺寸，不应被零尺寸过滤掉。
+  const earlyFaCheck = extractFontAwesomeIcon(node);
+
   const rect = node.getBoundingClientRect();
-  if (rect.width < 0.5 || rect.height < 0.5) return null;
+  if (rect.width < 0.5 && rect.height < 0.5 && !earlyFaCheck) return null;
 
   const zIndex = effectiveZIndex;
   const rotation = getRotation(style.transform);

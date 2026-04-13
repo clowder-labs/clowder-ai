@@ -82,7 +82,7 @@ export function SkillsPanel() {
         </div>
       </div>
 
-      <div>
+      <div className="flex-1">
         {activeTab === 'plaza' ? (
           <HubSkillsTab />
         ) : (

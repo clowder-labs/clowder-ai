@@ -32,7 +32,7 @@ from jiuwenclaw.agentserver.tools.subagent_executor import set_subagent_parent_s
 from openjiuwen.core.single_agent import AgentCard, ReActAgent
 
 from jiuwenclaw.agentserver.permissions import (
-    assess_command_risk_with_llm,
+    assess_command_risk_static,
     check_tool_permissions,
     persist_external_directory_allow,
     persist_permission_allow_rule,
@@ -1073,10 +1073,10 @@ class JiuClawReActAgent(ReActAgent):
             except Exception:
                 tool_args = {}
 
-        #risk = assess_command_risk_static(tool_name, tool_args)
-        risk = await assess_command_risk_with_llm(
-            self._get_llm(), self._config.model_name, tool_name, tool_args
-        )
+        risk = assess_command_risk_static(tool_name, tool_args)
+        # risk = await assess_command_risk_with_llm(
+        #     self._get_llm(), self._config.model_name, tool_name, tool_args
+        # )
 
         args_preview = ""
         try:

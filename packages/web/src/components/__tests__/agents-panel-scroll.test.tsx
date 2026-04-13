@@ -27,6 +27,20 @@ vi.mock('@/hooks/useCatData', () => ({
         teamStrengths: '',
         source: 'runtime',
       },
+      {
+        id: 'seed-codex',
+        name: 'seed-codex',
+        displayName: '预置办公智能体',
+        color: { primary: '#2563eb', secondary: '#bfdbfe' },
+        mentionPatterns: ['@seed-codex'],
+        provider: 'openai',
+        defaultModel: 'gpt-5.4',
+        avatar: '',
+        roleDescription: '预置智能体',
+        personality: '只读灵魂配置',
+        teamStrengths: '',
+        source: 'seed',
+      },
     ],
     refresh: mockRefresh,
   }),
@@ -131,5 +145,34 @@ describe('AgentsPanel scroll behavior', () => {
     expect(personaTab).not.toBeNull();
     expect(personaTab?.disabled).toBe(true);
     expect(personaTab?.className).not.toContain('bg-[rgba(230,230,230,1)]');
+  });
+
+  it('hides edit actions for preset agents', async () => {
+    await act(async () => {
+      root.render(React.createElement(AgentsPanel));
+    });
+
+    const seedCard = container.querySelector('[data-testid="agent-card-seed-codex"] button') as HTMLButtonElement | null;
+    expect(seedCard).not.toBeNull();
+
+    await act(async () => {
+      seedCard?.click();
+    });
+
+    const detailHeader = Array.from(container.querySelectorAll('h2')).find((node) => node.textContent?.includes('灵魂配置'))
+      ?.parentElement as HTMLElement | null;
+    expect(detailHeader).not.toBeNull();
+    expect(Array.from(detailHeader?.querySelectorAll('button') ?? []).some((button) => button.textContent?.includes('编辑'))).toBe(
+      false,
+    );
+
+    const menuButton = container.querySelector('[data-testid="agent-card-menu-seed-codex"]') as HTMLButtonElement | null;
+    expect(menuButton).not.toBeNull();
+
+    await act(async () => {
+      menuButton?.click();
+    });
+
+    expect(container.querySelector('[data-testid="agent-edit-menu-item"]')).not.toBeNull();
   });
 });

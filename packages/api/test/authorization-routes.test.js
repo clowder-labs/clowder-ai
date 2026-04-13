@@ -22,6 +22,9 @@ const { AuthorizationAuditStore } = await import(
   '../dist/domains/cats/services/stores/ports/AuthorizationAuditStore.js'
 );
 const { AuthorizationManager } = await import('../dist/domains/cats/services/auth/AuthorizationManager.js');
+const {
+  JiuwenPermissionBridge,
+} = await import('../dist/domains/cats/services/auth/JiuwenPermissionBridge.js');
 const { callbackAuthRoutes } = await import('../dist/routes/callback-auth.js');
 const { authorizationRoutes } = await import('../dist/routes/authorization.js');
 
@@ -266,6 +269,7 @@ describe('POST /api/authorization/respond', () => {
   let pendingStore;
   let auditStore;
   let socketManager;
+  let permissionBridge;
 
   beforeEach(() => {
     ruleStore = new AuthorizationRuleStore();
@@ -278,6 +282,8 @@ describe('POST /api/authorization/respond', () => {
       timeoutMs: 5000,
     });
     socketManager = createMockSocketManager();
+    permissionBridge = new JiuwenPermissionBridge();
+    permissionBridge.bindAuthorizationManager(authManager);
   });
 
   async function createApp() {
@@ -287,6 +293,7 @@ describe('POST /api/authorization/respond', () => {
       ruleStore,
       auditStore,
       socketManager,
+      jiuwenPermissionBridge: permissionBridge,
     });
     return app;
   }
@@ -374,6 +381,57 @@ describe('POST /api/authorization/respond', () => {
     });
 
     assert.equal(res.statusCode, 401);
+  });
+
+  test('bridges granted authorization decisions back to Jiuwen chat.user_answer', async () => {
+    const app = await createApp();
+    const submitted = [];
+
+    const created = await permissionBridge.ingestAskUserQuestion({
+      catId: 'codex',
+      threadId: 'thread-bridge',
+      invocationId: 'inv-bridge',
+      sessionId: 'officeclaw_session_bridge',
+      payload: {
+        request_id: 'perm_approve_bridge',
+        questions: [
+          {
+            header: '权限审批',
+            question: '**工具 `shell_command` 需要授权才能执行**',
+            options: [
+              { label: '本次允许', description: '仅本次授权执行' },
+              { label: '总是允许', description: '记住规则' },
+              { label: '拒绝', description: '拒绝执行' },
+            ],
+            multi_select: false,
+          },
+        ],
+      },
+      submitAnswer: async (answer) => {
+        submitted.push(answer);
+      },
+    });
+
+    assert.ok(created, 'permission bridge should recognize Jiuwen permission requests');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/authorization/respond',
+      headers: { 'x-user-id': 'user-bridge' },
+      payload: {
+        requestId: created.localRequestId,
+        granted: true,
+        scope: 'global',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(submitted.length, 1);
+    assert.deepEqual(submitted[0], {
+      sessionId: 'officeclaw_session_bridge',
+      jiuwenRequestId: 'perm_approve_bridge',
+      answers: [{ selected_options: ['总是允许'] }],
+    });
   });
 });
 
