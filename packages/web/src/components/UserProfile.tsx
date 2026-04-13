@@ -273,14 +273,6 @@ export function UserProfile({ className }: UserProfileProps) {
               </button>
 
               <button
-                 className={profileActionClass}
-                 onClick={handleOpenUsageStats}
-              >
-                <img src="/icons/userprofile/usage.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
-                用量统计
-              </button>
-
-              <button
                 className={profileActionClass}
                 onClick={handleOpenVersionUpdate}
               >
