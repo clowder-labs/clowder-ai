@@ -50,7 +50,7 @@ describe('start-dev strict profile isolation', () => {
       const result = runSourceOnly({
         sandboxDir,
         env: {
-          CAT_CAFE_STRICT_PROFILE_DEFAULTS: '1',
+          OFFICE_CLAW_STRICT_PROFILE_DEFAULTS: '1',
           ANTHROPIC_PROXY_ENABLED: '1',
           ASR_ENABLED: '1',
           TTS_ENABLED: '1',
@@ -85,7 +85,7 @@ describe('start-dev strict profile isolation', () => {
       const result = runSourceOnly({
         sandboxDir,
         env: {
-          CAT_CAFE_STRICT_PROFILE_DEFAULTS: '1',
+          OFFICE_CLAW_STRICT_PROFILE_DEFAULTS: '1',
           ANTHROPIC_PROXY_ENABLED: '1',
           ASR_ENABLED: '1',
           EMBED_ENABLED: '1',
@@ -131,22 +131,22 @@ describe('sync-to-opensource public launch transforms', { skip: !existsSync(SYNC
       const pkg = JSON.parse(readFileSync(resolve(exportDir, 'package.json'), 'utf8'));
       const runtimeScript = readFileSync(resolve(exportDir, 'scripts/runtime-worktree.sh'), 'utf8');
 
-      assert.match(pkg.scripts['dev:direct'], /CAT_CAFE_STRICT_PROFILE_DEFAULTS=1/);
-      assert.match(pkg.scripts['start:direct'], /CAT_CAFE_STRICT_PROFILE_DEFAULTS=1/);
+      assert.match(pkg.scripts['dev:direct'], /OFFICE_CLAW_STRICT_PROFILE_DEFAULTS=1/);
+      assert.match(pkg.scripts['start:direct'], /OFFICE_CLAW_STRICT_PROFILE_DEFAULTS=1/);
       assert.match(pkg.scripts['dev:direct'], /--profile=opensource/);
       assert.match(pkg.scripts['start:direct'], /--profile=opensource/);
       assert.equal(
         pkg.scripts['check:start-profile-isolation'],
         'node --test scripts/start-dev-profile-isolation.test.mjs',
       );
-      assert.equal(existsSync(resolve(exportDir, 'cat-template.json')), true);
+      assert.equal(existsSync(resolve(exportDir, 'office-claw-template.json')), true);
       assert.match(pkg.scripts.check, /check:start-profile-isolation/);
       assert.equal(existsSync(resolve(exportDir, 'scripts/download-source-overrides.sh')), true);
       assert.equal(existsSync(resolve(exportDir, 'scripts/start-dev-profile-isolation.test.mjs')), true);
 
       assert.match(
         runtimeScript,
-        /exec env CAT_CAFE_STRICT_PROFILE_DEFAULTS=1 \.\/scripts\/start-dev\.sh --prod-web --profile=opensource/,
+        /exec env OFFICE_CLAW_STRICT_PROFILE_DEFAULTS=1 \.\/scripts\/start-dev\.sh --prod-web --profile=opensource/,
       );
 
       const envSource = spawnSync(

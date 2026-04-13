@@ -21,7 +21,7 @@ export interface ModelConfigBinding {
   protocol?: ProviderProfileProtocol;
 }
 export const HUAWEI_MAAS_MODEL_SOURCE_ID = 'huawei-maas';
-export const MODEL_CONFIG_FALLBACK_ENV = 'CAT_CAFE_MODEL_CONFIG_FALLBACK_ENABLED';
+export const MODEL_CONFIG_FALLBACK_ENV = 'OFFICE_CLAW_MODEL_CONFIG_FALLBACK_ENABLED';
 
 export interface CreateProjectModelConfigSourceInput {
   id: string;
@@ -138,7 +138,7 @@ function normalizeModelSourceBinding(id: string, value: unknown): ModelConfigBin
 }
 
 export function resolveProjectModelConfigPath(projectRoot: string): string {
-  return join(resolveProviderProfilesRootSync(projectRoot), '.cat-cafe', 'model.json');
+  return join(resolveProviderProfilesRootSync(projectRoot), '.office-claw', 'model.json');
 }
 
 export function isModelConfigProviderFallbackEnabled(): boolean {
@@ -373,6 +373,7 @@ export async function readProjectModelConfigProfileViews(projectRoot: string): P
     icon: binding.icon,
     baseUrl: binding.baseUrl,
     apiKey: binding.apiKey,
+    headers: binding.headers,
     authType: binding.protocol === 'huawei_maas' ? 'none' : 'api_key',
     kind: 'api_key' as const,
     builtin: false,

@@ -68,7 +68,7 @@ export type {
   UpdateProviderProfileInput,
 } from './provider-profiles.types.js';
 
-const CAT_CAFE_DIR = '.cat-cafe';
+const CAT_CAFE_DIR = '.office-claw';
 const META_FILENAME = 'provider-profiles.json';
 const SECRETS_FILENAME = 'provider-profiles.secrets.local.json';
 
@@ -1066,7 +1066,7 @@ function assertProviderSelector(profile: ProviderProfileMeta, selector: Provider
 }
 
 function readRuntimeCatalog(projectRoot: string): any | null {
-  const filePath = resolve(projectRoot, '.cat-cafe', 'cat-catalog.json');
+  const filePath = resolve(projectRoot, '.office-claw', 'office-claw-catalog.json');
   if (!existsSync(filePath)) return null;
   try {
     return JSON.parse(readFileSync(filePath, 'utf-8'));
@@ -1095,7 +1095,7 @@ function rewriteCatalogProfileRefs(projectRoot: string, idMap: Map<string, strin
     }
   }
   if (!dirty) return;
-  const filePath = resolve(projectRoot, '.cat-cafe', 'cat-catalog.json');
+  const filePath = resolve(projectRoot, '.office-claw', 'office-claw-catalog.json');
   writeFileSync(filePath, `${JSON.stringify(catalog, null, 2)}\n`);
 }
 

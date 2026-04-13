@@ -150,7 +150,7 @@ function invalidateRuntimeCatalogCaches(): void {
 
 function validatePersistedCatalog(projectRoot: string): CatCafeConfig {
   invalidateRuntimeCatalogCaches();
-  return loadCatConfig(join(projectRoot, '.cat-cafe', 'cat-catalog.json'));
+  return loadCatConfig(join(projectRoot, '.office-claw', 'office-claw-catalog.json'));
 }
 
 function assertUniqueMentionAliases(catalog: CatCafeConfig): void {

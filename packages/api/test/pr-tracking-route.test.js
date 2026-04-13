@@ -18,8 +18,8 @@ import Fastify from 'fastify';
 import { MemoryPrTrackingStore } from '../dist/infrastructure/email/PrTrackingStore.js';
 import { prTrackingRoutes } from '../dist/routes/pr-tracking.js';
 
-const ALICE = { 'x-cat-cafe-user': 'alice' };
-const BOB = { 'x-cat-cafe-user': 'bob' };
+const ALICE = { 'x-office-claw-user': 'alice' };
+const BOB = { 'x-office-claw-user': 'bob' };
 
 /** @returns {{ app: import('fastify').FastifyInstance, store: InstanceType<typeof MemoryPrTrackingStore> }} */
 function buildApp() {

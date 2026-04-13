@@ -42,7 +42,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = projectQuerySchema.safeParse(request.query);
@@ -71,7 +71,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = createBodySchema.safeParse(request.body);
@@ -116,7 +116,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = updateBodySchema.safeParse(request.body);
@@ -169,7 +169,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = activateBodySchema.safeParse(request.body ?? {});
@@ -201,7 +201,7 @@ export const providerProfileManagementRoutes: FastifyPluginAsync<ProviderProfile
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
-      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+      return { error: 'Identity required (X-Office-Claw-User header or userId query)' };
     }
 
     const parsed = activateBodySchema.safeParse(request.body);

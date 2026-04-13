@@ -10,12 +10,12 @@ import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
 import type { AgentServiceOptions } from '../../types.js';
 
 const CAT_CAFE_MCP_CALLBACK_ENV_KEYS = [
-  'CAT_CAFE_API_URL',
-  'CAT_CAFE_INVOCATION_ID',
-  'CAT_CAFE_CALLBACK_TOKEN',
-  'CAT_CAFE_USER_ID',
-  'CAT_CAFE_CAT_ID',
-  'CAT_CAFE_SIGNAL_USER',
+  'OFFICE_CLAW_API_URL',
+  'OFFICE_CLAW_INVOCATION_ID',
+  'OFFICE_CLAW_CALLBACK_TOKEN',
+  'OFFICE_CLAW_USER_ID',
+  'OFFICE_CLAW_CAT_ID',
+  'OFFICE_CLAW_SIGNAL_USER',
 ] as const;
 
 export interface RelayClawCatCafeMcpServer {

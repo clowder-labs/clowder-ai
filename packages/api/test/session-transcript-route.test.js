@@ -46,7 +46,7 @@ describe('Session transcript routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/sessions/sess-system/events',
-      headers: { 'x-cat-cafe-user': 'default-user' },
+      headers: { 'x-office-claw-user': 'default-user' },
     });
 
     assert.equal(res.statusCode, 200);
@@ -61,7 +61,7 @@ describe('Session transcript routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-system/sessions/search?q=test',
-      headers: { 'x-cat-cafe-user': 'default-user' },
+      headers: { 'x-office-claw-user': 'default-user' },
     });
 
     assert.equal(res.statusCode, 200);

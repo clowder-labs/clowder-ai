@@ -130,7 +130,7 @@ describe('Persistence fault drills', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         content: '@布偶猫 persistence drill',
         threadId,
@@ -167,7 +167,7 @@ describe('Persistence fault drills', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/api/messages',
-      headers: { 'x-cat-cafe-user': 'user-1' },
+      headers: { 'x-office-claw-user': 'user-1' },
       payload: {
         content: '@布偶猫 retry drill',
         threadId,

@@ -47,6 +47,7 @@ from jiuwenclaw.jiuwen_core_patch import PatchOpenAIModelClient
 
 OpenAIModelClient._create_async_openai_client = PatchOpenAIModelClient._create_async_openai_client
 OpenAIModelClient._parse_stream_chunk = PatchOpenAIModelClient._parse_stream_chunk
+OpenAIModelClient._build_request_params = PatchOpenAIModelClient._build_request_params
 
 from openjiuwen.core.foundation.llm import ProviderType
 
@@ -210,6 +211,7 @@ def _register_web_handlers(
         heartbeat_service=None,
         cron_controller=None,
         updater_service: WindowsUpdaterService | None = None,
+        agent_proxy=None,
 ):
     """注册 Web 前端需要的 method 与 on_connect。
     on_config_saved: 可选，config.set 写回 .env 后调用的回调；返回 True 表示已热更新未重启，False 表示已安排进程重启。
@@ -519,6 +521,12 @@ def _register_web_handlers(
             )
             return
         shutil.rmtree(session_dir)
+        ap = _resolve(agent_proxy)
+        if ap is not None and hasattr(ap, "stop_session_worker"):
+            try:
+                await ap.stop_session_worker(session_id_to_delete)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[session.delete] Failed to stop worker: %s", e)
         await channel.send_response(ws, req_id, ok=True, payload={"session_id": session_id_to_delete})
 
     async def _path_get(ws, req_id, params, session_id):
@@ -1310,7 +1318,7 @@ def _register_web_handlers(
 
 
 async def _run() -> None:
-    from jiuwenclaw.agentserver.interface import JiuWenClaw
+    from jiuwenclaw.agentserver.jiuwenclaw_proxy import JiuWenClawProxy
     from jiuwenclaw.channel.feishu import FeishuChannel, FeishuConfig
     from jiuwenclaw.channel.web_channel import WebChannel, WebChannelConfig
     from jiuwenclaw.channel.xiaoyi_channel import XiaoyiChannel, XiaoyiChannelConfig
@@ -1328,7 +1336,6 @@ async def _run() -> None:
     from jiuwenclaw.gateway.message_handler import MessageHandler
     from jiuwenclaw.schema.message import Message, EventType, ReqMethod
     from jiuwenclaw.agentserver.memory.config import _load_config as _load_agent_config
-    from jiuwenclaw.agentserver.tools.browser_tools import restart_local_browser_runtime_server
 
     agent_port = int(os.getenv("AGENT_PORT", "18092"))
     web_host = os.getenv("WEB_HOST", "127.0.0.1")
@@ -1348,10 +1355,10 @@ async def _run() -> None:
         except RuntimeError:
             _do_restart()
 
-    # ---------- 一次启动所有服务 ----------
-    logger.info("[AgentServer] 启动流程开始 AGENT_PORT=%s", agent_port)
-    agent = JiuWenClaw()
-    logger.info("[AgentServer] JiuWenClaw 实例已创建，准备注册 AgentWebSocketServer")
+    # ---------- 一次启动所有服务（per-session process isolation） ----------
+    logger.info("[AgentServer] 启动流程开始 AGENT_PORT=%s (per-session isolation)", agent_port)
+    agent = JiuWenClawProxy()
+    logger.info("[AgentServer] JiuWenClawProxy 实例已创建，准备注册 AgentWebSocketServer")
 
     server = AgentWebSocketServer.get_instance(
         agent=agent,
@@ -1361,7 +1368,7 @@ async def _run() -> None:
         ping_timeout=20.0,
     )
     await server.start()
-    logger.info("[AgentServer] AgentWebSocketServer 已监听，等待 Gateway连接")
+    logger.info("[AgentServer] AgentWebSocketServer 已监听，等待连接")
     await asyncio.sleep(0.3)
     uri = f"ws://127.0.0.1:{agent_port}"
 
@@ -1375,10 +1382,9 @@ async def _run() -> None:
     cron_scheduler = CronSchedulerService(store=cron_store, agent_client=client, message_handler=message_handler)
     cron_controller = CronController.get_instance(store=cron_store, scheduler=cron_scheduler)
 
-    # agent实例化需要在定时任务后
     logger.info("[AgentServer] 即将执行 agent.create_instance()")
     await agent.create_instance()
-    logger.info("[AgentServer] agent.create_instance() 已返回")
+    logger.info("[AgentServer] agent.create_instance() 已返回，workers 将按 session 按需启动")
 
     # 探活：周期性向 AgentServer 发送心跳，便于检测连接与 Agent 可用性
     # 优先从 config/config.yaml 的 heartbeat 段读取配置，其次回退到环境变量/默认值
@@ -1430,22 +1436,9 @@ async def _run() -> None:
     updater_service = WindowsUpdaterService()
 
     def _on_config_saved(updated_env_keys: set[str] | None = None) -> bool:
-        """先尝试热更新，失败则安排延迟重启。返回 True 表示已热更新未重启，False 表示已安排重启。"""
-        browser_runtime_keys = {
-            "MODEL_PROVIDER", "MODEL_NAME", "API_BASE", "API_KEY",
-            "VIDEO_PROVIDER", "VIDEO_MODEL_NAME", "VIDEO_API_BASE", "VIDEO_API_KEY",
-            "AUDIO_PROVIDER", "AUDIO_MODEL_NAME", "AUDIO_API_BASE", "AUDIO_API_KEY",
-            "VISION_PROVIDER", "VISION_MODEL_NAME", "VISION_API_BASE", "VISION_API_KEY",
-        }
-        try:
-            agent.reload_agent_config()
-            if updated_env_keys and (browser_runtime_keys & set(updated_env_keys)):
-                restart_local_browser_runtime_server()
-            return True
-        except Exception as e:  # noqa: BLE001
-            logger.warning("[App] 配置热更新失败，将延迟重启: %s", e)
-            _schedule_restart()
-            return False
+        """Per-session 模式下不支持热更新，安排延迟重启以使所有 worker 加载新配置。"""
+        _schedule_restart()
+        return False
 
     web_config = WebChannelConfig(
         enabled=True, host=web_host, port=web_port, path=web_path,
@@ -1460,6 +1453,7 @@ async def _run() -> None:
         heartbeat_service=heartbeat_service,
         cron_controller=cron_controller,
         updater_service=updater_service,
+        agent_proxy=agent,
     )
 
     def _norm_and_forward(msg: Message) -> bool:
@@ -1886,6 +1880,8 @@ async def _run() -> None:
         await message_handler.stop_forwarding()
         logger.info("[AgentServer] 正在断开 Gateway WebSocketAgentServerClient …")
         await client.disconnect()
+        logger.info("[AgentServer] 正在停止所有 Worker 进程…")
+        await agent.stop_all_workers()
         logger.info("[AgentServer] 正在停止 AgentWebSocketServer …")
         await server.stop()
         logger.info("[App] E2E 已停止")

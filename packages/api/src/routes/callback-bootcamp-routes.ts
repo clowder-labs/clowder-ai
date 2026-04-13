@@ -150,7 +150,7 @@ export function registerCallbackBootcampRoutes(
         const eventRes = await app.inject({
           method: 'POST',
           url: '/api/leaderboard/events',
-          headers: { 'x-cat-cafe-user': record.userId },
+          headers: { 'x-office-claw-user': record.userId },
           payload: {
             eventId,
             source: 'bootcamp',

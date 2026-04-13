@@ -18,7 +18,6 @@ import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
-import { reconnectGame } from './useGameReconnect';
 import {
   type BackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
@@ -357,11 +356,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
         threadId: tid ?? undefined,
         queueLength: rejoinedRooms.length,
       });
-
-      // F101: Recover game state on reconnect
-      if (tid) {
-        reconnectGame(tid).catch(() => {});
-      }
 
       // Reconnect reconciliation: verify invocation state against server truth.
       // Socket disconnect can lose done(isFinal) events, leaving stale "replying" UI.

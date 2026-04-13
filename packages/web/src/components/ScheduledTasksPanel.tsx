@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { AppModal } from './AppModal';
+import { formatCronFrequency } from './scheduled-task-frequency';
 import { EmptyDataState } from './shared/EmptyDataState';
 
 type ScheduledTasksPanelProps = {
@@ -62,52 +63,7 @@ type ScheduleControlSnapshot = {
   globalEnabled: boolean;
   overrideEnabledByTaskId: Map<string, boolean>;
 };
-
-function toChineseWeekdays(dayOfWeek: string): string {
-  const map: Record<string, string> = {
-    '0': '日',
-    '7': '日',
-    '1': '一',
-    '2': '二',
-    '3': '三',
-    '4': '四',
-    '5': '五',
-    '6': '六',
-  };
-  return dayOfWeek
-    .split(',')
-    .map((n) => map[n.trim()] ?? n.trim())
-    .join('、');
-}
-
-function formatClock(hour: string, minute: string): string {
-  const hh = Number(hour);
-  const mm = Number(minute);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return `${hour}:${minute}`;
-
-  const period = hh < 12 ? '上午' : '下午';
-  const hour12 = ((hh + 11) % 12) + 1;
-  const minuteText = String(mm).padStart(2, '0');
-  return `${period} ${hour12}：${minuteText}`;
-}
-
-function formatCronFrequency(expression: string): string {
-  const parts = expression.trim().split(/\s+/);
-  if (parts.length < 5) return expression;
-
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
-  const timeText = formatClock(hour, minute);
-
-  if (dayOfWeek !== '*' && dayOfMonth === '*' && month === '*') {
-    return `每周${toChineseWeekdays(dayOfWeek)} ${timeText}`;
-  }
-
-  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
-    return `每天 ${timeText}`;
-  }
-
-  return expression;
-}
+const TASK_TIME_ICON = '/icons/time-time.svg';
 
 function formatFrequency(trigger: ScheduleTrigger): string {
   if (trigger.type === 'interval') {
@@ -269,8 +225,8 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
   };
 
   const taskIconMaskStyle = {
-    WebkitMaskImage: 'url(/icons/scheduled-task.svg)',
-    maskImage: 'url(/icons/scheduled-task.svg)',
+    WebkitMaskImage: `url(${TASK_TIME_ICON})`,
+    maskImage: `url(${TASK_TIME_ICON})`,
     WebkitMaskRepeat: 'no-repeat',
     maskRepeat: 'no-repeat',
     WebkitMaskPosition: 'center',
@@ -293,7 +249,7 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
         </button>
       </div>
 
-      <div className="ui-panel min-h-0 flex-1 overflow-hidden border-0 p-6 shadow-none">
+      <div className="ui-panel min-h-0 flex-1 overflow-hidden border-0 shadow-none">
         {isLoading ? (
           <div className="flex h-full min-h-0 items-center justify-center">
             <div className="text-[12px] text-[#9AA3B2]">加载中...</div>
@@ -324,12 +280,12 @@ export function ScheduledTasksPanel({ onCreateTask }: ScheduledTasksPanelProps) 
                 <div className="flex h-full flex-col gap-4">
                   <div className="flex h-[48px] items-start justify-between gap-3">
                     <div className="flex h-full min-w-0 items-center gap-3">
-                      <div className="flex h-full w-8 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(250,250,250,1)]">
-                        <img src="/icons/scheduled-task.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] bg-[rgba(250,250,250,1)]">
+                        <img src={TASK_TIME_ICON} alt="" aria-hidden="true" className="h-6 w-6 shrink-0" />
                       </div>
                       <h3 className="line-clamp-1 min-w-0 text-[16px] font-semibold text-[#1F2329]">{task.taskName}</h3>
                     </div>
-                    {task.source === 'dynamic' ? (
+                    {task.source === 'dynamic' && false ? (
                       <button
                         type="button"
                         role="switch"

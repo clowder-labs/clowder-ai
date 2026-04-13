@@ -17,16 +17,12 @@ const { RelayClawAgentService, __relayClawInternals } = await import(
 const { RelayClawConnectionManager, resolveRelayClawWebSocketCtor } = await import(
   '../dist/domains/cats/services/agents/providers/relayclaw-connection.js'
 );
-const {
-  buildRelayClawLaunchCommand,
-  DefaultRelayClawSidecarController,
-  isRelayClawRuntimeReady,
-} = await import('../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js');
-const {
-  jiuwenClawBundleAvailable,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} = await import('../dist/utils/jiuwenclaw-paths.js');
+const { buildRelayClawLaunchCommand, DefaultRelayClawSidecarController, isRelayClawRuntimeReady } = await import(
+  '../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js'
+);
+const { jiuwenClawBundleAvailable, resolveJiuwenClawExecutable, resolveJiuwenClawPythonBin } = await import(
+  '../dist/utils/jiuwenclaw-paths.js'
+);
 const { WebSocket: NodeWebSocket } = await import('ws');
 
 async function collect(iterable) {
@@ -159,15 +155,15 @@ describe('RelayClawAgentService', () => {
     writeFileSync(appPy, '');
     writeFileSync(pythonBin, '');
 
-    const previousAppDir = process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+    const previousAppDir = process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
     try {
-      process.env.CAT_CAFE_RELAYCLAW_APP_DIR = appDir;
+      process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = appDir;
       assert.equal(jiuwenClawBundleAvailable(), true);
     } finally {
       if (previousAppDir === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_APP_DIR = previousAppDir;
+        process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = previousAppDir;
       }
     }
   });
@@ -178,16 +174,16 @@ describe('RelayClawAgentService', () => {
     mkdirSync(dirname(exePath), { recursive: true });
     writeFileSync(exePath, '');
 
-    const previousExe = process.env.CAT_CAFE_RELAYCLAW_EXE;
+    const previousExe = process.env.OFFICE_CLAW_RELAYCLAW_EXE;
     try {
-      process.env.CAT_CAFE_RELAYCLAW_EXE = exePath;
+      process.env.OFFICE_CLAW_RELAYCLAW_EXE = exePath;
       assert.equal(resolveJiuwenClawExecutable(), exePath);
       assert.equal(jiuwenClawBundleAvailable(), true);
     } finally {
       if (previousExe === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_EXE;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_EXE;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_EXE = previousExe;
+        process.env.OFFICE_CLAW_RELAYCLAW_EXE = previousExe;
       }
     }
   });
@@ -274,8 +270,61 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'OK');
+  });
+
+  it('sends chat.interrupt on abort for jiuwenclaw requests', async () => {
+    const sent = [];
+    const controller = new AbortController();
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          sent.push(request);
+          if (request.req_method === 'chat.send') {
+            queueMicrotask(() => controller.abort());
+            return;
+          }
+          if (request.req_method === 'chat.interrupt') {
+            const queue = requestQueues.get(request.request_id);
+            assert.ok(queue, 'interrupt queue should exist before send');
+            queue.put({
+              request_id: request.request_id,
+              channel_id: request.channel_id,
+              ok: true,
+              payload: {
+                event_type: 'chat.interrupt_result',
+                intent: 'cancel',
+                success: true,
+                message: '任务已取消',
+              },
+            });
+          }
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('Write forever', { signal: controller.signal }));
+
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'done'],
+    );
+    assert.equal(sent[0].req_method, 'chat.send');
+    assert.equal(sent[1].req_method, 'chat.interrupt');
+    assert.equal(sent[1].session_id, sent[0].session_id);
+    assert.equal(sent[1].params.intent, 'cancel');
+    assert.equal(sent[1].params.request_id, sent[0].request_id);
   });
 
   it('treats llm_reasoning deltas as thinking and still emits the final answer', async () => {
@@ -325,11 +374,15 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'system_info', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'system_info', 'text', 'done'],
+    );
     assert.deepEqual(JSON.parse(messages[1].content), {
       type: 'thinking',
       catId: 'relayclaw-debug',
       text: 'thinking step',
+      mergeStrategy: 'append',
     });
     assert.equal(messages[2].content, 'Final answer');
   });
@@ -380,7 +433,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'text', 'done'],
+    );
     assert.equal(messages[1].content, '我来帮你总结一下。');
     assert.equal(messages[2].content, '\n\n这里是最终总结。');
   });
@@ -431,7 +487,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'Hello');
     assert.equal(messages[2].content, ' world');
   });
@@ -473,7 +532,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'Normalized final text');
   });
 
@@ -496,12 +558,12 @@ describe('RelayClawAgentService', () => {
     writeFileSync(pythonBin, '');
 
     const spawned = [];
-    const previousAppDir = process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
-    const previousPython = process.env.CAT_CAFE_RELAYCLAW_PYTHON;
+    const previousAppDir = process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
+    const previousPython = process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
 
     try {
-      process.env.CAT_CAFE_RELAYCLAW_APP_DIR = appDir;
-      process.env.CAT_CAFE_RELAYCLAW_PYTHON = pythonBin;
+      process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = appDir;
+      process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = pythonBin;
 
       const controller = new DefaultRelayClawSidecarController(
         'office',
@@ -543,14 +605,14 @@ describe('RelayClawAgentService', () => {
       assert.equal(spawned[0].killed, false);
     } finally {
       if (previousAppDir === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_APP_DIR;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_APP_DIR = previousAppDir;
+        process.env.OFFICE_CLAW_RELAYCLAW_APP_DIR = previousAppDir;
       }
       if (previousPython === undefined) {
-        delete process.env.CAT_CAFE_RELAYCLAW_PYTHON;
+        delete process.env.OFFICE_CLAW_RELAYCLAW_PYTHON;
       } else {
-        process.env.CAT_CAFE_RELAYCLAW_PYTHON = previousPython;
+        process.env.OFFICE_CLAW_RELAYCLAW_PYTHON = previousPython;
       }
     }
   });
@@ -585,11 +647,11 @@ describe('RelayClawAgentService', () => {
       uploadDir: '/tmp/cat-cafe-uploads',
       contentBlocks: [{ type: 'image', url: '/uploads/test-image.png' }],
       callbackEnv: {
-        CAT_CAFE_API_URL: 'http://127.0.0.1:3004',
-        CAT_CAFE_INVOCATION_ID: 'invocation-123',
-        CAT_CAFE_CALLBACK_TOKEN: 'callback-token',
-        CAT_CAFE_USER_ID: 'codex',
-        CAT_CAFE_CAT_ID: 'relayclaw-debug',
+        OFFICE_CLAW_API_URL: 'http://127.0.0.1:3004',
+        OFFICE_CLAW_INVOCATION_ID: 'invocation-123',
+        OFFICE_CLAW_CALLBACK_TOKEN: 'callback-token',
+        OFFICE_CLAW_USER_ID: 'codex',
+        OFFICE_CLAW_CAT_ID: 'relayclaw-debug',
       },
     })) {
       // exhaust stream
@@ -598,7 +660,9 @@ describe('RelayClawAgentService', () => {
     assert.ok(capturedRequest);
     assert.equal(capturedRequest.params.project_dir, '/usr/code/cat-cafe-runtime');
     const expectedUploadPath =
-      process.platform === 'win32' ? 'D:\\tmp\\cat-cafe-uploads\\test-image.png' : '/tmp/cat-cafe-uploads/test-image.png';
+      process.platform === 'win32'
+        ? 'D:\\tmp\\cat-cafe-uploads\\test-image.png'
+        : '/tmp/cat-cafe-uploads/test-image.png';
     assert.deepEqual(capturedRequest.params.files, {
       uploaded: [
         {
@@ -616,9 +680,12 @@ describe('RelayClawAgentService', () => {
       normalizedMcpPath.endsWith('/packages/mcp-server/dist/index.js'),
       'cat-cafe MCP should point at the local MCP server bundle',
     );
-    assert.equal(capturedRequest.params.cat_cafe_mcp.env.CAT_CAFE_INVOCATION_ID, 'invocation-123');
+    assert.equal(capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_INVOCATION_ID, 'invocation-123');
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
-    assert.match(normalizedQuery, /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/);
+    assert.match(
+      normalizedQuery,
+      /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/,
+    );
   });
 
   it('reuses the same scoped sidecar across working directories when auth scope is unchanged', async () => {
@@ -823,7 +890,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
     assert.match(messages[1].error, /timed out/i);
   });
 
@@ -859,7 +929,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
     assert.match(messages[1].error, /connection closed unexpectedly/i);
   });
 
@@ -904,13 +977,25 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
-    assert.equal(messages.some((msg) => msg.type === 'text'), false);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
+    assert.equal(
+      messages.some((msg) => msg.type === 'text'),
+      false,
+    );
   });
 
   it('detects raw transport error text variants for suppression', () => {
-    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('[错误]jiuwen WebSocket connection closed unexpectedly'), true);
-    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('jiuwen WebSocket connection closed unexpectedly'), true);
+    assert.equal(
+      __relayClawInternals.isRelayClawTransportErrorText('[错误]jiuwen WebSocket connection closed unexpectedly'),
+      true,
+    );
+    assert.equal(
+      __relayClawInternals.isRelayClawTransportErrorText('jiuwen WebSocket connection closed unexpectedly'),
+      true,
+    );
     assert.equal(__relayClawInternals.isRelayClawTransportErrorText('normal model output'), false);
   });
 
@@ -941,13 +1026,13 @@ describe('RelayClawAgentService', () => {
     );
 
     const messages = [];
-    for await (const msg of service.invoke('resume this session', { cliSessionId: 'catcafe_existing_session' })) {
+    for await (const msg of service.invoke('resume this session', { cliSessionId: 'officeclaw_existing_session' })) {
       messages.push(msg);
     }
 
     assert.equal(messages[0].type, 'session_init');
-    assert.equal(messages[0].sessionId, 'catcafe_existing_session');
-    assert.equal(capturedRequest.session_id, 'catcafe_existing_session');
+    assert.equal(messages[0].sessionId, 'officeclaw_existing_session');
+    assert.equal(capturedRequest.session_id, 'officeclaw_existing_session');
   });
 
   it('derives a stable relayclaw sessionId from audit context when none is persisted yet', async () => {
@@ -958,7 +1043,7 @@ describe('RelayClawAgentService', () => {
         config: {
           url: 'ws://127.0.0.1:65535',
           autoStart: false,
-          channelId: 'catcafe',
+          channelId: 'officeclaw',
         },
       },
       {
@@ -1005,7 +1090,7 @@ describe('RelayClawAgentService', () => {
     assert.equal(firstMessages[0].type, 'session_init');
     assert.equal(secondMessages[0].type, 'session_init');
     assert.equal(firstMessages[0].sessionId, secondMessages[0].sessionId);
-    assert.match(firstMessages[0].sessionId, /^catcafe_[0-9a-f]{24}$/);
+    assert.match(firstMessages[0].sessionId, /^officeclaw_[0-9a-f]{24}$/);
     assert.equal(sentSessionIds[0], firstMessages[0].sessionId);
     assert.equal(sentSessionIds[1], secondMessages[0].sessionId);
   });

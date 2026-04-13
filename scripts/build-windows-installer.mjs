@@ -72,18 +72,19 @@ const WINDOWS_RUNTIME_NPM_ARGS = [
   '--loglevel=error',
 ];
 
-export const WINDOWS_PRESERVE_PATHS = ['.env', 'cat-config.json', 'data', 'logs', '.cat-cafe'];
+export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw'];
 export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'packages',
   'scripts',
-  'cat-cafe-skills',
+  'office-claw-skills',
   'tools',
   'installer-seed',
   'vendor',
+  'assets',
   '.clowder-release.json',
   '.env.example',
   'LICENSE',
-  'cat-template.json',
+  'office-claw-template.json',
   'modelarts-preset.json',
   'pnpm-workspace.yaml',
 ];
@@ -134,6 +135,7 @@ const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
   'puppeteer',
   'sharp',
   'sqlite-vec',
+  'snappy',
 ];
 const WEB_RUNTIME_DEPENDENCIES = ['next', 'react', 'react-dom', 'sharp'];
 const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require('node:fs');
@@ -162,7 +164,7 @@ process.env.NODE_ENV = 'production';
 process.chdir(__dirname);
 
 const currentPort = parseInt(process.env.PORT, 10) || 3000;
-const hostname = process.env.HOSTNAME || '0.0.0.0';
+const hostname = process.env.HOSTNAME || '127.0.0.1';
 
 let keepAliveTimeout = parseInt(process.env.KEEP_ALIVE_TIMEOUT, 10);
 
@@ -544,11 +546,11 @@ function createIcoFromPng(pngPath, icoPath) {
 
 function copyTopLevelProject(bundleDir) {
   const entries = [
-    'cat-cafe-skills',
+    'office-claw-skills',
     'LICENSE',
     '.env.example',
     '.inner.env',
-    'cat-template.json',
+    'office-claw-template.json',
     'modelarts-preset.json',
     'pnpm-workspace.yaml',
   ];
@@ -657,6 +659,8 @@ function installSharedPythonDeps(bundleDir) {
     'python-docx', // Word read/write
     'xlsxwriter', // Excel write (fast, chart support)
     'pypdf', // PDF read/merge/split
+    'pdfplumber', // PDF text/table extraction
+    'pandas', // Tabular extraction and spreadsheet shaping
     'reportlab', // PDF creation
     'markitdown', // Microsoft multi-format → Markdown converter
   ];
@@ -720,9 +724,9 @@ function stageVendorPythonSources(bundleDir) {
 function stageInstallerSeed(bundleDir) {
   const seedDir = join(bundleDir, 'installer-seed');
   ensureDir(seedDir);
-  const catConfigPath = join(repoRoot, 'cat-config.json');
+  const catConfigPath = join(repoRoot, 'office-claw-config.json');
   if (existsSync(catConfigPath)) {
-    cpSync(catConfigPath, join(seedDir, 'cat-config.json'), { force: true });
+    cpSync(catConfigPath, join(seedDir, 'office-claw-config.json'), { force: true });
   }
 }
 
@@ -1134,6 +1138,19 @@ function runWindowsNpmInstall(npmCmdPath, packageWindowsDir) {
   run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, { cwd: packageWindowsDir, shell: true });
 }
 
+function installBundledOfficeSkillDependencies(bundleDir, windowsNode) {
+  const pptxCraftDir = join(bundleDir, 'office-claw-skills', 'pptx-craft');
+  const packageJsonPath = join(pptxCraftDir, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    throw new Error(`Missing office skill package manifest: ${packageJsonPath}`);
+  }
+  runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(pptxCraftDir));
+  rmSync(join(pptxCraftDir, 'package-lock.json'), { force: true });
+  const nmDir = join(pptxCraftDir, 'node_modules');
+  pruneNativePrebuilds(nmDir);
+  pruneDateFnsLocales(nmDir);
+}
+
 function materializeSharedDependency(stagePackagesDir, packageName) {
   const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
   try {
@@ -1160,6 +1177,8 @@ async function installWindowsRuntimeDependencies(bundleDir, options) {
     pruneNativePrebuilds(nmDir);
     pruneDateFnsLocales(nmDir);
   }
+
+  installBundledOfficeSkillDependencies(bundleDir, windowsNode);
 }
 
 async function stageWorkspacePackages(targetRootDir) {
@@ -1335,7 +1354,7 @@ async function stageWindowsRedis(bundleDir, options) {
     ),
   );
 
-  const redisLayout = join(bundleDir, '.cat-cafe', 'redis', 'windows');
+  const redisLayout = join(bundleDir, '.office-claw', 'redis', 'windows');
   const currentDir = join(redisLayout, 'current');
   resetDir(currentDir);
   cpSync(redisRoot, currentDir, { recursive: true, force: true });
@@ -1357,7 +1376,7 @@ function writeReleaseMetadata(bundleDir, metadata) {
 function ensureRuntimeSkeleton(bundleDir) {
   ensureDir(join(bundleDir, 'data'));
   ensureDir(join(bundleDir, 'logs'));
-  ensureDir(join(bundleDir, '.cat-cafe'));
+  ensureDir(join(bundleDir, '.office-claw'));
   ensureDir(join(bundleDir, 'tools', 'webview2'));
 }
 

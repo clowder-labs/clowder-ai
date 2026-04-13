@@ -285,7 +285,7 @@ export function DirectoryPickerModal({
             onClick={() => setCatsExpanded((v) => !v)}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors ml-auto"
           >
-            <span>{catsExpanded ? '收起' : '选择'}</span>
+            <span>{catsExpanded ? '收起列表' : '选智能体'}</span>
             {catSummary && <span className="text-cocreator-primary">({catSummary})</span>}
             <svg
               aria-hidden="true"

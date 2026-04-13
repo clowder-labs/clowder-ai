@@ -5,7 +5,7 @@
  */
 
 /**
- * Cat Cafe Service Worker — Push Notification Handler
+ * OfficeClaw Service Worker — Push Notification Handler
  *
  * Injected into the Workbox-generated sw.js via @ducanh2912/next-pwa's
  * customWorkerSrc convention (worker/index.ts → importScripts).
@@ -35,14 +35,14 @@ self.addEventListener('push', (event: PushEvent) => {
   try {
     payload = event.data?.json() ?? {};
   } catch {
-    payload = { title: '猫猫来信', body: event.data?.text() ?? '' };
+    payload = { title: '新消息', body: event.data?.text() ?? '' };
   }
 
   const { title, body, icon, tag, data: notifData } = payload;
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
-      // When Cat Cafe is focused, generic replies are suppressed because
+      // When OfficeClaw is focused, generic replies are suppressed because
       // in-app toast already handles them; forced categories still show.
       const hasFocusedClient = clients.some((c) => c.visibilityState === 'visible');
       if (!shouldShowSystemNotification(payload, hasFocusedClient)) return;
@@ -52,11 +52,11 @@ self.addEventListener('push', (event: PushEvent) => {
       // send feels like a fresh system notification without accumulating noise.
       await resetPushTestNotification(self.registration, tag);
 
-      return self.registration.showNotification(title ?? '猫猫来信', {
+      return self.registration.showNotification(title ?? '新消息', {
         body: body ?? '',
         icon: icon ?? '/icons/icon-192x192.png',
         badge: '/icons/icon-192x192.png',
-        tag: tag ?? 'cat-cafe-default',
+        tag: tag ?? 'office-claw-default',
         ...(isPushTestNotificationTag(tag) ? { renotify: true, tag: PUSH_TEST_NOTIFICATION_TAG } : {}),
         data: notifData ?? {},
       });
@@ -71,7 +71,7 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clients) => {
-      // Find existing Cat Cafe window
+      // Find existing OfficeClaw window
       for (const client of clients) {
         if (new URL(client.url).origin === self.location.origin) {
           return client.focus().then((focused) => {

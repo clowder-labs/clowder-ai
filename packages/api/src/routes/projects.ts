@@ -151,7 +151,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
   // POST /api/projects/pick-directory - open native folder picker
   app.post('/api/projects/pick-directory', async (request, reply) => {
     if (!requireTrustedProjectIdentity(request, reply)) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
     const result = await _pickDirectoryImpl();
     if (result.status === 'cancelled') {
@@ -180,7 +180,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/projects/complete?prefix=src/comp&cwd=/path/to/project&limit=10
   app.get('/api/projects/complete', async (request, reply) => {
     if (!requireTrustedProjectIdentity(request, reply)) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
     const query = request.query as { prefix?: string; cwd?: string; limit?: string };
     if (!query.prefix && query.prefix !== '') {
@@ -241,7 +241,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/projects/browse?path=/some/dir - list subdirectories
   app.get('/api/projects/browse', async (request, reply) => {
     if (!requireTrustedProjectIdentity(request, reply)) {
-      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+      return { error: 'Identity required (X-Office-Claw-User header)' };
     }
     const query = request.query as { path?: string };
     const targetPath = query.path || homedir();

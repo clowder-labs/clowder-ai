@@ -36,6 +36,13 @@ export function getSensitiveInputErrorToastContent(): { title: string; message: 
   };
 }
 
+const ERROR_SUBTYPE_LABELS: Record<string, string> = {
+  error_max_turns: '超出 turn 限制',
+  error_max_budget_usd: '预算用尽',
+  error_during_execution: '运行时错误',
+  error_max_structured_output_retries: '结构化输出重试超限',
+};
+
 type ConfigurationMatch = {
   pattern: RegExp;
   message: string;
@@ -75,6 +82,11 @@ function isConnectionError(rawError: string): boolean {
   return /connection failed|connection closed unexpectedly|WebSocket connection closed/i.test(rawError);
 }
 
+/** jiuwenclaw ReActAgent.invoke() when self._config.max_iterations is exhausted without a final answer. */
+function isMaxIterationsReachedError(rawError: string): boolean {
+  return /max iterations reached|max_iterations_reached/i.test(rawError);
+}
+
 function isConfigurationError(rawError: string): boolean {
   return (
     CONFIGURATION_MATCHES.some(({ pattern }) => pattern.test(rawError)) ||
@@ -111,5 +123,36 @@ export function getFriendlyAgentErrorMessage(msg: ErrorLike): string {
     return '当前智能体连接不稳定，暂时无法完成这次处理。请稍后重试；如果持续出现，说明后端服务可能需要检查。';
   }
 
+  if (isMaxIterationsReachedError(rawError)) {
+    return '已达到本次对话允许的最大思考轮数，任务未在限定的轮数内完成。';
+  }
+
   return '这次处理没有顺利完成。我先结束本次尝试，请稍后重试。';
+}
+
+function getErrorSubtypeLabel(rawContent?: string): string | null {
+  if (!rawContent) return null;
+  try {
+    const parsed = JSON.parse(rawContent) as { errorSubtype?: unknown };
+    if (typeof parsed.errorSubtype !== 'string') return null;
+    return ERROR_SUBTYPE_LABELS[parsed.errorSubtype] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAgentErrorToastContent(
+  msg: ErrorLike & { content?: string },
+): { title: string; message: string } {
+  if (isSensitiveInputAgentError(msg)) {
+    return getSensitiveInputErrorToastContent();
+  }
+
+  const subtypeLabel = getErrorSubtypeLabel(msg.content);
+  const baseMessage = getFriendlyAgentErrorMessage(msg);
+
+  return {
+    title: msg.catId?.trim() ? `${msg.catId} 出错` : '智能体出错',
+    message: subtypeLabel ? `${baseMessage} (${subtypeLabel})` : baseMessage,
+  };
 }

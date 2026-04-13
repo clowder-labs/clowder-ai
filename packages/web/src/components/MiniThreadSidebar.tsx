@@ -11,7 +11,7 @@ import type { CatStatusType } from '@/stores/chat-types';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { getCatStatusType } from './ThreadCatStatus';
-import { sanitizeThreadTitle } from './ThreadSidebar/thread-title';
+import { normalizeStoredThreadTitle } from './ThreadSidebar/thread-title';
 
 interface MiniThreadSidebarProps {
   onAssignToPane: (threadId: string) => void;
@@ -143,7 +143,7 @@ function MiniThreadRow({
           : '';
 
   const firstCat = thread.participants[0];
-  const title = sanitizeThreadTitle(thread.title ?? thread.id, thread.id);
+  const title = normalizeStoredThreadTitle(thread.title ?? thread.id, thread.id);
 
   return (
     <button

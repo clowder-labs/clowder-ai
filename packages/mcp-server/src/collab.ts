@@ -30,7 +30,7 @@ function createBaseServer(name: string): McpServer {
  * task management, and permission tools registered.
  */
 export function createCollabServer(): McpServer {
-  const server = createBaseServer('cat-cafe-collab-mcp');
+  const server = createBaseServer('office-claw-collab-mcp');
   registerCollabToolset(server);
   return server;
 }
@@ -39,15 +39,15 @@ async function main(): Promise<void> {
   initCatCafeDir();
   const server = createCollabServer();
   const transport = new StdioServerTransport();
-  console.error('[cat-cafe-collab] MCP Server starting...');
+  console.error('[office-claw-collab] MCP Server starting...');
   await server.connect(transport);
-  console.error('[cat-cafe-collab] MCP Server running on stdio');
+  console.error('[office-claw-collab] MCP Server running on stdio');
 }
 
 const isEntryPoint = process.argv[1] && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
 if (isEntryPoint) {
   main().catch((err) => {
-    console.error('[cat-cafe-collab] Fatal error:', err);
+    console.error('[office-claw-collab] Fatal error:', err);
     process.exit(1);
   });
 }

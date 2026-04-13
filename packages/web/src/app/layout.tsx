@@ -5,6 +5,7 @@
  */
 
 import type { Metadata, Viewport } from 'next';
+import { AppAuthBootstrap } from '@/components/AppAuthBootstrap';
 import { ThemeRootSync } from '@/components/ThemeRootSync';
 import { ToastContainer } from '@/components/ToastContainer';
 import { ConfirmProvider } from '@/components/useConfirm';
@@ -35,9 +36,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN" data-ui-theme="business">
-      <body className="min-h-screen">
+      <body className="min-h-screen w-screen">
         <ThemeRootSync />
-        <ConfirmProvider>{children}</ConfirmProvider>
+        <AppAuthBootstrap>
+          <ConfirmProvider>{children}</ConfirmProvider>
+        </AppAuthBootstrap>
         <ToastContainer />
       </body>
     </html>

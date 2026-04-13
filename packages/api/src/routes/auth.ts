@@ -11,6 +11,7 @@
 import Conf from 'conf';
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { getErrorMessage } from '../utils/index.js';
+import { reportMetric } from '../services/metrics/index.js';
 
 export interface AuthRoutesOptions {
   // 可以在这里添加认证相关的配置
@@ -68,7 +69,7 @@ const userInfo: UserInfo = {
 };
 
 const IAM_URL = process.env.IAM_URL!;
-const HUAWEI_CLAW_SUBSCRIPTION_URL = process.env.HUAWEI_CLAW_URL! + "/v1/claw/client-subscription";
+const HUAWEI_CLAW_SUBSCRIPTION_URL = process.env.HUAWEI_CLAW_URL! + '/v1/claw/client-subscription';
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 
 const secureConfig = new Conf({
@@ -81,8 +82,7 @@ const secureConfig = new Conf({
 export const sessions = new Map<string, UserInfo>();
 
 export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => {
-
-  const skipAuth = process.env.CAT_CAFE_SKIP_AUTH === '1' || process.env.CAT_CAFE_SKIP_AUTH === 'true';
+  const skipAuth = process.env.OFFICE_CLAW_SKIP_AUTH === '1' || process.env.OFFICE_CLAW_SKIP_AUTH === 'true';
 
   // 检查登录状态接口
   app.get('/api/islogin', async (request) => {
@@ -90,18 +90,14 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
       return { islogin: true, hascode: true, userId: 'debug-user', isskip: true };
     }
     const hascode = secureConfig.get('lastPromotionCode') ? true : false;
-    const userId = request.headers['x-cat-cafe-user'] as string;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
     if (!userId) {
       return { islogin: false, hascode, isskip: false };
     }
-    const userInfo: UserInfo = secureConfig.get(`${userId}-new`) as UserInfo;
-    const expiresAt = secureConfig.get(userId) || userInfo?.expiresAt;
-    if (!expiresAt || new Date(userInfo.expiresAt).getTime() < new Date().getTime()) {
+    const userInfo: UserInfo = secureConfig.get(userId) as UserInfo;
+    const expiresAt = userInfo?.expiresAt;
+    if (!expiresAt || new Date(expiresAt).getTime() < new Date().getTime()) {
       return { islogin: false, hascode, isskip: false };
-    }
-    const isFirstIsLoginCall = !sessions.has(userInfo.userId);
-    if (isFirstIsLoginCall) {
-      await refreshMaaSModelsAfterLogin(request, userInfo.userId);
     }
     sessions.set(userInfo.userId, { ...userInfo });
     return { islogin: true, hascode, userId, isskip: false };
@@ -145,23 +141,24 @@ export const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (app) => 
     userInfo.userId = `${domainName}:${name ?? ''}`;
     userInfo.expiresAt = tokenResult.expiresAt ?? '';
     userInfo.modelInfo = modelInfo ?? {};
-    secureConfig.set(userInfo.userId, userInfo.expiresAt);
-    secureConfig.set(`${userInfo.userId}-new`, userInfo);
+    secureConfig.set(userInfo.userId, userInfo);
     sessions.set(userInfo.userId, { ...userInfo });
     await refreshMaaSModelsAfterLogin(request, userInfo.userId);
 
     // 创建session（简单实现，生产环境应该生成JWT token）
     const sessionId = `session-${Date.now()}-${Math.random()}`;
     // 设置header返回给前端
-    reply.header('X-Cat-Cafe-User', userInfo.userId);
+    reply.header('X-Office-Claw-User', userInfo.userId);
     reply.header('X-Session-Id', sessionId);
+
+    reportMetric('agentarts_claw_user_login', 1).catch(() => {});
 
     return { success: true, userId: userInfo.userId, message: '登录成功' };
   });
 
   // 退出登录接口
   app.post('/api/logout', async (request) => {
-    const userId = request.headers['x-cat-cafe-user'] as string;
+    const userId = (request.headers['x-office-claw-user'] ?? request.headers['x-cat-cafe-user']) as string;
 
     if (userId) {
       // 删除 session
@@ -191,20 +188,20 @@ async function getTokens(domainName = '', userName = '', password = ''): Promise
             password: {
               user: {
                 domain: {
-                  name: domainName // IAM用户所属账号名
+                  name: domainName, // IAM用户所属账号名
                 },
                 name: userName, // IAM用户名
-                password: password // IAM用户密码
-              }
-            }
+                password: password, // IAM用户密码
+              },
+            },
           },
           scope: {
             project: {
-              name: 'cn-north-4' // 项目名称
-            }
-          }
-        }
-      })
+              name: 'cn-north-4', // 项目名称
+            },
+          },
+        },
+      }),
     });
 
     if (!authResponse.ok) {
@@ -228,15 +225,15 @@ async function getSecuritytokens(token = ''): Promise<CredentialResult> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json;charset=utf8',
-        'X-Auth-Token': token
+        'X-Auth-Token': token,
       },
       body: JSON.stringify({
         auth: {
           identity: {
-            methods: ["token"]
-          }
-        }
-      })
+            methods: ['token'],
+          },
+        },
+      }),
     });
 
     if (!authResponse.ok) {
@@ -261,10 +258,10 @@ async function subscriptionClaw(token = '', promotionCode?: string): Promise<Mod
         'X-Auth-Token': token,
       },
       body: JSON.stringify({
-        promotion_code: promotionCode || secureConfig.get('lastPromotionCode') || DEFAULT_PROMOTION_CODE
-      })
+        promotion_code: promotionCode || secureConfig.get('lastPromotionCode') || DEFAULT_PROMOTION_CODE,
+      }),
     });
-    
+
     if (!subResponse.ok) {
       const { error_code, error_message } = await getErrorMessage(subResponse);
       const needCode = ['AgentArts.11000008', 'AgentArts.11000009'].includes(error_code);
@@ -272,7 +269,7 @@ async function subscriptionClaw(token = '', promotionCode?: string): Promise<Mod
       console.error(`开通客户端失败，错误码: ${error_code}, 错误信息: ${error_message}`);
       return { success: false, message: needCode ? `邀请码无效，请重新输入` : `开通失败`, needCode };
     }
-    
+
     const data: any = await subResponse.json();
     promotionCode && secureConfig.set('lastPromotionCode', promotionCode);
     return { success: true, modelInfo: data.model_info };
@@ -287,15 +284,12 @@ async function refreshMaaSModelsAfterLogin(request: FastifyRequest, userId: stri
       method: 'GET',
       url: '/api/maas-models',
       headers: {
-        'x-cat-cafe-user': userId,
+        'x-office-claw-user': userId,
         'x-refresh': 'true',
       },
     });
     if (refreshResponse.statusCode >= 400) {
-      request.log.warn(
-        { statusCode: refreshResponse.statusCode, userId },
-        'refresh maas models failed after login',
-      );
+      request.log.warn({ statusCode: refreshResponse.statusCode, userId }, 'refresh maas models failed after login');
     }
   } catch (error) {
     request.log.warn({ error, userId }, 'refresh maas models errored after login');

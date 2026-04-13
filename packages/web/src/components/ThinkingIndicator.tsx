@@ -170,7 +170,7 @@ export function ThinkingIndicator({ onCancel }: ThinkingIndicatorProps = {}) {
     <div className="hidden px-5 py-2 border-b border-gray-200 bg-gray-50">
       <div className="flex items-center gap-2">
         <span className="text-base leading-none animate-pulse" role="img" aria-label="paw">
-          🐾
+          ⏳
         </span>
         <span className="text-sm text-gray-500">
           {name}

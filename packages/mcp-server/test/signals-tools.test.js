@@ -13,7 +13,7 @@ describe('MCP Signal Tools', () => {
 
   beforeEach(() => {
     originalEnv = { ...process.env };
-    process.env.CAT_CAFE_API_URL = 'http://127.0.0.1:3004';
+    process.env.OFFICE_CLAW_API_URL = 'http://127.0.0.1:3004';
     originalFetch = globalThis.fetch;
   });
 
@@ -65,7 +65,7 @@ describe('MCP Signal Tools', () => {
     assert.equal(parsed.searchParams.get('tier'), '1');
 
     const headers = new Headers(capturedInit?.headers);
-    assert.equal(headers.get('x-cat-cafe-user'), 'codex');
+    assert.equal(headers.get('x-office-claw-user'), 'codex');
     assert.match(result.content[0].text, /Claude 5 roadmap/);
   });
 

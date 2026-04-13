@@ -9,7 +9,7 @@
  *
  * Tracks which external projects have been bootstrapped,
  * their governance pack versions, and sync timestamps.
- * Stored at `.cat-cafe/governance-registry.json` in the Cat Cafe root.
+ * Stored at `.office-claw/governance-registry.json` in the Cat Cafe root.
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -18,7 +18,7 @@ import type { GovernanceHealthSummary, GovernancePackMeta } from '@cat-cafe/shar
 import { pathsEqual } from '../../utils/project-path.js';
 import { GOVERNANCE_PACK_VERSION } from './governance-pack.js';
 
-const REGISTRY_DIR = '.cat-cafe';
+const REGISTRY_DIR = '.office-claw';
 const REGISTRY_FILENAME = 'governance-registry.json';
 
 interface RegistryEntry extends GovernancePackMeta {
