@@ -65,6 +65,17 @@ interface RelayClawScopeDescriptor {
 }
 
 interface RelayClawScopeRuntime {
+  scopeKey: string;
+  homeDir?: string;
+  requestQueues: Map<string, FrameQueue>;
+  connection: RelayClawConnection;
+  sidecar: RelayClawSidecarController;
+  resolvedUrl: string | null;
+}
+
+export interface RelayClawRuntimeHandle {
+  scopeKey: string;
+  homeDir?: string;
   requestQueues: Map<string, FrameQueue>;
   connection: RelayClawConnection;
   sidecar: RelayClawSidecarController;
@@ -188,6 +199,17 @@ export class RelayClawAgentService implements AgentService {
     this.scopes.clear();
   }
 
+  listRelayClawRuntimeHandles(): RelayClawRuntimeHandle[] {
+    return Array.from(this.scopes.values(), (runtime) => ({
+      scopeKey: runtime.scopeKey,
+      homeDir: runtime.homeDir,
+      requestQueues: runtime.requestQueues,
+      connection: runtime.connection,
+      sidecar: runtime.sidecar,
+      resolvedUrl: runtime.resolvedUrl,
+    }));
+  }
+
   private resolveScope(options?: AgentServiceOptions): RelayClawScopeDescriptor {
     if (!this.config.autoStart) {
       return { key: `external:${this.config.url ?? ''}` };
@@ -217,6 +239,8 @@ export class RelayClawAgentService implements AgentService {
       ...(scope.homeDir ? { homeDir: scope.homeDir } : {}),
     };
     const runtime: RelayClawScopeRuntime = {
+      scopeKey: scope.key,
+      homeDir: scope.homeDir,
       requestQueues,
       connection: this.createConnection(requestQueues),
       sidecar: this.createSidecarController(this.catId, scopeConfig),

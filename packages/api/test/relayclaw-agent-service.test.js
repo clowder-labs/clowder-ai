@@ -875,6 +875,68 @@ describe('RelayClawAgentService', () => {
     assert.notEqual(createdHomeDirs[0], createdHomeDirs[1]);
   });
 
+  it('exposes all live relayclaw runtime handles across scopes', async () => {
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+          modelName: 'gpt-5.4',
+          homeDir: '/tmp/relayclaw-home',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => ({
+          async ensureStarted() {
+            const scopeId = String(config.homeDir).split(/[/\\]/).at(-1) ?? 'scope-unknown';
+            return `ws://127.0.0.1:${scopeId.includes('scope-') ? '19094' : '19095'}`;
+          },
+          stop() {},
+          getRecentLogs() {
+            return '';
+          },
+        }),
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    await collect(
+      service.invoke('hello one', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-a',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+    await collect(
+      service.invoke('hello two', {
+        callbackEnv: {
+          OPENAI_API_KEY: 'key-b',
+          OPENAI_BASE_URL: 'https://example.invalid/v1',
+        },
+      }),
+    );
+
+    const runtimeHandles = service.listRelayClawRuntimeHandles();
+    assert.equal(runtimeHandles.length, 2);
+    assert.equal(new Set(runtimeHandles.map((handle) => handle.scopeKey)).size, 2);
+    assert.equal(new Set(runtimeHandles.map((handle) => handle.homeDir)).size, 2);
+    for (const handle of runtimeHandles) {
+      assert.match(handle.scopeKey, /^auto:/);
+      assert.match(String(handle.homeDir).replaceAll('\\', '/'), /\/tmp\/relayclaw-home\/scope-/);
+    }
+  });
+
   it('yields error before done when the provider times out', async () => {
     const service = new RelayClawAgentService(
       {

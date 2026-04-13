@@ -97,7 +97,7 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
   return (
     <div
       data-testid="authorization-card"
-      className="w-full max-w-[482px] min-h-[140px] rounded-[16px] border border-[#F0F0F0] bg-white px-6 py-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
+      className="w-full max-w-[482px] min-h-[140px] rounded-[12px] bg-[#f8f8f8] px-6 py-5"
       style={{ 'marginLeft': '56px' }}
     >
       <div className="min-w-0">

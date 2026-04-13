@@ -20,6 +20,7 @@ import type { ConnectorRuntimeReconciler } from '../infrastructure/connectors/Co
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { configStore } from '../config/ConfigStore.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
+import type { AgentRegistry } from '../domains/cats/services/agents/registry/AgentRegistry.js';
 import {
   buildEnvSummary,
   ENV_CATEGORIES,
@@ -88,6 +89,7 @@ interface ConfigRoutesOptions {
   projectRoot?: string;
   connectorRuntimeManager?: ConnectorRuntimeReconciler;
   relayClawSecurityClient?: RelayClawSecurityClient;
+  agentRegistry?: AgentRegistry;
 }
 
 function getSnapshotValue(snapshot: ConfigSnapshot, key: string): unknown {
@@ -156,7 +158,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
   const auditLog = opts.auditLog ?? getEventAuditLog();
   const projectRoot = opts.projectRoot ?? resolveActiveProjectRoot();
   const envFilePath = opts.envFilePath ?? resolve(projectRoot, '.env');
-  const relayClawSecurityClient = opts.relayClawSecurityClient ?? createRelayClawSecurityClient(projectRoot);
+  const relayClawSecurityClient = opts.relayClawSecurityClient ?? createRelayClawSecurityClient(projectRoot, opts.agentRegistry);
 
   app.get('/api/config', async () => ({
     config: collectConfigSnapshot(),

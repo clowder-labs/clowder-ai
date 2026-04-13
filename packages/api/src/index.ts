@@ -1055,7 +1055,9 @@ async function main(): Promise<void> {
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
-  const configRouteOpts: Parameters<typeof configRoutes>[1] = {};
+  const configRouteOpts: Parameters<typeof configRoutes>[1] = {
+    agentRegistry,
+  };
   await app.register(configRoutes, configRouteOpts);
   await app.register(featureDocDetailRoutes);
   await app.register(modelConfigProfilesRoutes);
