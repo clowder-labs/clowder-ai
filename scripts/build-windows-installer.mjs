@@ -657,6 +657,10 @@ function installSharedPythonDeps(bundleDir) {
     'python-pptx', // PowerPoint read/write
     'openpyxl', // Excel read/write
     'python-docx', // Word read/write
+    'requests', // HTTP integrations used by multiple office skills
+    'pillow', // Image processing for report/image skills
+    'PyYAML', // YAML config parsing for knowledge skills
+    'coze_workload_identity', // Feishu meeting auth helper
     'xlsxwriter', // Excel write (fast, chart support)
     'pypdf', // PDF read/merge/split
     'pdfplumber', // PDF text/table extraction
@@ -1123,6 +1127,7 @@ function ensureWindowsBuildNode(options) {
   const windowsNodeWslDir = toWslPath(windowsNodeDir);
   const nodeRootName = `node-${options.nodeVersion}-win-x64`;
   const npmCmdPath = win32.join(windowsNodeDir, nodeRootName, 'npm.cmd');
+  const npxCmdPath = win32.join(windowsNodeDir, nodeRootName, 'npx.cmd');
   if (!existsSync(toWslPath(npmCmdPath))) {
     resetDir(windowsNodeWslDir);
     const archivePath = join(options.cacheDir, `node-${options.nodeVersion}-win-x64.zip`);
@@ -1131,6 +1136,7 @@ function ensureWindowsBuildNode(options) {
   return {
     windowsNodeDir,
     npmCmdPath,
+    npxCmdPath,
   };
 }
 
@@ -1138,17 +1144,55 @@ function runWindowsNpmInstall(npmCmdPath, packageWindowsDir) {
   run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, { cwd: packageWindowsDir, shell: true });
 }
 
-function installBundledOfficeSkillDependencies(bundleDir, windowsNode) {
-  const pptxCraftDir = join(bundleDir, 'office-claw-skills', 'pptx-craft');
-  const packageJsonPath = join(pptxCraftDir, 'package.json');
-  if (!existsSync(packageJsonPath)) {
-    throw new Error(`Missing office skill package manifest: ${packageJsonPath}`);
+function getOfficeSkillPackageDirs(skillsRoot) {
+  if (!existsSync(skillsRoot)) {
+    return [];
   }
-  runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(pptxCraftDir));
-  rmSync(join(pptxCraftDir, 'package-lock.json'), { force: true });
-  const nmDir = join(pptxCraftDir, 'node_modules');
-  pruneNativePrebuilds(nmDir);
-  pruneDateFnsLocales(nmDir);
+  return readdirSync(skillsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(skillsRoot, entry.name))
+    .filter((skillDir) => existsSync(join(skillDir, 'package.json')));
+}
+
+function readSkillPackageJson(skillDir) {
+  return readJson(join(skillDir, 'package.json'));
+}
+
+function hasPlaywrightDependency(pkg) {
+  return [pkg.dependencies, pkg.optionalDependencies, pkg.devDependencies].some(
+    (group) => typeof group?.playwright === 'string',
+  );
+}
+
+function installBundledOfficeSkillDependencies(bundleDir, windowsNode) {
+  const skillsRoot = join(bundleDir, 'office-claw-skills');
+  const skillPackageDirs = getOfficeSkillPackageDirs(skillsRoot);
+  let playwrightPackageDir = null;
+
+  for (const skillDir of skillPackageDirs) {
+    runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(skillDir));
+    rmSync(join(skillDir, 'package-lock.json'), { force: true });
+    const nmDir = join(skillDir, 'node_modules');
+    pruneNativePrebuilds(nmDir);
+    pruneDateFnsLocales(nmDir);
+
+    const pkg = readSkillPackageJson(skillDir);
+    if (!playwrightPackageDir && hasPlaywrightDependency(pkg)) {
+      playwrightPackageDir = skillDir;
+    }
+  }
+
+  if (playwrightPackageDir) {
+    const playwrightBrowsersPath = join(skillsRoot, '.playwright-browsers');
+    ensureDir(playwrightBrowsersPath);
+    run(windowsNode.npxCmdPath, ['playwright', 'install', 'chromium'], {
+      cwd: toWindowsPath(playwrightPackageDir),
+      shell: true,
+      env: {
+        PLAYWRIGHT_BROWSERS_PATH: toWindowsPath(playwrightBrowsersPath),
+      },
+    });
+  }
 }
 
 function materializeSharedDependency(stagePackagesDir, packageName) {

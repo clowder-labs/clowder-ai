@@ -4,7 +4,7 @@
 
 功能：调用飞书开放平台API创建在线会议
 授权方式：OAuth 2.0
-凭证Key: COZE_FEISHU_MEETING_7626363595932188681
+凭证从环境变量读取（具体变量名见代码）
 """
 
 import os
@@ -28,14 +28,12 @@ def create_meeting(title, start_time, duration, user_ids, description):
     Returns:
         dict: 包含会议链接和会议ID的字典
     """
-    # 1. 获取OAuth凭证
-    skill_id = "7626363595932188681"
-    access_token = os.getenv("COZE_FEISHU_MEETING_" + skill_id)
+    # 1. 获取OAuth凭证（凭证标识符从专用环境变量读取，避免硬编码）
+    access_token = os.getenv("COZE_FEISHU_MEETING_TOKEN")
 
     if not access_token:
         raise ValueError(
-            "缺少飞书OAuth凭证配置，请检查环境变量 "
-            f"COZE_FEISHU_MEETING_{skill_id}"
+            "缺少飞书OAuth凭证配置，请设置环境变量 COZE_FEISHU_MEETING_TOKEN"
         )
 
     # 2. 构建请求URL

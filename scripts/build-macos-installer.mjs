@@ -909,7 +909,20 @@ function installSharedPythonDeps(bundleDir) {
   tryPipInstall(pipExe, [...pipArgs, '--no-deps', join(repoRoot, 'vendor', 'jiuwenclaw')], 'JiuwenClaw package');
 
   // Office automation
-  const officeDeps = ['python-pptx', 'openpyxl', 'python-docx', 'xlsxwriter', 'pypdf', 'reportlab', 'markitdown'];
+  const officeDeps = [
+    'python-pptx',
+    'openpyxl',
+    'python-docx',
+    'requests',
+    'pillow',
+    'PyYAML',
+    'coze_workload_identity',
+    'xlsxwriter',
+    'pypdf',
+    'pdfplumber',
+    'reportlab',
+    'markitdown',
+  ];
   tryPipInstall(pipExe, [...pipArgs, ...officeDeps], 'Office deps');
 
   // Relay-teams CLI
@@ -937,6 +950,22 @@ function materializeSharedDependency(stagePackagesDir, packageName) {
   pruneRuntimePackage(sharedLinkPath);
 }
 
+function getOfficeSkillPackageDirs(skillsRoot) {
+  if (!existsSync(skillsRoot)) {
+    return [];
+  }
+  return readdirSync(skillsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(skillsRoot, entry.name))
+    .filter((skillDir) => existsSync(join(skillDir, 'package.json')));
+}
+
+function hasPlaywrightDependency(pkg) {
+  return [pkg.dependencies, pkg.optionalDependencies, pkg.devDependencies].some(
+    (group) => typeof group?.playwright === 'string',
+  );
+}
+
 function installMacosRuntimeDependencies(bundleDir) {
   const bundlePackagesDir = join(bundleDir, 'packages');
   const npmArgs = ['install', '--omit=dev', '--no-audit', '--no-fund', '--package-lock=false', '--loglevel=error'];
@@ -949,6 +978,33 @@ function installMacosRuntimeDependencies(bundleDir) {
     materializeSharedDependency(bundlePackagesDir, packageName);
     pruneRuntimePackage(join(pkgDir));
     pruneNativePrebuilds(join(pkgDir, 'node_modules'));
+  }
+
+  const skillsRoot = join(bundleDir, 'office-claw-skills');
+  const skillPackageDirs = getOfficeSkillPackageDirs(skillsRoot);
+  let playwrightPackageDir = null;
+
+  for (const skillDir of skillPackageDirs) {
+    run('npm', npmArgs, { cwd: skillDir });
+    rmSync(join(skillDir, 'package-lock.json'), { force: true });
+    pruneNativePrebuilds(join(skillDir, 'node_modules'));
+    pruneDateFnsLocales(join(skillDir, 'node_modules'));
+
+    const pkg = readJson(join(skillDir, 'package.json'));
+    if (!playwrightPackageDir && hasPlaywrightDependency(pkg)) {
+      playwrightPackageDir = skillDir;
+    }
+  }
+
+  if (playwrightPackageDir) {
+    const playwrightBrowsersPath = join(skillsRoot, '.playwright-browsers');
+    ensureDir(playwrightBrowsersPath);
+    run('npx', ['playwright', 'install', 'chromium'], {
+      cwd: playwrightPackageDir,
+      env: {
+        PLAYWRIGHT_BROWSERS_PATH: playwrightBrowsersPath,
+      },
+    });
   }
 }
 
