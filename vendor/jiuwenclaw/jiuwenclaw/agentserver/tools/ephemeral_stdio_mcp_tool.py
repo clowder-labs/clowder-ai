@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, Callable
 
 from openjiuwen.core.common.exception.codes import StatusCode
 from openjiuwen.core.common.exception.errors import build_error
@@ -72,9 +72,9 @@ async def list_stdio_mcp_tool_defs(params: dict[str, Any]) -> list[dict[str, Any
 class EphemeralStdioMcpTool(Tool):
     """每次 invoke 单独 connect → call_tool → 关闭子进程。"""
 
-    def __init__(self, card: ToolCard, stdio_params: dict[str, Any]) -> None:
+    def __init__(self, card: ToolCard, get_stdio_params: Callable[[], dict[str, Any]]) -> None:
         super().__init__(card)
-        self._stdio_params = stdio_params
+        self._get_stdio_params = get_stdio_params
 
     async def stream(self, inputs: Any, **kwargs: Any):
         raise build_error(StatusCode.TOOL_STREAM_NOT_SUPPORTED, card=self._card)
@@ -84,7 +84,7 @@ class EphemeralStdioMcpTool(Tool):
         from mcp.client.stdio import stdio_client
 
         arguments = inputs if isinstance(inputs, dict) else {}
-        sp = self._stdio_params
+        sp = self._get_stdio_params()
         stdio_params = StdioServerParameters(
             command=sp["command"],
             args=sp["args"],
