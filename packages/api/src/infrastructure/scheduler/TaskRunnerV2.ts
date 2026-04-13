@@ -369,7 +369,7 @@ export class TaskRunnerV2 {
       this.deliver({
         threadId: def.deliveryThreadId,
         content,
-        catId: def.createdBy,
+        catId: 'system',
         userId: ((def.params as Record<string, unknown>).triggerUserId as string) ?? 'system',
       }).catch((err) => {
         this.logger.error(`[scheduler] ${def.id}: failed to send missed-window notification`, err);
