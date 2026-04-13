@@ -43,6 +43,7 @@ SetFont "Segoe UI" 9
 !define AUTOSTART_VALUE "${APP_NAME}"
 !define STARTMENU_DIR "$SMPROGRAMS\${APP_NAME}"
 !define DEFAULT_INSTALL_DIR "$LOCALAPPDATA\Programs\${APP_NAME}"
+!define INSTALLER_MUTEX_NAME "Local\${COMPANY_KEY}.${APP_NAME}.InstallerSession"
 
 Name "${APP_NAME}"
 OutFile "${OUTPUT_EXE}"
@@ -54,6 +55,7 @@ ShowUninstDetails show
 
 Var SelectedInstallDir
 Var ExistingInstallDir
+Var InstallerMutexHandle
 
 ; --------------- License page (custom nsDialogs) ---------------
 Page custom LicensePageCreate LicensePageLeave
@@ -325,8 +327,33 @@ Function FinishPageLeave
   ${EndIf}
 FunctionEnd
 
+Function AcquireInstallerSessionMutex
+  ; Keep a process-lifetime mutex so parallel installer/uninstaller instances
+  ; cannot race on the same install dir, payload archive, or uninstall registry.
+  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0'
+  StrCpy $InstallerMutexHandle $0
+  System::Call 'kernel32::GetLastError() i.r1'
+  ${If} $1 == 183
+    MessageBox MB_OK|MB_ICONEXCLAMATION "检测到另一个 ${APP_NAME} 安装或卸载正在进行。$\r$\n$\r$\n请先完成当前安装向导后再试。"
+    Abort
+  ${EndIf}
+FunctionEnd
+
+Function un.AcquireInstallerSessionMutex
+  ; Keep a process-lifetime mutex so parallel installer/uninstaller instances
+  ; cannot race on the same install dir, payload archive, or uninstall registry.
+  System::Call 'kernel32::CreateMutexW(p0, i0, w "${INSTALLER_MUTEX_NAME}") p.r0'
+  StrCpy $InstallerMutexHandle $0
+  System::Call 'kernel32::GetLastError() i.r1'
+  ${If} $1 == 183
+    MessageBox MB_OK|MB_ICONEXCLAMATION "检测到另一个 ${APP_NAME} 安装或卸载正在进行。$\r$\n$\r$\n请先完成当前安装向导后再试。"
+    Abort
+  ${EndIf}
+FunctionEnd
+
 Function .onInit
   SetShellVarContext current
+  Call AcquireInstallerSessionMutex
   Call ResolveExistingInstallDir
   Call ResolveInstallOptionDefaults
   ${If} $ExistingInstallDir != ""
@@ -350,6 +377,7 @@ FunctionEnd
 
 Function un.onInit
   SetShellVarContext current
+  Call un.AcquireInstallerSessionMutex
 
   ; Check if OfficeClaw is running before uninstall
   Call un.CheckOfficeClawRunning

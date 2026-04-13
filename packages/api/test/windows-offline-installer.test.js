@@ -331,6 +331,20 @@ test('NSIS installer is per-user, upgrades in-place, and preserves runtime data 
   assert.match(nsisScript, /MessageBox MB_YESNO\|MB_ICONQUESTION "/);
 });
 
+test('NSIS installer blocks concurrent installer sessions before touching shared install state', () => {
+  assert.match(nsisScript, /!define INSTALLER_MUTEX_NAME "Local\\\$\{COMPANY_KEY\}\.\$\{APP_NAME\}\.InstallerSession"/);
+  assert.match(nsisScript, /Var InstallerMutexHandle/);
+  assert.match(nsisScript, /Function AcquireInstallerSessionMutex/);
+  assert.match(nsisScript, /Function un\.AcquireInstallerSessionMutex/);
+  assert.match(nsisScript, /System::Call 'kernel32::CreateMutexW\(p0, i0, w "\$\{INSTALLER_MUTEX_NAME\}"\) p\.r0'/);
+  assert.match(nsisScript, /StrCpy \$InstallerMutexHandle \$0/);
+  assert.match(nsisScript, /System::Call 'kernel32::GetLastError\(\) i\.r1'/);
+  assert.match(nsisScript, /\$\{If\} \$1 == 183/);
+  assert.match(nsisScript, /MessageBox MB_OK\|MB_ICONEXCLAMATION "/);
+  assert.match(nsisScript, /Function \.onInit[\s\S]*?Call AcquireInstallerSessionMutex/);
+  assert.match(nsisScript, /Function un\.onInit[\s\S]*?Call un\.AcquireInstallerSessionMutex/);
+});
+
 test('NSIS installer reuses the recorded install dir instead of allowing duplicate installs elsewhere', () => {
   assert.match(nsisScript, /Function ResolveExistingInstallDir/);
   assert.match(nsisScript, /ReadRegStr \$0 HKCU "\$\{INSTALL_KEY\}" "InstallDir"/);
