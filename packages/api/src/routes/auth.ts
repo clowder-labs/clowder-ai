@@ -14,7 +14,7 @@ import Conf from 'conf';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { fileURLToPath } from 'node:url';
 import { getErrorMessage } from '../utils/index.js';
-import { reportMetric } from '../services/metrics/index.js';
+import { reportMetric, initMetricsServiceFromCredential, startTokenUsageReporter } from '../services/metrics/index.js';
 
 export interface AuthRoutesOptions {
   // 可以在这里添加认证相关的配置
@@ -290,6 +290,27 @@ async function completeCasLogin(
     storeUserInfo(session);
     sessions.set(session.userId, { ...session });
     attachUserHeaders(reply, session.userId);
+
+    // Initialize AOM metrics from CAS credentials (async, non-blocking)
+    const casCredential = resolveCasCredential(session);
+    if (casCredential.accessKey && casCredential.secretKey && casCredential.securityToken && session.credential.project_id) {
+      initMetricsServiceFromCredential(
+        {
+          access: casCredential.accessKey,
+          secret: casCredential.secretKey,
+          sts_token: casCredential.securityToken,
+          project_id: session.credential.project_id,
+        },
+        HUAWEI_CLAW_BASE_URL,
+        process.env.AOM_INSTANCE_ID || 'officeclaw-instance',
+        request.log,
+      )
+        .then((initialized) => {
+          if (initialized) startTokenUsageReporter(60_000);
+        })
+        .catch(() => {});
+    }
+
     await refreshMaaSModelsAfterLogin(request, session.userId);
     reportMetric('agentarts_claw_user_login', 1).catch(() => {});
     return {
