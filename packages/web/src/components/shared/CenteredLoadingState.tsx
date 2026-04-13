@@ -11,7 +11,7 @@ import { LoadingSmall } from '../LoadingSmall';
 export function CenteredLoadingState() {
   return (
     <div
-      className="flex min-h-0 flex-1 items-center justify-center"
+      className="flex h-full min-h-[240px] w-full items-center justify-center"
       data-testid="skills-loading-state"
       aria-label="loading"
     >
