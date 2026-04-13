@@ -294,6 +294,40 @@ function hasClass(classStr, className) {
 }
 
 /**
+ * 判断节点是否已有 flex-direction 样式（行布局或列布局）
+ * 返回 'row' | 'col' | 'row-reverse' | 'col-reverse' | null
+ *
+ * Tailwind 规则：
+ * - flex = display: flex + flex-direction: row（默认）
+ * - flex flex-col = display: flex + flex-direction: column
+ * - flex-1 / flex-auto / flex-none 等不设置 display: flex，只是 flex 属性
+ */
+function getFlexDirection(node) {
+  const cls = node.classStr;
+
+  // 显式的 flex 容器类（flex 本身就隐含 flex-direction: row）
+  if (hasClass(cls, 'flex')) return 'row';
+  if (hasClass(cls, 'inline-flex')) return 'row';
+
+  // 显式的方向类
+  if (hasClass(cls, 'flex-row')) return 'row';
+  if (hasClass(cls, 'flex-row-reverse')) return 'row-reverse';
+  if (hasClass(cls, 'flex-col')) return 'col';
+  if (hasClass(cls, 'flex-col-reverse')) return 'col-reverse';
+
+  // 检查 style 属性中的 flex-direction
+  const style = node.attrs.style || '';
+  const flexDirectionMatch = style.match(/flex-direction\s*:\s*([^;]+)/i);
+  if (flexDirectionMatch) {
+    const value = flexDirectionMatch[1].trim().toLowerCase();
+    if (value.includes('row')) return 'row';
+    if (value.includes('column')) return 'col';
+  }
+
+  return null;
+}
+
+/**
  * 向 class 字符串追加类名
  */
 function addClasses(classStr, ...classes) {
@@ -365,10 +399,17 @@ function fixFile(filePath) {
         if (!hasClass(node.classStr, 'flex-1')) neededClasses.push('flex-1');
         if (!hasClass(node.classStr, 'min-h-0')) neededClasses.push('min-h-0');
       } else if (!isChartElement) {
-        // 中间父元素需要 flex flex-col overflow-hidden
+        // 中间父元素需要 flex + overflow-hidden
+        // 但要保持原有的 flex-direction（行/列布局）
         if (!hasClass(node.classStr, 'flex')) neededClasses.push('flex');
-        if (!hasClass(node.classStr, 'flex-col')) neededClasses.push('flex-col');
         if (!hasClass(node.classStr, 'overflow-hidden')) neededClasses.push('overflow-hidden');
+
+        // 仅当没有任何 flex-direction 时，默认使用 flex-col
+        const flexDirection = getFlexDirection(node);
+        if (flexDirection === null) {
+          if (!hasClass(node.classStr, 'flex-col')) neededClasses.push('flex-col');
+        }
+        // 如果已有 flex-row / flex-col 等，保持原有布局方向
       }
 
       if (neededClasses.length > 0) {

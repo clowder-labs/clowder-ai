@@ -241,12 +241,17 @@ function checkHeaderFooter(tags, issues) {
 
 /**
  * 检查 main 是否有必要的 flex 类
- * 规则：main 需有 flex flex-col min-h-0 overflow-hidden
+ * 规则：
+ * - main 必须是 flex 容器（有 flex 类）
+ * - main 必须有 min-h-0 overflow-hidden
+ * - flex-direction 由 main 自身的布局决定（有 flex + 无 flex-col = 横向，有 flex-col = 纵向）
+ * - 不强制要求 flex-col，横向布局的 main 不需要它
  */
 function checkMainFlexClasses(tags, issues) {
   const mainNodes = tags.filter(t => t.tag === 'main');
 
-  const requiredClasses = ['flex', 'flex-col', 'min-h-0', 'overflow-hidden'];
+  // 必须有的类（不含方向类，方向由布局决定）
+  const requiredClasses = ['flex', 'min-h-0', 'overflow-hidden'];
 
   for (const main of mainNodes) {
     const missing = requiredClasses.filter(cls => !hasClass(main.classStr, cls));
