@@ -132,6 +132,16 @@ export interface ProjectEntry {
   isDirectory: boolean;
 }
 
+const WINDOWS_HIDDEN_SYSTEM_DIRS = new Set(['$RECYCLE.BIN', 'System Volume Information']);
+
+export function shouldHideProjectBrowseEntry(name: string, platformName = process.platform): boolean {
+  if (!name) return true;
+  if (name.startsWith('.')) return true;
+  if (name === 'node_modules') return true;
+  if (platformName === 'win32' && WINDOWS_HIDDEN_SYSTEM_DIRS.has(name)) return true;
+  return false;
+}
+
 export async function listWindowsDriveRoots(platformName = process.platform): Promise<ProjectEntry[]> {
   if (platformName !== 'win32') return [];
 
@@ -242,8 +252,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const results: ProjectEntry[] = [];
 
       for (const entry of entries) {
-        if (entry.name.startsWith('.')) continue;
-        if (entry.name === 'node_modules') continue;
+        if (shouldHideProjectBrowseEntry(entry.name)) continue;
         if (fragment && !entry.name.startsWith(fragment)) continue;
 
         const childPath = resolve(validatedParent, entry.name);
@@ -296,10 +305,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       const dirs: ProjectEntry[] = [];
 
       for (const entry of entries) {
-        // Skip hidden dirs (., .., .git, .node_modules, etc.)
-        if (entry.name.startsWith('.')) continue;
-        // Skip node_modules
-        if (entry.name === 'node_modules') continue;
+        if (shouldHideProjectBrowseEntry(entry.name)) continue;
 
         if (entry.isDirectory()) {
           // Resolve child realpath to prevent symlink escape in entries

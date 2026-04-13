@@ -381,6 +381,29 @@ describe('DirectoryBrowser', () => {
     expect(container.textContent).toContain('projects');
   });
 
+  it('does not render other drive roots while browsing inside a drive', async () => {
+    const winHome = 'C:\\Users\\test';
+    mockApiFetch.mockReturnValueOnce(
+      jsonOk({
+        current: 'D:\\workspace',
+        name: 'workspace',
+        parent: 'D:\\',
+        homePath: winHome,
+        drives: [
+          { name: 'C:', path: 'C:\\', isDirectory: true },
+          { name: 'D:', path: 'D:\\', isDirectory: true },
+        ],
+        entries: [{ name: 'demo', path: 'D:\\workspace\\demo', isDirectory: true }],
+      }),
+    );
+    render({ initialPath: 'D:\\workspace' });
+    await flush();
+
+    expect(findButtonByText('C:')).toBeFalsy();
+    expect(findButtonByText('D:')).toBeFalsy();
+    expect(container.textContent).toContain('demo');
+  });
+
   // ── Path input navigation ─────────────────────────────
 
   it('navigates to typed path on Enter key', async () => {

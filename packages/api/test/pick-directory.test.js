@@ -89,6 +89,17 @@ describe('getProjectBrowseParent()', () => {
   });
 });
 
+describe('shouldHideProjectBrowseEntry()', () => {
+  it('hides common Windows system directories', () => {
+    assert.equal(mod.shouldHideProjectBrowseEntry('$RECYCLE.BIN', 'win32'), true);
+    assert.equal(mod.shouldHideProjectBrowseEntry('System Volume Information', 'win32'), true);
+  });
+
+  it('still allows normal Windows directories', () => {
+    assert.equal(mod.shouldHideProjectBrowseEntry('workspace', 'win32'), false);
+  });
+});
+
 describe('POST /api/projects/pick-directory', () => {
   it('returns 401 when only a spoofed userId query param is provided', async () => {
     const app = await buildApp();

@@ -34,6 +34,10 @@ interface DirectoryBrowserProps {
   onCancel: () => void;
 }
 
+function shouldShowDriveRoots(current: string, homePath: string): boolean {
+  return /^[A-Za-z]:[\\/]?/.test(homePath) && current === homePath;
+}
+
 function pathToSegments(absPath: string, homePath: string): { label: string; path: string }[] {
   const sep = absPath.includes('\\') ? '\\' : '/';
 
@@ -125,8 +129,9 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
   }, [pathInput, fetchDirectory]);
 
   const segments = browseResult ? pathToSegments(browseResult.current, browseResult.homePath) : [];
+  const visibleDrives = browseResult && shouldShowDriveRoots(browseResult.current, browseResult.homePath) ? (browseResult.drives ?? []) : [];
   const listedEntries = browseResult
-    ? [...(browseResult.drives ?? []), ...browseResult.entries.filter((entry) => !(browseResult.drives ?? []).some((drive) => drive.path === entry.path))]
+    ? [...visibleDrives, ...browseResult.entries.filter((entry) => !visibleDrives.some((drive) => drive.path === entry.path))]
     : [];
 
   return (
