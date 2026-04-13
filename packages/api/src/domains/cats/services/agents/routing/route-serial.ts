@@ -17,7 +17,7 @@
  */
 
 import type { CatConfig, CatId } from '@cat-cafe/shared';
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry, getFriendlyAgentErrorMessage, classifyError } from '@cat-cafe/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { getConfigSessionStrategy, isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getCatVoice } from '../../../../../config/cat-voices.js';
@@ -367,6 +367,7 @@ export async function* routeSerial(
       let lastFlushTime = Date.now();
       let lastFlushLen = 0;
       let lastFlushToolLen = 0;
+      let hadErrorTransformed = false; // Track if error was transformed in stream loop
       const FLUSH_INTERVAL_MS = 2000;
       const FLUSH_CHAR_DELTA = 2000;
       const noop = () => {};
@@ -527,9 +528,49 @@ export async function* routeSerial(
 
         if (msg.type === 'error') {
           hadError = true;
-          if (msg.error) {
-            collectedErrorText += `${collectedErrorText ? '\n' : ''}${msg.error}`;
+          const rawError = msg.error ?? '';
+
+          // 收集原始错误（用于日志/审计）
+          if (rawError) {
+            collectedErrorText += `${collectedErrorText ? '\n' : ''}${rawError}`;
           }
+
+          // ✨ 转换为友好的 text 消息
+          const errorKind = classifyError(rawError);
+          const friendlyMessage = getFriendlyAgentErrorMessage({
+            catId: msg.catId,
+            error: rawError,
+            errorCode: msg.errorCode,
+            metadata: msg.metadata,
+          });
+
+          // 累积到 textContent（和正常 text 一样，用于持久化）
+          textContent += friendlyMessage;
+          hadErrorTransformed = true; // 标记已转换
+
+          // 构造转换后的消息
+          const transformedMsg = {
+            type: 'text' as const,
+            catId: msg.catId,
+            content: friendlyMessage,
+            timestamp: msg.timestamp,
+            metadata: msg.metadata,
+            origin: 'stream' as const,
+            ...(streamReplyTo ? { replyTo: streamReplyTo } : {}),
+            ...(streamReplyPreview ? { replyPreview: streamReplyPreview } : {}),
+            extra: {
+              errorFallback: {
+                v: 1 as const,
+                kind: errorKind,
+                rawError,
+                timestamp: msg.timestamp,
+              },
+            },
+          };
+
+          // yield 转换后的消息（而不是原始 error）
+          yield transformedMsg;
+          continue; // ✅ 跳过后面的逻辑，但不影响后续消息处理
         }
         // F070: done with errorCode (e.g. GOVERNANCE_BOOTSTRAP_REQUIRED) is an error
         // state — mark hadError so we don't fall through to silent_completion.
@@ -1017,22 +1058,39 @@ export async function* routeSerial(
         }
       }
 
-      // Persist error as system message so it survives F5 reload.
-      // During streaming, errors render as red badges via ephemeral frontend state.
-      // Without persistence, they vanish on page refresh.
-      if (collectedErrorText) {
+      // 降级逻辑：仅在错误未被流式循环转换时触发
+      // 这种情况理论上不应该发生，但保留作为安全网
+      if (collectedErrorText && !hadErrorTransformed) {
+        log.warn(
+          { catId: catId as string, collectedErrorText },
+          'Error not transformed in stream loop — fallback persistence',
+        );
+        const errorKind = classifyError(collectedErrorText);
+        const friendlyMessage = getFriendlyAgentErrorMessage({
+          catId: catId as string,
+          error: collectedErrorText,
+        });
+
         try {
           await deps.messageStore.append({
-            userId: 'system',
-            catId: null,
-            content: `Error: ${collectedErrorText}`,
+            userId, // ← 改为 userId（而非 'system'）
+            catId, // ← 改为 catId（而非 null）
+            content: friendlyMessage, // ← 友好消息（而非 "Error: ..."）
             mentions: [],
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
+            extra: {
+              errorFallback: {
+                v: 1,
+                kind: errorKind,
+                rawError: collectedErrorText,
+                timestamp: Date.now(),
+              },
+            },
           });
         } catch (err) {
-          log.error({ catId: catId as string, err }, 'messageStore.append (error system msg) failed');
+          log.error({ catId: catId as string, err }, 'messageStore.append (error fallback) failed');
         }
       }
 

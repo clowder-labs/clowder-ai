@@ -88,8 +88,8 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   office_claw_cross_post_message: 'Post a message to a different thread by threadId.',
   office_claw_list_tasks: 'List tasks with optional threadId/catId/status filters.',
   office_claw_list_skills:
-    'List Cat Cafe shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
-  office_claw_load_skill: 'Load one Cat Cafe shared skill by exact name.',
+    'List shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
+  office_claw_load_skill: 'Load one shared skill by exact name.',
   office_claw_update_task: 'Update status of a task you own (doing/blocked/done).',
   office_claw_create_rich_block:
     'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',
@@ -97,7 +97,7 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   office_claw_check_permission_status: 'Check status of a permission request by requestId.',
   office_claw_register_pr_tracking: 'Register a PR for review notification routing.',
   office_claw_update_workflow: 'Update SOP workflow stage for a Feature.',
-  office_claw_multi_mention: 'Invoke up to 3 cats in parallel. Requires searchEvidenceRefs or overrideReason.',
+  office_claw_multi_mention: 'Invoke up to 3 agents in parallel. Requires searchEvidenceRefs or overrideReason.',
   office_claw_get_rich_block_rules: 'Get full rich block schema rules. Call once per session before creating blocks.',
   office_claw_list_scheduled_tasks: 'List all registered scheduled tasks (builtin + dynamic) with status.',
   office_claw_list_schedule_templates: 'List available schedule task templates (reminder, web-digest, repo-activity).',
