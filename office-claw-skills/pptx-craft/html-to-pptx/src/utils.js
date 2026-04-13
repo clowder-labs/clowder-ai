@@ -225,7 +225,8 @@ export function getGradientFallbackColor(bgImage) {
   }
   if (current) parts.push(current.trim());
 
-  // 3. Find first part that is a color (skip angle/direction)
+  // 3. Find first opaque color (skip angle/direction)
+  // 优先返回不透明的颜色作为回退色，避免透明背景显示白色
   for (const part of parts) {
     // Ignore directions (to right) or angles (90deg, 0.5turn)
     if (/^(to\s|[\d.]+(deg|rad|turn|grad))/.test(part)) continue;
@@ -234,7 +235,24 @@ export function getGradientFallbackColor(bgImage) {
     // Regex matches whitespace + number + unit at end of string
     const colorPart = part.replace(/\s+(-?[\d.]+(%|px|em|rem|ch|vh|vw)?)$/, "");
 
-    // Check if it's not just a number (some gradients might have bare numbers? unlikely in standard syntax)
+    // Check if it's not just a number and is opaque
+    if (colorPart) {
+      // Check if it's rgba with alpha < 1 (transparent)
+      const rgbaMatch = colorPart.match(/rgba?\s*\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*(?:,\s*([\d.]+))?\s*\)/);
+      if (rgbaMatch) {
+        const alpha = rgbaMatch[1] !== undefined ? parseFloat(rgbaMatch[1]) : 1;
+        if (alpha < 1) continue; // Skip transparent colors
+      }
+      if (colorPart.toLowerCase() === "transparent") continue;
+
+      return colorPart;
+    }
+  }
+
+  // If all colors are transparent, return the first one (caller will handle transparency)
+  for (const part of parts) {
+    if (/^(to\s|[\d.]+(deg|rad|turn|grad))/.test(part)) continue;
+    const colorPart = part.replace(/\s+(-?[\d.]+(%|px|em|rem|ch|vh|vw)?)$/, "");
     if (colorPart) return colorPart;
   }
 
@@ -807,7 +825,9 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
     if (firstPart.startsWith("to ")) {
       stopsStartIndex = 1;
       const direction = firstPart.replace("to ", "").trim();
-      switch (direction) {
+      // 规范化方向顺序：CSS 允许 "bottom right" 或 "right bottom"，两者等价
+      const normalizedDirection = direction.split(' ').sort().join(' ');
+      switch (normalizedDirection) {
         case "top":
           y1 = "100%";
           y2 = "0%";
@@ -828,25 +848,25 @@ export function generateGradientSVG(w, h, bgString, radius, border) {
           x2 = "100%";
           y2 = "0%";
           break;
-        case "top right":
-          x1 = "0%";
-          y1 = "100%";
-          x2 = "100%";
-          y2 = "0%";
-          break;
-        case "top left":
-          x1 = "100%";
-          y1 = "100%";
-          x2 = "0%";
-          y2 = "0%";
-          break;
-        case "bottom right":
+        case "bottom right": // 同 "right bottom"
           x1 = "0%";
           y1 = "0%";
           x2 = "100%";
           y2 = "100%";
           break;
-        case "bottom left":
+        case "top left": // 同 "left top"
+          x1 = "100%";
+          y1 = "100%";
+          x2 = "0%";
+          y2 = "0%";
+          break;
+        case "top right": // 同 "right top"
+          x1 = "0%";
+          y1 = "100%";
+          x2 = "100%";
+          y2 = "0%";
+          break;
+        case "bottom left": // 同 "left bottom"
           x1 = "100%";
           y1 = "0%";
           x2 = "0%";
@@ -1078,7 +1098,7 @@ export function generateBlurredSVG(w, h, color, opacity, radius, blurPx) {
     const ry = h / 2;
     shapeTag = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#${color}" fill-opacity="${opacity}" filter="url(#f1)" />`;
   } else {
-    shapeTag = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${clampedRadius}" ry="${clampedRadius}" fill="#${color}" filter="url(#f1)" />`;
+    shapeTag = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${clampedRadius}" ry="${clampedRadius}" fill="#${color}" fill-opacity="${opacity}" filter="url(#f1)" />`;
   }
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${fullW}" height="${fullH}" viewBox="0 0 ${fullW} ${fullH}"><defs><filter id="f1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="${blurPx}" /></filter></defs>${shapeTag}</svg>`;
