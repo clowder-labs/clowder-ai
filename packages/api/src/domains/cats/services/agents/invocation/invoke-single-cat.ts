@@ -591,6 +591,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // fork playgrounds may be routed by this runtime, but they must not inherit
     // shared-state warnings from the repo that launched the API process.
     if (
+      process.env.OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
       process.env.CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT !== '1' &&
       (!workingProjectRoot || isSameProject(workingProjectRoot, hostProjectRoot))
     ) {
