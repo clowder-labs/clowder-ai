@@ -82,14 +82,21 @@ interface SignerLike {
 }
 
 interface SignerModuleLike {
-  HttpRequest: new (method: string, url: string, headers?: Record<string, string>, body?: string) => SignerHttpRequestLike;
+  HttpRequest: new (
+    method: string,
+    url: string,
+    headers?: Record<string, string>,
+    body?: string,
+  ) => SignerHttpRequestLike;
   Signer: new () => SignerLike;
 }
 
 const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile.cn-north-4.myhuaweicloud.com';
 const DEFAULT_CAS_CALLBACK_SERVICE_URL = `${DEFAULT_HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/callback`;
-const DEFAULT_CAS_BACKGROUND_IMAGE_URL = 'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/loginbg2.png';
-const DEFAULT_CAS_PORTAL_IMAGE_URL = 'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/chatu4.png';
+const DEFAULT_CAS_BACKGROUND_IMAGE_URL =
+  'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/loginbg2.png';
+const DEFAULT_CAS_PORTAL_IMAGE_URL =
+  'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/chatu4.png';
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 const DEFAULT_CAS_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -105,7 +112,8 @@ const CAS_LOGIN_URL =
 const CAS_TICKET_VALIDATE_URL =
   process.env.CAS_TICKET_VALIDATE_URL || `${HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/ticket-validate`;
 const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-subscription`;
-const CAS_LOGOUT_URL = 'https://auth.huaweicloud.com/authui/logout?service=https://auth.huaweicloud.com/authui/login.html?service=https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/cas/login/callback';
+const CAS_LOGOUT_URL =
+  'https://auth.huaweicloud.com/authui/logout?service=https://auth.huaweicloud.com/authui/login.html?service=https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/cas/login/callback';
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
 const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009']);
 const require = createRequire(import.meta.url);
@@ -340,10 +348,12 @@ function stripTrailingSlash(value: string): string {
 }
 
 function loadSignerModule(): SignerModuleLike {
+  const bundledPath = fileURLToPath(new URL('./utils/signer.cjs', import.meta.url));
   const distPath = fileURLToPath(new URL('../utils/signer.cjs', import.meta.url));
   const sourcePath = fileURLToPath(new URL('../../src/utils/signer.cjs', import.meta.url));
-  const signerModulePath = existsSync(distPath) ? distPath : sourcePath;
-  return require(signerModulePath) as SignerModuleLike;
+  if (existsSync(bundledPath)) return require(bundledPath) as SignerModuleLike;
+  if (existsSync(distPath)) return require(distPath) as SignerModuleLike;
+  return require(sourcePath) as SignerModuleLike;
 }
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
@@ -579,7 +589,11 @@ async function validateCasTicket(ticket: string): Promise<TicketValidateResult> 
   }
 }
 
-function buildSubscriptionRequest(userInfo: UserInfo, promotionCode?: string, options?: { useDefaultPromotionCode?: boolean }) {
+function buildSubscriptionRequest(
+  userInfo: UserInfo,
+  promotionCode?: string,
+  options?: { useDefaultPromotionCode?: boolean },
+) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json;charset=utf8',
   };
@@ -617,13 +631,24 @@ async function subscriptionClaw(
   options?: { useDefaultPromotionCode?: boolean },
 ): Promise<ModelInfoResult> {
   try {
-    const { headers, body, accessKey, secretKey, securityToken } = buildSubscriptionRequest(userInfo, promotionCode, options);
+    const { headers, body, accessKey, secretKey, securityToken } = buildSubscriptionRequest(
+      userInfo,
+      promotionCode,
+      options,
+    );
     if (!accessKey || !secretKey || !securityToken) {
       return { success: false, message: '缺少登录凭证，请重新登录' };
     }
 
     const requestBody = JSON.stringify(body);
-    const signedRequest = signHuaweiRequest('POST', HUAWEI_CLAW_SUBSCRIPTION_URL, headers, requestBody, accessKey, secretKey);
+    const signedRequest = signHuaweiRequest(
+      'POST',
+      HUAWEI_CLAW_SUBSCRIPTION_URL,
+      headers,
+      requestBody,
+      accessKey,
+      secretKey,
+    );
     const subResponse = await fetch(HUAWEI_CLAW_SUBSCRIPTION_URL, {
       method: signedRequest.method,
       headers: signedRequest.headers,
