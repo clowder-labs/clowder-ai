@@ -13,6 +13,7 @@ import { CapabilityCard } from './capability-board-ui';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { SearchInput } from './shared/SearchInput';
 import { useConfirm } from './useConfirm';
 
 const ALL_CATEGORY = '全部';
@@ -255,13 +256,14 @@ export function HubCapabilityTab({
                   </option>
                 ))}
               </select>
-              <input
-                type="search"
+              <SearchInput
+                wrapperClassName="w-full"
                 aria-label={SKILL_SEARCH_ARIA_LABEL}
                 value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                onChange={(value) => setSearchQuery(value)}
+                onClear={() => setSearchQuery('')}
                 placeholder={SKILL_SEARCH_PLACEHOLDER}
-                className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
+                clearAriaLabel="清除搜索"
               />
             </div>
           </div>
