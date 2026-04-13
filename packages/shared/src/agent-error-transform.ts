@@ -96,7 +96,7 @@ const CONFIGURATION_MATCHES: ConfigurationMatch[] = [
 function isConfigurationError(rawError: string): boolean {
   return (
     CONFIGURATION_MATCHES.some(({ pattern }) => pattern.test(rawError)) ||
-    /not configured|invalid|missing|incomplete|sidecar exited|CLI path/i.test(rawError)
+    /not configured|sidecar exited|CLI path/i.test(rawError)
   );
 }
 
