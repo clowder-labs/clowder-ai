@@ -152,3 +152,4 @@ __pycache__/
 openspec/
 docs/ai/
 CLAUDE.md
+vendor/jiuwenclaw/output/
