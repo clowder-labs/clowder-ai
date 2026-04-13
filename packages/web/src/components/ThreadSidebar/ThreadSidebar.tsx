@@ -625,37 +625,6 @@ export function ThreadSidebar({
           </div>
         </div>
 
-        <div className="ui-sidebar-section hidden px-3 py-2">
-          <button
-            type="button"
-            onClick={() => {
-              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
-              router.push(`/mission-hub${fromParam}`);
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                onClose?.();
-              }
-            }}
-            className={getMenuItemClassName(false, 'h-auto py-1.5 text-left text-xs font-medium')}
-            data-testid="sidebar-mission-control"
-          >
-            <svg
-              className="h-4 w-4 shrink-0 text-[#9CA3AF]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="7" height="7" />
-              <rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-              <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            Mission Hub
-          </button>
-        </div>
-
         <div className="ui-sidebar-section px-3 py-2.5">
           <div className="flex flex-col gap-1.5 items-start">
             <button
