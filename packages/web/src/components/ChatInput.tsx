@@ -6,7 +6,6 @@
 
 'use client';
 
-import { useRouter } from 'next/navigation';
 import {
   type CSSProperties,
   KeyboardEvent,
@@ -18,7 +17,6 @@ import {
   useState,
 } from 'react';
 import { useCatData } from '@/hooks/useCatData';
-import { reconnectGame } from '@/hooks/useGameReconnect';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
@@ -26,7 +24,6 @@ import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { useToastStore } from '@/stores/toastStore';
 import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
-import { apiFetch } from '@/utils/api-client';
 import {
   fetchSkillOptionsWithCache,
   seedSkillOptionsCache,
@@ -40,11 +37,8 @@ import {
   buildWhisperOptions,
   type CatOption,
   detectMenuTrigger,
-  GAME_LIST,
-  WEREWOLF_MODES,
 } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
-import { GameLobby, type GameStartPayload } from './game/GameLobby';
 import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
@@ -250,9 +244,7 @@ export function ChatInput({
     setInputState(clampInputLength(next));
   }, []);
   const [showMentions, setShowMentions] = useState(false);
-  const [showGameMenu, setShowGameMenu] = useState(false);
   const [showSkillMenu, setShowSkillMenu] = useState(false);
-  const [gameStep, setGameStep] = useState<'list' | 'modes'>('list');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const [mentionEnd, setMentionEnd] = useState(-1);
@@ -272,13 +264,11 @@ export function ChatInput({
   const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
   const ghostRef = useRef<string | null>(null);
   const [showHistorySearch, setShowHistorySearch] = useState(false);
-  const [lobbyMode, setLobbyMode] = useState<'player' | 'god-view' | 'detective' | null>(null);
   const [selectedQuickAction, setSelectedQuickAction] = useState<QuickActionConfig | null>(null);
   const [showQuickPrompts, setShowQuickPrompts] = useState(false);
   const [pendingQuickPromptExpand, setPendingQuickPromptExpand] = useState(false);
   const textareaRef = useRef<RichTextareaHandle>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const gameBtnRef = useRef<HTMLButtonElement>(null);
   const skillBtnRef = useRef<HTMLButtonElement>(null);
   const skillOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const skillInsertAnchorRef = useRef<{ start: number; end: number } | null>(null);
@@ -442,14 +432,11 @@ export function ChatInput({
     };
   }, [loadSkillOptions]);
 
-  const activeMenu = showMentions ? 'mention' : showGameMenu ? 'game' : showSkillMenu ? 'skill' : null;
-  const gameMenuItems = gameStep === 'list' ? GAME_LIST : WEREWOLF_MODES;
+  const activeMenu = showMentions ? 'mention' : showSkillMenu ? 'skill' : null;
   const activeOptionsCount =
     activeMenu === 'mention'
       ? filteredCatOptions.length
-      : activeMenu === 'skill'
-        ? filteredSkillOptions.length
-        : gameMenuItems.length;
+      : filteredSkillOptions.length;
 
   const addHistoryEntry = useInputHistoryStore((s) => s.addEntry);
   const findHistoryMatch = useInputHistoryStore((s) => s.findMatch);
@@ -478,7 +465,6 @@ export function ChatInput({
         setGhostSuggestion(null);
         setImages([]);
         setShowMentions(false);
-        setShowGameMenu(false);
         setShowSkillMenu(false);
         setSelectedQuickAction(null);
         setPendingQuickPromptExpand(false);
@@ -505,7 +491,6 @@ export function ChatInput({
 
   const closeMenus = useCallback(() => {
     setShowMentions(false);
-    setShowGameMenu(false);
     setShowSkillMenu(false);
     setSkillFilter('');
   }, []);
@@ -528,55 +513,6 @@ export function ChatInput({
     const top = Math.min(Math.max(desiredTop, viewportPadding), Math.max(viewportPadding, maxTop));
     setMentionMenuStyle({ left, top });
   }, [showMentions, mentionStart]);
-
-  const router = useRouter();
-  const [gameStarting, setGameStarting] = useState(false);
-
-  const startGame = useCallback(
-    async (payload: GameStartPayload) => {
-      closeMenus();
-      if (disabled || sendTemporarilyDisabled || gameStarting) return;
-      setGameStarting(true);
-      try {
-        const res = await apiFetch('/api/game/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          useChatStore.getState().addMessage({
-            id: `game-err-${Date.now()}`,
-            type: 'system',
-            variant: 'error',
-            content: `开局失败: ${data.error ?? `HTTP ${res.status}`}`,
-            timestamp: Date.now(),
-          });
-          // Restore lobby so user can retry without re-selecting
-          setLobbyMode(payload.humanRole);
-          return;
-        }
-        // Success — dismiss lobby and navigate
-        setLobbyMode(null);
-        router.push(`/thread/${data.gameThreadId}`);
-        // Hydrate game state immediately (socket reconnect won't fire for same connection)
-        reconnectGame(data.gameThreadId).catch(() => {});
-      } catch (err) {
-        useChatStore.getState().addMessage({
-          id: `game-err-${Date.now()}`,
-          type: 'system',
-          variant: 'error',
-          content: `开局失败: ${err instanceof Error ? err.message : '网络异常'}`,
-          timestamp: Date.now(),
-        });
-        // Restore lobby so user can retry
-        setLobbyMode(payload.humanRole);
-      } finally {
-        setGameStarting(false);
-      }
-    },
-    [closeMenus, disabled, sendTemporarilyDisabled, gameStarting, router],
-  );
 
   const insertMention = useCallback(
     (option: CatOption) => {
@@ -643,15 +579,8 @@ export function ChatInput({
       const normalizedSelectionEnd = Math.min(selectionEnd, next.length);
       skillInsertAnchorRef.current = { start: normalizedSelectionStart, end: normalizedSelectionEnd };
       const trigger = detectMenuTrigger(next, normalizedSelectionStart);
-      if (trigger?.type === 'game') {
-        setShowGameMenu(true);
-        setGameStep('list');
-        setShowMentions(false);
-        setShowSkillMenu(false);
-        setSelectedIdx(0);
-      } else if (trigger?.type === 'mention') {
+      if (trigger?.type === 'mention') {
         setShowMentions(true);
-        setShowGameMenu(false);
         setShowSkillMenu(false);
         setMentionStart(trigger.start);
         setMentionEnd(normalizedSelectionStart);
@@ -768,16 +697,6 @@ export function ChatInput({
             return;
           }
           insertSkill(skill.name);
-        } else if (gameStep === 'list') {
-          // Layer 1: drill into mode selection
-          setGameStep('modes');
-          setSelectedIdx(0);
-        } else {
-          // Layer 2: open lobby for mode configuration
-          const mode = WEREWOLF_MODES[selectedIdx];
-          const role = mode.id === 'detective' ? 'detective' : mode.id.startsWith('god') ? 'god-view' : 'player';
-          closeMenus();
-          setLobbyMode(role as 'player' | 'god-view' | 'detective');
         }
         return;
       }
@@ -991,22 +910,12 @@ export function ChatInput({
     });
   }, [whisperOptions, whisperMode, activeCatIds]);
 
-  const handleGameClick = useCallback(() => {
-    setShowMentions(false);
-    setShowSkillMenu(false);
-    setMentionStart(-1);
-    setShowGameMenu((prev) => !prev);
-    setGameStep('list');
-    setSelectedIdx(0);
-  }, []);
-
   const handleSkillClick = useCallback(() => {
     const ta = textareaRef.current;
     const start = ta?.getSelectionStart() ?? input.length;
     const end = ta?.getSelectionEnd() ?? input.length;
     skillInsertAnchorRef.current = { start, end };
     setShowMentions(false);
-    setShowGameMenu(false);
     setShowSkillMenu((prev) => !prev);
     setSelectedIdx(0);
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -1050,7 +959,6 @@ export function ChatInput({
       if (
         menuRef.current &&
         !menuRef.current.contains(target) &&
-        !gameBtnRef.current?.contains(target) &&
         !skillBtnRef.current?.contains(target)
       ) {
         closeMenus();
@@ -1108,22 +1016,9 @@ export function ChatInput({
           setMentionEnd(-1);
           setMentionFilter('');
         }}
-        showGameMenu={showGameMenu}
-        gameStep={gameStep}
-        onGameStepChange={setGameStep}
         selectedIdx={selectedIdx}
         onSelectIdx={setSelectedIdx}
         onInsertMention={insertMention}
-        onSendCommand={(command) => {
-          // Open lobby instead of sending directly
-          const role = command.includes('detective')
-            ? 'detective'
-            : command.includes('god-view')
-              ? 'god-view'
-              : 'player';
-          closeMenus();
-          setLobbyMode(role as 'player' | 'god-view' | 'detective');
-        }}
         menuRef={menuRef}
         mentionMenuStyle={mentionMenuStyle}
       />
@@ -1188,7 +1083,7 @@ export function ChatInput({
         <MobileInputToolbar
           onAttach={() => fileInputRef.current?.click()}
           onWhisperToggle={handleWhisperToggle}
-          onGameClick={handleGameClick}
+          onGameClick={() => {}}
           onClose={() => setMobileToolbar(false)}
           disabled={disabled}
           sendDisabled={sendTemporarilyDisabled}
@@ -1490,16 +1385,6 @@ export function ChatInput({
         <HistorySearchModal onSelect={handleHistorySelect} onClose={() => setShowHistorySearch(false)} />
       )}
 
-      {lobbyMode && (
-        <GameLobby
-          mode={lobbyMode}
-          cats={cats}
-          onConfirm={(payload) => {
-            startGame(payload);
-          }}
-          onCancel={() => setLobbyMode(null)}
-        />
-      )}
     </div>
   );
 }

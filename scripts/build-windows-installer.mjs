@@ -135,6 +135,7 @@ const API_RUNTIME_EXTERNAL_DEPENDENCIES = [
   'puppeteer',
   'sharp',
   'sqlite-vec',
+  'snappy',
 ];
 const WEB_RUNTIME_DEPENDENCIES = ['next', 'react', 'react-dom', 'sharp'];
 const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require('node:fs');

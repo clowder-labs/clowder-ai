@@ -45,6 +45,7 @@ import {
 import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
 const DEFAULT_RELAYCLAW_TIMEOUT_MS = 30 * 60 * 1000;
+const RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS = 1_500;
 
 export interface RelayClawAgentServiceOptions {
   catId?: CatId;
@@ -147,7 +148,12 @@ export class RelayClawAgentService implements AgentService {
     const requestId = randomUUID();
     const queue = new FrameQueue();
     runtime.requestQueues.set(requestId, queue);
-    const onAbort = () => queue.abort();
+    const onAbort = () => {
+      void (async () => {
+        await this.sendInterrupt(runtime, channelId, sessionId, requestId);
+      })();
+      queue.abort();
+    };
     signal.addEventListener('abort', onAbort, { once: true });
 
     const sendTs = Date.now();
@@ -362,6 +368,63 @@ export class RelayClawAgentService implements AgentService {
       await this.drainControlFrames(queue, 5000);
     } finally {
       runtime.requestQueues.delete(requestId);
+    }
+  }
+
+  private async sendInterrupt(
+    runtime: RelayClawScopeRuntime,
+    channelId: string,
+    sessionId: string,
+    sourceRequestId: string,
+  ): Promise<void> {
+    if (!runtime.connection.isOpen()) return;
+
+    const interruptRequestId = `interrupt_${randomUUID()}`;
+    const interruptQueue = new FrameQueue();
+    runtime.requestQueues.set(interruptRequestId, interruptQueue);
+
+    try {
+      runtime.connection.send({
+        request_id: interruptRequestId,
+        channel_id: channelId,
+        session_id: sessionId,
+        req_method: 'chat.interrupt',
+        params: {
+          intent: 'cancel',
+          request_id: sourceRequestId,
+        },
+        is_stream: false,
+        timestamp: Date.now() / 1000,
+      });
+
+      const interruptFrame = await Promise.race([
+        interruptQueue.take(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS)),
+      ]);
+
+      if (interruptFrame && interruptFrame.ok === false) {
+        log.warn(
+          { catId: this.catId, sessionId, sourceRequestId, interruptRequestId, payload: interruptFrame.payload },
+          'jiuwen interrupt request was rejected',
+        );
+      } else if (interruptFrame) {
+        log.info(
+          { catId: this.catId, sessionId, sourceRequestId, interruptRequestId, payload: interruptFrame.payload },
+          'jiuwen interrupt request acknowledged',
+        );
+      }
+    } catch (err) {
+      log.warn(
+        {
+          catId: this.catId,
+          sessionId,
+          sourceRequestId,
+          err,
+        },
+        'jiuwen interrupt request failed',
+      );
+    } finally {
+      runtime.requestQueues.delete(interruptRequestId);
     }
   }
 

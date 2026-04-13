@@ -206,7 +206,7 @@ describe('ModelsPanel search', () => {
     expect(container.querySelector(SEARCH_INPUT_SELECTOR)).not.toBeNull();
   });
 
-  it('keeps the search toolbar outside the scroll region', async () => {
+  it('keeps the search toolbar outside the card content region', async () => {
     await act(async () => {
       root.render(React.createElement(ModelsPanel));
     });
@@ -217,7 +217,7 @@ describe('ModelsPanel search', () => {
 
     expect(searchInput).not.toBeNull();
     expect(scrollRegion).not.toBeNull();
-    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.className).not.toContain('overflow-y-auto');
     expect(scrollRegion?.contains(searchInput!)).toBe(false);
     expect(scrollRegion?.textContent).toContain('gpt-5');
   });
@@ -370,7 +370,8 @@ describe('ModelsPanel search', () => {
     await flushEffects();
 
     expect(container.textContent).toContain('接入华为云 MaaS模型');
-    expect(container.textContent).not.toContain('编辑模型');
+    expect(container.textContent).toContain('编辑');
+    expect(container.textContent).toContain('模型调用名称');
     const urlInput = container.querySelector(
       '[data-testid="models-create-model-url-input"]',
     ) as HTMLInputElement | null;
@@ -627,6 +628,39 @@ describe('ModelsPanel search', () => {
     const payload = JSON.parse(String((postCall?.[1] as RequestInit).body ?? ''));
     expect(payload.description).toBe('custom description for test');
     expect(payload.icon).toBe('/images/mode-default-icon.svg');
+  });
+
+  it('shows an API key visibility toggle in the create-model modal after typing', async () => {
+    mockGetIsSkipAuth.mockReturnValue(true);
+
+    await act(async () => {
+      root.render(React.createElement(ModelsPanel));
+    });
+    await flushEffects();
+
+    const openModal = container.querySelector(
+      '[data-testid="models-open-create-model-modal"]',
+    ) as HTMLButtonElement | null;
+    expect(openModal).not.toBeNull();
+    await clickButton(openModal!);
+
+    const apiKeyInput = container.querySelector(
+      '[data-testid="models-create-model-api-key-input"]',
+    ) as HTMLInputElement | null;
+    expect(apiKeyInput).not.toBeNull();
+    expect(container.querySelector('[data-testid="models-create-model-api-key-toggle"]')).toBeNull();
+
+    await changeInputValue(apiKeyInput!, 'sk-test');
+
+    const toggle = container.querySelector(
+      '[data-testid="models-create-model-api-key-toggle"]',
+    ) as HTMLButtonElement | null;
+    expect(toggle).not.toBeNull();
+    expect(apiKeyInput?.type).toBe('password');
+
+    await clickButton(toggle!);
+
+    expect(apiKeyInput?.type).toBe('text');
   });
 
   it('serializes header rows into a headers object on create-model submit', async () => {

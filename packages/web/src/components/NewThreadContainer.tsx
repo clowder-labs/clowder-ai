@@ -210,7 +210,11 @@ export function NewThreadContainer() {
           <RightContentHeader />
           <div className="relative flex-1 min-h-0">
             {sidebarMenu !== 'chat' && (
-              <div className="ui-shell-surface h-full px-8 pt-6 pb-5">
+              <div
+                className={`ui-shell-surface h-full px-8 pt-6 pb-5 ${
+                  sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : ''
+                }`}
+              >
                 {sidebarMenu === 'models' && <ModelsPanel />}
                 {sidebarMenu === 'agents' && <AgentsPanel />}
                 {sidebarMenu === 'channels' && <ChannelsPanel />}
@@ -225,9 +229,6 @@ export function NewThreadContainer() {
               >
                 <div className="flex flex-1 items-center justify-center">
                   <ChatEmptyState
-                    bootcampCount={0}
-                    isCurrentBootcampThread={false}
-                    onOpenBootcampList={() => {}}
                     onAgentsClick={() => setSidebarMenu('agents')}
                     onChannelsClick={() => setSidebarMenu('channels')}
                     fillAvailableHeight

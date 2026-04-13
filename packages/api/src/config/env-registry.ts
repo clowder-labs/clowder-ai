@@ -195,7 +195,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'REDIS_KEY_PREFIX',
-    defaultValue: 'cat-cafe:',
+    defaultValue: 'office-claw:',
     description: 'Redis key 命名空间前缀，用于多实例隔离',
     category: 'storage',
     sensitive: false,
@@ -458,7 +458,7 @@ export const ENV_VARS: EnvDefinition[] = [
     sensitive: false,
   },
   {
-    name: 'CAT_CAFE_API_URL',
+    name: 'OFFICE_CLAW_API_URL',
     defaultValue: 'http://localhost:3002',
     description: 'API 服务地址（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
@@ -466,7 +466,7 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_INVOCATION_ID',
+    name: 'OFFICE_CLAW_INVOCATION_ID',
     defaultValue: '(运行时注入)',
     description: '当前 invocation ID（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
@@ -474,15 +474,15 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_CAT_ID',
+    name: 'OFFICE_CLAW_CAT_ID',
     defaultValue: '(运行时注入)',
-    description: '当前猫 ID（由 API 进程注入 MCP Server 子进程 env）',
+    description: '当前智能体 ID（由 API 进程注入 MCP Server 子进程 env）',
     category: 'cli',
     sensitive: false,
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_DISABLE_SHARED_STATE_PREFLIGHT',
+    name: 'OFFICE_CLAW_DISABLE_SHARED_STATE_PREFLIGHT',
     defaultValue: '(未设置)',
     description: '设为 1 跳过 shared state preflight 检查（CI / 调试用）',
     category: 'cli',
@@ -490,7 +490,7 @@ export const ENV_VARS: EnvDefinition[] = [
     hubVisible: false,
   },
   {
-    name: 'CAT_CAFE_PREFLIGHT_TIMEOUT_MS',
+    name: 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS',
     defaultValue: '30000',
     description: 'Pre-flight 操作（Redis/store 读取）的超时毫秒数，超时后降级到无 session 模式',
     category: 'cli',
@@ -792,7 +792,7 @@ export const ENV_VARS: EnvDefinition[] = [
   },
   {
     name: 'VAPID_SUBJECT',
-    defaultValue: 'mailto:cat-cafe@localhost',
+    defaultValue: 'mailto:office-claw@localhost',
     description: 'VAPID 联系方式 (mailto: 或 URL)',
     category: 'push',
     sensitive: false,
@@ -999,6 +999,10 @@ const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
   ['CAT_CAFE_RELAYCLAW_PYTHON', 'OFFICE_CLAW_RELAYCLAW_PYTHON'],
   ['CAT_CAFE_DARE_DIAG_LOG', 'OFFICE_CLAW_DARE_DIAG_LOG'],
   ['CAT_CAFE_DARE_MODEL_OVERRIDE', 'OFFICE_CLAW_DARE_MODEL_OVERRIDE'],
+  ['CAT_CAFE_API_URL', 'OFFICE_CLAW_API_URL'],
+  ['CAT_CAFE_INVOCATION_ID', 'OFFICE_CLAW_INVOCATION_ID'],
+  ['CAT_CAFE_CAT_ID', 'OFFICE_CLAW_CAT_ID'],
+  ['CAT_CAFE_PREFLIGHT_TIMEOUT_MS', 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS'],
 ];
 
 /**

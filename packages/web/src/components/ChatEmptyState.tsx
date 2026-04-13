@@ -4,12 +4,7 @@
  *
  */
 
-import { BootcampIcon } from './icons/BootcampIcon';
-
 interface ChatEmptyStateProps {
-  bootcampCount: number;
-  isCurrentBootcampThread: boolean;
-  onOpenBootcampList: () => void;
   onAgentsClick?: () => void;
   onChannelsClick?: () => void;
   fillAvailableHeight?: boolean;
@@ -22,8 +17,6 @@ interface EmptyStateCard {
   imageSrc: string;
   imageAlt: string;
 }
-
-const SHOW_BOOTCAMP_ENTRY = false;
 
 const heroCards: EmptyStateCard[] = [
   {
@@ -43,14 +36,10 @@ const heroCards: EmptyStateCard[] = [
 ];
 
 export function ChatEmptyState({
-  bootcampCount,
-  isCurrentBootcampThread,
-  onOpenBootcampList,
   onAgentsClick,
   onChannelsClick,
   fillAvailableHeight = false,
 }: ChatEmptyStateProps) {
-  const shouldShowBootcampEntry = SHOW_BOOTCAMP_ENTRY && !isCurrentBootcampThread;
   const sectionClassName = fillAvailableHeight ? 'w-full px-4 sm:px-6' : 'min-h-full px-4 py-10 sm:px-6';
   const contentClassName = fillAvailableHeight
     ? 'mx-auto flex w-full max-w-4xl items-center justify-center'
@@ -105,28 +94,6 @@ export function ChatEmptyState({
             ))}
           </div>
 
-          {shouldShowBootcampEntry &&
-            (bootcampCount > 0 ? (
-              <button
-                type="button"
-                onClick={onOpenBootcampList}
-                className="mt-8 inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
-                data-testid="empty-state-bootcamp-list"
-              >
-                <BootcampIcon className="h-4 w-4" />
-                我的训练营（{bootcampCount}）
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onOpenBootcampList}
-                className="mt-8 inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-100"
-                data-testid="empty-state-bootcamp"
-              >
-                <BootcampIcon className="h-4 w-4" />
-                第一次来？开始训练营
-              </button>
-            ))}
         </div>
       </div>
     </section>

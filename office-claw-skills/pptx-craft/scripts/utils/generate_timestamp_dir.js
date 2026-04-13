@@ -60,7 +60,7 @@ try {
 }
 
 // 拷贝 assets 目录到输出目录的 pages/ 子目录
-const assetsSrc = path.resolve(__dirname, '../assets');
+const assetsSrc = path.resolve(__dirname, '../../assets');
 const pagesDir = path.join(timestampDir, 'pages');
 fs.mkdirSync(pagesDir, { recursive: true });
 const assetsDest = path.join(pagesDir, 'assets');

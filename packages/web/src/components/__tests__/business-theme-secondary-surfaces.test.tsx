@@ -290,7 +290,7 @@ describe('business theme secondary surfaces', () => {
     expect(container.textContent).not.toContain('加载中...');
   });
 
-  it('keeps plaza search controls outside the scrolling results region', async () => {
+  it('keeps plaza search controls outside the results region', async () => {
     await act(async () => {
       root.render(React.createElement(HubSkillsTab));
     });
@@ -304,7 +304,7 @@ describe('business theme secondary surfaces', () => {
 
     expect(fixedHeader).not.toBeNull();
     expect(scrollRegion).not.toBeNull();
-    expect(scrollRegion?.className).toContain('overflow-y-auto');
+    expect(scrollRegion?.className).not.toContain('overflow-y-auto');
     expect(fixedHeader?.contains(searchInput)).toBe(true);
     expect(scrollRegion?.contains(searchInput)).toBe(false);
     expect(scrollRegion?.querySelector('article')).not.toBeNull();
@@ -390,6 +390,60 @@ describe('business theme secondary surfaces', () => {
     });
 
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(title);
+  });
+
+  it('keeps the plaza category badge auto-sized and shows a tooltip when truncated', async () => {
+    mockApiFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/skills/categories') {
+        return Promise.resolve(jsonResponse({ categories: ['super-long-category'] }));
+      }
+      if (url.startsWith('/api/skills/all')) {
+        return Promise.resolve(
+          jsonResponse({
+            skills: [
+              {
+                id: 'skill-1',
+                slug: 'skill-1',
+                name: 'skill-1',
+                description: 'search helper',
+                tags: ['这是一个非常非常长的技能广场分类名称用于验证tooltip'],
+                repo: { githubOwner: 'openai', githubRepoName: 'skills' },
+                isInstalled: false,
+              },
+            ],
+            total: 1,
+            page: 1,
+            hasMore: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubSkillsTab));
+    });
+    await flushEffects();
+    await flushEffects();
+
+    const badge = container.querySelector('.ui-badge-muted') as HTMLElement | null;
+    expect(badge).not.toBeNull();
+    const badgeClasses = badge?.className.split(/\s+/) ?? [];
+    expect(badgeClasses).toContain('max-w-full');
+    expect(badgeClasses).not.toContain('w-full');
+
+    if (!badge) return;
+    mockOverflow(badge, { clientWidth: 96, scrollWidth: 280 });
+
+    await act(async () => {
+      badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(
+      '这是一个非常非常长的技能广场分类名称用于验证tooltip',
+    );
   });
 
   it('debounces input changes and uses remote plaza search', async () => {

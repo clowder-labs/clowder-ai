@@ -284,6 +284,56 @@ describe('RelayClawAgentService', () => {
     assert.equal(messages[1].content, 'OK');
   });
 
+  it('sends chat.interrupt on abort for jiuwenclaw requests', async () => {
+    const sent = [];
+    const controller = new AbortController();
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          sent.push(request);
+          if (request.req_method === 'chat.send') {
+            queueMicrotask(() => controller.abort());
+            return;
+          }
+          if (request.req_method === 'chat.interrupt') {
+            const queue = requestQueues.get(request.request_id);
+            assert.ok(queue, 'interrupt queue should exist before send');
+            queue.put({
+              request_id: request.request_id,
+              channel_id: request.channel_id,
+              ok: true,
+              payload: {
+                event_type: 'chat.interrupt_result',
+                intent: 'cancel',
+                success: true,
+                message: '任务已取消',
+              },
+            });
+          }
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('Write forever', { signal: controller.signal }));
+
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'done'],
+    );
+    assert.equal(sent[0].req_method, 'chat.send');
+    assert.equal(sent[1].req_method, 'chat.interrupt');
+    assert.equal(sent[1].session_id, sent[0].session_id);
+    assert.equal(sent[1].params.intent, 'cancel');
+    assert.equal(sent[1].params.request_id, sent[0].request_id);
+  });
+
   it('treats llm_reasoning deltas as thinking and still emits the final answer', async () => {
     const service = new RelayClawAgentService(
       {

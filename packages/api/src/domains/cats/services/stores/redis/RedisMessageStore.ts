@@ -32,6 +32,7 @@ import {
   safeParseMetadata,
   safeParseToolEvents,
 } from './redis-message-parsers.js';
+import { tokenUsageCollector } from '../../../../../services/metrics/token-usage-collector.js';
 
 const log = createModuleLogger('redis-message-store');
 
@@ -189,6 +190,22 @@ export class RedisMessageStore {
         void Promise.resolve(this.onAppend(stored)).catch(() => {});
       } catch {
         /* best-effort */
+      }
+    }
+
+    if (msg.metadata?.usage) {
+      const usage = msg.metadata.usage;
+      const inputTokens = usage.inputTokens ?? 0;
+      const outputTokens = usage.outputTokens ?? 0;
+      if (inputTokens > 0 || outputTokens > 0) {
+        tokenUsageCollector.collect({
+          sessionId: threadId,
+          model: msg.metadata.model ?? 'unknown',
+          agent: msg.catId ?? 'unknown',
+          inputTokens,
+          outputTokens,
+          timestamp: msg.timestamp,
+        });
       }
     }
 

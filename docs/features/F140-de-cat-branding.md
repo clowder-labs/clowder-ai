@@ -404,6 +404,138 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 
 ---
 
+### Phase F — 非办公功能封堵（Tier 1.5，方案 B+）
+
+> 前置：无（可与 Tier 1 并行或在 Tier 1 之后）
+> 策略：不删底层代码（~150 文件死代码保留），只封堵所有用户和 agent 可达入口。
+> 决策日期：2026-04-13
+
+#### F-0. 去除目标（8 个功能）
+
+| 功能 | Feature | 去除理由 |
+|------|---------|---------|
+| Game/狼人杀 | F101/F107/F119 | 纯娱乐 |
+| Mission Hub / External Projects | F076 | cat-cafe 特色项目管理 |
+| Showcase | — | 内部 demo 展示页 |
+| Leaderboard | F075 | 纯 gamification |
+| Voting | F079 | 主要用于趣味投票和游戏 |
+| Bootcamp | F087 | office 用户无需训练营 |
+| Signals | F021/F091 | AI 信源阅读器，非办公功能 |
+| Knowledge Feed | — | 已不存在于 relay-claw，无需处理 |
+
+#### F-1. Slash Commands 裁剪：26 → 4
+
+仅保留 IM 场景刚需命令：`/where`、`/new`、`/threads`、`/use`。
+其余命令的功能均可通过 Hub UI 或自然语言与 agent 对话替代。
+
+| # | 文件 | 改动 |
+|---|------|------|
+| F-1a | `packages/web/src/config/command-registry.ts` | COMMANDS 数组只保留 4 个连接器命令 |
+| F-1b | `packages/web/src/hooks/useChatCommands.ts` | 删除已移除命令的 handler 分支 |
+| F-1c | `packages/web/src/components/chat-input-options.ts` | 移除 GAME_LIST、WEREWOLF_MODES、detectMenuTrigger 中 game 分支 |
+| F-1d | `packages/web/src/components/ChatInputMenus.tsx` | 移除 game menu 渲染逻辑 |
+
+#### F-2. Hub 导航 Tab 裁剪：移除 leaderboard
+
+| # | 文件 | 改动 |
+|---|------|------|
+| F-2a | `packages/web/src/components/cat-cafe-hub.navigation.tsx` | 移除 leaderboard tab 条目 |
+
+#### F-3. 前端页面路由删除
+
+| # | 删除目录 | 功能 |
+|---|----------|------|
+| F-3a | `packages/web/src/app/mission-hub/` | 外部项目管理页 |
+| F-3b | `packages/web/src/app/mission-control/` | 同上（重定向） |
+| F-3c | `packages/web/src/app/showcase/` | 功能展示 demo 页 |
+| F-3d | `packages/web/src/app/signals/` | 信号源阅读器 |
+
+#### F-4. API 路由摘除
+
+路由注册在 `packages/api/src/index.ts`（主入口直接 import 各 route 文件），`packages/api/src/routes/index.ts` 是 barrel re-export。两处均需清理。
+
+| # | 文件 | 改动 |
+|---|------|------|
+| F-4a | `packages/api/src/index.ts` | 移除 game/leaderboard/bootcamp/signals/vote/external-projects 相关 route 的 import 和注册调用 |
+| F-4b | `packages/api/src/routes/index.ts` | 移除 17 个 route export：games、game-actions、game-command-interceptor、external-projects、intent-card-routes、slice-routes、resolution-routes、reflux-routes、signals、signal-collection-routes、signal-study-routes、signal-podcast-routes、leaderboard、leaderboard-events、votes、bootcamp、callback-bootcamp-routes |
+
+#### F-5. API 回调路由摘除
+
+| # | 文件 | 改动 |
+|---|------|------|
+| F-5a | `packages/api/src/routes/callbacks.ts` | 移除 `POST /api/callbacks/start-vote` 路由块（L1184-1306）+ bootcamp 注册（L1330-1332）+ 顶部 vote/bootcamp import |
+
+#### F-6. MCP 工具摘除
+
+| # | 文件 | 改动 |
+|---|------|------|
+| F-6a | `packages/mcp-server/src/tools/callback-tools.ts` | 移除 office_claw_start_vote + office_claw_update_bootcamp_state + office_claw_bootcamp_env_check 三个工具定义及 handler |
+| F-6b | `packages/mcp-server/src/tools/index.ts` | 移除 game-action-tools、signals-tools、signal-study-tools 的 export |
+| F-6c | `packages/mcp-server/src/server-toolsets.ts` | 移除 4 个工具注册条目（office_claw_start_vote / update_bootcamp_state / bootcamp_env_check / submit_game_action） |
+| F-6d | 删除 `packages/mcp-server/src/tools/game-action-tools.ts` | 整文件 |
+| F-6e | 删除 `packages/mcp-server/src/tools/signals-tools.ts` | 整文件 |
+| F-6f | 删除 `packages/mcp-server/src/tools/signal-study-tools.ts` | 整文件 |
+
+#### F-7. 保留组件中的嵌入引用清理
+
+保留的核心组件中嵌入了被裁功能的 import/render/导航，需一并清理。
+
+| # | 文件 | 改动 | 理由 |
+|---|------|------|------|
+| F-7a | `packages/web/src/components/ThreadSidebar/ThreadSidebar.tsx` | 移除 `router.push('/mission-hub')` 导航链接 | 用户可见 404 |
+| F-7b | `packages/web/src/components/ChatContainer.tsx` | 移除 `GameOverlayConnector` import + `<GameOverlayConnector />` render | 死挂载清理 |
+| F-7c | `packages/web/src/components/ChatInput.tsx` | 移除 `GameLobby` import + render | 死挂载清理 |
+| F-7d | `packages/web/src/components/CatCafeHub.tsx` | 移除 `HubLeaderboardTab` import + `tab === 'leaderboard'` render 分支 | 死分支清理 |
+| F-7e | `packages/web/src/hooks/useChatSocketCallbacks.ts` | 移除 `useGameStore` import + game 状态 socket 回调 | 死回调清理 |
+
+#### F 封堵验证矩阵
+
+> 状态列描述 Phase F 全部改动完成后的预期状态。
+
+| 调用路径 | 封堵点 | 改完后状态 |
+|---------|--------|-----------|
+| 用户 slash command | F-1: command-registry 移除 | 封死 |
+| 用户 Hub tab | F-2: navigation 移除 leaderboard | 封死 |
+| 用户页面 URL | F-3: app/ 目录删除 → 404 | 封死 |
+| 用户直接调 API | F-4: api/src/index.ts + routes/index.ts 移除 import 和注册 | 封死 |
+| Agent 调 MCP 工具 | F-6: MCP 注册移除 → 工具不在列表 → agent 不可见 | 封死 |
+| Agent callback 调 API | F-5: callbacks.ts 移除回调路由 | 封死 |
+| 用户点击 mission-hub 链接 | F-7a: ThreadSidebar 移除导航 | 封死 |
+| 前端嵌入渲染 | F-7b~e: 移除 import + render 死挂载 | 清理完毕 |
+| SystemPrompt 注入残留 | 全新部署无旧 thread，条件永远不满足 | 无风险 |
+| 路由层 vote/game 拦截 | 死代码，无入口触发 | 无风险（Tier 2 清理） |
+
+#### F 改动汇总
+
+| 类别 | 改文件数 | 删文件/目录 |
+|------|---------|------------|
+| 前端 command + 菜单 | 4 | 0 |
+| 前端 Hub 导航 | 1 | 0 |
+| 前端页面路由 | 0 | 4 目录 |
+| 前端嵌入引用清理 | 5 | 0 |
+| API 主入口 + 路由 barrel | 2 | 0 |
+| API 回调路由 | 1 | 0 |
+| MCP 工具 | 3 | 3 文件 |
+| **合计** | **16 文件修改** | **4 目录 + 3 文件删除** |
+
+#### F 保留的死代码（Tier 2 Phase F-cleanup 单独 PR 清理）
+
+> **风险评估结论**：Phase F-cleanup 不与 Phase F（B+）同轮执行。
+> 原因：~150 文件删除涉及大量耦合引用（web/api/mcp 多层散布），同轮合并极易引入编译断裂和隐性行为回归。
+> 正确顺序：Phase F 封死入口 → 验证通过 → 单独 PR 清理死代码。
+
+- `components/game/`、`signals/`、`mission-control/` 组件目录
+- `stores/gameStore.ts`、`missionControlStore.ts`
+- `domains/` 下 game、signals、leaderboard、projects 服务
+- `shared/types/` 下 game.ts、leaderboard.ts、signals.ts
+- 全部相关 route 文件（routes/index.ts barrel export 已摘，文件保留）
+- 全部相关 test 文件
+- chatStore/route-parallel/route-serial 内的 vote/game/bootcamp 分支逻辑
+- SystemPromptBuilder 内的 bootcamp/signal 注入逻辑
+- 合计 ~150 文件保留但完全不可达
+
+---
+
 ## 执行计划
 
 两层目标：
@@ -415,21 +547,28 @@ Phase A 遗漏的、会直接暴露给用户的后端残留。与 Phase B 一起
 - Phase M-4 — 环境变量名
 - Phase M-5（必须项，clean break） — skills 目录、数据目录、配置文件名 + 清理脚本 + 迁移 SOP
 
+**Tier 1.5（功能裁剪 — 去除 cat-cafe 特色功能入口）**：
+- Phase F — 非办公功能整体封堵（方案 B+：入口屏蔽 + API 路由摘除 + MCP 工具摘除）
+
 **Tier 2（可延期 — 纯内部实现）**：
 - `@cat-cafe/*` package scope 改名
 - `/api/cats/` 路由名
 - 内部变量名 `catId`/`CAT_CONFIGS` 等
-- Showcase 历史 demo 数据
+- Phase F 残留死代码彻底清理（~150 文件，方案 C）
 
 依赖链与并行度：
 
 ```
-Phase A-fix + B + S (文案)  ─── 无前置，可立即开始 ──┐
-Phase M-2 (MCP server 名)  ─── 前置：Phase M ✅ ────┤
-                                                      ├→ Phase M-3 → M-4 → M-5 → C
+Tier 1:
+  Phase A-fix + B + S (文案)  ─── 无前置，可立即开始 ──┐
+  Phase M-2 (MCP server 名)  ─── 前置：Phase M ✅ ────┤
+                                                        ├→ Phase M-3 → M-4 → M-5 → C
+Tier 1.5:
+  Phase F (功能裁剪)  ─── 无前置，可与 Tier 1 并行 ────→ Tier 2 Phase F-cleanup
 ```
 
 **Phase (A-fix + B + S) 和 M-2 可并行**。M-3/M-4/M-5 有依赖链需串行。
+**Phase F 无前置依赖**，可与 Tier 1 任意 Phase 并行执行。
 
 **Commit 策略**：每个 Phase 单独一个 commit，方便按 Phase 粒度回滚。commit message 格式：`feat(F140): Phase X — 简述`。
 

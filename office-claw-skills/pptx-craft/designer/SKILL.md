@@ -350,7 +350,7 @@ npx playwright install-deps chromium
 **核心结构**：每页必须使用以下弹性布局结构，从代码层面预防布局问题：
 
 ```html
-<div class="ppt-slide h-[720px] overflow-hidden">
+<div class="ppt-slide flex flex-col h-[720px] overflow-hidden">
   <!-- 页头：固定高度，禁止压缩 -->
   <header class="h-[60px] flex-shrink-0">
     <h1 class="text-[36px]">页面标题</h1>
@@ -554,10 +554,7 @@ npx playwright install-deps chromium
 **使用示例**：
 
 ```html
-<div class="ppt-slide" type="content">
-  <!-- 背景层：使用 absolute 定位铺满容器 -->
-  <div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20"></div>
-
+<div class="ppt-slide flex flex-col" type="content">
   <!-- 内容安全区：主要内容在此区域内 -->
   <div class="content-safe relative">
     <header class="h-[60px]">
@@ -662,7 +659,7 @@ npx playwright install-deps chromium
 
 ## HTML 代码规范
 
-> **容器类名强制要求**：HTML 页面**必须**包含 `<div class="ppt-slide" type="页面类型">` 容器。转换脚本通过 `.ppt-slide` 类名识别页面，缺失将导致转换失败。
+> **容器类名强制要求**：HTML 页面**必须**包含 `<div class="ppt-slide flex flex-col" type="页面类型">` 容器。转换脚本通过 `.ppt-slide` 类名识别页面，缺失将导致转换失败。
 
 ### 基础模板结构（成品 HTML）
 
@@ -722,7 +719,7 @@ npx playwright install-deps chromium
     <style type="text/tailwindcss">
       @layer utilities {
         .ppt-slide {
-          @apply relative w-[1280px] h-[720px] mx-auto p-[40px] box-border overflow-hidden;
+          @apply relative w-[1280px] h-[720px] mx-auto p-[40px] box-border overflow-hidden flex flex-col;
         }
       }
     </style>
@@ -737,7 +734,7 @@ npx playwright install-deps chromium
 
   <body class="bg-gray-50">
     <!-- 每一页都是一个独立的 ppt-slide 容器 -->
-    <div class="ppt-slide" type="cover">
+    <div class="ppt-slide flex flex-col" type="cover">
       <!-- 页面内容 -->
     </div>
   </body>
@@ -748,7 +745,7 @@ npx playwright install-deps chromium
 
 #### HTML 幻灯片容器
 
-- **必须使用** `<div class="ppt-slide" type="页面类型">` 作为每页的容器
+- **必须使用** `<div class="ppt-slide flex flex-col" type="页面类型">` 作为每页的容器
 - **页面尺寸**：固定为 `1280px × 720px`
 - **页面边距**：`30px`
 - **内容区域**：1220 × 660px
@@ -829,6 +826,24 @@ npx playwright install-deps chromium
     .content-safe {
       @apply w-[1220px] h-[660px] my-[30px] mx-auto flex flex-col gap-6 overflow-hidden;
     }
+
+    /* 禁止模糊滤镜效果（PPT 渲染不一致） */
+    .ppt-slide [class*="blur"],
+    .ppt-slide [style*="blur"] {
+      filter: none !important;
+      backdrop-filter: none !important;
+    }
+
+    /* 禁止半透明渐变背景，使用纯色替代 */
+    .ppt-slide [class*="gradient"] {
+      background-image: none !important;
+    }
+
+    /* 禁止毛玻璃效果 */
+    .ppt-slide [class*="backdrop-blur"],
+    .ppt-slide [style*="backdrop-filter"] {
+      backdrop-filter: none !important;
+    }
   }
 </style>
 ```
@@ -868,7 +883,7 @@ tailwind.config = {
 **内容页标准结构**（必须遵守）：
 
 ```html
-<div class="ppt-slide" type="content">
+<div class="ppt-slide flex flex-col" type="content">
   <!-- 内容安全区：所有主要内容必须在此容器内 -->
   <div class="content-safe">
 
@@ -1026,7 +1041,7 @@ tailwind.config = {
     <style type="text/tailwindcss">
       @layer utilities {
         .ppt-slide {
-          @apply relative w-[1280px] h-[720px] mx-auto box-border overflow-hidden;
+          @apply relative w-[1280px] h-[720px] mx-auto box-border overflow-hidden flex flex-col;
         }
         .ppt-slide *, .ppt-slide *::before, .ppt-slide *::after {
           @apply box-border;
@@ -1041,7 +1056,7 @@ tailwind.config = {
 
   <body class="bg-gray-50">
     <!-- 内容页示例 -->
-    <div class="ppt-slide" type="content">
+    <div class="ppt-slide flex flex-col" type="content">
       <div class="content-safe">
 
         <!-- 页头 -->
@@ -1162,30 +1177,30 @@ tailwind.config = {
 
 ```html
 <!-- 封面页 -->
-<div class="ppt-slide" type="cover">
+<div class="ppt-slide flex flex-col" type="cover">
   <div data-field="title">演示文稿标题</div>
   <div data-field="presenter">演讲者姓名</div>
   <div data-field="date">日期</div>
 </div>
 
 <!-- 目录页 -->
-<div class="ppt-slide" type="table_of_contents">
+<div class="ppt-slide flex flex-col" type="table_of_contents">
   <!-- 目录内容 -->
 </div>
 
 <!-- 章节过渡页 -->
-<div class="ppt-slide" type="chapter">
+<div class="ppt-slide flex flex-col" type="chapter">
   <div data-field="chapter-number">1</div>
   <div data-field="chapter-title">章节标题</div>
 </div>
 
 <!-- 内容页 -->
-<div class="ppt-slide" type="content">
+<div class="ppt-slide flex flex-col" type="content">
   <!-- 正文内容 -->
 </div>
 
 <!-- 结束页 -->
-<div class="ppt-slide" type="final">
+<div class="ppt-slide flex flex-col" type="final">
   <div data-field="presenter">演讲者姓名</div>
   <div data-field="date">日期</div>
 </div>
@@ -1197,20 +1212,20 @@ tailwind.config = {
 
 ```html
 <!-- 封面页占位符 -->
-<div class="ppt-slide" type="cover">
+<div class="ppt-slide flex flex-col" type="cover">
   <div data-field="title">2025 人工智能产业发展趋势分析报告</div>
   <div data-field="presenter">Kimi</div>
   <div data-field="date">2025.11.18</div>
 </div>
 
 <!-- 章节页占位符 -->
-<div class="ppt-slide" type="chapter">
+<div class="ppt-slide flex flex-col" type="chapter">
   <div data-field="chapter-number">1</div>
   <div data-field="chapter-title">人工智能技术演进路径</div>
 </div>
 
 <!-- 结束页占位符 -->
-<div class="ppt-slide" type="final">
+<div class="ppt-slide flex flex-col" type="final">
   <div data-field="presenter">Kimi</div>
   <div data-field="date">2025.11.18</div>
 </div>
@@ -1390,7 +1405,7 @@ IF 3 次重试后仍不满足 THEN
 **高密度内容页的典型结构**：
 
 ```html
-<div class="ppt-slide" type="content">
+<div class="ppt-slide flex flex-col" type="content">
   <div class="content-safe">
 
     <!-- 页头：标题 + 副标题（~60px） -->
@@ -1923,11 +1938,13 @@ event_type: "html_completed", file_path: "output/pages/page-1.pptx.html"
         padding: 30px;
         box-sizing: border-box;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
     </style>
   </head>
   <body class="bg-gray-50">
-    <div class="ppt-slide" type="content">
+    <div class="ppt-slide flex flex-col" type="content">
       <!-- 单页内容（高分辨率精装修版本） -->
     </div>
   </body>
@@ -1937,6 +1954,30 @@ event_type: "html_completed", file_path: "output/pages/page-1.pptx.html"
 ---
 
 ## 禁止事项
+
+### CSS 样式约束
+
+> 完整支持/禁止样式白名单参见：`html-to-pptx/css-whitelist.md`
+
+以下样式在 PPTX 转换中不可用，必须避免：
+
+| 禁止样式 | 替代方案 |
+|---|---|
+| `blur-*`、`backdrop-blur-*`、`filter: blur()` | 纯色色块或半透明色块装饰 |
+| 半透明渐变（`from-{color}/30`） | 纯色背景 `bg-{color}` |
+| CSS Grid 布局（`grid`、`grid-cols-*`） | Flexbox |
+| `bg-[url(...)]` 背景图片 | `<img>` 标签 |
+| `animate-*`、`transition` 动画 | 静态样式 |
+| `text-shadow`、`drop-shadow-*` | `shadow`（box-shadow） |
+| `clip-path` | `border-radius` 或 `overflow: hidden` |
+| `ring-*`（outline） | `border` 或 `shadow` |
+| `skew-*`、`scale-*`、`translate-*` | 仅 `rotate-*` 有效 |
+| `columns-*` 多列布局 | Flexbox |
+| `line-through` | 不支持 |
+| `capitalize` | 手动大写 |
+| `radial-gradient`、`conic-gradient` | `linear-gradient` 或纯色 |
+
+### 内容禁止
 
 - 大段文字堆砌
 - 单页超过 200 字无分段
