@@ -9,7 +9,7 @@
  * Redis → RedisDraftStore, 无 → DraftStore (内存)
  */
 
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { RedisClient } from '@office-claw/shared/utils';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import type { IDraftStore } from '../ports/DraftStore.js';
 import { DraftStore } from '../ports/DraftStore.js';

@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Clowder AI (Cat Cafe) - Windows Stop Script
+  OfficeClaw - Windows Stop Script
 
 .DESCRIPTION
-  Stops Cat Cafe services (API, Frontend, Redis) by port.
+  Stops OfficeClaw services (API, Frontend, Redis) by port.
 
 .EXAMPLE
   .\scripts\stop-windows.ps1
@@ -24,7 +24,7 @@ $RunDir = if ($ProjectRoot) { Join-Path $ProjectRoot ".office-claw/run/windows" 
 $RuntimeStateFile = if ($RunDir) { Join-Path $RunDir "runtime-state.json" } else { $null }
 $runtimeState = Read-WindowsRuntimeStateFile -StateFile $RuntimeStateFile
 
-Write-Host "Cat Cafe - Stopping services" -ForegroundColor Cyan
+Write-Host "OfficeClaw - Stopping services" -ForegroundColor Cyan
 Write-Host "============================="
 
 # Load .env for port config

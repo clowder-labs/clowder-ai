@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { normalizeRichBlock } from '@cat-cafe/shared';
+import { normalizeRichBlock } from '@office-claw/shared';
 import { z } from 'zod';
 import { sendCallbackRequest } from './callback-outbox.js';
 import type { ToolResult } from './file-tools.js';
@@ -781,7 +781,7 @@ export const callbackTools = [
   {
     name: 'office_claw_list_skills',
     description:
-      'List shared skills that are currently installed for runtime use. ' +
+      'List OfficeClaw shared skills that are currently installed for runtime use. ' +
       'Use when you need to discover which skills exist, search by intent, or answer "what skills are available?". ' +
       'For planning/TDD/compare-options/worktree tasks, use this before search_evidence/grep/read and load a close match immediately. ' +
       'Shared ACP/open-agent skills are discovered here at runtime — do not assume a local skill directory exists. ' +
@@ -792,7 +792,7 @@ export const callbackTools = [
   {
     name: 'office_claw_load_skill',
     description:
-      'Load one shared skill by exact name. ' +
+      'Load one OfficeClaw shared skill by exact name. ' +
       'Returns the full SKILL.md plus the skill directory and related file paths. ' +
       'Call this before using a skill; ACP/open agents should not assume the skill is preinstalled locally.',
     inputSchema: loadSkillInputSchema,

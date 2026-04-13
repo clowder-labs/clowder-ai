@@ -55,25 +55,18 @@ function getRegistryPath(catCafeRoot: string): string {
   return join(catCafeRoot, '.office-claw', REGISTRY_FILENAME);
 }
 
-function getLegacyRegistryPath(catCafeRoot: string): string {
-  return join(catCafeRoot, '.cat-cafe', REGISTRY_FILENAME);
-}
-
 /** 读取 installed-skills.json，损坏时返回空 registry */
 export async function loadInstalledRegistry(catCafeRoot: string): Promise<InstalledSkillsRegistry> {
-  for (const filePath of [getRegistryPath(catCafeRoot), getLegacyRegistryPath(catCafeRoot)]) {
-    try {
-      const raw = await readFile(filePath, 'utf-8');
-      const parsed = JSON.parse(raw) as InstalledSkillsRegistry;
-      if (!parsed || typeof parsed.version !== 'number' || !Array.isArray(parsed.skills)) {
-        continue;
-      }
-      return parsed;
-    } catch {
-      continue;
+  try {
+    const raw = await readFile(getRegistryPath(catCafeRoot), 'utf-8');
+    const parsed = JSON.parse(raw) as InstalledSkillsRegistry;
+    if (!parsed || typeof parsed.version !== 'number' || !Array.isArray(parsed.skills)) {
+      return { ...EMPTY_REGISTRY };
     }
+    return parsed;
+  } catch {
+    return { ...EMPTY_REGISTRY };
   }
-  return { ...EMPTY_REGISTRY };
 }
 
 /** 写入 installed-skills.json（串行化） */

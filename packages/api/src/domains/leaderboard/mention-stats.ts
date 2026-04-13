@@ -8,7 +8,7 @@
  * F075 — Mention stats computation
  * Pure functions: input messages → output ranked stats
  */
-import type { MentionStats, RankedCat, StreakCat } from '@cat-cafe/shared';
+import type { MentionStats, RankedCat, StreakCat } from '@office-claw/shared';
 
 export interface MessageLike {
   id: string;

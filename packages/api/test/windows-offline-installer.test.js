@@ -105,7 +105,7 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   );
   assert.match(buildScript, /const WEB_RUNTIME_DEPENDENCIES = \['next', 'react', 'react-dom', 'sharp'\]/);
   assert.match(buildScript, /stageStandaloneWebRuntime\(targetRootDir\)/);
-  assert.match(buildScript, /'@cat-cafe\/shared': 'file:\.\.\/shared'/);
+  assert.match(buildScript, /'@office-claw\/shared': 'file:\.\.\/shared'/);
   assert.match(buildScript, /const RUNTIME_WEB_STANDALONE_SERVER = `const fs = require\('node:fs'\);/);
   assert.match(buildScript, /const requiredServerFiles = JSON\.parse\(/);
   assert.match(buildScript, /function createStandaloneWebRuntimePackageJson\(sourcePath\)/);
@@ -128,7 +128,7 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /stageInstallerSeed\(bundleDir\)/);
   assert.doesNotMatch(buildScript, /__pycache__/);
   assert.doesNotMatch(buildScript, /entry\.name\.endsWith\('\\.pyc'\)/);
-  assert.match(buildScript, /run\('pnpm', \['--filter', '@cat-cafe\/shared', 'run', 'build'\]\)/);
+  assert.match(buildScript, /run\('pnpm', \['--filter', '@office-claw\/shared', 'run', 'build'\]\)/);
   assert.match(buildScript, /shell: options\.shell \?\? shouldUseCommandShell\(command\)/);
   assert.match(buildScript, /materializeSharedDependency\(bundlePackagesDir, packageName\)/);
   assert.match(buildScript, /lstatSync\(sharedLinkPath\)\.isSymbolicLink\(\)/);
