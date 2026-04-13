@@ -576,14 +576,59 @@ Function DirectoryPageLeave
   ${NSD_SetText} $DirectoryInput $SelectedInstallDir
 FunctionEnd
 
-; Force-kill every process related to installed OfficeClaw (launcher, node API, Redis, jiuwenclaw, python).
-; Uses env var to pass the path safely (avoids quoting issues with spaces/parens).
-; IMPORTANT: Uses registry InstallDir (old install path) for path-based kills, not $INSTDIR (new path).
-; This ensures processes from previous installation are killed even when reinstalling to a different directory.
+; Stop OfficeClaw services by delegating to stop-windows.ps1 when available.
+; Falls back to direct process termination if the script is not found.
+; IMPORTANT: Uses registry InstallDir (old install path) to locate the stop script,
+; ensuring processes from previous installation are stopped even when reinstalling to a different directory.
 !macro _ForceKillInstalledProcesses
-  ; 1. Kill desktop launcher by name only when it exists
+  ; First, try to use stop-windows.ps1 from the installed directory
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    IfFileExists "$0\scripts\stop-windows.ps1" use_stop_script 0
+  ${EndIf}
+
+  ; Fallback: direct process termination when stop-windows.ps1 is not available
+  Goto fallback_kill
+
+use_stop_script:
+  DetailPrint "正在通过 stop-windows.ps1 停止服务..."
+  ; Execute stop-windows.ps1 with 60 second timeout
+  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -Command "& { Set-Location \"$0\"; & \"$0\scripts\stop-windows.ps1\" }"'
+  Pop $1
+  ${If} $1 == "timeout"
+    DetailPrint "stop-windows.ps1 执行超时，使用备用方式终止进程..."
+    Goto fallback_kill
+  ${ElseIf} $1 != 0
+    DetailPrint "stop-windows.ps1 执行失败 (错误码: $1)，使用备用方式终止进程..."
+    Goto fallback_kill
+  ${EndIf}
+
+  ; Verify processes are stopped, force-kill any remaining
   nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" | find /I "OfficeClaw.exe" >nul && taskkill /F /IM OfficeClaw.exe >nul 2>&1'
   Pop $0
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq redis-server.exe" | find /I "redis-server.exe" >nul && taskkill /F /IM redis-server.exe >nul 2>&1'
+  Pop $0
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" | find /I "jiuwenclaw.exe" >nul && taskkill /F /IM jiuwenclaw.exe >nul 2>&1'
+  Pop $0
+
+  ; Kill remaining node/python processes from the install directory
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = \"$0\"; Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+    Pop $1
+    ; Also kill processes with jiuwenclaw in command line
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
+    Pop $1
+  ${EndIf}
+
+  Sleep 3000
+  Goto done_kill
+
+fallback_kill:
+  ; 1. Kill desktop launcher by name
+  nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq OfficeClaw.exe" | find /I "OfficeClaw.exe" >nul && taskkill /F /IM OfficeClaw.exe >nul 2>&1'
+  Pop $0
+
   ; 2. Kill jiuwenclaw.exe (sidecar agent) by name
   nsExec::ExecToLog 'cmd /c tasklist /FI "IMAGENAME eq jiuwenclaw.exe" | find /I "jiuwenclaw.exe" >nul && taskkill /F /IM jiuwenclaw.exe >nul 2>&1'
   Pop $0
@@ -603,48 +648,27 @@ FunctionEnd
     Pop $0
   ${EndIf}
 
-  ; 4. Multi-round force kill (10 rounds, 5s interval each) - ensures all processes are killed
-  ;    Total ~50s wait time, guarantees all processes terminated and file handles released
-  ;    Round 1-10: Kill processes whose command line contains 'jiuwenclaw' and path-based matches
+  ; 4. Kill processes whose command line contains 'jiuwenclaw' and path-based matches
+  ;    Do 3 rounds with 3s interval each for robustness
   nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Pop $0
-  Sleep 5000
+  Sleep 3000
 
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = \"$0\"; Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+    Pop $1
+  ${EndIf}
+  Sleep 3000
 
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
+  ; Final round: kill any remaining processes from install directory
+  ReadRegStr $0 HKCU "${INSTALL_KEY}" "InstallDir"
+  ${If} $0 != ""
+    nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = \"$0\"; Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+    Pop $1
+  ${EndIf}
 
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -Name node,python,pythonw -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $$_.CommandLine -and $$_.CommandLine -match \"jiuwenclaw\" -and $$_.Name -notmatch \"setup\" } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
-
-  nsExec::ExecToLog '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "$$instDir = (Get-ItemProperty -Path \"HKCU:\Software\ClowderLabs\OfficeClaw\" -Name InstallDir -ErrorAction SilentlyContinue).InstallDir; if ($$instDir) { Get-Process -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and $$_.Path.StartsWith($$instDir, [System.StringComparison]::OrdinalIgnoreCase) -and $$_.ProcessName -notmatch \"setup\" } | Stop-Process -Force -ErrorAction SilentlyContinue }"'
-  Pop $0
-  Sleep 5000
+done_kill:
 !macroend
 
 Function CloseRunningServices
