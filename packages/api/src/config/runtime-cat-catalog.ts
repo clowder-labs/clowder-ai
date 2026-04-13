@@ -529,7 +529,7 @@ export function updateRuntimeCoCreator(projectRoot: string, patch: RuntimeCoCrea
   const currentOwner = (catalog.coCreator ?? {
     name: '用户',
     aliases: [],
-    mentionPatterns: ['@co-creator', '@user'],
+    mentionPatterns: ['@co-creator', '@用户'],
   }) as CoCreatorConfig;
 
   const nextOwner: Record<string, unknown> = {

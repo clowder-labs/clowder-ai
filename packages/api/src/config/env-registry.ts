@@ -1004,9 +1004,6 @@ const LEGACY_ENV_MAP: ReadonlyArray<[oldName: string, newName: string]> = [
   ['CAT_CAFE_CAT_ID', 'OFFICE_CLAW_CAT_ID'],
   ['CAT_CAFE_PREFLIGHT_TIMEOUT_MS', 'OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS'],
 ];
-  ['CAT_CAFE_DARE_DIAG_LOG', 'OFFICE_CLAW_DARE_DIAG_LOG'],
-  ['CAT_CAFE_DARE_MODEL_OVERRIDE', 'OFFICE_CLAW_DARE_MODEL_OVERRIDE'],
-];
 
 /**
  * Migrate deprecated CAT_CAFE_* env vars to OFFICE_CLAW_* equivalents.
