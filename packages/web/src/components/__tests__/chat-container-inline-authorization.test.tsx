@@ -99,6 +99,8 @@ const { mockChatMessages, mockGlobalAuthorizationCard } = vi.hoisted(() => ({
   ),
 }));
 
+const mockFollowLayoutChangeIfPinned = vi.fn();
+
 let mockState = createMockStoreState();
 let mockPending: AuthPendingRequest[] = [];
 
@@ -151,6 +153,7 @@ vi.mock('@/hooks/useChatHistory', () => ({
     scrollContainerRef: { current: null },
     messagesEndRef: { current: null },
     scrollToBottom: vi.fn(),
+    followLayoutChangeIfPinned: mockFollowLayoutChangeIfPinned,
     isLoadingHistory: false,
     hasMore: false,
   }),
@@ -250,6 +253,7 @@ describe('ChatContainer inline authorization placement', () => {
     mockPending = [];
     mockChatMessages.mockClear();
     mockGlobalAuthorizationCard.mockClear();
+    mockFollowLayoutChangeIfPinned.mockClear();
   });
 
   afterEach(() => {
@@ -314,5 +318,42 @@ describe('ChatContainer inline authorization placement', () => {
     expect(authCountByMessageId.get('assistant-active')).toBe(1);
     expect(authCountByMessageId.get('assistant-old')).toBe(0);
     expect(authCountByMessageId.get('assistant-no-tools')).toBe(0);
+  });
+
+  it('requests bottom follow when a new inline authorization card appears', () => {
+    mockState.messages = [
+      {
+        id: 'assistant-active',
+        type: 'assistant',
+        catId: 'codex',
+        content: 'active result',
+        timestamp: 2000,
+        isStreaming: true,
+        toolEvents: [{ id: 'tool-active', type: 'tool_use', label: 'Shell', timestamp: 2000 }],
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    expect(mockFollowLayoutChangeIfPinned).not.toHaveBeenCalled();
+
+    mockPending = [
+      {
+        requestId: 'auth-1',
+        catId: 'codex',
+        threadId: 'thread-1',
+        action: 'shell_command',
+        reason: 'Need approval',
+        createdAt: 2100,
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    expect(mockFollowLayoutChangeIfPinned).toHaveBeenCalledWith('smooth');
   });
 });
