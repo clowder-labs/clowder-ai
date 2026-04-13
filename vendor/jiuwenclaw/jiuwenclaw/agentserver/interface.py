@@ -195,6 +195,8 @@ class JiuWenClaw:
         self._session_priorities: dict[str, int] = {}  # session_id -> 优先级计数器（用于先进后出）
         self._session_queues: dict[str, asyncio.PriorityQueue] = {}  # session_id -> 优先队列
         self._session_processors: dict[str, asyncio.Task] = {}  # session_id -> processor_task
+        self._request_session_toolkits: dict[str, MultiSessionToolkit] = {}  # request_id -> toolkit
+        self._session_toolkit_requests: dict[str, set[str]] = {}  # session_id -> request_ids
         # Session-bound project_dir (resolved str), isolated from self._workspace_dir (agent root for memory).
         self._session_project_dir: dict[str, str] = {}
         # Memory system expects workspace_dir/layout:
@@ -886,6 +888,8 @@ class JiuWenClaw:
             for tool in session_toolkits.get_tools():
                 Runner.resource_mgr.add_tool(tool)
                 self._instance.ability_manager.add(tool.card)
+            if request_id:
+                self._track_session_toolkit(request_id, effective_session_id, session_toolkits)
 
         # Register send file toolkit
         if not self._send_file_tool_registered:
@@ -1025,8 +1029,9 @@ class JiuWenClaw:
             if self._instance is not None and hasattr(self._instance, 'resume'):
                 self._instance.resume()
 
-            # 取消当前 session 的非流式任务
+            # 先取消当前 session 的子协程工具包，避免父任务 cancel 后 finally 提前 untrack
             session_id = self._get_session_id(request)
+            await self._cancel_session_toolkits(session_id, "interrupt(supplement): ")
             await self._cancel_session_task(session_id, "interrupt(supplement): ")
 
             # 取消流式任务
@@ -1049,7 +1054,8 @@ class JiuWenClaw:
             # 先恢复暂停（防止 cancel 时 task 阻塞在 pause_event.wait 上）
             if self._instance is not None and hasattr(self._instance, 'resume'):
                 self._instance.resume()
-
+            # 取消所有 session 的子协程工具包
+            await self._cancel_all_session_toolkits(f"interrupt(intent={intent}): ")
             # 取消所有 session 的非流式任务
             await self._cancel_all_session_tasks(f"interrupt(intent={intent}): ")
 
@@ -1138,6 +1144,25 @@ class JiuWenClaw:
         """获取 session_id，默认为 'default'."""
         return request.session_id or "default"
 
+    def _track_session_toolkit(self, request_id: str, session_id: str, toolkit: MultiSessionToolkit) -> None:
+        """Track request-scoped MultiSessionToolkit so interrupt can cancel spawned sub-sessions."""
+        self._request_session_toolkits[request_id] = toolkit
+        request_ids = self._session_toolkit_requests.setdefault(session_id, set())
+        request_ids.add(request_id)
+
+    def _untrack_session_toolkit(self, request_id: str) -> None:
+        """Remove request-scoped toolkit tracking after the parent request finishes."""
+        toolkit = self._request_session_toolkits.pop(request_id, None)
+        if toolkit is None:
+            return
+        session_id = toolkit.session_id
+        request_ids = self._session_toolkit_requests.get(session_id)
+        if request_ids is None:
+            return
+        request_ids.discard(request_id)
+        if not request_ids:
+            self._session_toolkit_requests.pop(session_id, None)
+
     def _effective_project_dir_for_session(
         self, session_id: str, param_project_dir: str | None
     ) -> str | None:
@@ -1219,10 +1244,44 @@ class JiuWenClaw:
                 pass
             self._session_tasks[session_id] = None
 
+    async def _cancel_session_toolkits(self, session_id: str, log_msg_prefix: str = "") -> None:
+        """取消指定 session 关联的 MultiSessionToolkit 子协程."""
+        request_ids = list(self._session_toolkit_requests.get(session_id, set()))
+        if not request_ids:
+            return
+        logger.info(
+            "[JiuWenClaw] %s取消 session 子协程工具包: session_id=%s request_count=%d",
+            log_msg_prefix,
+            session_id,
+            len(request_ids),
+        )
+        for request_id in request_ids:
+            toolkit = self._request_session_toolkits.get(request_id)
+            if toolkit is None:
+                self._untrack_session_toolkit(request_id)
+                continue
+            try:
+                await toolkit.cancel_all_sessions()
+            except Exception as exc:
+                logger.warning(
+                    "[JiuWenClaw] %s取消 MultiSessionToolkit 失败: session_id=%s request_id=%s error=%s",
+                    log_msg_prefix,
+                    session_id,
+                    request_id,
+                    exc,
+                )
+            finally:
+                self._untrack_session_toolkit(request_id)
+
     async def _cancel_all_session_tasks(self, log_msg_prefix: str = "") -> None:
         """取消所有 session 的非流式任务."""
         for session_id in list(self._session_tasks.keys()):
             await self._cancel_session_task(session_id, log_msg_prefix)
+
+    async def _cancel_all_session_toolkits(self, log_msg_prefix: str = "") -> None:
+        """取消所有 request 关联的 MultiSessionToolkit 子协程."""
+        for session_id in list(self._session_toolkit_requests.keys()):
+            await self._cancel_session_toolkits(session_id, log_msg_prefix)
 
     async def _ensure_session_processor(self, session_id: str) -> None:
         """确保 session 的任务处理器在运行."""
@@ -1510,6 +1569,7 @@ class JiuWenClaw:
                 logger.error("[JiuWenClaw] Agent 任务执行异常: %s", e)
                 raise
             finally:
+                self._untrack_session_toolkit(request.request_id)
                 reset_todo_request_scope(token)
 
         # 包装任务，完成后将结果放入 future
@@ -1714,6 +1774,7 @@ class JiuWenClaw:
                 logger.exception("[JiuWenClaw] 流式任务异常: %s", exc)
                 await stream_queue.put(("error", exc))
             finally:
+                self._untrack_session_toolkit(request.request_id)
                 reset_todo_request_scope(token)
                 stream_done.set()
 

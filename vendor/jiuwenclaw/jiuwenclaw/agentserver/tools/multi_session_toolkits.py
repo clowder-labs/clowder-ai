@@ -330,6 +330,35 @@ class MultiSessionToolkit:
         logger.info("[MultiSessionToolkit] cancel_session 已取消 session_id=%s", session_id)
         return f"已取消 session_id={session_id}"
 
+    async def cancel_all_sessions(self) -> str:
+        """Cancel all running sub-agent sessions for this parent session."""
+        active_session_ids = [
+            session_id
+            for session_id, task in list(self._tasks.items())
+            if task is not None and not task.done()
+        ]
+        logger.info(
+            "[MultiSessionToolkit] cancel_all_sessions 请求 parent_session_id=%s active_count=%d",
+            self.session_id,
+            len(active_session_ids),
+        )
+        if not active_session_ids:
+            return "无运行中的协程"
+
+        tasks = [self._tasks[session_id] for session_id in active_session_ids if session_id in self._tasks]
+        for task in tasks:
+            task.cancel()
+        try:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        except asyncio.CancelledError:
+            pass
+        logger.info(
+            "[MultiSessionToolkit] cancel_all_sessions 已取消 %d 个协程 parent_session_id=%s",
+            len(active_session_ids),
+            self.session_id,
+        )
+        return f"已取消 {len(active_session_ids)} 个协程"
+
     async def list_all_sessions(self) -> str:
         """List all session tasks with status."""
         logger.debug(
