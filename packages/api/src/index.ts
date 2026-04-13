@@ -613,6 +613,7 @@ async function main(): Promise<void> {
   const agentRegistry = new AgentRegistry();
   let router!: AgentRouter;
   const syncAgentRegistry = async (configs: Record<string, CatConfig>) => {
+    const previousEntries = agentRegistry.getAllEntries();
     agentRegistry.reset();
     for (const [id, config] of Object.entries(configs)) {
       const catId = config.id;
@@ -696,6 +697,14 @@ async function main(): Promise<void> {
           continue;
       }
       agentRegistry.register(id, service);
+    }
+    for (const service of previousEntries.values()) {
+      const disposable = service as { dispose?: () => void | Promise<void> };
+      try {
+        await disposable.dispose?.();
+      } catch (err) {
+        app.log.warn(`[api] Agent service dispose failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
     if (router) router.refreshFromRegistry(agentRegistry);
   };

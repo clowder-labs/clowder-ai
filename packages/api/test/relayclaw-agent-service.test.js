@@ -23,6 +23,22 @@ const {
 } = await import('../dist/utils/jiuwenclaw-paths.js');
 const { WebSocket: NodeWebSocket } = await import('ws');
 
+async function collect(iterable) {
+  const items = [];
+  for await (const item of iterable) items.push(item);
+  return items;
+}
+
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 function createConnectionFactory(onSend) {
   return (requestQueues) => ({
     async ensureConnected() {},
@@ -548,6 +564,113 @@ describe('RelayClawAgentService', () => {
         process.env.CAT_CAFE_RELAYCLAW_PYTHON = previousPython;
       }
     }
+  });
+
+  it('reuses one scoped sidecar per project and isolates different projects', async () => {
+    const createdHomeDirs = [];
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => {
+          createdHomeDirs.push(config.homeDir);
+          return {
+            async ensureStarted() {
+              return 'ws://127.0.0.1:19092';
+            },
+            stop() {},
+            getRecentLogs() {
+              return '';
+            },
+          };
+        },
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    await collect(service.invoke('hello one', { workingDirectory: '/tmp/project-a' }));
+    await collect(service.invoke('hello two', { workingDirectory: '/tmp/project-a' }));
+    await collect(service.invoke('hello three', { workingDirectory: '/tmp/project-b' }));
+
+    assert.equal(createdHomeDirs.length, 2);
+    assert.ok(createdHomeDirs[0]);
+    assert.notEqual(createdHomeDirs[0], createdHomeDirs[1]);
+  });
+
+  it('does not stop a startup-in-flight sidecar when another project starts concurrently', async () => {
+    const createdControllers = [];
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          autoStart: true,
+          channelId: 'catcafe',
+        },
+      },
+      {
+        createSidecarController: (_catId, config) => {
+          const startup = createDeferred();
+          const controller = {
+            config,
+            startup,
+            stopCalled: false,
+            async ensureStarted() {
+              await startup.promise;
+              return 'ws://127.0.0.1:19093';
+            },
+            stop() {
+              controller.stopCalled = true;
+            },
+            getRecentLogs() {
+              return '';
+            },
+          };
+          createdControllers.push(controller);
+          return controller;
+        },
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          const queue = requestQueues.get(request.request_id);
+          assert.ok(queue, 'request queue should exist before send');
+          queue.put({
+            request_id: request.request_id,
+            channel_id: request.channel_id,
+            payload: { is_complete: true },
+            is_complete: true,
+          });
+        }),
+      },
+    );
+
+    const firstInvoke = collect(service.invoke('project a', { workingDirectory: '/tmp/project-a' }));
+    const secondInvoke = collect(service.invoke('project b', { workingDirectory: '/tmp/project-b' }));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(createdControllers.length, 2);
+    assert.equal(createdControllers[0].stopCalled, false);
+    assert.equal(createdControllers[1].stopCalled, false);
+    assert.notEqual(createdControllers[0].config.homeDir, createdControllers[1].config.homeDir);
+
+    createdControllers[0].startup.resolve();
+    createdControllers[1].startup.resolve();
+
+    const [firstMessages, secondMessages] = await Promise.all([firstInvoke, secondInvoke]);
+    assert.equal(firstMessages.at(-1)?.type, 'done');
+    assert.equal(secondMessages.at(-1)?.type, 'done');
   });
 
   it('passes project directory, uploaded files, and cat-cafe MCP config in the WS request', async () => {
