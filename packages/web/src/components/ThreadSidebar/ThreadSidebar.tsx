@@ -13,6 +13,7 @@ import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
+import { SearchInput } from '../shared/SearchInput';
 import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
@@ -761,32 +762,22 @@ export function ThreadSidebar({
             </div>
           </div>
           {(isSearchOpen || normalizedQuery.length > 0) && (
-            <div className="relative mt-2">
-              <input
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setFilterOption('all');
-                }}
-                placeholder="搜索会话"
-                autoComplete="off"
-                className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowFilter(false);
-                    setIsSearchOpen(false);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full text-[20px] leading-5 text-[#808080] hover:text-[#191919]"
-                  aria-label="清除搜索"
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <SearchInput
+              wrapperClassName="mt-2"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setFilterOption('all');
+              }}
+              onClear={() => {
+                setSearchQuery('');
+                setShowFilter(false);
+                setIsSearchOpen(false);
+              }}
+              placeholder="搜索会话"
+              autoComplete="off"
+              aria-label="搜索会话"
+            />
           )}
 
           {showFilter && (

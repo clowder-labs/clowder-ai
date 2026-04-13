@@ -52,6 +52,12 @@ interface ConnectorTestResult {
 }
 
 const QR_ONLY_PLATFORM_IDS = new Set(['feishu', 'weixin']);
+const PLATFORM_HELP_LINKS: Record<string, string> = {
+  feishu: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/feishu.html',
+  weixin: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/weixin.html',
+  dingtalk: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/dingtalk.html',
+  xiaoyi: 'https://support.huaweicloud.com/officeclaw-agentarts-pc/xiaoyi.html',
+};
 
 function readStepText(step: unknown): string | null {
   if (typeof step === 'string') {
@@ -390,6 +396,9 @@ export function HubConnectorConfigTab() {
   }
 
   const selectedPlatform = platforms.find((platform) => platform.id === selectedPlatformId) ?? platforms[0] ?? null;
+  const selectedPlatformHelpLink = selectedPlatform
+    ? parseDocsLink(PLATFORM_HELP_LINKS[selectedPlatform.id] ?? '')
+    : null;
 
   return (
     <div className="ui-panel flex h-full min-h-0 overflow-hidden">
@@ -432,7 +441,23 @@ export function HubConnectorConfigTab() {
         className="flex h-full min-w-0 flex-1 flex-col gap-6 overflow-auto px-12 py-6"
         data-testid="connector-right-pane"
       >
-        <p className="text-[var(--text-primary)] font-semibold">配置</p>
+        <div className="flex items-center gap-[4px]">
+          <p className="text-[var(--text-primary)] font-semibold">配置</p>
+          {selectedPlatformHelpLink && (
+            <a
+              href={selectedPlatformHelpLink.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="查看帮助文档"
+              title="查看帮助文档"
+              className="inline-flex h-5 w-5 items-center justify-center text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+              data-testid={`platform-help-link-${selectedPlatform?.id}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/userprofile/help.svg" alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+            </a>
+          )}
+        </div>
         {isLoading && (
           <div className="flex min-h-0 flex-1 items-center justify-center">
             <CenteredLoadingState />

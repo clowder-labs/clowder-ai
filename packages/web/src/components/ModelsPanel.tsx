@@ -744,11 +744,11 @@ export function ModelsPanel() {
                                 alt={`${card.name} icon`}
                                 width={48}
                                 height={48}
-                                className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
+                                className="h-12 w-12 shrink-0 rounded-[var(radius-xs)] object-cover"
                                 data-testid={`model-card-icon-${card.id}`}
                               />
                             ) : (
-                              <div className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] p-1.5">
+                              <div className="h-12 w-12 shrink-0 rounded-[var(radius-xs)]">
                                 <NameInitialIcon
                                   name={card.name}
                                   dataTestId={`model-card-icon-${card.id}`}
