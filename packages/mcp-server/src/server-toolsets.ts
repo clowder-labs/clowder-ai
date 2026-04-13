@@ -88,8 +88,8 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   office_claw_cross_post_message: 'Post a message to a different thread by threadId.',
   office_claw_list_tasks: 'List tasks with optional threadId/catId/status filters.',
   office_claw_list_skills:
-    'List Cat Cafe shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
-  office_claw_load_skill: 'Load one Cat Cafe shared skill by exact name.',
+    'List shared skills available at runtime. Use before search/grep for workflow tasks; retry with exact skill name if intent search is empty.',
+  office_claw_load_skill: 'Load one shared skill by exact name.',
   office_claw_update_task: 'Update status of a task you own (doing/blocked/done).',
   office_claw_create_rich_block:
     'Create a rich block (card/diff/checklist/media_gallery/audio/interactive). Must have kind, v:1, unique id.',

@@ -329,7 +329,7 @@ function finalizePostMessageResult(result: ToolResult, content: string): ToolRes
     const hint =
       `\n\n💡 Tip: ${reasonHint}如果你想 @其他智能体，` +
       '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @智能体名 即可' +
-      '（例如另起一行写 @co-creator），系统会自动检测并触发。';
+      '（例如另起一行写 @通用智能体），系统会自动检测并触发。';
     return errorResult(original + hint);
   }
 
@@ -781,7 +781,7 @@ export const callbackTools = [
   {
     name: 'office_claw_list_skills',
     description:
-      'List Cat Cafe shared skills that are currently installed for runtime use. ' +
+      'List shared skills that are currently installed for runtime use. ' +
       'Use when you need to discover which skills exist, search by intent, or answer "what skills are available?". ' +
       'For planning/TDD/compare-options/worktree tasks, use this before search_evidence/grep/read and load a close match immediately. ' +
       'Shared ACP/open-agent skills are discovered here at runtime — do not assume a local skill directory exists. ' +
@@ -792,7 +792,7 @@ export const callbackTools = [
   {
     name: 'office_claw_load_skill',
     description:
-      'Load one Cat Cafe shared skill by exact name. ' +
+      'Load one shared skill by exact name. ' +
       'Returns the full SKILL.md plus the skill directory and related file paths. ' +
       'Call this before using a skill; ACP/open agents should not assume the skill is preinstalled locally.',
     inputSchema: loadSkillInputSchema,
