@@ -9,10 +9,45 @@ import json
 import os
 import sys
 import smtplib
+import pathlib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+
+# ── 附件安全校验 ──
+# 禁止作为附件读取的路径前缀（防止路径遍历读取敏感文件）
+_BLOCKED_PREFIXES = [
+    "/etc/", "/proc/", "/sys/", "/dev/", "/root/",
+    "C:\\Windows\\", "C:\\ProgramData\\",
+    r"\Windows\", r"\ProgramData\",
+]
+
+# 禁止的文件名模式
+_BLOCKED_NAMES = {
+    "passwd", "shadow", "hosts", "sam", "system", "security",
+    "ntuser.dat", "ntuser.ini",
+}
+
+def _safe_attachment(file_path: str) -> pathlib.Path:
+    """校验附件路径安全性，防止路径遍历攻击"""
+    p = pathlib.Path(file_path).resolve()
+    
+    # 检查是否为常规文件（防止读取目录、设备文件等）
+    if not p.is_file():
+        raise ValueError(f"附件不是有效文件: {file_path}")
+    
+    # 检查文件名是否在黑名单中
+    if p.name.lower() in _BLOCKED_NAMES:
+        raise ValueError(f"禁止附加敏感文件: {p.name}")
+    
+    # 检查路径前缀
+    path_str = str(p)
+    for prefix in _BLOCKED_PREFIXES:
+        if path_str.lower().startswith(prefix.lower()):
+            raise ValueError(f"禁止读取系统目录下的文件: {file_path}")
+    
+    return p
 
 
 def load_config(config_path=None):
@@ -64,13 +99,17 @@ def send_email(to, subject, body, html=False, attachments=None, cc=None, bcc=Non
     # 添加附件
     if attachments:
         for file_path in attachments:
-            if os.path.exists(file_path):
-                with open(file_path, 'rb') as f:
+            try:
+                safe_path = _safe_attachment(file_path)
+                with open(safe_path, 'rb') as f:
                     part = MIMEBase('application', 'octet-stream')
                     part.set_payload(f.read())
                 encoders.encode_base64(part)
-                part.add_header('Content-Disposition', f'attachment; filename={os.path.basename(file_path)}')
+                part.add_header('Content-Disposition', f'attachment; filename={safe_path.name}')
                 msg.attach(part)
+            except ValueError as e:
+                # 安全校验失败，跳过该附件并记录警告
+                print(f"⚠️ 附件安全校验失败: {e}", file=sys.stderr)
     
     # 发送邮件
     try:

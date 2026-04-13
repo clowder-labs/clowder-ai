@@ -340,6 +340,7 @@ export function AgentsPanel() {
     : EMPTY_EDITABLE_DRAFTS;
 
   const canEditActiveTab = currentTab.editable && isEditableTab(activeTab);
+  const canEditPersona = canEditActiveTab && activeTab === 'persona' && selectedCat?.source === 'runtime';
   const activeSavedDraft = canEditActiveTab ? selectedSavedDrafts[activeTab] : '';
   const activeWorkingDraft = canEditActiveTab ? selectedWorkingDrafts[activeTab] : '';
   const showEmptyPersonaEditor = mode === 'edit' && activeTab === 'persona' && !activeWorkingDraft.trim();
@@ -767,9 +768,9 @@ export function AgentsPanel() {
     <button
       type="button"
       onClick={handleStartEdit}
-      disabled={!canEditActiveTab}
+      disabled={!canEditPersona}
       className={`inline-flex h-[18px] w-[44px] items-center justify-center gap-1 text-[12px] font-normal transition ${
-        canEditActiveTab
+        canEditPersona
           ? 'text-[var(--text-primary)] hover:underline hover:underline-offset-2'
           : 'cursor-not-allowed text-[var(--text-subtle)]'
       }`}
@@ -848,16 +849,15 @@ export function AgentsPanel() {
           <div className="text-center">
             <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">暂无内容</h3>
             <p className="text-[12px] text-[var(--text-secondary)] mt-1" >当前暂无内容，您可以填写后获取数据。</p>
-            <button
-              type="button"
-              onClick={handleStartEdit}
-              disabled={!canEditActiveTab}
-              className={`mt-4 inline-flex h-7 min-w-[72px] items-center justify-center rounded-full border border-black bg-[var(--surface-panel)] px-6 py-[5px] text-[12px] font-normal text-black transition ${
-                !canEditActiveTab ? 'cursor-not-allowed opacity-50' : 'hover:bg-black/5'
-              }`}
-            >
-              编辑
-            </button>
+            {canEditPersona ? (
+              <button
+                type="button"
+                onClick={handleStartEdit}
+                className="mt-4 inline-flex h-7 min-w-[72px] items-center justify-center rounded-full border border-black bg-[var(--surface-panel)] px-6 py-[5px] text-[12px] font-normal text-black transition hover:bg-black/5"
+              >
+                编辑
+              </button>
+            ) : null}
           </div>
         </div>
       );
@@ -1273,7 +1273,9 @@ export function AgentsPanel() {
                 {currentTab.editable
                   ? mode === 'edit' && canEditActiveTab
                     ? renderEditActions()
-                    : renderPreviewActions()
+                    : canEditPersona
+                      ? renderPreviewActions()
+                      : null
                   : null}
               </div>
 

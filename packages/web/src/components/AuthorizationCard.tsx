@@ -6,99 +6,158 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
-
-const CAT_LABELS: Record<string, string> = {
-  opus: '通用智能体',
-  codex: '办公智能体',
-  gemini: '协作智能体',
-  dare: '通用智能体',
-};
 
 interface AuthorizationCardProps {
   request: AuthPendingRequest;
-  onRespond: (requestId: string, granted: boolean, scope: RespondScope, reason?: string) => void;
+  onRespond: (requestId: string, granted: boolean, scope: RespondScope, reason?: string) => void | Promise<void>;
+  onOpenSecurityManagement?: () => void;
 }
 
-export function AuthorizationCard({ request, onRespond }: AuthorizationCardProps) {
-  const [expanded, setExpanded] = useState(false);
-  const catLabel = CAT_LABELS[request.catId] ?? request.catId;
+type ActionKey = 'allow-once' | 'allow-always' | 'deny';
+
+interface ActionConfig {
+  key: ActionKey;
+  label: string;
+  granted: boolean;
+  scope: RespondScope;
+  className: string;
+  testId: string;
+}
+
+const CARD_ACTIONS: ActionConfig[] = [
+  {
+    key: 'allow-once',
+    label: '本次允许',
+    granted: true,
+    scope: 'once',
+    testId: 'authorization-card-allow-once',
+    className: '',
+  },
+  {
+    key: 'allow-always',
+    label: '总是允许',
+    granted: true,
+    scope: 'global',
+    testId: 'authorization-card-allow-always',
+    className: '',
+  },
+  {
+    key: 'deny',
+    label: '拒绝',
+    granted: false,
+    scope: 'once',
+    testId: 'authorization-card-deny',
+    className: 'border-[#FF4D4F] text-[#FF4D4F] hover:border-[#FF7875] hover:bg-[#FFF2F0] hover:text-[#FF4D4F]',
+  },
+];
+
+function parseAuthorizationCopy(reason: string): { title: string | null; body: string } {
+  const normalized = reason.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return { title: null, body: reason };
+
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return { title: null, body: reason };
+
+  const [title, ...rest] = lines;
+  return {
+    title: title || null,
+    body: rest.join('\n'),
+  };
+}
+
+export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement }: AuthorizationCardProps) {
+  const [submittingAction, setSubmittingAction] = useState<ActionKey | null>(null);
+  const parsedCopy = useMemo(() => parseAuthorizationCopy(request.reason), [request.reason]);
+  const title = parsedCopy.title ?? request.action;
+  const description = parsedCopy.title && parsedCopy.body ? parsedCopy.body : request.reason;
+
+  const activeSubmittingAction = useMemo(
+    () => CARD_ACTIONS.find((action) => action.key === submittingAction) ?? null,
+    [submittingAction],
+  );
+
+  const handleAction = async (action: ActionConfig) => {
+    if (submittingAction) return;
+
+    setSubmittingAction(action.key);
+    try {
+      await Promise.resolve(onRespond(request.requestId, action.granted, action.scope));
+      setSubmittingAction(null);
+    } catch {
+      setSubmittingAction(null);
+    }
+  };
 
   return (
-    <div className="border border-amber-200 bg-amber-50/80 rounded-lg p-3 mx-2 mb-2 shadow-sm animate-pulse-subtle">
-      <div className="flex items-start gap-2">
-        <span className="text-amber-500 mt-0.5 text-lg">🔐</span>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-gray-800">
-            {catLabel} 请求权限: <code className="text-xs bg-amber-100 px-1 py-0.5 rounded">{request.action}</code>
+    <div
+      data-testid="authorization-card"
+      className="w-full max-w-[482px] min-h-[140px] rounded-[12px] bg-[#f8f8f8] px-6 py-5"
+      style={{ 'marginLeft': '56px' }}
+    >
+      <div className="min-w-0">
+        <div data-testid="authorization-card-header" className="flex items-center gap-2">
+          <img
+            src="/icons/userprofile/security.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-[20px] w-[20px] shrink-0"
+          />
+          <div
+            data-testid="authorization-card-title"
+            className="min-w-0 flex-1 text-[14px] font-semibold leading-6 text-[#202020]"
+          >
+            {title}
           </div>
-          <p className="text-xs text-gray-600 mt-1">{request.reason}</p>
-          {request.context && <p className="text-xs text-gray-500 mt-1 italic">{request.context}</p>}
         </div>
+
+        <p
+          data-testid="authorization-card-description"
+          className="mt-2 text-[12px] leading-6 text-[#595959]"
+        >
+          {description}
+        </p>
+        <p data-testid="authorization-card-helper" className="text-[12px] leading-6 text-[#595959]">
+          您可随时在
+          <button
+            type="button"
+            data-testid="authorization-card-security-management"
+            onClick={onOpenSecurityManagement}
+            className="mx-[1px] inline bg-transparent p-0 text-[12px] leading-6 text-[#1476FF]"
+          >
+            安全管理
+          </button>
+          中配置或修改安全策略
+        </p>
       </div>
 
-      <div className="flex items-center gap-2 mt-2 ml-7">
-        {!expanded ? (
-          <>
-            <button
-              onClick={() => onRespond(request.requestId, true, 'once')}
-              className="px-3 py-1 text-xs bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-            >
-              允许 (仅此次)
-            </button>
-            <button
-              onClick={() => setExpanded(true)}
-              className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
-            >
-              更多选项...
-            </button>
-            <button
-              onClick={() => onRespond(request.requestId, false, 'once')}
-              className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors"
-            >
-              拒绝
-            </button>
-          </>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {activeSubmittingAction ? (
+          <button
+            type="button"
+            disabled
+            data-testid="authorization-card-submitting-action"
+            className="ui-button-default"
+          >
+            {activeSubmittingAction.label}
+          </button>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          CARD_ACTIONS.map((action) => (
             <button
-              onClick={() => onRespond(request.requestId, true, 'once')}
-              className="px-3 py-1 text-xs bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+              key={action.key}
+              type="button"
+              data-testid={action.testId}
+              onClick={() => void handleAction(action)}
+              className={`ui-button-default ${action.className}`}
             >
-              允许 (仅此次)
+              {action.label}
             </button>
-            <button
-              onClick={() => onRespond(request.requestId, true, 'thread')}
-              className="px-3 py-1 text-xs bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-            >
-              允许 (此对话)
-            </button>
-            <button
-              onClick={() => onRespond(request.requestId, true, 'global')}
-              className="px-3 py-1 text-xs bg-green-700 text-white rounded-md hover:bg-green-800 transition-colors"
-            >
-              允许 (全局)
-            </button>
-            <button
-              onClick={() => onRespond(request.requestId, false, 'once')}
-              className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors"
-            >
-              拒绝 (仅此次)
-            </button>
-            <button
-              onClick={() => onRespond(request.requestId, false, 'global')}
-              className="px-3 py-1 text-xs bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
-            >
-              拒绝 (全局)
-            </button>
-            <button
-              onClick={() => setExpanded(false)}
-              className="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              收起
-            </button>
-          </div>
+          ))
         )}
       </div>
     </div>
