@@ -81,6 +81,13 @@ function getThreadLastActiveAtMs(thread: Thread): number {
   return Number.isFinite(lastActiveAt) ? lastActiveAt : 0;
 }
 
+const FILTER_OPTION_LABELS: Record<'all' | '1m' | '3m' | '6m', string> = {
+  all: '全部',
+  '1m': '近1个月',
+  '3m': '近3个月',
+  '6m': '近6个月',
+};
+
 export function ThreadSidebar({
   onClose,
   className,
@@ -292,6 +299,10 @@ export function ThreadSidebar({
   );
 
   const handleNewChat = useCallback(() => {
+    setSearchQuery('');
+    setIsSearchOpen(false);
+    setShowFilter(false);
+    setFilterOption('all');
     if (onNewChatClick) {
       onNewChatClick();
       return;
@@ -577,9 +588,9 @@ export function ThreadSidebar({
     if (sortedPinned.length > 0) {
       groups.push({ type: 'pinned' as const, label: '置顶', threads: sortedPinned });
     }
-    groups.push({ type: 'recent' as const, label: '全部', threads: sortedUnpinned });
+    groups.push({ type: 'recent' as const, label: FILTER_OPTION_LABELS[filterOption], threads: sortedUnpinned });
     return groups;
-  }, [filteredThreads]);
+  }, [filteredThreads, filterOption]);
   const displayThreadGroups = useMemo(() => threadGroups, [threadGroups]);
   const existingProjects = useMemo(() => getProjectPaths(threadsWithRealtimeActivity), [threadsWithRealtimeActivity]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
@@ -785,7 +796,7 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    className={`block w-full whitespace-nowrap px-3 py-2 text-left text-xs font-[400] leading-[18px] transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
                     style={{ marginBottom: item.key === '6m' ? '0' : '14px' }}
                     onClick={() => {
                       setFilterOption(item.key as 'all' | '1m' | '3m' | '6m');

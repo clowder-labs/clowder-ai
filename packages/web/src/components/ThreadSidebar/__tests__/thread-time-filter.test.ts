@@ -1,4 +1,4 @@
-/*
+﻿/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -207,18 +207,22 @@ describe('ThreadSidebar time filter', () => {
 
     await selectFilter('近1个月');
     expect(container.textContent).not.toContain('会话时间');
+    expect(container.textContent).toContain('近1个月');
     expectTitles(['近一月会话'], ['近三月会话', '近六月会话', '超半年会话']);
 
     await openFilter();
     await selectFilter('近3个月');
+    expect(container.textContent).toContain('近3个月');
     expectTitles(['近一月会话', '近三月会话'], ['近六月会话', '超半年会话']);
 
     await openFilter();
     await selectFilter('近6个月');
+    expect(container.textContent).toContain('近6个月');
     expectTitles(['近一月会话', '近三月会话', '近六月会话'], ['超半年会话']);
 
     await openFilter();
     await selectFilter('全部');
+    expect(container.textContent).toContain('全部');
     expectTitles(['近一月会话', '近三月会话', '近六月会话', '超半年会话']);
   });
 });
