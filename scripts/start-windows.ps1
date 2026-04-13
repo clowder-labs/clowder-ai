@@ -107,6 +107,14 @@ if (-not $nodeCommand) {
 }
 Write-Ok "Node: $nodeCommand"
 
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $ProjectRoot "office-claw-skills\.playwright-browsers"
+try {
+    Ensure-OfficeSkillNodeDependencies -ProjectRoot $ProjectRoot | Out-Null
+} catch {
+    Write-Warn "Skill dependency refresh failed - continuing startup"
+    Write-InstallerExceptionDetails -Context "Skill dependency refresh" -ErrorRecord $_
+}
+
 $dareRuntimeReady = Ensure-WindowsDareRuntime -ProjectRoot $ProjectRoot
 $jiuwenClawRuntimeReady = Ensure-WindowsJiuwenClawRuntime -ProjectRoot $ProjectRoot
 
@@ -501,6 +509,7 @@ $runtimeEnvOverrides = @{
     REDIS_PORT = $env:REDIS_PORT
     MEMORY_STORE = $env:MEMORY_STORE
     OFFICE_CLAW_MCP_SERVER_PATH = $env:OFFICE_CLAW_MCP_SERVER_PATH
+    PLAYWRIGHT_BROWSERS_PATH = $env:PLAYWRIGHT_BROWSERS_PATH
     API_SERVER_PORT = $ApiPort
     FRONTEND_PORT = $WebPort
     NEXT_PUBLIC_API_URL = "http://127.0.0.1:$ApiPort"

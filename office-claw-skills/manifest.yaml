@@ -384,6 +384,8 @@ skills:
       python:
         - "requests"
       node:
+        - "react"
+        - "react-dom"
         - "framer-motion"
         - "gsap"
         - "lottie-react"
