@@ -6,7 +6,7 @@
 
 skills:
 
-  # ── 办公 ──
+  # ── 办公套件 ──
   minimax-docx:
     description: >
       专业 DOCX 生成与格式化技能。基于 OpenXML SDK 处理 Word 文档创建、填充、
@@ -22,6 +22,13 @@ skills:
       - "PDF"
       - "电子表格"
     output: "Professionally formatted .docx"
+    dependencies:
+      dotnet:
+        - ".NET SDK 8.0"
+        - "DocumentFormat.OpenXml 3.5.1"
+        - "System.CommandLine 2.0.5"
+      system:
+        - "bash / PowerShell setup scripts"
     next: []
     sop_step: null
     merged_from: null
@@ -41,6 +48,16 @@ skills:
       - "Word 原始编辑"
       - "纯数据表格"
     output: "Print-ready PDF"
+    dependencies:
+      python:
+        - "reportlab"
+        - "pypdf"
+      node:
+        - "playwright"
+      system:
+        - "Python 3"
+        - "Node.js"
+        - "Chromium"
     next: []
     sop_step: null
     merged_from: null
@@ -60,6 +77,12 @@ skills:
       - "Word 文档"
       - "HTML 报告"
     output: ".xlsx/.xlsm/.csv analysis or edited file"
+    dependencies:
+      python:
+        - "pandas"
+        - "openpyxl"
+      system:
+        - "LibreOffice (optional, recalculation)"
     next: []
     sop_step: null
     merged_from: null
@@ -79,6 +102,9 @@ skills:
       - "自由创意排版"
       - "PDF 表单"
     output: "GB/T 9704 formatted Word document"
+    dependencies:
+      python:
+        - "python-docx"
     next: []
     sop_step: null
     merged_from: null
@@ -98,6 +124,22 @@ skills:
       - "普通文档"
       - "单页海报"
     output: ".pptx deck with research/planning artifacts"
+    dependencies:
+      node:
+        - "@fortawesome/fontawesome-svg-core"
+        - "@fortawesome/free-brands-svg-icons"
+        - "@fortawesome/free-regular-svg-icons"
+        - "@fortawesome/free-solid-svg-icons"
+        - "esbuild"
+        - "html2canvas"
+        - "jszip"
+        - "opentype.js"
+        - "pako"
+        - "playwright"
+        - "pptxgenjs"
+      system:
+        - "Node.js >= 18"
+        - "Chromium"
     next: []
     sop_step: null
     merged_from: null
@@ -117,6 +159,19 @@ skills:
       - "单个简单文档微调"
       - "纯文本总结"
     output: "Processed report files / converted office documents"
+    dependencies:
+      python:
+        - "openpyxl>=3.1.0"
+        - "pandas>=2.0.0"
+        - "python-pptx>=0.6.21"
+        - "python-docx>=0.8.11"
+        - "pillow>=10.0.0"
+        - "xlsxwriter>=3.1.0"
+        - "reportlab"
+      system:
+        - "LibreOffice (preferred conversion engine)"
+      optional:
+        - "pywin32 / win32com (Windows Office COM fallback)"
     next: []
     sop_step: null
     merged_from: null
@@ -136,6 +191,11 @@ skills:
       - "非会议场景"
       - "单纯日历创建"
     output: "Meeting brief / notes / follow-up / action tracking"
+    dependencies:
+      services:
+        - "Calendar connector (optional)"
+        - "Email connector (optional)"
+        - "Task / CRM connector (optional)"
     next: []
     sop_step: null
     merged_from: null
@@ -155,6 +215,10 @@ skills:
       - "非飞书日历系统"
       - "会议纪要整理"
     output: "Feishu calendar operation result"
+    dependencies:
+      services:
+        - "Feishu Calendar API"
+        - "Feishu OAuth / app credentials"
     next: []
     sop_step: null
     merged_from: null
@@ -173,6 +237,12 @@ skills:
       - "非飞书会议系统"
       - "会议内容总结"
     output: "Feishu meeting link / metadata"
+    dependencies:
+      python:
+        - "coze_workload_identity"
+      services:
+        - "Feishu VC API"
+        - "Feishu OAuth token / workload identity"
     next: []
     sop_step: null
     merged_from: null
@@ -191,6 +261,9 @@ skills:
       - "非腾讯会议系统"
       - "会议纪要写作"
     output: "Tencent Meeting operation result"
+    dependencies:
+      services:
+        - "Tencent Meeting API token"
     next: []
     sop_step: null
     merged_from: null
@@ -210,6 +283,12 @@ skills:
       - "即时消息聊天"
       - "日历事件管理"
     output: "Email send/read/reply/mark result"
+    dependencies:
+      system:
+        - "Python 3 standard library"
+      services:
+        - "IMAP / SMTP mailbox access"
+        - "Mailbox credentials or app password"
     next: []
     sop_step: null
     merged_from: null
@@ -229,6 +308,10 @@ skills:
       - "日历事件"
       - "项目管理方法论讨论"
     output: "Feishu task / tasklist operation result"
+    dependencies:
+      services:
+        - "Feishu Task API"
+        - "Feishu OAuth / user access token"
     next: []
     sop_step: null
     merged_from: null
@@ -248,6 +331,13 @@ skills:
       - "文档内容编辑"
       - "非飞书文档系统"
     output: "Feishu permission transfer result"
+    dependencies:
+      python:
+        - "requests"
+      services:
+        - "Feishu Open Platform app"
+        - "FEISHU_APP_ID"
+        - "FEISHU_APP_SECRET"
     next: []
     sop_step: null
     merged_from: null
@@ -266,6 +356,11 @@ skills:
       - "iOS"
       - "纯 Web 前端"
     output: "Android project code / UI implementation guide"
+    dependencies:
+      system:
+        - "Android Studio"
+        - "Android SDK"
+        - "Gradle / Gradle Wrapper"
     next: []
     sop_step: null
     merged_from: null
@@ -285,6 +380,20 @@ skills:
       - "纯后端服务"
       - "仅数据库 schema"
     output: "Production-ready frontend UI"
+    dependencies:
+      python:
+        - "requests"
+      node:
+        - "framer-motion"
+        - "gsap"
+        - "lottie-react"
+        - "three"
+        - "@react-three/fiber"
+        - "@react-three/drei"
+      system:
+        - "ffmpeg (optional media post-processing)"
+      services:
+        - "MINIMAX_API_KEY (for media generation)"
     next: []
     sop_step: null
     merged_from: null
@@ -304,6 +413,9 @@ skills:
       - "纯 CSS"
       - "仅数据库 schema"
     output: "Full-stack app code / architecture"
+    dependencies:
+      note:
+        - "No fixed component library; dependencies vary by chosen stack"
     next: []
     sop_step: null
     merged_from: null
@@ -322,6 +434,11 @@ skills:
       - "会议纪要归档"
       - "全天候执行型自动化"
     output: "Prioritized daily briefing"
+    dependencies:
+      services:
+        - "Calendar connector (optional)"
+        - "CRM connector (optional)"
+        - "Email connector (optional)"
     next: []
     sop_step: null
     merged_from: null
@@ -341,6 +458,12 @@ skills:
       - "一次性临时回答"
       - "纯代码实现"
     output: "Structured markdown note / sync result"
+    dependencies:
+      python:
+        - "PyYAML"
+      services:
+        - "OpenClaw openclaw-lark plugin (optional, Feishu sync)"
+        - "Tencent IMA OpenAPI credentials (optional)"
     next: []
     sop_step: null
     merged_from: null
@@ -359,6 +482,9 @@ skills:
       - "法律合同"
       - "代码文档"
     output: "7-step explanatory draft"
+    dependencies:
+      note:
+        - "No fixed component library; framework-only skill"
     next: []
     sop_step: null
     merged_from: null
@@ -378,6 +504,9 @@ skills:
       - "个性化法律意见"
       - "诉讼策略制定"
     output: "Templated legal response draft"
+    dependencies:
+      note:
+        - "No fixed component library; template workflow skill"
     next: []
     sop_step: null
     merged_from: null
@@ -396,6 +525,9 @@ skills:
       - "短期一次性上下文"
       - "外部数据库设计"
     output: "Three-layer memory workflow / files"
+    dependencies:
+      note:
+        - "No fixed third-party library; file-based workflow"
     next: []
     sop_step: null
     merged_from: null
@@ -415,6 +547,13 @@ skills:
       - "静态海报"
       - "矢量图标系统"
     output: "4 animated GIF stickers"
+    dependencies:
+      python:
+        - "requests"
+      system:
+        - "ffmpeg"
+      services:
+        - "MINIMAX_API_KEY"
     next: []
     sop_step: null
     merged_from: null
@@ -434,6 +573,16 @@ skills:
       - "纯文本润色"
       - "非 MiniMax 媒体任务"
     output: "Generated media files under minimax-output/"
+    dependencies:
+      system:
+        - "curl"
+        - "ffmpeg"
+        - "ffprobe"
+        - "jq"
+        - "xxd"
+      services:
+        - "MINIMAX_API_HOST"
+        - "MINIMAX_API_KEY"
     next: []
     sop_step: null
     merged_from: null
@@ -493,3 +642,5 @@ lint:
       check: "manifest skills 键集合必须与 office-claw-skills 顶层实际 skill 目录一致"
     - id: refs-exist
       check: "refs 中的 path 必须在 office-claw-skills/refs/ 下存在"
+    - id: dependencies-documented
+      check: "有外部组件库、系统组件或服务依赖的 skill 必须在 manifest 中声明 dependencies"
