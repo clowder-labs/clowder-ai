@@ -13,6 +13,7 @@ import { apiFetch } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
 import { BootcampIcon } from '../icons/BootcampIcon';
 import { HubIcon } from '../icons/HubIcon';
+import { SearchInput } from '../shared/SearchInput';
 import { TaskPanel } from '../TaskPanel';
 import { UserProfile } from '../UserProfile';
 import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
@@ -79,6 +80,13 @@ function getThreadLastActiveAtMs(thread: Thread): number {
   const lastActiveAt = Number(thread.lastActiveAt);
   return Number.isFinite(lastActiveAt) ? lastActiveAt : 0;
 }
+
+const FILTER_OPTION_LABELS: Record<'all' | '1m' | '3m' | '6m', string> = {
+  all: '全部',
+  '1m': '近1个月',
+  '3m': '近3个月',
+  '6m': '近6个月',
+};
 
 export function ThreadSidebar({
   onClose,
@@ -291,6 +299,10 @@ export function ThreadSidebar({
   );
 
   const handleNewChat = useCallback(() => {
+    setSearchQuery('');
+    setIsSearchOpen(false);
+    setShowFilter(false);
+    setFilterOption('all');
     if (onNewChatClick) {
       onNewChatClick();
       return;
@@ -576,9 +588,9 @@ export function ThreadSidebar({
     if (sortedPinned.length > 0) {
       groups.push({ type: 'pinned' as const, label: '置顶', threads: sortedPinned });
     }
-    groups.push({ type: 'recent' as const, label: '全部', threads: sortedUnpinned });
+    groups.push({ type: 'recent' as const, label: FILTER_OPTION_LABELS[filterOption], threads: sortedUnpinned });
     return groups;
-  }, [filteredThreads]);
+  }, [filteredThreads, filterOption]);
   const displayThreadGroups = useMemo(() => threadGroups, [threadGroups]);
   const existingProjects = useMemo(() => getProjectPaths(threadsWithRealtimeActivity), [threadsWithRealtimeActivity]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
@@ -666,7 +678,7 @@ export function ThreadSidebar({
               className={getMenuItemClassName(activeMenu === 'scheduledTasks')}
               data-testid="sidebar-menu-scheduled-tasks"
             >
-              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-4 h-4 shrink-0" />
+              <img src="/icons/time-time.svg" alt="" aria-hidden="true" className="w-5 h-5 shrink-0" />
               定时任务
             </button>
           </div>
@@ -719,32 +731,22 @@ export function ThreadSidebar({
             </div>
           </div>
           {(isSearchOpen || normalizedQuery.length > 0) && (
-            <div className="relative mt-2">
-              <input
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setFilterOption('all');
-                }}
-                placeholder="搜索会话"
-                autoComplete="off"
-                className="ui-input h-8 w-full pr-8 pl-2.5 py-1.5 text-[13px]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowFilter(false);
-                    setIsSearchOpen(false);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full text-[20px] leading-5 text-[#808080] hover:text-[#191919]"
-                  aria-label="清除搜索"
-                >
-                  ×
-                </button>
-              )}
-            </div>
+            <SearchInput
+              wrapperClassName="mt-2"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setFilterOption('all');
+              }}
+              onClear={() => {
+                setSearchQuery('');
+                setShowFilter(false);
+                setIsSearchOpen(false);
+              }}
+              placeholder="搜索会话"
+              autoComplete="off"
+              aria-label="搜索会话"
+            />
           )}
 
           {showFilter && (
@@ -763,7 +765,7 @@ export function ThreadSidebar({
                   <button
                     key={item.key}
                     type="button"
-                    className={`ui-overlay-item w-full text-left text-[12px] font-[400] leading-[18px] py-[2px] ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
+                    className={`block w-full whitespace-nowrap px-3 py-2 text-left text-xs font-[400] leading-[18px] transition-colors hover:bg-[rgba(245,245,245,1)] focus-visible:bg-[rgba(245,245,245,1)] focus-visible:outline-none ${filterOption === item.key ? 'text-[rgba(20,115,255,1)]' : ''}`}
                     style={{ marginBottom: item.key === '6m' ? '0' : '14px' }}
                     onClick={() => {
                       setFilterOption(item.key as 'all' | '1m' | '3m' | '6m');

@@ -27,7 +27,13 @@ function getWorkspaceTarget(url: string): { worktreeId: string; path: string } |
   return worktreeId && path ? { worktreeId, path } : null;
 }
 
-export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
+export function ContentBlocks({
+  blocks,
+  enableSkillAndQuickActionTokens = false,
+}: {
+  blocks: MessageContent[];
+  enableSkillAndQuickActionTokens?: boolean;
+}) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [openingFileUrl, setOpeningFileUrl] = useState<string | null>(null);
   const resolveIcon = (fileName: string) => {
@@ -44,7 +50,13 @@ export function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
     <>
       {blocks.map((block, i) => {
         if (block.type === 'text') {
-          return <MarkdownContent key={i} content={block.text} />;
+          return (
+            <MarkdownContent
+              key={i}
+              content={block.text}
+              enableSkillAndQuickActionTokens={enableSkillAndQuickActionTokens}
+            />
+          );
         }
         if (block.type === 'image') {
           const src = resolveMediaUrl(block.url);

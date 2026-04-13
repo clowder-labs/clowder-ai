@@ -82,18 +82,16 @@ export function SkillsPanel() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">
-        <div className="flex h-full min-h-0 flex-col">
-          {activeTab === 'plaza' ? (
-            <HubSkillsTab />
-          ) : (
-            <HubCapabilityTab
-              onImport={() => setShowUpload(true)}
-              onSelectSkill={setSelectedSkill}
-              refreshSignal={capabilityRefreshSignal}
-            />
-          )}
-        </div>
+      <div>
+        {activeTab === 'plaza' ? (
+          <HubSkillsTab />
+        ) : (
+          <HubCapabilityTab
+            onImport={() => setShowUpload(true)}
+            onSelectSkill={setSelectedSkill}
+            refreshSignal={capabilityRefreshSignal}
+          />
+        )}
       </div>
     </div>
   );

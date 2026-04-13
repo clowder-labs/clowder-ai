@@ -14,6 +14,7 @@ import { ConnectThirdPartyAgentModal } from './ConnectThirdPartyAgentModal';
 import { CreateAgentModal } from './CreateAgentModal';
 import { MarkdownContent } from './MarkdownContent';
 import { PromptSelectionModal } from './PromptSelectionModal';
+import { SearchInput } from './shared/SearchInput';
 import { transform } from 'esbuild-wasm';
 
 type AgentTabKey = 'persona' | 'collab' | 'skills';
@@ -139,15 +140,6 @@ const INSPIRATION_TEMPLATES: InspirationTemplate[] = [
 - 默认补充图表建议、后续验证方向和数据缺口。`,
   },
 ];
-
-function SearchIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M20 20L16.65 16.65" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function PersonaIcon(props: IconProps) {
   return <AgentManagementIcon name="persona" className={props.className} />;
@@ -1101,17 +1093,17 @@ export function AgentsPanel() {
       <div className="ui-panel min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full min-h-0">
           <aside className="relative flex h-full w-[322px] shrink-0 flex-col px-4 py-6">
-            <label className="mb-3 mr-1 flex h-[28px] min-h-[28px] w-[calc(100%-4px)] items-center gap-2 rounded-[6px] border border-[rgba(194,194,194,1)] bg-[var(--surface-panel)] px-3 text-[var(--text-muted)]">
-              <SearchIcon className="h-3.5 w-3.5 shrink-0" />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="搜索智能体"
-                className="ui-input ui-input-plain min-w-0 flex-1 text-[12px] pl-0"
-              />
-            </label>
+            <SearchInput
+              wrapperClassName="mb-3"
+              value={searchQuery}
+              onChange={(value) => setSearchQuery(value)}
+              onClear={() => setSearchQuery('')}
+              placeholder="搜索智能体"
+              aria-label="搜索智能体"
+              clearAriaLabel="清除搜索"
+            />
 
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {filteredCats.map((cat) => {
                 const isSelected = selectedCat?.id === cat.id;
                 const modelText = cat.defaultModel || '未配置模型';

@@ -56,7 +56,8 @@ import { ThreadSidebar } from './ThreadSidebar';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
-const MAIN_PANEL_MIN_WIDTH = 660;
+const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度240
+const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
@@ -89,13 +90,13 @@ type ChatContainerProps =
       initialSidebarMenu?: 'chat' | 'models' | 'agents' | 'channels' | 'skills' | 'scheduledTasks';
     };
 
-function AuthLoadingPanel() {
+function AuthLoadingPanel({ message = '加载中...' }: { message?: string }) {
   return (
     <div className="flex h-full items-center justify-center" data-testid="chat-container-loading-panel">
       <div className="text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/icons/chart/loading.svg" alt="加载中" className="mx-auto h-8 w-8 animate-spin" />
-        <p className="mt-3 text-gray-600">加载中...</p>
+        <p className="mt-3 text-gray-600">{message}</p>
       </div>
     </div>
   );
@@ -105,6 +106,8 @@ export function ChatContainer(props: ChatContainerProps) {
   const [authChecked, setAuthChecked] = useState(!props.requireLoginCheck);
   const [isLoggedIn, setIsLoggedIn] = useState(!props.requireLoginCheck);
   const router = useRouter();
+  const authPending = Boolean(props.requireLoginCheck) && !authChecked;
+  const authRedirecting = Boolean(props.requireLoginCheck) && authChecked && !isLoggedIn;
 
   useEffect(() => {
     if (!props.requireLoginCheck) return;
@@ -136,8 +139,14 @@ export function ChatContainer(props: ChatContainerProps) {
     };
   }, [props.requireLoginCheck, router]);
 
-  if (authChecked && !isLoggedIn) {
-    return null;
+  // Keep a full-screen transition state while auth is unresolved or redirecting
+  // to login so the desktop shell never falls through to a blank page.
+  if (authPending || authRedirecting) {
+    return (
+      <div className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+        <AuthLoadingPanel message={authRedirecting ? '正在跳转登录页...' : '加载中...'} />
+      </div>
+    );
   }
 
   if (props.mode === 'new') {
@@ -589,8 +598,8 @@ function ThreadModeChatContainer({
         <div className="hidden md:flex items-center">
           <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
         </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+      <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className="flex h-full min-h-0 flex-col" style={{ minWidth: sidebarMenu === 'chat' ?  MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}>
         <RightContentHeader />
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader
@@ -611,7 +620,11 @@ function ThreadModeChatContainer({
 
         <div className="relative flex-1 min-h-0">
           {sidebarMenu !== 'chat' && (
-            <div className="ui-shell-surface h-full overflow-hidden px-12 pt-12 pb-5">
+            <div
+              className={`ui-shell-surface h-full px-12 pt-12 pb-5 ${
+                sidebarMenu === 'models' || sidebarMenu === 'skills' ? 'overflow-y-auto' : 'overflow-hidden'
+              }`}
+            >
               {sidebarMenu === 'models' && <ModelsPanel />}
               {sidebarMenu === 'agents' && <AgentsPanel />}
               {sidebarMenu === 'channels' && <ChannelsPanel />}

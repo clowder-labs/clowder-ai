@@ -18,6 +18,8 @@ import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
 import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { PasswordField } from './shared/PasswordField';
+import { SearchInput } from './shared/SearchInput';
 import { useConfirm } from './useConfirm';
 import { getIsSkipAuth } from '@/utils/userId';
 import { useToastStore } from '@/stores/toastStore';
@@ -30,7 +32,7 @@ const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
-const SELF_HUAWEI_MAAS_GROUP_LABEL = '自接入华为云MaaS';
+const SELF_HUAWEI_MAAS_GROUP_LABEL = '自接入华为云 MaaS';
 const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
@@ -43,6 +45,14 @@ const SAVE_MODEL_LABEL = '保存';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
 const DEFAULT_MODEL_ICON_SRC = '/images/mode-default-icon.svg';
+const MODEL_NAME_VALIDATION_MESSAGE = '支持中英文、数字及 :._/|\\-，仅支持中英文,数字开头结尾，长度2-64';
+const MODEL_NAME_EDGE_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF]';
+const MODEL_NAME_BODY_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF:._/|\\\\-]';
+const MODEL_NAME_PATTERN = new RegExp(`^${MODEL_NAME_EDGE_PATTERN}(?:${MODEL_NAME_BODY_PATTERN}{0,62}${MODEL_NAME_EDGE_PATTERN})$`);
+
+function isValidModelName(value: string) {
+  return MODEL_NAME_PATTERN.test(value);
+}
 
 function SparklesIcon() {
   return (
@@ -294,9 +304,12 @@ export function ModelsPanel() {
   const isEditMode = Boolean(editingSourceId);
   const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
+  const trimmedModelName = modelNameInput.trim();
+  const isModelNameValid = trimmedModelName.length >= 2 && trimmedModelName.length <= 64 && isValidModelName(trimmedModelName);
+  const showModelNameValidationError = trimmedModelName.length > 0 && !isModelNameValid;
   const canConfirmCreateModel = isEditMode
-    ? modelNameInput?.trim().length > 0
-    : modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
+    ? isModelNameValid
+    : isModelNameValid && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -666,16 +679,15 @@ export function ModelsPanel() {
 
       <section className="shrink-0 pb-6" data-testid="models-toolbar">
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <input
-              type="search"
-              aria-label="搜索模型"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={SEARCH_PLACEHOLDER}
-              className="ui-input h-[28px] min-h-[28px] w-full px-3 py-0 text-xs"
-            />
-          </div>
+          <SearchInput
+            wrapperClassName="flex-1"
+            aria-label="搜索模型"
+            value={searchQuery}
+            onChange={(value) => setSearchQuery(value)}
+            onClear={() => setSearchQuery('')}
+            placeholder={SEARCH_PLACEHOLDER}
+            clearAriaLabel="清除搜索"
+          />
           <button
             type="button"
             aria-label="刷新"
@@ -690,8 +702,8 @@ export function ModelsPanel() {
         </div>
       </section>
 
-      <div className="min-h-0 flex-1 overflow-y-auto" data-testid="models-scroll-region">
-        <div className="flex min-h-full flex-col gap-4 pb-2">
+      <div className="pb-2" data-testid="models-scroll-region">
+        <div className="flex flex-col gap-4">
           {loading && (
             <div className="flex flex-1 min-h-0 items-center justify-center py-10" data-testid="models-loading-state">
               <CenteredLoadingState />
@@ -743,11 +755,11 @@ export function ModelsPanel() {
                                 alt={`${card.name} icon`}
                                 width={48}
                                 height={48}
-                                className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] object-cover p-1.5"
+                                className="h-12 w-12 shrink-0 rounded-[var(radius-xs)] object-cover"
                                 data-testid={`model-card-icon-${card.id}`}
                               />
                             ) : (
-                              <div className="h-12 w-12 shrink-0 rounded-[var(--radius-lg)] border border-[var(--border-default)] p-1.5">
+                              <div className="h-12 w-12 shrink-0 rounded-[var(radius-xs)]">
                                 <NameInitialIcon
                                   name={card.name}
                                   dataTestId={`model-card-icon-${card.id}`}
@@ -879,11 +891,16 @@ export function ModelsPanel() {
                   data-testid="models-create-model-name-input"
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
-                  placeholder={'请输入模型名称'}
+                  placeholder={isHuaweiMaasAccessMode ? '请输入模型调用名称' : '请输入模型名称'}
                   className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
+                {showModelNameValidationError ? (
+                  <p data-testid="models-create-model-name-error" className="mt-1 text-xs text-red-600">
+                    {MODEL_NAME_VALIDATION_MESSAGE}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2.5">
                 <div className="text-[12px] text-[var(--text-primary)]">模型描述（可选）</div>
@@ -977,10 +994,9 @@ export function ModelsPanel() {
               </div>
               <div className="space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'API Key'}</p>
-                <input
+                <PasswordField
                   data-testid="models-create-model-api-key-input"
                   name="cc_model_api_key"
-                  type="password"
                   value={modelApiKeyInput}
                   onChange={(event) => setModelApiKeyInput(event.target.value)}
                   placeholder={'请输入API Key'}
@@ -991,6 +1007,7 @@ export function ModelsPanel() {
                   className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
+                  toggleTestId="models-create-model-api-key-toggle"
                 />
               </div>
               <div className="space-y-1">
@@ -1239,13 +1256,13 @@ function ModelsCreateModelConfigSource({
         autoComplete="off"
         className="ui-input w-full"
       />
-      <input
-        type="password"
+      <PasswordField
         autoComplete="off"
         value={apiKey}
         onChange={(event) => setApiKey(event.target.value)}
         placeholder="API Key"
         className="ui-input w-full rounded px-3 py-2 text-sm"
+        toggleTestId="models-create-source-api-key-toggle"
       />
       <textarea
         value={headersText}
