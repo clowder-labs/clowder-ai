@@ -298,6 +298,10 @@ export function ThreadSidebar({
   );
 
   const handleNewChat = useCallback(() => {
+    setSearchQuery('');
+    setIsSearchOpen(false);
+    setShowFilter(false);
+    setFilterOption('all');
     if (onNewChatClick) {
       onNewChatClick();
       return;
