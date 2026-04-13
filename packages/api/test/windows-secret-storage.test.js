@@ -4,19 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 
-const {
-  applyConnectorSecretUpdates,
-} = await import('../dist/config/connector-secret-updater.js');
-const {
-  buildEnvSummary,
-} = await import('../dist/config/env-registry.js');
-const {
-  createProviderProfile,
-  resolveAnthropicRuntimeProfileById,
-} = await import('../dist/config/provider-profiles.js');
-const {
-  WeixinSessionStore,
-} = await import('../dist/infrastructure/connectors/WeixinSessionStore.js');
+const { applyConnectorSecretUpdates } = await import('../dist/config/connector-secret-updater.js');
+const { buildEnvSummary } = await import('../dist/config/env-registry.js');
+const { createProviderProfile, resolveAnthropicRuntimeProfileById } = await import(
+  '../dist/config/provider-profiles.js'
+);
+const { WeixinSessionStore } = await import('../dist/infrastructure/connectors/WeixinSessionStore.js');
 const {
   buildConnectorEnvRefVarName,
   decodeSecretRefForTests,
@@ -57,7 +50,7 @@ describe('windows secret-backed persistence', () => {
       'DINGTALK_APP_SECRET_REF',
       'FEISHU_APP_SECRET',
       'FEISHU_APP_SECRET_REF',
-      'CAT_CAFE_GLOBAL_CONFIG_ROOT',
+      'OFFICE_CLAW_GLOBAL_CONFIG_ROOT',
     ]);
   });
 
@@ -107,8 +100,8 @@ describe('windows secret-backed persistence', () => {
     const { backend } = createMemoryBackend();
     setLocalSecretBackendForTests(backend);
     const projectRoot = mkdtempSync(join(tmpdir(), 'provider-secret-ref-'));
-    const previousGlobalRoot = process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-    process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = projectRoot;
+    const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = projectRoot;
 
     try {
       const profile = await createProviderProfile(projectRoot, {
@@ -119,7 +112,7 @@ describe('windows secret-backed persistence', () => {
         apiKey: 'sk-windows-secret',
       });
 
-      const secretsPath = join(projectRoot, '.cat-cafe', 'provider-profiles.secrets.local.json');
+      const secretsPath = join(projectRoot, '.office-claw', 'provider-profiles.secrets.local.json');
       const raw = readFileSync(secretsPath, 'utf8');
       assert.ok(!raw.includes('sk-windows-secret'));
       assert.ok(raw.includes('"apiKeyRef"'));
@@ -127,8 +120,8 @@ describe('windows secret-backed persistence', () => {
       const runtime = await resolveAnthropicRuntimeProfileById(projectRoot, profile.id);
       assert.equal(runtime.apiKey, 'sk-windows-secret');
     } finally {
-      if (previousGlobalRoot === undefined) delete process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT;
-      else process.env.CAT_CAFE_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
+      if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+      else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
@@ -142,7 +135,7 @@ describe('windows secret-backed persistence', () => {
       const sessionStore = new WeixinSessionStore(hostRoot);
       sessionStore.save('wx-secret-token');
 
-      const sessionPath = join(hostRoot, '.cat-cafe', 'weixin-session.local.json');
+      const sessionPath = join(hostRoot, '.office-claw', 'weixin-session.local.json');
       const raw = readFileSync(sessionPath, 'utf8');
       assert.ok(!raw.includes('wx-secret-token'));
       assert.ok(raw.includes('"botTokenRef"'));

@@ -16,7 +16,7 @@ import {
   CAT_CONFIGS,
   catRegistry,
   createCatId,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import type {
   CatBreed,
   CatCafeConfig,
@@ -29,7 +29,7 @@ import type {
   MissionHubSelfClaimScope,
   ReviewPolicy,
   Roster,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { z } from 'zod';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveCatCafeHostRoot } from '../utils/cat-cafe-root.js';
@@ -209,7 +209,7 @@ const reviewPolicySchema = z.object({
   excludeUnavailable: z.boolean(),
 });
 
-// Note: Roster, RosterEntry, ReviewPolicy types imported from @cat-cafe/shared above
+// Note: Roster, RosterEntry, ReviewPolicy types imported from @office-claw/shared above
 
 /** F067: Owner config schema */
 const coCreatorConfigSchema = z.object({
@@ -926,13 +926,13 @@ export function isCatLead(catId: string, config?: CatCafeConfig): boolean {
 // ── F067: Co-Creator config accessor ────────────────────────────────
 
 /** Default co-creator mention patterns (backward compat when not configured) */
-const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@铲屎官'];
+const DEFAULT_CO_CREATOR_MENTION_PATTERNS = ['@co-creator', '@用户'];
 
 let _cachedCoCreator: CoCreatorConfig | null = null;
 
 /**
  * Get coCreator config from office-claw-config.json.
- * Returns a default config with @co-creator/@铲屎官 patterns when not configured.
+ * Returns a default config with @co-creator/@用户 patterns when not configured.
  */
 export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
   if (_cachedCoCreator && !config) return _cachedCoCreator;
@@ -941,7 +941,7 @@ export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
 
   // v1 config or no coCreator → return defaults
   if (!cfg || cfg.version === 1 || !cfg.coCreator) {
-    return { name: '铲屎官', aliases: [], mentionPatterns: DEFAULT_CO_CREATOR_MENTION_PATTERNS };
+    return { name: '用户', aliases: [], mentionPatterns: DEFAULT_CO_CREATOR_MENTION_PATTERNS };
   }
 
   _cachedCoCreator = cfg.coCreator;
@@ -950,7 +950,7 @@ export function getCoCreatorConfig(config?: CatCafeConfig): CoCreatorConfig {
 
 /**
  * Get all co-creator mention patterns (lowercased, with @ prefix).
- * Always includes @co-creator and @铲屎官 as fallback patterns in addition to configured ones.
+ * Always includes @co-creator and @用户 as fallback patterns in addition to configured ones.
  */
 export function getCoCreatorMentionPatterns(config?: CatCafeConfig): readonly string[] {
   const coCreator = getCoCreatorConfig(config);

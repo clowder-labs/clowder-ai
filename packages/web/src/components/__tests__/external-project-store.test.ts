@@ -4,7 +4,7 @@
  *
  */
 
-import type { ExternalProject, IntentCard, NeedAuditFrame } from '@cat-cafe/shared';
+import type { ExternalProject, IntentCard, NeedAuditFrame } from '@office-claw/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useExternalProjectStore } from '../../stores/externalProjectStore';
 

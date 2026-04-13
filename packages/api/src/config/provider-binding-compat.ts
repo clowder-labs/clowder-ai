@@ -4,7 +4,7 @@
  *
  */
 
-import type { CatProvider } from '@cat-cafe/shared';
+import type { CatProvider } from '@office-claw/shared';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import type {
   BuiltinAccountClient,

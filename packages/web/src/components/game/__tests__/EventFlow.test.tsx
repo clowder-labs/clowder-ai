@@ -4,7 +4,7 @@
  *
  */
 
-import type { GameEvent } from '@cat-cafe/shared';
+import type { GameEvent } from '@office-claw/shared';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';

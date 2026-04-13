@@ -25,6 +25,7 @@ import { parse as parseYaml } from 'yaml';
 import { readCapabilitiesConfig } from '../config/capabilities/capability-orchestrator.js';
 import { parseSkillFrontmatter } from '../domains/cats/services/skillhub/frontmatter-parser.js';
 import type { InstalledSkillRecord } from '../domains/cats/services/skillhub/InstalledSkillRegistry.js';
+import { ensureSkillStorageMigrated } from '../domains/cats/services/skillhub/SkillStorageMigration.js';
 import { resolveOfficialSkillsRoot, resolveUserSkillsRoot } from '../domains/cats/services/skillhub/SkillPaths.js';
 import {
   fetchSkillContent,
@@ -73,6 +74,7 @@ const SKILL_UPLOAD_MAX_FILES = 100;
 const SKILL_UPLOAD_MAX_FILE_BYTES = 1024 * 1024;
 const SKILL_UPLOAD_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
 const SKILL_NAME_CHINESE_RE = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/u;
+const SKILL_NAME_ALLOWED_RE = /^[A-Za-z0-9-]+$/;
 
 // ─── Skill Detail Types ──────────────────────────────────
 
@@ -480,6 +482,7 @@ async function buildSkillFileTree(skillDir: string, maxDepth: number = 3): Promi
 }
 
 export const skillsRoutes: FastifyPluginAsync = async (app) => {
+  await ensureSkillStorageMigrated(CAT_CAFE_ROOT);
   // ────────────────────────────────────────────────────────
   // GET /api/skills
   // ────────────────────────────────────────────────────────
@@ -1049,7 +1052,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       reply.status(422);
       return { success: false, error: '技能名称不合法' };
     }
-    if (SKILL_NAME_CHINESE_RE.test(skillName)) {
+    if (!SKILL_NAME_ALLOWED_RE.test(skillName)) {
       reply.status(422);
       return { success: false, error: '技能名称不能包含中文字符' };
     }

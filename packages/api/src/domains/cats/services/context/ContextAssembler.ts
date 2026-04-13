@@ -12,7 +12,7 @@
  * formatMessage() 也被 export route 复用 (聊天记录导出)。
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 import { estimateTokens } from '../../../../utils/token-counter.js';
 import { isDelivered, type StoredMessage } from '../stores/ports/MessageStore.js';
 

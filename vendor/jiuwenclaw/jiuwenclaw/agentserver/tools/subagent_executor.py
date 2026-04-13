@@ -401,6 +401,7 @@ Approach each task methodically and deliver high-quality results."""
         # Tools that should NOT be inherited
         # - spawn_subagent: prevent recursive subagent spawning
         # - todo_*: todo list is parent agent's task tracking, not for subagents
+        # - office_claw_*_skills: skill loading is parent agent's capability, subagents inherit loaded skills
         EXCLUDED_TOOLS = {
             "spawn_subagent",
             "todo_create",
@@ -408,6 +409,8 @@ Approach each task methodically and deliver high-quality results."""
             "todo_insert",
             "todo_remove",
             "todo_list",
+            "office_claw_list_skills",
+            "office_claw_load_skill",
         }
 
         try:

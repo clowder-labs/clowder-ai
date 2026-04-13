@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { catRegistry } from '@cat-cafe/shared';
+import { catRegistry } from '@office-claw/shared';
 
 describe('parseA2AMentions', () => {
   it('detects line-start @mention (Chinese name)', async () => {

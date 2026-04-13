@@ -11,7 +11,7 @@
 
 const DEFAULT_CONFIG = {
   woff2: {
-    wasmUrl: "https://unpkg.com/fonteditor-core@2.6.3/woff2/woff2.wasm",
+    wasmUrl: "https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/fonteditor-core@2.6.3/woff2/woff2.wasm",
     mirrorUrl: "https://npmmirror.com/mirrors/fonteditor-core@2.6.3/woff2/woff2.wasm",
     optional: true,
   },

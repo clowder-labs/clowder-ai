@@ -168,11 +168,12 @@ describe('UploadSkillModal', () => {
 
   it('allows English names with hyphen and rejects unsupported characters', () => {
     expect(validateSkillName('Alpha-Beta')).toBeNull();
-    expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文和中划线');
-    expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文和中划线');
+    expect(validateSkillName('Alpha-2026')).toBeNull();
+    expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文、数字和中划线');
+    expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文、数字和中划线');
   });
 
-  it('parses skill metadata from frontmatter and markdown body', () => {
+  it('parses skill metadata only from frontmatter fields', () => {
     expect(
       parseSkillMetadata(`---
 name: demo-skill
@@ -190,8 +191,8 @@ Fallback description`),
     });
 
     expect(parseSkillMetadata('# Demo Skill\n\nThis is the description.')).toEqual({
-      name: 'Demo Skill',
-      description: 'This is the description.',
+      name: '',
+      description: '',
     });
   });
 
@@ -243,6 +244,24 @@ Fallback description`),
     expect(cancelButton?.className).toContain('ui-modal-action-button');
     expect(confirmButton?.className).toContain('ui-button-primary');
     expect(confirmButton?.className).toContain('ui-modal-action-button');
+  });
+
+  it('shows a disabled hint before any files are selected', () => {
+    renderModal();
+
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+
+    expect(confirmButton?.disabled).toBe(true);
+    expect(document.body.querySelector('[role="tooltip"]')).toBeNull();
+
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('请选择文件或文件夹后再导入');
   });
 
   it('routes upload API errors through the global toast store', async () => {
@@ -424,7 +443,64 @@ description: A parsed skill description.
     expect(container.textContent).toContain('上传内容根目录必须包含名为 SKILL.md 的文件');
     expect(container.textContent).toContain('--');
     expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+    expect(confirmButton?.disabled).toBe(true);
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('上传内容根目录必须包含名为 SKILL.md 的文件');
     expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
+  it('shows a global toast when SKILL.md frontmatter misses the name field', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+description: Missing skill name.
+---
+
+# Uploaded Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [skillFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const latestToast = useToastStore.getState().toasts.at(-1);
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+
+    expect(latestToast?.type).toBe('error');
+    expect(latestToast?.title).toBe('上传失败');
+    expect(latestToast?.message).toBe('技能文件不合法：SKILL.md 头部缺少 name 字段');
+    expect(confirmButton?.disabled).toBe(true);
+    expect(container.textContent).toContain('Missing skill name.');
+    expect(container.textContent).toContain('--');
+    expect(container.querySelector('button[aria-label="edit-skill-name"]')).toBeNull();
+
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能文件不合法：SKILL.md 头部缺少 name 字段');
   });
 
   it('collapses and expands the file list without using a fixed height scroller', async () => {
@@ -637,13 +713,21 @@ description: From zip package.
     await flushEffects();
 
     const latestToast = useToastStore.getState().toasts.at(-1);
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('导入'),
+    ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
     expect(latestToast?.type).toBe('error');
     expect(latestToast?.title).toBe('上传失败');
     expect(latestToast?.message).toBe('文件 oversized.txt 单个文件大小不能超过1mb');
-    expect(container.textContent).not.toContain('文件 oversized.txt 单个文件大小不能超过1mb');
+    expect(confirmButton?.disabled).toBe(true);
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('文件 oversized.txt 单个文件大小不能超过1mb');
   });
 
-  it('validates edited skill names before submit', async () => {
+  it('disables submit and shows a hint for invalid edited skill names', async () => {
     renderModal();
 
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
@@ -689,18 +773,31 @@ description: editable skill.
     });
     await flushEffects();
 
+    const nameError = container.querySelector('[data-testid="upload-skill-name-error"]') as HTMLParagraphElement | null;
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('导入'),
     ) as HTMLButtonElement | undefined;
+    const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(nameInput?.style.borderColor).toBe('rgb(242, 48, 48)');
+    expect(nameInput?.style.backgroundColor).toBe('rgb(252, 227, 225)');
+    expect(nameError?.textContent).toBe('技能名称仅支持英文、数字和中划线');
     expect(confirmButton).toBeDefined();
+    expect(confirmButton?.disabled).toBe(true);
 
     await act(async () => {
-      confirmButton?.click();
+      nameInput?.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
     });
     await flushEffects();
 
-    const latestToast = useToastStore.getState().toasts.at(-1);
-    expect(latestToast?.message).toBe('技能名称仅支持英文和中划线');
+    expect(container.querySelector('input[placeholder="请输入技能名称"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="upload-skill-name-error"]')?.textContent).toBe('技能名称仅支持英文、数字和中划线');
+
+    act(() => {
+      submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能名称仅支持英文、数字和中划线');
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 });

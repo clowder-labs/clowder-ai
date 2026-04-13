@@ -379,6 +379,32 @@ async function renderFAIconAsImage(node) {
 }
 
 /**
+ * 渲染 Font Awesome 图标为 PNG 图片（带颜色和大小参数）
+ * @param {string} prefix - 图标前缀 (fas, far, fab)
+ * @param {string} iconName - 图标名称
+ * @param {Object} options - 样式选项
+ * @param {string} options.color - 填充颜色 (hex without #)
+ * @param {number} options.size - 宽高（像素）
+ * @returns {Promise<string|null>} - PNG 数据 URL 或失败时返回 null
+ */
+async function renderFAIconAsImageWithColor(prefix, iconName, options = {}) {
+  const { color = "000000", size = 24 } = options;
+
+  try {
+    // Generate SVG
+    const svgString = faIconToSvg(prefix, iconName, { color, size });
+    if (!svgString) return null;
+
+    // Convert SVG to PNG using existing utility
+    const pngData = await svgStringToPng(svgString, size, size);
+    return pngData;
+  } catch (e) {
+    console.warn(`[FA] Error generating PNG for ${prefix} fa-${iconName}:`, e);
+    return null;
+  }
+}
+
+/**
  * Helper to identify elements that should be rendered as icons (Images).
  * Detects Custom Elements AND generic tags (<i>, <span>) with icon classes/pseudo-elements.
  */
@@ -566,8 +592,12 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
   if (node.nodeType !== 1) return null;
   const style = computedStyle; // Use pre-computed style
 
+  // 提前检测 FA 图标：当 CSS 未加载导致 ::before 失效时，元素尺寸为 0，
+  // 但图标通过 JS API 渲染不依赖 CSS 尺寸，不应被零尺寸过滤掉。
+  const earlyFaCheck = extractFontAwesomeIcon(node);
+
   const rect = node.getBoundingClientRect();
-  if (rect.width < 0.5 || rect.height < 0.5) return null;
+  if (rect.width < 0.5 && rect.height < 0.5 && !earlyFaCheck) return null;
 
   const zIndex = effectiveZIndex;
   const rotation = getRotation(style.transform);
@@ -926,6 +956,12 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
       iconW = w,
       iconH = h;
     const faInfo = extractFontAwesomeIcon(node);
+
+    // 提取图标颜色和大小（同步阶段，确保能正确获取计算样式）
+    const iconColorObj = parseColor(style.color);
+    const iconColor = iconColorObj.hex || "000000";
+    const iconFontSize = parseFloat(style.fontSize) || 24;
+
     if (faInfo) {
       // Calculate the largest square that fits in the element box
       const minDim = Math.min(w, h);
@@ -945,16 +981,33 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
     const job = async () => {
       // Try Font Awesome SVG rendering first
       if (faInfo) {
-        const faPngData = await renderFAIconAsImage(node);
+        // 使用同步阶段提取的颜色和大小，避免异步时无法获取样式
+        // 不传递 opacity，生成不透明的 PNG
+        const faPngData = await renderFAIconAsImageWithColor(faInfo.prefix, faInfo.iconName, {
+          color: iconColor,
+          size: iconFontSize
+        });
         if (faPngData) {
           item.options.data = faPngData;
+          // 在 addImage 时设置 transparency（PptxGenJS: 0-100）
+          const transparency = Math.round((1 - safeOpacity) * 100);
+          if (transparency > 0 && transparency < 100) {
+            item.options.transparency = transparency;
+          }
           return;
         }
       }
 
       // Fallback to html2canvas for non-FA icons or SVG failure
       const pngData = await elementToCanvasImage(node, widthPx, heightPx);
-      if (pngData) item.options.data = pngData;
+      if (pngData) {
+        item.options.data = pngData;
+        // 同样为 html2canvas 生成的图片设置 transparency
+        const transparency = Math.round((1 - safeOpacity) * 100);
+        if (transparency > 0 && transparency < 100) {
+          item.options.transparency = transparency;
+        }
+      }
       else item.skip = true;
     };
     return { items: [item], job, stopRecursion: true };
@@ -1751,6 +1804,25 @@ export async function processSlide(root, slide, pptx, globalOptions = {}, pageNu
       const fallbackObj = parseColor(fallback);
       if (fallbackObj.hex && fallbackObj.opacity > 0) {
         slide.background = { color: fallbackObj.hex };
+      }
+    } else {
+      // 如果根元素背景透明，扫描子元素查找渐变背景（用于 Tailwind 渐变 div 情况）
+      // 这修复了渐变 div 作为子元素时，透明部分显示白色而非深色的问题
+      const fullCoverageGradientChild = Array.from(root.children).find((child) => {
+        const childStyle = window.getComputedStyle(child);
+        const childBgImg = childStyle.backgroundImage || "";
+        const isAbsoluteFullCoverage = childStyle.position === "absolute" &&
+          childStyle.inset === "0px";
+        return isAbsoluteFullCoverage && childBgImg && childBgImg !== "none" && /gradient\(/.test(childBgImg);
+      });
+
+      if (fullCoverageGradientChild) {
+        const childBgImg = window.getComputedStyle(fullCoverageGradientChild).backgroundImage;
+        const fallback = getGradientFallbackColor(childBgImg);
+        const fallbackObj = parseColor(fallback);
+        if (fallbackObj.hex && fallbackObj.opacity > 0) {
+          slide.background = { color: fallbackObj.hex };
+        }
       }
     }
   }

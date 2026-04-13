@@ -10,7 +10,7 @@
  * 从 messages.ts 提取，降低文件复杂度。
  */
 
-import type { FileContent, MessageContent, TextContent } from '@cat-cafe/shared';
+import type { FileContent, MessageContent, TextContent } from '@office-claw/shared';
 import type { Multipart } from '@fastify/multipart';
 import {
   ImageUploadError,

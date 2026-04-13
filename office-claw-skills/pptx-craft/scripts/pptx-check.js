@@ -71,7 +71,13 @@ const scripts = {
 // 确定要运行的脚本
 const toRun = singleMode
   ? [singleMode.replace('--', '')]
-  : ['tags', 'layout', 'charts', 'deps', 'detect-overflow'];
+  : [
+    'tags', 
+    'layout', 
+    'charts', 
+    'deps', 
+    'detect-overflow'
+  ];
 
 // --fix 模式下追加溢出修复
 if (fixMode && !singleMode) {

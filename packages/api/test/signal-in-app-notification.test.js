@@ -22,7 +22,7 @@ function createNotificationsConfig(overrides = {}) {
           secure: false,
         },
         to: 'owner@example.com',
-        from: 'Cat Cafe Signals <noreply@example.com>',
+        from: 'OfficeClaw Signals <noreply@example.com>',
       },
       in_app: {
         enabled: true,

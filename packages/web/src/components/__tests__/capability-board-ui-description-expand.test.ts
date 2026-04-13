@@ -89,7 +89,7 @@ describe('CapabilitySection skill card layout', () => {
       );
     });
 
-    expect(container.textContent).toContain('来源：三方');
+    expect(container.textContent).toContain('来源：用户添加技能');
     expect(container.textContent).toContain(description);
     expect(container.textContent).toContain('卸载');
     expect(container.textContent).not.toContain('触发词');
@@ -188,5 +188,51 @@ describe('CapabilitySection skill card layout', () => {
     });
 
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(title);
+  });
+
+  it('keeps my skills category badge auto-sized and shows a tooltip when truncated', async () => {
+    const category = '这是一个非常非常长的分类名称用于验证tooltip';
+    const item: CapabilityBoardItem = {
+      id: 'cross-cat-handoff',
+      type: 'skill',
+      source: 'external',
+      enabled: true,
+      cats: { codex: true },
+      category,
+      description: 'description',
+      triggers: ['handoff'],
+    };
+
+    await act(async () => {
+      root.render(
+        React.createElement(CapabilitySection, {
+          icon: null,
+          title: '协作',
+          subtitle: 'OfficeClaw Skills',
+          items: [item],
+          catFamilies: [],
+          toggling: null,
+          onToggle: () => {},
+          onUninstall: () => {},
+        }),
+      );
+    });
+    await flushEffects();
+
+    const badge = container.querySelector('.ui-badge-muted') as HTMLElement | null;
+    expect(badge).not.toBeNull();
+    const badgeClasses = badge?.className.split(/\s+/) ?? [];
+    expect(badgeClasses).toContain('max-w-full');
+    expect(badgeClasses).not.toContain('w-full');
+
+    if (!badge) return;
+    mockOverflow(badge, { clientWidth: 96, scrollWidth: 280 });
+
+    await act(async () => {
+      badge.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain(category);
   });
 });

@@ -22,6 +22,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { InvocationRecord, InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { DynamicTaskStore } from '../infrastructure/scheduler/DynamicTaskStore.js';
 import type { GlobalControlStore } from '../infrastructure/scheduler/GlobalControlStore.js';
 import type { PackTemplateStore } from '../infrastructure/scheduler/PackTemplateStore.js';
@@ -58,6 +59,7 @@ export interface ScheduleRoutesOptions {
   taskRunner: TaskRunnerV2;
   registry?: InvocationRegistry;
   dynamicTaskStore?: DynamicTaskStore;
+  threadStore?: IThreadStore;
   templateRegistry?: {
     get: (id: string) => import('../infrastructure/scheduler/templates/types.js').TaskTemplate | null;
     list: () => import('../infrastructure/scheduler/templates/types.js').TaskTemplate[];
@@ -125,13 +127,36 @@ function resolveInvocationRecord(
 }
 
 export const scheduleRoutes: FastifyPluginAsync<ScheduleRoutesOptions> = async (app, opts) => {
-  const { taskRunner, registry, dynamicTaskStore, templateRegistry, globalControlStore, packTemplateStore, deliver } =
+  const { taskRunner, registry, dynamicTaskStore, threadStore, templateRegistry, globalControlStore, packTemplateStore, deliver } =
     opts;
 
   // GET /api/schedule/tasks
   app.get('/api/schedule/tasks', async () => {
     const summaries = taskRunner.getTaskSummaries();
-    return { tasks: summaries };
+    const deliveryThreadIdByTaskId = new Map(
+      (dynamicTaskStore?.getAll() ?? []).map((def) => [def.id, def.deliveryThreadId]),
+    );
+    const threadIds = Array.from(
+      new Set(
+        summaries
+          .map((task) => deliveryThreadIdByTaskId.get(task.id) ?? null)
+          .filter((value): value is string => typeof value === 'string' && value.length > 0),
+      ),
+    );
+    const threadTitleById = new Map<string, string>();
+    if (threadStore && threadIds.length > 0) {
+      const threads = await Promise.all(threadIds.map((threadId) => threadStore.get(threadId)));
+      for (const thread of threads) {
+        if (thread?.id) threadTitleById.set(thread.id, thread.title ?? '');
+      }
+    }
+    return {
+      tasks: summaries.map((task) => ({
+        ...task,
+        deliveryThreadId: deliveryThreadIdByTaskId.get(task.id) ?? null,
+        threadTitle: threadTitleById.get(deliveryThreadIdByTaskId.get(task.id) ?? '') ?? null,
+      })),
+    };
   });
 
   // GET /api/schedule/tasks/:id/runs

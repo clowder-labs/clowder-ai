@@ -748,7 +748,7 @@ output/
 
 2. **弹性布局结构**（防空白 + 防溢出）：
    ```html
-   <div class="ppt-slide h-[720px] overflow-hidden">
+   <div class="ppt-slide flex flex-col h-[720px] overflow-hidden">
      <!-- 页头：固定高度，禁止压缩 -->
      <header class="h-[60px] flex-shrink-0">...</header>
 

@@ -34,8 +34,8 @@
 
 ## Test Evidence
 
-pnpm --filter @cat-cafe/api test       # X passed, 0 failed
-pnpm --filter @cat-cafe/web test       # X passed, 0 failed
+pnpm --filter @office-claw/api test       # X passed, 0 failed
+pnpm --filter @office-claw/web test       # X passed, 0 failed
 pnpm -r --if-present run build         # 成功
 
 ## Open Questions
@@ -47,7 +47,7 @@ pnpm -r --if-present run build         # 成功
 **本地 Review**: [x] {reviewer 纯文本句柄，如 gpt52} 已 review 并放行
 **云端 Review**: [ ] PR 创建后在 **comment** 中触发（见下方模板）
 
-<!-- 智能体签名（纯文本，禁止 @）: 例如 Maine Coon/Maine Coon (codex) -->
+<!-- 智能体签名（纯文本，禁止 @）: 例如 Office/Office (codex) -->
 ```
 
 ## 云端 Review 触发 Comment 模板

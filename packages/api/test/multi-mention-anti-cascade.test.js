@@ -15,7 +15,7 @@
 
 import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
-import { CAT_CONFIGS, catRegistry, createCatId } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry, createCatId } from '@office-claw/shared';
 
 // Bootstrap catRegistry
 for (const [id, config] of Object.entries(CAT_CONFIGS)) {

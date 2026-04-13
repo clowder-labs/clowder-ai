@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { IntentCard, ResolutionItem } from '@cat-cafe/shared';
+import type { IntentCard, ResolutionItem } from '@office-claw/shared';
 import { useCallback, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 
