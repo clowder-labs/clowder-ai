@@ -291,7 +291,15 @@ function ThreadModeChatContainer({
   );
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
-  const { handleScroll, scrollContainerRef, messagesEndRef, scrollToBottom, isLoadingHistory, hasMore } =
+  const {
+    handleScroll,
+    scrollContainerRef,
+    messagesEndRef,
+    scrollToBottom,
+    followLayoutChangeIfPinned,
+    isLoadingHistory,
+    hasMore,
+  } =
     useChatHistory(threadId);
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId, { resetRefs });
   const consumedPendingRequestIdsRef = useRef(new Set<string>());
@@ -301,6 +309,7 @@ function ThreadModeChatContainer({
     handleAuthRequest,
     handleAuthResponse,
   } = useAuthorization(threadId);
+  const seenAuthRequestIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     const pending = consumePendingNewThreadSend(threadId);
@@ -434,6 +443,15 @@ function ThreadModeChatContainer({
     () => mapPendingAuthorizationToMessages(messages, authPending),
     [authPending, messages],
   );
+
+  useEffect(() => {
+    const seenRequestIds = seenAuthRequestIdsRef.current;
+    const hasNewPendingRequest = authPending.some((request) => !seenRequestIds.has(request.requestId));
+    seenAuthRequestIdsRef.current = new Set(authPending.map((request) => request.requestId));
+    if (hasNewPendingRequest) {
+      followLayoutChangeIfPinned('smooth');
+    }
+  }, [authPending, followLayoutChangeIfPinned]);
 
   const pendingIntentRecognitionTimestamp = useMemo(() => {
     const lastMessage = messages[messages.length - 1];
