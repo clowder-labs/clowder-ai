@@ -205,6 +205,14 @@ describe('authRoutes CAS callback flow', () => {
 
       if (String(url).includes('/v1/claw/client-subscription')) {
         subscriptionAttempt += 1;
+        assert.equal(init?.headers?.['X-Access-Key'], 'ak-test');
+        assert.equal(init?.headers?.['X-Secret-Key'], 'sk-test');
+        assert.equal(init?.headers?.['X-Security-Token'], 'sts-token-test');
+        const requestBody = JSON.parse(String(init?.body));
+        assert.equal(requestBody.access, 'ak-test');
+        assert.equal(requestBody.secret, 'sk-test');
+        assert.equal(requestBody.sts_token, 'sts-token-test');
+        assert.equal('token' in requestBody, false);
         assert.match(String(init?.body), /promo-123/);
         return new Response(JSON.stringify({ model_info: buildModelInfo() }), {
           status: 200,

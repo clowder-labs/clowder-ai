@@ -7,5 +7,5 @@
 import { ChatContainer } from '@/components/ChatContainer';
 
 export default function Home() {
-  return <ChatContainer mode="new" />;
+  return <ChatContainer mode="new" requireLoginCheck />;
 }

@@ -51,9 +51,13 @@ export function AuthLoadingAnimation({
   );
 }
 
-export function AuthHeroShowcase() {
+export function AuthHeroShowcase({ layout = 'split' }: { layout?: 'split' | 'standalone' }) {
+  const isStandalone = layout === 'standalone';
+  const containerClassName = isStandalone ? 'max-w-[760px] lg:max-w-[1120px] xl:max-w-[1280px]' : 'max-w-[760px]';
+  const descriptionClassName = isStandalone ? 'max-w-xl lg:max-w-[860px]' : 'max-w-xl';
+
   return (
-    <div className="flex w-full max-w-[760px] flex-col items-center">
+    <div className={`flex w-full flex-col items-center ${containerClassName}`}>
       <div>
         <Image
           data-testid="login-hero-officeclaw-logo"
@@ -66,7 +70,7 @@ export function AuthHeroShowcase() {
         />
       </div>
 
-      <p className="mt-2 mb-10 max-w-xl text-center text-[20px] font-normal leading-[30px] text-[#191919]">
+      <p className={`mt-2 mb-10 text-center text-[20px] font-normal leading-[30px] text-[#191919] ${descriptionClassName}`}>
         AI深度赋能全场景办公，专家团协作决策、自主闭环任务，安全高效更懂你
       </p>
 

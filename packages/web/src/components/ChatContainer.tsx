@@ -95,11 +95,11 @@ function AuthLoadingPanel({ message = '加载中...' }: { message?: string }) {
   return (
     <div
       data-testid="chat-container-loading-panel"
-      className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16"
+      className="min-h-screen w-full bg-[radial-gradient(circle_at_top_left,_rgba(250,222,197,0.28),_transparent_38%),linear-gradient(135deg,_#FFF8F2_0%,_#FFFFFF_56%,_#FFF4EA_100%)] px-4 py-8 sm:px-6 md:px-8 lg:px-12 lg:py-10 xl:px-16"
     >
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1280px] items-center justify-center lg:min-h-[calc(100vh-5rem)]">
         <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
-          <AuthHeroShowcase />
+          <AuthHeroShowcase layout="standalone" />
 
           <div className="mt-12 flex items-center gap-3 text-[16px] font-normal text-[#595959] sm:text-base">
             <LoadingPointStyle className="h-5 w-5 flex-shrink-0" />
@@ -171,7 +171,7 @@ export function ChatContainer(props: ChatContainerProps) {
   // to login so the desktop shell never falls through to a blank page.
   if (authPending || authRedirecting) {
     return (
-      <div className="ui-shell-surface flex h-screen h-dvh overflow-hidden">
+      <div className="ui-shell-surface flex h-screen h-dvh w-full overflow-hidden">
         <AuthLoadingPanel message={authRedirecting ? '正在跳转登录页...' : '加载中...'} />
       </div>
     );

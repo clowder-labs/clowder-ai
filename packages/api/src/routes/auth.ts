@@ -67,6 +67,8 @@ interface PromotionCodeBody {
 
 const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile.cn-north-4.myhuaweicloud.com';
 const DEFAULT_CAS_CALLBACK_SERVICE_URL = `${DEFAULT_HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/callback`;
+const DEFAULT_CAS_BACKGROUND_IMAGE_URL = 'https://obs.myhuaweicloud.com/aaaa';
+const DEFAULT_CAS_PORTAL_IMAGE_URL = 'https://obs.myhuaweicloud.com/aaa';
 const DEFAULT_CAS_LOGOUT_URL =
   'https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?';
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
@@ -76,9 +78,11 @@ const HUAWEI_CLAW_BASE_URL = stripTrailingSlash(
   process.env.HUAWEI_CLAW_URL || process.env.CAS_SERVICE_BASE_URL || DEFAULT_HUAWEI_CLAW_BASE_URL,
 );
 const CAS_CALLBACK_SERVICE_URL = process.env.CAS_CALLBACK_SERVICE_URL || DEFAULT_CAS_CALLBACK_SERVICE_URL;
+const CAS_BACKGROUND_IMAGE_URL = process.env.CAS_BACKGROUND_IMAGE_URL || DEFAULT_CAS_BACKGROUND_IMAGE_URL;
+const CAS_PORTAL_IMAGE_URL = process.env.CAS_PORTAL_IMAGE_URL || DEFAULT_CAS_PORTAL_IMAGE_URL;
 const CAS_LOGIN_URL =
   process.env.CAS_LOGIN_URL ||
-  `https://auth.huaweicloud.com/authui/login.html?service=${encodeURIComponent(CAS_CALLBACK_SERVICE_URL)}`;
+  `https://auth.huaweicloud.com/authui/login.html?hide_header=true&hide_foot=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`;
 const CAS_TICKET_VALIDATE_URL =
   process.env.CAS_TICKET_VALIDATE_URL || `${HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/ticket-validate`;
 const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-subscription`;
@@ -533,10 +537,10 @@ function buildSubscriptionRequest(userInfo: UserInfo, promotionCode?: string, op
   if (secretKey) headers['X-Secret-Key'] = secretKey;
   if (securityToken) headers['X-Security-Token'] = securityToken;
 
-  for (const [key, value] of Object.entries(credential)) {
-    if (value) {
-      body[key] = value;
-    }
+  const credentialBodyFields = ['access', 'secret', 'sts_token', 'domain_id', 'domain_name', 'project_id', 'project_name', 'user_id', 'user_name'] as const;
+  for (const key of credentialBodyFields) {
+    const value = credential[key];
+    if (value) body[key] = value;
   }
   return { headers, body };
 }

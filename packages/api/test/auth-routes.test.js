@@ -24,11 +24,12 @@ describe('auth routes', () => {
   let configRoot = '';
   const originalHome = process.env.HOME;
   let refreshCount = 0;
-  const domainName = `domain-${randomUUID()}`;
-  const userId = `${domainName}:${domainName}`;
+  const domainId = `domain-${randomUUID()}`;
+  const userName = `user-${randomUUID()}`;
+  const userId = `${domainId}:${userName}`;
 
   before(async () => {
-    configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-routes-'));
+    configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-routes-'));
     process.env.HOME = configRoot;
     const authModule = await importAuthRoutesFresh();
     sessions = authModule.sessions;
@@ -44,50 +45,44 @@ describe('auth routes', () => {
     await app.ready();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     mock.restoreAll();
     sessions.clear();
     refreshCount = 0;
 
-    mock.method(globalThis, 'fetch', async (url) => {
-      if (String(url).includes('/v3/auth/tokens')) {
-        return new Response(
-          JSON.stringify({
-            token: {
-              user: { domain: { id: domainName } },
-              expires_at: new Date(Date.now() + 60_000).toISOString(),
-            },
-          }),
-          {
-            status: 201,
-            headers: {
-              'content-type': 'application/json',
-              'x-subject-token': 'token-123',
-            },
-          },
-        );
-      }
-
-      if (String(url).includes('/v1/claw/client-subscription')) {
-        return new Response(
-          JSON.stringify({
-            model_info: {
-              model_api_url_base: 'https://maas.example.com',
-              model_auth_info: {
-                model_app_key: 'app-key',
-                model_app_secret: 'app-secret',
-              },
-            },
-          }),
-          {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-          },
-        );
-      }
-
-      throw new Error(`Unexpected fetch: ${url}`);
+    mock.method(globalThis, 'fetch', async () => {
+      throw new Error('unexpected outbound fetch in auth-routes.test');
     });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/api/login/callback',
+      payload: {
+        profile: {
+          access: 'ak-test',
+          domain_id: domainId,
+          domain_name: domainId,
+          project_id: 'project-001',
+          project_name: 'project-001',
+          secret: 'sk-test',
+          sts_token: 'sts-token-test',
+          user_id: userName,
+          user_name: userName,
+        },
+        modelInfo: {
+          model_api_url_base: 'https://maas.example.com',
+          model_auth_info: {
+            model_app_key: 'app-key',
+            model_app_secret: 'app-secret',
+          },
+        },
+      },
+    });
+
+    assert.equal(loginResponse.statusCode, 200);
+    assert.equal(loginResponse.json().success, true);
+    sessions.clear();
+    refreshCount = 0;
   });
 
   after(async () => {
@@ -99,22 +94,6 @@ describe('auth routes', () => {
   });
 
   it('refreshes maas models on the first islogin call for an already logged-in user', async () => {
-    const loginResponse = await app.inject({
-      method: 'POST',
-      url: '/api/login',
-      payload: {
-        domainName,
-        password: 'secret',
-        userType: 'huawei',
-      },
-    });
-
-    assert.equal(loginResponse.statusCode, 200);
-    assert.equal(loginResponse.json().success, true);
-
-    sessions.clear();
-    refreshCount = 0;
-
     const firstResponse = await app.inject({
       method: 'GET',
       url: '/api/islogin',
