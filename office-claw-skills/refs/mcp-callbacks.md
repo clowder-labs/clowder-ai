@@ -22,7 +22,7 @@ curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/post-message \
 可选 body 参数：
 - `replyTo`：可选，回复某条同 thread 消息。
 - `clientMessageId`：可选，幂等键。
-- `targetCats`：可选，显式目标猫列表。
+- `targetAgents`：可选，显式目标智能体列表。
 
 注意：
 - `post-message` 只能发到当前 invocation 所属 thread。
@@ -30,9 +30,9 @@ curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/post-message \
 
 ### Cross Post Message
 ```bash
-curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/post-message \
+curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/post-message \
   -H 'Content-Type: application/json' \
-  -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg thread "目标threadId" --arg c "消息内容" '{invocationId:$i,callbackToken:$t,threadId:$thread,allowCrossThread:true,content:$c}')"
+  -d "$(jq -nc --arg i "$OFFICE_CLAW_INVOCATION_ID" --arg t "$OFFICE_CLAW_CALLBACK_TOKEN" --arg thread "目标threadId" --arg c "消息内容" '{invocationId:$i,callbackToken:$t,threadId:$thread,allowCrossThread:true,content:$c}')"
 ```
 
 ### Get Thread Context
@@ -123,7 +123,7 @@ Call after `gh pr create` so PR review notifications route to the current thread
 ```bash
 curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/register-pr-tracking \
   -H 'Content-Type: application/json' \
-  -d "$(jq -nc --arg i "$OFFICE_CLAW_INVOCATION_ID" --arg t "$OFFICE_CLAW_CALLBACK_TOKEN" --arg repo "zts212653/cat-cafe" --argjson pr 100 --arg catId "opus" '{invocationId:$i,callbackToken:$t,repoFullName:$repo,prNumber:$pr,catId:$catId}')"
+  -d "$(jq -nc --arg i "$OFFICE_CLAW_INVOCATION_ID" --arg t "$OFFICE_CLAW_CALLBACK_TOKEN" --arg repo "zts212653/office-claw" --argjson pr 100 --arg catId "opus" '{invocationId:$i,callbackToken:$t,repoFullName:$repo,prNumber:$pr,catId:$catId}')"
 ```
 
 ### Search Evidence (Hindsight)
@@ -142,7 +142,7 @@ curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/reflect \
 ```bash
 curl -sS -X POST $OFFICE_CLAW_API_URL/api/callbacks/retain-memory \
   -H 'Content-Type: application/json' \
-  -d "$(jq -nc --arg i "$OFFICE_CLAW_INVOCATION_ID" --arg t "$OFFICE_CLAW_CALLBACK_TOKEN" --arg c "结论" '{invocationId:$i,callbackToken:$t,content:$c,tags:["project:cat-cafe"]}')"
+  -d "$(jq -nc --arg i "$OFFICE_CLAW_INVOCATION_ID" --arg t "$OFFICE_CLAW_CALLBACK_TOKEN" --arg c "结论" '{invocationId:$i,callbackToken:$t,content:$c,tags:["project:office-claw"]}')"
 ```
 
 ### Request Permission

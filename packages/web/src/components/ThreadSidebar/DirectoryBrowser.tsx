@@ -23,6 +23,7 @@ interface BrowseResult {
   name: string;
   parent: string | null;
   homePath: string;
+  drives?: BrowseEntry[];
   entries: BrowseEntry[];
 }
 
@@ -49,6 +50,22 @@ function pathToSegments(absPath: string, homePath: string): { label: string; pat
       accumulated += sep + part;
       segments.push({ label: part, path: accumulated });
     }
+    return segments;
+  }
+
+  if (/^[A-Za-z]:[\\/]/.test(absPath)) {
+    const parts = absPath.split(/[/\\]/).filter(Boolean);
+    if (parts.length === 0) return [];
+
+    const driveRoot = `${parts[0]}\\`;
+    const segments: { label: string; path: string }[] = [{ label: parts[0], path: driveRoot }];
+    let accumulated = driveRoot;
+
+    for (let i = 1; i < parts.length; i++) {
+      accumulated = accumulated.endsWith(sep) ? `${accumulated}${parts[i]}` : `${accumulated}${sep}${parts[i]}`;
+      segments.push({ label: parts[i], path: accumulated });
+    }
+
     return segments;
   }
 
@@ -108,6 +125,9 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
   }, [pathInput, fetchDirectory]);
 
   const segments = browseResult ? pathToSegments(browseResult.current, browseResult.homePath) : [];
+  const listedEntries = browseResult
+    ? [...(browseResult.drives ?? []), ...browseResult.entries.filter((entry) => !(browseResult.drives ?? []).some((drive) => drive.path === entry.path))]
+    : [];
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[#EEF2F6] bg-white">
@@ -171,7 +191,7 @@ export function DirectoryBrowser({ initialPath, activeProjectPath, onSelect, onC
         )}
 
         {!isLoading &&
-          browseResult?.entries.map((entry) => {
+          listedEntries.map((entry) => {
             const isActive = activeProjectPath === entry.path;
             return (
               <button

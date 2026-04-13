@@ -6,7 +6,7 @@
 
 'use client';
 
-import type { RefluxCategory, RefluxPattern } from '@cat-cafe/shared';
+import type { RefluxCategory, RefluxPattern } from '@office-claw/shared';
 import { useCallback, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 

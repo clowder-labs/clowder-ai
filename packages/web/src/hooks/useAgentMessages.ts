@@ -1090,8 +1090,16 @@ export function useAgentMessages() {
           });
         }
       } else if (msg.type === 'error') {
+        // 理论上后端已转换为 text 消息，但保留降级处理
+        log.warn({ catId: msg.catId }, 'Received raw error event (backend not upgraded or error in transformation)');
+
+        // 状态清理逻辑（必须保留）
         setCatStatus(msg.catId, 'error');
-        terminalStreamSuppressionRef.current.set(msg.catId, msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId) ?? null);
+        terminalStreamSuppressionRef.current.set(
+          msg.catId,
+          msg.invocationId ?? getCurrentInvocationIdForCat(msg.catId) ?? null,
+        );
+
         const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
         if (currentProgress?.tasks?.length) {
           setCatInvocation(msg.catId, {
@@ -1103,12 +1111,13 @@ export function useAgentMessages() {
             },
           });
         }
+
         const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
         if (messageId) {
           setStreaming(messageId, false);
           activeRefs.current.delete(msg.catId);
         }
-        // Consume pending timeout diagnostics silently; keep raw details in debug logs, not UI.
+
         if (msg.catId) pendingTimeoutDiagRef.current.delete(msg.catId);
 
         recordDebugEvent({
@@ -1118,10 +1127,11 @@ export function useAgentMessages() {
           catId: msg.catId,
           invocationId: msg.invocationId,
           reason: msg.error ?? 'Unknown error',
-          action: 'error_fallback',
+          action: 'error_fallback_frontend_degradation',
           origin: msg.origin,
         });
 
+        // Toast 通知（降级）
         const toast = getAgentErrorToastContent(msg);
         useToastStore.getState().addToast({
           type: 'error',
@@ -1130,14 +1140,14 @@ export function useAgentMessages() {
           threadId: useChatStore.getState().currentThreadId,
           duration: 8000,
         });
-        // Only stop loading on isFinal; size===0 would false-positive in serial gaps
+
+        // 清理 loading 状态
         if (msg.isFinal) {
-          clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
+          clearDoneTimeout();
           setLoading(false);
-          // F108: clear this cat's invocation slot on terminal error
+
           if (msg.invocationId) {
             removeActiveInvocation(msg.invocationId);
-            // Same hydrated-only orphan cleanup as the done(isFinal) path above.
             const stateAfter = useChatStore.getState();
             const orphan = findLatestActiveInvocationIdForCat(stateAfter.activeInvocations, msg.catId);
             if (orphan?.startsWith('hydrated-')) {
@@ -1152,8 +1162,7 @@ export function useAgentMessages() {
             }
           }
           setIntentMode(null);
-          // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
-          // not match the cat that was actually running (e.g. codex/gemini)
+
           for (const ref of activeRefs.current.values()) {
             setStreaming(ref.id, false);
           }

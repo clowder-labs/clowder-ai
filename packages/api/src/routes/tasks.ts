@@ -14,8 +14,8 @@
  * DELETE /api/tasks/:id     → 删除 (204)
  */
 
-import type { CatId, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
-import { catIdSchema } from '@cat-cafe/shared';
+import type { CatId, CreateTaskInput, UpdateTaskInput } from '@office-claw/shared';
+import { catIdSchema } from '@office-claw/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';

@@ -8,7 +8,7 @@
  * F076: Resolution routes — Stage 3 clarification queue CRUD
  */
 
-import type { CreateResolutionInput, ResolutionPath } from '@cat-cafe/shared';
+import type { CreateResolutionInput, ResolutionPath } from '@office-claw/shared';
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { ExternalProjectStore } from '../domains/projects/external-project-store.js';
 import type { ResolutionStore } from '../domains/projects/resolution-store.js';

@@ -398,7 +398,8 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
         token.setAttribute('contenteditable', 'false');
         token.className =
           'group/quick-action inline-flex max-w-full cursor-pointer items-center gap-1 rounded-full border text-[14px] font-normal leading-[22px] text-[#191919] align-middle';
-        token.style.padding = '3px 8px';
+        token.style.padding = '2px 8px';
+        token.style.marginBottom = '2px';
         token.style.borderColor = 'rgba(20,118,255,0.8)';
         token.style.backgroundColor = '#eff6ff';
         token.style.cursor = 'pointer';
@@ -424,6 +425,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(fu
           'hidden h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#a7a7a7] group-hover/quick-action:inline-flex hover:text-[#1476ff]';
         remove.style.fontSize = '18px';
         remove.style.lineHeight = '18px';
+        remove.style.marginBottom = '2px';
         remove.textContent = '×';
         token.appendChild(remove);
 

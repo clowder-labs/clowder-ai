@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
-import type { CatId, ConnectorSource } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId, ConnectorSource } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';

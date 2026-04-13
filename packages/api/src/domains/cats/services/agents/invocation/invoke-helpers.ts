@@ -86,7 +86,8 @@ export function isCliTimeoutError(message: string | undefined): boolean {
  * indefinitely — the finally block never runs, InvocationTracker never
  * clears, and the thread is permanently "busy."
  */
-export const PREFLIGHT_TIMEOUT_MS = Number(process.env.CAT_CAFE_PREFLIGHT_TIMEOUT_MS) || 30_000;
+export const PREFLIGHT_TIMEOUT_MS =
+  Number(process.env.OFFICE_CLAW_PREFLIGHT_TIMEOUT_MS ?? process.env.CAT_CAFE_PREFLIGHT_TIMEOUT_MS) || 30_000;
 
 /**
  * Race a promise against a preflight timeout and an optional AbortSignal.

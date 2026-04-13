@@ -15,7 +15,7 @@ import type {
   TriageBucket,
   TriageIntentCardInput,
   TriageResult,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { generateSortableId } from '../cats/services/stores/ports/MessageStore.js';
 
 export function computeBucket(

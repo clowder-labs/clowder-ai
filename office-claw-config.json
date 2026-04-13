@@ -98,7 +98,7 @@
         {
           "id": "office-default",
           "provider": "relayclaw",
-          "defaultModel": "gpt-5.4",
+          "defaultModel": "glm-5",
           "mcpSupport": true,
           "cli": {
             "command": "jiuwenclaw-app",

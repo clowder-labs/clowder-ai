@@ -31,7 +31,6 @@ const EXPECTED_TOOLS = [
   'office_claw_load_skill',
   'office_claw_update_task',
   'office_claw_create_rich_block',
-  'office_claw_generate_document',
   'office_claw_get_rich_block_rules',
   'office_claw_register_pr_tracking',
   // Workflow SOP tools (F073 P1)
@@ -96,7 +95,6 @@ const EXPECTED_COLLAB_TOOLS = [
   'office_claw_list_tasks',
   'office_claw_update_task',
   'office_claw_create_rich_block',
-  'office_claw_generate_document',
   'office_claw_get_rich_block_rules',
   'office_claw_request_permission',
   'office_claw_check_permission_status',

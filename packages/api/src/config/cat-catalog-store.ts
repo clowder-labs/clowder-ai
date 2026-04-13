@@ -6,7 +6,7 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
-import type { CatCafeConfig, Roster } from '@cat-cafe/shared';
+import type { CatCafeConfig, Roster } from '@office-claw/shared';
 import { createModuleLogger } from '../infrastructure/logger.js';
 import { resolveProjectTemplatePath } from './project-template-path.js';
 import { builtinAccountIdForClient, readBootstrapBindingsSync } from './provider-profiles.js';

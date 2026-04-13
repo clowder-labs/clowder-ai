@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Clowder AI (Cat Cafe) - Windows Startup Script
+  OfficeClaw - Windows Startup Script
 
 .DESCRIPTION
   Starts API server and Frontend (Next.js) with .env loading.

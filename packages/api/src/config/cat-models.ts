@@ -19,7 +19,7 @@
  * 或直接修改项目根目录的 office-claw-config.json
  */
 
-import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@office-claw/shared';
 
 /**
  * F32-b: Generate dynamic env key from catId.

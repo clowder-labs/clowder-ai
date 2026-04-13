@@ -483,8 +483,8 @@ async function injectDependencies(page) {
   // WASM URL 选择：优先本地，其次 CDN
   const wasmUrl = wasmExists 
     ? 'file://' + resolve(localWasmPath) 
-    : 'https://unpkg.com/fonteditor-core@2.4.1/woff2/woff2.wasm';
-  const mirrorUrl = 'https://npmmirror.com/mirrors/fonteditor-core@2.4.1/woff2/woff2.wasm';
+    : 'https://unpkg.com/fonteditor-core@2.6.3/woff2/woff2.wasm';
+  const mirrorUrl = 'https://npmmirror.com/mirrors/fonteditor-core@2.6.3/woff2/woff2.wasm';
   
   // 设置字体嵌入配置
   await page.addInitScript(() => {
@@ -589,7 +589,13 @@ async function main() {
     } else if (arg.startsWith('--')) {
       const [key, value] = arg.slice(2).split('=');
       const camelKey = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-      options[camelKey] = value || true;
+      // 尝试将值转换为数字
+      if (value !== undefined) {
+        const numValue = Number(value);
+        options[camelKey] = isNaN(numValue) ? value : numValue;
+      } else {
+        options[camelKey] = true;
+      }
     } else {
       nonOptionArgs.push(arg);
     }
