@@ -90,8 +90,6 @@ const DEFAULT_HUAWEI_CLAW_BASE_URL = 'https://versatile.cn-north-4.myhuaweicloud
 const DEFAULT_CAS_CALLBACK_SERVICE_URL = `${DEFAULT_HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/callback`;
 const DEFAULT_CAS_BACKGROUND_IMAGE_URL = 'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/loginbg2.png';
 const DEFAULT_CAS_PORTAL_IMAGE_URL = 'https://github.com/zy-linn/clowder-ai/blob/playground/packages/web/public/images/chatu4.png';
-const DEFAULT_CAS_LOGOUT_URL =
-  `https://auth.huaweicloud.com/authui/logout?service=https://auth.huaweicloud.com/authui/login.html?service=https://auth.huaweicloud.com/authui/v1/oauth2/authorize?redirect_uri=${DEFAULT_CAS_CALLBACK_SERVICE_URL}`;
 const DEFAULT_PROMOTION_CODE = 'huawei_dev_blue';
 const DEFAULT_CAS_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -107,7 +105,7 @@ const CAS_LOGIN_URL =
 const CAS_TICKET_VALIDATE_URL =
   process.env.CAS_TICKET_VALIDATE_URL || `${HUAWEI_CLAW_BASE_URL}/v1/claw/cas/login/ticket-validate`;
 const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-subscription`;
-const CAS_LOGOUT_URL = process.env.CAS_LOGOUT_URL || DEFAULT_CAS_LOGOUT_URL;
+const CAS_LOGOUT_URL = 'https://auth.huaweicloud.com/authui/logout?service=https://auth.huaweicloud.com/authui/login.html?service=https://versatile.cn-north-4.myhuaweicloud.com/v1/claw/cas/login/callback';
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
 const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009']);
 const require = createRequire(import.meta.url);
