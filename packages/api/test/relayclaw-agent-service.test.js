@@ -17,16 +17,12 @@ const { RelayClawAgentService, __relayClawInternals } = await import(
 const { RelayClawConnectionManager, resolveRelayClawWebSocketCtor } = await import(
   '../dist/domains/cats/services/agents/providers/relayclaw-connection.js'
 );
-const {
-  buildRelayClawLaunchCommand,
-  DefaultRelayClawSidecarController,
-  isRelayClawRuntimeReady,
-} = await import('../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js');
-const {
-  jiuwenClawBundleAvailable,
-  resolveJiuwenClawExecutable,
-  resolveJiuwenClawPythonBin,
-} = await import('../dist/utils/jiuwenclaw-paths.js');
+const { buildRelayClawLaunchCommand, DefaultRelayClawSidecarController, isRelayClawRuntimeReady } = await import(
+  '../dist/domains/cats/services/agents/providers/relayclaw-sidecar.js'
+);
+const { jiuwenClawBundleAvailable, resolveJiuwenClawExecutable, resolveJiuwenClawPythonBin } = await import(
+  '../dist/utils/jiuwenclaw-paths.js'
+);
 const { WebSocket: NodeWebSocket } = await import('ws');
 
 async function collect(iterable) {
@@ -274,8 +270,61 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'OK');
+  });
+
+  it('sends chat.interrupt on abort for jiuwenclaw requests', async () => {
+    const sent = [];
+    const controller = new AbortController();
+    const service = new RelayClawAgentService(
+      {
+        catId: 'relayclaw-debug',
+        config: {
+          url: 'ws://127.0.0.1:65535',
+          autoStart: false,
+        },
+      },
+      {
+        createConnection: createConnectionFactory((request, requestQueues) => {
+          sent.push(request);
+          if (request.req_method === 'chat.send') {
+            queueMicrotask(() => controller.abort());
+            return;
+          }
+          if (request.req_method === 'chat.interrupt') {
+            const queue = requestQueues.get(request.request_id);
+            assert.ok(queue, 'interrupt queue should exist before send');
+            queue.put({
+              request_id: request.request_id,
+              channel_id: request.channel_id,
+              ok: true,
+              payload: {
+                event_type: 'chat.interrupt_result',
+                intent: 'cancel',
+                success: true,
+                message: '任务已取消',
+              },
+            });
+          }
+        }),
+      },
+    );
+
+    const messages = await collect(service.invoke('Write forever', { signal: controller.signal }));
+
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'done'],
+    );
+    assert.equal(sent[0].req_method, 'chat.send');
+    assert.equal(sent[1].req_method, 'chat.interrupt');
+    assert.equal(sent[1].session_id, sent[0].session_id);
+    assert.equal(sent[1].params.intent, 'cancel');
+    assert.equal(sent[1].params.request_id, sent[0].request_id);
   });
 
   it('treats llm_reasoning deltas as thinking and still emits the final answer', async () => {
@@ -325,7 +374,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'system_info', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'system_info', 'text', 'done'],
+    );
     assert.deepEqual(JSON.parse(messages[1].content), {
       type: 'thinking',
       catId: 'relayclaw-debug',
@@ -380,7 +432,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'text', 'done'],
+    );
     assert.equal(messages[1].content, '我来帮你总结一下。');
     assert.equal(messages[2].content, '\n\n这里是最终总结。');
   });
@@ -431,7 +486,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'Hello');
     assert.equal(messages[2].content, ' world');
   });
@@ -473,7 +531,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'text', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'text', 'done'],
+    );
     assert.equal(messages[1].content, 'Normalized final text');
   });
 
@@ -598,7 +659,9 @@ describe('RelayClawAgentService', () => {
     assert.ok(capturedRequest);
     assert.equal(capturedRequest.params.project_dir, '/usr/code/cat-cafe-runtime');
     const expectedUploadPath =
-      process.platform === 'win32' ? 'D:\\tmp\\cat-cafe-uploads\\test-image.png' : '/tmp/cat-cafe-uploads/test-image.png';
+      process.platform === 'win32'
+        ? 'D:\\tmp\\cat-cafe-uploads\\test-image.png'
+        : '/tmp/cat-cafe-uploads/test-image.png';
     assert.deepEqual(capturedRequest.params.files, {
       uploaded: [
         {
@@ -618,7 +681,10 @@ describe('RelayClawAgentService', () => {
     );
     assert.equal(capturedRequest.params.cat_cafe_mcp.env.OFFICE_CLAW_INVOCATION_ID, 'invocation-123');
     const normalizedQuery = String(capturedRequest.params.query).replaceAll('\\', '/');
-    assert.match(normalizedQuery, /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/);
+    assert.match(
+      normalizedQuery,
+      /\[Local image path: D:\/tmp\/cat-cafe-uploads\/test-image\.png\]|\[Local image path: \/tmp\/cat-cafe-uploads\/test-image\.png\]/,
+    );
   });
 
   it('reuses the same scoped sidecar across working directories when auth scope is unchanged', async () => {
@@ -823,7 +889,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
     assert.match(messages[1].error, /timed out/i);
   });
 
@@ -859,7 +928,10 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
     assert.match(messages[1].error, /connection closed unexpectedly/i);
   });
 
@@ -904,13 +976,25 @@ describe('RelayClawAgentService', () => {
       messages.push(msg);
     }
 
-    assert.deepEqual(messages.map((msg) => msg.type), ['session_init', 'error', 'done']);
-    assert.equal(messages.some((msg) => msg.type === 'text'), false);
+    assert.deepEqual(
+      messages.map((msg) => msg.type),
+      ['session_init', 'error', 'done'],
+    );
+    assert.equal(
+      messages.some((msg) => msg.type === 'text'),
+      false,
+    );
   });
 
   it('detects raw transport error text variants for suppression', () => {
-    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('[错误]jiuwen WebSocket connection closed unexpectedly'), true);
-    assert.equal(__relayClawInternals.isRelayClawTransportErrorText('jiuwen WebSocket connection closed unexpectedly'), true);
+    assert.equal(
+      __relayClawInternals.isRelayClawTransportErrorText('[错误]jiuwen WebSocket connection closed unexpectedly'),
+      true,
+    );
+    assert.equal(
+      __relayClawInternals.isRelayClawTransportErrorText('jiuwen WebSocket connection closed unexpectedly'),
+      true,
+    );
     assert.equal(__relayClawInternals.isRelayClawTransportErrorText('normal model output'), false);
   });
 
