@@ -672,25 +672,25 @@ npx playwright install-deps chromium
     <title>演示文稿标题</title>
 
     <!-- Tailwind CSS（必选） -->
-    <script src="./assets/vendors/tailwind.js"></script>
+    <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/tailwind.js"></script>
 
     <!-- 字体引用（按需：使用了 MiSans/Liter 等自定义字体时引入） -->
     <link
-      href="./assets/css/fonts.css"
+      href="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/css/fonts.css"
       rel="stylesheet"
     />
 
     <!-- FontAwesome 图标（按需：使用了 fa-solid/fa-regular/fa-brands 等图标时引入） -->
     <link
-      href="./assets/vendors/fontawesome/css/all.min.css"
+      href="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/fontawesome/css/all.min.css"
       rel="stylesheet"
     />
 
     <!-- ECharts 图表库（按需：使用了 echarts.init/echarts.setOption 时引入） -->
-    <script src="./assets/vendors/echarts.min.js"></script>
+    <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/echarts.min.js"></script>
 
     <!-- MathJax 数学公式（按需：使用了 \frac/\sqrt 等数学公式时引入，不需要时删除） -->
-    <script src="./assets/vendors/mathjax/tex-svg.min.js"></script>
+    <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/mathjax/tex-svg.min.js"></script>
 
     <!-- Tailwind 配置 -->
     <script>
@@ -1024,9 +1024,9 @@ tailwind.config = {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>2025 AI 产业发展报告</title>
 
-    <script src="./assets/vendors/tailwind.js"></script>
+    <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/tailwind.js"></script>
 
-    <script src="./assets/vendors/echarts.min.js"></script>
+    <script src="https://cdn.digitalhumanai.top/slidagent/pptx-craft/assets/vendors/echarts.min.js"></script>
 
     <script>
       tailwind.config = {

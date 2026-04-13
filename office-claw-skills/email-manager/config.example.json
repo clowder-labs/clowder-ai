@@ -1,0 +1,12 @@
+{
+  "imap_host": "imap.qq.com",
+  "imap_port": 993,
+  "imap_user": "你的邮箱@qq.com",
+  "imap_pass": "你的授权码",
+  
+  "smtp_host": "smtp.qq.com",
+  "smtp_port": 587,
+  "smtp_user": "你的邮箱@qq.com",
+  "smtp_pass": "你的授权码",
+  "smtp_from": "你的邮箱@qq.com"
+}
