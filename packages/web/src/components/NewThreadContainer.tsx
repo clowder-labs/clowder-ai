@@ -225,9 +225,6 @@ export function NewThreadContainer() {
               >
                 <div className="flex flex-1 items-center justify-center">
                   <ChatEmptyState
-                    bootcampCount={0}
-                    isCurrentBootcampThread={false}
-                    onOpenBootcampList={() => {}}
                     onAgentsClick={() => setSidebarMenu('agents')}
                     onChannelsClick={() => setSidebarMenu('channels')}
                     fillAvailableHeight

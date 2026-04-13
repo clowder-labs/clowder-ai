@@ -9,14 +9,11 @@ import {
   callbackMemoryTools,
   callbackTools,
   evidenceTools,
-  gameActionTools,
   limbTools,
   reflectTools,
   richBlockRulesTools,
   scheduleTools,
   sessionChainTools,
-  signalStudyTools,
-  signalsTools,
 } from './tools/index.js';
 
 type ToolDef = {
@@ -29,7 +26,6 @@ type ToolDef = {
 const collabTools: readonly ToolDef[] = [
   ...callbackTools,
   ...richBlockRulesTools,
-  ...gameActionTools,
   ...scheduleTools,
 ];
 
@@ -39,8 +35,6 @@ const memoryTools: readonly ToolDef[] = [
   ...reflectTools,
   ...sessionChainTools,
 ];
-
-const signalTools: readonly ToolDef[] = [...signalsTools, ...signalStudyTools];
 
 function registerTools(server: McpServer, tools: readonly ToolDef[]): void {
   for (const tool of tools) {
@@ -61,8 +55,7 @@ export function registerMemoryToolset(server: McpServer): void {
   registerTools(server, memoryTools);
 }
 
-export function registerSignalToolset(server: McpServer): void {
-  registerTools(server, signalTools);
+export function registerSignalToolset(_server: McpServer): void {
 }
 
 const limbNodeTools: readonly ToolDef[] = [...limbTools];
@@ -105,11 +98,7 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   office_claw_register_pr_tracking: 'Register a PR for review notification routing.',
   office_claw_update_workflow: 'Update SOP workflow stage for a Feature.',
   office_claw_multi_mention: 'Invoke up to 3 cats in parallel. Requires searchEvidenceRefs or overrideReason.',
-  office_claw_start_vote: 'Start a voting session with cat voters.',
-  office_claw_update_bootcamp_state: 'Update bootcamp training state for a thread.',
-  office_claw_bootcamp_env_check: 'Run environment check for bootcamp.',
   office_claw_get_rich_block_rules: 'Get full rich block schema rules. Call once per session before creating blocks.',
-  office_claw_submit_game_action: 'Submit a game action (kill/guard/divine/vote/speak/last_words).',
   office_claw_list_scheduled_tasks: 'List all registered scheduled tasks (builtin + dynamic) with status.',
   office_claw_list_schedule_templates: 'List available schedule task templates (reminder, web-digest, repo-activity).',
   office_claw_preview_scheduled_task: 'Preview a scheduled task draft before creating it.',
@@ -166,6 +155,5 @@ function compactTools(tools: readonly ToolDef[]): readonly ToolDef[] {
 export function registerCompactToolset(server: McpServer): void {
   registerTools(server, compactTools(collabTools));
   registerTools(server, compactTools(memoryTools));
-  registerTools(server, compactTools(signalTools));
   registerTools(server, compactTools(limbNodeTools));
 }
