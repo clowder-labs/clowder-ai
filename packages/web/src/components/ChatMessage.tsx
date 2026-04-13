@@ -7,6 +7,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import type { AuthPendingRequest, RespondScope } from '@/hooks/useAuthorization';
 import { getCachedCats, type CatData } from '@/hooks/useCatData';
 import { useCoCreatorConfig } from '@/hooks/useCoCreatorConfig';
 import { useTts } from '@/hooks/useTts';
@@ -61,9 +62,18 @@ function formatDualTime(timestamp: number, deliveredAt?: number): string {
 interface ChatMessageProps {
   message: ChatMessageType;
   getCatById: (id: string) => CatData | undefined;
+  pendingAuthRequests?: AuthPendingRequest[];
+  onAuthRespond?: (requestId: string, granted: boolean, scope: RespondScope, reason?: string) => void | Promise<void>;
+  onOpenSecurityManagement?: () => void;
 }
 
-export function ChatMessage({ message, getCatById }: ChatMessageProps) {
+export function ChatMessage({
+  message,
+  getCatById,
+  pendingAuthRequests,
+  onAuthRespond,
+  onOpenSecurityManagement,
+}: ChatMessageProps) {
   const coCreator = useCoCreatorConfig();
   const router = useRouter();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
@@ -398,6 +408,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               defaultExpanded={uiThinkingExpandedByDefault}
               breedColor={catData?.color.primary}
               projectPath={currentThread?.projectPath}
+              authorizationRequests={pendingAuthRequests}
+              onAuthorizationRespond={onAuthRespond}
+              onOpenSecurityManagement={onOpenSecurityManagement}
             />
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (

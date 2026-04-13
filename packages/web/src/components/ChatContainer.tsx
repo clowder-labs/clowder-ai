@@ -35,7 +35,6 @@ import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { getUserId, setIsSkipAuth } from '@/utils/userId';
 import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsPanel } from './AgentsPanel';
-import { AuthorizationCard } from './AuthorizationCard';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
 import { ChannelsPanel } from './ChannelsPanel';
@@ -108,6 +107,52 @@ function AuthLoadingPanel() {
       </div>
     </div>
   );
+}
+
+function getMessageToolActivityTimestamp(message: ChatMessageData): number | null {
+  if (!message.toolEvents || message.toolEvents.length === 0) return null;
+  return Math.max(
+    message.timestamp,
+    ...message.toolEvents.map((event) => event.timestamp ?? message.timestamp),
+  );
+}
+
+function mapPendingAuthorizationToMessages(
+  messages: ChatMessageData[],
+  pending: import('@/hooks/useAuthorization').AuthPendingRequest[],
+): Map<string, import('@/hooks/useAuthorization').AuthPendingRequest[]> {
+  const pendingByMessageId = new Map<string, import('@/hooks/useAuthorization').AuthPendingRequest[]>();
+  const hostMessages = messages.filter(
+    (message) =>
+      message.type === 'assistant' &&
+      Boolean(message.catId) &&
+      Array.isArray(message.toolEvents) &&
+      message.toolEvents.length > 0,
+  );
+
+  for (const request of pending) {
+    const bestHost = hostMessages
+      .filter((message) => message.catId === request.catId)
+      .sort((left, right) => {
+        if (left.isStreaming !== right.isStreaming) {
+          return left.isStreaming ? -1 : 1;
+        }
+
+        const leftDelta = Math.abs((getMessageToolActivityTimestamp(left) ?? left.timestamp) - request.createdAt);
+        const rightDelta = Math.abs((getMessageToolActivityTimestamp(right) ?? right.timestamp) - request.createdAt);
+        if (leftDelta !== rightDelta) return leftDelta - rightDelta;
+
+        return right.timestamp - left.timestamp;
+      })[0];
+
+    if (!bestHost) continue;
+
+    const existing = pendingByMessageId.get(bestHost.id) ?? [];
+    existing.push(request);
+    pendingByMessageId.set(bestHost.id, existing);
+  }
+
+  return pendingByMessageId;
 }
 
 export function ChatContainer(props: ChatContainerProps) {
@@ -472,6 +517,11 @@ function ThreadModeChatContainer({
     return items;
   }, [messages]);
 
+  const pendingAuthorizationByMessageId = useMemo(
+    () => mapPendingAuthorizationToMessages(messages, authPending),
+    [authPending, messages],
+  );
+
   const pendingIntentRecognitionTimestamp = useMemo(() => {
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage || lastMessage.type !== 'user' || lastMessage.catId) return null;
@@ -555,10 +605,16 @@ function ThreadModeChatContainer({
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
       <MessageActions key={msg.id} message={msg} threadId={threadId}>
-        <ChatMessage message={msg} getCatById={getCatById} />
+        <ChatMessage
+          message={msg}
+          getCatById={getCatById}
+          pendingAuthRequests={pendingAuthorizationByMessageId.get(msg.id)}
+          onAuthRespond={authRespond}
+          onOpenSecurityManagement={() => setShowSecurityManagement(true)}
+        />
       </MessageActions>
     ),
-    [threadId, getCatById],
+    [threadId, getCatById, pendingAuthorizationByMessageId, authRespond],
   );
 
   useVoiceAutoPlay();
@@ -794,20 +850,6 @@ function ThreadModeChatContainer({
             </main>
           )}
         </div>
-
-        {sidebarMenu === 'chat' && authPending.length > 0 && (
-          <div className="flex justify-center">
-            {authPending.map((req) => (
-              <AuthorizationCard
-                key={req.requestId}
-                request={req}
-                onRespond={authRespond}
-                onOpenSecurityManagement={() => setShowSecurityManagement(true)}
-              />
-            ))}
-          </div>
-        )}
-
         {sidebarMenu === 'chat' && <ThreadExecutionBar />}
         {sidebarMenu === 'chat' && <QueuePanel threadId={threadId} />}
         {sidebarMenu === 'chat' && <VoteActiveBar threadId={threadId} onEnd={() => {}} />}

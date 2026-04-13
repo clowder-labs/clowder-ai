@@ -98,6 +98,7 @@ export function AuthorizationCard({ request, onRespond, onOpenSecurityManagement
     <div
       data-testid="authorization-card"
       className="w-full max-w-[482px] min-h-[140px] rounded-[16px] border border-[#F0F0F0] bg-white px-6 py-5 shadow-[0_6px_18px_rgba(15,23,42,0.04)]"
+      style={{ 'marginLeft': '56px' }}
     >
       <div className="min-w-0">
         <div data-testid="authorization-card-header" className="flex items-center gap-2">
