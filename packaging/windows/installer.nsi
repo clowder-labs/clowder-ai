@@ -752,6 +752,11 @@ FunctionEnd
   Delete "$INSTDIR\.npmrc"
   Delete "$INSTDIR\office-claw-template.json"
   Delete "$INSTDIR\pnpm-workspace.yaml"
+  Delete "$INSTDIR\OfficeClaw.exe"
+  Delete "$INSTDIR\OfficeClaw.exe.config"
+  Delete "$INSTDIR\Microsoft.Web.WebView2.Core.dll"
+  Delete "$INSTDIR\Microsoft.Web.WebView2.WinForms.dll"
+  Delete "$INSTDIR\WebView2Loader.dll"
 !macroend
 
 Function CleanupManagedPayload

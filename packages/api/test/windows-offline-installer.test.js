@@ -328,6 +328,13 @@ test('NSIS installer is per-user, upgrades in-place, and preserves runtime data 
   assert.match(nsisScript, /Call WriteAutoStartRegistry/);
   assert.match(nsisScript, /Delete "\$DESKTOP\\\$\{APP_NAME\}\.lnk"/);
   assert.match(nsisScript, /DeleteRegValue HKCU "\$\{AUTOSTART_KEY\}" "\$\{AUTOSTART_VALUE\}"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\OfficeClaw\.exe"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\OfficeClaw\.exe\.config"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\Microsoft\.Web\.WebView2\.Core\.dll"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\Microsoft\.Web\.WebView2\.WinForms\.dll"/);
+  assert.match(nsisScript, /Delete "\$INSTDIR\\WebView2Loader\.dll"/);
+  assert.doesNotMatch(nsisScript, /Delete "\$INSTDIR\\assets\\app\.ico"/);
+  assert.doesNotMatch(nsisScript, /rd \/s \/q "\$INSTDIR\\assets"/);
   assert.match(nsisScript, /MessageBox MB_YESNO\|MB_ICONQUESTION "/);
 });
 
