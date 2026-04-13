@@ -30,9 +30,11 @@ function getWorkspaceTarget(url: string): { worktreeId: string; path: string } |
 export function ContentBlocks({
   blocks,
   enableSkillAndQuickActionTokens = false,
+  showFileAction = true,
 }: {
   blocks: MessageContent[];
   enableSkillAndQuickActionTokens?: boolean;
+  showFileAction?: boolean;
 }) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [openingFileUrl, setOpeningFileUrl] = useState<string | null>(null);
@@ -74,6 +76,7 @@ export function ContentBlocks({
         if (block.type === 'file') {
           const href = resolveMediaUrl(block.url);
           const workspaceTarget = getWorkspaceTarget(block.url);
+          const shouldShowWorkspaceAction = showFileAction && workspaceTarget;
           return (
             <div
               key={i}
@@ -84,7 +87,7 @@ export function ContentBlocks({
                 <div className="truncate text-sm text-[#191919]">{block.fileName}</div>
                 <div className="text-xs text-gray-500">{block.mimeType || 'file'}</div>
               </div>
-              {workspaceTarget ? (
+              {shouldShowWorkspaceAction ? (
                 <button
                   type="button"
                   className="shrink-0 rounded-full border border-gray-200 px-3 py-1 text-xs text-[#191919] transition-colors hover:bg-gray-50"
@@ -99,7 +102,7 @@ export function ContentBlocks({
                 >
                   {openingFileUrl === block.url ? '打开中...' : '打开'}
                 </button>
-              ) : (
+              ) : showFileAction ? (
                 <a
                   href={href}
                   target="_blank"
@@ -108,7 +111,7 @@ export function ContentBlocks({
                 >
                   下载
                 </a>
-              )}
+              ) : null}
             </div>
           );
         }
