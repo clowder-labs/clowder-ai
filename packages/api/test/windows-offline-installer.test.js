@@ -343,9 +343,9 @@ test('NSIS installer blocks concurrent installer sessions before touching shared
   assert.match(nsisScript, /Var InstallerMutexHandle/);
   assert.match(nsisScript, /Function AcquireInstallerSessionMutex/);
   assert.match(nsisScript, /Function un\.AcquireInstallerSessionMutex/);
-  assert.match(nsisScript, /System::Call 'kernel32::CreateMutexW\(p0, i0, w "\$\{INSTALLER_MUTEX_NAME\}"\) p\.r0'/);
+  assert.match(nsisScript, /System::Call 'kernel32::CreateMutexW\(p0, i0, w "\$\{INSTALLER_MUTEX_NAME\}"\) p\.r0 \?e'/);
   assert.match(nsisScript, /StrCpy \$InstallerMutexHandle \$0/);
-  assert.match(nsisScript, /System::Call 'kernel32::GetLastError\(\) i\.r1'/);
+  assert.match(nsisScript, /Pop \$1/);
   assert.match(nsisScript, /\$\{If\} \$1 == 183/);
   assert.match(nsisScript, /MessageBox MB_OK\|MB_ICONEXCLAMATION "/);
   assert.match(nsisScript, /Function \.onInit[\s\S]*?Call AcquireInstallerSessionMutex/);
