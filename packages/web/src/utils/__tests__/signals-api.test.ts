@@ -4,7 +4,7 @@
  *
  */
 
-import type { SignalArticle, SignalSource } from '@cat-cafe/shared';
+import type { SignalArticle, SignalSource } from '@office-claw/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fetchSignalSources,

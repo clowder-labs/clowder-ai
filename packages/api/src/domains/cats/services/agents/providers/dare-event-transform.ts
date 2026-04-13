@@ -23,7 +23,7 @@
  */
 
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId } from '@office-claw/shared';
 import type { AgentMessage } from '../../types.js';
 
 const DARE_SCHEMA = 'client-headless-event-envelope.v1';

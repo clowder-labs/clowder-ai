@@ -10,7 +10,7 @@
  * POST /api/callbacks/bootcamp-env-check — run env check and store results
  */
 
-import { catIdSchema } from '@cat-cafe/shared';
+import { catIdSchema } from '@office-claw/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';

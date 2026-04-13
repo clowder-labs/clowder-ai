@@ -16,7 +16,7 @@ import {
   type MessageContent,
   type RichBlock,
   type RichBlockBase,
-} from '@cat-cafe/shared';
+} from '@office-claw/shared';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
@@ -53,7 +53,7 @@ export interface PersistenceContext {
   /** Error details for diagnostics */
   errors: Array<{ catId: string; error: string }>;
   /** F088-P3: Rich blocks consumed during this invocation, for outbound delivery */
-  richBlocks?: import('@cat-cafe/shared').RichBlock[];
+  richBlocks?: import('@office-claw/shared').RichBlock[];
 }
 
 /** Common options for both strategies */

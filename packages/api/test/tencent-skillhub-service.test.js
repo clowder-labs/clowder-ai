@@ -16,7 +16,7 @@ test('Tencent SkillHub normalization strips malformed fields before returning se
               slug: ' skill-safe ',
               name: ' ',
               description: null,
-              description_zh: '  安全技能  ',
+              description_zh: '  normalized description  ',
               ownerName: null,
               stars: 'oops',
               downloads: 12,
@@ -42,7 +42,8 @@ test('Tencent SkillHub normalization strips malformed fields before returning se
       id: 'skill-safe',
       slug: 'skill-safe',
       name: 'skill-safe',
-      description: '安全技能',
+      description: 'normalized description',
+      category: '通用',
       tags: ['ai-intelligence'],
       createdAt: '',
       repo: {
@@ -59,6 +60,56 @@ test('Tencent SkillHub normalization strips malformed fields before returning se
         avatarUrl: '',
       },
     });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalApiBase === undefined) {
+      delete process.env.TENCENT_SKILLHUB_API_BASE_URL;
+    } else {
+      process.env.TENCENT_SKILLHUB_API_BASE_URL = originalApiBase;
+    }
+  }
+});
+
+test('Tencent SkillHub normalization keeps upstream category and falls back to 通用', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalApiBase = process.env.TENCENT_SKILLHUB_API_BASE_URL;
+
+  process.env.TENCENT_SKILLHUB_API_BASE_URL = 'https://skillhub.example.test';
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        code: 0,
+        data: {
+          skills: [
+            {
+              slug: 'skill-with-category',
+              name: 'Skill With Category',
+              description: 'category preserved',
+              category: 'developer-tools',
+              tags: ['ignored-tag'],
+            },
+            {
+              slug: 'skill-without-category',
+              name: 'Skill Without Category',
+              description: 'category fallback',
+              tags: ['ignored-tag'],
+            },
+          ],
+          total: 2,
+        },
+      }),
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      },
+    );
+
+  try {
+    const { searchSkills } = await import('../src/domains/cats/services/skillhub/TencentSkillHubService.ts?category-test');
+    const result = await searchSkills('category');
+
+    assert.equal(result.data[0]?.category, 'developer-tools');
+    assert.equal(result.data[1]?.category, '通用');
   } finally {
     globalThis.fetch = originalFetch;
     if (originalApiBase === undefined) {

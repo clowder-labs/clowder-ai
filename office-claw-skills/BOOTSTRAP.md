@@ -41,7 +41,7 @@
 2. **完整流程见 `docs/SOP.md`**
 3. **三条铁律**：Redis production Redis (sacred) / 同一个体不能 self-review / 不能冒充其他智能体
 4. **共用规则在 `refs/shared-rules.md`**（不在各智能体文件里重复）
-5. **Reviewer 选择是动态匹配**（`docs/SOP.md` 配对规则），禁止写死"reviewer 是Ragdoll"
+5. **Reviewer 选择是动态匹配**（`docs/SOP.md` 配对规则），禁止写死 reviewer 人选
 
 ## 使用方式
 

@@ -16,7 +16,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { McpServerDescriptor } from '@cat-cafe/shared';
+import type { McpServerDescriptor } from '@office-claw/shared';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 
 const GEMINI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
