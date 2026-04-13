@@ -264,8 +264,16 @@ Approach each task methodically and deliver high-quality results."""
                 else:
                     logger.warning(f"[Subagent] Skill path not found: {skill_full_path}")
 
-            # 6. Set workspace
-            workspace_dir = task.workspace_dir or str(get_agent_root_dir())
+            # 6. Set workspace (inherit from parent agent if not specified)
+            # Priority: task param > parent agent's workspace > default agent root
+            workspace_dir = task.workspace_dir
+            if workspace_dir is None:
+                parent_workspace = getattr(self._parent_agent, '_workspace_dir', None)
+                if parent_workspace:
+                    workspace_dir = str(parent_workspace)
+                    logger.debug(f"[Subagent] Inherited workspace from parent: {workspace_dir}")
+            if workspace_dir is None:
+                workspace_dir = str(get_agent_root_dir())
             subagent.set_workspace(workspace_dir, task.role_id)
 
             # 7. Build full prompt
@@ -364,7 +372,14 @@ Approach each task methodically and deliver high-quality results."""
 
         if not config.sys_operation_id:
             try:
-                workspace_dir = task.workspace_dir or str(get_agent_root_dir())
+                # Inherit workspace from parent agent if not specified
+                workspace_dir = task.workspace_dir
+                if workspace_dir is None:
+                    parent_workspace = getattr(self._parent_agent, '_workspace_dir', None)
+                    if parent_workspace:
+                        workspace_dir = str(parent_workspace)
+                if workspace_dir is None:
+                    workspace_dir = str(get_agent_root_dir())
                 sysop_card = SysOperationCard(
                     mode=OperationMode.LOCAL,
                     work_config=LocalWorkConfig(work_dir=workspace_dir),
