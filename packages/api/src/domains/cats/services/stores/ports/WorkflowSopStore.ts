@@ -4,7 +4,7 @@
  *
  */
 
-import type { UpdateWorkflowSopInput, WorkflowSop } from '@cat-cafe/shared';
+import type { UpdateWorkflowSopInput, WorkflowSop } from '@office-claw/shared';
 
 export class VersionConflictError extends Error {
   readonly currentState: WorkflowSop;

@@ -9,7 +9,7 @@
  * 审计日志持久化 — 所有授权事件必须有记录
  */
 
-import type { AuthorizationAuditEntry, CatId, RespondScope } from '@cat-cafe/shared';
+import type { AuthorizationAuditEntry, CatId, RespondScope } from '@office-claw/shared';
 import { generateSortableId } from './MessageStore.js';
 
 export interface CreateAuditInput {

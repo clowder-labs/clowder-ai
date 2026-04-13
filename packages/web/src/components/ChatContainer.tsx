@@ -57,7 +57,8 @@ import { ThreadSidebar } from './ThreadSidebar';
 import { ResizeHandle } from './workspace/ResizeHandle';
 
 const SIDEBAR_DEFAULT = 240;
-const MAIN_PANEL_MIN_WIDTH = 660;
+const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度240
+const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
@@ -658,8 +659,8 @@ function ThreadModeChatContainer({
         <div className="hidden md:flex items-center">
           <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
         </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex h-full min-h-0 flex-col" style={{ minWidth: MAIN_PANEL_MIN_WIDTH }}>
+      <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className="flex h-full min-h-0 flex-col" style={{ minWidth: sidebarMenu === 'chat' ?  MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}>
         <RightContentHeader />
         {sidebarMenu === 'chat' && (
           <ChatContainerHeader

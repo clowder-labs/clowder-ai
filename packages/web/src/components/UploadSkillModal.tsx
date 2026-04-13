@@ -49,13 +49,15 @@ export const SKILL_UPLOAD_LIMITS = {
   maxTotalBytes: 4 * 1024 * 1024,
 } as const;
 
-const SKILL_NAME_ALLOWED_RE = /^[A-Za-z-]+$/;
+const SKILL_NAME_ALLOWED_RE = /^[A-Za-z0-9-]+$/;
 const ZIP_SINGLE_UPLOAD_ERROR = 'ZIP 文件只能单个上传';
 const ROOT_SKILL_REQUIRED_ERROR = '上传内容根目录必须包含名为 SKILL.md 的文件';
 const ZIP_ROOT_SKILL_ERROR = 'ZIP 压缩包根目录必须包含名为 SKILL.md 的文件';
 const SKILL_NAME_REQUIRED_ERROR = '技能文件不合法：SKILL.md 头部缺少 name 字段';
 const COLLAPSED_FILE_COUNT = 3;
 const PARSED_NAME_MAX_WIDTH_CLASS = 'max-w-[280px]';
+const SKILL_NAME_ERROR_BORDER_COLOR = 'rgb(242,48,48)';
+const SKILL_NAME_ERROR_BG_COLOR = 'rgb(252,227,225)';
 const DEFAULT_FILE_ICON_SRC = '/icons/file-html.svg';
 const FILE_ICON_BY_EXTENSION: Record<string, string> = {
   zip: '/icons/file-zip.svg',
@@ -329,7 +331,7 @@ export function validateSkillName(name: string): string | null {
 
   if (!trimmedName) return '请输入技能名称';
   if (!SKILL_NAME_ALLOWED_RE.test(trimmedName)) {
-    return '技能名称仅支持英文和中划线';
+    return '技能名称仅支持英文、数字和中划线';
   }
 
   return null;
@@ -363,6 +365,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     ? getSkillMetadataValidationError({ name: parsedName, description })
     : null;
   const nameValidationError = validateSkillName(name);
+  const editingNameValidationError = isEditingName ? nameValidationError : null;
   const uploadDisabledReason = (() => {
     if (uploading) return '正在导入技能，请稍候';
     if (files.length === 0) return '请选择文件或文件夹后再导入';
@@ -522,9 +525,19 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     setName(nextName);
   }, []);
 
-  const handleNameEditComplete = useCallback(() => {
+  const handleNameEditComplete = useCallback((action: 'submit' | 'blur' | 'cancel' = 'blur') => {
+    if (action === 'cancel') {
+      setName(parsedName);
+      setIsEditingName(false);
+      return;
+    }
+
+    if (validateSkillName(name)) {
+      return;
+    }
+
     setIsEditingName(false);
-  }, []);
+  }, [name, parsedName]);
 
   const handleSubmit = useCallback(async () => {
     const fileValidationIssue = getUploadValidationIssue(files);
@@ -690,21 +703,39 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                 <div className="w-[72px] shrink-0 pt-2 text-[#5F6775]">SKILL名称</div>
                 <div className="min-w-0 flex-1">
                   {isEditingName ? (
-                    <input
-                      ref={nameInputRef}
-                      type="text"
-                      value={name}
-                      onChange={(e) => handleNameChange(e.target.value)}
-                      onBlur={handleNameEditComplete}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === 'Escape') {
-                          event.preventDefault();
-                          handleNameEditComplete();
-                        }
-                      }}
-                      placeholder="请输入技能名称"
-                      className="ui-input w-full rounded px-3 py-2 text-xs"
-                    />
+                    <div className="space-y-1">
+                      <input
+                        ref={nameInputRef}
+                        type="text"
+                        value={name}
+                        aria-invalid={editingNameValidationError ? 'true' : 'false'}
+                        onChange={(e) => handleNameChange(e.target.value)}
+                        onBlur={() => handleNameEditComplete('blur')}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleNameEditComplete('submit');
+                          }
+                          if (event.key === 'Escape') {
+                            event.preventDefault();
+                            handleNameEditComplete('cancel');
+                          }
+                        }}
+                        placeholder="请输入技能名称"
+                        className="ui-input w-full rounded px-3 py-2 text-xs"
+                        style={editingNameValidationError
+                          ? {
+                              borderColor: SKILL_NAME_ERROR_BORDER_COLOR,
+                              backgroundColor: SKILL_NAME_ERROR_BG_COLOR,
+                            }
+                          : undefined}
+                      />
+                      {editingNameValidationError ? (
+                        <p data-testid="upload-skill-name-error" className="text-xs text-[var(--state-error-text)]">
+                          {editingNameValidationError}
+                        </p>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className="inline-flex min-h-8 max-w-full items-center gap-1">
                       {name ? (

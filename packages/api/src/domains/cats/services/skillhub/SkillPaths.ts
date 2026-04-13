@@ -8,14 +8,6 @@ export function resolveUserSkillsRoot(hostRoot: string): string {
   return join(hostRoot, '.office-claw', 'skills');
 }
 
-export function resolveLegacyOfficialSkillsRoot(hostRoot: string): string {
-  return join(hostRoot, 'cat-cafe-skills');
-}
-
-export function resolveLegacyUserSkillsRoot(hostRoot: string): string {
-  return join(hostRoot, '.cat-cafe', 'skills');
-}
-
 export function resolveOfficialSkillPath(hostRoot: string, skillName: string): string {
   return join(resolveOfficialSkillsRoot(hostRoot), skillName);
 }

@@ -23,6 +23,7 @@ interface SearchSkill {
   slug: string;
   name: string;
   description: string;
+  category?: string;
   tags: string[];
   stars?: number;
   repo: { githubOwner: string; githubRepoName: string };
@@ -73,6 +74,9 @@ function resolveCategoryParam(category: string): string | null {
 }
 
 function getSkillCategory(skill: SearchSkill): string {
+  if (skill.category?.trim()) {
+    return normalizeCategory(skill.category.trim());
+  }
   const primaryTag = skill.tags.find((tag) => tag.trim().length > 0);
   return primaryTag ? primaryTag.replace(/[-_]/g, ' ') : GENERAL_CATEGORY;
 }

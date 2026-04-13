@@ -32,7 +32,7 @@ const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
 const HUAWEI_MAAS_GROUP_LABEL = '华为云 MaaS';
 const CUSTOM_MODEL_GROUP_LABEL = '自定义模型';
-const SELF_HUAWEI_MAAS_GROUP_LABEL = '自接入华为云MaaS';
+const SELF_HUAWEI_MAAS_GROUP_LABEL = '自接入华为云 MaaS';
 const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
@@ -45,6 +45,14 @@ const SAVE_MODEL_LABEL = '保存';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
 const DEFAULT_MODEL_ICON_SRC = '/images/mode-default-icon.svg';
+const MODEL_NAME_VALIDATION_MESSAGE = '支持中英文、数字及 :._/|\\-，仅支持中英文,数字开头结尾，长度2-64';
+const MODEL_NAME_EDGE_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF]';
+const MODEL_NAME_BODY_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF:._/|\\\\-]';
+const MODEL_NAME_PATTERN = new RegExp(`^${MODEL_NAME_EDGE_PATTERN}(?:${MODEL_NAME_BODY_PATTERN}{0,62}${MODEL_NAME_EDGE_PATTERN})$`);
+
+function isValidModelName(value: string) {
+  return MODEL_NAME_PATTERN.test(value);
+}
 
 function SparklesIcon() {
   return (
@@ -296,9 +304,12 @@ export function ModelsPanel() {
   const isEditMode = Boolean(editingSourceId);
   const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
+  const trimmedModelName = modelNameInput.trim();
+  const isModelNameValid = trimmedModelName.length >= 2 && trimmedModelName.length <= 64 && isValidModelName(trimmedModelName);
+  const showModelNameValidationError = trimmedModelName.length > 0 && !isModelNameValid;
   const canConfirmCreateModel = isEditMode
-    ? modelNameInput?.trim().length > 0
-    : modelNameInput?.trim().length > 0 && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
+    ? isModelNameValid
+    : isModelNameValid && modelUrlInput?.trim().length > 0 && modelApiKeyInput?.trim().length > 0;
 
   const buildModelsUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -880,11 +891,16 @@ export function ModelsPanel() {
                   data-testid="models-create-model-name-input"
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
-                  placeholder={'请输入模型名称'}
+                  placeholder={isHuaweiMaasAccessMode ? '请输入模型调用名称' : '请输入模型名称'}
                   className="ui-input ui-form-focus w-full"
                   style={{ height: '28px' }}
                   required
                 />
+                {showModelNameValidationError ? (
+                  <p data-testid="models-create-model-name-error" className="mt-1 text-xs text-red-600">
+                    {MODEL_NAME_VALIDATION_MESSAGE}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2.5">
                 <div className="text-[12px] text-[var(--text-primary)]">模型描述（可选）</div>

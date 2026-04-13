@@ -6,6 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
@@ -16,7 +17,7 @@ describe('signal notifications loader', () => {
   let prevSignalsRoot;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync('/tmp/cat-cafe-signal-notifications-');
+    tempRoot = mkdtempSync(join(tmpdir(), 'office-claw-signal-notifications-'));
     prevSignalsRoot = process.env.SIGNALS_ROOT_DIR;
     process.env.SIGNALS_ROOT_DIR = tempRoot;
   });
@@ -52,7 +53,7 @@ describe('signal notifications loader', () => {
 
     writeFileSync(
       notificationsFile,
-      `version: 1\nnotifications:\n  email:\n    enabled: true\n    provider: gmail\n    smtp:\n      host: smtp.gmail.com\n      port: 587\n      secure: false\n      auth:\n        user: cat-cafe@example.com\n        pass: app-password\n    to: owner@example.com\n    from: Cat Cafe <noreply@example.com>\n  in_app:\n    enabled: true\n    thread: signals\n  system:\n    enabled: false\n  schedule:\n    daily_digest: "08:00"\n    timezone: Asia/Shanghai\n`,
+      `version: 1\nnotifications:\n  email:\n    enabled: true\n    provider: gmail\n    smtp:\n      host: smtp.gmail.com\n      port: 587\n      secure: false\n      auth:\n        user: office-claw@example.com\n        pass: app-password\n    to: owner@example.com\n    from: OfficeClaw <noreply@example.com>\n  in_app:\n    enabled: true\n    thread: signals\n  system:\n    enabled: false\n  schedule:\n    daily_digest: "08:00"\n    timezone: Asia/Shanghai\n`,
       'utf-8',
     );
 
@@ -73,7 +74,7 @@ describe('signal notifications loader', () => {
 
     writeFileSync(
       notificationsFile,
-      `version: 1\nnotifications:\n  email:\n    enabled: true\n    provider: gmail\n    smtp:\n      host: smtp.gmail.com\n      port: 587\n      secure: false\n    to: not-an-email\n    from: Cat Cafe <noreply@example.com>\n  in_app:\n    enabled: true\n    thread: signals\n  system:\n    enabled: false\n  schedule:\n    daily_digest: "08:00"\n    timezone: Asia/Shanghai\n`,
+      `version: 1\nnotifications:\n  email:\n    enabled: true\n    provider: gmail\n    smtp:\n      host: smtp.gmail.com\n      port: 587\n      secure: false\n    to: not-an-email\n    from: OfficeClaw <noreply@example.com>\n  in_app:\n    enabled: true\n    thread: signals\n  system:\n    enabled: false\n  schedule:\n    daily_digest: "08:00"\n    timezone: Asia/Shanghai\n`,
       'utf-8',
     );
 

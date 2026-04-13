@@ -18,8 +18,8 @@
  * Pass bare keys only.
  */
 
-import type { CatId, ContextHealth, SessionRecord, SessionStatus, SessionUsageSnapshot } from '@cat-cafe/shared';
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CatId, ContextHealth, SessionRecord, SessionStatus, SessionUsageSnapshot } from '@office-claw/shared';
+import type { RedisClient } from '@office-claw/shared/utils';
 import type { CreateSessionInput, ISessionChainStore, SessionRecordPatch } from '../ports/SessionChainStore.js';
 import { SessionChainKeys } from '../redis-keys/session-chain-keys.js';
 

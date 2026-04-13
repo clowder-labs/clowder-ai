@@ -251,9 +251,9 @@ export function ChatMessage({
             }
           >
             {hasBlocks ? (
-              <ContentBlocks blocks={message.contentBlocks!} />
+              <ContentBlocks blocks={message.contentBlocks!} enableSkillAndQuickActionTokens />
             ) : (
-              <MarkdownContent content={message.content} />
+              <MarkdownContent content={message.content} enableSkillAndQuickActionTokens />
             )}
           </div>
         </div>
@@ -383,7 +383,7 @@ export function ChatMessage({
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
-            <MarkdownContent content={message.content} className={catStyle?.font} />
+            <MarkdownContent content={message.content} className={catStyle?.font} enableSkillAndQuickActionTokens={false} />
           ) : message.isStreaming ? (
             <span className="text-xs text-gray-500 hidden">Thinking...</span>
           ) : null}

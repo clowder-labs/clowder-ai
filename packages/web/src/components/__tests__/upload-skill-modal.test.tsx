@@ -168,8 +168,9 @@ describe('UploadSkillModal', () => {
 
   it('allows English names with hyphen and rejects unsupported characters', () => {
     expect(validateSkillName('Alpha-Beta')).toBeNull();
-    expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文和中划线');
-    expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文和中划线');
+    expect(validateSkillName('Alpha-2026')).toBeNull();
+    expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文、数字和中划线');
+    expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文、数字和中划线');
   });
 
   it('parses skill metadata only from frontmatter fields', () => {
@@ -772,16 +773,31 @@ description: editable skill.
     });
     await flushEffects();
 
+    const nameError = container.querySelector('[data-testid="upload-skill-name-error"]') as HTMLParagraphElement | null;
     const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
       button.textContent?.includes('导入'),
     ) as HTMLButtonElement | undefined;
     const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
+
+    expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
+    expect(nameInput?.style.borderColor).toBe('rgb(242, 48, 48)');
+    expect(nameInput?.style.backgroundColor).toBe('rgb(252, 227, 225)');
+    expect(nameError?.textContent).toBe('技能名称仅支持英文、数字和中划线');
     expect(confirmButton).toBeDefined();
     expect(confirmButton?.disabled).toBe(true);
+
+    await act(async () => {
+      nameInput?.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(container.querySelector('input[placeholder="请输入技能名称"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="upload-skill-name-error"]')?.textContent).toBe('技能名称仅支持英文、数字和中划线');
+
     act(() => {
       submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     });
-    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能名称仅支持英文和中划线');
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('技能名称仅支持英文、数字和中划线');
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useThemeStore } from '../themeStore';
+import { THEME_STORAGE_KEY } from '@/utils/theme-persistence';
 
 const mockStorage: Record<string, string> = {};
 const mockLocalStorage = {
@@ -30,6 +31,7 @@ vi.stubGlobal('localStorage', mockLocalStorage);
 beforeEach(() => {
   mockLocalStorage.clear();
   vi.clearAllMocks();
+  document.cookie = `${THEME_STORAGE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
   useThemeStore.setState({
     theme: 'business',
     isLoaded: false,
@@ -46,7 +48,7 @@ describe('themeStore', () => {
   });
 
   it('initializes from localStorage while remaining config-free', () => {
-    mockStorage['clowder-ai-theme'] = 'business';
+    mockStorage[THEME_STORAGE_KEY] = 'business';
 
     useThemeStore.getState().initializeTheme();
 
@@ -57,12 +59,33 @@ describe('themeStore', () => {
   });
 
   it('migrates legacy default theme storage to business', () => {
-    mockStorage['clowder-ai-theme'] = 'default';
+    mockStorage[THEME_STORAGE_KEY] = 'default';
 
     useThemeStore.getState().initializeTheme();
 
     const state = useThemeStore.getState() as unknown as Record<string, unknown>;
     expect(state.theme).toBe('business');
-    expect(mockLocalStorage.setItem).toHaveBeenCalledWith('clowder-ai-theme', 'business');
+    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, 'business');
+    expect(document.cookie).toContain(`${THEME_STORAGE_KEY}=business`);
+  });
+
+  it('persists theme selection to both localStorage and cookies', () => {
+    useThemeStore.getState().setTheme('warm');
+
+    const state = useThemeStore.getState();
+    expect(state.theme).toBe('warm');
+    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, 'warm');
+    expect(document.cookie).toContain(`${THEME_STORAGE_KEY}=warm`);
+  });
+
+  it('prefers the cookie theme so desktop random ports keep the same choice', () => {
+    document.cookie = `${THEME_STORAGE_KEY}=warm; path=/`;
+
+    useThemeStore.getState().initializeTheme();
+
+    const state = useThemeStore.getState();
+    expect(state.theme).toBe('warm');
+    expect(state.isLoaded).toBe(true);
+    expect(mockLocalStorage.setItem).toHaveBeenCalledWith(THEME_STORAGE_KEY, 'warm');
   });
 });

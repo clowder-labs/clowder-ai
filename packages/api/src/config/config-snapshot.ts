@@ -4,7 +4,7 @@
  *
  */
 
-import type { ContextBudget } from '@cat-cafe/shared';
+import type { ContextBudget } from '@office-claw/shared';
 
 export type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
 
