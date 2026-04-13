@@ -19,7 +19,6 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
-import { buildVoteNotification } from '../domains/cats/services/agents/routing/vote-intercept.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
@@ -36,7 +35,6 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets, triggerA2AInvocation } from './callback-a2a-trigger.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
-import { registerCallbackBootcampRoutes } from './callback-bootcamp-routes.js';
 import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
@@ -47,7 +45,6 @@ import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
 import { detectUserMention } from './user-mention.js';
-import { clearVoteTimer, closeVoteInternal, voteTimers } from './votes.js';
 
 const log = createModuleLogger('routes/callbacks');
 
@@ -1172,144 +1169,6 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     return { status: 'ok' };
   });
 
-  // F079 Gap 4: Cat-initiated vote via MCP callback
-  const startVoteCallbackSchema = callbackAuthSchema.extend({
-    question: z.string().min(1).max(500),
-    options: z.array(z.string().min(1).max(100)).min(2).max(20),
-    anonymous: z.boolean().optional().default(false),
-    timeoutSec: z.number().int().min(10).max(600).optional().default(120),
-    voters: z.array(z.string().min(1).max(50)).min(1).max(20),
-  });
-
-  app.post('/api/callbacks/start-vote', async (request, reply) => {
-    if (!threadStore) {
-      reply.status(503);
-      return { error: 'Thread store not configured' };
-    }
-
-    const parsed = startVoteCallbackSchema.safeParse(request.body);
-    if (!parsed.success) {
-      reply.status(400);
-      return { error: 'Invalid request body', details: parsed.error.issues };
-    }
-
-    const { invocationId, callbackToken, question, options, anonymous, timeoutSec, voters } = parsed.data;
-    const record = registry.verify(invocationId, callbackToken);
-    if (!record) {
-      reply.status(401);
-      return EXPIRED_CREDENTIALS_ERROR;
-    }
-
-    // P1-2 fix: stale invocation guard (parity with post-message, create-rich-block)
-    if (!registry.isLatest(invocationId)) {
-      return { status: 'stale_ignored' };
-    }
-
-    // P2 fix: verify thread exists
-    const thread = await threadStore.get(record.threadId);
-    if (!thread) {
-      reply.status(404);
-      return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
-    }
-
-    // Check for existing active vote
-    const existing = await threadStore.getVotingState(record.threadId);
-    if (existing && existing.status === 'active') {
-      reply.status(409);
-      return { error: '已有活跃投票', code: 'VOTE_ALREADY_ACTIVE' };
-    }
-
-    // P1-1 fix: createdBy must be userId (closeVoteInternal uses it as message userId).
-    // initiatedByCat tracks which cat started the vote (for display purposes).
-    const votingState: VotingStateV1 = {
-      v: 1,
-      question,
-      options,
-      votes: {},
-      anonymous,
-      deadline: Date.now() + timeoutSec * 1000,
-      createdBy: record.userId,
-      status: 'active',
-      voters,
-      initiatedByCat: record.catId as string,
-    };
-
-    await threadStore.updateVotingState(record.threadId, votingState);
-
-    // Register timeout auto-close (shared timer map with votes.ts)
-    clearVoteTimer(record.threadId);
-    const timer = setTimeout(() => {
-      closeVoteInternal(record.threadId, threadStore, socketManager, messageStore).catch((err) => {
-        log.error({ threadId: record.threadId, err }, 'Timeout auto-close failed');
-      });
-    }, timeoutSec * 1000);
-    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
-    voteTimers.set(record.threadId, timer);
-
-    socketManager.broadcastToRoom(`thread:${record.threadId}`, 'vote_started', {
-      threadId: record.threadId,
-      votingState,
-    });
-
-    // Send notification message to each voter (so they see the vote request in chat)
-    const notificationContent = buildVoteNotification(question, options);
-    const mentionCatIds = voters.map((v) => createCatId(v));
-    let notificationMsg: Awaited<ReturnType<typeof messageStore.append>> | undefined;
-    try {
-      notificationMsg = await messageStore.append({
-        userId: record.userId,
-        catId: record.catId,
-        content: notificationContent,
-        mentions: mentionCatIds,
-        origin: 'callback',
-        timestamp: Date.now(),
-        threadId: record.threadId,
-      });
-    } catch (err) {
-      log.warn({ err }, 'Failed to persist vote notification');
-    }
-
-    // Dispatch voter cats so they receive the notification and can vote.
-    // Uses enqueueA2ATargets (standard A2A dispatch, NOT multi_mention depth guard).
-    // If queue overflows (>MAX_QUEUE_DEPTH), falls back to direct dispatch for remaining voters.
-    if (notificationMsg && router && invocationRecordStore) {
-      const a2aDeps = {
-        router,
-        invocationRecordStore,
-        socketManager,
-        invocationTracker,
-        deliveryCursorStore,
-        queueProcessor,
-        invocationQueue: opts.invocationQueue,
-        log: app.log,
-      };
-      const a2aOpts = {
-        targetCats: mentionCatIds,
-        content: notificationContent,
-        userId: record.userId,
-        threadId: record.threadId,
-        triggerMessage: notificationMsg,
-        callerCatId: record.catId as CatId,
-      };
-      try {
-        const { enqueued } = await enqueueA2ATargets(a2aDeps, a2aOpts);
-        // Fallback: voters that hit queue capacity limit → direct dispatch
-        const missed = mentionCatIds.filter((c) => !enqueued.includes(c));
-        if (missed.length > 0) {
-          app.log.info(
-            { threadId: record.threadId, missed, enqueued },
-            '[callbacks/start-vote] Queue overflow: falling back to direct dispatch for remaining voters',
-          );
-          await triggerA2AInvocation(a2aDeps, { ...a2aOpts, targetCats: missed });
-        }
-      } catch (err) {
-        app.log.warn(`[callbacks/start-vote] Failed to dispatch voter invocations: ${String(err)}`);
-      }
-    }
-
-    return { status: 'ok', threadId: record.threadId, votingState };
-  });
-
   if (taskStore) {
     registerCallbackTaskRoutes(app, {
       registry,
@@ -1325,11 +1184,6 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       workflowSopStore: opts.workflowSopStore,
       backlogStore: opts.backlogStore,
     });
-  }
-
-  // F087: Bootcamp state transition callbacks
-  if (opts.threadStore) {
-    registerCallbackBootcampRoutes(app, { registry, threadStore: opts.threadStore });
   }
 
   await registerCallbackMemoryRoutes(app, {

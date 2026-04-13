@@ -107,14 +107,12 @@ import {
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
-import { gameRoutes } from './routes/games.js';
 import {
   auditRoutes,
   authorizationRoutes,
   authRoutes,
   availableClientsRoutes,
   backlogRoutes,
-  bootcampRoutes,
   callbackAuthRoutes,
   callbacksRoutes,
   capabilitiesRoutes,
@@ -131,8 +129,6 @@ import {
   featureDocDetailRoutes,
   intentCardRoutes,
   invocationsRoutes,
-  leaderboardEventsRoutes,
-  leaderboardRoutes,
   maasModelsRoutes,
   memoryPublishRoutes,
   memoryRoutes,
@@ -152,10 +148,6 @@ import {
   sessionHooksRoutes,
   sessionStrategyConfigRoutes,
   sessionTranscriptRoutes,
-  signalCollectionRoutes,
-  signalPodcastRoutes,
-  signalStudyRoutes,
-  signalsRoutes,
   skillsRoutes,
   sliceRoutes,
   soulTemplatesRoutes,
@@ -902,44 +894,8 @@ async function main(): Promise<void> {
   await app.register(quotaRoutes);
   // F128: Daily token usage aggregation
   await app.register(usageRoutes, { invocationRecordStore });
-  // F075 Phase B+C: Game + Achievement stores
-  const { GameStore } = await import('./domains/leaderboard/game-store.js');
-  const { AchievementStore } = await import('./domains/leaderboard/achievement-store.js');
-  const gameStore = new GameStore();
-  const achievementStore = new AchievementStore();
-  await app.register(leaderboardRoutes, { messageStore, gameStore, achievementStore });
-  await app.register(leaderboardEventsRoutes, { gameStore, achievementStore });
-  await app.register(bootcampRoutes, { threadStore });
   const connectorHubOpts: Parameters<typeof connectorHubRoutes>[1] = { threadStore };
   await app.register(connectorHubRoutes, connectorHubOpts);
-  // F101: Game routes (store created earlier for /game command interception)
-  if (f101GameStore) {
-    await app.register(gameRoutes, {
-      gameStore: f101GameStore,
-      socketManager,
-      threadStore,
-      messageStore,
-      ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
-    });
-
-    const { gameActionRoutes, clearGameNonces } = await import('./routes/game-actions.js');
-    const { GameOrchestrator } = await import('./domains/cats/services/game/GameOrchestrator.js');
-    const actionOrchestrator = new GameOrchestrator({
-      gameStore: f101GameStore,
-      socketManager,
-      messageStore,
-      onGameEnd: (gameId) => clearGameNonces(gameId),
-    });
-    await app.register(gameActionRoutes, {
-      gameStore: f101GameStore,
-      orchestrator: actionOrchestrator,
-      threadStore,
-      actionNotifier: sharedActionNotifier,
-    });
-
-    app.log.info('[api] F101 game routes registered');
-  }
-
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = redis ? new RedisPrTrackingStore(redis) : new MemoryPrTrackingStore();
   app.log.info(`[api] PrTrackingStore: ${redis ? 'Redis' : 'Memory'}`);
@@ -1117,10 +1073,6 @@ async function main(): Promise<void> {
   }
   await app.register(sessionStrategyConfigRoutes);
 
-  // Voting system (F079)
-  const { voteRoutes } = await import('./routes/votes.js');
-  await app.register(voteRoutes, { threadStore, socketManager, messageStore });
-
   // Evidence search (SQLite) + reindex endpoint (D-11)
   await app.register(evidenceRoutes, {
     evidenceStore: memoryServices.evidenceStore,
@@ -1144,16 +1096,6 @@ async function main(): Promise<void> {
     socketManager,
     opusService,
     threadStore,
-  });
-  await app.register(signalsRoutes);
-  await app.register(signalStudyRoutes, { threadStore });
-  await app.register(signalCollectionRoutes);
-  await app.register(signalPodcastRoutes, {
-    messageStore,
-    threadStore,
-    router,
-    invocationRecordStore,
-    invocationTracker,
   });
 
   // Serve uploaded files (images)

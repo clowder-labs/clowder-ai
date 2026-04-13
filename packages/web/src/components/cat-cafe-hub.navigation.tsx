@@ -31,12 +31,11 @@ export const HUB_GROUPS: HubGroup[] = [
     label: '成员协作',
     icon: 'cat',
     color: '#9B7EBD',
-    preview: '总览 · 能力 · 配额 · 排行',
+    preview: '总览 · 能力 · 配额 · 技能',
     tabs: [
       { id: 'cats', label: '总览', icon: 'users' },
       { id: 'capabilities', label: '能力中心', icon: 'sparkles' },
       { id: 'routing', label: '配额看板', icon: 'chart-pie' },
-      { id: 'leaderboard', label: '排行榜', icon: 'trophy' },
       { id: 'skills', label: '技能扩展', icon: 'sparkles' },
     ],
   },
