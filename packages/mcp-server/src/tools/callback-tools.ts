@@ -136,7 +136,7 @@ function normalizePostMessageInput(input: {
   clientMessageId?: unknown;
   targetCats?: unknown;
 } {
-  const rawContent = typeof input.content === 'string' ? input.content : input.message ?? input.text ?? input.content;
+  const rawContent = typeof input.content === 'string' ? input.content : (input.message ?? input.text ?? input.content);
   const normalizedContent = typeof rawContent === 'string' ? rawContent.trim() : rawContent;
   return {
     content: normalizedContent,
@@ -510,37 +510,6 @@ export async function handleCreateRichBlock(input: { block: string }): Promise<T
   );
 }
 
-/** F088 Phase J2: Generate a document (PDF/DOCX/MD) from Markdown content */
-export const generateDocumentInputSchema = {
-  markdown: z
-    .string()
-    .min(1)
-    .describe('Full Markdown content for the document. Supports headings, tables, lists, code blocks, etc.'),
-  format: z
-    .enum(['pdf', 'docx', 'md'])
-    .describe('Output format. Recommend "docx" (most compatible). "pdf" needs LaTeX, "md" always works.'),
-  baseName: z
-    .string()
-    .min(1)
-    .max(200)
-    .describe(
-      'Display name without extension (e.g. "调研报告", "GTC2026-具身智能调研"). Will appear as filename in IM.',
-    ),
-};
-
-export async function handleGenerateDocument(input: {
-  markdown: string;
-  format: string;
-  baseName: string;
-}): Promise<ToolResult> {
-  const result = await callbackPost('/api/callbacks/generate-document', {
-    markdown: input.markdown,
-    format: input.format,
-    baseName: input.baseName,
-  });
-  return result;
-}
-
 export const requestPermissionInputSchema = {
   action: z.string().min(1).describe('The action requiring permission (e.g. "git_commit", "file_delete")'),
   reason: z.string().min(1).describe('Why you need this permission'),
@@ -669,7 +638,9 @@ export const multiMentionInputSchema = {
     .array(z.string().min(1))
     .min(1)
     .max(3)
-    .describe('Cat IDs to invoke in parallel (max 3). Built-in IDs: "assistant" (通用智能体), "office" (办公智能体), "agentteams" (编码智能体). Example: ["assistant","office"]'),
+    .describe(
+      'Cat IDs to invoke in parallel (max 3). Built-in IDs: "assistant" (通用智能体), "office" (办公智能体), "agentteams" (编码智能体). Example: ["assistant","office"]',
+    ),
   question: z.string().min(1).max(5000).describe('The question or request for the target cats'),
   callbackTo: z.string().min(1).describe('Cat ID to route all responses back to (required, usually yourself)'),
   context: z.string().max(5000).optional().describe('Additional context to include for the targets'),
@@ -846,18 +817,6 @@ export const callbackTools = [
       'If callback auth fails, falls back to cc_rich text encoding automatically.',
     inputSchema: createRichBlockInputSchema,
     handler: handleCreateRichBlock,
-  },
-  {
-    name: 'office_claw_generate_document',
-    description:
-      'Generate a document (PDF/DOCX/MD) from Markdown and deliver to IM platforms (Feishu/Telegram). ' +
-      'Use when: user asks to "生成报告", "导出文档", "发PDF", "写份文档给我", "export to DOCX", or any document generation request. ' +
-      'NOT for: sending an existing file you already have (use create_rich_block with kind:"file" + url pointing to /uploads/). ' +
-      'Output: file saved to /uploads/, attached as file RichBlock, automatically delivered to bound IM chats. Web UI shows download link. ' +
-      'GOTCHA: Do NOT manually run pandoc + create_rich_block — that skips IM delivery and the file will NOT reach Feishu/Telegram. Always use this tool. ' +
-      'Degradation: PDF needs LaTeX engine → falls back to DOCX → falls back to MD. No pandoc → .md only.',
-    inputSchema: generateDocumentInputSchema,
-    handler: handleGenerateDocument,
   },
   {
     name: 'office_claw_request_permission',

@@ -35,7 +35,6 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { getFeatureTagId } from './backlog-doc-import.js';
 import { enqueueA2ATargets, triggerA2AInvocation } from './callback-a2a-trigger.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
-import { registerCallbackDocumentRoutes } from './callback-document-routes.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackLimbRoutes } from './callback-limb-routes.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
@@ -418,7 +417,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
     // #83: Extract cc_rich blocks from post_message content (Route B for callback path)
     const { cleanText: rawStoredContent, blocks: extractedBlocks } = extractRichFromText(content);
 
-    // F088-J hotfix: Consume any buffered rich blocks (e.g. file blocks from generate_document).
+    // Consume any buffered rich blocks produced earlier in the same invocation.
     // CLI agents don't go through route-serial, so the buffer must be consumed here.
     // For route-serial agents, the buffer is already consumed before post_message — this is a no-op.
     const bufferedBlocks = getRichBlockBuffer().consume(effectiveThreadId, record.catId as string, invocationId);
@@ -1221,7 +1220,4 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       socketManager.setMultiMentionOrchestrator(getMultiMentionOrchestrator());
     }
   }
-
-  // F088 Phase J2: Document generation callback routes
-  registerCallbackDocumentRoutes(app, { registry, socketManager });
 };
