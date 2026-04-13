@@ -99,7 +99,8 @@ const MAAS_MAP: Record<string, Partial<MassModelInfo>> = {
   },
   'glm-5.1': {
     name: 'GLM-5.1',
-    description:  'GLM-5.1 是智谱最新旗舰模型，代码能力大大增强，长程任务显著提升，能够在单次任务中持续、自主地工作长达 8 小时，完成从规划、执行到迭代优化的完整闭环，交付工程级成果。',
+    description:
+      'GLM-5.1 是智谱最新旗舰模型，代码能力大大增强，长程任务显著提升，能够在单次任务中持续、自主地工作长达 8 小时，完成从规划、执行到迭代优化的完整闭环，交付工程级成果。',
     labels: ['文本生成', 'Function Call', '深度思考', '198K'],
     developer: '智谱.AI',
     icon: '/images/zhipu.svg',
@@ -416,6 +417,45 @@ export const maasModelsRoutes: FastifyPluginAsync<ProviderProfilesRoutesOptions>
   };
 
   app.get('/api/maas-models', handleListModels);
+
+  app.post('/api/maas-test-connection', async (request, reply) => {
+    const { baseUrl, apiKey, model } = request.body as {
+      baseUrl?: string;
+      apiKey?: string;
+      model?: string;
+    };
+
+    if (!baseUrl || !apiKey) {
+      reply.status(400);
+      return { error: 'Missing baseUrl or apiKey' };
+    }
+
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: model || 'default',
+          messages: [{ role: 'user', content: 'Hi' }],
+          max_tokens: 5,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        reply.status(res.status);
+        return { error: `HTTP ${res.status}: ${errorBody}` };
+      }
+
+      return { success: true };
+    } catch (error) {
+      reply.status(500);
+      return { error: error instanceof Error ? error.message : 'Connection failed' };
+    }
+  });
 
   app.post('/api/maas-send', async (_request, reply) => {
     reply.status(410);

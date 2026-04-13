@@ -1,12 +1,19 @@
 /**
  * 字体嵌入模块配置
- * 可通过 window.EMBED_FONTS_CONFIG 或全局变量覆盖
+ * 
+ * 支持三种 WASM 加载方式：
+ * 1. 本地文件（离线可用）
+ * 2. 官方 CDN（unpkg.com）
+ * 3. 国内镜像（npmmirror.com）
+ * 
+ * WASM 为可选依赖，加载失败时跳过字体嵌入，不影响 PPTX 生成
  */
 
 const DEFAULT_CONFIG = {
-  // woff2 WASM 文件的 CDN URL
   woff2: {
     wasmUrl: "https://unpkg.com/fonteditor-core@2.6.3/woff2/woff2.wasm",
+    mirrorUrl: "https://npmmirror.com/mirrors/fonteditor-core@2.6.3/woff2/woff2.wasm",
+    optional: true,
   },
 };
 
@@ -17,8 +24,9 @@ const DEFAULT_CONFIG = {
  * @returns {any}
  */
 export function getConfig(key, defaultValue) {
-  // 优先使用运行时配置
-  const config = window.EMBED_FONTS_CONFIG || DEFAULT_CONFIG;
+  const config = typeof window !== 'undefined' && window.EMBED_FONTS_CONFIG 
+    ? window.EMBED_FONTS_CONFIG 
+    : DEFAULT_CONFIG;
   const keys = key.split(".");
   let value = config;
   for (const k of keys) {
@@ -29,6 +37,31 @@ export function getConfig(key, defaultValue) {
     }
   }
   return value;
+}
+
+/**
+ * 获取 WASM URL（优先本地，其次 CDN）
+ * 在浏览器环境中，本地路径无法直接使用，需通过 convert.js 注入
+ * @returns {string}
+ */
+export function getWasmUrl() {
+  return getConfig("woff2.wasmUrl", DEFAULT_CONFIG.woff2.wasmUrl);
+}
+
+/**
+ * 获取 WASM 备用镜像 URL
+ * @returns {string}
+ */
+export function getMirrorUrl() {
+  return getConfig("woff2.mirrorUrl", DEFAULT_CONFIG.woff2.mirrorUrl);
+}
+
+/**
+ * WASM 是否为可选依赖
+ * @returns {boolean}
+ */
+export function isWasmOptional() {
+  return getConfig("woff2.optional", true);
 }
 
 export { DEFAULT_CONFIG };

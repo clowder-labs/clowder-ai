@@ -98,11 +98,7 @@ Var CreateStartMenuShortcut
 Var CreateDesktopShortcut
 Var EnableAutoStart
 Var DetectedRunningProcesses
-Var DirPageWarningLabel
 Var IsExistingInstall
-Var DirDialog
-Var DirText
-Var DirBrowseBtn
 
 ; Check if OfficeClaw-related processes are running
 ; Returns "1" in $R0 if running, "0" otherwise
@@ -402,6 +398,17 @@ Function ResolveInstallOptionDefaults
 FunctionEnd
 
 Function DirectoryPageCreate
+  ${If} $ExistingInstallDir != ""
+    StrCpy $INSTDIR $ExistingInstallDir
+    StrCpy $SelectedInstallDir $ExistingInstallDir
+  ${ElseIf} $SelectedInstallDir == ""
+    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
+    StrCpy $INSTDIR $SelectedInstallDir
+  ${Else}
+    Call NormalizeSelectedInstallDir
+    StrCpy $INSTDIR $SelectedInstallDir
+  ${EndIf}
+
   ${If} $IsExistingInstall == "1"
     !insertmacro MUI_HEADER_TEXT "安装目录" "本次安装将更新现有安装"
   ${Else}
@@ -409,72 +416,40 @@ Function DirectoryPageCreate
   ${EndIf}
   
   nsDialogs::Create 1018
-  Pop $DirDialog
-  ${If} $DirDialog == error
+  Pop $DirectoryDialog
+  ${If} $DirectoryDialog == error
     Abort
   ${EndIf}
   
   ${If} $IsExistingInstall == "1"
     ; 已安装场景：显示警告和只读目录
     ${NSD_CreateLabel} 0 0 100% 30u "检测到已安装的 ${APP_NAME}，本次安装将更新现有目录：$\r$\n$\r$\n安装目录不可修改，如需更换位置请先卸载当前版本。"
-    Pop $DirPageWarningLabel
-    SetCtlColors $DirPageWarningLabel 0x0000FF transparent
+    Pop $0
+    SetCtlColors $0 0x0000FF transparent
     
     ${NSD_CreateLabel} 0 35u 50u 12u "安装目录："
     Pop $0
     
     ${NSD_CreateText} 55u 35u 245u 12u "$ExistingInstallDir"
-    Pop $DirText
-    EnableWindow $DirText 0
-    SetCtlColors $DirText 0x808080 0xF0F0F0
-    
-    ; 不显示浏览按钮
+    Pop $DirectoryInput
+    EnableWindow $DirectoryInput 0
+    SetCtlColors $DirectoryInput 0x808080 0xF0F0F0
   ${Else}
     ; 新装场景：可编辑的目录选择
-    ${NSD_CreateLabel} 0 0 100% 24u "选择 ${APP_NAME} 的安装位置。$\r$\n$\r$\n建议使用默认目录，安装路径过长可能导致部分功能异常。"
+    ${NSD_CreateLabel} 0 0 100% 24u "请选择安装路径。若选择父目录，安装器会自动在其下创建 ${APP_NAME} 子目录。$\r$\n$\r$\n建议使用默认目录，安装路径过长可能导致部分功能异常。"
     Pop $0
     
     ${NSD_CreateLabel} 0 35u 50u 12u "安装目录："
     Pop $0
     
     ${NSD_CreateText} 55u 35u 205u 12u "$SelectedInstallDir"
-    Pop $DirText
+    Pop $DirectoryInput
     
     ${NSD_CreateButton} 265u 35u 35u 12u "浏览..."
-    Pop $DirBrowseBtn
-    ${NSD_OnClick} $DirBrowseBtn OnDirBrowseClick
+    Pop $DirectoryBrowseButton
+    ${NSD_OnClick} $DirectoryBrowseButton OnDirectoryBrowseClicked
   ${EndIf}
   
-  nsDialogs::Show
-FunctionEnd
-
-Function OnDirBrowseClick
-  Pop $0
-  nsDialogs::SelectFolderDialog "选择安装目录" "$SelectedInstallDir"
-  Pop $0
-  ${If} $0 != ""
-    StrCpy $SelectedInstallDir $0
-    ${NSD_SetText} $DirText "$SelectedInstallDir"
-  ${EndIf}
-
-  ${If} $SelectedInstallDir == ""
-    StrCpy $SelectedInstallDir "${DEFAULT_INSTALL_DIR}"
-  ${Else}
-    Call NormalizeSelectedInstallDir
-  ${EndIf}
-
-  StrCpy $INSTDIR $SelectedInstallDir
-
-  ${NSD_CreateLabel} 0 0 100% 20u "请选择安装路径。若选择父目录，安装器会自动在其下创建 ${APP_NAME} 子目录。"
-  Pop $0
-
-  ${NSD_CreateText} 0 28u 78% 12u "$SelectedInstallDir"
-  Pop $DirectoryInput
-
-  ${NSD_CreateBrowseButton} 82% 27u 18% 14u "浏览..."
-  Pop $DirectoryBrowseButton
-  ${NSD_OnClick} $DirectoryBrowseButton OnDirectoryBrowseClicked
-
   nsDialogs::Show
 FunctionEnd
 
@@ -555,7 +530,8 @@ Function DirectoryPageLeave
   ${EndIf}
   
   ; 新装场景，获取用户输入
-  ${NSD_GetText} $DirText $SelectedInstallDir
+  ${NSD_GetText} $DirectoryInput $SelectedInstallDir
+  Call NormalizeSelectedInstallDir
   
   StrLen $0 $SelectedInstallDir
   ${If} $0 > 200
@@ -569,6 +545,7 @@ Function DirectoryPageLeave
   ${EndIf}
   
   StrCpy $INSTDIR $SelectedInstallDir
+  ${NSD_SetText} $DirectoryInput $SelectedInstallDir
 FunctionEnd
 
 ; Force-kill every process related to installed OfficeClaw (launcher, node API, Redis, jiuwenclaw, python).

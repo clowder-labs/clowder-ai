@@ -658,6 +658,8 @@ function installSharedPythonDeps(bundleDir) {
     'python-docx', // Word read/write
     'xlsxwriter', // Excel write (fast, chart support)
     'pypdf', // PDF read/merge/split
+    'pdfplumber', // PDF text/table extraction
+    'pandas', // Tabular extraction and spreadsheet shaping
     'reportlab', // PDF creation
     'markitdown', // Microsoft multi-format → Markdown converter
   ];
@@ -1135,6 +1137,19 @@ function runWindowsNpmInstall(npmCmdPath, packageWindowsDir) {
   run(npmCmdPath, WINDOWS_RUNTIME_NPM_ARGS, { cwd: packageWindowsDir, shell: true });
 }
 
+function installBundledOfficeSkillDependencies(bundleDir, windowsNode) {
+  const pptxCraftDir = join(bundleDir, 'office-claw-skills', 'pptx-craft');
+  const packageJsonPath = join(pptxCraftDir, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    throw new Error(`Missing office skill package manifest: ${packageJsonPath}`);
+  }
+  runWindowsNpmInstall(windowsNode.npmCmdPath, toWindowsPath(pptxCraftDir));
+  rmSync(join(pptxCraftDir, 'package-lock.json'), { force: true });
+  const nmDir = join(pptxCraftDir, 'node_modules');
+  pruneNativePrebuilds(nmDir);
+  pruneDateFnsLocales(nmDir);
+}
+
 function materializeSharedDependency(stagePackagesDir, packageName) {
   const sharedLinkPath = join(stagePackagesDir, packageName, 'node_modules', '@cat-cafe', 'shared');
   try {
@@ -1161,6 +1176,8 @@ async function installWindowsRuntimeDependencies(bundleDir, options) {
     pruneNativePrebuilds(nmDir);
     pruneDateFnsLocales(nmDir);
   }
+
+  installBundledOfficeSkillDependencies(bundleDir, windowsNode);
 }
 
 async function stageWorkspacePackages(targetRootDir) {

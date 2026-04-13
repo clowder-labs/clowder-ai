@@ -20,6 +20,7 @@ import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
 import { useConfirm } from './useConfirm';
 import { getIsSkipAuth } from '@/utils/userId';
+import { useToastStore } from '@/stores/toastStore';
 
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
@@ -37,6 +38,7 @@ const CREATE_MODEL_LABEL = '新建模型';
 const HUAWEI_MAAS_ACCESS_LABEL = '接入华为云 MaaS模型';
 const HUAWEI_MAAS_ACCESS_URL = 'https://api.modelarts-maas.com/openai/v1';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
+const TEST_CONNECTION_LABEL = '测试连接';
 const SAVE_MODEL_LABEL = '保存';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
@@ -278,6 +280,7 @@ export function ModelsPanel() {
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const [modelHeaderRows, setModelHeaderRows] = useState<HeaderInputRow[]>([]);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
   const [editingOriginalModelName, setEditingOriginalModelName] = useState<string | null>(null);
@@ -545,6 +548,48 @@ export function ModelsPanel() {
       setCreateModelError(error instanceof Error ? error.message : String(error));
     } finally {
       setSaveModelBusy(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    const url = modelUrlInput.trim();
+    const apiKey = modelApiKeyInput.trim();
+    const modelName = modelNameInput.trim();
+    if (!url || !apiKey) return;
+    if (testingConnection) return;
+
+    setTestingConnection(true);
+    setCreateModelError(null);
+    setCreateModelSuccess(null);
+
+    const showToast = useToastStore.getState().addToast;
+
+    try {
+      const res = await apiFetch('/api/maas-test-connection', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseUrl: url,
+          apiKey: apiKey,
+          model: modelName || 'default',
+        }),
+      });
+
+      const body = (await res.json().catch(() => ({}))) as { error?: string; success?: boolean };
+      if (!res.ok || body.error) {
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+
+      showToast({ type: 'success', title: '测试连接成功', message: '连接测试成功', duration: 3000 });
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: '测试连接失败',
+        message: '请检查模型调用名称或者API Key填写是否正确',
+        duration: 5000,
+      });
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -995,12 +1040,6 @@ export function ModelsPanel() {
                   </button>
                 </div>
               </div>
-              {createModelError ? (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-500">{createModelError}</p>
-              ) : null}
-              {createModelSuccess ? (
-                <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{createModelSuccess}</p>
-              ) : null}
             </div>
 
             <div className="flex items-center justify-end gap-2">
@@ -1010,6 +1049,15 @@ export function ModelsPanel() {
                 className="ui-button-default ui-modal-action-button"
               >
                 {CREATE_MODEL_CANCEL_LABEL}
+              </button>
+              <button
+                type="button"
+                disabled={!canConfirmCreateModel || testingConnection || modelIconUploading || editModelBusy}
+                onClick={handleTestConnection}
+                data-testid="models-test-connection"
+                className="ui-button-default ui-modal-action-button disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {testingConnection ? '测试中...' : TEST_CONNECTION_LABEL}
               </button>
               <button
                 type="button"
