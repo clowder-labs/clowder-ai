@@ -188,7 +188,9 @@ async def memory_search(
         }
 
 
-@tool
+@tool(
+    description="安全地读取 memory/*.md 文件的指定行。在 memory_search 之后使用，只读取需要的行，保持上下文简洁。",
+)
 async def memory_get(
     path: str,
     from_line: Optional[int] = None,
@@ -241,7 +243,9 @@ async def memory_get(
         }
 
 
-@tool
+@tool(
+    description="创建或更新 memory/ 目录下的记忆文件。仅用于创建或更新 USER.md、MEMORY.md 或 memory/*.md 等记忆文件。不适用于代码、配置文件或其他非记忆类文件。",
+)
 async def write_memory(
     path: str,
     content: str,
@@ -300,7 +304,9 @@ async def write_memory(
         }
 
 
-@tool
+@tool(
+    description="精确编辑 memory 目录下的文件内容。仅用于更新记忆文件（如 USER.md、MEMORY.md）。oldText 必须完全匹配文件中的内容。如果 oldText 出现多次，需要更具体地指定。",
+)
 async def edit_memory(
     path: str,
     oldText: str,
@@ -378,7 +384,9 @@ async def edit_memory(
         }
 
 
-@tool
+@tool(
+    description="读取 memory 目录下的文件内容。仅用于读取记忆文件（如 USER.md、MEMORY.md 或 memory/*.md）。",
+)
 async def read_memory(
     path: str,
     offset: Optional[int] = None,
