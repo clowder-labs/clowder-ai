@@ -56,6 +56,34 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     };
   }
 
+  it('passes callback credentials and cat identity into callbackEnv', async () => {
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    await collect(
+      invokeSingleCat(makeDeps(), {
+        catId: 'codex',
+        service,
+        prompt: 'test',
+        userId: 'user-callback-env',
+        threadId: 'thread-callback-env',
+        isLastCat: true,
+      }),
+    );
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.equal(callbackEnv.OFFICE_CLAW_API_URL, 'http://127.0.0.1:3004');
+    assert.equal(callbackEnv.OFFICE_CLAW_INVOCATION_ID, 'inv-1');
+    assert.equal(callbackEnv.OFFICE_CLAW_CALLBACK_TOKEN, 'tok-1');
+    assert.equal(callbackEnv.OFFICE_CLAW_USER_ID, 'user-callback-env');
+    assert.equal(callbackEnv.OFFICE_CLAW_CAT_ID, 'codex');
+  });
+
   it('emits CAT_ERROR audit when service yields error before done', async () => {
     const errorService = {
       async *invoke() {
@@ -1354,7 +1382,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   async function withSanitizedOpencodeConfig(run) {
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
     const registrySnapshot = catRegistry.getAllConfigs();
-    const baselineConfigs = toAllCatConfigs(loadCatConfig(join(process.cwd(), '..', '..', 'office-claw-template.json')));
+    const baselineConfigs = toAllCatConfigs(
+      loadCatConfig(join(process.cwd(), '..', '..', 'office-claw-template.json')),
+    );
     const baselineOpencodeConfig = baselineConfigs.opencode;
     assert.ok(baselineOpencodeConfig, 'opencode config should exist in baseline catalog');
 
@@ -2471,8 +2501,14 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       promptsSeen[0].includes('office_claw_list_skills before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should steer list-first behavior',
     );
-    assert.ok(promptsSeen[0].includes('retry once with a likely exact skill name'), 'ACP hint should mention retry guidance');
-    assert.ok(promptsSeen[0].includes('office_claw_load_skill immediately'), 'ACP hint should mention immediate skill loading');
+    assert.ok(
+      promptsSeen[0].includes('retry once with a likely exact skill name'),
+      'ACP hint should mention retry guidance',
+    );
+    assert.ok(
+      promptsSeen[0].includes('office_claw_load_skill immediately'),
+      'ACP hint should mention immediate skill loading',
+    );
     assert.ok(
       promptsSeen[0].includes('before office_claw_search_evidence, repo grep, or read'),
       'ACP hint should prioritize skills ahead of other retrieval tools',
@@ -3393,10 +3429,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         callbackEnv.OPENAI_DEFAULT_HEADERS,
         JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
       );
-      assert.equal(
-        callbackEnv.default_headers,
-        JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }),
-      );
+      assert.equal(callbackEnv.default_headers, JSON.stringify({ 'X-App-Id': 'cat-cafe', 'X-Workspace': 'sandbox' }));
     } finally {
       if (previousGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
       else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = previousGlobalRoot;

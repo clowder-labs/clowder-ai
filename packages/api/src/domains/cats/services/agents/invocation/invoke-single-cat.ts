@@ -1424,7 +1424,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
                               timestamp: Date.now(),
                             });
                             deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch((err: unknown) => {
-                              log.error({ err, sessionId: activeRecord.id }, 'session finalize failed — recall will 404');
+                              log.error(
+                                { err, sessionId: activeRecord.id },
+                                'session finalize failed — recall will 404',
+                              );
                             });
                           }
                         }

@@ -10,6 +10,7 @@ import { act } from 'react-dom/test-utils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
+import { notifySkillOptionsChanged } from '@/utils/skill-options-cache';
 import {
   SKILL_UPLOAD_LIMITS,
   UploadSkillModal,
@@ -22,8 +23,12 @@ import {
 vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(),
 }));
+vi.mock('@/utils/skill-options-cache', () => ({
+  notifySkillOptionsChanged: vi.fn(),
+}));
 
 const mockApiFetch = vi.mocked(apiFetch);
+const mockNotifySkillOptionsChanged = vi.mocked(notifySkillOptionsChanged);
 
 beforeAll(() => {
   (globalThis as { React?: typeof React }).React = React;
@@ -49,6 +54,7 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   mockApiFetch.mockReset();
+  mockNotifySkillOptionsChanged.mockReset();
   useToastStore.setState({ toasts: [] });
 });
 
@@ -284,6 +290,52 @@ name: demo-skill
     expect(latestToast?.title).toBe('上传失败');
     expect(latestToast?.message).toBe('技能已存在');
     expect(container.textContent).not.toContain('技能已存在');
+  });
+
+  it('notifies skill option listeners after upload succeeds', async () => {
+    mockApiFetch.mockResolvedValue({
+      status: 200,
+      json: async () => ({ success: true }),
+    } as Response);
+
+    const onClose = vi.fn();
+    const onSuccess = vi.fn();
+    renderModal({ onClose, onSuccess });
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+name: uploaded-skill
+---
+
+# Uploaded Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [skillFile],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushEffects();
+
+    const confirmButton = container.querySelector('button.ui-button-primary') as HTMLButtonElement | null;
+    expect(confirmButton?.disabled).toBe(false);
+
+    await act(async () => {
+      confirmButton?.click();
+    });
+    await flushEffects();
+
+    expect(mockNotifySkillOptionsChanged).toHaveBeenCalledTimes(1);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('closes from header close icon', () => {

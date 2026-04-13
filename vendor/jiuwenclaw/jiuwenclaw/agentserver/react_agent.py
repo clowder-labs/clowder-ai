@@ -48,6 +48,13 @@ from jiuwenclaw.utils import (
     logger,
 )
 from jiuwenclaw.config import get_config
+from jiuwenclaw.agentserver.llm_io_trace import (
+    log_invoke_input,
+    log_invoke_output,
+    log_reasoning_delta,
+    log_stream_input,
+    log_stream_output,
+)
 from jiuwenclaw.agentserver.context_window_unload import (
     context_engine_compression_enabled,
     effective_token_budget,
@@ -63,6 +70,8 @@ _react_config = get_config().get("react", {})
 ANSWER_CHUNK_SIZE = _react_config.get("answer_chunk_size", 500)
 STREAM_CHUNK_THRESHOLD = _react_config.get("stream_chunk_threshold", 50)
 STREAM_CHARACTER_THRESHOLD = _react_config.get("stream_character_threshold", 2000)
+# DEBUG reasoning_delta: merge this many stream chunks per log line to reduce volume.
+REASONING_TRACE_LOG_BATCH = 5
 _llm_max_tokens_env = os.environ.get("LLM_MAX_TOKENS", "").strip()
 LLM_MAX_TOKENS = int(_llm_max_tokens_env) if _llm_max_tokens_env else 16384
 
@@ -170,9 +179,6 @@ class JiuClawReActAgent(ReActAgent):
         self._current_session_id: Optional[str] = None
         self._no_tool_invoke_count: int = 0  # consecutive invokes ending without tool calls
         self._skill_bash_commands: List[str] = []  # parsed from SKILL.md ```bash blocks
-        self._last_reasoning_content: Optional[str] = None  # previous iteration's reasoning_content
-        self._reasoning_repeat_count: int = 0  # consecutive identical reasoning_content count
-        self._stop_reasoning_output: bool = False  # stop streaming reasoning when repeated with tool_calls
 
     def set_workspace(self, workspace_dir: str, agent_id: str) -> None:
         """Set workspace directory and Agent ID."""
@@ -215,7 +221,8 @@ class JiuClawReActAgent(ReActAgent):
         messages: List,
         tools: Optional[List[ToolInfo]] = None,
         session: Optional[Session] = None,
-        chunk_threshold: int = 10
+        chunk_threshold: int = 10,
+        react_iteration: Optional[int] = None,
     ) -> AssistantMessage:
         """Call LLM with messages and optional tools (streaming if session provided)
 
@@ -224,6 +231,7 @@ class JiuClawReActAgent(ReActAgent):
             tools: Optional tool definitions (List[ToolInfo])
             session: Optional Session for streaming output
             chunk_threshold: Number of chunks to accumulate before sending (default: 10)
+            react_iteration: 1-based ReAct loop index for DEBUG LLM I/O trace logs
 
         Returns:
             AssistantMessage from LLM
@@ -233,16 +241,39 @@ class JiuClawReActAgent(ReActAgent):
         # If session provided, use streaming mode for real-time output
         if session is not None:
             return await self._call_llm_stream(
-                llm, messages, tools, session, chunk_threshold
+                llm,
+                messages,
+                tools,
+                session,
+                chunk_threshold,
+                react_iteration=react_iteration,
             )
         else:
-            # Non-streaming mode for backward compatibility
-            return await llm.invoke(
+            model_name = getattr(self._config, "model_name", "") or ""
+            sid = (self._current_session_id or "") or ""
+            log_invoke_input(
+                session_id=sid,
+                request_id="",
+                iteration=react_iteration,
+                model_name=model_name,
+                messages=messages,
+                tools=tools,
+                max_tokens=LLM_MAX_TOKENS,
+            )
+            result = await llm.invoke(
                 model=self._config.model_name,
                 messages=messages,
                 tools=tools,
                 max_tokens=LLM_MAX_TOKENS,
             )
+            log_invoke_output(
+                session_id=sid,
+                request_id="",
+                iteration=react_iteration,
+                model_name=model_name,
+                assistant_msg=result,
+            )
+            return result
 
     async def _call_llm_stream(
         self,
@@ -250,7 +281,8 @@ class JiuClawReActAgent(ReActAgent):
         messages: List,
         tools: Optional[List[ToolInfo]],
         session: Session,
-        chunk_threshold: int
+        chunk_threshold: int,
+        react_iteration: Optional[int] = None,
     ) -> AssistantMessage:
         """Stream LLM invocation and send partial answers when content exceeds threshold
 
@@ -267,6 +299,39 @@ class JiuClawReActAgent(ReActAgent):
         accumulated_chunk = None
         chunk_count = 0
         last_sent_length = 0  # Track last sent content length
+        reasoning_seq = 0
+        session_hint = (
+            getattr(session, "conversation_id", None)
+            or getattr(session, "session_id", None)
+            or ""
+        )
+        trace_session_id = (self._current_session_id or session_hint or "") or ""
+        trace_request_id = (getattr(session, "request_id", None) or "") or ""
+        model_name = getattr(self._config, "model_name", "") or ""
+        reasoning_trace_pending: List[Tuple[int, str]] = []
+
+        def emit_reasoning_trace_batch() -> None:
+            if not reasoning_trace_pending:
+                return
+            log_reasoning_delta(
+                session_id=trace_session_id,
+                request_id=trace_request_id,
+                iteration=react_iteration,
+                model_name=model_name,
+                reasoning_seq=reasoning_trace_pending[0][0],
+                fragment="".join(t[1] for t in reasoning_trace_pending),
+            )
+            reasoning_trace_pending.clear()
+
+        log_stream_input(
+            session_id=trace_session_id,
+            request_id=trace_request_id,
+            iteration=react_iteration,
+            model_name=model_name,
+            messages=messages,
+            tools=tools,
+            max_tokens=LLM_MAX_TOKENS,
+        )
 
         try:
             async for chunk in llm.stream(
@@ -281,8 +346,12 @@ class JiuClawReActAgent(ReActAgent):
                 else:
                     accumulated_chunk = accumulated_chunk + chunk
 
-                # Stream output for reasoning content (skip if stopped due to repeat)
-                if chunk.reasoning_content and not self._stop_reasoning_output:
+                if chunk.reasoning_content:
+                    reasoning_trace_pending.append(
+                        (reasoning_seq, str(chunk.reasoning_content))
+                    )
+                    if len(reasoning_trace_pending) >= REASONING_TRACE_LOG_BATCH:
+                        emit_reasoning_trace_batch()
                     stream_output = OutputSchema(
                         type="llm_reasoning",
                         index=chunk_count,
@@ -293,6 +362,7 @@ class JiuClawReActAgent(ReActAgent):
                     )
                     await session.write_stream(stream_output)
                     chunk_count += 1
+                    reasoning_seq += 1
 
                 # Check if accumulated content exceeds threshold
                 if accumulated_chunk is not None and accumulated_chunk.content:
@@ -318,6 +388,8 @@ class JiuClawReActAgent(ReActAgent):
                             )
                             chunk_count += 1
                             last_sent_length = current_length
+
+            emit_reasoning_trace_batch()
 
             # Send any remaining content that didn't reach threshold
             if accumulated_chunk is not None and accumulated_chunk.content:
@@ -346,7 +418,7 @@ class JiuClawReActAgent(ReActAgent):
                 raise ValueError("LLM returned empty response")
 
             # Convert accumulated chunk to AssistantMessage
-            return AssistantMessage(
+            assistant_msg = AssistantMessage(
                 role=accumulated_chunk.role or "assistant",
                 content=accumulated_chunk.content or "",
                 tool_calls=accumulated_chunk.tool_calls or [],
@@ -355,8 +427,17 @@ class JiuClawReActAgent(ReActAgent):
                 parser_content=getattr(accumulated_chunk, 'parser_content', None),
                 reasoning_content=getattr(accumulated_chunk, 'reasoning_content', None),
             )
+            log_stream_output(
+                session_id=trace_session_id,
+                request_id=trace_request_id,
+                iteration=react_iteration,
+                model_name=model_name,
+                assistant_msg=assistant_msg,
+            )
+            return assistant_msg
 
         except Exception as e:
+            emit_reasoning_trace_batch()
             logger.error(f"Failed to stream LLM output: {e}")
             raise
 
@@ -400,10 +481,6 @@ class JiuClawReActAgent(ReActAgent):
             raise ValueError("Input must be dict with 'query' or str")
 
         self._current_session_id = session_id or None
-        # Reset reasoning loop repeater counter for each new conversation
-        self._last_reasoning_content = None
-        self._reasoning_repeat_count = 0
-        self._stop_reasoning_output = False
         # Token usage accumulator across ReAct iterations
         total_input_tokens = 0
         total_output_tokens = 0
@@ -453,6 +530,10 @@ class JiuClawReActAgent(ReActAgent):
 
         # Validate and fix incomplete context before entering ReAct loop
         await self._fix_incomplete_tool_context(context)
+
+        # 将前端 todo 面板同步到当前 request 作用域（避免仍显示上一轮任务的列表）
+        if session is not None and session_id:
+            await self._emit_todo_updated(session, session_id)
 
         # ReAct loop
         for iteration in range(self._config.max_iterations):
@@ -506,6 +587,7 @@ class JiuClawReActAgent(ReActAgent):
                     messages,
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
+                    react_iteration=iteration + 1,
                 )
                 # Accumulate token usage
                 _has_um = hasattr(ai_message, 'usage_metadata')
@@ -544,6 +626,7 @@ class JiuClawReActAgent(ReActAgent):
                     messages,
                     context_window.get_tools() or None,
                     session,  # Pass session for streaming
+                    react_iteration=iteration + 1,
                 )
                 # Accumulate token usage (retry path)
                 if hasattr(ai_message, 'usage_metadata') and ai_message.usage_metadata:
@@ -554,48 +637,6 @@ class JiuClawReActAgent(ReActAgent):
                 # 修复 tool_calls 中的 JSON 格式
                 if hasattr(ai_message, "tool_calls") and ai_message.tool_calls:
                     ai_message.tool_calls = self._fix_tool_calls_arguments(ai_message.tool_calls)
-
-            # ---- 复读机检测 ----
-            # 检测 reasoning_content 是否重复，无论是否有 tool_calls
-            has_tool_calls = bool(ai_message.tool_calls)
-            reasoning = getattr(ai_message, 'reasoning_content', None) or ''
-            if reasoning:
-                if reasoning == self._last_reasoning_content:
-                    # reasoning 相同，累加计数
-                    self._reasoning_repeat_count += 1
-                    # 有 tool_calls 时，停止 reasoning 输出但不终止任务
-                    if has_tool_calls and self._reasoning_repeat_count >= 3:
-                        self._stop_reasoning_output = True
-                        logger.warning(
-                            "[ReActAgent] Reasoning repeat detected: same reasoning_content %d times with tool_calls, stopping reasoning output",
-                            self._reasoning_repeat_count,
-                        )
-                else:
-                    # reasoning 不同，重置计数
-                    self._last_reasoning_content = reasoning
-                    self._reasoning_repeat_count = 0
-                    self._stop_reasoning_output = False
-
-            if not has_tool_calls and self._reasoning_repeat_count >= 3:
-                logger.warning(
-                    "[ReActAgent] Reasoning loop detected: same reasoning_content %d times with no tool calls, terminating",
-                    self._reasoning_repeat_count,
-                )
-                self._last_reasoning_content = None
-                self._reasoning_repeat_count = 0
-                usage = None
-                if total_input_tokens or total_output_tokens:
-                    usage = {
-                        "input_tokens": total_input_tokens,
-                        "output_tokens": total_output_tokens,
-                        "total_tokens": total_total_tokens,
-                    }
-                # 返回 answer 而非 error，保留 LLM 已输出内容，附加循环终止提示
-                return {
-                    "output": f"{ai_message.content or ''}\n\n[系统提示] 检测到思考循环，已自动终止。请尝试提供更明确的指令或简化任务复杂度。",
-                    "result_type": "answer",
-                    "usage": usage,
-                }
 
             # Pause checkpoint: after LLM returns, before tool execution
             if _pause_event is not None:
@@ -786,6 +827,11 @@ class JiuClawReActAgent(ReActAgent):
                 "output_tokens": total_output_tokens,
                 "total_tokens": total_total_tokens,
             }
+        logger.warning(
+            "[ReActAgent] max_iterations reached without completion session_id=%s max_iterations=%d",
+            session_id or "",
+            self._config.max_iterations,
+        )
         return {
             "output": "Max iterations reached without completion",
             "result_type": "error",
@@ -835,7 +881,36 @@ class JiuClawReActAgent(ReActAgent):
                             output_content = output_content.get("output", "")
                         was_streamed = final_result.get("_streamed", False)
 
-                    if was_streamed:
+                    final_result_type = (
+                        (final_result.get("result_type") if isinstance(final_result, dict) else None)
+                        or "answer"
+                    )
+
+                    # invoke() errors must surface as chat.error: _parse_stream_chunk only checks
+                    # payload["result_type"] at the top level, not nested inside output.
+                    if final_result_type == "error":
+                        err_text = (
+                            output_content
+                            if isinstance(output_content, str) and output_content
+                            else str(
+                                (final_result.get("output") if isinstance(final_result, dict) else "")
+                                or "未知错误"
+                            )
+                        )
+                        err_payload: Dict[str, Any] = {
+                            "output": err_text,
+                            "result_type": "error",
+                        }
+                        if _usage:
+                            err_payload["usage"] = _usage
+                        await session.write_stream(
+                            OutputSchema(
+                                type="answer",
+                                index=0,
+                                payload=err_payload,
+                            )
+                        )
+                    elif was_streamed:
                         # Content was already streamed via _call_llm_stream
                         # Send final answer marker only (with usage if available)
                         payload = {
@@ -890,7 +965,7 @@ class JiuClawReActAgent(ReActAgent):
                                     )
                                 )
                     else:
-                        # Short content: send as single answer
+                        # Short success: send as single answer (preserve invoke dict shape)
                         await session.write_stream(
                             OutputSchema(
                                 type="answer",

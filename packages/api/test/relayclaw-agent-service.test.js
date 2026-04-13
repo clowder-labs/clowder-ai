@@ -382,6 +382,7 @@ describe('RelayClawAgentService', () => {
       type: 'thinking',
       catId: 'relayclaw-debug',
       text: 'thinking step',
+      mergeStrategy: 'append',
     });
     assert.equal(messages[2].content, 'Final answer');
   });
@@ -1025,13 +1026,13 @@ describe('RelayClawAgentService', () => {
     );
 
     const messages = [];
-    for await (const msg of service.invoke('resume this session', { cliSessionId: 'catcafe_existing_session' })) {
+    for await (const msg of service.invoke('resume this session', { cliSessionId: 'officeclaw_existing_session' })) {
       messages.push(msg);
     }
 
     assert.equal(messages[0].type, 'session_init');
-    assert.equal(messages[0].sessionId, 'catcafe_existing_session');
-    assert.equal(capturedRequest.session_id, 'catcafe_existing_session');
+    assert.equal(messages[0].sessionId, 'officeclaw_existing_session');
+    assert.equal(capturedRequest.session_id, 'officeclaw_existing_session');
   });
 
   it('derives a stable relayclaw sessionId from audit context when none is persisted yet', async () => {
@@ -1042,7 +1043,7 @@ describe('RelayClawAgentService', () => {
         config: {
           url: 'ws://127.0.0.1:65535',
           autoStart: false,
-          channelId: 'catcafe',
+          channelId: 'officeclaw',
         },
       },
       {
@@ -1089,7 +1090,7 @@ describe('RelayClawAgentService', () => {
     assert.equal(firstMessages[0].type, 'session_init');
     assert.equal(secondMessages[0].type, 'session_init');
     assert.equal(firstMessages[0].sessionId, secondMessages[0].sessionId);
-    assert.match(firstMessages[0].sessionId, /^catcafe_[0-9a-f]{24}$/);
+    assert.match(firstMessages[0].sessionId, /^officeclaw_[0-9a-f]{24}$/);
     assert.equal(sentSessionIds[0], firstMessages[0].sessionId);
     assert.equal(sentSessionIds[1], secondMessages[0].sessionId);
   });

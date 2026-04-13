@@ -51,7 +51,11 @@ from jiuwenclaw.agentserver.tools.audio_tools import (
 )
 from jiuwenclaw.agentserver.tools.image_tools import visual_question_answering
 from jiuwenclaw.agentserver.tools.mcp_toolkits import get_mcp_tools
-from jiuwenclaw.agentserver.tools.todo_toolkits import TaskStatus, TodoToolkit
+from jiuwenclaw.agentserver.tools.todo_toolkits import (
+    TodoToolkit,
+    reset_todo_request_scope,
+    todo_request_scope_token,
+)
 from jiuwenclaw.agentserver.tools.file_tools import FileToolkit
 from jiuwenclaw.agentserver.tools.load_skill_tools import LoadSkillToolkit
 from jiuwenclaw.agentserver.tools.memory_tools import (
@@ -459,32 +463,8 @@ class JiuWenClaw:
         except Exception as exc:
             logger.warning("[JiuWenClaw] load skill tools registration skipped: %s", exc)
 
-        project_mcp_names: set[str] = set()
-        host_project_mcp_path = self._tool_manager.find_host_project_mcp_json()
         try:
-            if host_project_mcp_path is None:
-                logger.info(
-                    "[JiuWenClaw] 未找到宿主项目 .mcp.json，跳过 MCP 工具导入: CAT_CAFE_MCP_CWD=%s",
-                    os.getenv("CAT_CAFE_MCP_CWD", ""),
-                )
-            else:
-                project_mcp_payload = await self._tool_manager.load_project_mcp_json(host_project_mcp_path)
-                project_mcp_names = {
-                    item["name"]
-                    for item in project_mcp_payload.get("saved", [])
-                    if isinstance(item, dict) and isinstance(item.get("name"), str) and item["name"]
-                }
-                if not project_mcp_payload.get("skipped"):
-                    logger.info(
-                        "[JiuWenClaw] 已从宿主项目 .mcp.json 导入 MCP 工具: count=%s source=%s",
-                        len(project_mcp_names),
-                        project_mcp_payload.get("source", str(host_project_mcp_path)),
-                    )
-        except Exception as exc:
-            logger.warning("[JiuWenClaw] 从宿主项目 .mcp.json 导入 MCP 工具失败: %s", exc)
-
-        try:
-            await self._tool_manager.load_tools_from_disk(skip_server_names=project_mcp_names)
+            await self._tool_manager.load_tools_from_disk()
         except Exception as exc:
             logger.warning("[JiuWenClaw] 从 agent/tools 加载落盘 MCP 工具失败: %s", exc)
 
@@ -887,7 +867,7 @@ class JiuWenClaw:
                 logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
-        # Todo 工具：两种模式都注册，用于 skill 步骤追踪
+        # Todo 工具：实际目录由当前 asyncio Task 的 todo_request_scope_token(request_id) 决定
         todo_toolkit = TodoToolkit(session_id=effective_session_id)
         for tool in todo_toolkit.get_tools():
             Runner.resource_mgr.add_tool(tool)
@@ -1085,21 +1065,15 @@ class JiuWenClaw:
                     for t in active:
                         t.cancel()
 
-            # 将未完成的 todo 项标记为 cancelled（保留在列表中，agent 不会执行）
+            # 将未完成的 todo 项标记为 cancelled（legacy 与各 request 分目录下的列表）
             if request.session_id:
                 try:
-                    todo_toolkit = TodoToolkit(session_id=request.session_id)
-                    tasks = todo_toolkit._load_tasks()
-                    cancel_count = 0
-                    for t in tasks:
-                        if t.status.value in ("waiting", "running"):
-                            t.status = TaskStatus.CANCELLED
-                            cancel_count += 1
+                    cancel_count = TodoToolkit.cancel_all_incomplete_for_session(request.session_id)
                     if cancel_count:
-                        todo_toolkit._save_tasks(tasks)
                         logger.info(
                             "[JiuWenClaw] interrupt: 已将 %d 个未完成 todo 项标记为 cancelled session_id=%s",
-                            cancel_count, request.session_id,
+                            cancel_count,
+                            request.session_id,
                         )
                 except Exception as exc:
                     logger.warning("[JiuWenClaw] 标记 todo cancelled 失败: %s", exc)
@@ -1499,6 +1473,7 @@ class JiuWenClaw:
         inputs = {
             "conversation_id": request.session_id,
             "query": built_user_prompt,
+            "request_id": request.request_id,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1517,6 +1492,7 @@ class JiuWenClaw:
         result_future = asyncio.get_event_loop().create_future()
 
         async def run_agent_task():
+            token = todo_request_scope_token(request.request_id)
             try:
                 await self._register_runtime_tools(
                     session_id,
@@ -1533,6 +1509,8 @@ class JiuWenClaw:
             except Exception as e:
                 logger.error("[JiuWenClaw] Agent 任务执行异常: %s", e)
                 raise
+            finally:
+                reset_todo_request_scope(token)
 
         # 包装任务，完成后将结果放入 future
         async def task_wrapper():
@@ -1688,6 +1666,7 @@ class JiuWenClaw:
         inputs = {
             "conversation_id": request.session_id,
             "query": built_user_prompt,
+            "request_id": request.request_id,
             **({"system_prompt_append": system_prompt_append} if system_prompt_append else {}),
         }
 
@@ -1713,6 +1692,7 @@ class JiuWenClaw:
         async def run_stream_task():
             """执行流式任务，将产生的 chunk 放入队列."""
             nonlocal session_tool
+            token = todo_request_scope_token(request.request_id)
             try:
                 session_tool = await self._register_runtime_tools(
                     session_id,
@@ -1734,6 +1714,7 @@ class JiuWenClaw:
                 logger.exception("[JiuWenClaw] 流式任务异常: %s", exc)
                 await stream_queue.put(("error", exc))
             finally:
+                reset_todo_request_scope(token)
                 stream_done.set()
 
         # 包装任务
