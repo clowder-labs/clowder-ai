@@ -220,6 +220,56 @@ describe('schedule trigger validation', () => {
     await app.close();
   });
 
+  test('POST /api/schedule/tasks rejects once trigger with delayMs below 1s', async () => {
+    const { app, taskRunner } = await createApp();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/schedule/tasks',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'default-user',
+      },
+      payload: {
+        templateId: 'reminder',
+        trigger: { type: 'once', delayMs: 500 },
+        params: { message: 'too soon' },
+        deliveryThreadId: 'thread-test',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.match(response.body, /once trigger delayMs must be a finite number >= 1000/i);
+    assert.equal(taskRunner.registered.length, 0);
+
+    await app.close();
+  });
+
+  test('POST /api/schedule/tasks rejects once trigger with past fireAt', async () => {
+    const { app, taskRunner } = await createApp();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/schedule/tasks',
+      headers: {
+        'content-type': 'application/json',
+        'x-cat-cafe-user': 'default-user',
+      },
+      payload: {
+        templateId: 'reminder',
+        trigger: { type: 'once', fireAt: Date.now() - 60_000 },
+        params: { message: 'already passed' },
+        deliveryThreadId: 'thread-test',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.match(response.body, /once trigger fireAt must be a finite epoch ms in the future/i);
+    assert.equal(taskRunner.registered.length, 0);
+
+    await app.close();
+  });
+
   test('TaskRunnerV2 throws for invalid interval trigger instead of scheduling undefined ms', () => {
     const runner = createRunner();
     runner.register({

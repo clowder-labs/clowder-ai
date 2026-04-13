@@ -38,6 +38,7 @@ import { resolveHeaderUserId } from '../utils/request-identity.js';
 import { governanceRoutes } from './schedule-governance.js';
 
 const MIN_INTERVAL_MS = 10_000;
+const MIN_ONCE_DELAY_MS = 1_000;
 
 /** #415: Normalize once-trigger input — accepts delayMs (relative) or fireAt (absolute) */
 function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | { error: string } {
@@ -45,12 +46,14 @@ function normalizeOnceTrigger(trigger: Record<string, unknown>): TriggerSpec | {
   const delayMs = typeof trigger.delayMs === 'number' ? trigger.delayMs : undefined;
   const fireAt = typeof trigger.fireAt === 'number' ? trigger.fireAt : undefined;
   if (delayMs != null) {
-    if (!Number.isFinite(delayMs) || delayMs < 0) return { error: 'once trigger delayMs must be a finite number >= 0' };
+    if (!Number.isFinite(delayMs) || delayMs < MIN_ONCE_DELAY_MS) {
+      return { error: `once trigger delayMs must be a finite number >= ${MIN_ONCE_DELAY_MS}` };
+    }
     return { type: 'once', fireAt: Date.now() + delayMs };
   }
   if (fireAt != null) {
-    if (!Number.isFinite(fireAt) || fireAt < 0) {
-      return { error: 'once trigger fireAt must be a finite positive epoch ms' };
+    if (!Number.isFinite(fireAt) || fireAt < Date.now()) {
+      return { error: 'once trigger fireAt must be a finite epoch ms in the future' };
     }
     return { type: 'once', fireAt };
   }

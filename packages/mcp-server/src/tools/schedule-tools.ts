@@ -19,6 +19,7 @@ import type { ToolResult } from './file-tools.js';
 import { errorResult } from './file-tools.js';
 
 const MIN_INTERVAL_MS = 10_000;
+const MIN_ONCE_DELAY_MS = 1_000;
 
 // ─── callbackDelete (schedule-specific) ──────────────────────
 
@@ -118,14 +119,14 @@ function validateTriggerConfig(trigger: unknown): string | null {
     const delayMs = typeof record.delayMs === 'number' ? record.delayMs : undefined;
     const fireAt = typeof record.fireAt === 'number' ? record.fireAt : undefined;
     if (delayMs != null) {
-      return Number.isFinite(delayMs) && delayMs >= 0
+      return Number.isFinite(delayMs) && delayMs >= MIN_ONCE_DELAY_MS
         ? null
-        : 'Invalid trigger JSON — once trigger delayMs must be a finite number >= 0';
+        : `Invalid trigger JSON — once trigger delayMs must be a finite number >= ${MIN_ONCE_DELAY_MS}`;
     }
     if (fireAt != null) {
-      return Number.isFinite(fireAt) && fireAt >= 0
+      return Number.isFinite(fireAt) && fireAt >= Date.now()
         ? null
-        : 'Invalid trigger JSON — once trigger fireAt must be a finite positive epoch ms';
+        : 'Invalid trigger JSON — once trigger fireAt must be a finite epoch ms in the future';
     }
     return 'Invalid trigger JSON — once trigger requires either delayMs or fireAt';
   }
