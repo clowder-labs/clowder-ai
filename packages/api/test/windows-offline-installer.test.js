@@ -311,6 +311,7 @@ test('NSIS installer is per-user, upgrades in-place, and preserves runtime data 
     /CopyFiles \/SILENT "\$INSTDIR\\installer-seed\\office-claw-config\.json" "\$INSTDIR\\office-claw-config\.json"/,
   );
   assert.match(nsisScript, /WriteRegStr HKCU "\$\{UNINSTALL_KEY\}" "DisplayVersion" "\$\{APP_VERSION\}"/);
+  assert.match(nsisScript, /WriteRegStr HKCU "\$\{UNINSTALL_KEY\}" "Publisher" "Huawei Cloud"/);
   assert.match(
     nsisScript,
     /CreateShortCut "\$\{STARTMENU_DIR\}\\\$\{APP_NAME\}\.lnk" "\$INSTDIR\\OfficeClaw\.exe" "" "\$INSTDIR\\assets\\app\.ico"/,
