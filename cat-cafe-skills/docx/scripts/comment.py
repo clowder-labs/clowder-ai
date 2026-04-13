@@ -227,6 +227,7 @@ class CommentConfig:
     initials: str
     parent_id: int | None
 
+
 def add_comment(comment_config: CommentConfig) -> tuple[str, str]:
     word = Path(comment_config.unpacked_dir) / "word"
     if not word.exists():

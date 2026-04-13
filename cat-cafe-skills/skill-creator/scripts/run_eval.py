@@ -21,6 +21,7 @@ from pathlib import Path
 
 from scripts.utils import parse_skill_md
 
+
 @dataclass
 class RunEval:
     eval_set: list[dict]
@@ -33,6 +34,7 @@ class RunEval:
     trigger_threshold: float
     model: str | None
 
+
 @dataclass
 class RunContext:
     query: str
@@ -41,6 +43,7 @@ class RunContext:
     timeout: int
     project_root: str
     model: str | None
+
 
 def find_project_root() -> Path:
     """Find the project root by walking up from cwd looking for .claude/.
@@ -195,6 +198,7 @@ def run_single_query(ctx: RunContext) -> bool:
     finally:
         if command_file.exists():
             command_file.unlink()
+
 
 def run_eval(eval_params: RunEval) -> dict:
     """Run the full eval set and return results."""

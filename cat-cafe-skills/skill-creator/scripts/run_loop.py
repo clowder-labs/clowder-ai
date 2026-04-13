@@ -43,6 +43,7 @@ class LoopConfig:
     live_report_path: Path | None = None
     log_dir: Path | None = None
 
+
 def split_eval_set(eval_set: list[dict], holdout: float, seed: int = 42) -> tuple[list[dict], list[dict]]:
     """Split eval set into train and test sets, stratified by should_trigger."""
     random.seed(seed)

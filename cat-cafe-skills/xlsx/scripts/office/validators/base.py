@@ -824,6 +824,7 @@ class BaseSchemaValidator:
 
         xml_string = lxml.etree.tostring(xml_doc, encoding="unicode")
         xml_copy = lxml.etree.fromstring(xml_string)
+
         def process_text_content(text, content_type):
             if not text:
                 return text
