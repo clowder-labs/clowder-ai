@@ -132,6 +132,39 @@ export interface ProjectEntry {
   isDirectory: boolean;
 }
 
+export async function listWindowsDriveRoots(platformName = process.platform): Promise<ProjectEntry[]> {
+  if (platformName !== 'win32') return [];
+
+  const drives: Array<ProjectEntry | null> = await Promise.all(
+    Array.from({ length: 26 }, (_, index) => String.fromCharCode(65 + index)).map(async (letter) => {
+      const drivePath = `${letter}:\\`;
+      try {
+        const driveStat = await stat(drivePath);
+        if (!driveStat.isDirectory()) return null;
+
+        const realDrivePath = await realpath(drivePath).catch(() => drivePath);
+        if (!isUnderAllowedRoot(realDrivePath)) return null;
+
+        return {
+          name: `${letter}:`,
+          path: drivePath,
+          isDirectory: true,
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return drives.filter((entry): entry is ProjectEntry => entry !== null);
+}
+
+/** Swappable reference for testing. */
+export let _listWindowsDriveRootsImpl: () => Promise<ProjectEntry[]> = () => listWindowsDriveRoots();
+export function setListWindowsDriveRootsImpl(fn: () => Promise<ProjectEntry[]>): void {
+  _listWindowsDriveRootsImpl = fn;
+}
+
 function requireTrustedProjectIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
   const userId = resolveHeaderUserId(request);
   if (!userId) {
@@ -259,6 +292,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       const entries = await readdir(validatedPath, { withFileTypes: true });
+      const drives = await _listWindowsDriveRootsImpl();
       const dirs: ProjectEntry[] = [];
 
       for (const entry of entries) {
@@ -289,6 +323,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
         name: basename(validatedPath),
         parent: canGoUp ? parentDir : null,
         homePath: homedir(),
+        drives,
         entries: dirs,
       };
     } catch (err) {

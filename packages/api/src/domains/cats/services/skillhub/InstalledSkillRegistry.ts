@@ -13,6 +13,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { ensureSkillStorageMigrated } from './SkillStorageMigration.js';
 
 export interface InstalledSkillRecord {
   name: string;
@@ -57,6 +58,8 @@ function getRegistryPath(catCafeRoot: string): string {
 
 /** 读取 installed-skills.json，损坏时返回空 registry */
 export async function loadInstalledRegistry(catCafeRoot: string): Promise<InstalledSkillsRegistry> {
+  await ensureSkillStorageMigrated(catCafeRoot);
+
   try {
     const raw = await readFile(getRegistryPath(catCafeRoot), 'utf-8');
     const parsed = JSON.parse(raw) as InstalledSkillsRegistry;
