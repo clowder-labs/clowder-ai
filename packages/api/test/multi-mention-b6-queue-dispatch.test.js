@@ -233,7 +233,7 @@ describe('B6: multi_mention queue dispatch', () => {
     // Result message should have been flushed to message store
     const stored = mockMessageStore.getMessages();
     assert.ok(stored.length > 0);
-    const flushMsg = stored.find((m) => m.content?.includes('Multi-Mention'));
+    const flushMsg = stored.find((m) => m.content?.includes('共识总结'));
     assert.ok(flushMsg, 'Expected a flushed result message');
     assert.ok(flushMsg.content.includes('I reviewed it, looks good!'));
   });
@@ -271,7 +271,7 @@ describe('B6: multi_mention queue dispatch', () => {
 
     // Both responses should be in the flush message
     const stored = mockMessageStore.getMessages();
-    const flushMsg = stored.find((m) => m.content?.includes('Multi-Mention'));
+    const flushMsg = stored.find((m) => m.content?.includes('共识总结'));
     assert.ok(flushMsg);
     assert.ok(flushMsg.content.includes('Codex response'));
     assert.ok(flushMsg.content.includes('Gemini response'));
@@ -323,7 +323,7 @@ describe('B6: multi_mention queue dispatch', () => {
     assert.equal(entry.source, 'agent');
     assert.equal(entry.autoExecute, true);
     assert.deepEqual(entry.targetCats, ['codex']);
-    assert.ok(entry.content.includes('[Multi-Mention from opus]'));
+    assert.ok(entry.content.includes('[共识总结 from opus]'));
     assert.ok(entry.content.includes('Test queue entry fields'));
   });
 
