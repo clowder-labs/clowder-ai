@@ -216,8 +216,7 @@ def apply_config_yaml_patch(
     Blocking; call from asyncio.to_thread under async handlers.
     """
     import yaml
-    from jiuwenclaw.utils import get_config_file
-    from jiuwenclaw.logging.app_logger import logger
+    from jiuwenclaw.utils import get_config_file, logger
 
     path = config_path or get_config_file()
     lock_path = path.parent / "config.yaml.lock"

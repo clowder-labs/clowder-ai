@@ -17,8 +17,7 @@ from openjiuwen.core.foundation.tool import tool
 from .ssl_config import get_requests_verify
 
 from jiuwenclaw.config import get_config
-from jiuwenclaw.utils import get_config_file
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import get_config_file, logger
 from jiuwenclaw.agentserver.tools.multimodal_config import apply_video_model_config_from_yaml
 
 _USER_AGENT = (

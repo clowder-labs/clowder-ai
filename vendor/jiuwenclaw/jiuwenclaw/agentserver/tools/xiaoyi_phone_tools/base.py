@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Dict, Optional
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 from jiuwenclaw.channel.xiaoyi_channel import get_xiaoyi_channel
 
 

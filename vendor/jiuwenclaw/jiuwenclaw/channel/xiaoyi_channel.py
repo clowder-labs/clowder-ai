@@ -19,7 +19,7 @@ from urllib.parse import urlparse
 
 import aiohttp
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 from jiuwenclaw.channel.base import BaseChannel, ChannelMetadata, RobotMessageRouter
 from jiuwenclaw.schema.message import EventType, Message, ReqMethod
 from jiuwenclaw.channel.xiaoyi_utils.push import XiaoYiPushService, PushConfig

@@ -6,7 +6,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 
 class EmbeddingProvider(ABC):
     """Base class for embedding providers."""

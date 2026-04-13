@@ -15,8 +15,7 @@ from jiuwenclaw.agentserver.tools import (
     tool,
 )
 
-from jiuwenclaw.utils import USER_WORKSPACE_DIR
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import USER_WORKSPACE_DIR, logger
 
 
 @dataclass

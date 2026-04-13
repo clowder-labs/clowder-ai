@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 if TYPE_CHECKING:
     from jiuwenclaw.gateway.agent_client import AgentServerClient
     from jiuwenclaw.gateway.message_handler import MessageHandler

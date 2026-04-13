@@ -14,8 +14,7 @@ from pathlib import Path
 
 import yaml
 
-from jiuwenclaw.utils import get_config_file, get_agent_root_dir
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import get_config_file, get_agent_root_dir, logger
 
 
 DEFAULT_CONFIG_PATH = str(get_config_file())

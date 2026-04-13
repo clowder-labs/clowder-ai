@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from jiuwenclaw.gateway.message_handler import MessageHandler
     from jiuwenclaw.schema.message import Message
 
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 
 
 class ChannelManager(ABC):

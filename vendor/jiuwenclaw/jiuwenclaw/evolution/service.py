@@ -17,7 +17,7 @@ from jiuwenclaw.evolution.schema import (
 )
 from jiuwenclaw.evolution.signal_detector import SignalDetector
 from jiuwenclaw.evolution.store import EvolutionStore
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import logger
 
 _APPROVAL_TIMEOUT = 300  # seconds
 _MAX_PROCESSED_SIGNAL_KEYS = 500  # safety cap to prevent unbounded growth across sessions

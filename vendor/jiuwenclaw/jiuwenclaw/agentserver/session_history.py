@@ -6,8 +6,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from jiuwenclaw.utils import get_agent_sessions_dir
-from jiuwenclaw.logging.app_logger import logger
+from jiuwenclaw.utils import get_agent_sessions_dir, logger
 
 _FILE_LOCK = threading.Lock()
 _WRITE_QUEUE: queue.Queue[tuple[str, dict[str, Any]]] = queue.Queue(maxsize=20000)

@@ -39,9 +39,9 @@ from jiuwenclaw.utils import (
     get_checkpoint_dir,
     get_env_file,
     get_workspace_dir,
+    logger,
     sync_shared_agent_skills_cache,
 )
-from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import get_config
 from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent
 from jiuwenclaw.agentserver.tools.browser_tools import register_browser_runtime_mcp_server
