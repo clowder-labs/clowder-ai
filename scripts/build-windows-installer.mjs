@@ -1351,7 +1351,8 @@ async function stageWindowsNode(bundleDir, options) {
   const targetDir = join(bundleDir, 'tools', 'node');
   resetDir(targetDir);
   cpSync(nodeRoot, targetDir, { recursive: true, force: true });
-  removePaths(targetDir, ['node_modules', 'corepack', 'include', 'share']);
+  // Keep node_modules (contains npm and its dependencies, needed for runtime skill installation)
+  removePaths(targetDir, ['corepack', 'include', 'share']);
   walkFiles(targetDir, (fullPath, entry) => {
     if (entry.name.endsWith('.map') || entry.name.endsWith('.md')) {
       rmSync(fullPath, { force: true });
