@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 OfficeClaw Skills。路由规则定义在 `manifest.yaml`。
 
-## Skills 列表（23 个）
+## Skills 目录（共 4 大类 27 个）
 
 ### 办公套件
 
@@ -15,23 +15,42 @@
 | `official-doc-formatter` | 按国标公文规范格式化 Word 文档 |
 | `pptx-craft` | 多阶段研究、规划、生成一体化 PPT 流程 |
 | `smart-report-automation` | Excel 报表自动化与办公文档批量格式转换 |
+| `weather` | 天气查询与短期预报，适用于出行和日常工作安排 |
+
+### 企业协作
+
+| Skill | 触发场景 |
+|-------|----------|
 | `meeting-autopilot-pro` | 会议全生命周期准备、记录、跟进与行动项追踪 |
 | `feishu-calendar-official` | 飞书日历、日程、参会人与忙闲管理 |
-| `feishu-meeting` | 通过飞书 API 创建和安排会议 |
-| `tencent-meeting` | 腾讯会议创建、查询、取消、录制与转写管理 |
+| `feishu-bitable` | 飞书多维表格 App、记录、字段、视图与批量操作 |
 | `email-manager` | 邮件发送、查收、回复、标记与多邮箱管理 |
 | `feishu-task` | 飞书任务与任务清单管理 |
 | `feishu-perm-transfer` | 飞书文档/表格权限转移与批量协作管理 |
-| `android-native-dev` | Android 原生开发、Compose/UI 与构建排障 |
-| `frontend-dev` | 高质感前端页面、动效、素材与转化文案 |
-| `fullstack-dev` | 全栈应用、API、认证、实时能力与集成 |
+
+### 自媒体
+
+| Skill | 触发场景 |
+|-------|----------|
+| `gif-sticker-maker` | 将照片生成 4 张 GIF 表情贴纸 |
+| `minimax-multimodal-toolkit` | MiniMax 语音、音乐、视频、图片与媒体处理 |
 | `daily-briefing` | 每日销售简报、优先级和会前准备 |
 | `knowledge-organizer-xiaping` | 文章/笔记整理、归档、摘要与同步 |
 | `lidan-writing-framework` | 用七步框架把复杂概念写清楚 |
 | `canned-responses-review` | 常见法务询问模板回复与升级识别 |
 | `three-layer-memory` | OpenClaw 三层持久化记忆方案 |
-| `gif-sticker-maker` | 将照片生成 4 张 GIF 表情贴纸 |
-| `minimax-multimodal-toolkit` | MiniMax 语音、音乐、视频、图片与媒体处理 |
+
+### 开发与工程
+
+| Skill | 触发场景 |
+|-------|----------|
+| `android-native-dev` | Android 原生开发、Compose/UI 与构建排障 |
+| `credential-manager` | 集中管理 `.env` 凭据与密钥，用于安全审计与迁移 |
+| `frontend-dev` | 高质感前端页面、动效、素材与转化文案 |
+| `fullstack-dev` | 全栈应用、API、认证、实时能力与集��� |
+| `github` | 使用 `gh` CLI 处理 issue、PR、Actions/CI 与 GitHub API 查询 |
+| `skill-creator` | 创建、迭代、评估和优化 skill 的开发工作流 |
+| `skill-vetter` | 安全优先的 skill 审核与风险评估，用于安装前审查 |
 
 ## 说明
 
@@ -39,7 +58,7 @@
 - `pptx-craft/designer`、`pptx-craft/planner`、`pptx-craft/outline-research` 是 `pptx-craft` 内部模块，不在本目录中单独注册。
 - `BOOTSTRAP.md` 负责分类速览，`manifest.yaml` 负责路由与元数据。
 
-### 参考文件（`refs/`，按需读取）
+### 旧版参考文件（`refs/`，按需读取）
 
 | 文件 | 内容 |
 |------|------|
@@ -65,6 +84,7 @@
 3. **`BOOTSTRAP.md` 只维护官方 skills 的分类速览，不承载实现细节。**
 4. **`refs/` 是参考材料，不是独立 skill。**
 5. **新增或修改 skill 时，必须同时同步目录、`manifest.yaml` 与 `BOOTSTRAP.md`。**
+6. **技能分类按 4 大类组织：办公套件、企业协作、自媒体、开发与工程**
 
 ## 使用方式
 
@@ -75,9 +95,9 @@
 ## 新增/修改 skill
 
 1. 在 `{skills-dir}/{name}/` 创建或更新 `SKILL.md`
-2. 在 `manifest.yaml` 添加或更新路由条目
+2. 在 `manifest.yaml` 添加或更新路由条目（按 4 大类分组）
 3. 在 `BOOTSTRAP.md` 将 skill 放入正确分类
-4. 保持顶层目录、注册表与说明文档一致
+4. 保持顶��目录、注册表与说明文档一致
 5. 运行校验，确认目录、注册表与 refs 一致
 
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.

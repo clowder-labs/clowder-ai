@@ -39,9 +39,9 @@ from jiuwenclaw.utils import (
     get_checkpoint_dir,
     get_env_file,
     get_workspace_dir,
-    logger,
     sync_shared_agent_skills_cache,
 )
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import get_config
 from jiuwenclaw.agentserver.react_agent import JiuClawReActAgent
 from jiuwenclaw.agentserver.tools.browser_tools import register_browser_runtime_mcp_server
@@ -125,21 +125,6 @@ SYSTEM_PROMPT = """# 角色
 请勿猜测或编造缺失的内容
 
 存储类型："in_memory"（会话缓存）
-"""
-
-TODO_PROMPT = """
-# 任务执行规则
-1. 所有任务必须通过 todo 工具进行记录和追踪。
-2. 首先，你应该尝试使用 todo_create 创建新任务。
-3. 但如果遇到"错误：待办列表已存在"的提示，则必须使用 todo_insert 函数添加任务。
-4. 如果用户有新的需求，请分析当前已有任务，并结合当前执行情况，对当前的 todo 任务实现最小改动，以满足用户的需求。
-5. **完成任务强制规则**：
-   - 任务的每个子项执行完毕后，**必须调用 todo_complete 工具**将其标记为已完成
-   - todo_complete 工具需要传入对应的任务ID（从当前待办列表中获取）
-   - 只有成功调用 todo_complete 工具后，才能向用户报告任务已完成
-6. 严禁仅用语言表示任务完成，必须实际调用工具。
-
-处理用户请求时，请检查你的技能是否适用，阅读对应的技能描述，使用合理的技能。
 """
 
 # Skills 请求路由表
@@ -910,14 +895,13 @@ class JiuWenClaw:
                 logger.warning(f"[JiuWenClaw] xiaoyi phone tools runtime registration skipped: {exc}")
 
         effective_session_id = session_id or "default"
-        # Todo 工具：实际目录由当前 asyncio Task 的 todo_request_scope_token(request_id) 决定
-        todo_toolkit = TodoToolkit(session_id=effective_session_id)
-        for tool in todo_toolkit.get_tools():
-            Runner.resource_mgr.add_tool(tool)
-            self._instance.ability_manager.add(tool.card)
-        self._todo_tool_sessions_registered.add(effective_session_id)
-
-        if mode != "plan":
+        if mode == "plan":
+            todo_toolkit = TodoToolkit(session_id=effective_session_id)
+            for tool in todo_toolkit.get_tools():
+                Runner.resource_mgr.add_tool(tool)
+                self._instance.ability_manager.add(tool.card)
+            self._todo_tool_sessions_registered.add(effective_session_id)
+        else:
             # agent 模式额外注册并行子任务工具
             config_base = get_config()
             session_toolkits = MultiSessionToolkit(

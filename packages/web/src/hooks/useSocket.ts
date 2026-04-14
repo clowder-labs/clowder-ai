@@ -78,6 +78,11 @@ interface SocketIoEngineLike {
 }
 
 type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
+type JoinRoomAwaitStatus = 'joined' | 'timed_out' | 'socket_unavailable';
+
+const ROOM_JOIN_ACK_TIMEOUT_MS = 500;
+const ROOM_JOIN_POLL_INTERVAL_MS = 25;
+const ROOM_JOIN_SETTLE_MS = 80;
 
 export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
@@ -233,6 +238,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
   const bgReplacedInvocationsRef = useRef<Map<string, string>>(new Map());
+  const bgErrorToastsShownRef = useRef<Set<string>>(new Set());
   const bgFinalizedRefsRef = useRef<Map<string, string>>(new Map());
   const bgSeqRef = useRef(0);
   const userIdRef = useRef(getUserId());
@@ -402,6 +408,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
         bgStreamRefs: bgStreamRefsRef.current,
         finalizedBgRefs: bgFinalizedRefsRef.current,
         replacedInvocations: bgReplacedInvocationsRef.current,
+        backgroundErrorToastsShown: bgErrorToastsShownRef.current,
         nextBgSeq: () => bgSeqRef.current++,
         addToast: (toast) => useToastStore.getState().addToast(toast),
         getThreadTitle: (threadId) => useChatStore.getState().threads.find((t) => t.id === threadId)?.title,
@@ -710,6 +717,48 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
     [persistJoinedRooms],
   );
 
+  /**
+   * Best-effort server-side join confirmation for race-sensitive flows.
+   * Falls back to the legacy fire-and-forget behavior on timeout/unavailable socket.
+   */
+  const awaitThreadRoom = useCallback(
+    async (roomThreadId: string, timeoutMs = ROOM_JOIN_ACK_TIMEOUT_MS): Promise<JoinRoomAwaitStatus> => {
+      const room = `thread:${roomThreadId}`;
+      joinedRoomsRef.current.add(room);
+      persistJoinedRooms();
+
+      const deadline = Date.now() + Math.max(timeoutMs, 0);
+      let socket = socketRef.current;
+
+      while ((!socket || !socket.connected) && Date.now() < deadline) {
+        const remaining = deadline - Date.now();
+        await new Promise((resolve) => setTimeout(resolve, Math.min(ROOM_JOIN_POLL_INTERVAL_MS, remaining)));
+        socket = socketRef.current;
+      }
+
+      if (!socket) {
+        return 'socket_unavailable';
+      }
+
+      if (!socket.connected) {
+        socket.emit('join_room', room);
+        return 'timed_out';
+      }
+
+      // Frontend-only guard: re-emit room join after the socket is confirmed up,
+      // then leave a tiny settle window for the server to process the membership.
+      socket.emit('join_room', room);
+
+      const remaining = deadline - Date.now();
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(ROOM_JOIN_SETTLE_MS, remaining)));
+      }
+
+      return socket.connected ? 'joined' : 'timed_out';
+    },
+    [persistJoinedRooms],
+  );
+
   /** Leave a single room */
   const leaveRoom = useCallback(
     (roomThreadId: string) => {
@@ -768,5 +817,5 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
     socketRef.current?.emit('cancel_invocation', { threadId: tid });
   }, []);
 
-  return { socketRef, joinRoom, leaveRoom, syncRooms, cancelInvocation };
+  return { socketRef, joinRoom, awaitThreadRoom, leaveRoom, syncRooms, cancelInvocation };
 }

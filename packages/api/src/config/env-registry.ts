@@ -102,7 +102,7 @@ export const ENV_VARS: EnvDefinition[] = [
     category: 'server',
     sensitive: false,
   },
-  { name: 'UPLOAD_DIR', defaultValue: './uploads', description: '文件上传目录', category: 'server', sensitive: false },
+  { name: 'UPLOAD_DIR', defaultValue: 'data/uploads', description: '文件上传目录（默认相对 monorepo root）', category: 'server', sensitive: false },
   {
     name: 'PROJECT_ALLOWED_ROOTS',
     defaultValue: '(未设置 — 使用 denylist 模式，仅拦截系统目录)',
@@ -770,6 +770,15 @@ export const ENV_VARS: EnvDefinition[] = [
     name: 'NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE_UI',
     defaultValue: '(未设置)',
     description: '设为 1 跳过文件变更 UI',
+    category: 'frontend',
+    sensitive: false,
+    runtimeEditable: false,
+  },
+
+  {
+    name: 'CAN_CREATE_MODEL',
+    defaultValue: '0',
+    description: 'Set to 1 or true to show the create model button',
     category: 'frontend',
     sensitive: false,
     runtimeEditable: false,

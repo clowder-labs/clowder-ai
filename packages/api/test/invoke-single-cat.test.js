@@ -15,8 +15,31 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { before, describe, it, mock } from 'node:test';
+import { before, describe, it, mock, afterEach } from 'node:test';
+
 import { catRegistry } from '@office-claw/shared';
+
+const { resetLocalSecretBackendForTests, setLocalSecretBackendForTests } = await import(
+  '../dist/config/local-secret-store.js'
+);
+
+function createMemoryBackend() {
+  const store = new Map();
+  return {
+    store,
+    backend: {
+      get(key) {
+        return store.has(key) ? store.get(key) : null;
+      },
+      set(key, value) {
+        store.set(key, value);
+      },
+      delete(key) {
+        store.delete(key);
+      },
+    },
+  };
+}
 
 async function collect(iterable) {
   const msgs = [];
@@ -29,6 +52,9 @@ let tempDir;
 let invokeSingleCat;
 
 describe('invokeSingleCat audit events (P1 fix)', () => {
+  afterEach(() => {
+    resetLocalSecretBackendForTests();
+  });
   before(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'cat-audit-'));
     process.env.AUDIT_LOG_DIR = tempDir;
@@ -2535,7 +2561,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
             protocol: 'openai',
             displayName: 'My OpenAI Proxy',
             baseUrl: 'https://proxy.example.com/v1',
-            apiKey: 'sk-custom-proxy',
+            apiKeyRef: 'wincred://Clowder/model-config/test/my-openai-proxy/apiKey',
             headers: {
               'X-App-Id': 'cat-cafe',
               'X-Workspace': 'sandbox',
@@ -2551,6 +2577,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
     process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
@@ -2654,6 +2683,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     const previousTemplatePath = process.env.CAT_TEMPLATE_PATH;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
     process.env.CAT_TEMPLATE_PATH = fileURLToPath(new URL('../../../office-claw-template.json', import.meta.url));
 
@@ -3266,6 +3298,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'utf-8',
     );
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {
@@ -3357,7 +3392,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
             protocol: 'openai',
             displayName: 'My OpenAI Proxy',
             baseUrl: 'https://proxy.example.com/v1',
-            apiKey: 'sk-custom-proxy',
+            apiKeyRef: 'wincred://Clowder/model-config/test/my-openai-proxy/apiKey',
             headers: {
               'X-App-Id': 'cat-cafe',
               'X-Workspace': 'sandbox',
@@ -3371,6 +3406,9 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'utf-8',
     );
     const previousGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    backend.set('Clowder/model-config/test/my-openai-proxy/apiKey', 'sk-custom-proxy');
     process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = root;
 
     try {

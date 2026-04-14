@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
 import { useCatData } from '@/hooks/useCatData';
 import { usePathCompletion } from '@/hooks/usePathCompletion';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
@@ -23,29 +24,23 @@ import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { useToastStore } from '@/stores/toastStore';
-import { QUICK_ACTIONS, type QuickActionConfig } from '@/config/quick-actions';
 import {
   fetchSkillOptionsWithCache,
-  seedSkillOptionsCache,
   SKILL_OPTIONS_UPDATED_EVENT,
   type SkillOption,
+  seedSkillOptionsCache,
 } from '@/utils/skill-options-cache';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
-import {
-  buildCatOptions,
-  buildWhisperOptions,
-  type CatOption,
-  detectMenuTrigger,
-} from './chat-input-options';
+import { buildCatOptions, buildWhisperOptions, type CatOption, detectMenuTrigger } from './chat-input-options';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
 import { HistorySearchModal } from './HistorySearchModal';
 import { ImagePreview } from './ImagePreview';
 import { AttachIcon } from './icons/AttachIcon';
 import { MobileInputToolbar } from './MobileInputToolbar';
-import { OverflowTooltip } from './shared/OverflowTooltip';
 import { PathCompletionMenu } from './PathCompletionMenu';
 import { RichTextarea, type RichTextareaHandle } from './RichTextarea';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 
 /** Module-level draft storage — survives component unmount/remount across thread switches */
 export const threadDrafts = new Map<string, string>();
@@ -101,6 +96,8 @@ const SUPPORTED_ATTACHMENT_MIME_TYPES = new Set([
 ]);
 const SUPPORTED_ATTACHMENT_EXTENSIONS = new Set(['pdf', 'docx', 'xlsx', 'pptx', 'txt', 'csv']);
 const UNSUPPORTED_FILE_TYPE_MESSAGE = '该附件类型暂不支持';
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const FILE_SIZE_EXCEEDED_MESSAGE = '文件大小超过限制，最大支持 10MB';
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TEXTAREA_MIN_HEIGHT = 70;
 const TEXTAREA_MAX_HEIGHT = 260;
@@ -463,10 +460,7 @@ export function ChatInput({
   }, [loadSkillOptions]);
 
   const activeMenu = showMentions ? 'mention' : showSkillMenu ? 'skill' : null;
-  const activeOptionsCount =
-    activeMenu === 'mention'
-      ? filteredCatOptions.length
-      : filteredSkillOptions.length;
+  const activeOptionsCount = activeMenu === 'mention' ? filteredCatOptions.length : filteredSkillOptions.length;
 
   const addHistoryEntry = useInputHistoryStore((s) => s.addEntry);
   const findHistoryMatch = useInputHistoryStore((s) => s.findMatch);
@@ -804,8 +798,23 @@ export function ChatInput({
       const files = e.target.files;
       if (!files) return;
       const selectedFiles = Array.from(files);
-      const supportedFiles = selectedFiles.filter(isSupportedAttachmentFile);
-      const hasUnsupported = supportedFiles.length !== selectedFiles.length;
+
+      const supportedFiles: File[] = [];
+      let hasUnsupported = false;
+      let hasOversized = false;
+
+      for (const file of selectedFiles) {
+        if (!isSupportedAttachmentFile(file)) {
+          hasUnsupported = true;
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          hasOversized = true;
+          continue;
+        }
+        supportedFiles.push(file);
+      }
+
       if (hasUnsupported) {
         addToast({
           type: 'error',
@@ -814,6 +823,16 @@ export function ChatInput({
           duration: 2600,
         });
       }
+
+      if (hasOversized) {
+        addToast({
+          type: 'error',
+          title: '上传失败',
+          message: FILE_SIZE_EXCEEDED_MESSAGE,
+          duration: 2600,
+        });
+      }
+
       if (supportedFiles.length > 0) {
         let dropped = 0;
         setImages((prev) => {
@@ -823,7 +842,7 @@ export function ChatInput({
         });
         if (dropped > 0) {
           addToast({
-            type: 'warning',
+            type: 'error',
             title: '附件数量已达上限',
             message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
             duration: 2600,
@@ -850,8 +869,23 @@ export function ChatInput({
         if (file) pastedFiles.push(file);
       }
       if (pastedFiles.length === 0) return;
-      const supportedFiles = pastedFiles.filter(isSupportedAttachmentFile);
-      const hasUnsupported = supportedFiles.length !== pastedFiles.length;
+
+      const supportedFiles: File[] = [];
+      let hasUnsupported = false;
+      let hasOversized = false;
+
+      for (const file of pastedFiles) {
+        if (!isSupportedAttachmentFile(file)) {
+          hasUnsupported = true;
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          hasOversized = true;
+          continue;
+        }
+        supportedFiles.push(file);
+      }
+
       if (hasUnsupported) {
         addToast({
           type: 'error',
@@ -860,6 +894,16 @@ export function ChatInput({
           duration: 2600,
         });
       }
+
+      if (hasOversized) {
+        addToast({
+          type: 'error',
+          title: '上传失败',
+          message: FILE_SIZE_EXCEEDED_MESSAGE,
+          duration: 2600,
+        });
+      }
+
       if (supportedFiles.length === 0) return;
       e.preventDefault();
       let dropped = 0;
@@ -870,7 +914,7 @@ export function ChatInput({
       });
       if (dropped > 0) {
         addToast({
-          type: 'warning',
+          type: 'error',
           title: '附件数量已达上限',
           message: `最多支持选择 ${MAX_ATTACHMENT_FILES} 个附件`,
           duration: 2600,
@@ -1012,11 +1056,7 @@ export function ChatInput({
       // detaching the original target (e.g. layer 1 unmounts when drilling
       // into layer 2). A detached target is not a genuine outside click.
       if (!target.isConnected) return;
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(target) &&
-        !skillBtnRef.current?.contains(target)
-      ) {
+      if (menuRef.current && !menuRef.current.contains(target) && !skillBtnRef.current?.contains(target)) {
         closeMenus();
       }
     };
@@ -1230,7 +1270,7 @@ export function ChatInput({
                       placeholder={
                         hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'
                       }
-                      className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
+                      className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent py-4 px-[18px] whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
                       quickActionOptions={visibleQuickActions.map((action) => ({
@@ -1239,16 +1279,20 @@ export function ChatInput({
                         token: getQuickActionToken(action.label),
                       }))}
                     />
-                    {ghostSuggestion && !isComposing && !pathCompletion.isOpen && !showMentions && !/(^|\s)@/.test(input) && (
-                      <div
-                        data-testid="ghost-suggestion"
-                        className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-t-[24px] p-4 text-[16px]"
-                        aria-hidden="true"
-                      >
-                        <span className="invisible">{input}</span>
-                        <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
-                      </div>
-                    )}
+                    {ghostSuggestion &&
+                      !isComposing &&
+                      !pathCompletion.isOpen &&
+                      !showMentions &&
+                      !/(^|\s)@/.test(input) && (
+                        <div
+                          data-testid="ghost-suggestion"
+                          className="pointer-events-none absolute inset-0 w-full overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-t-[24px] p-4 text-[16px]"
+                          aria-hidden="true"
+                        >
+                          <span className="invisible">{input}</span>
+                          <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
+                        </div>
+                      )}
                   </div>
                   <div className="px-[10px] pb-[10px]">
                     <div className="flex items-center justify-between gap-2">
@@ -1440,7 +1484,6 @@ export function ChatInput({
       {showHistorySearch && (
         <HistorySearchModal onSelect={handleHistorySelect} onClose={() => setShowHistorySearch(false)} />
       )}
-
     </div>
   );
 }

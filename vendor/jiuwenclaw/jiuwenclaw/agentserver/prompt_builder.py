@@ -10,8 +10,8 @@ from jiuwenclaw.utils import (
     get_disabled_agent_skill_names,
     get_agent_registered_skill_dirs,
     get_project_workspace_dir,
-    logger,
 )
+from jiuwenclaw.logging.app_logger import logger
 
 CONFIG_DIR = USER_WORKSPACE_DIR / "config"
 HOME_DIR = USER_WORKSPACE_DIR / "agent" / "home"
@@ -580,10 +580,10 @@ def _skills_prompt(language: str) -> str:
 ### 技能执行规范（强制）
 
 1. **声明步骤**：每次行动前，必须在回复开头声明当前所在步骤，格式：`[当前步骤: <步骤名称>]`
-2. **创建步骤级 todo**：读完 SKILL.md 后，立即调用 todo_create 为文档中定义的每个步骤创建一个 todo 项，作为执行路线图
+2. **创建步骤级 todo**：读完 SKILL.md 后，立即在回复中用任务列表格式为文档中定义的每个步骤创建一个 todo 项，作为执行路线图
 3. **严格顺序**：按 SKILL.md 定义的顺序逐步执行，**禁止跳过、合并或重排步骤**
-4. **原子级拆分**：开始执行某个步骤前，先用 todo_insert 将该步骤拆解为原子级子任务——每个 todo 项应对应单一、可独立验证的操作，不可再拆才算合格。如果步骤包含循环（如逐项处理），每轮循环的每个动作都应是独立 todo。禁止创建笼统的聚合型 todo
-5. **逐项完成**：严格按 todo 列表顺序执行，每完成一项立即标记完成。**所有子任务 todo 完成后才能标记该步骤 todo 为完成**
+4. **原子级拆分**：开始执行某个步骤前，先在任务列表中将该步骤拆解为原子级子任务——每个 todo 项应对应单一、可独立验证的操作，不可再拆才算合格。如果步骤包含循环（如逐项处理），每轮循环的每个动作都应是独立 todo。禁止创建笼统的聚合型 todo
+5. **逐项完成**：严格按 todo 列表顺序执行，每完成一项立即将 `[ ]` 改为 `[x]`。**所有子任务 todo 完成后才能标记该步骤 todo 为完成**
 6. **闸门等待**：遇到需要用户确认/审批的步骤时，**必须等待用户回复，禁止自行假设用户同意**
 7. **不确定时重读**：如果不确定当前进度或下一步要求，立即使用 skill_initial_load 重新阅读 SKILL.md
 8. **内容忠实**：SKILL.md 是规格说明，不是参考建议。其中定义的选项列表、参数值、标签文本、推荐标记等必须**原样使用**，禁止自行添加、删除、修改或重新措辞
@@ -604,10 +604,10 @@ Available skills:
 ### Skill Execution Protocol (Mandatory)
 
 1. **Declare step**: Before each action, state your current step at the start of your reply: `[Current Step: <step name>]`
-2. **Create step-level todos**: After reading SKILL.md, immediately call todo_create with one todo item per step defined in the document as your execution roadmap.
+2. **Create step-level todos**: After reading SKILL.md, immediately create a task list in your response with one todo item per step defined in the document as your execution roadmap.
 3. **Strict order**: Execute steps in the exact order defined in SKILL.md. **Never skip, merge, or reorder steps.**
-4. **Atomic breakdown**: Before starting a step, use todo_insert to break it into atomic sub-tasks — each todo item should correspond to a single, independently verifiable action that cannot be broken down further. If a step contains a loop (e.g. process items one by one), each action in each iteration must be a separate todo. Never create vague, aggregated todos.
-5. **Complete sequentially**: Execute todo items in order, marking each done immediately upon completion. **All sub-task todos must be completed before marking the step todo as done.**
+4. **Atomic breakdown**: Before starting a step, break it into atomic sub-tasks in your task list — each todo item should correspond to a single, independently verifiable action that cannot be broken down further. If a step contains a loop (e.g. process items one by one), each action in each iteration must be a separate todo. Never create vague, aggregated todos.
+5. **Complete sequentially**: Execute todo items in order, changing `[ ]` to `[x]` immediately upon completion. **All sub-task todos must be completed before marking the step todo as done.**
 6. **Gate enforcement**: When a step requires user confirmation/approval, **you MUST wait for the user's response. Never assume approval.**
 7. **Re-read when unsure**: If uncertain about progress or next requirements, immediately re-read SKILL.md using skill_initial_load.
 8. **Content fidelity**: SKILL.md is a specification, not a suggestion. Option lists, parameter values, label text, and recommendation markers defined therein must be used **verbatim** — never add, remove, modify, or rephrase them.
@@ -699,37 +699,53 @@ def _principle_prompt(language: str) -> str:
 def _todo_prompt(language: str) -> str:
     if language == "zh":
         return """## 任务跟踪
-你的记性不好，必须通过todo工具追踪 ** 一切 ** 正在执行的任务。
+你的记性不好，必须通过在回复中维护任务列表来追踪 ** 一切 ** 正在执行的任务。
 
 ## 使用原则
 
-1. 所有任务必须通过 todo 工具进行记录和追踪。
-2. 首先，你应该尝试使用 todo_create 创建新任务。
-3. 但如果遇到"错误：待办列表已存在"的提示，则必须使用 todo_insert 函数添加任务。
-4. 如果用户有新的需求，请分析当前已有任务，并结合当前执行情况，对当前的 todo 任务实现最小改动，以满足用户的需求。
-5. **完成任务强制规则**：
-   - 任务的每个子项执行完毕后，**必须调用 todo_complete 工具**将其标记为已完成
-   - todo_complete 工具需要传入对应的任务ID（从当前待办列表中获取）
-   - 只有成功调用 todo_complete 工具后，才能向用户报告任务已完成
-6. 严禁仅用语言表示任务完成，必须实际调用工具。
+1. 收到用户请求后，先拆解为子任务，在回复中用以下格式列出任务列表：
+   ```
+   ## 📋 任务列表
+   - [ ] 1. 任务描述
+   - [ ] 2. 任务描述
+   - [x] 3. 已完成的任务描述
+   ```
+2. **任务变化强制规则**：当任务列表发生变化或任务完成时，**必须**在回复中带上完整的任务列表，包括：
+   - 新增了任务
+   - 任务完成（如 `[ ]` → `[x]`）
+   - 删除或调整了任务
+   严禁在任务发生变化时省略任务列表。如果任务列表没有任何变化，不需要重复输出。
+3. 完成一个子任务后，将对应的 `[ ]` 改为 `[x]`。
+4. 如果用户有新需求，在现有列表基础上做最小改动：用新编号追加任务，或调整未完成项。
+5. 所有子任务都标记为 `[x]` 后，才能向用户报告整体任务完成。
+6. 任务列表应放在回复的末尾，与正文内容分隔开。
+7. **继续任务规则**：当用户要求"继续"或恢复之前的任务时，如果上下文中没有可见的任务列表，你必须先回顾对话历史，恢复出完整的任务列表（已完成的标记 `[x]`，未完成的标记 `[ ]`），然后从第一个未完成的任务继续执行。严禁在没有任务列表的情况下直接执行任务。
 
 处理用户请求时，请检查你的技能是否适用，阅读对应的技能描述，使用合理的技能。
 """
     return """## Task Tracking
 
-You have a bad memory. You must use todo tools for sub-task tracking. 
+You have a bad memory. You must maintain a task list in your responses to track **all** ongoing tasks.
 
 ## Usage Guidance
 
-1. All tasks must be recorded and tracked through the todo tool.
-2. First, you should attempt to create new tasks using todo_create.
-3. However, if you encounter the message "Error: Todo list already exists", you must use the todo_insert function to add tasks.
-4. If the user has new requirements, please analyze the existing tasks and, considering the current execution status, make minimal changes to the current todo tasks to meet the user's needs.
-5. **Mandatory Task Completion Rules**:
-   - After each subtask is completed, **you MUST call the todo_complete tool** to mark it as completed
-   - The todo_complete tool requires the corresponding task ID (obtained from the current todo list)
-   - Only after successfully calling the todo_complete tool can you report task completion to the user
-6. It is strictly prohibited to only verbally indicate task completion; the tool must be actually invoked.
+1. After receiving a user request, break it down into subtasks and list them in your response using this format:
+   ```
+   ## 📋 Task List
+   - [ ] 1. Task description
+   - [ ] 2. Task description
+   - [x] 3. Completed task description
+   ```
+2. **Mandatory Task Change Rule**: When the task list has changed or a task is completed, you **MUST** include the full task list in your response, including:
+   - New tasks added
+   - Task completion (e.g., `[ ]` → `[x]`)
+   - Tasks removed or adjusted
+   It is strictly prohibited to omit the task list when changes have occurred. If nothing has changed, do not repeat the task list.
+3. When a subtask is completed, change its `[ ]` to `[x]`.
+4. If the user has new requirements, make minimal changes to the existing list: append new tasks with new indices, or adjust pending items.
+5. Only after all subtasks are marked `[x]` can you report overall completion to the user.
+6. Place the task list at the end of your response, separated from the main content.
+7. **Continue Task Rule**: When the user asks to "continue" or resume a previous task, if no task list is visible in the current context, you MUST first review the conversation history and restore the full task list (completed items marked `[x]`, pending items marked `[ ]`), then continue from the first pending task. It is strictly prohibited to execute tasks without a task list.
 
 When processing user requests, please check whether your skills are applicable, read the corresponding skill descriptions, and use appropriate skills.
 """

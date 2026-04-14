@@ -851,16 +851,62 @@ Section "Install"
   DetailPrint "正在解压安装文件..."
   nsExec::ExecToLog '"$WINDIR\System32\tar.exe" -xzf "$INSTDIR\payload.tar.gz" -C "$INSTDIR"'
   Pop $0
+  ${If} $0 != 0
+    DetailPrint "警告: tar 解压返回错误码 $0"
+  ${EndIf}
+
   Delete "$INSTDIR\payload.tar.gz"
 
   CreateDirectory "$INSTDIR\data"
   CreateDirectory "$INSTDIR\logs"
   CreateDirectory "$INSTDIR\.office-claw"
 
-  IfFileExists "$INSTDIR\.env" +2 0
-    CopyFiles /SILENT "$INSTDIR\.env.example" "$INSTDIR\.env"
-  IfFileExists "$INSTDIR\office-claw-config.json" +2 0
-    CopyFiles /SILENT "$INSTDIR\installer-seed\office-claw-config.json" "$INSTDIR\office-claw-config.json"
+  ; Create .env from .env.example if .env doesn't exist
+  IfFileExists "$INSTDIR\.env" env_already_exists 0
+    IfFileExists "$INSTDIR\.env.example" copy_env_example 0
+      DetailPrint "错误: .env.example 文件未找到，无法创建 .env"
+      Goto env_done
+    copy_env_example:
+      ; Try cmd copy first (more reliable with logging)
+      nsExec::ExecToStack 'cmd /c copy /Y "$INSTDIR\.env.example" "$INSTDIR\.env" >nul 2>&1'
+      Pop $0
+      Pop $1
+      IfFileExists "$INSTDIR\.env" env_copy_success 0
+        ; Fallback 1: NSIS CopyFiles without /SILENT to see errors
+        ClearErrors
+        CopyFiles "$INSTDIR\.env.example" "$INSTDIR\.env"
+        IfErrors 0 env_copy_success
+          ; Fallback 2: PowerShell Copy-Item
+          nsExec::ExecToStack '"$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command "Copy-Item -Path \"$INSTDIR\.env.example\" -Destination \"$INSTDIR\.env\" -Force" 2>$$null'
+          Pop $1
+          Pop $2
+          IfFileExists "$INSTDIR\.env" env_copy_success 0
+            DetailPrint "错误: .env 文件创建失败"
+            Goto env_done
+    env_copy_success:
+      DetailPrint ".env 配置文件写入成功"
+      Goto env_done
+  env_already_exists:
+    DetailPrint ".env 配置文件已存在，跳过写入"
+  env_done:
+
+  IfFileExists "$INSTDIR\office-claw-config.json" config_already_exists 0
+    IfFileExists "$INSTDIR\installer-seed\office-claw-config.json" config_source_exists config_source_missing
+    config_source_exists:
+      CopyFiles /SILENT "$INSTDIR\installer-seed\office-claw-config.json" "$INSTDIR\office-claw-config.json"
+      IfFileExists "$INSTDIR\office-claw-config.json" config_copy_success config_copy_failed
+    config_copy_success:
+      DetailPrint "office-claw-config.json 写入成功"
+      Goto config_done
+    config_copy_failed:
+      DetailPrint "警告: office-claw-config.json 复制失败"
+      Goto config_done
+    config_source_missing:
+      DetailPrint "提示: installer-seed/office-claw-config.json 不存在，跳过"
+      Goto config_done
+  config_already_exists:
+    DetailPrint "office-claw-config.json 已存在，跳过写入"
+  config_done:
 
   ; 检查并安装 WebView2 运行时
   DetailPrint "正在检查 WebView2 运行时..."
@@ -932,7 +978,7 @@ Section "Uninstall"
   ; Skip firewall rule cleanup: user-level installs do not create the rule.
 
   ; Ask user whether to remove user data
-  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n将删除：$\r$\n  · 安装目录下的配置、数据库、日志（.office-claw、data、logs、.env）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）$\r$\n$\r$\n选择「否」将保留以上数据，但可能影响下次安装的配置初始化。" IDYES +3
+  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除所有用户数据？$\r$\n$\r$\n选择「是」将删除：$\r$\n  · 整个安装目录（含配置、数据库、日志、上传文件、工作区）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）$\r$\n$\r$\n选择「否」将仅删除程序文件，保留：$\r$\n  · 用户配置（.env、office-claw-config.json）$\r$\n  · 运行时数据（.office-claw、data、logs、workspace）$\r$\n  · 全局配置目录（$PROFILE\.office-claw）" IDYES +3
     StrCpy $RemoveUserData "0"
     Goto +2
     StrCpy $RemoveUserData "1"

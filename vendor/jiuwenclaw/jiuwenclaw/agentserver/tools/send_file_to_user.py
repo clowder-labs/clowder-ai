@@ -18,7 +18,7 @@ from typing import List, Union
 from openjiuwen.core.foundation.tool import LocalFunction, Tool, ToolCard
 
 from jiuwenclaw.agentserver.agent_ws_server import AgentWebSocketServer
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 
 class SendFileToolkit:

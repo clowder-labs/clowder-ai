@@ -18,6 +18,7 @@ import { basename, join } from 'node:path';
 import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
 import { createCatId } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
+import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata, TokenUsage } from '../../types.js';
 
 const log = createModuleLogger('relayclaw-agent');
@@ -44,7 +45,7 @@ import {
 } from './relayclaw-sidecar.js';
 import { isRelayClawTransportErrorText, transformRelayClawChunk } from './relayclaw-event-transform.js';
 
-const DEFAULT_RELAYCLAW_TIMEOUT_MS = 60 * 60 * 1000;
+const DEFAULT_RELAYCLAW_TIMEOUT_MS = 60 * 24 * 7 * 60 * 1000;
 const RELAYCLAW_INTERRUPT_ACK_TIMEOUT_MS = 1_500;
 
 export interface RelayClawAgentServiceOptions {
@@ -221,7 +222,7 @@ export class RelayClawAgentService implements AgentService {
     const modelName = this.config.modelName?.trim() || '';
     const scopeHash = createHash('sha256').update([apiBase, apiKey, modelName].join('\n')).digest('hex').slice(0, 12);
     const baseHomeDir =
-      this.config.homeDir?.trim() || join(process.cwd(), '.office-claw', 'relayclaw', this.catId as string);
+      this.config.homeDir?.trim() || join(findMonorepoRoot(), '.office-claw', 'relayclaw', this.catId as string);
 
     return {
       key: `auto:${scopeHash}`,

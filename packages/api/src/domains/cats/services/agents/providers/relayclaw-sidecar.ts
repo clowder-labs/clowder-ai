@@ -13,6 +13,7 @@ import type { CatId, RelayClawAgentConfig } from '@office-claw/shared';
 import { createModuleLogger } from '../../../../../infrastructure/logger.js';
 import { withBundledPythonPath } from '../../../../../utils/bundled-python-env.js';
 import { resolveCatCafeHostRoot } from '../../../../../utils/cat-cafe-root.js';
+import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import {
   resolveJiuwenClawAppDir,
   resolveJiuwenClawExecutable,
@@ -146,7 +147,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
     const executablePath = resolveJiuwenClawExecutable(this.config.executablePath);
     const pythonBin = resolveJiuwenClawPythonBin(this.config.pythonBin, appDir);
     const useExecutable = existsSync(executablePath);
-    const homeDir = this.config.homeDir?.trim() || join(process.cwd(), '.office-claw', 'relayclaw', this.catId as string);
+    const homeDir = this.config.homeDir?.trim() || join(findMonorepoRoot(), '.office-claw', 'relayclaw', this.catId as string);
     const apiKey = callbackEnv.API_KEY || callbackEnv.OPENAI_API_KEY || callbackEnv.OPENROUTER_API_KEY || '';
     const apiBase = callbackEnv.API_BASE || callbackEnv.OPENAI_BASE_URL || callbackEnv.OPENAI_API_BASE || '';
     const defaultHeaders = callbackEnv.default_headers || callbackEnv.OPENAI_DEFAULT_HEADERS || '';
@@ -339,7 +340,7 @@ export class DefaultRelayClawSidecarController implements RelayClawSidecarContro
         log.info({ catId: this.catId, elapsedMs: Date.now() - startupTs }, 'jiuwen sidecar app_ready');
       }
 
-      if (await isRelayClawRuntimeReady(runtime, this.tcpProbeFn, this.recentLogs, agentPort, webPort)) {
+      if (await isRelayClawRuntimeReady(this.tcpProbeFn, this.recentLogs, agentPort)) {
         log.info(
           { catId: this.catId, agentPort, webPort, elapsedMs: Date.now() - startupTs },
           'jiuwen sidecar fully ready',
@@ -370,24 +371,22 @@ export function buildRelayClawLaunchCommand(runtime: RelayClawSidecarRuntime): R
   if (runtime.useExecutable) {
     return {
       command: runtime.executablePath,
-      args: ['--desktop-run-app'],
+      args: ['--desktop-run-agentserver'],
       cwd: dirname(runtime.executablePath),
     };
   }
 
   return {
     command: runtime.pythonBin,
-    args: ['-m', 'jiuwenclaw.app'],
+    args: ['-m', 'jiuwenclaw.app_agentserver'],
     cwd: runtime.appDir,
   };
 }
 
 export async function isRelayClawRuntimeReady(
-  runtime: RelayClawSidecarRuntime,
   tcpProbeFn: typeof tcpProbe,
   recentLogs: string,
   agentPort: number,
-  webPort: number,
 ): Promise<boolean> {
   if (!(await tcpProbeFn('127.0.0.1', agentPort, 400))) {
     return false;
@@ -395,17 +394,13 @@ export async function isRelayClawRuntimeReady(
   if (isSidecarReady(recentLogs)) {
     return true;
   }
-  if (await tcpProbeFn('127.0.0.1', webPort, 400)) {
-    return true;
-  }
-  return false;
+  return true;
 }
 
 export function isSidecarReady(recentLogs: string): boolean {
   return (
     recentLogs.includes('[JiuWenClaw] 初始化完成') ||
-    recentLogs.includes('JiuWenClaw] 初始化完成') ||
-    recentLogs.includes('WebChannel 已启动')
+    recentLogs.includes('JiuWenClaw] 初始化完成')
   );
 }
 

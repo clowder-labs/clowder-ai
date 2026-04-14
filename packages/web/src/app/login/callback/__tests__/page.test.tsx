@@ -164,6 +164,37 @@ describe('LoginCallbackPage', () => {
     expect(mockLocationReplace).toHaveBeenCalledWith('/login');
   });
 
+  it('uses logout flow when query ticket is empty', async () => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        href: 'http://localhost:3003/login/callback?ticket=',
+        replace: mockLocationReplace,
+      },
+    });
+
+    mockApiFetch.mockResolvedValueOnce(
+      jsonResponse({
+        logoutUrl: '/logout-page',
+      }),
+    );
+
+    await act(async () => {
+      root.render(React.createElement(LoginCallbackPage));
+    });
+
+    await act(async () => {
+      vi.runAllTimers();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/logout', expect.objectContaining({ method: 'POST' }));
+    expect(mockClearAuthIdentity).toHaveBeenCalledTimes(1);
+    expect(mockSetIsSkipAuth).toHaveBeenCalledWith(false);
+    expect(mockLocationReplace).toHaveBeenCalledWith('/logout-page');
+  });
+
   it('reuses the same callback request across strict-mode remounts', async () => {
     let resolveResponse: ((value: Response) => void) | null = null;
     const deferredResponse = new Promise<Response>((resolve) => {

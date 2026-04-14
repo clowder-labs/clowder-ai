@@ -7,26 +7,27 @@
 'use client';
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { buildNameInitialIconDataUrl } from '@/lib/name-initial-icon';
 import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
+import { getIsSkipAuth } from '@/utils/userId';
+import { AgentManagementIcon } from './AgentManagementIcon';
 import { uploadAvatarAsset } from './hub-cat-editor.client';
 import { TagEditor } from './hub-tag-editor';
-import { AgentManagementIcon } from './AgentManagementIcon';
 import { NameInitialIcon } from './NameInitialIcon';
 import { CenteredLoadingState } from './shared/CenteredLoadingState';
 import { EmptyDataState } from './shared/EmptyDataState';
-import { OverflowTooltip } from './shared/OverflowTooltip';
 import { NoSearchResultsState } from './shared/NoSearchResultsState';
+import { OverflowTooltip } from './shared/OverflowTooltip';
 import { PasswordField } from './shared/PasswordField';
 import { SearchInput } from './shared/SearchInput';
 import { useConfirm } from './useConfirm';
-import { getIsSkipAuth } from '@/utils/userId';
-import { useToastStore } from '@/stores/toastStore';
 
 const ADD_MODEL = '添加模型';
 const MODEL_TITLE = '模型';
-const SEARCH_PLACEHOLDER = '输入关键字搜索、过滤';
+const SEARCH_PLACEHOLDER = '搜索模型';
 const EMPTY_STATE_TITLE = '暂无模型';
 const DEFAULT_DESC =
   '专注于知识问答、内容创作等通用任务，可实现高性能与低成本的平衡，适用于智能客服、个性化推荐等场景。';
@@ -37,7 +38,7 @@ const VENDOR_ICON = '/images/vendor.svg';
 const DEFAULT_DEVELOPER = '华为云 MaaS';
 const UNKNOWN_PROTOCOL_LABEL = 'unknown';
 const CREATE_MODEL_LABEL = '新建模型';
-const HUAWEI_MAAS_ACCESS_LABEL = '接入华为云 MaaS模型';
+const HUAWEI_MAAS_ACCESS_LABEL = '接入华为云Maas模型';
 const HUAWEI_MAAS_ACCESS_URL = 'https://api.modelarts-maas.com/openai/v1';
 const CREATE_MODEL_CANCEL_LABEL = '取消';
 const TEST_CONNECTION_LABEL = '测试连接';
@@ -45,10 +46,12 @@ const SAVE_MODEL_LABEL = '保存';
 const DELETE_MODEL_LABEL = '删除';
 const MODEL_ICON_MAX_BYTES = 200 * 1024;
 const DEFAULT_MODEL_ICON_SRC = '/images/mode-default-icon.svg';
-const MODEL_NAME_VALIDATION_MESSAGE = '支持中英文、数字及 :._/|\\-，仅支持中英文,数字开头结尾，长度2-64';
+const MODEL_NAME_VALIDATION_MESSAGE = '支持中英文、数字及 :._/|\\-，仅支持中英文、数字开头结尾，长度2-64';
 const MODEL_NAME_EDGE_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF]';
 const MODEL_NAME_BODY_PATTERN = '[A-Za-z0-9\\u4E00-\\u9FFF:._/|\\\\-]';
-const MODEL_NAME_PATTERN = new RegExp(`^${MODEL_NAME_EDGE_PATTERN}(?:${MODEL_NAME_BODY_PATTERN}{0,62}${MODEL_NAME_EDGE_PATTERN})$`);
+const MODEL_NAME_PATTERN = new RegExp(
+  `^${MODEL_NAME_EDGE_PATTERN}(?:${MODEL_NAME_BODY_PATTERN}{0,62}${MODEL_NAME_EDGE_PATTERN})$`,
+);
 
 function isValidModelName(value: string) {
   return MODEL_NAME_PATTERN.test(value);
@@ -226,10 +229,9 @@ function normalizeModel(item: MassModelResponseItem, index: number): ModelCardDa
   const inferredName =
     nameFromKnownFields ?? genericStringEntries.find(([key]) => !/desc|description|描述/i.test(key))?.[1]?.trim() ?? '';
 
-  const inferredDescription =
-    pickStringField(item, ['description', 'desc', '描述']) ??
-    genericStringEntries.find(([, value]) => value.trim() !== inferredName)?.[1]?.trim() ??
-    DEFAULT_DESC;
+  // Only use explicit description fields. If none present, leave description empty so
+  // the UI doesn't display fallback values like id or DEFAULT_DESC.
+  const inferredDescription = pickStringField(item, ['description', 'desc', '描述']) ?? '';
 
   const id = String(item.id ?? `${inferredName || 'model'}-${index}`);
   const object = String(item.object ?? 'model');
@@ -314,6 +316,12 @@ function resolveUploadedIconUrl(icon?: string | null): string | null {
   return trimmed.startsWith('/uploads/') ? `${API_URL}${trimmed}` : trimmed;
 }
 
+function isEnvFlagEnabled(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true';
+}
+
 export function ModelsPanel() {
   const [loading, setLoading] = useState(false);
   const [isSkipAuth, setIsSkipAuth] = useState(false);
@@ -335,6 +343,10 @@ export function ModelsPanel() {
   const [modelUrlInput, setModelUrlInput] = useState('');
   const [modelApiKeyInput, setModelApiKeyInput] = useState('');
   const [modelHeaderRows, setModelHeaderRows] = useState<HeaderInputRow[]>([]);
+  const [headerRowErrors, setHeaderRowErrors] = useState<Map<string, { keyError?: string; valueError?: string }>>(
+    new Map(),
+  );
+  const [headerErrorRowIndex, setHeaderErrorRowIndex] = useState<number | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
   const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
   const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
@@ -346,11 +358,13 @@ export function ModelsPanel() {
   const currentProjectPath = useChatStore((s) => s.currentProjectPath);
   const confirm = useConfirm();
 
+  const canCreateModel = isEnvFlagEnabled(process.env.CAN_CREATE_MODEL);
   const isEditMode = Boolean(editingSourceId);
   const isHuaweiMaasAccessMode = createModelModalMode === 'huawei-maas-access';
   const modelIconPreviewSrc = resolveUploadedIconUrl(modelIconInput) ?? DEFAULT_MODEL_ICON_SRC;
   const trimmedModelName = modelNameInput.trim();
-  const isModelNameValid = trimmedModelName.length >= 2 && trimmedModelName.length <= 64 && isValidModelName(trimmedModelName);
+  const isModelNameValid =
+    trimmedModelName.length >= 2 && trimmedModelName.length <= 64 && isValidModelName(trimmedModelName);
   const showModelNameValidationError = trimmedModelName.length > 0 && !isModelNameValid;
   const canConfirmCreateModel = isEditMode
     ? isModelNameValid
@@ -482,7 +496,7 @@ export function ModelsPanel() {
   const resolveProjectPathForPayload = () =>
     resolvedProjectPath || (currentProjectPath && currentProjectPath !== 'default' ? currentProjectPath : undefined);
 
-  const closeCreateModelModal = () => {
+  const closeCreateModelModal = useCallback(() => {
     setShowCreateModelModal(false);
     setCreateModelModalMode('default');
     setCreateModelError(null);
@@ -490,7 +504,13 @@ export function ModelsPanel() {
     setEditingSourceId(null);
     setEditingOriginalModelName(null);
     setEditingSourceModels([]);
-  };
+    setHeaderRowErrors(new Map());
+  }, []);
+
+  useEscapeKey({
+    enabled: showCreateModelModal,
+    onEscape: closeCreateModelModal,
+  });
 
   const resetCreateModelForm = (mode: CreateModelModalMode = 'default') => {
     setModelNameInput('');
@@ -500,6 +520,7 @@ export function ModelsPanel() {
     setModelUrlInput(mode === 'huawei-maas-access' ? HUAWEI_MAAS_ACCESS_URL : '');
     setModelApiKeyInput('');
     setModelHeaderRows([]);
+    setHeaderRowErrors(new Map());
   };
 
   const handleOpenCreateModelModal = (mode: CreateModelModalMode = 'default') => {
@@ -509,8 +530,10 @@ export function ModelsPanel() {
     setEditingOriginalModelName(null);
     setEditingSourceModels([]);
     setCreateModelError(null);
+    setHeaderRowErrors(new Map());
     setCreateModelSuccess(null);
     setShowCreateModelModal(true);
+    setHeaderErrorRowIndex(null);
   };
 
   const handleOpenEditModelModal = async (card: ModelCardData) => {
@@ -522,6 +545,8 @@ export function ModelsPanel() {
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setEditModelBusy(true);
+    setHeaderErrorRowIndex(null);
+    setHeaderRowErrors(new Map());
     try {
       const projectPath = resolveProjectPathForPayload();
       const query = new URLSearchParams();
@@ -567,11 +592,22 @@ export function ModelsPanel() {
 
   const handleCreateModel = async () => {
     if (!canConfirmCreateModel || saveModelBusy) return;
+    // validate header rows and build headers object
+    const buildResult = buildHeadersObject(modelHeaderRows);
+    if (buildResult.errorIndex !== null || buildResult.errorMessage) {
+      setHeaderErrorRowIndex(buildResult.errorIndex);
+      // trigger validateHeaderRows to populate headerRowErrors map
+      validateHeaderRows(modelHeaderRows);
+      const firstErrorRow = document.querySelector('[data-error-row="true"]');
+      firstErrorRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setHeaderErrorRowIndex(null);
+
     setCreateModelError(null);
     setCreateModelSuccess(null);
     setSaveModelBusy(true);
     try {
-      const headers = buildHeadersObject(modelHeaderRows);
       const description = modelDescriptionInput.trim();
       const displayName = modelDisplayNameInput.trim();
       const icon = modelIconInput.trim();
@@ -590,7 +626,7 @@ export function ModelsPanel() {
           ...(icon ? { icon } : {}),
           ...(modelUrlInput.trim() ? { baseUrl: modelUrlInput.trim() } : {}),
           ...(modelApiKeyInput.trim() ? { apiKey: modelApiKeyInput.trim() } : {}),
-          headers: headers ?? {},
+          ...(buildResult.headers ? { headers: buildResult.headers } : {}),
           models: mergedModels,
           ...(projectPath ? { projectPath } : {}),
         };
@@ -603,7 +639,7 @@ export function ModelsPanel() {
           ...(isHuaweiMaasAccessMode ? { accessMode: 'huawei_maas_access' as const } : {}),
           baseUrl: modelUrlInput.trim(),
           apiKey: modelApiKeyInput.trim(),
-          ...(headers ? { headers } : {}),
+          ...(buildResult.headers ? { headers: buildResult.headers } : {}),
           models: [modelNameInput.trim()],
           ...(projectPath ? { projectPath } : {}),
         };
@@ -673,21 +709,44 @@ export function ModelsPanel() {
   const handleModelIconUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > MODEL_ICON_MAX_BYTES) {
-      setCreateModelError('图标文件大小不能超过 200KB');
-      setCreateModelSuccess(null);
+
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+      const showToast = useToastStore.getState().addToast;
+      showToast({
+        type: 'error',
+        title: '图标格式不支持',
+        message: '仅支持 png、jpeg、jpg 格式图片',
+        duration: 3000,
+      });
       event.target.value = '';
       return;
     }
 
-    setCreateModelError(null);
-    setCreateModelSuccess(null);
+    if (file.size > MODEL_ICON_MAX_BYTES) {
+      const showToast = useToastStore.getState().addToast;
+      showToast({
+        type: 'error',
+        title: '图标文件过大',
+        message: '图片大小不能超过 200KB',
+        duration: 3000,
+      });
+      event.target.value = '';
+      return;
+    }
+
     setModelIconUploading(true);
     try {
       const uploaded = await uploadAvatarAsset(file);
       setModelIconInput(uploaded);
     } catch (error) {
-      setCreateModelError(error instanceof Error ? error.message : '图标上传失败');
+      const showToast = useToastStore.getState().addToast;
+      showToast({
+        type: 'error',
+        title: '图标上传失败',
+        message: error instanceof Error ? error.message : '图标上传失败',
+        duration: 3000,
+      });
     } finally {
       setModelIconUploading(false);
       event.target.value = '';
@@ -695,15 +754,79 @@ export function ModelsPanel() {
   };
 
   const handleAddHeaderRow = () => {
-    setModelHeaderRows((rows) => [...rows, createEmptyHeaderRow()]);
+    // Before adding a new empty header row, validate existing rows.
+    // If there are validation errors (empty key/value or duplicate keys),
+    // show the first error and do not add a new row.
+    const errors = validateHeaderRows(modelHeaderRows);
+    const hasError = Array.from(errors.values()).some((err) => !!(err && (err.keyError || err.valueError)));
+    if (hasError) {
+      const firstErrorRow = document.querySelector('[data-error-row="true"]');
+      firstErrorRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const nextRow = createEmptyHeaderRow();
+    setModelHeaderRows((rows) => [...rows, nextRow]);
+    validateHeaderRows([...modelHeaderRows, nextRow]);
   };
 
   const handleHeaderRowChange = (rowId: string, field: 'key' | 'value', value: string) => {
-    setModelHeaderRows((rows) => rows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row)));
+    const updatedRows = modelHeaderRows.map((row) => (row.id === rowId ? { ...row, [field]: value } : row));
+    setModelHeaderRows(updatedRows);
+    validateHeaderRows(updatedRows);
+  };
+
+  const validateHeaderRows = (rows: HeaderInputRow[]) => {
+    const newErrors = new Map<string, { keyError?: string; valueError?: string }>();
+    const keyCountMap = new Map<string, number[]>();
+
+    rows.forEach((row, index) => {
+      const key = row.key.trim();
+      const value = row.value.trim();
+      const rowErrors: { keyError?: string; valueError?: string } = {};
+
+      if (!key && !value) {
+        newErrors.set(row.id, {});
+        return;
+      }
+
+      if (!key && value) {
+        rowErrors.keyError = '请填写键名';
+      }
+
+      if (key && !value) {
+        rowErrors.valueError = '请填写值';
+      }
+
+      if (key) {
+        const existing = keyCountMap.get(key) || [];
+        existing.push(index);
+        keyCountMap.set(key, existing);
+      }
+
+      if (Object.keys(rowErrors).length > 0) {
+        newErrors.set(row.id, rowErrors);
+      }
+    });
+
+    keyCountMap.forEach((indices, key) => {
+      if (indices.length > 1) {
+        indices.forEach((index) => {
+          const rowId = rows[index].id;
+          const existing = newErrors.get(rowId) || {};
+          newErrors.set(rowId, { ...existing, keyError: `键名"${key}"重复` });
+        });
+      }
+    });
+
+    setHeaderRowErrors(newErrors);
+    return newErrors;
   };
 
   const handleRemoveHeaderRow = (rowId: string) => {
-    setModelHeaderRows((rows) => rows.filter((row) => row.id !== rowId));
+    const updatedRows = modelHeaderRows.filter((row) => row.id !== rowId);
+    setModelHeaderRows(updatedRows);
+    validateHeaderRows(updatedRows);
   };
 
   return (
@@ -728,7 +851,7 @@ export function ModelsPanel() {
               {HUAWEI_MAAS_ACCESS_LABEL}
             </button>
           ) : null}
-          {isSkipAuth ? (
+          {canCreateModel ? (
             <button
               type="button"
               onClick={() => handleOpenCreateModelModal('default')}
@@ -799,7 +922,8 @@ export function ModelsPanel() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {group.items.map((card) => {
                     const cardIconSrc = resolveUploadedIconUrl(card.icon);
-                    const customModelCreatedAt = card.protocol !== 'huawei_maas' ? formatCustomModelCreatedAt(card.createdAt) : null;
+                    const customModelCreatedAt =
+                      card.protocol !== 'huawei_maas' ? formatCustomModelCreatedAt(card.createdAt) : null;
                     return (
                       <article
                         key={card.id}
@@ -874,7 +998,9 @@ export function ModelsPanel() {
                                       >
                                         <ClockIcon />
                                       </span>
-                                      <span data-testid={`model-card-created-at-${card.id}`}>{customModelCreatedAt}</span>
+                                      <span data-testid={`model-card-created-at-${card.id}`}>
+                                        {customModelCreatedAt}
+                                      </span>
                                     </>
                                   ) : (
                                     <>
@@ -898,11 +1024,10 @@ export function ModelsPanel() {
                                     onClick={() => {
                                       void handleOpenEditModelModal(card);
                                     }}
-                                    className="group whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)]"
+                                    className="whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)] hover:underline hover:underline-offset-2 disabled:opacity-50"
+                                    style={{ textUnderlineOffset: '4px' }}
                                   >
-                                    <span className="inline-flex h-[20px] items-center border-b border-transparent transition-colors group-hover:border-current">
-                                      编辑
-                                    </span>
+                                    编辑
                                   </button>
                                   <button
                                     type="button"
@@ -911,11 +1036,10 @@ export function ModelsPanel() {
                                       void handleDeleteModel(card.id, card.name);
                                     }}
                                     data-testid={`model-card-delete-${card.id}`}
-                                    className="group ml-[24px] whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)] disabled:opacity-50"
+                                    className="ml-[24px] whitespace-nowrap text-[14px] font-bold leading-[20px] text-[var(--text-accent)] hover:underline hover:underline-offset-2 disabled:opacity-50"
+                                    style={{ textUnderlineOffset: '4px' }}
                                   >
-                                    <span className="inline-flex h-[20px] items-center border-b border-transparent transition-colors group-hover:border-current">
-                                      {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
-                                    </span>
+                                    {deletingModelId === card.id ? '删除中...' : DELETE_MODEL_LABEL}
                                   </button>
                                 </div>
                               </div>
@@ -973,7 +1097,7 @@ export function ModelsPanel() {
                   value={modelNameInput}
                   onChange={(event) => setModelNameInput(event.target.value)}
                   placeholder={isHuaweiMaasAccessMode ? '请输入模型调用名称' : '请输入模型名称'}
-                  className="ui-input ui-form-focus w-full"
+                  className="ui-input w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -1006,7 +1130,7 @@ export function ModelsPanel() {
                   value={modelDisplayNameInput}
                   onChange={(event) => setModelDisplayNameInput(event.target.value)}
                   placeholder={'请输入模型展示名称'}
-                  className="ui-input ui-form-focus w-full"
+                  className="ui-input w-full"
                   style={{ height: '28px' }}
                   required
                 />
@@ -1029,7 +1153,7 @@ export function ModelsPanel() {
                   <input
                     ref={modelIconFileInputRef}
                     type="file"
-                    accept="image/png,image/jpeg,image/gif,image/jpg"
+                    accept="image/png,image/jpeg,image/jpg"
                     onChange={handleModelIconUpload}
                     className="hidden"
                     data-testid="models-create-model-icon-file-input"
@@ -1052,7 +1176,7 @@ export function ModelsPanel() {
                   </div>
                 </div>
                 <div className="text-[12px] text-[var(--text-muted)]">
-                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、gif、jpg 格式图片，限制 200kb 内'}
+                  {modelIconUploading ? '图标上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
                 </div>
               </div>
               <div className="space-y-1">
@@ -1068,7 +1192,7 @@ export function ModelsPanel() {
                   autoCapitalize="off"
                   spellCheck={false}
                   disabled={isHuaweiMaasAccessMode}
-                  className={`ui-input ui-form-focus w-full ${isHuaweiMaasAccessMode ? 'cursor-not-allowed bg-[#F7F8FA] text-[#9AA4B2]' : ''}`}
+                  className={`ui-input w-full ${isHuaweiMaasAccessMode ? 'cursor-not-allowed bg-[#F7F8FA] text-[#9AA4B2]' : ''}`}
                   style={{ height: '28px' }}
                   required
                 />
@@ -1085,7 +1209,7 @@ export function ModelsPanel() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  className="ui-input ui-form-focus w-full"
+                  className="ui-input w-full"
                   style={{ height: '28px' }}
                   required
                   toggleTestId="models-create-model-api-key-toggle"
@@ -1094,43 +1218,54 @@ export function ModelsPanel() {
               <div className="space-y-1">
                 <p className="text-[12px] leading-[18px] text-[#2E3440]">{'请求头（可选）'}</p>
                 <div className="space-y-2">
-                  {modelHeaderRows.map((row, index) => (
-                    <div
-                      key={row.id}
-                      className="flex items-center gap-[4px]"
-                      data-testid={`models-create-model-header-row-${index}`}
-                    >
-                      <input
-                        type="text"
-                        value={row.key}
-                        onChange={(event) => handleHeaderRowChange(row.id, 'key', event.target.value)}
-                        placeholder="请求头的键名"
-                        className="ui-input ui-form-focus h-[28px] flex-1"
-                        data-testid={`models-create-model-header-key-${index}`}
-                      />
-                      <input
-                        type="text"
-                        value={row.value}
-                        onChange={(event) => handleHeaderRowChange(row.id, 'value', event.target.value)}
-                        placeholder="请求头的值"
-                        className="ui-input ui-form-focus h-[28px] flex-1"
-                        data-testid={`models-create-model-header-value-${index}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveHeaderRow(row.id)}
-                        aria-label={`请求头 ${index + 1}`}
-                        className="inline-flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-[8px] p-0 text-[var(--icon-delete-color)] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
-                        data-testid={`models-create-model-header-remove-${index}`}
+                  {modelHeaderRows.map((row, index) => {
+                    const rowErrors = headerRowErrors.get(row.id) || {};
+                    return (
+                      <div
+                        key={row.id}
+                        className={`flex flex-col gap-1`}
+                        data-testid={`models-create-model-header-row-${index}`}
+                        data-error-row={rowErrors.keyError || rowErrors.valueError ? 'true' : 'false'}
                       >
-                        <AgentManagementIcon name="delete" className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-[4px]">
+                          <input
+                            type="text"
+                            value={row.key}
+                            onChange={(event) => handleHeaderRowChange(row.id, 'key', event.target.value)}
+                            placeholder="请求头的键名"
+                            className={`ui-input h-[28px] flex-1 ${rowErrors.keyError ? 'bg-red-50 border-red-500' : ''}`}
+                            data-testid={`models-create-model-header-key-${index}`}
+                          />
+                          <input
+                            type="text"
+                            value={row.value}
+                            onChange={(event) => handleHeaderRowChange(row.id, 'value', event.target.value)}
+                            placeholder="请求头的值"
+                            className={`ui-input h-[28px] flex-1 ${rowErrors.valueError ? 'bg-red-50 border-red-500' : ''}`}
+                            data-testid={`models-create-model-header-value-${index}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveHeaderRow(row.id)}
+                            aria-label={`请求头 ${index + 1}`}
+                            className="inline-flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-[8px] p-0 text-[var(--icon-delete-color)] transition-colors hover:bg-[rgba(0,0,0,0.04)]"
+                            data-testid={`models-create-model-header-remove-${index}`}
+                          >
+                            <AgentManagementIcon name="delete" className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {(rowErrors.keyError || rowErrors.valueError) && (
+                          <div className="break-all px-1 text-xs text-red-600">
+                            {rowErrors.keyError || rowErrors.valueError}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={handleAddHeaderRow}
-                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--text-accent)]"
+                    className="group inline-flex items-center gap-[4px] leading-[18px] text-[12px] text-[var(--icon-delete-hover)]"
                     data-testid="models-create-model-header-add"
                   >
                     <AgentManagementIcon name="add" className="h-4 w-4" />
@@ -1139,15 +1274,14 @@ export function ModelsPanel() {
                     </span>
                   </button>
                 </div>
+                {createModelError && createModelError.includes('请求头键名重复') ? (
+                  <p className="mt-1 text-xs text-red-600">{createModelError}</p>
+                ) : null}
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeCreateModelModal}
-                className="ui-button-default"
-              >
+              <button type="button" onClick={closeCreateModelModal} className="ui-button-default">
                 {CREATE_MODEL_CANCEL_LABEL}
               </button>
               <button
@@ -1248,29 +1382,46 @@ function headersObjectToRows(headers?: Record<string, string> | null): HeaderInp
   }));
 }
 
-function buildHeadersObject(rows: HeaderInputRow[]): Record<string, string> | null {
-  const normalizedEntries: Array<readonly [string, string]> = [];
+type BuildHeadersResult = {
+  headers: Record<string, string> | null;
+  errorIndex: number | null;
+  errorMessage: string | null;
+};
 
-  for (const row of rows) {
+function buildHeadersObject(rows: HeaderInputRow[]): BuildHeadersResult {
+  const normalizedEntries: Array<readonly [string, string]> = [];
+  const rowIndexMap: number[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const key = row.key.trim();
     const value = row.value.trim();
     if (!key && !value) continue;
     if (!key || !value) {
-      throw new Error('请求头的键名和值都必须填写');
+      return {
+        headers: null,
+        errorIndex: i,
+        errorMessage: `请求头的键名和值都必须填写`,
+      };
     }
     normalizedEntries.push([key, value] as const);
+    rowIndexMap.push(i);
   }
 
-  if (normalizedEntries.length === 0) return null;
+  if (normalizedEntries.length === 0) return { headers: null, errorIndex: null, errorMessage: null };
 
-  const duplicatedKey = normalizedEntries.find(
-    ([key], index) => normalizedEntries.findIndex(([existingKey]) => existingKey === key) !== index,
+  const duplicatedIndex = normalizedEntries.findIndex(
+    ([key], idx) => normalizedEntries.findIndex(([k]) => k === key) !== idx,
   );
-  if (duplicatedKey) {
-    throw new Error(`请求头键名重复：${duplicatedKey[0]}`);
+  if (duplicatedIndex !== -1) {
+    return {
+      headers: null,
+      errorIndex: rowIndexMap[duplicatedIndex],
+      errorMessage: `请求头键名重复：${normalizedEntries[duplicatedIndex][0]}`,
+    };
   }
 
-  return Object.fromEntries(normalizedEntries);
+  return { headers: Object.fromEntries(normalizedEntries), errorIndex: null, errorMessage: null };
 }
 
 function generateModelConfigSourceId(): string {

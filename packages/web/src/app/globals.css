@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -204,6 +204,7 @@
   --alert-error-bg: #fce3e1;
   --alert-prompt-bg: #deecff;
   --alert-warn-bg: #ffebd1;
+  --chat-user-bubble-bg: #deecff;
   --cli-output-head-surface: rgba(255, 255, 255, 0.06);
   --cli-output-border-strong: rgba(255, 255, 255, 0.12);
   --cli-output-border-soft: rgba(255, 255, 255, 0.08);
@@ -251,6 +252,7 @@
   --accent-primary: var(--color-cocreator-primary);
   --accent-soft: rgba(255, 221, 210, 0.45);
   --accent-soft-strong: #ffddd2;
+  --chat-user-bubble-bg: rgba(255, 241, 230, 1);
 
   --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
   --status-badge-unconfigured-surface: #e6e6e6;
@@ -375,6 +377,7 @@
   --accent-primary: #5b6cff;
   --accent-soft: #eef0ff;
   --accent-soft-strong: #ddeeff;
+  --chat-user-bubble-bg: #deecff;
 
   --status-badge-configured-surface: rgba(91, 168, 84, 0.2);
   --status-badge-unconfigured-surface: #f0f0f0;
@@ -1242,7 +1245,7 @@ select:-webkit-autofill:focus {
   }
 
   .ui-form-focus-within:focus-within {
-    border-color: var(--border-accent);
+    border-color: var(--input-border-active);
     background: var(--surface-panel);
     box-shadow: none;
   }

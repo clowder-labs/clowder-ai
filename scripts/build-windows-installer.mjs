@@ -72,7 +72,7 @@ const WINDOWS_RUNTIME_NPM_ARGS = [
   '--loglevel=error',
 ];
 
-export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw'];
+export const WINDOWS_PRESERVE_PATHS = ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw', 'workspace'];
 export const WINDOWS_MANAGED_TOP_LEVEL_PATHS = [
   'packages',
   'scripts',
@@ -94,6 +94,8 @@ const EXCLUDED_EXACT_PATHS = new Set([
   '.env',
   'data',
   'logs',
+  'uploads',
+  'workspace',
   'dist',
   'packages/api/dist',
   'packages/mcp-server/dist',
@@ -102,6 +104,8 @@ const EXCLUDED_EXACT_PATHS = new Set([
 const EXCLUDED_PREFIXES = [
   'data/',
   'logs/',
+  'uploads/',
+  'workspace/',
   'dist/',
   'packages/api/dist/',
   'packages/mcp-server/dist/',
@@ -1029,6 +1033,7 @@ async function stageBundledApiRuntime(targetRootDir) {
       '--target=node20',
       `--outfile=${join(targetDir, 'dist', 'index.js')}`,
       `--banner:js=${banner}`,
+      '--minify',
       '--log-level=error',
       ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dependency) => `--external:${dependency}`),
     ]);
@@ -1229,16 +1234,106 @@ async function installWindowsRuntimeDependencies(bundleDir, options) {
   installBundledOfficeSkillDependencies(bundleDir, windowsNode);
 }
 
+async function minifyJsFilesInPlace(targetDir) {
+  const esbuildCommand = resolveLocalEsbuildCommand();
+  walkFiles(targetDir, (fullPath, entry) => {
+    if (!entry.name.endsWith('.js')) return;
+    const tempOut = `${fullPath}.min`;
+    try {
+      run(esbuildCommand, [
+        fullPath,
+        '--minify',
+        '--platform=node',
+        '--format=esm',
+        '--target=node20',
+        `--outfile=${tempOut}`,
+        '--log-level=error',
+      ]);
+      rmSync(fullPath, { force: true });
+      cpSync(tempOut, fullPath, { force: true });
+      rmSync(tempOut, { force: true });
+    } catch (error) {
+      // If minify fails, keep original file
+      rmSync(tempOut, { force: true });
+    }
+  });
+}
+
+async function stageBundledMcpServerRuntime(targetRootDir) {
+  const sourceDir = join(repoRoot, 'packages', 'mcp-server');
+  const sourceEntry = join(sourceDir, 'dist', 'index.js');
+  const targetDir = join(targetRootDir, 'packages', 'mcp-server');
+  if (!existsSync(sourceEntry)) {
+    throw new Error(`Missing mcp-server build artifact for bundling: ${sourceEntry}`);
+  }
+
+  resetDir(targetDir);
+  ensureDir(join(targetDir, 'dist'));
+
+  try {
+    const esbuildCommand = resolveLocalEsbuildCommand();
+    const banner = [
+      "import { createRequire as __createRequire } from 'node:module';",
+      "import { dirname as __pathDirname } from 'node:path';",
+      "import { fileURLToPath as __fileURLToPath } from 'node:url';",
+      'const require = __createRequire(import.meta.url);',
+      'const __filename = __fileURLToPath(import.meta.url);',
+      'const __dirname = __pathDirname(__filename);',
+    ].join(' ');
+    run(esbuildCommand, [
+      sourceEntry,
+      '--bundle',
+      '--platform=node',
+      '--format=esm',
+      '--target=node20',
+      `--outfile=${join(targetDir, 'dist', 'index.js')}`,
+      `--banner:js=${banner}`,
+      '--minify',
+      '--log-level=error',
+      '--external:@office-claw/shared',
+      '--external:@modelcontextprotocol/sdk',
+      '--external:zod',
+    ]);
+
+    writeJson(
+      join(targetDir, 'package.json'),
+      createRuntimePackageJson(join(sourceDir, 'package.json'), {
+        scripts: {
+          start: 'node dist/index.js',
+        },
+      }),
+    );
+  } catch (error) {
+    logStep(
+      `mcp-server bundling unavailable, falling back to staged dist (${error instanceof Error ? error.message : String(error)})`,
+    );
+    copyIfPresent(join(sourceDir, 'dist'), join(targetDir, 'dist'));
+    writeJson(
+      join(targetDir, 'package.json'),
+      createRuntimePackageJson(join(sourceDir, 'package.json'), {
+        scripts: {
+          start: 'node dist/index.js',
+        },
+      }),
+    );
+  }
+  pruneRuntimePackage(targetDir, { removePaths: ['src', 'test', 'tsconfig.json'] });
+}
+
 async function stageWorkspacePackages(targetRootDir) {
   stageRuntimePackageTemplate(targetRootDir, 'shared', {
     copyPaths: ['dist'],
     removePaths: ['tsconfig.json'],
   });
+
+  // Minify all JS files in shared package
+  const sharedDistDir = join(targetRootDir, 'packages', 'shared', 'dist');
+  if (existsSync(sharedDistDir)) {
+    await minifyJsFilesInPlace(sharedDistDir);
+  }
+
   await stageBundledApiRuntime(targetRootDir);
-  stageRuntimePackageTemplate(targetRootDir, 'mcp-server', {
-    copyPaths: ['dist'],
-    removePaths: ['src', 'test', 'tsconfig.json'],
-  });
+  await stageBundledMcpServerRuntime(targetRootDir);
   stageStandaloneWebRuntime(targetRootDir);
 }
 
@@ -1347,7 +1442,8 @@ async function stageWindowsNode(bundleDir, options) {
   const targetDir = join(bundleDir, 'tools', 'node');
   resetDir(targetDir);
   cpSync(nodeRoot, targetDir, { recursive: true, force: true });
-  removePaths(targetDir, ['node_modules', 'corepack', 'include', 'share']);
+  // Keep node_modules (contains npm and its dependencies, needed for runtime skill installation)
+  removePaths(targetDir, ['corepack', 'include', 'share']);
   walkFiles(targetDir, (fullPath, entry) => {
     if (entry.name.endsWith('.map') || entry.name.endsWith('.md')) {
       rmSync(fullPath, { force: true });

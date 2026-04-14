@@ -26,7 +26,8 @@ import pino from 'pino';
  */
 export const isDebugMode = process.argv.includes('--debug');
 const LOG_LEVEL = (isDebugMode ? 'debug' : (process.env.LOG_LEVEL ?? 'info')) as pino.Level;
-const LOG_DIR = resolve(process.cwd(), 'data', 'logs', 'api');
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
+const LOG_DIR = resolve(findMonorepoRoot(), 'data', 'logs', 'api');
 const RETENTION_FILES = 14;
 
 /**
