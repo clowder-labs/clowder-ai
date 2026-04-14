@@ -140,6 +140,7 @@ export function HubConnectorConfigTab() {
   const addToast = useToastStore((s) => s.addToast);
   const [platforms, setPlatforms] = useState<PlatformStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPlatformId, setSelectedPlatformId] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -147,8 +148,13 @@ export function HubConnectorConfigTab() {
   const [saveResult, setSaveResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
-  const fetchStatus = useCallback(async () => {
-    setIsLoading(true);
+  const fetchStatus = useCallback(async (options?: { background?: boolean }) => {
+    const background = options?.background ?? false;
+    if (background) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
     try {
       const res = await apiFetch('/api/connector/status');
       if (!res.ok) return;
@@ -162,7 +168,11 @@ export function HubConnectorConfigTab() {
     } catch {
       // fall through
     } finally {
-      setIsLoading(false);
+      if (background) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -271,7 +281,7 @@ export function HubConnectorConfigTab() {
             },
       );
       setFieldValues({});
-      await fetchStatus();
+      await fetchStatus({ background: true });
     } catch {
       addToast({
         type: 'error',
@@ -378,7 +388,7 @@ export function HubConnectorConfigTab() {
               duration: 3000,
             },
       );
-      await fetchStatus();
+      await fetchStatus({ background: true });
     } catch {
       addToast({
         type: 'error',
@@ -486,14 +496,14 @@ export function HubConnectorConfigTab() {
                             {platform.id === 'feishu' ? (
                               <FeishuQrPanel
                                 configured={platform.configured}
-                                onConfirmed={() => void fetchStatus()}
-                                onDisconnected={() => void fetchStatus()}
+                                onConfirmed={() => void fetchStatus({ background: true })}
+                                onDisconnected={() => void fetchStatus({ background: true })}
                               />
                             ) : (
                               <WeixinQrPanel
                                 configured={platform.configured}
-                                onConfigured={fetchStatus}
-                                onDisconnected={fetchStatus}
+                                onConfigured={() => fetchStatus({ background: true })}
+                                onDisconnected={() => fetchStatus({ background: true })}
                               />
                             )}
                           </div>
@@ -608,7 +618,7 @@ export function HubConnectorConfigTab() {
                           type="button"
                           className="ui-button-default inline-flex items-center gap-1.5"
                           onClick={() => void handleTestConnection(platform)}
-                          disabled={testing}
+                          disabled={testing || isRefreshing}
                         >
                           <WifiIcon />
                           {testing ? '测试中...' : '测试连接'}
@@ -616,7 +626,7 @@ export function HubConnectorConfigTab() {
                         <button
                           type="button"
                           onClick={() => handleSave(platform)}
-                          disabled={saving}
+                          disabled={saving || isRefreshing}
                           className="ui-button-primary disabled:opacity-50"
                           data-testid={`save-${platform.id}`}
                         >
@@ -626,7 +636,7 @@ export function HubConnectorConfigTab() {
                           <button
                             type="button"
                             onClick={() => handleDisconnect(platform.id)}
-                            disabled={disconnecting === platform.id}
+                            disabled={disconnecting === platform.id || isRefreshing}
                             className="ui-button-default text-red-500 hover:text-red-700 disabled:opacity-50"
                             data-testid={`disconnect-${platform.id}`}
                           >
