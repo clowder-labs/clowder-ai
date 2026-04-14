@@ -56,6 +56,7 @@
 | `refs/review-request-template.md` | Review 请求信模板 |
 | `refs/rich-blocks.md` | Rich block 创建指南 |
 | `refs/shared-rules.md` | 通用协作规则与约束 |
+| `openai-whisper-cn` | 本地语音转文字、音频转录、会议录音转文本 |
 
 ## 关键规则
 

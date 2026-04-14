@@ -74,21 +74,21 @@ dir %USERPROFILE%\.cache\whisper\
 
 ```bash
 export HF_ENDPOINT=https://hf-mirror.com
-python -c "import whisper; whisper.load_model('tiny')"
+python -c "import whisper; whisper.load_model('base')"
 ```
 
 **Windows（CMD）：**
 
 ```cmd
 set HF_ENDPOINT=https://hf-mirror.com
-python -c "import whisper; whisper.load_model('tiny')"
+python -c "import whisper; whisper.load_model('base')"
 ```
 
 ### 确认后执行转录
 
 ```bash
 export HF_ENDPOINT=https://hf-mirror.com
-whisper audio.mp3 --model tiny --language zh
+whisper audio.mp3 --model base --language zh
 ```
 
 ---
@@ -97,28 +97,28 @@ whisper audio.mp3 --model tiny --language zh
 
 ```bash
 # 中文音频
-whisper audio.mp3 --language zh --model tiny --output_format txt
+whisper audio.mp3 --language zh --model base --output_format txt
 
 # 英文音频
-whisper audio.mp3 --language en --model tiny
+whisper audio.mp3 --language en --model base
 
 # 翻译（非英语 → 英语）
-whisper audio.mp3 --task translate --model tiny
+whisper audio.mp3 --task translate --model base
 ```
 
 ---
 
 ## ⚡ 从小到大，逐步尝试
 
-**先用最小的模型，效果不好再换大的。**
+**先用 base，效果不好再换大的。**
 
 ```
-tiny → base → small → medium → large
+base → small → medium → large
 ```
 
-**tiny 是最小的**（~75MB，几分钟下载+运行），适合快速测试。
+**base 是首选**（~150MB，平衡速度和效果），日常使用推荐。
 
-**如果已有大模型缓存**：可以先用已有模型跑一次看效果，不满意再换小的重新跑（小的更快）。
+**tiny 只用于超大文件**：音频 >1小时、需要快速跑完时用 tiny（~75MB，最快但效果差）。
 
 | 模型     | 大小     | 速度 |
 |--------|--------|----|
@@ -137,10 +137,10 @@ tiny → base → small → medium → large
 
 ```bash
 export HF_ENDPOINT=https://hf-mirror.com
-python -c "import whisper; whisper.load_model('tiny')"
+python -c "import whisper; whisper.load_model('base')"
 ```
 
-手动下载：访问 https://hf-mirror.com/openai/whisper-tiny，下载 `.pt` 文件放到 `~/.cache/whisper/`
+手动下载：访问 https://hf-mirror.com/openai/whisper-base，下载 `.pt` 文件放到 `~/.cache/whisper/`
 
 ### ffmpeg 找不到
 
