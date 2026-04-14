@@ -650,7 +650,7 @@ function ToolRow({
         </div>
         {/* Detail — hidden by default, shown on click */}
         {hasDetail && <ChevronIcon expanded={rowExpanded} />}
-      </div>
+      </button>
       {rowExpanded && hasDetail && event.detail && (
         <div
           className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]"
