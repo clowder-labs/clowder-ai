@@ -133,7 +133,7 @@ describe('UploadSkillModal', () => {
       size: index === 0 ? SKILL_UPLOAD_LIMITS.maxFileBytes + 1 : 1,
     }));
 
-    expect(validateSkillUploadFiles(files)).toBe('文件 too-large.txt 单个文件大小不能超过1mb');
+    expect(validateSkillUploadFiles(files)).toBe('文件 too-large.txt 单个文件大小不能超过1MB');
   });
 
   it('prioritizes total size before missing skill manifest', () => {
@@ -716,12 +716,12 @@ description: From zip package.
     const submitTrigger = container.querySelector('[data-testid="upload-skill-submit-trigger"]') as HTMLSpanElement | null;
     expect(latestToast?.type).toBe('error');
     expect(latestToast?.title).toBe('上传失败');
-    expect(latestToast?.message).toBe('文件 oversized.txt 单个文件大小不能超过1mb');
+    expect(latestToast?.message).toBe('文件 oversized.txt 单个文件大小不能超过1MB');
     expect(confirmButton?.disabled).toBe(true);
     act(() => {
       submitTrigger?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
     });
-    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('文件 oversized.txt 单个文件大小不能超过1mb');
+    expect(document.body.querySelector('[role="tooltip"]')?.textContent).toContain('文件 oversized.txt 单个文件大小不能超过1MB');
   });
 
   it('disables submit and shows a hint for invalid edited skill names', async () => {

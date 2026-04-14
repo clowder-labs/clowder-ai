@@ -292,7 +292,7 @@ function getUploadValidationIssue(files: UploadFile[]): UploadValidationIssue | 
   if (oversizedFile) {
     return {
       kind: 'fileTooLarge',
-      message: `文件 ${oversizedFile.path} 单个文件大小不能超过1mb`,
+      message: `文件 ${oversizedFile.path} 单个文件大小不能超过1MB`,
     };
   }
 
@@ -609,7 +609,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <Alert mode="prompt" closable={false} className="mb-4">
-            1. 支持上传文件或者文件夹，单个文件大小不能超过1mb，文件数量不能超过100，总文件大小不能超过4mb。
+            1. 支持上传文件或者文件夹，单个文件大小不能超过1MB，文件数量不能超过100，总文件大小不能超过4MB。
             <br />
             2. 上传的文件中必须包含一个名为 SKILL.md 的文件，且必须位于根目录下。
           </Alert>
