@@ -152,21 +152,26 @@ describe('AgentsPanel scroll behavior', () => {
       root.render(React.createElement(AgentsPanel));
     });
 
-    const seedCard = container.querySelector('[data-testid="agent-card-seed-codex"] button') as HTMLButtonElement | null;
+    const seedCard = container.querySelector(
+      '[data-testid="agent-card-seed-codex"] button',
+    ) as HTMLButtonElement | null;
     expect(seedCard).not.toBeNull();
 
     await act(async () => {
       seedCard?.click();
     });
 
-    const detailHeader = Array.from(container.querySelectorAll('h2')).find((node) => node.textContent?.includes('灵魂配置'))
-      ?.parentElement as HTMLElement | null;
+    const detailHeader = Array.from(container.querySelectorAll('h2')).find((node) =>
+      node.textContent?.includes('灵魂配置'),
+    )?.parentElement as HTMLElement | null;
     expect(detailHeader).not.toBeNull();
-    expect(Array.from(detailHeader?.querySelectorAll('button') ?? []).some((button) => button.textContent?.includes('编辑'))).toBe(
-      false,
-    );
+    expect(
+      Array.from(detailHeader?.querySelectorAll('button') ?? []).some((button) => button.textContent?.includes('编辑')),
+    ).toBe(false);
 
-    const menuButton = container.querySelector('[data-testid="agent-card-menu-seed-codex"]') as HTMLButtonElement | null;
+    const menuButton = container.querySelector(
+      '[data-testid="agent-card-menu-seed-codex"]',
+    ) as HTMLButtonElement | null;
     expect(menuButton).not.toBeNull();
 
     await act(async () => {
@@ -174,5 +179,49 @@ describe('AgentsPanel scroll behavior', () => {
     });
 
     expect(container.querySelector('[data-testid="agent-edit-menu-item"]')).not.toBeNull();
+  });
+
+  it('closes the delete confirm modal when Escape key is pressed', async () => {
+    await act(async () => {
+      root.render(React.createElement(AgentsPanel));
+    });
+
+    const seedCard = container.querySelector(
+      '[data-testid="agent-card-seed-codex"] button',
+    ) as HTMLButtonElement | null;
+    expect(seedCard).not.toBeNull();
+
+    await act(async () => {
+      seedCard?.click();
+    });
+
+    const menuButton = container.querySelector(
+      '[data-testid="agent-card-menu-seed-codex"]',
+    ) as HTMLButtonElement | null;
+    expect(menuButton).not.toBeNull();
+
+    await act(async () => {
+      menuButton?.click();
+    });
+
+    const deleteMenuItem = container.querySelector(
+      '[data-testid="agent-delete-menu-item"]',
+    ) as HTMLButtonElement | null;
+    expect(deleteMenuItem).not.toBeNull();
+
+    await act(async () => {
+      deleteMenuItem?.click();
+    });
+
+    const deleteConfirmModal = container.querySelector('h3.text-\\[16px\\].font-bold:text-gray-900');
+    expect(deleteConfirmModal).not.toBeNull();
+    expect(deleteConfirmModal?.textContent).toContain('确认删除智能体');
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    const deleteConfirmModalAfter = container.querySelector('h3.text-\\[16px\\].font-bold:text-gray-900');
+    expect(deleteConfirmModalAfter).toBeNull();
   });
 });

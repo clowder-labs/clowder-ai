@@ -332,6 +332,56 @@ describe('useChatHistory replace hydration', () => {
     );
   });
 
+  it('reconciles a local callback bubble with the server callback history when replyTo matches but ids drift', async () => {
+    const history = installDeferredHistoryResponse();
+    const cachedAssistantTs = Date.now() - 1000;
+    const now = Date.now();
+    mountReplaceHydrationThread(makeThreadBState(cachedAssistantTs));
+
+    act(() => {
+      useChatStore.getState().addMessage({
+        id: 'local-callback-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'final callback answer',
+        origin: 'callback',
+        timestamp: now - 50,
+        replyTo: 'user-1',
+        extra: { stream: { invocationId: 'inv-local' } },
+      });
+    });
+
+    await history.waitUntilPending();
+    history.expectPending();
+
+    await history.resolve({
+      messages: [
+        { id: 'b1', catId: 'opus', content: 'cached assistant', timestamp: cachedAssistantTs },
+        {
+          id: 'server-callback-1',
+          catId: 'opus',
+          content: 'final callback answer',
+          origin: 'callback',
+          timestamp: now,
+          replyTo: 'user-1',
+          extra: { stream: { invocationId: 'inv-server' } },
+        },
+      ],
+      hasMore: false,
+    });
+
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'server-callback-1']);
+    expect(useChatStore.getState().messages.find((m) => m.id === 'local-callback-1')).toBeUndefined();
+    expect(useChatStore.getState().messages.find((m) => m.id === 'server-callback-1')).toEqual(
+      expect.objectContaining({
+        origin: 'callback',
+        content: 'final callback answer',
+        replyTo: 'user-1',
+        extra: { stream: { invocationId: 'inv-server' } },
+      }),
+    );
+  });
+
   it('thread switch rehydrates a cached duplicate invocation pair down to one formal callback bubble', async () => {
     const history = installDeferredHistoryResponse();
     const now = Date.now();
@@ -399,6 +449,80 @@ describe('useChatHistory replace hydration', () => {
         origin: 'callback',
         content: 'authoritative callback bubble',
         extra: { stream: { invocationId: 'inv-e-1' } },
+      }),
+    );
+  });
+
+  it('reconciles a stopped local stream bubble with the recovered server reply after service restart', async () => {
+    const history = installDeferredHistoryResponse();
+    const now = Date.now();
+    mountReplaceHydrationThread({
+      messages: [
+        {
+          id: 'user-1',
+          type: 'user',
+          content: '继续处理这个问题',
+          timestamp: now - 60_000,
+        },
+        {
+          id: 'stopped-stream-1',
+          type: 'assistant',
+          catId: 'opus',
+          content: '我先检查一下当前状态',
+          origin: 'stream',
+          timestamp: now - 55_000,
+          isStreaming: false,
+        },
+      ],
+      isLoading: false,
+      isLoadingHistory: false,
+      hasMore: true,
+      hasActiveInvocation: false,
+      activeInvocations: {},
+      intentMode: null,
+      targetCats: [],
+      catStatuses: {},
+      catInvocations: {},
+      currentGame: null,
+      unreadCount: 0,
+      hasUserMention: false,
+      lastActivity: now - 55_000,
+      queue: [],
+      queuePaused: false,
+      queuePauseReason: undefined,
+      queueFull: false,
+      queueFullSource: undefined,
+    });
+
+    await history.waitUntilPending();
+    history.expectPending();
+
+    await history.resolve({
+      messages: [
+        {
+          id: 'user-1',
+          content: '继续处理这个问题',
+          timestamp: now - 60_000,
+        },
+        {
+          id: 'server-callback-restarted',
+          catId: 'opus',
+          content: '服务恢复后补齐的新回复',
+          origin: 'callback',
+          timestamp: now,
+          extra: { stream: { invocationId: 'inv-restarted' } },
+        },
+      ],
+      hasMore: false,
+    });
+
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['user-1', 'server-callback-restarted']);
+    expect(useChatStore.getState().messages.find((m) => m.id === 'stopped-stream-1')).toBeUndefined();
+    expect(useChatStore.getState().messages.find((m) => m.id === 'server-callback-restarted')).toEqual(
+      expect.objectContaining({
+        origin: 'callback',
+        content: '服务恢复后补齐的新回复',
+        extra: { stream: { invocationId: 'inv-restarted' } },
       }),
     );
   });

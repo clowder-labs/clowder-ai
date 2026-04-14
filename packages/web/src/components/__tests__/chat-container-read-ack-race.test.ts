@@ -26,15 +26,7 @@ let storeState = {
   ],
 };
 
-const baseStore = () => ({
-  ...storeState,
-  isLoading: false,
-  hasActiveInvocation: false,
-  intentMode: null,
-  targetCats: [],
-  catStatuses: {},
-  catInvocations: {},
-  activeInvocations: {},
+const storeActions = {
   addMessage: vi.fn(),
   removeMessage: vi.fn(),
   setLoading: vi.fn(),
@@ -45,16 +37,28 @@ const baseStore = () => ({
   setCurrentThread: vi.fn(),
   updateThreadTitle: vi.fn(),
   setCurrentGame: vi.fn(),
-  currentGame: null,
-
-  viewMode: 'single' as const,
   setViewMode: vi.fn(),
   clearUnread: vi.fn(),
   confirmUnreadAck: vi.fn(),
   armUnreadSuppression: vi.fn(),
-  splitPaneThreadIds: [],
+  consumePendingNewThreadSend: vi.fn(() => null),
   setSplitPaneThreadIds: vi.fn(),
   setSplitPaneTarget: vi.fn(),
+};
+
+const baseStore = () => ({
+  ...storeState,
+  isLoading: false,
+  hasActiveInvocation: false,
+  intentMode: null,
+  targetCats: [],
+  catStatuses: {},
+  catInvocations: {},
+  activeInvocations: {},
+  ...storeActions,
+  currentGame: null,
+  viewMode: 'single' as const,
+  splitPaneThreadIds: [],
   rightPanelMode: null,
   uiThinkingExpandedByDefault: false,
   queue: [],
@@ -118,7 +122,7 @@ vi.mock('@/hooks/useAuthorization', () => ({
 }));
 
 vi.mock('@/hooks/useSplitPaneKeys', () => ({ useSplitPaneKeys: vi.fn() }));
-vi.mock('@/hooks/useCatData', () => ({ useCatData: () => ({ getCatById: () => undefined }) }));
+vi.mock('@/hooks/useCatData', () => ({ useCatData: () => ({ cats: [], getCatById: () => undefined }) }));
 
 vi.mock('@/components/ChatMessage', () => ({ ChatMessage: () => null }));
 vi.mock('@/components/ChatInput', () => ({ ChatInput: () => null }));
@@ -161,6 +165,9 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     mockApiFetch.mockClear();
+    for (const fn of Object.values(storeActions)) {
+      fn.mockClear();
+    }
     storeState = {
       currentThreadId: 'thread-A',
       messages: [
@@ -305,5 +312,61 @@ describe('F069-R5: read ack via POST /read/latest', () => {
     );
     expect(newCalls.length).toBe(1);
     expect(newCalls[0][0]).toContain('thread-A');
+  });
+
+  it('re-acks when last message is finalized via callback patch without length change', async () => {
+    const baseTimestamp = Date.now();
+    storeState = {
+      currentThreadId: 'thread-A',
+      messages: [
+        {
+          id: 'stream-a-1',
+          type: 'assistant' as const,
+          content: 'partial stream',
+          timestamp: baseTimestamp,
+          catId: 'opus',
+          origin: 'stream' as const,
+          isStreaming: true,
+        },
+      ],
+    };
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    mockApiFetch.mockClear();
+
+    // Simulate callback finalization by patching the same message object
+    // (no message-count change, but the latest message state changed).
+    storeState = {
+      currentThreadId: 'thread-A',
+      messages: [
+        {
+          id: 'stream-a-1',
+          type: 'assistant' as const,
+          content: 'final callback answer',
+          timestamp: baseTimestamp,
+          catId: 'opus',
+          origin: 'callback' as const,
+          isStreaming: false,
+        },
+      ],
+    };
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const ackCalls = mockApiFetch.mock.calls.filter(
+      (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
+    );
+    expect(ackCalls.length).toBe(1);
+    expect(ackCalls[0][0]).toContain('thread-A');
   });
 });

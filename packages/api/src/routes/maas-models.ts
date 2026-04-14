@@ -158,7 +158,6 @@ export const MAAS_MODEL_WHITELIST = [
   'DeepSeek-V3.2',
   'DeepSeek-V3',
   'Kimi-K2',
-  'Qwen3-235B-A22B',
   'Qwen3-Coder-480B-A35B-Instruct',
 ] as const;
 
@@ -254,7 +253,7 @@ function toConfiguredModelList(
       description:
         binding.protocol === 'huawei_maas'
           ? '来自 ~/.office-claw/model.json'
-          : binding.description?.trim() || `自定义模型源 · ${binding.displayName?.trim() || binding.id}`,
+          : binding.description?.trim(),
       ...(binding.icon ? { icon: binding.icon } : {}),
     })),
   );

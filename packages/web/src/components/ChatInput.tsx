@@ -1230,7 +1230,7 @@ export function ChatInput({
                       placeholder={
                         hasActiveInvocation ? '继续输入，消息进入排队中' : '描述你想研究的主题或@助手协助工作'
                       }
-                      className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent p-4 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
+                      className="chat-input-textarea block min-h-[70px] leading-[24px] w-full bg-transparent py-4 px-[18px] whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[16px] placeholder:text-gray-400 focus:outline-none"
                       disabled={disabled}
                       skillOptions={skillOptions}
                       quickActionOptions={visibleQuickActions.map((action) => ({

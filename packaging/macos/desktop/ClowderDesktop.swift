@@ -307,6 +307,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
+        let cssScript = WKUserScript(
+            source: """
+            (function(){
+            function injectCss(){
+            if(document.querySelector('#clawder-login-hide'))return;
+            var s=document.createElement('style');
+            s.id='clawder-login-hide';
+            s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';
+            var t=document.head||document.body||document.documentElement;
+            if(t)t.appendChild(s);
+            }
+            injectCss();
+            if(document.readyState!=='complete'){
+            document.addEventListener('DOMContentLoaded',injectCss);
+            new MutationObserver(function(){injectCss();}).observe(document.documentElement,{childList:true,subtree:true});
+            }
+            })();
+            """,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        config.userContentController.addUserScript(cssScript)
+
+        let cssScriptEnd = WKUserScript(
+            source: """
+            (function(){
+            if(document.querySelector('#clawder-login-hide'))return;
+            var s=document.createElement('style');
+            s.id='clawder-login-hide';
+            s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';
+            var t=document.head||document.body||document.documentElement;
+            if(t)t.appendChild(s);
+            })();
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+        config.userContentController.addUserScript(cssScriptEnd)
+
         webView = WKWebView(frame: window.contentView!.bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
@@ -317,6 +356,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let url = URL(string: frontendUrl) {
             webView.load(URLRequest(url: url))
         }
+    }
+
+    private func injectLoginCss() {
+        let cssScript = """
+        (function(){
+        if(document.querySelector('#clawder-login-hide'))return;
+        var s=document.createElement('style');
+        s.id='clawder-login-hide';
+        s.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';
+        var t=document.head||document.body||document.documentElement;
+        if(t)t.appendChild(s);
+        })();
+        """
+        webView.evaluateJavaScript(cssScript, completionHandler: nil)
     }
 
     // MARK: - Runtime State
@@ -394,6 +447,10 @@ extension AppDelegate: WKNavigationDelegate {
             return
         }
         decisionHandler(.allow)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        injectLoginCss()
     }
 }
 

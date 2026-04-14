@@ -28,7 +28,6 @@ import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { clearAuthIdentity, getUserId, setIsSkipAuth } from '@/utils/userId';
-import { A2ACollapsible } from './A2ACollapsible';
 import { AgentsPanel } from './AgentsPanel';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -397,16 +396,6 @@ function ThreadModeChatContainer({
   const seenAuthRequestIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
-    const pending = consumePendingNewThreadSend(threadId);
-    if (!pending) return;
-    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
-
-    consumedPendingRequestIdsRef.current.add(pending.requestId);
-    scrollToBottom('smooth');
-    handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
-  }, [consumePendingNewThreadSend, handleSend, scrollToBottom, threadId]);
-
-  useEffect(() => {
     const handler = (event: Event) => {
       const menu = (event as CustomEvent<{ menu?: 'skills' }>).detail?.menu;
       if (menu === 'skills') setSidebarMenu('skills');
@@ -496,33 +485,6 @@ function ThreadModeChatContainer({
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
   });
 
-  type RenderItem =
-    | { kind: 'message'; msg: ChatMessageData }
-    | { kind: 'a2a_group'; groupId: string; messages: ChatMessageData[] };
-
-  const renderItems = useMemo<RenderItem[]>(() => {
-    const items: RenderItem[] = [];
-    let currentGroup: { groupId: string; messages: ChatMessageData[] } | null = null;
-
-    for (const msg of messages) {
-      if (msg.a2aGroupId) {
-        if (currentGroup && currentGroup.groupId === msg.a2aGroupId) {
-          currentGroup.messages.push(msg);
-        } else {
-          if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = { groupId: msg.a2aGroupId, messages: [msg] };
-        }
-      } else {
-        if (currentGroup) {
-          items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = null;
-        }
-        items.push({ kind: 'message', msg });
-      }
-    }
-    if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-    return items;
-  }, [messages]);
 
   const pendingAuthorizationByMessageId = useMemo(
     () => mapPendingAuthorizationToMessages(messages, authPending),
@@ -650,7 +612,38 @@ function ThreadModeChatContainer({
     return [...ids];
   }, [threads, splitPaneThreadIds]);
 
-  const { cancelInvocation } = useSocket(socketCallbacks, threadId, watchedThreadIds);
+  const { cancelInvocation, awaitThreadRoom = async () => 'timed_out' as const } = useSocket(
+    socketCallbacks,
+    threadId,
+    watchedThreadIds,
+  );
+
+  useEffect(() => {
+    const pending = consumePendingNewThreadSend(threadId);
+    if (!pending) return;
+    if (consumedPendingRequestIdsRef.current.has(pending.requestId)) return;
+
+    consumedPendingRequestIdsRef.current.add(pending.requestId);
+    scrollToBottom('smooth');
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        await awaitThreadRoom(threadId);
+      } catch (error) {
+        console.warn('[chat] awaitThreadRoom failed, continuing with best-effort send', {
+          threadId,
+          error,
+        });
+      }
+      if (cancelled) return;
+      handleSend(pending.content, pending.images, undefined, pending.whisper, pending.deliveryMode);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [awaitThreadRoom, consumePendingNewThreadSend, handleSend, scrollToBottom, threadId]);
 
   useEffect(() => {
     if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
@@ -665,10 +658,22 @@ function ThreadModeChatContainer({
 
   // F069-R5: Ack read cursor server-side. The backend finds the latest real message
   // and acks it atomically, with no frontend ID guessing and no timing races with fetchHistory.
-  // Fires on thread entry AND when new messages arrive (messages.length changes),
-  // so switching away after receiving new messages still acks to the latest.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _messageCount = messages.length;
+  // Trigger on thread entry and on latest-message identity/state changes.
+  // Using messages.length alone misses callback finalization that patches in-place
+  // (same array length, but the latest message transitions stream -> callback/done).
+  const readAckTriggerKey = useMemo(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return `${threadId}:empty`;
+    return [
+      threadId,
+      lastMessage.id,
+      lastMessage.timestamp,
+      lastMessage.origin ?? 'none',
+      lastMessage.isStreaming ? 'streaming' : 'done',
+      lastMessage.deliveredAt ?? 'none',
+    ].join('|');
+  }, [messages, threadId]);
+
   useEffect(() => {
     // Re-arm suppression before each ack. /read/latest is idempotent, so any
     // successful POST means server cursor is at latest, so any successful ack
@@ -685,7 +690,7 @@ function ThreadModeChatContainer({
       .catch((err) => {
         console.debug('[F069] read ack failed:', err);
       });
-  }, [threadId, _messageCount, confirmUnreadAck, armUnreadSuppression]);
+  }, [threadId, readAckTriggerKey, confirmUnreadAck, armUnreadSuppression]);
 
   const handleStop = useCallback(
     (overrideThreadId?: unknown) => {
@@ -731,18 +736,7 @@ function ThreadModeChatContainer({
     return (
       <div className="min-h-screen bg-white">
         <div className="max-w-4xl mx-auto p-4">
-          {renderItems.map((item) =>
-            item.kind === 'a2a_group' ? (
-              <A2ACollapsible
-                key={item.groupId}
-                group={{ groupId: item.groupId, messages: item.messages }}
-                renderMessage={renderSingleMessage}
-                getCatColor={(catId) => getCatById(catId)?.color.primary}
-              />
-            ) : (
-              renderSingleMessage(item.msg)
-            ),
-          )}
+          {messages.map((msg) => renderSingleMessage(msg))}
         </div>
       </div>
     );
@@ -815,18 +809,7 @@ function ThreadModeChatContainer({
                       onChannelsClick={() => setSidebarMenu('channels')}
                     />
                   ) : (
-                    renderItems.map((item) =>
-                      item.kind === 'a2a_group' ? (
-                        <A2ACollapsible
-                          key={item.groupId}
-                          group={{ groupId: item.groupId, messages: item.messages }}
-                          renderMessage={renderSingleMessage}
-                          getCatColor={(catId) => getCatById(catId)?.color.primary}
-                        />
-                      ) : (
-                        renderSingleMessage(item.msg)
-                      ),
-                    )
+                    messages.map((msg) => renderSingleMessage(msg))
                   )}
                   {pendingIntentRecognitionTimestamp != null &&
                     renderSingleMessage({
