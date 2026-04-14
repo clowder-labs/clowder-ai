@@ -660,6 +660,300 @@ describe('CliOutputBlock', () => {
     });
   });
 
+  it('renders a markdown attachment card from the generated local file path and opens that file', async () => {
+    const markdownEvents: CliEvent[] = [
+      { id: 't1', kind: 'tool_use', timestamp: 1000, label: 'Write report.md' },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write report.md',
+        detail: '[Done] Saved: C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+      },
+      {
+        id: 't3',
+        kind: 'text',
+        timestamp: 1002,
+        content: 'Markdown generated at C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="cli-output-markdown-card"]')).toBeTruthy();
+    expect(container.textContent).toContain('daily-report.md');
+    const openButton = container.querySelector('[data-testid="cli-output-markdown-open"]') as HTMLButtonElement | null;
+    expect(openButton).toBeTruthy();
+
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.find(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+    });
+  });
+
+  it('renders a markdown attachment card when the path is only present in escaped tool input json', async () => {
+    const markdownEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_use',
+        timestamp: 1000,
+        label: 'office → file_write',
+        detail:
+          '{"file_path":"D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\output\\\\20260414_105503_000\\\\outline.md","content":"# Outline"}',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-markdown-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('outline.md');
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(metaCall).toBeTruthy();
+    expect(JSON.parse(String(metaCall?.[1]?.body)).path).toBe(
+      'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+    );
+  });
+
+  it('renders a markdown attachment card when the path is embedded in an escaped shell command detail', async () => {
+    const markdownEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_use',
+        timestamp: 1000,
+        label: 'office → shell_command',
+        detail:
+          '{"command":"powershell -Command \\"Set-Content -Path \'D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\output\\\\20260414_105503_000\\\\outline.md\' -Value @\'hello\'@\\""}',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-markdown-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('outline.md');
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(metaCall).toBeTruthy();
+    expect(JSON.parse(String(metaCall?.[1]?.body)).path).toBe(
+      'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+    );
+  });
+
+  it('strips a leading 文件路径 label before resolving an absolute markdown path', async () => {
+    const markdownEvents: CliEvent[] = [
+      {
+        id: 'r1',
+        kind: 'tool_result',
+        timestamp: 1000,
+        label: 'office ← result',
+        detail:
+          '文件路径：D:\\\\opentiny\\\\clowder-ai-gitcode\\\\relay-claw-main\\\\workspace\\\\产品迭代项目推进会会议纪要.md',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-markdown-card"]');
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('产品迭代项目推进会会议纪要.md');
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(metaCall).toBeTruthy();
+    expect(JSON.parse(String(metaCall?.[1]?.body)).path).toBe(
+      'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\产品迭代项目推进会会议纪要.md',
+    );
+  });
+
+  it('joins relative markdown path with the configured project path before open-local', async () => {
+    const markdownEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write outline.md',
+        detail: '[Done] Saved: workspace/output/20260414_105503_000/outline.md',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+          projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-markdown-card"]');
+    expect(card).toBeTruthy();
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
+      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+    });
+
+    const openButton = container.querySelector('[data-testid="cli-output-markdown-open"]') as HTMLButtonElement | null;
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      projectPath: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main',
+    });
+  });
+
+  it('joins relative markdown path with the default cwd when projectPath is default', async () => {
+    const markdownEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write outline.md',
+        detail: '[Done] Saved: output/daily-report.md',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+          projectPath: 'default',
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/cwd');
+
+    const card = container.querySelector('[data-testid="cli-output-markdown-card"]');
+    expect(card).toBeTruthy();
+
+    const metaCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/local-file-meta');
+    expect(JSON.parse(String(metaCall?.[1]?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+      projectPath: 'default',
+    });
+
+    const openButton = container.querySelector('[data-testid="cli-output-markdown-open"]') as HTMLButtonElement | null;
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'C:\\Users\\kagol\\.jiuwenclaw\\agent\\output\\daily-report.md',
+      projectPath: 'default',
+    });
+  });
+
+  it('prefers the user-facing markdown artifact over internal memory markdown files', async () => {
+    const markdownEvents: CliEvent[] = [
+      {
+        id: 't1',
+        kind: 'tool_result',
+        timestamp: 1001,
+        label: 'Write outline',
+        detail: '[Done] Saved: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+      },
+      {
+        id: 't2',
+        kind: 'tool_result',
+        timestamp: 1002,
+        label: 'Write memory',
+        detail: '[Done] Saved: C:\\Users\\kagol\\.jiuwenclaw\\agent\\memory\\2026-04-14.md',
+      },
+      {
+        id: 't3',
+        kind: 'text',
+        timestamp: 1003,
+        content:
+          'User doc: D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md\nInternal memory: C:\\Users\\kagol\\.jiuwenclaw\\agent\\memory\\2026-04-14.md',
+      },
+    ];
+
+    await act(async () => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: markdownEvents,
+          status: 'done',
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    const card = container.querySelector('[data-testid="cli-output-markdown-card"]') as HTMLDivElement | null;
+    expect(card).toBeTruthy();
+    expect(card?.textContent).toContain('outline.md');
+    expect(card?.textContent).not.toContain('2026-04-14.md');
+
+    const openButton = container.querySelector('[data-testid="cli-output-markdown-open"]') as HTMLButtonElement | null;
+    await act(async () => {
+      openButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const openLocalCall = mockApiFetch.mock.calls.findLast(([path]) => path === '/api/workspace/open-local');
+    expect(JSON.parse(String(openLocalCall?.[1]?.body))).toEqual({
+      path: 'D:\\opentiny\\clowder-ai-gitcode\\relay-claw-main\\workspace\\output\\20260414_105503_000\\outline.md',
+    });
+  });
+
   it.skip('does not render a ppt card when no ppt file was generated', async () => {
     act(() => {
       root.render(
