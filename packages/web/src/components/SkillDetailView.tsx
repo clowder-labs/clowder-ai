@@ -59,6 +59,9 @@ const FILE_EXTENSION_ICON_MAP: Record<string, string> = {
 
 const DIRECTORY_ICON_SRC = "/icons/chart/folder.svg";
 const DEFAULT_FILE_ICON_SRC = "/icons/file-html.svg";
+const DISCLAIMER_TITLE = "免责声明";
+const THIRD_PARTY_DISCLAIMER_TEXT =
+  "请注意：该外部技能来源于第三方，使用外部技能时，您承诺将严格遵守第三方的相关条款。华为云不对第三方产品的合规性和安全性保证，请您在使用前慎重考虑并评估风险。";
 const IMAGE_FILE_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -504,15 +507,14 @@ export function SkillDetailView({
                 />
               </div>
             </section>
-
             <section
-              className="flex min-h-0 flex-1 flex-col space-y-3"
+              className="shrink-0 flex flex-col space-y-3"
               data-testid="skill-detail-file-workspace"
             >
               <h3 className="text-base font-semibold text-[var(--text-primary)]">
                 文件目录
               </h3>
-              <div className="flex min-h-[360px] flex-1 overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
+              <div className="flex min-h-[360px] overflow-hidden rounded-[20px] border border-[var(--border-default)] bg-[var(--surface-card)]">
                 <div className="flex min-h-0 flex-1 flex-col md:flex-row">
                   <aside className="flex w-full shrink-0 flex-col border-b border-[var(--border-default)] bg-[var(--surface-panel)] md:w-[280px] md:border-b-0 md:border-r">
                     <div className="border-b border-[var(--border-default)] px-4 py-3 text-xs">
@@ -609,6 +611,21 @@ export function SkillDetailView({
                 </div>
               </div>
             </section>
+            {detail.source === "external" ? (
+              <section
+                className="shrink-0 space-y-3"
+                data-testid="skill-detail-disclaimer"
+              >
+                <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                  {DISCLAIMER_TITLE}
+                </h3>
+                <div className="rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-panel)] p-6">
+                  <p className="text-xs leading-6 text-[var(--text-secondary)]">
+                    {THIRD_PARTY_DISCLAIMER_TEXT}
+                  </p>
+                </div>
+              </section>
+            ) : null}
           </div>
         ) : null}
       </div>

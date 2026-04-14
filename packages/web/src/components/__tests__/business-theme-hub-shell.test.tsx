@@ -11,8 +11,9 @@ import { HubCapabilityTab } from '@/components/HubCapabilityTab';
 import { apiFetch } from '@/utils/api-client';
 
 vi.mock('@/utils/api-client', () => ({ apiFetch: vi.fn() }));
+const mockConfirm = vi.fn(() => Promise.resolve(true));
 vi.mock('@/components/useConfirm', () => ({
-  useConfirm: () => vi.fn(() => Promise.resolve(true)),
+  useConfirm: () => mockConfirm,
 }));
 vi.mock('@/components/useProviderProfilesState', () => ({
   useProviderProfilesState: () => ({ providerCreateSectionProps: {} }),
@@ -115,6 +116,8 @@ describe('business theme hub shell', () => {
     act(() => root.unmount());
     container.remove();
     mockApiFetch.mockReset();
+    mockConfirm.mockReset();
+    mockConfirm.mockResolvedValue(true);
   });
 
   afterAll(() => {
@@ -368,6 +371,34 @@ describe('business theme hub shell', () => {
     expect(onSelectSkill).toHaveBeenCalledWith({
       skillName: 'ops-skill',
       avatarUrl: null,
+    });
+  });
+
+  it('uses default confirm styling for uninstalling external skills', async () => {
+    mockConfirm.mockResolvedValue(false);
+
+    await act(async () => {
+      root.render(React.createElement(HubCapabilityTab));
+    });
+    await flushEffects();
+
+    const uninstallButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '卸载',
+    );
+    expect(uninstallButton).not.toBeUndefined();
+
+    await act(async () => {
+      uninstallButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(mockConfirm).toHaveBeenCalledWith({
+      title: '卸载技能',
+      message: '确定要卸载 “doc-skill” 吗？此操作不可恢复。',
+      confirmLabel: '卸载',
+      cancelLabel: '取消',
+      variant: 'default',
     });
   });
 });
