@@ -47,6 +47,7 @@ function extractPrimaryArg(detail?: string): string | undefined {
 /** F097: Adapt existing ToolEvent[] + stream content → CliEvent[] unified timeline.
  *  Phase A: N tool events + 1 text block. Phase B: backend pushes CliEvent[] directly. */
 export function toCliEvents(toolEvents: ToolEvent[] | undefined, streamContent: string | undefined): CliEvent[] {
+  console.log('toolEvents', toolEvents);
   const events: CliEvent[] = [];
 
   if (toolEvents) {
