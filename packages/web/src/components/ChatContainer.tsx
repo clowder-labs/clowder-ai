@@ -28,7 +28,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { clearAuthIdentity, getUserId, setIsSkipAuth } from '@/utils/userId';
-import { A2ACollapsible } from './A2ACollapsible';
+// A2ACollapsible 已移除，agent 消息直接平铺展示
 import { AgentsPanel } from './AgentsPanel';
 import { BootcampListModal } from './BootcampListModal';
 import { CatCafeHub } from './CatCafeHub';
@@ -459,33 +459,7 @@ function ThreadModeChatContainer({
     onNavigateToThread: (tid) => router.push(`/thread/${tid}`),
   });
 
-  type RenderItem =
-    | { kind: 'message'; msg: ChatMessageData }
-    | { kind: 'a2a_group'; groupId: string; messages: ChatMessageData[] };
-
-  const renderItems = useMemo<RenderItem[]>(() => {
-    const items: RenderItem[] = [];
-    let currentGroup: { groupId: string; messages: ChatMessageData[] } | null = null;
-
-    for (const msg of messages) {
-      if (msg.a2aGroupId) {
-        if (currentGroup && currentGroup.groupId === msg.a2aGroupId) {
-          currentGroup.messages.push(msg);
-        } else {
-          if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = { groupId: msg.a2aGroupId, messages: [msg] };
-        }
-      } else {
-        if (currentGroup) {
-          items.push({ kind: 'a2a_group', ...currentGroup });
-          currentGroup = null;
-        }
-        items.push({ kind: 'message', msg });
-      }
-    }
-    if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
-    return items;
-  }, [messages]);
+  // A2A 内部讨论面板已移除，所有消息直接平铺展示（含 a2aGroupId 的消息也正常渲染）
 
   const pendingAuthorizationByMessageId = useMemo(
     () => mapPendingAuthorizationToMessages(messages, authPending),
@@ -694,18 +668,7 @@ function ThreadModeChatContainer({
     return (
       <div className="min-h-screen bg-white">
         <div className="max-w-4xl mx-auto p-4">
-          {renderItems.map((item) =>
-            item.kind === 'a2a_group' ? (
-              <A2ACollapsible
-                key={item.groupId}
-                group={{ groupId: item.groupId, messages: item.messages }}
-                renderMessage={renderSingleMessage}
-                getCatColor={(catId) => getCatById(catId)?.color.primary}
-              />
-            ) : (
-              renderSingleMessage(item.msg)
-            ),
-          )}
+          {messages.map((msg) => renderSingleMessage(msg))}
         </div>
       </div>
     );
@@ -778,18 +741,7 @@ function ThreadModeChatContainer({
                       onChannelsClick={() => setSidebarMenu('channels')}
                     />
                   ) : (
-                    renderItems.map((item) =>
-                      item.kind === 'a2a_group' ? (
-                        <A2ACollapsible
-                          key={item.groupId}
-                          group={{ groupId: item.groupId, messages: item.messages }}
-                          renderMessage={renderSingleMessage}
-                          getCatColor={(catId) => getCatById(catId)?.color.primary}
-                        />
-                      ) : (
-                        renderSingleMessage(item.msg)
-                      ),
-                    )
+                    messages.map((msg) => renderSingleMessage(msg))
                   )}
                   {pendingIntentRecognitionTimestamp != null &&
                     renderSingleMessage({

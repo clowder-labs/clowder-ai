@@ -396,7 +396,6 @@ export function useAgentMessages() {
         origin: 'stream',
         ...(metadata ? { metadata } : {}),
         ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-        ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
         timestamp: Date.now(),
         isStreaming: true,
       });
@@ -541,7 +540,6 @@ export function useAgentMessages() {
                   }
                 : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
             });
@@ -570,7 +568,6 @@ export function useAgentMessages() {
                   }
                 : {}),
               ...(msg.mentionsUser ? { mentionsUser: true } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
@@ -609,7 +606,6 @@ export function useAgentMessages() {
               origin: 'stream',
               ...(msg.metadata ? { metadata: msg.metadata } : {}),
               ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
               ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
               ...(msg.replyPreview ? { replyPreview: msg.replyPreview } : {}),
               timestamp: Date.now(),
@@ -752,7 +748,7 @@ export function useAgentMessages() {
           // is designed to persist until a *different* invocationId is observed
           // (F123 PR #465, symptom-fixture-matrix.md:23). Clearing on done(isFinal)
           // would allow reordered stale chunks to recreate ghost bubbles.
-          a2aGroupRef.current = null;
+          // a2aGroupRef 已移除 A2A 分组功能，不再需要清空
           // Bug C safety net: if done(isFinal) arrived but no streaming bubble
           // was ever created for this cat, text events were lost (socket transport
           // drop, dual-pointer guard mismatch, etc.). Request a history catch-up
@@ -773,18 +769,7 @@ export function useAgentMessages() {
           sawStreamDataRef.current.delete(msg.catId);
         }
       } else if (msg.type === 'a2a_handoff') {
-        // Start or continue an A2A group
-        if (!a2aGroupRef.current) {
-          a2aGroupRef.current = `a2a-group-${Date.now()}`;
-        }
-        addMessage({
-          id: `a2a-${Date.now()}-${msg.catId}`,
-          type: 'system',
-          variant: 'a2a_handoff',
-          content: msg.content ?? '',
-          a2aGroupId: a2aGroupRef.current,
-          timestamp: Date.now(),
-        });
+        // A2A 内部讨论面板已移除，忽略握手消息，不做任何处理
       } else if (msg.type === 'system_info') {
         sawStreamDataRef.current.add(msg.catId);
         // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics
