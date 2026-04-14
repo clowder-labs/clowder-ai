@@ -26,7 +26,8 @@ import pino from 'pino';
  */
 export const isDebugMode = process.argv.includes('--debug');
 const LOG_LEVEL = (isDebugMode ? 'debug' : (process.env.LOG_LEVEL ?? 'info')) as pino.Level;
-const LOG_DIR = resolve(process.cwd(), 'data', 'logs', 'api');
+import { findMonorepoRoot } from '../utils/monorepo-root.js';
+const LOG_DIR = resolve(findMonorepoRoot(), 'data', 'logs', 'api');
 const RETENTION_FILES = 14;
 
 /**
@@ -62,6 +63,7 @@ const REDACT_PATHS = [
   'appSecret',
   'privateKey',
   'userId',
+  'CAT_CAFE_USER_ID',
   // === Environment variables ===
   'OFFICE_CLAW_CALLBACK_TOKEN',
   'OFFICE_CLAW_ANTHROPIC_API_KEY',

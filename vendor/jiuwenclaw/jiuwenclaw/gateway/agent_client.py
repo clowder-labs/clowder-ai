@@ -11,7 +11,7 @@ from dataclasses import asdict
 from typing import Any, AsyncIterator
 from urllib.parse import urlsplit
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.schema.agent import AgentRequest, AgentResponse, AgentResponseChunk
 
 

@@ -208,6 +208,11 @@ export class ConnectorRouter {
 
     const trimmedText = text.trim();
 
+    // F152: Resolve userId for permission checks
+    // Try to get userId from existing binding first, fallback to default
+    const existingBinding = this.opts.permissionStore ? await bindingStore.getByExternal(connectorId, externalChatId) : null;
+    const permUserId = existingBinding?.userId || this.resolveOwnerUserId();
+
     // 1a. F134 Phase D: Group whitelist check
     if (chatType === 'group' && this.opts.permissionStore) {
       const commandName = trimmedText.split(/\s+/, 1)[0]?.toLowerCase();
@@ -215,7 +220,7 @@ export class ConnectorRouter {
         this.opts.commandLayer &&
         sender &&
         commandName === '/allow-group' &&
-        (await this.opts.permissionStore.isAdmin(connectorId, sender.id));
+        (await this.opts.permissionStore.isAdmin(permUserId, connectorId, sender.id));
 
       if (isAdminAllowGroupCommand) {
         log.info(
@@ -223,7 +228,7 @@ export class ConnectorRouter {
           '[ConnectorRouter] Admin /allow-group bypasses whitelist precheck',
         );
       } else {
-        const allowed = await this.opts.permissionStore.isGroupAllowed(connectorId, externalChatId);
+        const allowed = await this.opts.permissionStore.isGroupAllowed(permUserId, connectorId, externalChatId);
         if (!allowed) {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {
@@ -239,12 +244,44 @@ export class ConnectorRouter {
       }
     }
 
+    // 1a-2. F152: Personal user whitelist check (P2P and group)
+    // Exception: /myid command is always allowed so users can discover their open_id
+    if (this.opts.permissionStore && sender?.id) {
+      const userWhitelistEnabled = await this.opts.permissionStore.isUserWhitelistEnabled(permUserId, connectorId);
+      const commandName = trimmedText.split(/\s+/, 1)[0]?.toLowerCase();
+      const isMyIdCommand = commandName === '/myid';
+
+      if (userWhitelistEnabled && !isMyIdCommand) {
+        // Check if sender is the QR scanner (owner) - exempt from whitelist
+        const ownerOpenId = await this.opts.permissionStore.getOwnerOpenId(permUserId, connectorId);
+        if (sender.id === ownerOpenId) {
+          log.info({ connectorId, senderId: sender.id }, '[ConnectorRouter] QR scanner bypasses user whitelist');
+        } else {
+          // Check if sender is in the whitelist
+          const allowedUsers = await this.opts.permissionStore.listAllowedUsers(permUserId, connectorId);
+          const inWhitelist = allowedUsers.some(u => u.openId === sender.id);
+
+          if (!inWhitelist) {
+            const adapter = this.opts.adapters?.get(connectorId);
+            if (adapter) {
+              await adapter.sendReply(externalChatId, '🔒 您不在授权白名单中，请发送您的 open_id 给管理员开通白名单。如需获取 open_id，请给我发送 /myid 命令。');
+              if (adapter.onDeliveryBatchDone) {
+                await adapter.onDeliveryBatchDone(externalChatId, true).catch(() => {});
+              }
+            }
+            log.info({ connectorId, senderId: sender.id }, '[ConnectorRouter] User not in whitelist, skipped');
+            return { kind: 'skipped', reason: 'user_not_allowed' };
+          }
+        }
+      }
+    }
+
     // 1b. Command interception — handle /commands before agent routing
     if (this.opts.commandLayer && trimmedText.startsWith('/')) {
       // F134 Phase D: admin-only commands in group chats
       if (chatType === 'group' && sender && this.opts.permissionStore) {
-        const isAdmin = await this.opts.permissionStore.isAdmin(connectorId, sender.id);
-        const cmdAdminOnly = await this.opts.permissionStore.isCommandAdminOnly(connectorId);
+        const isAdmin = await this.opts.permissionStore.isAdmin(permUserId, connectorId, sender.id);
+        const cmdAdminOnly = await this.opts.permissionStore.isCommandAdminOnly(permUserId, connectorId);
         if (cmdAdminOnly && !isAdmin) {
           const adapter = this.opts.adapters?.get(connectorId);
           if (adapter) {

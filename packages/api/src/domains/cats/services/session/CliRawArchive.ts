@@ -5,9 +5,9 @@
  */
 
 import { appendFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { findMonorepoRoot } from '../../../../utils/monorepo-root.js';
 
-const DEFAULT_CLI_RAW_ARCHIVE_DIR = './data/cli-raw-archive';
 const INVOCATION_ID_PATTERN = /^[\w-]+$/;
 
 export interface RawArchiveEntry {
@@ -21,7 +21,7 @@ export class CliRawArchive {
   private readonly initInFlight = new Map<string, Promise<void>>();
 
   constructor(options?: { archiveDir?: string }) {
-    this.archiveDir = options?.archiveDir ?? process.env.CLI_RAW_ARCHIVE_DIR ?? DEFAULT_CLI_RAW_ARCHIVE_DIR;
+    this.archiveDir = options?.archiveDir ?? resolve(findMonorepoRoot(), process.env.CLI_RAW_ARCHIVE_DIR ?? 'data/cli-raw-archive');
   }
 
   /** F118: Get the archive file path for a given invocationId (today's date) */

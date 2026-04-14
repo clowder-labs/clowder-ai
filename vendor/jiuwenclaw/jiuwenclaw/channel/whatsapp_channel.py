@@ -13,7 +13,7 @@ from typing import Any, Callable
 
 from jiuwenclaw.channel.base import BaseChannel, ChannelMetadata, RobotMessageRouter
 from jiuwenclaw.schema.message import EventType, Message, ReqMethod
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 
 @dataclass

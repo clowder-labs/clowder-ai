@@ -15,7 +15,7 @@ from jiuwenclaw.evolution.schema import (
     EvolutionFile,
     ExperienceTarget,
 )
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 _EVOLUTION_FILENAME = "evolutions.json"
 
