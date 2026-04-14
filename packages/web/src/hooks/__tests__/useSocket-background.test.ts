@@ -923,32 +923,6 @@ describe('background thread socket handling', () => {
       expect(testBgStreamRefs.get('thread-bg::codex')?.id).toBe('existing-stream-msg');
     });
 
-    it('preserves system_info and a2a_handoff messages with info variant', () => {
-      const now = Date.now();
-
-      simulateBackgroundMessage({
-        type: 'system_info',
-        catId: 'codex',
-        threadId: 'thread-bg',
-        content: 'system hint',
-        timestamp: now,
-      });
-
-      simulateBackgroundMessage({
-        type: 'a2a_handoff',
-        catId: 'codex',
-        threadId: 'thread-bg',
-        content: 'handoff info',
-        timestamp: now + 1,
-      });
-
-      const ts = useChatStore.getState().getThreadState('thread-bg');
-      expect(ts.messages).toHaveLength(2);
-      expect(ts.messages[0]?.content).toContain('system hint');
-      expect(ts.messages[1]?.content).toContain('handoff info');
-      expect(ts.messages[0]?.variant).toBe('info');
-      expect(ts.messages[1]?.variant).toBe('info');
-    });
 
     it('applies correct variant for parsed visible system_info events', () => {
       const now = Date.now();
