@@ -1110,6 +1110,12 @@ internal sealed class LauncherForm : Form
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
 
+        await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+            "const style=document.createElement('style');" +
+            "style.textContent='.loginDiv .privacyMsg,.loginDiv .otherLoginWays,.loginDiv .hwid-otherlink{display:none!important}';" +
+            "(document.head||document.documentElement).appendChild(style);"
+        ).ConfigureAwait(true);
+
         var settings = _webView.CoreWebView2.Settings;
         settings.IsStatusBarEnabled = false;
         settings.AreDevToolsEnabled = false;
