@@ -39,6 +39,8 @@ export interface BackgroundAgentMessage {
   replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
+  /** F142: Tool call ID for precise pairing (from backend AgentMessage) */
+  toolCallId?: string;
   timestamp: number;
 }
 
