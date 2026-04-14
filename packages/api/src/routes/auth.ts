@@ -115,7 +115,12 @@ const HUAWEI_CLAW_SUBSCRIPTION_URL = `${HUAWEI_CLAW_BASE_URL}/v1/claw/client-sub
 const CAS_LOGOUT_URL =
   `https://auth.huaweicloud.com/authui/logout?service=${encodeURIComponent(`https://auth.huaweicloud.com/authui/login.html?locale=zh-cn&hide_banner=true&background_img_url=${CAS_BACKGROUND_IMAGE_URL}&portal_img_url=${CAS_PORTAL_IMAGE_URL}&service=${CAS_CALLBACK_SERVICE_URL}#/login`)}`;
 const CAS_SESSION_TTL_MS = parsePositiveInt(process.env.CAS_SESSION_TTL_MS, DEFAULT_CAS_SESSION_TTL_MS);
-const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009']);
+const PROMOTION_CODE_ERROR_CODES = new Set(['AgentArts.11000008', 'AgentArts.11000009', 'common.01010004']);
+const PROMOTION_CODE_ERROR_MESSAGES: Record<string, string> = {
+  'AgentArts.11000009': '邀请码不存在或者今日邀请码配额已用完',
+  'AgentArts.11000008': '邀请码无效，请重新输入',
+  'common.01010004': '请确认账号是否实名认证',
+};
 const require = createRequire(import.meta.url);
 const signer = loadSignerModule();
 
@@ -645,8 +650,10 @@ async function subscriptionClaw(
     if (!subResponse.ok) {
       const { error_code, error_message } = await getErrorMessage(subResponse);
       const needCode = PROMOTION_CODE_ERROR_CODES.has(error_code);
+      const customMessage = PROMOTION_CODE_ERROR_MESSAGES[error_code];
+      const message = customMessage || (needCode ? '邀请码无效，请重新输入' : '开通失败');
       console.error(`开通客户端失败，错误码: ${error_code}, 错误信息: ${error_message}`);
-      return { success: false, message: needCode ? '邀请码无效，请重新输入' : '开通失败', needCode };
+      return { success: false, message, needCode };
     }
 
     const data = await subResponse.json();
