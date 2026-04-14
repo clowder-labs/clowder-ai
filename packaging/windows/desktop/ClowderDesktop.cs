@@ -107,6 +107,12 @@ internal sealed class LauncherForm : Form
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
     private const int SW_RESTORE = 9;
     private const int SW_SHOWMINIMIZED = 2;
     private const int WM_NCLBUTTONDOWN = 0xA1;
@@ -538,8 +544,79 @@ internal sealed class LauncherForm : Form
 
         if (WindowState == FormWindowState.Maximized)
         {
+            // 获取当前鼠标位置
+            POINT cursorPos;
+            if (!GetCursorPos(out cursorPos))
+            {
+                return;
+            }
+
+            // 获取最大化窗口的位置
+            RECT maxWindowRect;
+            if (!GetWindowRect(Handle, out maxWindowRect))
+            {
+                return;
+            }
+
+            // 计算鼠标在窗口中的相对位置（从左上角开始）
+            int relativeX = cursorPos.X - maxWindowRect.Left;
+            int relativeY = cursorPos.Y - maxWindowRect.Top;
+
+            // 还原窗口
             WindowState = FormWindowState.Normal;
             RefreshNativeFrame();
+
+            // 获取还原后的窗口大小
+            RECT normalWindowRect;
+            if (!GetWindowRect(Handle, out normalWindowRect))
+            {
+                ReleaseCapture();
+                SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                return;
+            }
+
+            int normalWidth = normalWindowRect.Right - normalWindowRect.Left;
+            int normalHeight = normalWindowRect.Bottom - normalWindowRect.Top;
+
+            // 计算新窗口位置，让鼠标保持在标题栏的相对位置
+            // 如果鼠标相对位置超过还原后的窗口宽度，按比例缩放
+            int maxWidth = maxWindowRect.Right - maxWindowRect.Left;
+            double scaleX = relativeX > normalWidth ? (double)normalWidth / maxWidth : 1.0;
+            int adjustedRelativeX = (int)(relativeX * scaleX);
+
+            int newX = cursorPos.X - adjustedRelativeX;
+            int newY = cursorPos.Y - relativeY;
+
+            // 确保窗口不会移出屏幕
+            IntPtr monitor = MonitorFromWindow(Handle, MONITOR_DEFAULTTONEAREST);
+            if (monitor != IntPtr.Zero)
+            {
+                var monitorInfo = new MONITORINFO();
+                monitorInfo.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                if (GetMonitorInfo(monitor, ref monitorInfo))
+                {
+                    // 限制在工作区内
+                    if (newX < monitorInfo.rcWork.Left)
+                    {
+                        newX = monitorInfo.rcWork.Left;
+                    }
+                    if (newY < monitorInfo.rcWork.Top)
+                    {
+                        newY = monitorInfo.rcWork.Top;
+                    }
+                    if (newX + normalWidth > monitorInfo.rcWork.Right)
+                    {
+                        newX = monitorInfo.rcWork.Right - normalWidth;
+                    }
+                    if (newY + normalHeight > monitorInfo.rcWork.Bottom)
+                    {
+                        newY = monitorInfo.rcWork.Bottom - normalHeight;
+                    }
+                }
+            }
+
+            // 设置窗口新位置
+            SetWindowPos(Handle, IntPtr.Zero, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
         }
 
         ReleaseCapture();
