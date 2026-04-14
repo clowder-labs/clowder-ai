@@ -45,8 +45,8 @@ from jiuwenclaw.utils import (
     get_agent_memory_dir,
     get_env_file,
     get_workspace_dir,
-    logger,
 )
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import get_config
 from jiuwenclaw.agentserver.llm_io_trace import (
     log_invoke_input,
@@ -699,40 +699,6 @@ class JiuClawReActAgent(ReActAgent):
                         if session is not None:
                             await self._emit_tool_result(session, tc, deny_msg)
 
-                    # ---- 技能模式下禁止批量 todo_complete ----
-                    if self._active_skill and allowed_tool_calls:
-                        complete_indices = [
-                            i for i, tc in enumerate(allowed_tool_calls)
-                            if getattr(tc, "name", "") == "todo_complete"
-                        ]
-                        if len(complete_indices) > 1:
-                            # 只保留第一个 todo_complete，其余拦截
-                            blocked = set(complete_indices[1:])
-                            lang = get_config().get("preferred_language", "zh")
-                            if lang == "zh":
-                                block_msg = (
-                                    "[拦截] 技能执行中每次只能完成一个 todo 项。"
-                                    "请先完成当前项并确认结果，再完成下一项。"
-                                )
-                            else:
-                                block_msg = (
-                                    "[Blocked] Only one todo_complete per turn during skill execution. "
-                                    "Complete the current item and verify before moving to the next."
-                                )
-                            for idx in blocked:
-                                tc = allowed_tool_calls[idx]
-                                tool_call_id = getattr(tc, "id", "")
-                                await context.add_messages(_ToolMsg(
-                                    content=block_msg,
-                                    tool_call_id=tool_call_id,
-                                ))
-                                if session is not None:
-                                    await self._emit_tool_result(session, tc, block_msg)
-                            allowed_tool_calls = [
-                                tc for i, tc in enumerate(allowed_tool_calls)
-                                if i not in blocked
-                            ]
-
                     # 执行被允许的工具调用
                     if allowed_tool_calls:
                         # Set session context for subagent tools to access
@@ -760,7 +726,11 @@ class JiuClawReActAgent(ReActAgent):
                                 logger.info(f"[USAGE_DEBUG] Accumulated subagent usage: {sub_usage}, parent totals: input={total_input_tokens}, output={total_output_tokens}")
                             await context.add_messages(tool_msg)
                             if session is not None:
-                                await self._emit_tool_result(session, tc, _result)
+                                # When tool execution fails, _result is None but tool_msg.content
+                                # contains the error message. Fall back to tool_msg.content so
+                                # the frontend displays the error instead of "no output".
+                                emit_result = _result if _result is not None else getattr(tool_msg, "content", None)
+                                await self._emit_tool_result(session, tc, emit_result)
                     
                     tool_messages_added = True
 

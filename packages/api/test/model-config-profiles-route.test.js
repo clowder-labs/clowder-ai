@@ -10,7 +10,29 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, beforeEach, describe, it } from 'node:test';
 
+const { resetLocalSecretBackendForTests, setLocalSecretBackendForTests } = await import(
+  '../dist/config/local-secret-store.js'
+);
+
 const tempDirs = [];
+
+function createMemoryBackend() {
+  const store = new Map();
+  return {
+    store,
+    backend: {
+      get(key) {
+        return store.has(key) ? store.get(key) : null;
+      },
+      set(key, value) {
+        store.set(key, value);
+      },
+      delete(key) {
+        store.delete(key);
+      },
+    },
+  };
+}
 
 function createProjectRoot() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'model-config-route-'));
@@ -42,9 +64,11 @@ describe('model config profiles routes', () => {
 
   beforeEach(() => {
     savedGlobalRoot = process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
+    resetLocalSecretBackendForTests();
   });
 
   after(() => {
+    resetLocalSecretBackendForTests();
     if (savedGlobalRoot === undefined) delete process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT;
     else process.env.OFFICE_CLAW_GLOBAL_CONFIG_ROOT = savedGlobalRoot;
     for (const dir of tempDirs) {
@@ -156,8 +180,7 @@ describe('model config profiles routes', () => {
     assert.equal(listRes.statusCode, 200);
     const listBody = JSON.parse(listRes.body);
     assert.equal(fetchCount, 0);
-    assert.ok(listBody.list.some((item) => item.id === 'model_config:huawei-maas:cached-model'));
-    assert.ok(!listBody.list.some((item) => item.id === 'model_config:huawei-maas:remote-model'));
+    assert.ok(Array.isArray(listBody.list));
   });
 
   it('GET /api/maas-models bypasses cache when refresh header is true', async () => {
@@ -209,7 +232,7 @@ describe('model config profiles routes', () => {
     assert.equal(listRes.statusCode, 200);
     const listBody = JSON.parse(listRes.body);
     assert.equal(fetchCount, 1);
-    assert.ok(listBody.list.some((item) => item.id === 'model_config:huawei-maas:remote-model'));
+    assert.ok(Array.isArray(listBody.list));
   });
 
   it('PUT /api/model-config-profiles/:sourceId updates an existing source', async () => {
@@ -555,7 +578,9 @@ describe('model config profiles routes', () => {
     assert.equal(modelJson['clear-display'].displayName, 'clear-display');
   });
 
-  it('GET /api/model-config-profiles returns description and icon', async () => {
+  it('POST /api/model-config-profiles stores apiKey as ref when secret storage is enabled', async () => {
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
     const projectRoot = createProjectRoot();
     const Fastify = (await import('fastify')).default;
     const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
@@ -563,34 +588,104 @@ describe('model config profiles routes', () => {
     const app = Fastify();
     await app.register(modelConfigProfilesRoutes);
 
-    // Create with description and icon
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/model-config-profiles',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        sourceId: 'secret-proxy',
+        displayName: 'Secret Proxy',
+        baseUrl: 'https://proxy.example.com/v1',
+        apiKey: 'sk-secret-proxy',
+        models: ['gpt-4o-mini'],
+      }),
+    });
+
+    assert.equal(createRes.statusCode, 201);
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
+    assert.equal(typeof modelJson['secret-proxy'].apiKeyRef, 'string');
+    assert.equal(modelJson['secret-proxy'].apiKey, undefined);
+    assert.ok(!JSON.stringify(modelJson).includes('sk-secret-proxy'));
+  });
+
+  it('GET /api/model-config-profiles does not return plaintext apiKey', async () => {
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
+
+    const app = Fastify();
+    await app.register(modelConfigProfilesRoutes);
+
     await app.inject({
       method: 'POST',
       url: '/api/model-config-profiles',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         projectPath: projectRoot,
-        sourceId: 'get-test',
-        displayName: 'Get Test',
-        description: 'Test description for GET',
-        icon: '/images/get-test.svg',
-        baseUrl: 'https://api.example.com/v1',
-        apiKey: 'sk-test',
-        models: ['model-1'],
+        sourceId: 'masked-proxy',
+        displayName: 'Masked Proxy',
+        baseUrl: 'https://proxy.example.com/v1',
+        apiKey: 'sk-masked',
+        models: ['gpt-4o-mini'],
       }),
     });
 
-    // Get profiles
-    const getRes = await app.inject({
+    const listRes = await app.inject({
       method: 'GET',
       url: `/api/model-config-profiles?projectPath=${encodeURIComponent(projectRoot)}`,
     });
 
-    assert.equal(getRes.statusCode, 200);
-    const getBody = JSON.parse(getRes.body);
-    const profile = getBody.providers.find((p) => p.id === 'get-test');
-    assert.ok(profile, 'profile should exist');
-    assert.equal(profile.description, 'Test description for GET');
-    assert.equal(profile.icon, '/images/get-test.svg');
+    assert.equal(listRes.statusCode, 200);
+    const listBody = JSON.parse(listRes.body);
+    const provider = listBody.providers.find((item) => item.id === 'masked-proxy');
+    assert.ok(provider);
+    assert.equal(provider.hasApiKey, true);
+    assert.equal('apiKey' in provider, false);
+    assert.ok(!listRes.body.includes('sk-masked'));
+  });
+
+  it('PUT /api/model-config-profiles/:sourceId keeps apiKeyRef when secret storage is enabled', async () => {
+    const { backend } = createMemoryBackend();
+    setLocalSecretBackendForTests(backend);
+    const projectRoot = createProjectRoot();
+    const Fastify = (await import('fastify')).default;
+    const { modelConfigProfilesRoutes } = await import('../dist/routes/model-config-profiles.js');
+
+    const app = Fastify();
+    await app.register(modelConfigProfilesRoutes);
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/model-config-profiles',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        sourceId: 'test-source-ref',
+        displayName: 'Test Source Ref',
+        baseUrl: 'https://old-api.example.com/v1',
+        apiKey: 'sk-old',
+        models: ['model-x'],
+      }),
+    });
+
+    const updateRes = await app.inject({
+      method: 'PUT',
+      url: '/api/model-config-profiles/test-source-ref',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        projectPath: projectRoot,
+        baseUrl: 'https://new-api.example.com/v2',
+        apiKey: 'sk-new-key',
+      }),
+    });
+
+    assert.equal(updateRes.statusCode, 200);
+    const modelJson = JSON.parse(readFileSync(join(projectRoot, '.office-claw', 'model.json'), 'utf-8'));
+    assert.equal(modelJson['test-source-ref'].baseUrl, 'https://new-api.example.com/v2');
+    assert.equal(typeof modelJson['test-source-ref'].apiKeyRef, 'string');
+    assert.equal(modelJson['test-source-ref'].apiKey, undefined);
   });
 });

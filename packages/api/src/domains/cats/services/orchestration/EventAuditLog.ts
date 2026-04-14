@@ -41,15 +41,14 @@ export interface AuditEvent {
 
 export type AuditEventInput = Omit<AuditEvent, 'id' | 'timestamp'>;
 
-/** Default audit log directory */
-const DEFAULT_AUDIT_DIR = './data/audit-logs';
+import { findMonorepoRoot } from '../../../../utils/monorepo-root.js';
 
 export class EventAuditLog {
   private readonly auditDir: string;
   private initialized = false;
 
   constructor(options?: { auditDir?: string }) {
-    this.auditDir = options?.auditDir ?? process.env.AUDIT_LOG_DIR ?? DEFAULT_AUDIT_DIR;
+    this.auditDir = options?.auditDir ?? resolve(findMonorepoRoot(), process.env.AUDIT_LOG_DIR ?? 'data/audit-logs');
   }
 
   /**
