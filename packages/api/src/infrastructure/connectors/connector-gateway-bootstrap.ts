@@ -38,8 +38,6 @@ export interface ConnectorGatewayConfig {
   xiaoyiAk?: string | undefined;
   xiaoyiSk?: string | undefined;
   xiaoyiAgentId?: string | undefined;
-  xiaoyiWsUrl1?: string | undefined;
-  xiaoyiWsUrl2?: string | undefined;
   wecomBotId?: string | undefined;
   wecomBotSecret?: string | undefined;
   wecomCorpId?: string | undefined;
@@ -174,8 +172,6 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     xiaoyiAk: getConnectorEnvValue('XIAOYI_AK'),
     xiaoyiSk: getConnectorEnvValue('XIAOYI_SK'),
     xiaoyiAgentId: process.env.XIAOYI_AGENT_ID,
-    xiaoyiWsUrl1: process.env.XIAOYI_WS_URL1,
-    xiaoyiWsUrl2: process.env.XIAOYI_WS_URL2,
     wecomBotId: process.env.WECOM_BOT_ID,
     wecomBotSecret: process.env.WECOM_BOT_SECRET,
     wecomCorpId: process.env.WECOM_CORP_ID,

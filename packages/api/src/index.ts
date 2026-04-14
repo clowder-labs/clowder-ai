@@ -174,6 +174,7 @@ import {
   createAomMetricsReporterFromEnv,
   createTokenUsageReporter,
   initMetricsService,
+  startTokenUsageReporter,
 } from './services/metrics/index.js';
 import { resolveActiveProjectRoot } from './utils/active-project-root.js';
 import { resolveCatCafeHostRoot } from './utils/cat-cafe-root.js';
@@ -1168,17 +1169,14 @@ async function main(): Promise<void> {
   startTtsCacheCleaner(ttsCacheDir);
 
   // Token Usage Reporter (AOM metrics, 1-minute interval)
-  const aomReporter = createAomMetricsReporterFromEnv();
-  if (aomReporter) {
+  // Try environment variables first (legacy), then rely on credential-based init after login
+  const envReporter = createAomMetricsReporterFromEnv();
+  if (envReporter) {
     initMetricsService();
-    const tokenUsageReporter = createTokenUsageReporter({
-      reporter: aomReporter,
-      intervalMs: 60_000,
-    });
-    tokenUsageReporter.start();
-    app.log.info('[api] Token usage reporter started');
+    startTokenUsageReporter(60_000);
+    app.log.info('[api] Token usage reporter started (from env)');
   } else {
-    app.log.info('[api] Token usage reporter disabled (AOM not configured)');
+    app.log.info('[api] Token usage reporter will initialize after login (credential-based)');
   }
 
   // C1+C2: Web Push Notifications (optional — requires VAPID keys)

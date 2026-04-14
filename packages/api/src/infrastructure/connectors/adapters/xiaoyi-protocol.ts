@@ -134,8 +134,6 @@ export interface XiaoyiAdapterOptions {
   agentId: string;
   ak: string;
   sk: string;
-  wsUrl1?: string;
-  wsUrl2?: string;
 }
 
 // ── Auth ──

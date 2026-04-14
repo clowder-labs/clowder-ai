@@ -155,9 +155,7 @@ function connectorSliceChanged(
       return (
         (prev.xiaoyiAk ?? '') !== (next.xiaoyiAk ?? '') ||
         (prev.xiaoyiSk ?? '') !== (next.xiaoyiSk ?? '') ||
-        (prev.xiaoyiAgentId ?? '') !== (next.xiaoyiAgentId ?? '') ||
-        (prev.xiaoyiWsUrl1 ?? '') !== (next.xiaoyiWsUrl1 ?? '') ||
-        (prev.xiaoyiWsUrl2 ?? '') !== (next.xiaoyiWsUrl2 ?? '')
+        (prev.xiaoyiAgentId ?? '') !== (next.xiaoyiAgentId ?? '')
       );
   }
 }
@@ -182,9 +180,7 @@ export function inferConnectorsFromEnvKeys(changedKeys: readonly string[]): Conn
     } else if (
       key === 'XIAOYI_AK' ||
       key === 'XIAOYI_SK' ||
-      key === 'XIAOYI_AGENT_ID' ||
-      key === 'XIAOYI_WS_URL1' ||
-      key === 'XIAOYI_WS_URL2'
+      key === 'XIAOYI_AGENT_ID'
     ) {
       ids.push('xiaoyi');
     }
@@ -739,8 +735,6 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       agentId: config.xiaoyiAgentId,
       ak: config.xiaoyiAk,
       sk: config.xiaoyiSk,
-      wsUrl1: config.xiaoyiWsUrl1,
-      wsUrl2: config.xiaoyiWsUrl2,
     });
     this.registerAdapter('xiaoyi', xiaoyi);
 
@@ -812,8 +806,6 @@ function mergeConnectorConfig(
         xiaoyiAk: incoming.xiaoyiAk,
         xiaoyiSk: incoming.xiaoyiSk,
         xiaoyiAgentId: incoming.xiaoyiAgentId,
-        xiaoyiWsUrl1: incoming.xiaoyiWsUrl1,
-        xiaoyiWsUrl2: incoming.xiaoyiWsUrl2,
       };
   }
 }

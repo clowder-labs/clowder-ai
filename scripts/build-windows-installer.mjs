@@ -1033,6 +1033,10 @@ async function stageBundledApiRuntime(targetRootDir) {
       ...API_RUNTIME_EXTERNAL_DEPENDENCIES.map((dependency) => `--external:${dependency}`),
     ]);
 
+    ensureDir(join(targetDir, 'dist', 'utils'));
+    copyFileSync(join(sourceDir, 'src', 'utils', 'signer.cjs'), join(targetDir, 'dist', 'utils', 'signer.cjs'));
+    copyFileSync(join(sourceDir, 'src', 'utils', 'signer.js'), join(targetDir, 'dist', 'utils', 'signer.js'));
+
     writeJson(join(targetDir, 'package.json'), createBundledApiRuntimePackageJson(join(sourceDir, 'package.json')));
   } catch (error) {
     logStep(
