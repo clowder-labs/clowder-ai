@@ -50,6 +50,7 @@ export const SKILL_UPLOAD_LIMITS = {
 } as const;
 
 const SKILL_NAME_ALLOWED_RE = /^[A-Za-z0-9-]+$/;
+const SKILL_NAME_MAX_LENGTH = 100;
 const ZIP_SINGLE_UPLOAD_ERROR = 'ZIP 文件只能单个上传';
 const ROOT_SKILL_REQUIRED_ERROR = '上传内容根目录必须包含名为 SKILL.md 的文件';
 const ZIP_ROOT_SKILL_ERROR = 'ZIP 压缩包根目录必须包含名为 SKILL.md 的文件';
@@ -330,6 +331,9 @@ export function validateSkillName(name: string): string | null {
   const trimmedName = name.trim();
 
   if (!trimmedName) return '请输入技能名称';
+  if (trimmedName.length > SKILL_NAME_MAX_LENGTH) {
+    return `技能名称不能超过 ${SKILL_NAME_MAX_LENGTH} 个字符`;
+  }
   if (!SKILL_NAME_ALLOWED_RE.test(trimmedName)) {
     return '技能名称仅支持英文、数字和中划线';
   }
@@ -708,6 +712,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                         ref={nameInputRef}
                         type="text"
                         value={name}
+                        maxLength={SKILL_NAME_MAX_LENGTH}
                         aria-invalid={editingNameValidationError ? 'true' : 'false'}
                         onChange={(e) => handleNameChange(e.target.value)}
                         onBlur={() => handleNameEditComplete('blur')}

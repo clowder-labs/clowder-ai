@@ -169,6 +169,7 @@ describe('UploadSkillModal', () => {
   it('allows English names with hyphen and rejects unsupported characters', () => {
     expect(validateSkillName('Alpha-Beta')).toBeNull();
     expect(validateSkillName('Alpha-2026')).toBeNull();
+    expect(validateSkillName(`skill-${'a'.repeat(95)}`)).toBe('技能名称不能超过 100 个字符');
     expect(validateSkillName('中文-Alpha')).toBe('技能名称仅支持英文、数字和中划线');
     expect(validateSkillName('Alpha_beta')).toBe('技能名称仅支持英文、数字和中划线');
   });
@@ -201,6 +202,34 @@ Fallback description`),
     const dialog = container.querySelector('[role="dialog"]');
     expect(dialog).toBeTruthy();
     expect(dialog?.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('caps the editable skill name input at 100 characters', async () => {
+    const file = new File(['---\nname: demo-skill\n---\n'], 'SKILL.md', { type: 'text/markdown' });
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [file],
+      });
+      fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+      await flushEffects();
+    });
+
+    const editButton = container.querySelector('button[aria-label="edit-skill-name"]') as HTMLButtonElement | null;
+    expect(editButton).toBeTruthy();
+
+    act(() => {
+      editButton?.click();
+    });
+
+    const nameInput = container.querySelector('input[placeholder="请输入技能名称"]') as HTMLInputElement | null;
+    expect(nameInput).toBeTruthy();
+    expect(nameInput?.maxLength).toBe(100);
   });
 
   it('does not close when clicking overlay', () => {
