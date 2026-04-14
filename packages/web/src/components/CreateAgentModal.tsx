@@ -166,7 +166,7 @@ function normalizeSaveErrorMessage(message: string | null | undefined): string |
 function generateRandomCatId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).slice(2, 8);
-  return `cat-${timestamp}${random}`.slice(0, 64);
+  return `agent-${timestamp}${random}`.slice(0, 64);
 }
 
 /**

@@ -29,7 +29,7 @@ const nsisScript = readFileSync(join(repoRoot, 'packaging', 'windows', 'installe
 const windowsInstallHelpersScript = readFileSync(join(repoRoot, 'scripts', 'install-windows-helpers.ps1'), 'utf8');
 
 test('Windows offline installer keeps mutable state outside managed payload cleanup', () => {
-  assert.deepEqual(WINDOWS_PRESERVE_PATHS, ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw']);
+  assert.deepEqual(WINDOWS_PRESERVE_PATHS, ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw', 'workspace']);
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('packages'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('scripts'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('office-claw-skills'));
@@ -54,6 +54,10 @@ test('Windows offline installer normalizes bundled Node versions and filters cop
   assert.equal(shouldCopyRepoPath('.env'), false);
   assert.equal(shouldCopyRepoPath('data/evidence.sqlite'), false);
   assert.equal(shouldCopyRepoPath('logs/api.log'), false);
+  assert.equal(shouldCopyRepoPath('uploads'), false);
+  assert.equal(shouldCopyRepoPath('uploads/avatar.png'), false);
+  assert.equal(shouldCopyRepoPath('workspace'), false);
+  assert.equal(shouldCopyRepoPath('workspace/project/file.ts'), false);
   assert.equal(shouldCopyRepoPath('node_modules/next/package.json'), false);
   assert.equal(shouldCopyRepoPath('packages/api/dist/index.js'), false);
   assert.equal(shouldCopyRepoPath('packages/web/.next/server.js'), false);
@@ -82,7 +86,7 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'shared'/);
   assert.match(
     buildScript,
-    /const API_RUNTIME_EXTERNAL_DEPENDENCIES = \[\s*'better-sqlite3',\s*'node-pty',\s*'pino',\s*'pino-roll',\s*'puppeteer',\s*'sharp',\s*'sqlite-vec',\s*\]/,
+    /const API_RUNTIME_EXTERNAL_DEPENDENCIES = \[\s*'better-sqlite3',\s*'node-pty',\s*'pino',\s*'pino-roll',\s*'puppeteer',\s*'sharp',\s*'sqlite-vec',\s*'snappy',\s*\]/,
   );
   assert.match(buildScript, /await stageBundledApiRuntime\(targetRootDir\)/);
   assert.match(buildScript, /function resolveLocalEsbuildCommand\(\)/);
@@ -225,6 +229,15 @@ test('Windows desktop launcher reads runtime state, minimizes to tray, and exits
   assert.match(launcherSource, /RequestExit/);
   assert.match(launcherSource, /TryReadRuntimeStateValue/);
   assert.match(launcherSource, /ShowBalloonTip/);
+});
+
+test('Windows desktop launcher keeps splash visible until the main WebView finishes its first successful navigation', () => {
+  assert.match(launcherSource, /RevealMainWebView/);
+  assert.match(launcherSource, /_webView\.SendToBack\(\)/);
+  assert.match(launcherSource, /NavigationCompleted \+= \(_, eventArgs\) =>/);
+  assert.match(launcherSource, /if \(!_mainWebViewShown && eventArgs\.IsSuccess\)/);
+  assert.match(launcherSource, /Controls\.Remove\(_splashWebView\)/);
+  assert.doesNotMatch(launcherSource, /Controls\.Clear\(\)/);
 });
 
 test('Windows startup script pins bundled config roots for packaged releases', () => {
@@ -387,4 +400,12 @@ test('NSIS installer updates the directory page field immediately after browsing
   assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$0/);
   assert.match(nsisScript, /Call NormalizeSelectedInstallDir/);
   assert.match(nsisScript, /NSD_SetText} \$DirectoryInput \$SelectedInstallDir/);
+});
+
+test('F142: SkillInstallManager does not contain recoverMissingSymlinks (removed — SkillHub uses MCP injection)', () => {
+  const skillInstallSource = readFileSync(
+    join(repoRoot, 'packages', 'api', 'src', 'domains', 'cats', 'services', 'skillhub', 'SkillInstallManager.ts'),
+    'utf8',
+  );
+  assert.ok(!skillInstallSource.includes('recoverMissingSymlinks'), 'recoverMissingSymlinks should be removed');
 });

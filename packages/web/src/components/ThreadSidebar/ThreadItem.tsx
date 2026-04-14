@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -10,7 +10,6 @@ import { getMentionLabel, getMentionRe, getMentionToCat } from '@/lib/mention-hi
 import type { ThreadState } from '@/stores/chat-types';
 import { API_URL } from '@/utils/api-client';
 import { AppModal } from '../AppModal';
-import { CatAvatar } from '../CatAvatar';
 import { OverflowTooltip } from '../shared/OverflowTooltip';
 import { formatRelativeTime } from './thread-utils';
 
@@ -141,9 +140,15 @@ function normalizeTitleMentions(
     .trim();
 }
 
+type ThreadFallbackAvatarMeta = {
+  avatar: string;
+  color: string;
+  displayName: string;
+};
+
 function resolveThreadFallbackAvatar(
-  cats: Array<{ id: string; displayName: string; mentionPatterns: string[]; avatar: string }>,
-): string {
+  cats: Array<{ id: string; displayName: string; mentionPatterns: string[]; avatar: string; color?: { primary?: string } }>,
+): ThreadFallbackAvatarMeta {
   const officeCat =
     cats.find((cat) => cat.id.toLowerCase() === 'office') ??
     cats.find((cat) => cat.id.toLowerCase() === 'jiuwenclaw') ??
@@ -151,8 +156,21 @@ function resolveThreadFallbackAvatar(
     cats.find((cat) => cat.displayName.includes('办公'));
 
   const avatar = officeCat?.avatar?.trim() ?? '';
-  if (!avatar) return '/avatars/assistant.svg';
-  return avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar;
+  return {
+    avatar: avatar ? (avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar) : '/avatars/assistant.svg',
+    color: officeCat?.color?.primary ?? '#7AAEFF',
+    displayName: officeCat?.displayName ?? '办公智能体',
+  };
+}
+
+function isImageAvatar(avatar: string): boolean {
+  return /^(https?:\/\/|\/|data:image)/.test(avatar);
+}
+
+function getAvatarInitial(name?: string): string {
+  const normalized = (name ?? '').replace(/^@/, '').trim();
+  const first = normalized.slice(0, 1);
+  return (first || '智').toUpperCase();
 }
 
 export function ThreadItem({
@@ -272,7 +290,7 @@ export function ThreadItem({
   const recentAssistantNames = recentAssistantCatIds.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const participantNames = participants.map((catId) => getCatById(catId)?.displayName ?? catId).join(', ');
   const description = recentAssistantNames || participantNames || (isHubThread ? 'Hub 会话' : '暂无智能体');
-  const fallbackAvatarSrc = resolveThreadFallbackAvatar(cats);
+  const fallbackAvatar = resolveThreadFallbackAvatar(cats);
   const mentionedCatIds = getMentionedCatIdsFromMessages(threadState?.messages, getCatById);
   const fallbackAvatarCatIds = Array.from(
     new Set(
@@ -295,6 +313,47 @@ export function ThreadItem({
     });
   }, []);
 
+  const renderCatAvatar = useCallback(
+    (catId: string, size: number) => {
+      const cat = getCatById(catId);
+      const avatar = cat?.avatar?.trim() ?? '';
+      const avatarSrc = avatar.startsWith('/uploads/') ? `${API_URL}${avatar}` : avatar;
+      const imageAvatar = isImageAvatar(avatarSrc);
+
+      if (imageAvatar) {
+        return (
+          <div className="overflow-hidden rounded-full bg-gray-100" style={{ width: size, height: size }}>
+            <img
+              src={avatarSrc}
+              alt={cat?.displayName ?? catId}
+              width={size}
+              height={size}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div
+          className="inline-flex items-center justify-center rounded-full text-white font-semibold"
+          style={{
+            width: size,
+            height: size,
+            backgroundColor: cat?.color?.primary ?? '#7AAEFF',
+            fontSize: size <= 16 ? 10 : 12,
+            lineHeight: 1,
+          }}
+          aria-hidden="true"
+          title={cat?.displayName ?? catId}
+        >
+          {avatar || getAvatarInitial(cat?.displayName ?? catId)}
+        </div>
+      );
+    },
+    [getCatById],
+  );
+
   return (
     <div
       className={`ui-thread-item group relative cursor-pointer transition-colors ${
@@ -311,54 +370,66 @@ export function ThreadItem({
       <div className="flex items-center gap-[10px]">
         <div className="relative shrink-0">
           {avatarCatIds.length === 1 ? (
-            <CatAvatar catId={avatarCatIds[0]!} size={32} showRing={false} />
+            renderCatAvatar(avatarCatIds[0]!, 32)
           ) : avatarCatIds.length > 1 ? (
             <div className="relative h-8 w-8">
               {avatarCatIds.length === 2 && (
                 <>
                   <div className="absolute left-[1px] top-[6px] z-10">
-                    <CatAvatar catId={avatarCatIds[0]!} size={20} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[0]!, 20)}
                   </div>
                   <div className="absolute left-[11px] top-[6px] z-0">
-                    <CatAvatar catId={avatarCatIds[1]!} size={20} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[1]!, 20)}
                   </div>
                 </>
               )}
               {avatarCatIds.length === 3 && (
                 <>
                   <div className="absolute left-[8px] top-0">
-                    <CatAvatar catId={avatarCatIds[0]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[0]!, 16)}
                   </div>
                   <div className="absolute left-0 top-[16px]">
-                    <CatAvatar catId={avatarCatIds[1]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[1]!, 16)}
                   </div>
                   <div className="absolute left-[16px] top-[16px]">
-                    <CatAvatar catId={avatarCatIds[2]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[2]!, 16)}
                   </div>
                 </>
               )}
               {avatarCatIds.length >= 4 && (
                 <>
                   <div className="absolute left-0 top-0">
-                    <CatAvatar catId={avatarCatIds[0]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[0]!, 16)}
                   </div>
                   <div className="absolute left-[16px] top-0">
-                    <CatAvatar catId={avatarCatIds[1]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[1]!, 16)}
                   </div>
                   <div className="absolute left-0 top-[16px]">
-                    <CatAvatar catId={avatarCatIds[2]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[2]!, 16)}
                   </div>
                   <div className="absolute left-[16px] top-[16px]">
-                    <CatAvatar catId={avatarCatIds[3]!} size={16} showRing={false} />
+                    {renderCatAvatar(avatarCatIds[3]!, 16)}
                   </div>
                 </>
               )}
             </div>
           ) : (
             <div className="ui-avatar-fallback-shell h-8 w-8">
-              {/* biome-ignore lint/performance/noImgElement: fallback avatar uses static local asset */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fallbackAvatarSrc} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+              {isImageAvatar(fallbackAvatar.avatar) ? (
+                <>
+                  {/* biome-ignore lint/performance/noImgElement: fallback avatar uses static local asset */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={fallbackAvatar.avatar} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                </>
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="inline-flex h-full w-full items-center justify-center rounded-full text-[12px] font-semibold text-white"
+                  style={{ backgroundColor: fallbackAvatar.color }}
+                >
+                  {fallbackAvatar.avatar || getAvatarInitial(fallbackAvatar.displayName)}
+                </span>
+              )}
             </div>
           )}
           {showUnreadBadge && (

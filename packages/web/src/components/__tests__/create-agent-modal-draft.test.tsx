@@ -207,6 +207,7 @@ describe('CreateAgentModal', () => {
     );
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.catId).toMatch(/^agent-[a-z0-9]+$/);
     expect(payload.client).toBe('relayclaw');
     expect(onSaved).toHaveBeenCalledWith('new-agent');
   });

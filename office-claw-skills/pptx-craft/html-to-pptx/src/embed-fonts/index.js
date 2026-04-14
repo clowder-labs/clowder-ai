@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import opentype from "opentype.js";
 import { toZip } from "./parse.js";
-import { fontToEot } from "./utils.js";
+import { fontToTtf } from "./utils.js";
 
 const isNode = typeof process !== "undefined" && !!process.versions?.node && process.release?.name === "node";
 
@@ -113,8 +113,8 @@ class PPTXEmbedFonts {
    * @param {ArrayBuffer} ttfFile - TTF 字体数据
    */
   async addFontFromTTF(fontFace, ttfFile) {
-    const eotFile = await fontToEot("ttf", ttfFile);
-    await this.addFontFromEOT(fontFace, eotFile);
+    const normalizedTtf = await fontToTtf("ttf", ttfFile, fontFace);
+    await this.addFontFromRawTTF(fontFace, normalizedTtf);
   }
 
   /**
@@ -123,8 +123,8 @@ class PPTXEmbedFonts {
    * @param {ArrayBuffer} woffFile - WOFF 字体数据
    */
   async addFontFromWOFF(fontFace, woffFile) {
-    const eotFile = await fontToEot("woff", woffFile);
-    await this.addFontFromEOT(fontFace, eotFile);
+    const ttfFile = await fontToTtf("woff", woffFile, fontFace);
+    await this.addFontFromRawTTF(fontFace, ttfFile);
   }
 
   /**
@@ -133,8 +133,8 @@ class PPTXEmbedFonts {
    * @param {ArrayBuffer} otfFile - OTF 字体数据
    */
   async addFontFromOTF(fontFace, otfFile) {
-    const eotFile = await fontToEot("otf", otfFile);
-    await this.addFontFromEOT(fontFace, eotFile);
+    const ttfFile = await fontToTtf("otf", otfFile, fontFace);
+    await this.addFontFromRawTTF(fontFace, ttfFile);
   }
 
   /**
@@ -143,8 +143,8 @@ class PPTXEmbedFonts {
    * @param {ArrayBuffer} woff2File - WOFF2 字体数据
    */
   async addFontFromWOFF2(fontFace, woff2File) {
-    const eotFile = await fontToEot("woff2", woff2File);
-    await this.addFontFromEOT(fontFace, eotFile);
+    const ttfFile = await fontToTtf("woff2", woff2File, fontFace);
+    await this.addFontFromRawTTF(fontFace, ttfFile);
   }
 
   /**
@@ -221,9 +221,17 @@ class PPTXEmbedFonts {
       fontNode.setAttribute("typeface", font.name);
       embeddedFontNode.appendChild(fontNode);
 
-      const regularNode = doc.createElementNS("http://schemas.openxmlformats.org/presentationml/2006/main", "p:regular");
-      regularNode.setAttribute("r:id", `rId${font.rid}`);
-      embeddedFontNode.appendChild(regularNode);
+      const createStyleNode = (tagName) => {
+        const node = doc.createElementNS("http://schemas.openxmlformats.org/presentationml/2006/main", tagName);
+        node.setAttribute("r:id", `rId${font.rid}`);
+        embeddedFontNode.appendChild(node);
+      };
+
+      // WPS 对样式映射更严格：即使只有单字体文件，也显式填充四种样式节点。
+      createStyleNode("p:regular");
+      createStyleNode("p:bold");
+      createStyleNode("p:italic");
+      createStyleNode("p:boldItalic");
       return embeddedFontNode;
     };
 

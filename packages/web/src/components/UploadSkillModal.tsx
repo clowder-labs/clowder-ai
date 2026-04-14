@@ -50,6 +50,7 @@ export const SKILL_UPLOAD_LIMITS = {
 } as const;
 
 const SKILL_NAME_ALLOWED_RE = /^[A-Za-z0-9-]+$/;
+const SKILL_NAME_MAX_LENGTH = 100;
 const ZIP_SINGLE_UPLOAD_ERROR = 'ZIP 文件只能单个上传';
 const ROOT_SKILL_REQUIRED_ERROR = '上传内容根目录必须包含名为 SKILL.md 的文件';
 const ZIP_ROOT_SKILL_ERROR = 'ZIP 压缩包根目录必须包含名为 SKILL.md 的文件';
@@ -292,7 +293,7 @@ function getUploadValidationIssue(files: UploadFile[]): UploadValidationIssue | 
   if (oversizedFile) {
     return {
       kind: 'fileTooLarge',
-      message: `文件 ${oversizedFile.path} 单个文件大小不能超过1mb`,
+      message: `文件 ${oversizedFile.path} 单个文件大小不能超过1MB`,
     };
   }
 
@@ -330,6 +331,9 @@ export function validateSkillName(name: string): string | null {
   const trimmedName = name.trim();
 
   if (!trimmedName) return '请输入技能名称';
+  if (trimmedName.length > SKILL_NAME_MAX_LENGTH) {
+    return `技能名称不能超过 ${SKILL_NAME_MAX_LENGTH} 个字符`;
+  }
   if (!SKILL_NAME_ALLOWED_RE.test(trimmedName)) {
     return '技能名称仅支持英文、数字和中划线';
   }
@@ -382,6 +386,15 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   }));
   const hasExpandableFileList = fileNames.length > COLLAPSED_FILE_COUNT;
 
+  const resetUploadPickers = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setName('');
     setParsedName('');
@@ -391,7 +404,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     setError(null);
     setIsEditingName(false);
     setIsFileListExpanded(false);
-  }, []);
+    resetUploadPickers();
+  }, [resetUploadPickers]);
 
   const handleClose = useCallback(() => {
     reset();
@@ -460,6 +474,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
   const readFiles = useCallback(async (fileList: FileList) => {
     const selectedFiles = Array.from(fileList);
+    resetUploadPickers();
     const zipFiles = selectedFiles.filter(isZipFile);
 
     if (zipFiles.length > 0 && selectedFiles.length !== 1) {
@@ -514,7 +529,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
     setIsFileListExpanded(false);
     syncUploadState(newEntries);
-  }, [showToast, syncUploadState]);
+  }, [resetUploadPickers, showToast, syncUploadState]);
 
   const removeFile = useCallback((index: number) => {
     const nextFiles = files.filter((_, currentIndex) => currentIndex !== index);
@@ -609,7 +624,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <Alert mode="prompt" closable={false} className="mb-4">
-            1. 支持上传文件或者文件夹，单个文件大小不能超过1mb，文件数量不能超过100，总文件大小不能超过4mb。
+            1. 支持上传文件或者文件夹，单个文件大小不能超过1MB，文件数量不能超过100，总文件大小不能超过4MB。
             <br />
             2. 上传的文件中必须包含一个名为 SKILL.md 的文件，且必须位于根目录下。
           </Alert>
@@ -708,6 +723,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
                         ref={nameInputRef}
                         type="text"
                         value={name}
+                        maxLength={SKILL_NAME_MAX_LENGTH}
                         aria-invalid={editingNameValidationError ? 'true' : 'false'}
                         onChange={(e) => handleNameChange(e.target.value)}
                         onBlur={() => handleNameEditComplete('blur')}

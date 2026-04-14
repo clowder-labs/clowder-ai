@@ -893,6 +893,10 @@ async function main(): Promise<void> {
     }
   }
 
+  // F142: Resolve data dirs relative to monorepo root (not API cwd) so they land in PRESERVE zone
+  const monoRoot = findMonorepoRoot(process.cwd());
+  const uploadDir = resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads');
+
   // Register routes (socketManager injected, no circular import)
   const messagesOpts = {
     registry,
@@ -911,6 +915,7 @@ async function main(): Promise<void> {
     queueProcessor,
     ...(f101GameStore ? { gameStore: f101GameStore } : {}),
     ...(f101SharedDriver ? { autoPlayer: f101SharedDriver } : {}),
+    uploadDir,
   };
   await app.register(messagesRoutes, messagesOpts);
   await app.register(queueRoutes, {
@@ -932,6 +937,7 @@ async function main(): Promise<void> {
     router,
     invocationTracker,
     queueProcessor,
+    uploadDir,
   });
   await app.register(messageActionsRoutes, {
     messageStore,
@@ -1087,6 +1093,7 @@ async function main(): Promise<void> {
     portDiscovery,
     gatewayPort: PREVIEW_GATEWAY_ENABLED ? previewGateway.actualPort || PREVIEW_GATEWAY_PORT : 0,
     runtimePorts,
+    uploadDir,
     socketEmit: (event, data, room) => {
       socketManager?.broadcastToRoom(room, event, data);
     },
@@ -1151,18 +1158,17 @@ async function main(): Promise<void> {
   });
 
   // Serve uploaded files (images)
-  const uploadDir = process.env.UPLOAD_DIR ?? './uploads';
   await app.register(uploadsRoutes, { uploadDir });
 
   // F088: Serve downloaded connector media files
-  const connectorMediaDir = process.env.CONNECTOR_MEDIA_DIR ?? './data/connector-media';
+  const connectorMediaDir = resolve(monoRoot, process.env.CONNECTOR_MEDIA_DIR ?? 'data/connector-media');
   await app.register(connectorMediaRoutes, { mediaDir: connectorMediaDir });
 
   // F34: TTS Provider (mlx-audio → Python TTS server)
   const ttsRegistry = new TtsRegistry();
   const ttsUrl = process.env.TTS_URL!;
   ttsRegistry.register(new MlxAudioTtsProvider({ baseUrl: ttsUrl }));
-  const ttsCacheDir = process.env.TTS_CACHE_DIR ?? './data/tts-cache';
+  const ttsCacheDir = resolve(monoRoot, process.env.TTS_CACHE_DIR ?? 'data/tts-cache');
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
   initVoiceBlockSynthesizer(ttsRegistry, ttsCacheDir);
   initStreamingTtsRegistry(ttsRegistry);

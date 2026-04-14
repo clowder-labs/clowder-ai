@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Awaitable, Callable
 from urllib.parse import urlparse
 
@@ -21,8 +21,8 @@ from jiuwenclaw.utils import (
     get_agent_skill_source_dirs,
     get_agent_skills_dir,
     get_disabled_agent_skill_names,
-    logger,
 )
+from jiuwenclaw.logging.app_logger import logger
 
 _SKILLNET_DOWNLOAD_TIMEOUT: int = int(os.environ.get("SKILLNET_DOWNLOAD_TIMEOUT", "60"))
 _SKILLNET_MAX_RETRIES: int = int(os.environ.get("SKILLNET_MAX_RETRIES", "3"))
@@ -58,6 +58,43 @@ def _is_valid_http_mirror_url(url: str) -> bool:
     if not parsed.netloc:
         return False
     return True
+
+
+def _safe_path_name(value: Any, label: str) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        raise ValueError(f"invalid {label} name")
+    path_value = Path(raw)
+    if (
+        raw in (".", "..")
+        or "/" in raw
+        or "\\" in raw
+        or path_value.is_absolute()
+        or PureWindowsPath(raw).is_absolute()
+    ):
+        raise ValueError(f"invalid {label} name: {raw}")
+    return raw
+
+
+def _safe_child_path(base: Path, name: Any, label: str) -> Path:
+    safe_name = _safe_path_name(name, label)
+    base_resolved = base.resolve()
+    candidate = (base / safe_name).resolve()
+    try:
+        candidate.relative_to(base_resolved)
+    except ValueError as exc:
+        raise ValueError(f"invalid {label} path: {safe_name}") from exc
+    return candidate
+
+
+def _log_rejected_name(operation: str, label: str, value: Any, exc: ValueError) -> None:
+    logger.warning(
+        "rejected invalid %s name: operation=%s value=%r error=%s",
+        label,
+        operation,
+        value,
+        exc,
+    )
 
 
 class SkillManager:
@@ -206,6 +243,12 @@ class SkillManager:
         plugin_name, marketplace_name = spec.rsplit("@", 1)
         if not plugin_name or not marketplace_name:
             return {"success": False, "detail": "plugin 或 marketplace 名称为空"}
+        try:
+            plugin_name = _safe_path_name(plugin_name, "plugin")
+            marketplace_name = _safe_path_name(marketplace_name, "marketplace")
+        except ValueError as exc:
+            _log_rejected_name("skills.install", "plugin/marketplace", spec, exc)
+            return {"success": False, "detail": str(exc)}
 
         # 查找 marketplace 配置
         marketplace = None
@@ -221,7 +264,7 @@ class SkillManager:
             return {"success": False, "detail": f"marketplace {marketplace_name} 缺少 url"}
 
         # 确保 marketplace 仓库已 clone
-        repo_dir = _MARKETPLACE_DIR / marketplace_name
+        repo_dir = _safe_child_path(_MARKETPLACE_DIR, marketplace_name, "marketplace")
         if repo_dir.exists():
             await self._git_pull(repo_dir)
         else:
@@ -239,7 +282,7 @@ class SkillManager:
             return {"success": False, "detail": f"plugin {plugin_name} 缺少 SKILL.md"}
 
         # 复制到本地 skills 目录
-        dest = _SKILLS_DIR / plugin_name
+        dest = _safe_child_path(_SKILLS_DIR, plugin_name, "skill")
         if dest.exists():
             if not force:
                 return {"success": False, "detail": f"skill {plugin_name} 已存在"}
@@ -527,8 +570,13 @@ class SkillManager:
                         "detail_key": "skills.skillNet.errors.parseSkillFailed",
                     }
 
-                skill_name = str(meta.get("name", skill_dir.name)).strip() or skill_dir.name
-                dest = _SKILLS_DIR / skill_name
+                raw_skill_name = meta.get("name", skill_dir.name)
+                try:
+                    skill_name = _safe_path_name(raw_skill_name, "skill")
+                except ValueError as exc:
+                    _log_rejected_name("skills.skillnet.install", "skill", raw_skill_name, exc)
+                    return {"ok": False, "detail": str(exc)}
+                dest = _safe_child_path(_SKILLS_DIR, skill_name, "skill")
                 if dest.exists():
                     if not force:
                         return {
@@ -540,7 +588,7 @@ class SkillManager:
 
                 shutil.copytree(skill_dir, dest)
                 for mirror_root in self._get_mirror_skills_dirs():
-                    mirror_dest = mirror_root / skill_name
+                    mirror_dest = _safe_child_path(mirror_root, skill_name, "skill")
                     if mirror_dest.exists():
                         if not force:
                             continue
@@ -581,12 +629,17 @@ class SkillManager:
         name = params.get("name", "")
         if not name:
             return {"success": False, "detail": "缺少参数: name"}
+        try:
+            name = _safe_path_name(name, "skill")
+        except ValueError as exc:
+            _log_rejected_name("skills.uninstall", "skill", name, exc)
+            return {"success": False, "detail": str(exc)}
 
-        dest = _SKILLS_DIR / name
+        dest = _safe_child_path(_SKILLS_DIR, name, "skill")
         if dest.exists() and dest.is_dir():
             shutil.rmtree(dest)
         for mirror_root in self._get_mirror_skills_dirs():
-            mirror_dest = mirror_root / name
+            mirror_dest = _safe_child_path(mirror_root, name, "skill")
             if mirror_dest.exists() and mirror_dest.is_dir():
                 shutil.rmtree(mirror_dest)
 
@@ -615,8 +668,13 @@ class SkillManager:
             meta = self._parse_skill_md(src)
             if meta is None:
                 return {"success": False, "detail": "无法解析 skill 文件"}
-            skill_name = meta.get("name", src.stem)
-            dest = _SKILLS_DIR / skill_name
+            raw_skill_name = meta.get("name", src.stem)
+            try:
+                skill_name = _safe_path_name(raw_skill_name, "skill")
+            except ValueError as exc:
+                _log_rejected_name("skills.import_local", "skill", raw_skill_name, exc)
+                return {"success": False, "detail": str(exc)}
+            dest = _safe_child_path(_SKILLS_DIR, skill_name, "skill")
             if dest.exists():
                 if not force:
                     return {"success": False, "detail": f"skill {skill_name} 已存在"}
@@ -628,8 +686,13 @@ class SkillManager:
             if md is None:
                 return {"success": False, "detail": f"目录中未找到 SKILL.md: {raw_path}"}
             meta = self._parse_skill_md(md) or {}
-            skill_name = meta.get("name", src.name)
-            dest = _SKILLS_DIR / skill_name
+            raw_skill_name = meta.get("name", src.name)
+            try:
+                skill_name = _safe_path_name(raw_skill_name, "skill")
+            except ValueError as exc:
+                _log_rejected_name("skills.import_local", "skill", raw_skill_name, exc)
+                return {"success": False, "detail": str(exc)}
+            dest = _safe_child_path(_SKILLS_DIR, skill_name, "skill")
             if dest.exists():
                 if not force:
                     return {"success": False, "detail": f"skill {skill_name} 已存在"}
@@ -653,6 +716,11 @@ class SkillManager:
         url = params.get("url", "")
         if not name or not url:
             return {"success": False, "detail": "缺少参数: name 和 url"}
+        try:
+            name = _safe_path_name(name, "marketplace")
+        except ValueError as exc:
+            _log_rejected_name("skills.marketplace.add", "marketplace", name, exc)
+            return {"success": False, "detail": str(exc)}
 
         # 检查是否已存在
         for m in self._get_marketplaces():
@@ -674,6 +742,11 @@ class SkillManager:
         remove_cache = params.get("remove_cache", True)
         if not name:
             return {"success": False, "detail": "缺少参数: name"}
+        try:
+            name = _safe_path_name(name, "marketplace")
+        except ValueError as exc:
+            _log_rejected_name("skills.marketplace.remove", "marketplace", name, exc)
+            return {"success": False, "detail": str(exc)}
 
         removed = self._remove_marketplace(name)
         if not removed:
@@ -681,7 +754,7 @@ class SkillManager:
 
         cache_removed = False
         if bool(remove_cache):
-            repo_dir = _MARKETPLACE_DIR / name
+            repo_dir = _safe_child_path(_MARKETPLACE_DIR, name, "marketplace")
             if repo_dir.exists() and repo_dir.is_dir():
                 try:
                     shutil.rmtree(repo_dir)
@@ -708,6 +781,11 @@ class SkillManager:
             return {"success": False, "detail": "缺少参数: name"}
         if not isinstance(enabled, bool):
             return {"success": False, "detail": "缺少参数: enabled (bool)"}
+        try:
+            name = _safe_path_name(name, "marketplace")
+        except ValueError as exc:
+            _log_rejected_name("skills.marketplace.toggle", "marketplace", name, exc)
+            return {"success": False, "detail": str(exc)}
 
         marketplace = next(
             (m for m in self._get_marketplaces() if m.get("name") == name),
@@ -717,7 +795,7 @@ class SkillManager:
             return {"success": False, "detail": f"marketplace 不存在: {name}"}
 
         if enabled:
-            repo_dir = _MARKETPLACE_DIR / name
+            repo_dir = _safe_child_path(_MARKETPLACE_DIR, name, "marketplace")
             url = marketplace.get("url", "")
             if not url:
                 return {"success": False, "detail": f"marketplace {name} 缺少 url"}
@@ -739,7 +817,7 @@ class SkillManager:
             return {"success": True, "name": name, "enabled": True, "detail": detail}
 
         # 禁用：删除本地缓存目录，不卸载已安装 skill。
-        repo_dir = _MARKETPLACE_DIR / name
+        repo_dir = _safe_child_path(_MARKETPLACE_DIR, name, "marketplace")
         cache_removed = False
         if repo_dir.exists() and repo_dir.is_dir():
             try:
@@ -1447,8 +1525,11 @@ class SkillManager:
             url = marketplace.get("url", "")
             if not name or not url:
                 continue
-
-            repo_dir = _MARKETPLACE_DIR / name
+            try:
+                repo_dir = _safe_child_path(_MARKETPLACE_DIR, name, "marketplace")
+            except ValueError as exc:
+                _log_rejected_name("skills.marketplace.sync", "marketplace", name, exc)
+                continue
             try:
                 if repo_dir.exists():
                     await self._git_pull(repo_dir)
@@ -1492,33 +1573,40 @@ class SkillManager:
 
     def _get_marketplaces(self) -> list[dict]:
         marketplaces = self._state.get("marketplaces", [])
-        normalized = self._normalize_marketplaces(marketplaces)
-        # 仅当结构发生变化时写回，避免每次读取都触盘。
-        if normalized != marketplaces:
-            self._state["marketplaces"] = normalized
-            self._save_state()
-        return normalized
+        return self._normalize_marketplaces(marketplaces)
 
     def _add_marketplace(self, marketplace: dict) -> None:
-        self._state.setdefault("marketplaces", []).append(marketplace)
-        self._state["marketplaces"] = self._normalize_marketplaces(
-            self._state.get("marketplaces", [])
-        )
+        marketplaces = self._state.get("marketplaces")
+        if not isinstance(marketplaces, list):
+            marketplaces = []
+            self._state["marketplaces"] = marketplaces
+        marketplaces.append({
+            **marketplace,
+            "name": str(marketplace.get("name", "")).strip(),
+            "url": str(marketplace.get("url", "")).strip(),
+            "enabled": bool(marketplace.get("enabled", True)),
+        })
         self._save_state()
 
     def _remove_marketplace(self, name: str) -> bool:
         marketplaces = self._state.get("marketplaces", [])
-        kept = [m for m in marketplaces if m.get("name") != name]
+        if not isinstance(marketplaces, list):
+            return False
+        kept = [m for m in marketplaces if not isinstance(m, dict) or m.get("name") != name]
         if len(kept) == len(marketplaces):
             return False
-        self._state["marketplaces"] = self._normalize_marketplaces(kept)
+        self._state["marketplaces"] = kept
         self._save_state()
         return True
 
     def _set_marketplace_enabled(self, name: str, enabled: bool) -> bool:
-        marketplaces = self._normalize_marketplaces(self._state.get("marketplaces", []))
+        marketplaces = self._state.get("marketplaces", [])
+        if not isinstance(marketplaces, list):
+            return False
         updated = False
         for marketplace in marketplaces:
+            if not isinstance(marketplace, dict):
+                continue
             if marketplace.get("name") == name:
                 marketplace["enabled"] = bool(enabled)
                 updated = True
@@ -1530,9 +1618,13 @@ class SkillManager:
 
     def _set_marketplace_last_updated(self, name: str) -> bool:
 
-        marketplaces = self._normalize_marketplaces(self._state.get("marketplaces", []))
+        marketplaces = self._state.get("marketplaces", [])
+        if not isinstance(marketplaces, list):
+            return False
         updated = False
         for marketplace in marketplaces:
+            if not isinstance(marketplace, dict):
+                continue
             if marketplace.get("name") == name:
                 marketplace["last_updated"] = datetime.now(timezone.utc).isoformat()
                 updated = True
@@ -1554,6 +1646,11 @@ class SkillManager:
             url = item.get("url", "")
             if not name or not url:
                 continue
+            try:
+                name = _safe_path_name(name, "marketplace")
+            except ValueError:
+                _log_rejected_name("skills.marketplace.normalize", "marketplace", name, ValueError("invalid marketplace name"))
+                continue
             normalized.append({
                 **item,
                 "name": name,
@@ -1563,10 +1660,10 @@ class SkillManager:
         return normalized
 
     def _normalize_state(self, state: dict[str, Any]) -> None:
-        state.setdefault("marketplaces", [])
+        if not isinstance(state.get("marketplaces"), list):
+            state["marketplaces"] = []
         state.setdefault("installed_plugins", [])
         state.setdefault("local_skills", [])
-        state["marketplaces"] = self._normalize_marketplaces(state.get("marketplaces"))
 
     def _get_installed_plugins(self) -> list[dict]:
         return self._state.get("installed_plugins", [])

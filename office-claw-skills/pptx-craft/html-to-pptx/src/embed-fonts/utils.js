@@ -164,6 +164,59 @@ export async function fontToEot(type, fontBuffer, renameFontFace) {
 }
 
 /**
+ * 将字体统一转换为 TTF 格式
+ * @param {"ttf"|"woff"|"woff2"|"otf"} type - 源字体类型
+ * @param {ArrayBuffer|Uint8Array} fontBuffer - 字体数据
+ * @param {string} [renameFontFace] - 可选的新字体名称
+ * @returns {Promise<ArrayBuffer>} TTF 格式字体数据
+ */
+export async function fontToTtf(type, fontBuffer, renameFontFace) {
+  const Font = (await getFontModule()).Font;
+
+  // woff2 需要先解码为 ttf
+  if (type === "woff2") {
+    const mod = await initWoff2();
+    const decoded = mod.decode(fontBuffer);
+    let ttfBuffer = normalizeBuffer(decoded);
+    if (renameFontFace) {
+      ttfBuffer = renameTTFInPlace(ttfBuffer, renameFontFace);
+    }
+    return ttfBuffer;
+  }
+
+  // ttf 直接使用（可选重命名）
+  if (type === "ttf") {
+    let ttfBuffer = normalizeBuffer(new Uint8Array(fontBuffer));
+    if (renameFontFace) {
+      ttfBuffer = renameTTFInPlace(ttfBuffer, renameFontFace);
+    }
+    return ttfBuffer;
+  }
+
+  // woff / otf 转换为 ttf
+  const options = { type, hinting: true };
+  if (type === "woff") {
+    options.inflate = pako.inflate;
+  }
+
+  const font = Font.create(fontBuffer, options);
+  let ttfBuffer = font.write({
+    type: "ttf",
+    toBuffer: true,
+  });
+
+  if (!(ttfBuffer instanceof ArrayBuffer)) {
+    ttfBuffer = ttfBuffer.buffer.slice(ttfBuffer.byteOffset, ttfBuffer.byteOffset + ttfBuffer.byteLength);
+  }
+
+  if (renameFontFace) {
+    ttfBuffer = renameTTFInPlace(ttfBuffer, renameFontFace);
+  }
+
+  return ttfBuffer;
+}
+
+/**
  * 将 decoded buffer 归一化为独立的 ArrayBuffer
  * woff2.decode() 返回的 buffer 可能是 SharedArrayBuffer，需要复制到新 ArrayBuffer
  * @param {Uint8Array} decoded - 解码后的 Uint8Array
