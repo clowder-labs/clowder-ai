@@ -598,12 +598,14 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
 function ToolRow({
   event,
   isActive,
+  status,
   hasResultMatch,
   onUserInteract,
   accent,
 }: {
   event: CliEvent;
   isActive: boolean;
+  status: CliStatus;
   /** F142: Whether a matching tool_result was found for this tool_use */
   hasResultMatch?: boolean;
   onUserInteract?: () => void;
@@ -611,8 +613,9 @@ function ToolRow({
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasDetail = event.detail != null;
-  // F142: Show loading if active OR if tool_use has no matching result yet
-  const isWaitingForResult = event.kind === 'tool_use' && !hasResultMatch;
+  // F142: Only show waiting spinner while stream is active; once finalized,
+  // unmatched rows should not spin forever.
+  const isWaitingForResult = status === 'streaming' && event.kind === 'tool_use' && !hasResultMatch;
   const showLoading = isActive || isWaitingForResult;
   const showCheck = hasResultMatch && !showLoading;
   // Design: active = breed bg 20% + left border 2px + lighter text
@@ -671,7 +674,8 @@ function ToolRow({
 function findMatchingResult(toolUse: CliEvent, toolResults: CliEvent[], index: number): CliEvent | undefined {
   // Primary: ID-based matching when toolCallId exists
   if (toolUse.toolCallId) {
-    return toolResults.find((r) => r.toolCallId === toolUse.toolCallId);
+    const byId = toolResults.find((r) => r.toolCallId === toolUse.toolCallId);
+    if (byId) return byId;
   }
   // Fallback: index-based matching (backward compatibility)
   return toolResults[index];
@@ -723,6 +727,7 @@ function ToolsSection({
                 key={e.id}
                 event={{ ...e, detail: result?.detail ?? e.detail }}
                 isActive={e.id === lastToolId}
+                status={status}
                 hasResultMatch={result != null}
                 onUserInteract={onUserInteract}
                 accent={accent}

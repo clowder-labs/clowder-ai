@@ -674,6 +674,7 @@ export function useAgentMessages() {
           type: 'tool_result',
           label: `${msg.catId} ← result`,
           detail: msg.content ?? '',
+          ...(msg.toolCallId ? { toolCallId: msg.toolCallId } : {}),
           timestamp: Date.now(),
         });
       } else if (msg.type === 'done') {

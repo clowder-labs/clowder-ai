@@ -411,6 +411,41 @@ describe('CliOutputBlock', () => {
   });
 
   // ── Cloud P1: tool-row click counts as user interaction ──
+  it('falls back to index-based match when tool_use has toolCallId but tool_result lacks it', () => {
+    const fallbackEvents: CliEvent[] = [
+      { id: 'u1', kind: 'tool_use', timestamp: 1000, label: 'Read foo.ts', toolCallId: 'call-1' },
+      { id: 'r1', kind: 'tool_result', timestamp: 1001, label: 'Read foo.ts', detail: 'ok (legacy result)' },
+    ];
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: fallbackEvents,
+          status: 'done',
+          defaultExpanded: true,
+        }),
+      );
+    });
+
+    const row = container.querySelector('[data-testid="tool-row-u1"]');
+    expect(row?.querySelector('.animate-spin')).toBeFalsy();
+  });
+
+  it('does not show loading spinner for unmatched tool_use after stream finished', () => {
+    const unmatchedDoneEvents: CliEvent[] = [{ id: 'u1', kind: 'tool_use', timestamp: 1000, label: 'Bash pnpm test' }];
+    act(() => {
+      root.render(
+        React.createElement(CliOutputBlock, {
+          events: unmatchedDoneEvents,
+          status: 'done',
+          defaultExpanded: true,
+        }),
+      );
+    });
+
+    const row = container.querySelector('[data-testid="tool-row-u1"]');
+    expect(row?.querySelector('.animate-spin')).toBeFalsy();
+  });
+
   it('does NOT auto-collapse if user expanded a tool row', () => {
     // Start streaming
     act(() => {
