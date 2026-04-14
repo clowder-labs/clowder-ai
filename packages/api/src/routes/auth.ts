@@ -385,15 +385,6 @@ function unwrapPayload(value: unknown): Record<string, unknown> | null {
 function extractModelInfo(payload: Record<string, unknown> | null): Record<string, unknown> | undefined {
   if (!payload) return undefined;
 
-  const directModelInfo = isRecord(payload.model_info)
-    ? payload.model_info
-    : isRecord(payload.modelInfo)
-      ? payload.modelInfo
-      : undefined;
-  if (directModelInfo) {
-    return directModelInfo;
-  }
-
   const subscriptionPayload = unwrapPayload(payload.subscription);
   if (!subscriptionPayload) {
     return undefined;
@@ -401,10 +392,6 @@ function extractModelInfo(payload: Record<string, unknown> | null): Record<strin
 
   if (isRecord(subscriptionPayload.model_info)) {
     return subscriptionPayload.model_info;
-  }
-
-  if (isRecord(subscriptionPayload.modelInfo)) {
-    return subscriptionPayload.modelInfo;
   }
 
   return undefined;
