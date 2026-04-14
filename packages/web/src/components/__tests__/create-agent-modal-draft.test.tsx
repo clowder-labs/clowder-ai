@@ -17,8 +17,7 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 const mockApiFetch = vi.mocked(apiFetch);
-const AGENT_NAME_VALIDATION_MESSAGE =
-  '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
+const AGENT_NAME_VALIDATION_MESSAGE = '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -148,7 +147,9 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    const postCall = mockApiFetch.mock.calls.find(
+      ([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST',
+    );
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(postCall?.[1]?.body));
     expect(payload.accountRef).toBe('huawei-maas');
@@ -201,9 +202,12 @@ describe('CreateAgentModal', () => {
     });
     await flushEffects();
 
-    const postCall = mockApiFetch.mock.calls.find(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST');
+    const postCall = mockApiFetch.mock.calls.find(
+      ([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST',
+    );
     expect(postCall).toBeTruthy();
     const payload = JSON.parse(String(postCall?.[1]?.body));
+    expect(payload.catId).toMatch(/^agent-[a-z0-9]+$/);
     expect(payload.client).toBe('relayclaw');
     expect(onSaved).toHaveBeenCalledWith('new-agent');
   });
@@ -334,7 +338,9 @@ describe('CreateAgentModal', () => {
     expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
-    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+    expect(
+      mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST'),
+    ).toBe(false);
   });
 
   it('shows inline validation and disables confirm when name has no valid characters', async () => {
@@ -368,7 +374,9 @@ describe('CreateAgentModal', () => {
     expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
-    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+    expect(
+      mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST'),
+    ).toBe(false);
   });
 
   it('shows inline validation when name starts or ends with spaces', async () => {
@@ -402,7 +410,9 @@ describe('CreateAgentModal', () => {
     expect(container.textContent).toContain(AGENT_NAME_VALIDATION_MESSAGE);
     expect(nameInput?.getAttribute('aria-invalid')).toBe('true');
     expect(createButton?.disabled).toBe(true);
-    expect(mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST')).toBe(false);
+    expect(
+      mockApiFetch.mock.calls.some(([path, requestInit]) => path === '/api/cats' && requestInit?.method === 'POST'),
+    ).toBe(false);
   });
 
   it('blocks unsupported avatar formats before upload', async () => {

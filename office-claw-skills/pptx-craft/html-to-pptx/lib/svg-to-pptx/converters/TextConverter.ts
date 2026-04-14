@@ -260,21 +260,59 @@ export class TextConverter extends ElementConverter {
    * 确保 PPTX 中中文能正常显示
    */
   private resolveFontFamily(family: string): string {
-    const normalized = family.toLowerCase().trim()
-    // 通用字体族映射到支持中文的具体字体
-    const fallbackMap: Record<string, string> = {
-      'sans-serif': 'PingFang SC',
-      'serif': 'Songti SC',
-      'monospace': 'Menlo',
-      'cursive': 'Kaiti SC',
-      'fantasy': 'Kaiti SC',
+    const genericFamilies = new Set([
+      'serif',
+      'sans-serif',
+      'monospace',
+      'cursive',
+      'fantasy',
+      'system-ui',
+      'ui-serif',
+      'ui-sans-serif',
+      'ui-monospace',
+      'ui-rounded',
+      'emoji',
+      'math',
+      'fangsong',
+      'inherit',
+      'initial',
+      'unset',
+    ])
+
+    const normalized = (family || '').trim()
+    const families = normalized
+      .split(',')
+      .map((name) => name.trim().replace(/['"]/g, ''))
+      .filter(Boolean)
+
+    const isUsableInRuntime = (fontName: string): boolean => {
+      if (!fontName) return false
+      try {
+        if (typeof document === 'undefined' || !document.fonts || typeof document.fonts.check !== 'function') {
+          return false
+        }
+        return document.fonts.check(`12px "${fontName}"`) || document.fonts.check(`12px '${fontName}'`)
+      } catch {
+        return false
+      }
     }
-    // 如果是指定的具体字体（带引号或逗号分隔的多个字体），取第一个
-    const first = normalized.split(',')[0].replace(/['"]/g, '').trim()
-    if (fallbackMap[first]) {
-      return fallbackMap[first]
+
+    const concreteFamilies = families.filter((name) => !genericFamilies.has(name.toLowerCase()))
+    const usableConcrete = concreteFamilies.find((name) => isUsableInRuntime(name))
+    if (usableConcrete) {
+      return usableConcrete
     }
-    // 空字符串或无法识别时回退
-    return first || 'PingFang SC'
+
+    if (concreteFamilies.length > 0) {
+      return concreteFamilies[0]
+    }
+
+    // 通用字体族在 PPTX 中使用跨平台更稳定的回退
+    const firstGeneric = families[0]?.toLowerCase() || ''
+    if (firstGeneric === 'monospace') return 'Consolas'
+    if (firstGeneric === 'serif') return 'Times New Roman'
+    if (firstGeneric === 'sans-serif') return 'Microsoft YaHei'
+
+    return 'Arial'
   }
 }
