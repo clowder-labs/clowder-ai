@@ -598,16 +598,23 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
 function ToolRow({
   event,
   isActive,
+  hasResultMatch,
   onUserInteract,
   accent,
 }: {
   event: CliEvent;
   isActive: boolean;
+  /** F142: Whether a matching tool_result was found for this tool_use */
+  hasResultMatch?: boolean;
   onUserInteract?: () => void;
   accent: string;
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
-  const hasResult = event.detail != null;
+  const hasDetail = event.detail != null;
+  // F142: Show loading if active OR if tool_use has no matching result yet
+  const isWaitingForResult = event.kind === 'tool_use' && !hasResultMatch;
+  const showLoading = isActive || isWaitingForResult;
+  const showCheck = hasResultMatch && !showLoading;
   // Design: active = breed bg 20% + left border 2px + lighter text
   const accentLight = lighten(accent, 0.6); // ~#C084FC equivalent
 
@@ -628,7 +635,7 @@ function ToolRow({
       >
         <div className="flex items-center gap-2 mr-2">
           {/* Status icon */}
-          {isActive ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : hasResult ? <CheckIcon /> : null}
+          {showLoading ? <LoadingSmall className="w-4 h-4 flex-shrink-0" /> : showCheck ? <CheckIcon /> : null}
           {/* Wrench icon — design: rgb(89, 89, 89) normal, #F5F3FF active */}
           { false && <WrenchIcon color={isActive ? 'rgb(89, 89, 89)' : 'rgb(89, 89, 89)'} /> }
           {/* Tool label (full) */}
@@ -642,10 +649,9 @@ function ToolRow({
           </span>
         </div>
         {/* Detail — hidden by default, shown on click */}
-        {hasResult && <ChevronIcon expanded={rowExpanded} />}
-      </button>
-      {/* Detail 区域：独立于 button，点击不会触发折叠 */}
-      {rowExpanded && hasResult && event.detail && (
+        {hasDetail && <ChevronIcon expanded={rowExpanded} />}
+      </div>
+      {rowExpanded && hasDetail && event.detail && (
         <div
           className="w-[calc(100%-24px)] mt-1 ml-6 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[12px] rounded-lg bg-[rgb(248_248_248)] p-[12px]"
           style={{ color: '#64748B' }}
@@ -659,6 +665,17 @@ function ToolRow({
 }
 
 /* ── Collapsible tools section ── */
+
+/** F142: Find matching tool_result for a tool_use by toolCallId.
+ *  Falls back to index-based matching when toolCallId is missing. */
+function findMatchingResult(toolUse: CliEvent, toolResults: CliEvent[], index: number): CliEvent | undefined {
+  // Primary: ID-based matching when toolCallId exists
+  if (toolUse.toolCallId) {
+    return toolResults.find((r) => r.toolCallId === toolUse.toolCallId);
+  }
+  // Fallback: index-based matching (backward compatibility)
+  return toolResults[index];
+}
 
 function ToolsSection({
   toolUses,
@@ -700,12 +717,13 @@ function ToolsSection({
       {toolsExpanded && (
         <div className="space-y-0.5">
           {toolUses.map((e, i) => {
-            const result = toolResults[i];
+            const result = findMatchingResult(e, toolResults, i);
             return (
               <ToolRow
                 key={e.id}
                 event={{ ...e, detail: result?.detail ?? e.detail }}
                 isActive={e.id === lastToolId}
+                hasResultMatch={result != null}
                 onUserInteract={onUserInteract}
                 accent={accent}
               />

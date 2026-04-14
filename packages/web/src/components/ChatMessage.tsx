@@ -176,7 +176,7 @@ export function ChatMessage({
     // F045: variant='thinking' is deprecated — thinking is now embedded in assistant bubbles.
 
     const isLegacyError = !message.variant && message.content.trim().startsWith('Error:');
-    const isError = message.variant === 'error' || isLegacyError;
+    const isError = message.variant === 'error' || isLegacyError || Boolean(message.extra?.errorFallback);
     const isTool = message.variant === 'tool';
     const isFollowup = message.variant === 'a2a_followup';
 
@@ -309,9 +309,7 @@ export function ChatMessage({
         {catStyle && (
           <div className="answer-header flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0 text-[rgb(128_128_128)]">
-              <span className="text-xs">
-                {catStyle.label}
-              </span>
+              <span className="text-xs">{catStyle.label}</span>
               <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
               {isWhisper && (
                 <span
@@ -383,7 +381,11 @@ export function ChatMessage({
           {hasCliBlock && isStreamOrigin ? null : !isStreamOrigin && hasBlocks ? (
             <ContentBlocks blocks={message.contentBlocks!} />
           ) : !isStreamOrigin && hasTextContent ? (
-            <MarkdownContent content={message.content} className={catStyle?.font} enableSkillAndQuickActionTokens={false} />
+            <MarkdownContent
+              content={message.content}
+              className={catStyle?.font}
+              enableSkillAndQuickActionTokens={false}
+            />
           ) : message.isStreaming ? (
             <span className="text-xs text-gray-500 hidden">Thinking...</span>
           ) : null}

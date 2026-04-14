@@ -46,6 +46,10 @@ function simulateBackgroundMessage(msg: {
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    errorFallback?: { v: number; kind: string; rawError: string; timestamp: number };
+  };
   origin?: 'stream' | 'callback';
   invocationId?: string;
   timestamp: number;
@@ -188,6 +192,42 @@ describe('background thread socket handling', () => {
 
       // Should still be just 1 toast (the error), no success toast added
       expect(useToastStore.getState().toasts).toHaveLength(1);
+    });
+
+    it('text(isFinal) with errorFallback emits error toast and blocks later done success toast', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: '这次响应超时了，我先结束本次尝试。请稍后直接重试。',
+        isFinal: true,
+        extra: {
+          errorFallback: {
+            v: 1,
+            kind: 'timeout',
+            rawError: 'request timed out before completion',
+            timestamp: now,
+          },
+        },
+        timestamp: now,
+      });
+
+      const stateAfterText = useChatStore.getState().getThreadState('thread-bg');
+      expect(stateAfterText.catStatuses.codex).toBe('error');
+      expect(useToastStore.getState().toasts).toHaveLength(1);
+      expect(useToastStore.getState().toasts[0].type).toBe('error');
+      expect(useToastStore.getState().toasts[0].title).toBe('codex 出错');
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        timestamp: now + 1,
+      });
+
+      expect(useToastStore.getState().toasts).toHaveLength(1);
+      expect(useChatStore.getState().getThreadState('thread-bg').catStatuses.codex).toBe('error');
     });
 
     it('uses the sensitive-input toast copy for ModelArts blocked input errors', () => {

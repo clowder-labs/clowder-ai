@@ -233,6 +233,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
   const bgReplacedInvocationsRef = useRef<Map<string, string>>(new Map());
+  const bgErrorToastsShownRef = useRef<Set<string>>(new Set());
   const bgFinalizedRefsRef = useRef<Map<string, string>>(new Map());
   const bgSeqRef = useRef(0);
   const userIdRef = useRef(getUserId());
@@ -402,6 +403,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string, watched
         bgStreamRefs: bgStreamRefsRef.current,
         finalizedBgRefs: bgFinalizedRefsRef.current,
         replacedInvocations: bgReplacedInvocationsRef.current,
+        backgroundErrorToastsShown: bgErrorToastsShownRef.current,
         nextBgSeq: () => bgSeqRef.current++,
         addToast: (toast) => useToastStore.getState().addToast(toast),
         getThreadTitle: (threadId) => useChatStore.getState().threads.find((t) => t.id === threadId)?.title,

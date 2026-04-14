@@ -97,24 +97,25 @@ async function convertSingleFile(htmlPath, outputPath, options = {}) {
     console.log('✅ 依赖库加载成功');
 
     console.log('🔄 执行转换...');
-    const pptxArray = await page.evaluate(async ({ sel, opts }) => {
+    // 使用 base64 传输避免 OOM
+    const base64Data = await page.evaluate(async ({ sel, opts }) => {
       const { exportToPptx } = window.domToPptx;
-      // 使用 querySelectorAll 获取所有匹配的元素
       const elements = Array.from(document.querySelectorAll(sel));
       if (elements.length === 0) {
         throw new Error(`未找到匹配选择器 "${sel}" 的元素`);
       }
-      console.log(`找到 ${elements.length} 个幻灯片元素`);
-      // 传递元素数组给 exportToPptx
       const blob = await exportToPptx(elements, opts);
-      const arrayBuffer = await blob.arrayBuffer();
-      return Array.from(new Uint8Array(arrayBuffer));
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+      });
     }, {
       sel: selector,
       opts: { slideWidth, slideHeight, svgAsEditable, autoEmbedFonts }
     });
 
-    const pptxBuffer = Buffer.from(pptxArray);
+    const pptxBuffer = Buffer.from(base64Data, 'base64');
 
     console.log(`💾 保存 PPTX: ${outputPath}`);
     await writeFile(outputPath, pptxBuffer);
@@ -384,18 +385,29 @@ async function convertDirectory(input, outputPath, options = {}) {
     await page.setContent(mergedHtml, { waitUntil: 'load' });
     await injectDependencies(page);
 
-    const pptxArray = await page.evaluate(async ({ sel, opts }) => {
+    // 使用 base64 传输避免 OOM：Array.from(Uint8Array) 会把每个字节变成一个 JS Number 对象
+    // 100MB PPTX → 1亿个 Number 对象 → 2-3GB V8 堆
+    // base64 只需 133MB 字符串，V8 处理效率远高于 1 亿个独立对象
+    const base64Data = await page.evaluate(async ({ sel, opts }) => {
       const { exportToPptx } = window.domToPptx;
       const elements = Array.from(document.querySelectorAll(sel));
       const blob = await exportToPptx(elements, opts);
-      const arrayBuffer = await blob.arrayBuffer();
-      return Array.from(new Uint8Array(arrayBuffer));
+      // 用 FileReader.readAsDataURL 转 base64，比 Array.from 省内存
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          // 结果格式: "data:application/octet-stream;base64,AAAA..."
+          const result = reader.result;
+          resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(blob);
+      });
     }, {
       sel: selector,
       opts: { slideWidth, slideHeight, svgAsEditable, autoEmbedFonts }
     });
 
-    const pptxBuffer = Buffer.from(pptxArray);
+    const pptxBuffer = Buffer.from(base64Data, 'base64');
 
     console.log(`💾 保存 PPTX: ${outputPath}`);
     await writeFile(outputPath, pptxBuffer);
