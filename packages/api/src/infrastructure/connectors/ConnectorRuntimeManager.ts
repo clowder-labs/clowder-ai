@@ -5,6 +5,7 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { resolveCatCafeHostRoot } from '../../utils/cat-cafe-root.js';
+import { findMonorepoRoot } from '../../utils/monorepo-root.js';
 import {
   type ConnectorGatewayConfig,
   type ConnectorGatewayDeps,
@@ -155,9 +156,7 @@ function connectorSliceChanged(
       return (
         (prev.xiaoyiAk ?? '') !== (next.xiaoyiAk ?? '') ||
         (prev.xiaoyiSk ?? '') !== (next.xiaoyiSk ?? '') ||
-        (prev.xiaoyiAgentId ?? '') !== (next.xiaoyiAgentId ?? '') ||
-        (prev.xiaoyiWsUrl1 ?? '') !== (next.xiaoyiWsUrl1 ?? '') ||
-        (prev.xiaoyiWsUrl2 ?? '') !== (next.xiaoyiWsUrl2 ?? '')
+        (prev.xiaoyiAgentId ?? '') !== (next.xiaoyiAgentId ?? '')
       );
   }
 }
@@ -182,9 +181,7 @@ export function inferConnectorsFromEnvKeys(changedKeys: readonly string[]): Conn
     } else if (
       key === 'XIAOYI_AK' ||
       key === 'XIAOYI_SK' ||
-      key === 'XIAOYI_AGENT_ID' ||
-      key === 'XIAOYI_WS_URL1' ||
-      key === 'XIAOYI_WS_URL2'
+      key === 'XIAOYI_AGENT_ID'
     ) {
       ids.push('xiaoyi');
     }
@@ -232,7 +229,7 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       bindingStore: ctx.bindingStore,
       adapters: ctx.adapters,
       log: ctx.log,
-      mediaPathResolver: buildMediaPathResolver(config.connectorMediaDir ?? './data/connector-media'),
+      mediaPathResolver: buildMediaPathResolver(config.connectorMediaDir ?? 'data/connector-media'),
       messageLookup: ctx.messageLookup,
     });
     this.streamingHook = new StreamingOutboundHook({
@@ -461,11 +458,13 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       : [];
     if (adminOpenIds.length === 0) return;
 
-    const alreadyConfigured = await this.permissionStore.hasAdminConfig('feishu');
+    // F152: Use owner userId for multi-user isolation
+    const userId = this.ownerUserIdState.current;
+    const alreadyConfigured = await this.permissionStore.hasAdminConfig(userId, 'feishu');
     if (!alreadyConfigured) {
-      await this.permissionStore.setAdminOpenIds('feishu', adminOpenIds);
+      await this.permissionStore.setAdminOpenIds(userId, 'feishu', adminOpenIds);
       this.log.info(
-        { adminCount: adminOpenIds.length },
+        { adminCount: adminOpenIds.length, userId },
         '[ConnectorGateway] Feishu admin open_ids seeded from env (first boot)',
       );
       return;
@@ -572,10 +571,10 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
           chatName = await feishu.resolveChatName(parsed.chatId).catch(() => undefined);
         }
       }
-      const sender =
-        parsed.chatType === 'group' && parsed.senderId !== 'unknown'
-          ? { id: parsed.senderId, ...(senderName ? { name: senderName } : {}) }
-          : undefined;
+      // F152: Pass sender for both P2P and group (needed for whitelist check + /myid command)
+      const sender = parsed.senderId !== 'unknown'
+        ? { id: parsed.senderId, ...(senderName ? { name: senderName } : {}) }
+        : undefined;
 
       return this.connectorRouter.route(
         'feishu',
@@ -739,8 +738,6 @@ export class ConnectorRuntimeManager implements ConnectorRuntimeReconciler {
       agentId: config.xiaoyiAgentId,
       ak: config.xiaoyiAk,
       sk: config.xiaoyiSk,
-      wsUrl1: config.xiaoyiWsUrl1,
-      wsUrl2: config.xiaoyiWsUrl2,
     });
     this.registerAdapter('xiaoyi', xiaoyi);
 
@@ -812,8 +809,6 @@ function mergeConnectorConfig(
         xiaoyiAk: incoming.xiaoyiAk,
         xiaoyiSk: incoming.xiaoyiSk,
         xiaoyiAgentId: incoming.xiaoyiAgentId,
-        xiaoyiWsUrl1: incoming.xiaoyiWsUrl1,
-        xiaoyiWsUrl2: incoming.xiaoyiWsUrl2,
       };
   }
 }
@@ -843,7 +838,7 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
     permissionStore,
   });
 
-  const mediaDir = config.connectorMediaDir ?? './data/connector-media';
+  const mediaDir = resolve(findMonorepoRoot(), config.connectorMediaDir ?? 'data/connector-media');
   const mediaService = new ConnectorMediaService({ mediaDir });
 
   let sttProvider:
@@ -923,9 +918,10 @@ async function createSharedContext(config: ConnectorGatewayConfig, deps: Connect
 }
 
 function buildMediaPathResolver(mediaDir: string): (url: string) => string | undefined {
-  const uploadDir = resolve(process.env.UPLOAD_DIR ?? './uploads');
-  const ttsCacheDir = resolve(process.env.TTS_CACHE_DIR ?? './data/tts-cache');
-  const resolvedMediaDir = resolve(mediaDir);
+  const monoRoot = findMonorepoRoot();
+  const uploadDir = resolve(monoRoot, process.env.UPLOAD_DIR ?? 'data/uploads');
+  const ttsCacheDir = resolve(monoRoot, process.env.TTS_CACHE_DIR ?? 'data/tts-cache');
+  const resolvedMediaDir = resolve(monoRoot, mediaDir);
 
   return (url: string): string | undefined => {
     const safeResolve = (base: string, suffix: string): string | undefined => {

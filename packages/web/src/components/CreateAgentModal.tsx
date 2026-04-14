@@ -131,8 +131,7 @@ function autoSlug(name: string): string {
     .slice(0, 40);
 }
 
-const AGENT_NAME_VALIDATION_MESSAGE =
-  '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
+const AGENT_NAME_VALIDATION_MESSAGE = '支持中文、数字、下划线、中划线和空格，长度 2-64 字符，但不允许以空格开头或结尾';
 
 function validateAgentName(name: string): string | null {
   if (!name) return AGENT_NAME_VALIDATION_MESSAGE;
@@ -166,7 +165,7 @@ function normalizeSaveErrorMessage(message: string | null | undefined): string |
 function generateRandomCatId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).slice(2, 8);
-  return `cat-${timestamp}${random}`.slice(0, 64);
+  return `agent-${timestamp}${random}`.slice(0, 64);
 }
 
 /**
@@ -301,7 +300,8 @@ function toModelOption(item: MaaSModelResponseItem): CreateModelOption | null {
 
   const providerLabel = pickStringField(normalized, ['provider']) ?? THIRD_PARTY_GROUP_LABEL;
   const protocol = pickStringField(normalized, ['protocol']);
-  const isHuawei = accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_PROVIDER_LABEL;
+  const isHuawei =
+    accountRef === 'huawei-maas' || protocol === 'huawei_maas' || providerLabel === HUAWEI_PROVIDER_LABEL;
   const groupId: ModelGroupId = isHuawei ? 'huawei-maas' : 'third-party';
   const rawId =
     typeof item.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `${accountRef}::${modelLabel}`;
@@ -747,7 +747,9 @@ export function CreateAgentModal({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        setError(normalizeSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`);
+        setError(
+          normalizeSaveErrorMessage(body.error as string) ?? `${cat ? '保存' : '创建'}失败 (${response.status})`,
+        );
         return;
       }
 
@@ -845,16 +847,15 @@ export function CreateAgentModal({
                 </div>
                 <div className="h-11 pt-[16px]">
                   <button
-                  type="button"
-                  aria-label="Random preset avatar"
-                  onClick={() => setDraftAvatar(getRandomPresetAvatar())}
-                  title="换一换"
-                  className="h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[6px]"
-                >
-                  <SparklesIcon />
-                </button>
+                    type="button"
+                    aria-label="Random preset avatar"
+                    onClick={() => setDraftAvatar(getRandomPresetAvatar())}
+                    title="换一换"
+                    className="h-[28px] w-[28px] min-h-[28px] min-w-[28px] rounded-[6px]"
+                  >
+                    <SparklesIcon />
+                  </button>
                 </div>
-    
               </div>
               <div className="text-[12px] text-[var(--text-muted)]">
                 {uploadingAvatar ? '头像上传中...' : '支持上传 png、jpeg、jpg 格式图片，限制 200kb 内'}
@@ -980,12 +981,7 @@ export function CreateAgentModal({
         </div>
 
         <div data-testid="create-agent-modal-footer" className="flex shrink-0 justify-end gap-3">
-          <button
-            type="button"
-            aria-label="Cancel"
-            onClick={onClose}
-            className="ui-button-default"
-          >
+          <button type="button" aria-label="Cancel" onClick={onClose} className="ui-button-default">
             取消
           </button>
           <button

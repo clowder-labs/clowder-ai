@@ -21,7 +21,8 @@ from urllib.parse import parse_qs, urlparse
 
 import aiohttp
 
-from jiuwenclaw.utils import get_workspace_dir, logger
+from jiuwenclaw.utils import get_workspace_dir
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.channel.base import BaseChannel, ChannelMetadata, RobotMessageRouter
 from jiuwenclaw.schema.message import Message, Mode, ReqMethod
 

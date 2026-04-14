@@ -5,8 +5,8 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { createCatId } from '@cat-cafe/shared';
-import type { RelayClawAgentConfig } from '@cat-cafe/shared';
+import { createCatId } from '@office-claw/shared';
+import type { RelayClawAgentConfig } from '@office-claw/shared';
 import {
   FrameQueue,
   RelayClawConnectionManager,
@@ -49,6 +49,7 @@ interface RelayClawSecurityTarget {
   requestQueues: Map<string, FrameQueue>;
   connection: RelayClawConnection;
   sidecar: RelayClawSidecarController;
+  resolvedUrl: string;
 }
 
 function isRelayClawRuntimeProvider(value: unknown): value is RelayClawRuntimeProvider {
@@ -193,11 +194,15 @@ export class DefaultRelayClawSecurityClient implements RelayClawSecurityClient {
         continue;
       }
       for (const runtime of service.listRelayClawRuntimeHandles()) {
+        if (!runtime.resolvedUrl) {
+          continue;
+        }
         targets.push({
           scopeKey: runtime.scopeKey,
           requestQueues: runtime.requestQueues,
           connection: runtime.connection,
           sidecar: runtime.sidecar,
+          resolvedUrl: runtime.resolvedUrl,
         });
       }
     }
@@ -217,8 +222,9 @@ export class DefaultRelayClawSecurityClient implements RelayClawSecurityClient {
     reqMethod: 'config.get' | 'config.set',
     params: Record<string, unknown>,
   ): Promise<RelayClawAgentResponseFrame> {
-    const url = await target.sidecar.ensureStarted();
-    await target.connection.ensureConnected(url);
+    // Reuse the live runtime endpoint instead of re-evaluating sidecar startup
+    // with empty request options, which can force unnecessary restarts.
+    await target.connection.ensureConnected(target.resolvedUrl);
 
     const requestId = randomUUID();
     const queue = new FrameQueue();

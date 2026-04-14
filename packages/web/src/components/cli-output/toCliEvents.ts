@@ -60,6 +60,7 @@ export function toCliEvents(toolEvents: ToolEvent[] | undefined, streamContent: 
           timestamp: te.timestamp,
           label: primaryArg ? `${toolName} ${primaryArg}` : toolName,
           detail: te.detail,
+          toolCallId: te.toolCallId,
         });
       } else {
         // tool_result: strip "catId ← result" label, keep detail
@@ -69,6 +70,7 @@ export function toCliEvents(toolEvents: ToolEvent[] | undefined, streamContent: 
           timestamp: te.timestamp,
           label: te.label,
           detail: te.detail,
+          toolCallId: te.toolCallId,
         });
       }
     }

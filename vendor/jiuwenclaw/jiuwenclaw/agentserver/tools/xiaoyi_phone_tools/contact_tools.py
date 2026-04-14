@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 
 from openjiuwen.core.foundation.tool import tool
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 from .base import (
     execute_device_command,
     format_success_response,

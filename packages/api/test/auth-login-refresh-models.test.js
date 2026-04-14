@@ -25,7 +25,31 @@ async function importAuthRoutesFresh() {
   return import(moduleUrl);
 }
 
-describe('authRoutes /api/login', () => {
+function buildCasProfile() {
+  return {
+    access: 'ak-test',
+    domain_id: 'domain-001',
+    domain_name: 'demo-domain',
+    project_id: 'project-001',
+    project_name: 'demo-project',
+    secret: 'sk-test',
+    sts_token: 'sts-token-test',
+    user_id: 'user-001',
+    user_name: 'alice',
+  };
+}
+
+function buildModelInfo() {
+  return {
+    model_api_url_base: 'https://maas.example.com',
+    model_auth_info: {
+      model_app_key: 'app-key',
+      model_app_secret: 'app-secret',
+    },
+  };
+}
+
+describe('authRoutes CAS model refresh', () => {
   afterEach(() => {
     for (const [key, value] of Object.entries(savedEnv)) {
       if (value === undefined) delete process.env[key];
@@ -35,10 +59,12 @@ describe('authRoutes /api/login', () => {
     mock.restoreAll();
   });
 
-  it('refreshes maas models after a successful login resolves modelInfo', async () => {
-    const configRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-auth-'));
+  it('refreshes maas models after a successful CAS callback resolves modelInfo', async () => {
+    const configRoot = mkdtempSync(join(tmpdir(), 'office-claw-auth-refresh-'));
+    const originalHome = process.env.HOME;
     setEnv('XDG_CONFIG_HOME', configRoot);
     setEnv('APPDATA', configRoot);
+    setEnv('HOME', configRoot);
 
     const { authRoutes } = await importAuthRoutesFresh();
     const app = Fastify();
@@ -54,34 +80,11 @@ describe('authRoutes /api/login', () => {
     await app.register(authRoutes);
 
     mock.method(globalThis, 'fetch', async (url) => {
-      if (String(url).includes('/v3/auth/tokens')) {
+      if (String(url).includes('/v1/claw/cas/login/ticket-validate')) {
         return new Response(
           JSON.stringify({
-            token: {
-              user: { domain: { id: 'domain-id-1' } },
-              expires_at: '2999-01-01T00:00:00.000Z',
-            },
-          }),
-          {
-            status: 201,
-            headers: {
-              'content-type': 'application/json',
-              'x-subject-token': 'token-123',
-            },
-          },
-        );
-      }
-
-      if (String(url).includes('/v1/claw/client-subscription')) {
-        return new Response(
-          JSON.stringify({
-            model_info: {
-              model_api_url_base: 'https://maas.example.com',
-              model_auth_info: {
-                model_app_key: 'app-key',
-                model_app_secret: 'app-secret',
-              },
-            },
+            ...buildCasProfile(),
+            model_info: buildModelInfo(),
           }),
           {
             status: 200,
@@ -95,21 +98,20 @@ describe('authRoutes /api/login', () => {
 
     const response = await app.inject({
       method: 'POST',
-      url: '/api/login',
+      url: '/api/login/callback',
       payload: {
-        domainName: 'demo-domain',
-        password: 'secret',
-        userType: 'huawei',
+        ticket: 'ticket-123',
       },
     });
 
     assert.equal(response.statusCode, 200);
     assert.equal(response.json().success, true);
     assert.equal(refreshCount, 1);
-    assert.equal(refreshHeaders?.['x-office-claw-user'], 'demo-domain:demo-domain');
+    assert.equal(refreshHeaders?.['x-office-claw-user'], 'domain-001:alice');
     assert.equal(refreshHeaders?.['x-refresh'], 'true');
 
     await app.close();
+    process.env.HOME = originalHome;
     rmSync(configRoot, { recursive: true, force: true });
   });
 });

@@ -277,6 +277,12 @@ export function buildProviderProfileApiKeyRef(profileId: string): string {
   return buildSecretRef(`profiles/${encodeSecretPathSegment(profileId)}/apiKey`);
 }
 
+export function buildModelConfigSourceApiKeyRef(projectRoot: string, sourceId: string): string {
+  return buildSecretRef(
+    `model-config/${encodeSecretPathSegment(projectRoot)}/${encodeSecretPathSegment(sourceId)}/apiKey`,
+  );
+}
+
 export function buildProviderProfileEnvRef(profileId: string): string {
   return buildSecretRef(`profiles/${encodeSecretPathSegment(profileId)}/env`);
 }

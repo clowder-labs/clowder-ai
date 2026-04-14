@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import tiktoken
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 
 from openjiuwen.core.foundation.llm import UserMessage
 

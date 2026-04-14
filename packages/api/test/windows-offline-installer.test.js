@@ -29,7 +29,7 @@ const nsisScript = readFileSync(join(repoRoot, 'packaging', 'windows', 'installe
 const windowsInstallHelpersScript = readFileSync(join(repoRoot, 'scripts', 'install-windows-helpers.ps1'), 'utf8');
 
 test('Windows offline installer keeps mutable state outside managed payload cleanup', () => {
-  assert.deepEqual(WINDOWS_PRESERVE_PATHS, ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw']);
+  assert.deepEqual(WINDOWS_PRESERVE_PATHS, ['.env', 'office-claw-config.json', 'data', 'logs', '.office-claw', 'workspace']);
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('packages'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('scripts'));
   assert.ok(WINDOWS_MANAGED_TOP_LEVEL_PATHS.includes('office-claw-skills'));
@@ -54,6 +54,10 @@ test('Windows offline installer normalizes bundled Node versions and filters cop
   assert.equal(shouldCopyRepoPath('.env'), false);
   assert.equal(shouldCopyRepoPath('data/evidence.sqlite'), false);
   assert.equal(shouldCopyRepoPath('logs/api.log'), false);
+  assert.equal(shouldCopyRepoPath('uploads'), false);
+  assert.equal(shouldCopyRepoPath('uploads/avatar.png'), false);
+  assert.equal(shouldCopyRepoPath('workspace'), false);
+  assert.equal(shouldCopyRepoPath('workspace/project/file.ts'), false);
   assert.equal(shouldCopyRepoPath('node_modules/next/package.json'), false);
   assert.equal(shouldCopyRepoPath('packages/api/dist/index.js'), false);
   assert.equal(shouldCopyRepoPath('packages/web/.next/server.js'), false);
@@ -82,7 +86,7 @@ test('Windows offline bundle builder deploys production packages and bundles Win
   assert.match(buildScript, /stageRuntimePackageTemplate\(targetRootDir, 'shared'/);
   assert.match(
     buildScript,
-    /const API_RUNTIME_EXTERNAL_DEPENDENCIES = \[\s*'better-sqlite3',\s*'node-pty',\s*'pino',\s*'pino-roll',\s*'puppeteer',\s*'sharp',\s*'sqlite-vec',\s*\]/,
+    /const API_RUNTIME_EXTERNAL_DEPENDENCIES = \[\s*'better-sqlite3',\s*'node-pty',\s*'pino',\s*'pino-roll',\s*'puppeteer',\s*'sharp',\s*'sqlite-vec',\s*'snappy',\s*\]/,
   );
   assert.match(buildScript, /await stageBundledApiRuntime\(targetRootDir\)/);
   assert.match(buildScript, /function resolveLocalEsbuildCommand\(\)/);
@@ -343,9 +347,9 @@ test('NSIS installer blocks concurrent installer sessions before touching shared
   assert.match(nsisScript, /Var InstallerMutexHandle/);
   assert.match(nsisScript, /Function AcquireInstallerSessionMutex/);
   assert.match(nsisScript, /Function un\.AcquireInstallerSessionMutex/);
-  assert.match(nsisScript, /System::Call 'kernel32::CreateMutexW\(p0, i0, w "\$\{INSTALLER_MUTEX_NAME\}"\) p\.r0'/);
+  assert.match(nsisScript, /System::Call 'kernel32::CreateMutexW\(p0, i0, w "\$\{INSTALLER_MUTEX_NAME\}"\) p\.r0 \?e'/);
   assert.match(nsisScript, /StrCpy \$InstallerMutexHandle \$0/);
-  assert.match(nsisScript, /System::Call 'kernel32::GetLastError\(\) i\.r1'/);
+  assert.match(nsisScript, /Pop \$1/);
   assert.match(nsisScript, /\$\{If\} \$1 == 183/);
   assert.match(nsisScript, /MessageBox MB_OK\|MB_ICONEXCLAMATION "/);
   assert.match(nsisScript, /Function \.onInit[\s\S]*?Call AcquireInstallerSessionMutex/);
@@ -387,4 +391,12 @@ test('NSIS installer updates the directory page field immediately after browsing
   assert.match(nsisScript, /StrCpy \$SelectedInstallDir \$0/);
   assert.match(nsisScript, /Call NormalizeSelectedInstallDir/);
   assert.match(nsisScript, /NSD_SetText} \$DirectoryInput \$SelectedInstallDir/);
+});
+
+test('F142: SkillInstallManager does not contain recoverMissingSymlinks (removed — SkillHub uses MCP injection)', () => {
+  const skillInstallSource = readFileSync(
+    join(repoRoot, 'packages', 'api', 'src', 'domains', 'cats', 'services', 'skillhub', 'SkillInstallManager.ts'),
+    'utf8',
+  );
+  assert.ok(!skillInstallSource.includes('recoverMissingSymlinks'), 'recoverMissingSymlinks should be removed');
 });

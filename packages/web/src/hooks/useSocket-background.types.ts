@@ -30,7 +30,10 @@ export interface BackgroundAgentMessage {
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: TokenUsage };
   /** F52: Cross-thread origin metadata */
-  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  extra?: {
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    errorFallback?: { v: number; kind: string; rawError: string; timestamp: number };
+  };
   /** F057-C2: Whether this message mentions the user (@user / @用户) */
   mentionsUser?: boolean;
   /** F121: Reply-to message ID */
@@ -39,6 +42,8 @@ export interface BackgroundAgentMessage {
   replyPreview?: { senderCatId: string | null; content: string; deleted?: true };
   /** F108: Invocation ID — distinguishes messages from concurrent invocations */
   invocationId?: string;
+  /** F142: Tool call ID for precise pairing (from backend AgentMessage) */
+  toolCallId?: string;
   timestamp: number;
 }
 
@@ -53,6 +58,7 @@ export interface BackgroundToastInput {
   title: string;
   message: string;
   threadId: string;
+  threadTitle?: string;
   duration: number;
 }
 
@@ -98,8 +104,10 @@ export interface HandleBackgroundMessageOptions {
   store: BackgroundStoreLike;
   bgStreamRefs: Map<string, BackgroundStreamRef>;
   replacedInvocations: Map<string, string>;
+  backgroundErrorToastsShown: Set<string>;
   nextBgSeq: () => number;
   addToast: (toast: BackgroundToastInput) => void;
+  getThreadTitle?: (threadId: string) => string | null | undefined;
   /** #80 fix-C: Clear the done-timeout guard when a background thread completes */
   clearDoneTimeout?: (threadId?: string) => void;
   /** #586 follow-up: Just-finalized stream bubble IDs keyed by streamKey */
