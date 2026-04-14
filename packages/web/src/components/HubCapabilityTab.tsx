@@ -133,7 +133,7 @@ export function HubCapabilityTab({
         message: `确定要卸载 “${skillId}” 吗？此操作不可恢复。`,
         confirmLabel: '卸载',
         cancelLabel: '取消',
-        variant: 'danger',
+        variant: 'default',
       });
       if (!ok) return;
       try {
@@ -237,11 +237,10 @@ export function HubCapabilityTab({
               <button
                 type="button"
                 onClick={() => handleCategoryChange(category)}
-                className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${
-                  activeCategory === category
+                className={`inline-flex min-h-7 items-center leading-none text-sm transition-colors ${activeCategory === category
                     ? 'font-semibold text-[var(--text-primary)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
+                  }`}
               >
                 {category}
               </button>
@@ -359,10 +358,10 @@ export function HubCapabilityTab({
                   onClick={
                     item.type === 'skill'
                       ? () =>
-                          onSelectSkill?.({
-                            skillName: item.id,
-                            avatarUrl: item.iconUrl ?? null,
-                          })
+                        onSelectSkill?.({
+                          skillName: item.id,
+                          avatarUrl: item.iconUrl ?? null,
+                        })
                       : undefined
                   }
                   hideSkillMountStatus={hideSkillMountStatus}
