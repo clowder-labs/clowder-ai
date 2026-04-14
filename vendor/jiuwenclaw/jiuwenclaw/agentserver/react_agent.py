@@ -760,7 +760,11 @@ class JiuClawReActAgent(ReActAgent):
                                 logger.info(f"[USAGE_DEBUG] Accumulated subagent usage: {sub_usage}, parent totals: input={total_input_tokens}, output={total_output_tokens}")
                             await context.add_messages(tool_msg)
                             if session is not None:
-                                await self._emit_tool_result(session, tc, _result)
+                                # When tool execution fails, _result is None but tool_msg.content
+                                # contains the error message. Fall back to tool_msg.content so
+                                # the frontend displays the error instead of "no output".
+                                emit_result = _result if _result is not None else getattr(tool_msg, "content", None)
+                                await self._emit_tool_result(session, tc, emit_result)
                     
                     tool_messages_added = True
 
