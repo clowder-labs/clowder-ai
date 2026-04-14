@@ -14,6 +14,7 @@ import { useSendMessage, type WhisperOptions } from '@/hooks/useSendMessage';
 import { useSocket } from '@/hooks/useSocket';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
 import { apiFetch } from '@/utils/api-client';
 import { AgentsPanel } from './AgentsPanel';
 import { ChannelsPanel } from './ChannelsPanel';
@@ -30,10 +31,11 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 const HOME_DRAFT_THREAD_ID = '__new__';
 const SIDEBAR_DEFAULT = 240;
 const MAIN_PANEL_MIN_WIDTH = 560; // 最小适配宽度800 - 左侧菜单宽度240
-const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660
+const MAIN_PANEL_MIN_NO_CHAT_WIDTH = 660;
 const QUICK_ACTION_TOKEN_PREFIX = '[[quick_action:';
 const QUICK_ACTION_TOKEN_SUFFIX = ']]';
 const SCHEDULED_TASK_QUICK_ACTION_ICON = '/icons/scheduled-task.svg';
+const MAX_SESSIONS = 200;
 
 function buildScheduledTaskQuickActionInsertText(): string | null {
   const scheduledTaskAction = QUICK_ACTIONS.find((action) => action.icon === SCHEDULED_TASK_QUICK_ACTION_ICON);
@@ -44,7 +46,7 @@ function buildScheduledTaskQuickActionInsertText(): string | null {
 
 function getFolderNameFromPath(path: string): string {
   const normalized = path.replace(/[\\/]+$/, '');
-  const segments = normalized.split(/[\/\\]/).filter(Boolean);
+  const segments = normalized.split(/[/\\]/).filter(Boolean);
   return segments[segments.length - 1] ?? normalized;
 }
 
@@ -61,6 +63,7 @@ export function NewThreadContainer() {
   const attachPendingNewThreadTarget = useChatStore((s) => s.attachPendingNewThreadTarget);
   const clearPendingNewThreadSend = useChatStore((s) => s.clearPendingNewThreadSend);
   const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
+  const { addToast } = useToastStore();
   const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarMenu, setSidebarMenu] = useState<
@@ -141,6 +144,17 @@ export function NewThreadContainer() {
     async (content: string, images?: File[], whisper?: WhisperOptions, deliveryMode?: DeliveryMode) => {
       if (isCreatingThread) return;
 
+      const actualThreadCount = threads.filter((t) => t.id !== 'default').length;
+      if (actualThreadCount >= MAX_SESSIONS) {
+        addToast({
+          type: 'error',
+          title: '会话数量已达上限',
+          message: `当前会话数量已达到 ${MAX_SESSIONS} 个上限，请删除一些会话后再创建新会话。`,
+          duration: 5000,
+        });
+        return;
+      }
+
       setIsCreatingThread(true);
       setError(null);
       setPendingNewThreadSend({
@@ -180,12 +194,14 @@ export function NewThreadContainer() {
       }
     },
     [
+      addToast,
       attachPendingNewThreadTarget,
       clearPendingNewThreadSend,
       isCreatingThread,
       router,
       selectedFolderPath,
       setPendingNewThreadSend,
+      threads,
     ],
   );
 
@@ -207,7 +223,10 @@ export function NewThreadContainer() {
       </div>
 
       <div className="min-w-0 flex-1 overflow-x-auto">
-        <div className="flex h-full min-h-0 min-w-0 flex-col" style={{ minWidth: sidebarMenu === 'chat' ? MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}>
+        <div
+          className="flex h-full min-h-0 min-w-0 flex-col"
+          style={{ minWidth: sidebarMenu === 'chat' ? MAIN_PANEL_MIN_WIDTH : MAIN_PANEL_MIN_NO_CHAT_WIDTH }}
+        >
           <RightContentHeader />
           <div className="relative flex-1 min-h-0">
             {sidebarMenu !== 'chat' && (
