@@ -365,6 +365,32 @@ describe('WeixinAdapter', () => {
       assert.ok(sentTexts[0].includes('Cat B'));
     });
 
+    it('keeps pending replies across invocation chain until chainDone=true', async () => {
+      const adapter = new WeixinAdapter('test-token', noopLog());
+      adapter._injectContextToken('user-1', 'ctx-token-1');
+
+      const sentTexts = [];
+      adapter._injectFetch(async (_url, opts) => {
+        const body = JSON.parse(opts.body);
+        sentTexts.push(body.msg.item_list[0].text_item.text);
+        return { ok: true, json: async () => ({ ret: 0 }) };
+      });
+
+      const p1 = adapter.sendReply('user-1', '[Assistant] First reply');
+      await adapter.onDeliveryBatchDone('user-1', false);
+
+      await new Promise((resolve) => setTimeout(resolve, 3100));
+      assert.equal(sentTexts.length, 0, 'reply must stay pending while follow-up cats are still running');
+
+      const p2 = adapter.sendReply('user-1', '[Office] Second reply');
+      await adapter.onDeliveryBatchDone('user-1', true);
+      await Promise.all([p1, p2]);
+
+      assert.equal(sentTexts.length, 1, 'chain should flush once at the end');
+      assert.ok(sentTexts[0].includes('Assistant'), 'merged reply should include first cat');
+      assert.ok(sentTexts[0].includes('Office'), 'merged reply should include follow-up cat');
+    });
+
     it('uses token bound at queue time, not token at flush time (token rotation safety)', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'token-A');

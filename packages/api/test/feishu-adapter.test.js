@@ -641,6 +641,31 @@ describe('FeishuAdapter', () => {
       assert.ok(card.header.title.content.includes('Review'));
     });
 
+    it('falls back to plain text without duplicating @mention', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+        if (params.msgType === 'interactive') {
+          throw new Error('upstream 502');
+        }
+      });
+
+      const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
+      await adapter.sendRichMessage('oc_chat_789', 'Fallback body', blocks, '布偶猫', {
+        replyToSender: { id: 'ou_user_123', name: 'Alice' },
+      });
+
+      assert.equal(sendCalls.length, 2, 'should retry once as plain text');
+      assert.equal(sendCalls[0].msgType, 'interactive');
+      assert.equal(sendCalls[1].msgType, 'text');
+
+      const payload = JSON.parse(sendCalls[1].content);
+      const mentions = payload.text.match(/<at user_id="ou_user_123">Alice<\/at>/g) ?? [];
+      assert.equal(mentions.length, 1, 'fallback text must contain exactly one @mention');
+      assert.match(payload.text, /Fallback body/);
+    });
+
     it('includes all block types in card elements', async () => {
       const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
       const sendCalls = [];
@@ -779,6 +804,31 @@ describe('FeishuAdapter', () => {
       const card = JSON.parse(sendCalls[0].content);
       assert.equal(card.header.template, 'blue', 'agent cards should use blue template');
       assert.equal(card.header.title.content, '🐱 布偶猫/宪宪', 'agent header should be unchanged');
+    });
+
+    it('falls back to plain text when interactive card delivery fails', async () => {
+      const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+      const sendCalls = [];
+      adapter._injectSendMessage(async (params) => {
+        sendCalls.push(params);
+        if (params.msgType === 'interactive') {
+          throw new Error('upstream 502');
+        }
+      });
+
+      await adapter.sendFormattedReply('oc_chat', {
+        header: '🐱 布偶猫/宪宪',
+        subtitle: 'T12',
+        body: 'Fallback body',
+        footer: '01:22',
+      });
+
+      assert.equal(sendCalls.length, 2, 'should retry once as plain text');
+      assert.equal(sendCalls[0].msgType, 'interactive');
+      assert.equal(sendCalls[1].msgType, 'text');
+      const payload = JSON.parse(sendCalls[1].content);
+      assert.match(payload.text, /Fallback body/);
+      assert.match(payload.text, /布偶猫/);
     });
   });
 

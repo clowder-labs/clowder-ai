@@ -28,8 +28,6 @@ const POLL_ERROR_BACKOFF_MS = 3_000;
 const POLL_MAX_BACKOFF_MS = 60_000;
 // Chunking disabled: iLink only delivers the first sendmessage per context_token turn.
 // All content is sent in a single call. See BUG-3 in F137 spec.
-/** Debounce window for aggregating multi-cat replies into one outbound message (ms) */
-const WEIXIN_REPLY_DEBOUNCE_MS = 3_000;
 /** Typing keepalive interval (ms) — openclaw v2 uses 5s */
 const TYPING_KEEPALIVE_MS = 5_000;
 /** errcode -14 means session expired — need re-login */
@@ -194,7 +192,6 @@ export class WeixinAdapter implements IOutboundAdapter {
     {
       token: string;
       parts: string[];
-      timer: ReturnType<typeof setTimeout>;
       resolvers: Array<{ resolve: () => void; reject: (err: Error) => void }>;
     }
   >();
@@ -524,6 +521,10 @@ export class WeixinAdapter implements IOutboundAdapter {
 
   async onDeliveryBatchDone(externalChatId: string, chainDone: boolean): Promise<void> {
     if (!chainDone) return;
+    if (this.pendingReplies.has(externalChatId)) {
+      await this.flushReply(externalChatId);
+      return;
+    }
     this.stopTyping(externalChatId);
   }
 
@@ -551,18 +552,15 @@ export class WeixinAdapter implements IOutboundAdapter {
         { chatId: externalChatId, oldTokenHash: existing.token.slice(-8), newTokenHash: currentToken.slice(-8) },
         '[WeixinAdapter] Token changed mid-debounce — flushing old bucket',
       );
-      clearTimeout(existing.timer);
       await this.flushReply(externalChatId);
     }
 
     return new Promise<void>((resolve, reject) => {
       const pending = this.pendingReplies.get(externalChatId);
       if (pending && pending.token === currentToken) {
-        // Same token — safe to merge into existing bucket
+        // Same token — keep batching until connector lifecycle confirms the chain is done.
         pending.parts.push(content);
         pending.resolvers.push({ resolve, reject });
-        clearTimeout(pending.timer);
-        pending.timer = setTimeout(() => this.flushReply(externalChatId), WEIXIN_REPLY_DEBOUNCE_MS);
       } else if (pending) {
         // Different token bucket exists (created by concurrent sendReply during our flush await)
         // Refuse cross-token merge — content is still in the thread, not lost
@@ -572,11 +570,9 @@ export class WeixinAdapter implements IOutboundAdapter {
         );
         resolve();
       } else {
-        const timer = setTimeout(() => this.flushReply(externalChatId), WEIXIN_REPLY_DEBOUNCE_MS);
         this.pendingReplies.set(externalChatId, {
           token: currentToken,
           parts: [content],
-          timer,
           resolvers: [{ resolve, reject }],
         });
       }
@@ -806,8 +802,6 @@ export class WeixinAdapter implements IOutboundAdapter {
   async _flushAllPending(): Promise<void> {
     const chatIds = [...this.pendingReplies.keys()];
     for (const chatId of chatIds) {
-      const pending = this.pendingReplies.get(chatId);
-      if (pending) clearTimeout(pending.timer);
       await this.flushReply(chatId);
     }
   }
