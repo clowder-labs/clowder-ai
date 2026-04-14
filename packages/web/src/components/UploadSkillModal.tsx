@@ -386,6 +386,15 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
   }));
   const hasExpandableFileList = fileNames.length > COLLAPSED_FILE_COUNT;
 
+  const resetUploadPickers = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setName('');
     setParsedName('');
@@ -395,7 +404,8 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
     setError(null);
     setIsEditingName(false);
     setIsFileListExpanded(false);
-  }, []);
+    resetUploadPickers();
+  }, [resetUploadPickers]);
 
   const handleClose = useCallback(() => {
     reset();
@@ -464,6 +474,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
   const readFiles = useCallback(async (fileList: FileList) => {
     const selectedFiles = Array.from(fileList);
+    resetUploadPickers();
     const zipFiles = selectedFiles.filter(isZipFile);
 
     if (zipFiles.length > 0 && selectedFiles.length !== 1) {
@@ -518,7 +529,7 @@ export function UploadSkillModal({ open, onClose, onSuccess }: UploadSkillModalP
 
     setIsFileListExpanded(false);
     syncUploadState(newEntries);
-  }, [showToast, syncUploadState]);
+  }, [resetUploadPickers, showToast, syncUploadState]);
 
   const removeFile = useCallback((index: number) => {
     const nextFiles = files.filter((_, currentIndex) => currentIndex !== index);

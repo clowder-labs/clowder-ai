@@ -87,6 +87,27 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+async function selectUploadFiles(
+  input: HTMLInputElement,
+  files: File[],
+  value = 'C:\\fakepath\\upload',
+) {
+  Object.defineProperty(input, 'files', {
+    configurable: true,
+    value: files,
+  });
+  Object.defineProperty(input, 'value', {
+    configurable: true,
+    writable: true,
+    value,
+  });
+
+  await act(async () => {
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await flushEffects();
+}
+
 async function createZipFile(
   entries: Record<string, string | Uint8Array>,
   fileName = 'skill.zip',
@@ -448,6 +469,73 @@ description: A parsed skill description.
 
     const nameInput = container.querySelector('input[placeholder="请输入技能名称"]') as HTMLInputElement | null;
     expect(nameInput?.value).toBe('uploaded-skill');
+  });
+
+  it('allows re-selecting the same SKILL.md file after removing it', async () => {
+    renderModal();
+
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement | null;
+    expect(fileInput).toBeTruthy();
+
+    const skillFile = new File(
+      [
+        `---
+name: uploaded-skill
+---
+
+# Uploaded Skill`,
+      ],
+      'SKILL.md',
+      { type: 'text/markdown' },
+    );
+
+    await selectUploadFiles(fileInput as HTMLInputElement, [skillFile], 'C:\\fakepath\\SKILL.md');
+    expect(container.textContent).toContain('SKILL.md');
+    expect(fileInput?.value).toBe('');
+
+    const removeButton = container.querySelector('[data-testid="upload-skill-file-delete-button"]') as HTMLButtonElement | null;
+    expect(removeButton).toBeTruthy();
+
+    await act(async () => {
+      removeButton?.click();
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('暂未选择文件');
+
+    await selectUploadFiles(fileInput as HTMLInputElement, [skillFile], 'C:\\fakepath\\SKILL.md');
+    expect(container.textContent).toContain('SKILL.md');
+  });
+
+  it('allows re-selecting the same folder after removing its uploaded files', async () => {
+    renderModal();
+
+    const fileInputs = Array.from(container.querySelectorAll('input[type="file"]')) as HTMLInputElement[];
+    const folderInput = fileInputs[1] ?? null;
+    expect(folderInput).toBeTruthy();
+
+    const skillFile = new File(['---\nname: folder-skill\n---\n'], 'SKILL.md', { type: 'text/markdown' });
+    Object.defineProperty(skillFile, 'webkitRelativePath', {
+      configurable: true,
+      value: 'folder-skill/SKILL.md',
+    });
+
+    await selectUploadFiles(folderInput as HTMLInputElement, [skillFile], 'C:\\fakepath\\folder-skill');
+    expect(container.textContent).toContain('folder-skill/SKILL.md');
+    expect(folderInput?.value).toBe('');
+
+    const removeButton = container.querySelector('[data-testid="upload-skill-file-delete-button"]') as HTMLButtonElement | null;
+    expect(removeButton).toBeTruthy();
+
+    await act(async () => {
+      removeButton?.click();
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('暂未选择文件');
+
+    await selectUploadFiles(folderInput as HTMLInputElement, [skillFile], 'C:\\fakepath\\folder-skill');
+    expect(container.textContent).toContain('folder-skill/SKILL.md');
   });
 
   it('shows missing SKILL.md at the bottom and hides the edit action', async () => {
