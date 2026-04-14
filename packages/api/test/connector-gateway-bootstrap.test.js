@@ -23,8 +23,6 @@ const envKeysToRestore = [
   'XIAOYI_AK',
   'XIAOYI_SK',
   'XIAOYI_AGENT_ID',
-  'XIAOYI_WS_URL1',
-  'XIAOYI_WS_URL2',
 ];
 const originalEnv = Object.fromEntries(envKeysToRestore.map((key) => [key, process.env[key]]));
 
