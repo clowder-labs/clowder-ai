@@ -163,7 +163,9 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const pageTenButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '10');
+    const pageTenButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '10',
+    );
     expect(pageTenButton).toBeTruthy();
 
     act(() => {
@@ -182,7 +184,9 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const pageEightButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '8');
+    const pageEightButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '8',
+    );
 
     expect(fetchDataset).toHaveBeenCalledTimes(2);
     expect(pageEightButton?.className).toContain('bg-[#F5F5F5]');
@@ -198,7 +202,9 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const pageTwoButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '2');
+    const pageTwoButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '2',
+    );
     expect(pageTwoButton).toBeTruthy();
 
     act(() => {
@@ -242,7 +248,9 @@ describe('UsageStatsModal', () => {
     expect(container.textContent).toContain('today-session');
     expect(container.textContent).toContain('week-session');
 
-    const rangeTrigger = container.querySelector('[data-testid="usage-stats-range-trigger"]') as HTMLButtonElement | null;
+    const rangeTrigger = container.querySelector(
+      '[data-testid="usage-stats-range-trigger"]',
+    ) as HTMLButtonElement | null;
     act(() => {
       rangeTrigger?.click();
     });
@@ -299,8 +307,12 @@ describe('UsageStatsModal', () => {
     await flush();
 
     const refreshButton = container.querySelector('[data-testid="usage-stats-refresh"]') as HTMLButtonElement | null;
-    const rangeTrigger = container.querySelector('[data-testid="usage-stats-range-trigger"]') as HTMLButtonElement | null;
-    const pageTwoButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === '2');
+    const rangeTrigger = container.querySelector(
+      '[data-testid="usage-stats-range-trigger"]',
+    ) as HTMLButtonElement | null;
+    const pageTwoButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '2',
+    );
 
     expect(fetchDataset).toHaveBeenCalledTimes(1);
     expect(refreshButton?.disabled).toBe(true);
@@ -333,7 +345,9 @@ describe('UsageStatsModal', () => {
     });
     await flush(320);
 
-    const rangeTrigger = container.querySelector('[data-testid="usage-stats-range-trigger"]') as HTMLButtonElement | null;
+    const rangeTrigger = container.querySelector(
+      '[data-testid="usage-stats-range-trigger"]',
+    ) as HTMLButtonElement | null;
     expect(rangeTrigger?.className).toContain('text-[12px]');
     expect(rangeTrigger?.className).toContain('text-[#191919]');
 
@@ -372,5 +386,24 @@ describe('UsageStatsModal', () => {
     expect(separators[0]?.className).toContain('w-px');
     expect(separators[0]?.className).toContain('top-1/2');
     expect(separators[0]?.className).toContain('bg-[#DBDBDB]');
+  });
+
+  it('closes the modal when Escape key is pressed', async () => {
+    const onClose = vi.fn();
+    const fetchDataset = vi.fn(async () => createDataset(1, NOW));
+
+    act(() => {
+      root.render(React.createElement(UsageStatsModal, { open: true, onClose, fetchDataset }));
+    });
+    await flush(320);
+
+    const modal = container.querySelector('[data-testid="app-modal"]');
+    expect(modal).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -7,6 +7,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import { useEscapeKey } from '@/hooks/useEscapeKey';
 import { DirectoryBrowser } from './ThreadSidebar/DirectoryBrowser';
 
 interface DirectoryBrowserModalProps {
@@ -26,6 +27,11 @@ export function DirectoryBrowserModal({
   onSelect,
   onClose,
 }: DirectoryBrowserModalProps) {
+  useEscapeKey({
+    enabled: open,
+    onEscape: onClose,
+  });
+
   if (!open) return null;
 
   return (

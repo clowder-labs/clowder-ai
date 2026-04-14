@@ -324,4 +324,37 @@ describe('SecurityManagementModal', () => {
     expect(memoryToggle?.getAttribute('aria-checked')).toBe('true');
     expect(container.textContent).toContain('first save failed');
   });
+
+  it('closes the modal when Escape key is pressed', async () => {
+    const onClose = vi.fn();
+    mockApiFetch.mockImplementation((path) => {
+      if (path === '/api/config/relayclaw/security') {
+        return Promise.resolve(
+          jsonResponse({
+            permissions: {
+              enabled: true,
+              tools: {
+                write_memory: 'ask',
+              },
+            },
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(SecurityManagementModal, { open: true, onClose }));
+      await Promise.resolve();
+    });
+
+    const modal = container.querySelector('[data-testid="app-modal"]');
+    expect(modal).not.toBeNull();
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
