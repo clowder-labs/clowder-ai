@@ -18,7 +18,7 @@ try:
         similarity,
         strip_frontmatter,
     )
-except (ImportError, ModuleNotFoundError):  # Allow running the script directly.
+except ImportError:  # Allow running the script directly.
     from settings import DEFAULT_KB_PATH, resolve_vault_root
     from markdown_helpers import (
         load_frontmatter,
