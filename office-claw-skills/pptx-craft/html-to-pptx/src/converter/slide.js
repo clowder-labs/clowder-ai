@@ -31,6 +31,34 @@ import { getProcessedImage } from "./image.js";
 const PPI = 96;
 const PX_TO_INCH = 1 / PPI;
 
+function isSvgGradientDriven(node) {
+  if (!node || node.nodeName?.toUpperCase() !== "SVG") return false;
+  const hasGradientDefs = !!node.querySelector("linearGradient, radialGradient");
+  if (!hasGradientDefs) return false;
+
+  // ECharts 常见写法：path fill="url(#xxx)" 或 style="fill:url(#xxx)"
+  const hasGradientRef = !!node.querySelector(
+    "[fill*='url('], [stroke*='url('], [style*='fill:url('], [style*='stroke:url(']"
+  );
+  return hasGradientRef;
+}
+
+function shouldFlattenRootBgGradient(node, style, config) {
+  if (!config?.slideBgHex) return false;
+  if (node.parentElement !== config.root) return false;
+  if (style.position !== "absolute" || style.inset !== "0px") return false;
+
+  // 只处理纯背景层，避免误伤图表/内容容器
+  if ((node.textContent || "").trim().length > 0) return false;
+  if (node.children.length > 0) return false;
+
+  // 仅对 Tailwind 背景渐变类启用（如 bg-gradient-to-br）
+  const cls = node.className || "";
+  if (typeof cls !== "string" || !/\bbg-gradient-to-[a-z]+\b/.test(cls)) return false;
+
+  return true;
+}
+
 /**
  * Check if an element has explicit width set in inline style.
  * @param {HTMLElement} node
@@ -449,6 +477,108 @@ function isIconElement(node) {
   return false;
 }
 
+function isInlineTextWithIconMix(node) {
+  if (!node || node.nodeType !== 1) return false;
+  const tag = (node.tagName || "").toUpperCase();
+  if (!["P", "SPAN", "DIV"].includes(tag)) return false;
+
+  let hasTextNode = false;
+  let hasInlineIcon = false;
+  for (const child of node.childNodes) {
+    if (child.nodeType === 3 && child.nodeValue && child.nodeValue.trim().length > 0) {
+      hasTextNode = true;
+      continue;
+    }
+    if (child.nodeType === 1 && isIconElement(child)) {
+      hasInlineIcon = true;
+      continue;
+    }
+  }
+
+  if (!hasTextNode || !hasInlineIcon) return false;
+
+  // Avoid flattening layout containers; only target simple inline text rows.
+  const style = window.getComputedStyle(node);
+  const display = (style.display || "").toLowerCase();
+  if (display === "flex" || display === "inline-flex" || display === "grid" || display === "inline-grid") {
+    return false;
+  }
+
+  return true;
+}
+
+function extractVisualLinesFromTextNode(textNode) {
+  if (!textNode || textNode.nodeType !== 3) return [];
+
+  const raw = textNode.nodeValue || "";
+  if (!raw.trim()) return [];
+
+  const range = document.createRange();
+  const chars = [];
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === "\n" || ch === "\r" || ch === "\t") continue;
+    range.setStart(textNode, i);
+    range.setEnd(textNode, i + 1);
+    const rect = range.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+    chars.push({ idx: i, rect });
+  }
+  range.detach();
+
+  if (chars.length === 0) return [];
+
+  const lines = [];
+  let lineStartPos = 0;
+  let lineTop = chars[0].rect.top;
+  let lineBottom = chars[0].rect.bottom;
+  let lineLeft = chars[0].rect.left;
+  let lineRight = chars[0].rect.right;
+  let prevLeft = chars[0].rect.left;
+
+  const pushLine = (startPos, endPos) => {
+    if (endPos < startPos) return;
+    const startRawIdx = chars[startPos].idx;
+    const endRawIdx = chars[endPos].idx + 1;
+    const text = raw.slice(startRawIdx, endRawIdx).trim();
+    if (!text) return;
+    lines.push({
+      text,
+      left: lineLeft,
+      right: lineRight,
+      top: lineTop,
+      bottom: lineBottom,
+    });
+  };
+
+  for (let p = 1; p < chars.length; p++) {
+    const cur = chars[p];
+    const movedDown = cur.rect.top > lineTop + 2;
+    const movedLeft = cur.rect.left < prevLeft - 1;
+    const returnedToLineStart = cur.rect.left <= lineLeft + 4;
+    const isNewLine = movedDown && movedLeft && returnedToLineStart;
+
+    if (isNewLine) {
+      pushLine(lineStartPos, p - 1);
+      lineStartPos = p;
+      lineTop = cur.rect.top;
+      lineBottom = cur.rect.bottom;
+      lineLeft = cur.rect.left;
+      lineRight = cur.rect.right;
+    } else {
+      lineTop = Math.min(lineTop, cur.rect.top);
+      lineBottom = Math.max(lineBottom, cur.rect.bottom);
+      lineLeft = Math.min(lineLeft, cur.rect.left);
+      lineRight = Math.max(lineRight, cur.rect.right);
+    }
+
+    prevLeft = cur.rect.left;
+  }
+
+  pushLine(lineStartPos, chars.length - 1);
+  return lines;
+}
+
 /**
  * Replaces createRenderItem.
  * Returns { items: [], job: () => Promise, stopRecursion: boolean }
@@ -472,10 +602,8 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
     const style = window.getComputedStyle(parent);
     const widthPx = rect.width;
     const heightPx = rect.height;
-    const unrotatedW = widthPx * PX_TO_INCH * config.scale;
+    let textStartLeftPx = rect.left;
     const unrotatedH = heightPx * PX_TO_INCH * config.scale;
-
-    const x = config.offX + (rect.left - config.rootX) * PX_TO_INCH * config.scale;
     const y = config.offY + (rect.top - config.rootY) * PX_TO_INCH * config.scale;
 
     // Check if parent is a flex column with space-between
@@ -484,6 +612,38 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
     const isFlexColumn =
       parentStyle.display === "flex" && (parentStyle.flexDirection || "").toLowerCase().startsWith("column");
     const isSpaceBetween = isFlexColumn && (parentStyle.justifyContent || "").toLowerCase() === "space-between";
+
+    // For inline icon + text mixed rows (<i> + text + <i>), build one editable
+    // PPT text object per visual line to preserve browser wrapping around icons.
+    if (isInlineTextWithIconMix(parent) && !isNoWrap(parentStyle)) {
+      const visualLines = extractVisualLinesFromTextNode(node);
+      if (visualLines.length > 1) {
+        const textStyle = getTextStyle(style, config.scale);
+        const lineItems = visualLines.map((line, idx) => {
+          const lineX = config.offX + (line.left - config.rootX) * PX_TO_INCH * config.scale;
+          const lineY = config.offY + (line.top - config.rootY) * PX_TO_INCH * config.scale;
+          const lineW = Math.max((line.right - line.left) * PX_TO_INCH * config.scale * 1.02, 0.01);
+          const lineH = Math.max((line.bottom - line.top) * PX_TO_INCH * config.scale, 0.01);
+          return {
+            type: "text",
+            zIndex: effectiveZIndex,
+            domOrder: domOrder + idx,
+            textParts: [{ text: line.text, options: textStyle }],
+            options: {
+              x: lineX,
+              y: lineY,
+              w: lineW,
+              h: lineH,
+              margin: 0,
+              autoFit: false,
+              wrap: false,
+              ...(isSpaceBetween ? { valign: "middle" } : {}),
+            },
+          };
+        });
+        return { items: lineItems, stopRecursion: false };
+      }
+    }
 
     // Detect if this text node is rendered on a single line in the browser
     // If so, we need to ensure it doesn't wrap in PPT
@@ -496,10 +656,19 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
       if (node.nodeValue.length > 1) {
         const testRange = document.createRange();
 
-        // Check first character
-        testRange.setStart(node, 0);
-        testRange.setEnd(node, 1);
+        // Check first non-whitespace character (avoid indentation/newline noise)
+        let firstCharIdx = 0;
+        while (firstCharIdx < node.nodeValue.length && /\s/.test(node.nodeValue[firstCharIdx])) {
+          firstCharIdx++;
+        }
+        if (firstCharIdx >= node.nodeValue.length) {
+          testRange.detach();
+          return null;
+        }
+        testRange.setStart(node, firstCharIdx);
+        testRange.setEnd(node, firstCharIdx + 1);
         const firstRect = testRange.getBoundingClientRect();
+        textStartLeftPx = firstRect.left;
 
         // Check last non-whitespace character
         let lastCharIdx = node.nodeValue.length - 1;
@@ -538,25 +707,44 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
       // Insert line breaks at detected positions
       textParts = [];
       let lastEnd = 0;
-      for (const breakPos of lineBreakPositions) {
+      for (let bi = 0; bi < lineBreakPositions.length; bi++) {
+        const breakPos = lineBreakPositions[bi];
         if (breakPos > lastEnd) {
+          const segmentText = node.nodeValue.slice(lastEnd, breakPos).trim();
+          if (!segmentText) {
+            lastEnd = breakPos;
+            continue;
+          }
           textParts.push({
-            text: node.nodeValue.slice(lastEnd, breakPos).trim(),
-            options: getTextStyle(style, config.scale),
+            text: segmentText,
+            options: {
+              ...getTextStyle(style, config.scale),
+              // Preserve visual line breaks for standalone text nodes (e.g. text between icons).
+              breakLine: true,
+            },
           });
         }
         lastEnd = breakPos;
       }
       if (lastEnd < node.nodeValue.length) {
-        textParts.push({
-          text: node.nodeValue.slice(lastEnd).trim(),
-          options: getTextStyle(style, config.scale),
-        });
+        const remainingText = node.nodeValue.slice(lastEnd).trim();
+        if (remainingText.length > 0) {
+          textParts.push({
+            text: remainingText,
+            options: getTextStyle(style, config.scale),
+          });
+        }
       }
     }
 
+    const x = config.offX + (textStartLeftPx - config.rootX) * PX_TO_INCH * config.scale;
+    // Keep right edge from the measured text-node rect, but align x to the first visible glyph.
+    const adjustedWidthPx = Math.max(rect.right - textStartLeftPx, 1);
+    const adjustedUnrotatedW = adjustedWidthPx * PX_TO_INCH * config.scale;
+
     // For single-line text, add a small width buffer to prevent PPT wrapping due to font differences
-    const finalW = isSingleLine ? unrotatedW * 1.05 : unrotatedW;
+    const finalW = isSingleLine ? adjustedUnrotatedW * 1.05 : adjustedUnrotatedW;
+    const shouldUseNativeWrap = !isSingleLine && (!lineBreakPositions || lineBreakPositions.length === 0);
 
     // Build text options with vertical centering if needed
     const textOptions = {
@@ -566,7 +754,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
       h: unrotatedH,
       margin: 0,
       autoFit: false,
-      wrap: false,
+      wrap: shouldUseNativeWrap,
     };
 
     // If parent uses flex column + space-between, vertically center text in its box
@@ -755,6 +943,16 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
         let ptBefore = 0;
         let ptAfter = 0;
 
+        // Read spacing from LI element's CSS margin (e.g. Tailwind space-y-*)
+        const liMarginTop = parseFloat(liStyle.marginTop);
+        const liMarginBottom = parseFloat(liStyle.marginBottom);
+        if (!isNaN(liMarginTop) && liMarginTop > 0) {
+          ptBefore = Math.max(ptBefore, liMarginTop * 0.75 * config.scale);
+        }
+        if (!isNaN(liMarginBottom) && liMarginBottom > 0) {
+          ptAfter = Math.max(ptAfter, liMarginBottom * 0.75 * config.scale);
+        }
+
         // Use Global Options for spacing (Expected in Points)
         if (globalOptions.listConfig?.spacing) {
           if (typeof globalOptions.listConfig.spacing.before === "number") {
@@ -855,7 +1053,9 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
     }
 
     // 判断是否使用可编辑模式转换 SVG
-    const useEditableMode = globalOptions.svgAsEditable === true;
+    // 对引用 gradient 的 SVG（如 ECharts 面积图）降级为位图，避免渐变丢失
+    const svgHasGradient = isSvgGradientDriven(node);
+    const useEditableMode = globalOptions.svgAsEditable === true && !svgHasGradient;
 
     const item = {
       type: useEditableMode ? "svg-editable" : "image",
@@ -885,7 +1085,8 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
         item.options.svgProcessed = true; // 标记已处理
       } else {
         // 原有逻辑：rasterization 或矢量图片
-        const converter = globalOptions.svgAsVector ? svgToSvg : svgToPng;
+        // 对 gradient SVG 强制位图，保证视觉一致性
+        const converter = svgHasGradient ? svgToPng : (globalOptions.svgAsVector ? svgToSvg : svgToPng);
         const processed = await converter(node);
         if (processed) {
           item.options.data = processed;
@@ -1015,18 +1216,15 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
 
   // Radii logic
   const borderRadiusValue = parseFloat(style.borderRadius) || 0;
-  const borderBottomLeftRadius = parseFloat(style.borderBottomLeftRadius) || 0;
-  const borderBottomRightRadius = parseFloat(style.borderBottomRightRadius) || 0;
-  const borderTopLeftRadius = parseFloat(style.borderTopLeftRadius) || 0;
-  const borderTopRightRadius = parseFloat(style.borderTopRightRadius) || 0;
-
-  const hasPartialBorderRadius =
-    (borderBottomLeftRadius > 0 && borderBottomLeftRadius !== borderRadiusValue) ||
-    (borderBottomRightRadius > 0 && borderBottomRightRadius !== borderRadiusValue) ||
-    (borderTopLeftRadius > 0 && borderTopLeftRadius !== borderRadiusValue) ||
-    (borderTopRightRadius > 0 && borderTopRightRadius !== borderRadiusValue) ||
-    (borderRadiusValue === 0 &&
-      (borderBottomLeftRadius || borderBottomRightRadius || borderTopLeftRadius || borderTopRightRadius));
+  const borderRadii = {
+    tl: parseFloat(style.borderTopLeftRadius) || 0,
+    tr: parseFloat(style.borderTopRightRadius) || 0,
+    br: parseFloat(style.borderBottomRightRadius) || 0,
+    bl: parseFloat(style.borderBottomLeftRadius) || 0,
+  };
+  const radiusValues = Object.values(borderRadii);
+  const hasAnyRadius = radiusValues.some((v) => v > 0);
+  const hasPartialBorderRadius = hasAnyRadius && new Set(radiusValues).size > 1;
 
   // --- PRIORITY SVG: Solid Fill with Partial Border Radius (Vector Cone/Tab) ---
   // Fix for "missing cone": Prioritize SVG vector generation over Raster Canvas for simple shapes with partial radii.
@@ -1039,12 +1237,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
   const hasContent = node.textContent.trim().length > 0 || node.children.length > 0;
 
   if (hasPartialBorderRadius && tempBg.hex && !isTxt && !hasContent) {
-    const shapeSvg = generateCustomShapeSVG(widthPx, heightPx, tempBg.hex, tempBg.opacity, {
-      tl: parseFloat(style.borderTopLeftRadius) || 0,
-      tr: parseFloat(style.borderTopRightRadius) || 0,
-      br: parseFloat(style.borderBottomRightRadius) || 0,
-      bl: parseFloat(style.borderBottomLeftRadius) || 0,
-    });
+    const shapeSvg = generateCustomShapeSVG(widthPx, heightPx, tempBg.hex, tempBg.opacity, borderRadii);
 
     return {
       items: [
@@ -1105,6 +1298,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
     const hasExplicitSize = bgSize && bgSize !== "auto" && bgSize !== "auto auto" && bgSize !== "initial";
     const gradientLayers = bgImg.split(/,(?![^()]*\))/).filter((p) => /gradient\(/i.test(p));
     const hasMultipleGradients = gradientLayers.length > 1;
+
     if (hasExplicitSize && hasMultipleGradients) {
       isTiledGradientPattern = true;
       hasGradient = false;
@@ -1144,6 +1338,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
     const textParts = [];
     let trimNextLeading = false;
     const hasBrTags = Array.from(node.childNodes).some((child) => child.tagName === "BR");
+    let shouldUseNativeWrap = false;
     const childNodes = Array.from(node.childNodes);
 
     childNodes.forEach((child, index) => {
@@ -1268,7 +1463,12 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
 
     // Apply line break detection for text containers without <br> tags
     // This ensures PPTX text wraps at the same positions as HTML
-    if (!hasBrTags && textParts.length > 0 && !isNoWrap(style)) {
+    // Rich-text runs (e.g. plain text + styled <span>) are sensitive to font metric
+    // differences between browser and PPT; forcing HTML-detected hard breaks here can
+    // wrongly push an entire run to the next line.
+    const hasRichTextRuns = textParts.length > 1;
+    shouldUseNativeWrap = hasRichTextRuns && !hasBrTags && !isNoWrap(style);
+    if (!hasBrTags && textParts.length > 0 && !isNoWrap(style) && !hasRichTextRuns) {
       const result = detectLineBreaks(node);
       if (result && result.breaks && result.breaks.length > 0) {
         // Build mapping from global position to textPart index and local position
@@ -1287,8 +1487,20 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
         const breaks = result.breaks;
         for (let i = breaks.length - 1; i >= 0; i--) {
           const breakPos = breaks[i];
+          if (breakPos <= 0) continue;
+
+          // Do not force a hard line break exactly at rich-text run boundaries
+          // (e.g. plain text followed by <span> styled text). In these cases,
+          // browser line-box metrics can differ slightly and cause false-positive
+          // breaks that push the whole span to the next line in PPT.
+          const prevEntry = partMap[breakPos - 1];
+          const nextEntry = partMap[breakPos];
+          if (prevEntry && nextEntry && prevEntry.partIndex !== nextEntry.partIndex) {
+            continue;
+          }
+
           // Find which textPart contains the character before breakPos
-          const entry = partMap[breakPos - 1];
+          const entry = prevEntry;
           if (entry) {
             const part = textParts[entry.partIndex];
             // Insert \n after the character at local position
@@ -1404,7 +1616,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
       const [tMar, rMar, bMar, lMar] = paddingPts;
       const pptMargin = [lMar, rMar, bMar, tMar];
 
-      textPayload = { text: textParts, align, valign, margin: pptMargin };
+      textPayload = { text: textParts, align, valign, margin: pptMargin, shouldUseNativeWrap };
     }
   }
 
@@ -1441,12 +1653,18 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
       bgData = svgInfo.data;
       padIn = svgInfo.padding * PX_TO_INCH * config.scale;
     } else {
+      const flattenRootBg = shouldFlattenRootBgGradient(node, style, config);
       const gradientResult = generateGradientSVG(
         widthPx,
         heightPx,
         style.backgroundImage,
-        borderRadiusValue,
-        hasBorder ? { color: borderColorObj.hex, width: borderWidth } : null
+        hasPartialBorderRadius ? borderRadii : borderRadiusValue,
+        hasBorder ? { color: borderColorObj.hex, width: borderWidth } : null,
+        {
+          // 仅对“根节点下的全覆盖绝对定位背景层”做透明度预混合，
+          // 避免 PPT 对透明渐变 PNG 的显示偏差。
+          flattenAlphaToBgHex: flattenRootBg ? config.slideBgHex : null,
+        }
       );
 
       // Handle async PNG conversion for gradients with transparency
@@ -1510,7 +1728,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
           valign: textPayload.valign,
           margin: textPayload.margin,
           rotate: rotation,
-          wrap: false,
+          wrap: !!textPayload.shouldUseNativeWrap,
           autoFit: false,
         },
       });
@@ -1536,13 +1754,8 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
     // 允许它比背景略短（等效于有内边距的卡片）。
     const useSolidFill = bgColorObj.hex && !isImageWrapper && !isRootElement;
 
-    if (hasPartialBorderRadius && useSolidFill && !textPayload) {
-      const shapeSvg = generateCustomShapeSVG(widthPx, heightPx, bgColorObj.hex, bgColorObj.opacity, {
-        tl: parseFloat(style.borderTopLeftRadius) || 0,
-        tr: parseFloat(style.borderTopRightRadius) || 0,
-        br: parseFloat(style.borderBottomRightRadius) || 0,
-        bl: parseFloat(style.borderBottomLeftRadius) || 0,
-      });
+    if (hasPartialBorderRadius && useSolidFill) {
+      const shapeSvg = generateCustomShapeSVG(widthPx, heightPx, bgColorObj.hex, bgColorObj.opacity, borderRadii);
 
       items.push({
         type: "image",
@@ -1550,6 +1763,28 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
         domOrder,
         options: { data: shapeSvg, x, y, w, h, rotate: rotation },
       });
+
+      if (textPayload) {
+        textPayload.text[0].options.fontSize = Math.floor(textPayload.text[0]?.options?.fontSize) || 12;
+        items.push({
+          type: "text",
+          zIndex: zIndex + 1,
+          domOrder,
+          textParts: textPayload.text,
+          options: {
+            x,
+            y,
+            w,
+            h,
+            align: textPayload.align,
+            valign: textPayload.valign,
+            margin: textPayload.margin,
+            rotate: rotation,
+            wrap: !!textPayload.shouldUseNativeWrap,
+            autoFit: false,
+          },
+        });
+      }
     } else {
       const shapeOpts = {
         x,
@@ -1610,7 +1845,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
           align: textPayload.align,
           valign: textPayload.valign,
           margin: textPayload.margin,
-          wrap: false,
+          wrap: !!textPayload.shouldUseNativeWrap,
           autoFit: false,
         };
         items.push({
@@ -1631,7 +1866,7 @@ function prepareRenderItem(node, config, domOrder, pptx, slide, effectiveZIndex,
       }
     }
 
-    if (hasCompositeBorder) {
+    if (hasCompositeBorder && !hasPartialBorderRadius) {
       const borderSvgData = generateCompositeBorderSVG(widthPx, heightPx, borderRadiusValue, borderInfo.sides);
       if (borderSvgData) {
         items.push({
@@ -1794,8 +2029,10 @@ export async function processSlide(root, slide, pptx, globalOptions = {}, pageNu
   // Note: background-image (gradient or url) is handled as regular image element in prepareRenderItem
   const rootStyle = window.getComputedStyle(root);
   const bgColorObj = parseColor(rootStyle.backgroundColor);
+  let slideBgHex = null;
   if (bgColorObj.hex && bgColorObj.opacity > 0) {
     slide.background = { color: bgColorObj.hex };
+    slideBgHex = bgColorObj.hex;
   } else {
     // 渐变背景回退处理（防止透明叠加显示白色）
     const bgImg = rootStyle.backgroundImage || "";
@@ -1804,6 +2041,7 @@ export async function processSlide(root, slide, pptx, globalOptions = {}, pageNu
       const fallbackObj = parseColor(fallback);
       if (fallbackObj.hex && fallbackObj.opacity > 0) {
         slide.background = { color: fallbackObj.hex };
+        slideBgHex = fallbackObj.hex;
       }
     } else {
       // 如果根元素背景透明，扫描子元素查找渐变背景（用于 Tailwind 渐变 div 情况）
@@ -1822,6 +2060,7 @@ export async function processSlide(root, slide, pptx, globalOptions = {}, pageNu
         const fallbackObj = parseColor(fallback);
         if (fallbackObj.hex && fallbackObj.opacity > 0) {
           slide.background = { color: fallbackObj.hex };
+          slideBgHex = fallbackObj.hex;
         }
       }
     }
@@ -1851,7 +2090,16 @@ export async function processSlide(root, slide, pptx, globalOptions = {}, pageNu
     }
 
     // Prepare the item. If it needs async work, it returns a 'job'
-    const result = prepareRenderItem(node, { ...layoutConfig, root }, order, pptx, slide, currentZ, nodeStyle, globalOptions);
+    const result = prepareRenderItem(
+      node,
+      { ...layoutConfig, root, slideBgHex },
+      order,
+      pptx,
+      slide,
+      currentZ,
+      nodeStyle,
+      globalOptions
+    );
 
     if (result) {
       if (result.items) {
