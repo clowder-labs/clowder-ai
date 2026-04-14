@@ -315,16 +315,16 @@ describe('WeixinAdapter', () => {
       assert.ok(capturedBody.base_info, 'body must include base_info');
     });
 
-    it('marks token as consumed after successful send', async () => {
+    it('BUG-5: token remains reusable after successful send', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-token-1');
       adapter._injectFetch(async () => ({ ok: true, json: async () => ({ ret: 0 }) }));
 
       await sendAndFlush(adapter, 'user-1', 'Hello');
-      assert.ok(adapter._isTokenConsumed('user-1', 'ctx-token-1'));
+      assert.ok(adapter.hasContextToken('user-1'), 'token must remain in contextTokens after send');
     });
 
-    it('rejects second send with consumed token (does not call iLink API)', async () => {
+    it('BUG-5: second send with same token succeeds (token reusable)', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-token-1');
       let sendCount = 0;
@@ -336,10 +336,9 @@ describe('WeixinAdapter', () => {
       await sendAndFlush(adapter, 'user-1', 'First reply');
       assert.equal(sendCount, 1);
 
-      // Re-inject the same (now consumed) token
-      adapter._injectContextToken('user-1', 'ctx-token-1');
-      await sendAndFlush(adapter, 'user-1', 'Second reply — should be blocked');
-      assert.equal(sendCount, 1, 'iLink API should NOT be called with consumed token');
+      // Same token — second send should succeed (BUG-5: token is reusable)
+      await sendAndFlush(adapter, 'user-1', 'Second reply');
+      assert.equal(sendCount, 2, 'iLink API must be called again — token is reusable');
     });
 
     it('aggregates multiple sendReply calls within debounce window', async () => {
@@ -364,7 +363,7 @@ describe('WeixinAdapter', () => {
       assert.ok(sentTexts[0].includes('Cat B'));
     });
 
-    it('keeps pending replies across invocation chain until chainDone=true', async () => {
+    it('BUG-5: each invocation flushes separately — per-cat messages', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'ctx-token-1');
 
@@ -377,17 +376,17 @@ describe('WeixinAdapter', () => {
 
       const p1 = adapter.sendReply('user-1', '[Assistant] First reply');
       await adapter.onDeliveryBatchDone('user-1', false);
+      await p1;
 
-      await new Promise((resolve) => setTimeout(resolve, 3100));
-      assert.equal(sentTexts.length, 0, 'reply must stay pending while follow-up cats are still running');
+      assert.equal(sentTexts.length, 1, 'first cat reply flushed immediately on batchDone');
+      assert.ok(sentTexts[0].includes('Assistant'), 'first message is from Assistant');
 
       const p2 = adapter.sendReply('user-1', '[Office] Second reply');
       await adapter.onDeliveryBatchDone('user-1', true);
-      await Promise.all([p1, p2]);
+      await p2;
 
-      assert.equal(sentTexts.length, 1, 'chain should flush once at the end');
-      assert.ok(sentTexts[0].includes('Assistant'), 'merged reply should include first cat');
-      assert.ok(sentTexts[0].includes('Office'), 'merged reply should include follow-up cat');
+      assert.equal(sentTexts.length, 2, 'second cat reply flushed as separate message');
+      assert.ok(sentTexts[1].includes('Office'), 'second message is from Office');
     });
 
     it('queues reply without blocking caller until chainDone flushes the batch', async () => {
@@ -516,7 +515,7 @@ describe('WeixinAdapter', () => {
       assert.ok(!calls.some((c) => c.text.includes('reply-B') && c.token === 'token-C'), 'B must NOT be merged into C');
     });
 
-    it('flushReply compare-and-delete does not remove newer token', async () => {
+    it('BUG-5: flush does not remove contextToken (token stays reusable)', async () => {
       const adapter = new WeixinAdapter('test-token', noopLog());
       adapter._injectContextToken('user-1', 'token-A');
       adapter._injectFetch(async () => ({ ok: true, json: async () => ({ ret: 0 }) }));
@@ -524,15 +523,11 @@ describe('WeixinAdapter', () => {
       // Queue reply for token-A
       const p = adapter.sendReply('user-1', 'reply A');
 
-      // New token-B arrives before flush
-      adapter._injectContextToken('user-1', 'token-B');
-
-      // Flush old bucket — should consume token-A but NOT delete token-B from contextTokens
+      // Flush — token-A must stay in contextTokens (BUG-5: reusable)
       await adapter._flushAllPending();
       await p;
 
-      assert.ok(adapter._isTokenConsumed('user-1', 'token-A'), 'token-A should be consumed');
-      assert.ok(adapter.hasContextToken('user-1'), 'token-B must still be in contextTokens');
+      assert.ok(adapter.hasContextToken('user-1'), 'token must remain in contextTokens after flush');
     });
 
     it('no-token reply does not poison bucket for subsequent valid reply', async () => {
@@ -645,7 +640,6 @@ describe('WeixinAdapter', () => {
       }));
 
       await assert.rejects(() => sendAndFlush(adapter, 'user-1', 'hello'), /sendmessage returned non-JSON response/);
-      assert.equal(adapter._isTokenConsumed('user-1', 'ctx-1'), false);
     });
 
     it('throws on empty 200 sendmessage response body', async () => {
@@ -657,7 +651,6 @@ describe('WeixinAdapter', () => {
       }));
 
       await assert.rejects(() => sendAndFlush(adapter, 'user-1', 'hello'), /sendmessage returned empty response body/);
-      assert.equal(adapter._isTokenConsumed('user-1', 'ctx-1'), false);
     });
 
     it('sends all content in a single sendmessage call (no chunking)', async () => {

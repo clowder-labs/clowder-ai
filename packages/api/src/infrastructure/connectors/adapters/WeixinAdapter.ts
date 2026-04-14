@@ -185,8 +185,6 @@ export class WeixinAdapter implements IOutboundAdapter {
   private consecutiveErrors = 0;
   private getUpdatesBuf = '';
   private readonly contextTokens = new Map<string, string>();
-  /** Per-chatId: last consumed token — bounded by chatId count, naturally evicted when new token arrives */
-  private readonly lastConsumedToken = new Map<string, string>();
   private readonly pendingReplies = new Map<
     string,
     {
@@ -385,7 +383,7 @@ export class WeixinAdapter implements IOutboundAdapter {
             const tokenHash = msg.contextToken.slice(-8);
             this.contextTokens.set(msg.chatId, msg.contextToken);
             this.log.info(
-              { chatId: msg.chatId, tokenHash, consumed: this.lastConsumedToken.get(msg.chatId) === msg.contextToken },
+              { chatId: msg.chatId, tokenHash },
               '[WeixinAdapter] Inbound token cached',
             );
 
@@ -519,12 +517,14 @@ export class WeixinAdapter implements IOutboundAdapter {
   // ── Outbound: Send reply ──
 
   async onDeliveryBatchDone(externalChatId: string, chainDone: boolean): Promise<void> {
-    if (!chainDone) return;
+    // BUG-5: token is reusable — flush after each invocation, not just at chain end.
+    // This sends each cat's reply as a separate WeChat message.
     if (this.pendingReplies.has(externalChatId)) {
       await this.flushReply(externalChatId);
-      return;
     }
-    this.stopTyping(externalChatId);
+    if (chainDone) {
+      this.stopTyping(externalChatId);
+    }
   }
 
   async sendReply(externalChatId: string, content: string): Promise<void> {
@@ -584,18 +584,16 @@ export class WeixinAdapter implements IOutboundAdapter {
     const merged = parts.join('\n\n');
 
     const tokenHash = boundToken ? boundToken.slice(-8) : 'none';
-    const isConsumed = this.lastConsumedToken.get(externalChatId) === boundToken;
 
     this.log.info(
-      { chatId: externalChatId, partsCount: parts.length, mergedLen: merged.length, tokenHash, isConsumed },
+      { chatId: externalChatId, partsCount: parts.length, mergedLen: merged.length, tokenHash },
       '[WeixinAdapter] flushReply() — sending aggregated reply',
     );
 
-    if (!boundToken || isConsumed) {
-      const reason = !boundToken ? 'no token' : 'token already consumed';
+    if (!boundToken) {
       this.log.warn(
-        { chatId: externalChatId, reason, tokenHash },
-        '[WeixinAdapter] Cannot send — context_token unavailable or consumed',
+        { chatId: externalChatId },
+        '[WeixinAdapter] Cannot send — no context_token available',
       );
       this.stopTyping(externalChatId);
       return;
@@ -603,20 +601,15 @@ export class WeixinAdapter implements IOutboundAdapter {
 
     try {
       const plainContent = WeixinAdapter.stripMarkdownForWeixin(merged);
-      // iLink only delivers the FIRST sendmessage per context_token turn.
-      // Send everything in one call — no chunking. If iLink has a hard limit,
-      // it will truncate server-side, but at least the message arrives.
+      // BUG-5 (2026-03-25): iLink context_token is reusable across turns.
+      // Each invocation's aggregated reply is sent separately.
       await this.sendMessageApi(externalChatId, plainContent, boundToken);
 
-      this.lastConsumedToken.set(externalChatId, boundToken);
-      // Compare-and-delete: only remove if still the same token (a newer token may have arrived)
-      if (this.contextTokens.get(externalChatId) === boundToken) {
-        this.contextTokens.delete(externalChatId);
-      }
+      // Token stays in contextTokens — reusable for subsequent turns (BUG-5).
       this.stopTyping(externalChatId);
       this.log.info(
         { chatId: externalChatId, textLen: plainContent.length, tokenHash },
-        '[WeixinAdapter] flushReply() completed — token consumed',
+        '[WeixinAdapter] flushReply() completed',
       );
     } catch (err) {
       this.stopTyping(externalChatId);
@@ -797,11 +790,6 @@ export class WeixinAdapter implements IOutboundAdapter {
     for (const chatId of chatIds) {
       await this.flushReply(chatId);
     }
-  }
-
-  /** @internal Test helper: check if a token was the last consumed for its chatId. */
-  _isTokenConsumed(chatId: string, token: string): boolean {
-    return this.lastConsumedToken.get(chatId) === token;
   }
 
   // ── QR Code Login (static — no adapter instance needed) ──
