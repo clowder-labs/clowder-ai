@@ -32,23 +32,15 @@
 
 | Skill | 触发场景 |
 |-------|----------|
-| `gif-sticker-maker` | 将照片生成 4 张 GIF 表情贴纸 |
-| `minimax-multimodal-toolkit` | MiniMax 语音、音乐、视频、图片与媒体处理 |
 | `daily-briefing` | 每日销售简报、优先级和会前准备 |
 | `knowledge-organizer-xiaping` | 文章/笔记整理、归档、摘要与同步 |
 | `lidan-writing-framework` | 用七步框架把复杂概念写清楚 |
 | `canned-responses-review` | 常见法务询问模板回复与升级识别 |
-| `three-layer-memory` | OpenClaw 三层持久化记忆方案 |
 
 ### 开发与工程
 
 | Skill | 触发场景 |
 |-------|----------|
-| `android-native-dev` | Android 原生开发、Compose/UI 与构建排障 |
-| `credential-manager` | 集中管理 `.env` 凭据与密钥，用于安全审计与迁移 |
-| `frontend-dev` | 高质感前端页面、动效、素材与转化文案 |
-| `fullstack-dev` | 全栈应用、API、认证、实时能力与集��� |
-| `github` | 使用 `gh` CLI 处理 issue、PR、Actions/CI 与 GitHub API 查询 |
 | `skill-creator` | 创建、迭代、评估和优化 skill 的开发工作流 |
 | `skill-vetter` | 安全优先的 skill 审核与风险评估，用于安装前审查 |
 
