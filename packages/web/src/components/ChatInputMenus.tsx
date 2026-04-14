@@ -1,4 +1,4 @@
-﻿/*
+/*
  * *
  *  * Copyright (C) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  *
@@ -20,6 +20,40 @@ interface ChatInputMenusProps {
   onInsertMention: (opt: CatOption) => void;
   menuRef: RefObject<HTMLDivElement>;
   mentionMenuStyle?: CSSProperties;
+}
+
+function catInitial(name?: string): string {
+  if (!name) return '智';
+  const normalized = name.replace(/^@/, '').trim();
+  return (normalized.slice(0, 1) || '智').toUpperCase();
+}
+
+function renderMentionAvatar(opt: CatOption) {
+  const avatar = opt.avatar?.trim() ?? '';
+  const isImageAvatar = /^(https?:\/\/|\/|data:image)/.test(avatar);
+
+  if (isImageAvatar) {
+    return (
+      <img
+        src={avatar}
+        alt={opt.label}
+        className="w-[18px] h-[18px] rounded-full shrink-0 object-cover"
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = 'none';
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+      style={{ backgroundColor: opt.color || '#7AAEFF' }}
+    >
+      {avatar || catInitial(opt.label)}
+    </span>
+  );
 }
 
 export function ChatInputMenus({
@@ -110,7 +144,7 @@ export function ChatInputMenus({
                   }
                 }}
                 placeholder="请输入关键字搜索"
-                className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-sm"
+                className="ui-input ui-input-underline w-full py-1 pl-6 pr-0 text-[12px]"
               />
             </div>
           </div>
@@ -127,14 +161,7 @@ export function ChatInputMenus({
                 }}
                 title={opt.label}
               >
-                <img
-                  src={opt.avatar}
-                  alt={opt.label}
-                  className="w-[18px] h-[18px] rounded-full shrink-0"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
+                {renderMentionAvatar(opt)}
                 <div className="min-w-0 flex-1 truncate text-[12px] leading-[18px] font-normal text-[#191919]">
                   {opt.label}
                 </div>
