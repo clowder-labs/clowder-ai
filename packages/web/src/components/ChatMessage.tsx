@@ -244,7 +244,7 @@ export function ChatMessage({
             style={
               !isWhisper || isRevealed
                 ? {
-                    backgroundColor: 'rgb(222, 236, 255)',
+                    backgroundColor: 'var(--chat-user-bubble-bg)',
                     color: 'rgb(25, 25, 25)',
                   }
                 : undefined
