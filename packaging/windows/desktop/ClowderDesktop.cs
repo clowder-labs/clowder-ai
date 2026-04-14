@@ -200,6 +200,7 @@ internal sealed class LauncherForm : Form
     private readonly string _runtimeStatePath;
     private Process _serviceHostProcess;
     private bool _serviceStartedByLauncher;
+    private bool _mainWebViewShown;
     private bool _exitRequested;
     private bool _trayHintShown;
     private bool _isHiddenToTray;
@@ -235,6 +236,7 @@ internal sealed class LauncherForm : Form
         MinimumSize = new Size(960, 640);
         ClientSize = new Size(1440, 960);
         WindowState = FormWindowState.Maximized;
+        BackColor = Color.FromArgb(255, 248, 242);
         Icon = ResolveAppIcon();
         _notifyIcon = CreateNotifyIcon();
         _trayRestorePlacement = CreateEmptyWindowPlacement();
@@ -1023,13 +1025,11 @@ internal sealed class LauncherForm : Form
             },
         };
 
-        Controls.Clear();
+        Controls.Add(_webView);
         if (_splashWebView != null && !_splashWebView.IsDisposed)
         {
-            _splashWebView.Dispose();
-            _splashWebView = null;
+            _webView.SendToBack();
         }
-        Controls.Add(_webView);
 
         await _webView.EnsureCoreWebView2Async().ConfigureAwait(true);
 
@@ -1051,8 +1051,45 @@ internal sealed class LauncherForm : Form
         {
             AppendLog("WebView2 process failed: " + eventArgs.ProcessFailedKind);
         };
-        _webView.CoreWebView2.NavigationCompleted += (_, __) => PublishWindowState();
+        _webView.CoreWebView2.NavigationCompleted += (_, eventArgs) =>
+        {
+            PublishWindowState();
+            if (!_mainWebViewShown && eventArgs.IsSuccess)
+            {
+                RevealMainWebView();
+                return;
+            }
+
+            if (!_mainWebViewShown && !eventArgs.IsSuccess)
+            {
+                AppendLog("Main WebView navigation failed before splash handoff: " + eventArgs.WebErrorStatus);
+            }
+        };
         _webView.Source = new Uri(_frontendUrl);
+    }
+
+    private void RevealMainWebView()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)RevealMainWebView);
+            return;
+        }
+
+        if (_mainWebViewShown)
+        {
+            return;
+        }
+
+        _mainWebViewShown = true;
+        _webView.BringToFront();
+
+        if (_splashWebView != null && !_splashWebView.IsDisposed)
+        {
+            Controls.Remove(_splashWebView);
+            _splashWebView.Dispose();
+            _splashWebView = null;
+        }
     }
 
     private void OnNewWindowRequested(object sender, CoreWebView2NewWindowRequestedEventArgs eventArgs)

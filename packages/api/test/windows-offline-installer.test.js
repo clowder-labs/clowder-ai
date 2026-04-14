@@ -227,6 +227,15 @@ test('Windows desktop launcher reads runtime state, minimizes to tray, and exits
   assert.match(launcherSource, /ShowBalloonTip/);
 });
 
+test('Windows desktop launcher keeps splash visible until the main WebView finishes its first successful navigation', () => {
+  assert.match(launcherSource, /RevealMainWebView/);
+  assert.match(launcherSource, /_webView\.SendToBack\(\)/);
+  assert.match(launcherSource, /NavigationCompleted \+= \(_, eventArgs\) =>/);
+  assert.match(launcherSource, /if \(!_mainWebViewShown && eventArgs\.IsSuccess\)/);
+  assert.match(launcherSource, /Controls\.Remove\(_splashWebView\)/);
+  assert.doesNotMatch(launcherSource, /Controls\.Clear\(\)/);
+});
+
 test('Windows startup script pins bundled config roots for packaged releases', () => {
   assert.match(buildScript, /'office-claw-template\.json'/);
   assert.match(buildScript, /'\.clowder-release\.json'/);
