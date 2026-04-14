@@ -426,7 +426,7 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
       const signature = generateXiaoyiSignature(sk, timestamp);
 
       const wsUrl =
-        (readInput('XIAOYI_WS_URL1') ?? readEnv('XIAOYI_WS_URL1') ?? process.env.XIAOYI_WS_URL1!) +
+        (process.env.XIAOYI_WS_PRIMARY_URL ?? 'wss://hag.cloud.huawei.com') +
         '/openclaw/v1/ws/link';
 
       const { WebSocket } = await import('ws');
@@ -602,8 +602,6 @@ export const connectorHubRoutes: FastifyPluginAsync<ConnectorHubRoutesOptions> =
         { name: 'XIAOYI_AK', value: null },
         { name: 'XIAOYI_SK', value: null },
         { name: 'XIAOYI_AGENT_ID', value: null },
-        { name: 'XIAOYI_WS_URL1', value: null },
-        { name: 'XIAOYI_WS_URL2', value: null },
       ],
       { envFilePath: opts.envFilePath, reconciler: opts.connectorRuntimeManager },
     );
