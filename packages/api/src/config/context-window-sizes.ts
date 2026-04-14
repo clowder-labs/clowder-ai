@@ -43,6 +43,7 @@ export const CONTEXT_WINDOW_SIZES: Record<string, number> = {
   'deepseek-v3': 128_000,
   // Huawei ModelArts (GLM)
   'glm-5': 196_608,
+  'glm-5.1': 196_608,
   'glm-4': 128_000,
 };
 
