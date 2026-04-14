@@ -24,6 +24,7 @@ function jsonFail(status = 500, error = 'fail') {
 }
 
 const CWD_PATH = '/path/to/project';
+const WORKSPACE_PATH = '/path/to/workspace';
 
 describe('DirectoryPickerModal', () => {
   let container: HTMLDivElement;
@@ -67,7 +68,10 @@ describe('DirectoryPickerModal', () => {
 
   function setupCwdSuccess() {
     mockApiFetch.mockImplementation((path: string) => {
-      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH, workspacePath: WORKSPACE_PATH });
+      if (path.startsWith('/api/projects/browse')) {
+        return jsonOk({ current: WORKSPACE_PATH, name: 'workspace', parent: '/path/to', homePath: '/path', entries: [] });
+      }
       if (path === '/api/backlog/items') return jsonOk({ items: [] });
       return jsonFail();
     });
@@ -85,16 +89,16 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     const fns = render();
     await flush();
-    expect(container.textContent).toContain('project');
+    expect(container.textContent).toContain('workspace');
     expect(container.textContent).toContain('\u63a8\u8350');
-    expect(container.textContent).toContain(CWD_PATH);
+    expect(container.textContent).toContain(WORKSPACE_PATH);
     expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/cwd');
     expect(fns.onSelect).not.toHaveBeenCalled();
   });
 
   it('does not show cwd in quick picks when it already exists in existingProjects', async () => {
     setupCwdSuccess();
-    render({ existingProjects: [CWD_PATH] });
+    render({ existingProjects: [WORKSPACE_PATH] });
     await flush();
     expect(container.textContent).not.toContain('\u63a8\u8350');
   });
@@ -102,7 +106,7 @@ describe('DirectoryPickerModal', () => {
   // ── F068-R7: Helper to click confirm button after selecting ──
   function clickConfirm() {
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('\u521b\u5efa\u5bf9\u8bdd'),
+      b.textContent?.includes('\u521b\u5efa\u4f1a\u8bdd'),
     );
     expect(confirmBtn).toBeTruthy();
     act(() => {
@@ -112,7 +116,7 @@ describe('DirectoryPickerModal', () => {
 
   // ── Quick pick selection (two-step: select then confirm) ──
 
-  it('calls onSelect with cwd path when recommended quick pick is selected and confirmed', async () => {
+  it('calls onSelect with workspace path when recommended quick pick is selected and confirmed', async () => {
     setupCwdSuccess();
     const fns = render();
     await flush();
@@ -123,7 +127,7 @@ describe('DirectoryPickerModal', () => {
     });
     expect(fns.onSelect).not.toHaveBeenCalled(); // not yet — just selected
     clickConfirm();
-    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: CWD_PATH }));
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: WORKSPACE_PATH }));
   });
 
   it('calls onSelect with existing project path when selected and confirmed', async () => {
@@ -162,7 +166,7 @@ describe('DirectoryPickerModal', () => {
     render();
     await flush();
     const confirmBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('\u521b\u5efa\u5bf9\u8bdd'),
+      b.textContent?.includes('\u521b\u5efa\u4f1a\u8bdd'),
     ) as HTMLButtonElement;
     expect(confirmBtn).toBeTruthy();
     expect(confirmBtn.disabled).toBe(true);
@@ -192,6 +196,7 @@ describe('DirectoryPickerModal', () => {
       browseBtn.click();
       await new Promise((r) => setTimeout(r, 0));
     });
+    expect(mockApiFetch).toHaveBeenCalledWith(`/api/projects/browse?path=${encodeURIComponent(WORKSPACE_PATH)}`);
     // Button text changes when the browser is open
     expect(browseBtn.textContent).toContain('\u6536\u8d77\u6d4f\u89c8');
     // Click again to close
@@ -230,7 +235,7 @@ describe('DirectoryPickerModal', () => {
   it('validates path via browse API and selects it for confirmation', async () => {
     const canonicalPath = '/home/user/new-path';
     mockApiFetch.mockImplementation((path: string) => {
-      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH, workspacePath: WORKSPACE_PATH });
       if (path === '/api/backlog/items') return jsonOk({ items: [] });
       if (path.startsWith('/api/projects/browse'))
         return jsonOk({ current: canonicalPath, name: 'new-path', parent: null, entries: [] });
@@ -260,7 +265,7 @@ describe('DirectoryPickerModal', () => {
 
   it('shows error when path input validation fails', async () => {
     mockApiFetch.mockImplementation((path: string) => {
-      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH, workspacePath: WORKSPACE_PATH });
       if (path === '/api/backlog/items') return jsonOk({ items: [] });
       if (path.startsWith('/api/projects/browse')) return jsonFail(403, 'Access denied');
       return jsonFail();
@@ -301,7 +306,7 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     // Expand cat selector first (collapsed by default)
-    const expandBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('\u9009\u732b\u732b'));
+    const expandBtn = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('选智能体'));
     expect(expandBtn).toBeTruthy();
     act(() => {
       expandBtn?.click();
@@ -318,7 +323,7 @@ describe('DirectoryPickerModal', () => {
     });
     clickConfirm();
     expect(fns.onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ projectPath: CWD_PATH, preferredCats: ['opus'] }),
+      expect.objectContaining({ projectPath: WORKSPACE_PATH, preferredCats: ['opus'] }),
     );
   });
 
@@ -329,7 +334,7 @@ describe('DirectoryPickerModal', () => {
     render();
     await flush();
     const titleInput = Array.from(container.querySelectorAll('input')).find((i) =>
-      (i as HTMLInputElement).placeholder.includes('\u5bf9\u8bdd\u6807\u9898'),
+      (i as HTMLInputElement).placeholder.includes('\u4f1a\u8bdd\u6807\u9898'),
     ) as HTMLInputElement;
     expect(titleInput).toBeTruthy();
     expect(titleInput.maxLength).toBe(200);
@@ -351,7 +356,7 @@ describe('DirectoryPickerModal', () => {
     const fns = render();
     await flush();
     const titleInput = Array.from(container.querySelectorAll('input')).find((i) =>
-      (i as HTMLInputElement).placeholder.includes('\u5bf9\u8bdd\u6807\u9898'),
+      (i as HTMLInputElement).placeholder.includes('\u4f1a\u8bdd\u6807\u9898'),
     ) as HTMLInputElement;
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
@@ -386,7 +391,7 @@ describe('DirectoryPickerModal', () => {
 
   it('passes backlogItemId in onSelect when feat is selected and confirmed', async () => {
     mockApiFetch.mockImplementation((path: string) => {
-      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH, workspacePath: WORKSPACE_PATH });
       if (path === '/api/backlog/items')
         return jsonOk({
           items: [

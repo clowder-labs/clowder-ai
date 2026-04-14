@@ -68,6 +68,7 @@ export function NewThreadContainer() {
   >('chat');
   const [isFolderBrowserOpen, setIsFolderBrowserOpen] = useState(false);
   const [cwdPath, setCwdPath] = useState<string | null>(null);
+  const [defaultWorkspacePath, setDefaultWorkspacePath] = useState<string | null>(null);
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   const [selectedFolderName, setSelectedFolderName] = useState<string | null>(null);
   const [selectedFolderTitle, setSelectedFolderTitle] = useState<string | null>(null);
@@ -112,6 +113,11 @@ export function NewThreadContainer() {
         const data = await res.json();
         if (typeof data?.path === 'string' && data.path.trim()) {
           setCwdPath(data.path);
+        }
+        if (typeof data?.workspacePath === 'string' && data.workspacePath.trim()) {
+          setDefaultWorkspacePath(data.workspacePath);
+        } else {
+          setDefaultWorkspacePath(null);
         }
       }
     } catch {
@@ -258,8 +264,8 @@ export function NewThreadContainer() {
       <DirectoryBrowserModal
         open={isFolderBrowserOpen}
         title="选择文件夹"
-        initialPath={cwdPath ?? selectedFolderPath ?? undefined}
-        activeProjectPath={cwdPath ?? undefined}
+        initialPath={selectedFolderPath ?? defaultWorkspacePath ?? cwdPath ?? undefined}
+        activeProjectPath={selectedFolderPath ?? defaultWorkspacePath ?? undefined}
         onSelect={handleFolderSelect}
         onClose={() => setIsFolderBrowserOpen(false)}
       />
