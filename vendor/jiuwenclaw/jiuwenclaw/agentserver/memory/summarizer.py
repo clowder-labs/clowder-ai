@@ -12,7 +12,7 @@ from pathlib import Path
 from openjiuwen.core.foundation.llm import Model
 from openjiuwen.core.foundation.llm.schema.config import ModelRequestConfig, ModelClientConfig
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.config import get_config
 
 

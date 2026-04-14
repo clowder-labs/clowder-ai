@@ -18,7 +18,7 @@ import requests
 
 from .ssl_config import get_requests_verify
 
-from jiuwenclaw.utils import logger
+from jiuwenclaw.logging.app_logger import logger
 from jiuwenclaw.agentserver.tools.multimodal_config import apply_vision_model_config_from_yaml
 
 load_dotenv(verbose=True)
